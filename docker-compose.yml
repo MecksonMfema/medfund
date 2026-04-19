@@ -77,6 +77,18 @@ services:
       kafka:
         condition: service_healthy
 
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: medfund-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP — Keycloak and services send here
+      - "8025:8025"   # Web UI — view all caught emails
+    environment:
+      MP_MAX_MESSAGES: 5000
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+
   keycloak:
     image: quay.io/keycloak/keycloak:26.0
     container_name: medfund-keycloak
@@ -100,6 +112,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mailpit:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "cat < /dev/null > /dev/tcp/localhost/9080 || exit 1"]
       interval: 15s

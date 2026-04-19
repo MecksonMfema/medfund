@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: user-service
+  data:
+    redis:
+      host: localhost
+      port: 6379
   r2dbc:
     url: r2dbc:postgresql://localhost:5432/medfund
     username: medfund
@@ -26,3 +30,11 @@ management:
 
 kafka:
   bootstrap-servers: localhost:9092
+
+keycloak:
+  admin:
+    url: http://localhost:9080
+    username: admin
+    password: admin
+  client:
+    id: medfund-web   # OIDC client — embedded in Keycloak invite email links

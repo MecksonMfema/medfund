@@ -26,6 +26,9 @@ public class KeycloakSyncService {
     @Value("${keycloak.admin.password:admin}")
     private String adminPassword;
 
+    @Value("${keycloak.client.id:medfund-web}")
+    private String keycloakClientId;
+
     public KeycloakSyncService(WebClient.Builder webClientBuilder) {
         this.webClient = webClientBuilder.build();
     }
@@ -72,6 +75,28 @@ public class KeycloakSyncService {
                     .bodyToMono(Void.class)))
             .doOnError(e -> log.warn("Role removal failed: {}", e.getMessage()))
             .onErrorResume(e -> Mono.empty());
+    }
+
+    /**
+     * Triggers Keycloak to send an invite email so the new user can set their password.
+     * Keycloak must have SMTP configured (Mailpit on port 1025 in local dev).
+     * Errors are propagated — the caller receives a failure if email delivery cannot be initiated.
+     */
+    public Mono<Void> sendInviteEmail(String realm, String keycloakUserId) {
+        String path = String.format("%s/admin/realms/%s/users/%s/execute-actions-email?client_id=%s",
+                keycloakUrl, realm, keycloakUserId, keycloakClientId);
+        return getAdminToken()
+            .flatMap(token -> webClient.put()
+                .uri(path)
+                .header("Authorization", "Bearer " + token)
+                .bodyValue(List.of("UPDATE_PASSWORD", "VERIFY_EMAIL"))
+                .retrieve()
+                .onStatus(status -> status.isError(), response -> response.bodyToMono(String.class)
+                    .flatMap(body -> Mono.error(new RuntimeException(
+                        "Keycloak execute-actions-email failed [" + response.statusCode() + "]: " + body))))
+                .bodyToMono(Void.class))
+            .doOnSuccess(v -> log.info("Invite email triggered for Keycloak user {} in realm {}", keycloakUserId, realm))
+            .doOnError(e -> log.error("Failed to send invite email to Keycloak user {}: {}", keycloakUserId, e.getMessage()));
     }
 
     public Mono<Void> disableUser(String realm, String keycloakUserId) {

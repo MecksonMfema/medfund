@@ -1,48 +1,242 @@
 <div class="page-header">
   <div>
-    <h1>User Management</h1>
-    <p class="page-subtitle">Manage platform administrators and staff</p>
+    <h1>All Users</h1>
+    <p class="page-subtitle">Platform staff, tenant members and tenant staff in one place</p>
   </div>
-  <button class="btn btn-primary">
-    <app-icon name="plus" [size]="18"></app-icon>
-    Invite User
+  @if (activeTab === 'staff') {
+    <button class="btn btn-primary" (click)="openInviteModal()">
+      <app-icon name="plus" [size]="18"></app-icon>
+      Invite Staff User
+    </button>
+  }
+</div>
+
+<!-- Stat cards -->
+<div class="stats-grid">
+  <app-stat-card label="Platform Staff" [value]="staffUsers.length" icon="shield" color="blue"></app-stat-card>
+  <app-stat-card label="Active Staff" [value]="activeStaff" icon="check-circle" color="green"></app-stat-card>
+  <app-stat-card label="Tenant Members Loaded" [value]="members.length" icon="users" color="cyan"></app-stat-card>
+  <app-stat-card label="Active Members" [value]="activeMembers" icon="user-check" color="dark" ></app-stat-card>
+</div>
+
+<!-- Tabs -->
+<div class="tab-bar">
+  <button class="tab-btn" [class.active]="activeTab === 'staff'" (click)="setTab('staff')">
+    <app-icon name="shield" [size]="16"></app-icon>
+    Platform Staff
+    <span class="tab-count">{{ staffUsers.length }}</span>
+  </button>
+  <button class="tab-btn" [class.active]="activeTab === 'members'" (click)="setTab('members')">
+    <app-icon name="users" [size]="16"></app-icon>
+    Tenant Members &amp; Staff
+    @if (members.length) {
+      <span class="tab-count">{{ members.length }}</span>
+    }
   </button>
 </div>
 
-<div class="stats-grid">
-  <app-stat-card
-    label="Total Users"
-    [value]="users.length"
-    icon="users"
-    color="blue"
-  ></app-stat-card>
-  <app-stat-card
-    label="Active"
-    [value]="activeUsers"
-    icon="check-circle"
-    color="green"
-  ></app-stat-card>
-  <app-stat-card
-    label="Roles Defined"
-    [value]="roles.length"
-    icon="settings"
-    color="cyan"
-  ></app-stat-card>
-</div>
-
-<div class="sections">
-  <app-data-table
-    title="Platform Users"
-    [columns]="userColumns"
-    [data]="users"
-    searchPlaceholder="Search users..."
-  ></app-data-table>
+<!-- ── Platform Staff ───────────────────────────────────────────────────── -->
+@if (activeTab === 'staff') {
+  <div class="toolbar">
+    <div class="search-box">
+      <app-icon name="search" [size]="16"></app-icon>
+      <input
+        class="search-input"
+        type="text"
+        placeholder="Search by name, email or role…"
+        [ngModel]="staffSearch"
+        (ngModelChange)="onStaffSearchChange($event)"
+      />
+    </div>
+  </div>
 
   <app-data-table
-    title="Roles & Permissions"
-    [subtitle]="roles.length + ' roles'"
-    [columns]="roleColumns"
-    [data]="roles"
+    title="Platform Staff"
+    [subtitle]="staffUsers.length + ' users'"
+    [columns]="staffColumns"
+    [data]="staffUsers"
+    [actions]="staffActions"
+    [loading]="staffLoading"
     [searchable]="false"
+    emptyMessage="No staff users found."
   ></app-data-table>
-</div>
+}
+
+<!-- ── Tenant Members & Staff ──────────────────────────────────────────── -->
+@if (activeTab === 'members') {
+  <div class="toolbar">
+    <div class="tenant-select-wrap">
+      <app-icon name="building" [size]="16"></app-icon>
+      <select class="tenant-select" [(ngModel)]="selectedTenantId" (ngModelChange)="onTenantChange()">
+        <option value="">Select a tenant…</option>
+        @for (t of tenants; track t.id) {
+          <option [value]="t.id">{{ t.name }}</option>
+        }
+      </select>
+    </div>
+    @if (selectedTenantId) {
+      <div class="search-box">
+        <app-icon name="search" [size]="16"></app-icon>
+        <input
+          class="search-input"
+          type="text"
+          placeholder="Search by name or member number…"
+          [ngModel]="memberSearch"
+          (ngModelChange)="onMemberSearchChange($event)"
+        />
+      </div>
+    }
+  </div>
+
+  @if (!selectedTenantId) {
+    <div class="empty-state">
+      <app-icon name="building" [size]="48"></app-icon>
+      <p>Select a tenant above to view its members and staff.</p>
+    </div>
+  } @else {
+    <app-data-table
+      title="Members &amp; Staff"
+      [subtitle]="members.length + ' users'"
+      [columns]="memberColumns"
+      [data]="members"
+      [loading]="membersLoading"
+      [searchable]="false"
+      emptyMessage="No members found for this tenant."
+    ></app-data-table>
+  }
+}
+
+<!-- ── Edit Staff User Modal ───────────────────────────────────────────── -->
+@if (showEditModal) {
+  <div class="modal-overlay" (click)="showEditModal = false">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Edit Staff User</h2>
+        <button class="btn-icon" (click)="showEditModal = false">&times;</button>
+      </div>
+      <div class="modal-body">
+        @if (editServerError) {
+          <div class="form-error-banner">
+            <app-icon name="alert-circle" [size]="16"></app-icon>
+            {{ editServerError }}
+          </div>
+        }
+        <div class="form-row">
+          <div class="form-group">
+            <label>First Name</label>
+            <input class="input" [(ngModel)]="edit.firstName" />
+          </div>
+          <div class="form-group">
+            <label>Last Name</label>
+            <input class="input" [(ngModel)]="edit.lastName" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Email Address</label>
+          <input class="input" type="email" [(ngModel)]="edit.email" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Job Title</label>
+            <input class="input" [(ngModel)]="edit.jobTitle" />
+          </div>
+          <div class="form-group">
+            <label>Department</label>
+            <input class="input" [(ngModel)]="edit.department" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Platform Role</label>
+          <select class="input" [(ngModel)]="edit.realmRole">
+            <option value="super_admin">Super Admin</option>
+            <option value="tenant_admin">Tenant Admin</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" [disabled]="editSubmitting" (click)="showEditModal = false">Cancel</button>
+        <button class="btn btn-primary" [disabled]="editSubmitting || !editHasChanges" (click)="saveEdit()">
+          @if (editSubmitting) { Saving… } @else { Save Changes }
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ── Invite Staff User Modal ─────────────────────────────────────────── -->
+@if (showInviteModal) {
+  <div class="modal-overlay" (click)="showInviteModal = false">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Invite Staff User</h2>
+        <button class="btn-icon" (click)="showInviteModal = false">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-hint">
+          An email with a password-setup link will be sent to the address below via Mailpit.
+        </p>
+
+        @if (inviteServerError) {
+          <div class="form-error-banner">
+            <app-icon name="alert-circle" [size]="16"></app-icon>
+            {{ inviteServerError }}
+          </div>
+        }
+        @if (inviteSuccess) {
+          <div class="form-success-banner">
+            <app-icon name="check-circle" [size]="16"></app-icon>
+            Invitation sent to <strong>{{ invite.email }}</strong>.
+          </div>
+        }
+
+        <div class="form-row">
+          <div class="form-group" [class.has-error]="inviteFieldError('firstName')">
+            <label>First Name <span class="required">*</span></label>
+            <input class="input" [(ngModel)]="invite.firstName" (blur)="touchInvite('firstName')" [class.input-error]="inviteFieldError('firstName')" />
+            @if (inviteFieldError('firstName')) { <span class="field-error">{{ inviteFieldError('firstName') }}</span> }
+          </div>
+          <div class="form-group" [class.has-error]="inviteFieldError('lastName')">
+            <label>Last Name <span class="required">*</span></label>
+            <input class="input" [(ngModel)]="invite.lastName" (blur)="touchInvite('lastName')" [class.input-error]="inviteFieldError('lastName')" />
+            @if (inviteFieldError('lastName')) { <span class="field-error">{{ inviteFieldError('lastName') }}</span> }
+          </div>
+        </div>
+
+        <div class="form-group" [class.has-error]="inviteFieldError('email')">
+          <label>Email Address <span class="required">*</span></label>
+          <input class="input" type="email" [(ngModel)]="invite.email" (blur)="touchInvite('email')" [class.input-error]="inviteFieldError('email')" />
+          @if (inviteFieldError('email')) { <span class="field-error">{{ inviteFieldError('email') }}</span> }
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Job Title</label>
+            <input class="input" [(ngModel)]="invite.jobTitle" placeholder="e.g. Platform Administrator" />
+          </div>
+          <div class="form-group">
+            <label>Department</label>
+            <input class="input" [(ngModel)]="invite.department" placeholder="e.g. Operations" />
+          </div>
+        </div>
+
+        <div class="form-group" [class.has-error]="inviteFieldError('realmRole')">
+          <label>Platform Role <span class="required">*</span></label>
+          <select class="input" [(ngModel)]="invite.realmRole" (blur)="touchInvite('realmRole')" [class.input-error]="inviteFieldError('realmRole')">
+            <option value="" disabled>Select a role…</option>
+            <option value="super_admin">Super Admin</option>
+            <option value="tenant_admin">Tenant Admin</option>
+          </select>
+          @if (inviteFieldError('realmRole')) { <span class="field-error">{{ inviteFieldError('realmRole') }}</span> }
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" [disabled]="inviteSubmitting" (click)="showInviteModal = false">Cancel</button>
+        <button class="btn btn-primary" [disabled]="inviteSubmitting" (click)="sendInvite()">
+          @if (inviteSubmitting) { Sending… } @else { Send Invitation }
+        </button>
+      </div>
+    </div>
+  </div>
+}

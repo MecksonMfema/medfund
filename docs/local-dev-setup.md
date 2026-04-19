@@ -41,6 +41,7 @@ This starts:
 | Kafka UI | http://localhost:8090 | — |
 | Keycloak 26 | http://localhost:9080 | `admin` / `admin` |
 | MinIO (S3-compatible) | http://localhost:9001 (console) | `medfund` / `medfund123` |
+| Mailpit (email catcher) | http://localhost:8025 | — |
 
 Check that all containers are healthy before proceeding:
 
@@ -298,6 +299,9 @@ make infra && make keycloak-setup
 
 **Java service fails with `Connection refused` to Postgres/Kafka**
 — Infrastructure is still starting. Wait for `make infra-ps` to show all services as `healthy`.
+
+**Invitation emails not arriving**
+— Open Mailpit at http://localhost:8025. All outbound emails (Keycloak invites, password resets) are caught there. Emails never reach real inboxes in local dev.
 
 **`air: command not found`**
 — Run `go install github.com/air-verse/air@latest` and ensure `$GOPATH/bin` is on your `PATH`.

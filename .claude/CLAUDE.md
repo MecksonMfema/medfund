@@ -35,6 +35,79 @@ Read these before starting any implementation work:
 11. **[Coding Standards](coding-standards.md)** — Per-language conventions, testing, error handling
 12. **[Portals & Roles](portals.md)** — Super admin, tenant admin, provider, member, group liaison portal specifications
 
+## Java Coding Conventions
+
+Lombok is on the classpath for all Java services (configured in the root `build.gradle.kts`). Always use it — never write manual boilerplate.
+
+### Annotations to use
+
+| Situation | Annotation(s) |
+|-----------|--------------|
+| Logger | `@Slf4j` — use `log.info(...)`, never declare `LoggerFactory.getLogger(...)` manually |
+| Plain POJO / DTO | `@Data` (= `@Getter + @Setter + @EqualsAndHashCode + @ToString + @RequiredArgsConstructor`) |
+| Immutable value / request record | Java `record` (preferred) or `@Value` |
+| Builder pattern needed | `@Builder` (combine with `@NoArgsConstructor @AllArgsConstructor` when Spring needs no-arg) |
+| Entity (R2DBC / JPA) | `@Getter @Setter` — avoid `@Data` on entities; implement `equals`/`hashCode` explicitly on `id` only |
+| Service / component | `@RequiredArgsConstructor` for constructor injection — remove `@Autowired` and manual constructors |
+| Only getters needed | `@Getter` |
+
+### Examples
+
+```java
+// Service — constructor injection via @RequiredArgsConstructor
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class ClaimService {
+    private final ClaimRepository claimRepository;
+    private final AuditPublisher auditPublisher;
+
+    public Mono<Claim> findById(UUID id) {
+        log.debug("Finding claim {}", id);
+        return claimRepository.findById(id);
+    }
+}
+
+// R2DBC entity
+@Getter
+@Setter
+@Table("claims")
+public class Claim {
+    @Id private UUID id;
+    private String status;
+    // ...
+}
+
+// Request DTO — use Java record, not Lombok
+public record CreateClaimRequest(
+    @NotNull UUID memberId,
+    @NotNull UUID providerId,
+    @DecimalMin("0.01") BigDecimal claimedAmount
+) {}
+
+// Response DTO — use Java record
+public record ClaimResponse(UUID id, String status, BigDecimal claimedAmount) {
+    public static ClaimResponse from(Claim c) { ... }
+}
+
+// Builder for complex object construction
+@Builder
+@Getter
+public class AdjudicationResult {
+    private final UUID claimId;
+    private final String decision;
+    private final BigDecimal approvedAmount;
+    private final List<String> rulesApplied;
+}
+```
+
+### What NOT to do
+
+- Never write `private static final Logger log = LoggerFactory.getLogger(Foo.class);` — use `@Slf4j`
+- Never write manual getters/setters/constructors on classes that can use Lombok
+- Never use `@Data` on R2DBC or JPA entities (causes issues with lazy loading and `equals`/`hashCode`)
+- Don't mix `@Autowired` field injection with `@RequiredArgsConstructor` — pick one (prefer `@RequiredArgsConstructor`)
+
 ## Critical Rules
 
 1. **Never mix currencies in arithmetic.** Always convert to a common currency using the exchange rate service before comparing or summing amounts. Use `BigDecimal` (Java) / `decimal` (others) — never floating point for money.

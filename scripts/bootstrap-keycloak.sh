@@ -92,6 +92,27 @@ else
   echo "  ✓ Realm created"
 fi
 
+# ── Step 2b: Configure SMTP (Mailpit) ─────────────────────────
+# Keycloak (running in Docker) reaches Mailpit via the container name.
+# Override SMTP_HOST if running Keycloak natively: SMTP_HOST=localhost
+SMTP_HOST="${SMTP_HOST:-mailpit}"
+echo "[2b/7] Configuring SMTP → $SMTP_HOST:1025 (Mailpit)..."
+curl -s -X PUT "$KEYCLOAK_URL/admin/realms/$REALM" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "smtpServer": {
+      "host": "'"$SMTP_HOST"'",
+      "port": "1025",
+      "from": "noreply@medfund.local",
+      "fromDisplayName": "MedFund Platform",
+      "ssl": "false",
+      "starttls": "false",
+      "auth": "false"
+    }
+  }' > /dev/null
+echo "  ✓ SMTP configured (all emails captured by Mailpit at http://localhost:8025)"
+
 # ── Step 3: Create OIDC client ─────────────────────────────────
 echo "[3/7] Creating OIDC client '$CLIENT_ID'..."
 CLIENT_EXISTS=$(curl -s -H "Authorization: Bearer $TOKEN" \
@@ -304,3 +325,4 @@ echo "Angular App: $ANGULAR_URL"
 echo "Keycloak:    $KEYCLOAK_URL/admin"
 echo "Realm:       $REALM"
 echo "Client ID:   $CLIENT_ID"
+echo "Mailpit:     http://localhost:8025  (catches all outbound emails)"

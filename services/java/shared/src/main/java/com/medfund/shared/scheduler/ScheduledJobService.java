@@ -55,9 +55,10 @@ public class ScheduledJobService {
                 String tenantId = TenantContext.get(ctx);
                 var event = AuditEvent.create(
                     tenantId != null ? tenantId : "unknown",
-                    "ScheduledJobConfig", saved.getId().toString(),
-                    "CREATE", actorId, null, null,
-                    Map.of("jobType", saved.getJobType(), "cronExpression", saved.getCronExpression()),
+                    "ScheduledJobConfig", saved.getId().toString(), saved.getName(),
+                    "CREATE", actorId, null,
+                    null,
+                    Map.<String, Object>of("jobType", saved.getJobType(), "cronExpression", saved.getCronExpression()),
                     new String[]{"jobType", "cronExpression", "settings"},
                     UUID.randomUUID().toString()
                 );
@@ -83,9 +84,10 @@ public class ScheduledJobService {
                         String tenantId = TenantContext.get(ctx);
                         var event = AuditEvent.create(
                             tenantId != null ? tenantId : "unknown",
-                            "ScheduledJobConfig", saved.getId().toString(),
-                            "UPDATE", actorId, null, null,
-                            Map.of("cronExpression", saved.getCronExpression(),
+                            "ScheduledJobConfig", saved.getId().toString(), saved.getName(),
+                            "UPDATE", actorId, null,
+                            null,
+                            Map.<String, Object>of("cronExpression", saved.getCronExpression(),
                                    "isEnabled", String.valueOf(saved.getIsEnabled())),
                             new String[]{"cronExpression", "settings", "isEnabled"},
                             UUID.randomUUID().toString()

@@ -34,8 +34,203 @@ select.input {
   cursor: pointer;
 }
 
+// ── Diff Modal ────────────────────────────────────────────────────────────────
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--spacing-base);
+}
+
+.modal {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 780px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-base);
+  padding: var(--spacing-base) var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-base);
+  min-width: 0;
+
+  span:last-child {
+    color: var(--color-text-secondary);
+    font-weight: var(--font-weight-normal);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+
+  &:hover {
+    background: var(--color-bg-hover, rgba(0, 0, 0, 0.06));
+    color: var(--color-text-primary);
+  }
+}
+
+.modal-meta {
+  display: flex;
+  gap: var(--spacing-lg);
+  padding: 8px var(--spacing-lg);
+  background: var(--color-bg-subtle, rgba(0, 0, 0, 0.02));
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+
+  strong { color: var(--color-text-primary); }
+}
+
+.correlation {
+  font-family: monospace;
+  font-size: var(--font-size-xs);
+  opacity: 0.7;
+}
+
+.modal-body {
+  overflow-y: auto;
+  flex: 1;
+  padding: var(--spacing-lg);
+}
+
+.no-changes {
+  color: var(--color-text-secondary);
+  text-align: center;
+  padding: var(--spacing-xl);
+  margin: 0;
+}
+
+// ── Diff Table ────────────────────────────────────────────────────────────────
+
+.diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+
+  th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    text-align: left;
+    padding: var(--spacing-sm) var(--spacing-base);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-secondary);
+    background: var(--color-bg-subtle, #f9fafb);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  td {
+    padding: 10px var(--spacing-base);
+    vertical-align: top;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  tr:last-child td { border-bottom: none; }
+}
+
+.field-col  { width: 180px; }
+.before-col,
+.after-col  { width: auto; }
+
+.field-name {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.value {
+  font-family: 'ui-monospace', 'SFMono-Regular', 'Consolas', monospace;
+  font-size: var(--font-size-xs);
+  white-space: pre-wrap;
+  word-break: break-all;
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+
+  &.before {
+    color: #b91c1c;
+    background: rgba(239, 68, 68, 0.08);
+  }
+
+  &.after {
+    color: #15803d;
+    background: rgba(34, 197, 94, 0.08);
+  }
+}
+
+// ── Security event action badge overrides ─────────────────────────────────────
+// The data-table produces .badge-{action.toLowerCase()} for every action value.
+// Auth event types from Keycloak need colour mappings here.
+
+:host ::ng-deep {
+  .badge-login            { background: rgba(34, 197, 94, 0.12);  color: #15803d; }
+  .badge-logout           { background: rgba(148, 163, 184, 0.15); color: #475569; }
+  .badge-login_error      { background: rgba(239, 68, 68, 0.12);  color: #b91c1c; }
+  .badge-register         { background: rgba(59, 130, 246, 0.12); color: #1d4ed8; }
+  .badge-register_error   { background: rgba(239, 68, 68, 0.12);  color: #b91c1c; }
+  .badge-reset_password   { background: rgba(245, 158, 11, 0.12); color: #92400e; }
+  .badge-send_reset_password     { background: rgba(245, 158, 11, 0.10); color: #92400e; }
+  .badge-update_password  { background: rgba(245, 158, 11, 0.12); color: #92400e; }
+  .badge-update_password_error   { background: rgba(239, 68, 68, 0.12);  color: #b91c1c; }
+  .badge-verify_email     { background: rgba(34, 197, 94, 0.12);  color: #15803d; }
+  .badge-send_verify_email       { background: rgba(59, 130, 246, 0.10); color: #1d4ed8; }
+  .badge-update_email     { background: rgba(59, 130, 246, 0.12); color: #1d4ed8; }
+  .badge-update_profile   { background: rgba(59, 130, 246, 0.12); color: #1d4ed8; }
+  .badge-identity_provider_login { background: rgba(168, 85, 247, 0.12); color: #6b21a8; }
+}
+
+// ── Responsive ────────────────────────────────────────────────────────────────
+
 @media (max-width: 768px) {
   .page-header { flex-direction: column; gap: var(--spacing-base); }
   .filter-bar { flex-direction: column; }
   .filter-group { min-width: 100%; }
+}
+
+@media (max-width: 600px) {
+  .modal { max-height: 90vh; }
+  .field-col { width: 100px; }
+  .diff-table th,
+  .diff-table td { padding: var(--spacing-xs) var(--spacing-sm); }
 }

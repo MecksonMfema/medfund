@@ -44,8 +44,9 @@ export class PlatformDashboardService {
     );
   }
 
-  getTenantGrowth(): Observable<any[]> {
-    return this.api.get<any[]>('/platform/analytics/tenant-growth').pipe(
+  getTenantGrowth(period?: string): Observable<any[]> {
+    const params = period ? { period } : undefined;
+    return this.api.get<any[]>('/platform/analytics/tenant-growth', params).pipe(
       catchError(() => of([]))
     );
   }
@@ -68,20 +69,44 @@ export class PlatformDashboardService {
     );
   }
 
-  getClaimsOverTime(): Observable<any[]> {
-    return this.api.get<any[]>('/platform/analytics/claims-over-time').pipe(
+  getClaimsOverTime(period?: string): Observable<any[]> {
+    const params = period ? { period } : undefined;
+    return this.api.get<any[]>('/platform/analytics/claims-over-time', params).pipe(
       catchError(() => of([]))
     );
   }
 
-  getRevenueByTenant(): Observable<any[]> {
-    return this.api.get<any[]>('/platform/analytics/revenue-by-tenant').pipe(
+  getRevenueByTenant(period?: string): Observable<any[]> {
+    const params = period ? { period } : undefined;
+    return this.api.get<any[]>('/platform/analytics/revenue-by-tenant', params).pipe(
       catchError(() => of([]))
     );
   }
 
-  getMemberGrowth(): Observable<any[]> {
-    return this.api.get<any[]>('/platform/analytics/member-growth').pipe(
+  getMemberGrowth(period?: string): Observable<any[]> {
+    const params = period ? { period } : undefined;
+    return this.api.get<any[]>('/platform/analytics/member-growth', params).pipe(
+      catchError(() => of([]))
+    );
+  }
+
+  getBillingOverTime(period?: string): Observable<any[]> {
+    const params = period ? { period } : undefined;
+    return this.api.get<any[]>('/platform/analytics/billing-over-time', params).pipe(
+      catchError(() => of([]))
+    );
+  }
+
+  getBillingPaymentsOverTime(period?: string): Observable<any[]> {
+    const params = period ? { period } : undefined;
+    return this.api.get<any[]>('/platform/analytics/billing-payments-over-time', params).pipe(
+      catchError(() => of([]))
+    );
+  }
+
+  getClaimPayoutsOverTime(period?: string): Observable<any[]> {
+    const params = period ? { period } : undefined;
+    return this.api.get<any[]>('/platform/analytics/claim-payouts-over-time', params).pipe(
       catchError(() => of([]))
     );
   }

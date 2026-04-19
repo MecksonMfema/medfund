@@ -49,9 +49,10 @@ public class PlanService {
         return planRepository.save(plan)
                 .flatMap(saved -> {
                     var event = AuditEvent.create(
-                            "platform", "Plan", saved.getId().toString(),
-                            "CREATE", actorId, null, null,
-                            Map.of("name", saved.getName()),
+                            "platform", "Plan", saved.getId().toString(), saved.getName(),
+                            "CREATE", actorId, null,
+                            null,
+                            Map.<String, Object>of("name", saved.getName()),
                             new String[]{"name", "price", "features"},
                             UUID.randomUUID().toString()
                     );
@@ -66,10 +67,10 @@ public class PlanService {
                     return planRepository.save(plan)
                             .flatMap(saved -> {
                                 var event = AuditEvent.create(
-                                        "platform", "Plan", saved.getId().toString(),
+                                        "platform", "Plan", saved.getId().toString(), saved.getName(),
                                         "UPDATE", actorId, null,
-                                        Map.of("is_active", true),
-                                        Map.of("is_active", false),
+                                        Map.<String, Object>of("is_active", true),
+                                        Map.<String, Object>of("is_active", false),
                                         new String[]{"is_active"},
                                         UUID.randomUUID().toString()
                                 );

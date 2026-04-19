@@ -3,14 +3,44 @@
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: var(--spacing-xl);
-}
-.page-header h1 { font-size: var(--font-size-2xl); margin-bottom: 4px; }
-.page-subtitle { color: var(--color-text-secondary); font-size: var(--font-size-base); }
 
-.date-range select {
-  min-width: 160px;
+  h1 { font-size: var(--font-size-2xl); margin-bottom: 4px; }
+  .page-subtitle { color: var(--color-text-secondary); font-size: var(--font-size-base); }
 }
 
+/* Period filter — segmented pill group */
+.period-filter {
+  display: flex;
+  gap: 4px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: 4px;
+}
+
+.period-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+
+  &:hover { color: var(--color-text-primary); }
+
+  &.active {
+    background: var(--color-surface);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+/* Stats */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -18,18 +48,31 @@
   margin-bottom: var(--spacing-xl);
 }
 
+/* ── Chart cards — identical to dashboard tenant growth pattern ─────────── */
 .chart-card {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--color-border-light);
   overflow: hidden;
-}
-
-.full-width {
   margin-bottom: var(--spacing-xl);
 }
 
+.full-width {
+  /* already full-width by default — class kept for clarity */
+}
+
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
+
+  /* cards inside a row don't need bottom margin — the row handles it */
+  .chart-card { margin-bottom: 0; }
+}
+
+/* Header: title left, period right — exact mirror of dashboard chart-header */
 .chart-header {
   display: flex;
   justify-content: space-between;
@@ -47,95 +90,120 @@
 .chart-period {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
+  white-space: nowrap;
 }
 
+/* Body — same height and padding as dashboard */
 .chart-body {
   padding: var(--spacing-base);
   height: 280px;
 }
 
 .chart-body.tall {
-  height: 320px;
+  height: 340px;
 }
 
-.charts-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-lg);
-  margin-bottom: var(--spacing-xl);
-}
-
-/* Performance Table */
-.perf-card {
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--color-border-light);
-  overflow: hidden;
-}
-
-.perf-header {
-  padding: var(--spacing-base) var(--spacing-lg);
+/* ── Money Flow tabs — sit between header and body inside the card ─────── */
+.chart-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 var(--spacing-lg);
   border-bottom: 1px solid var(--color-border-light);
-}
-
-.perf-header h3 {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  margin: 0;
-}
-
-.perf-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.perf-table th {
-  text-align: left;
-  padding: var(--spacing-md) var(--spacing-base);
   background: var(--color-bg);
-  font-weight: var(--font-weight-semibold);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
-.perf-table td {
-  padding: var(--spacing-md) var(--spacing-base);
-  border-bottom: 1px solid var(--color-border-light);
+.flow-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+
+  &:hover { color: var(--color-primary); }
+
+  &.active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+  }
+}
+
+/* ── Service Health table (inside .chart-card) ──────────────────────────── */
+.chart-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-xl) var(--spacing-lg);
+  color: var(--color-text-muted);
   font-size: var(--font-size-base);
 }
 
-.perf-table tbody tr:hover {
-  background: var(--color-bg);
+.health-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th {
+    text-align: left;
+    padding: var(--spacing-md) var(--spacing-base);
+    background: var(--color-bg);
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  td {
+    padding: var(--spacing-md) var(--spacing-base);
+    border-bottom: 1px solid var(--color-border-light);
+    font-size: var(--font-size-base);
+  }
+
+  tbody tr:hover { background: var(--color-bg); }
 }
 
 .service-name {
   font-weight: var(--font-weight-medium);
 }
 
-.uptime-badge {
+.service-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.category-badge {
+  display: inline-block;
   padding: 2px 8px;
   border-radius: var(--radius-full);
   font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background: var(--color-border-light);
+  color: var(--color-text-secondary);
+  text-transform: capitalize;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
+  text-transform: capitalize;
 }
 
-.uptime-badge.good {
-  background: var(--color-success-light);
-  color: #1a9a8e;
-}
-
-.uptime-badge.warn {
-  background: var(--color-warning-light);
-  color: #c47800;
-}
-
-.uptime-badge.bad {
-  background: var(--color-error-light);
-  color: var(--color-error);
-}
+.status-healthy  { background: var(--color-success-light); color: #1a9a8e; }
+.status-degraded { background: var(--color-warning-light); color: #c47800; }
+.status-down     { background: var(--color-error-light);   color: var(--color-error); }
 
 @media (max-width: 1200px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -143,6 +211,8 @@
 }
 
 @media (max-width: 768px) {
-  .page-header { flex-direction: column; gap: var(--spacing-base); }
-  .stats-grid { grid-template-columns: 1fr; }
+  .page-header   { flex-direction: column; gap: var(--spacing-base); }
+  .stats-grid    { grid-template-columns: 1fr; }
+  .period-filter { flex-wrap: wrap; }
+  .chart-tabs    { flex-wrap: wrap; }
 }

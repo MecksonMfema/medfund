@@ -17,12 +17,27 @@ import reactor.core.publisher.Mono;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class TenantWebFilter implements WebFilter {
 
+    // Paths that live in the public schema or aggregate across tenants —
+    // no X-Tenant-ID required for these.
+    private static final java.util.List<String> PLATFORM_PATHS = java.util.List.of(
+            "/actuator",
+            "/swagger",
+            "/v3/api-docs",
+            "/api/v1/staff-users",
+            "/api/v1/tenants",
+            "/api/v1/platform",
+            "/api/v1/roles",
+            "/api/v1/scheduled-jobs",
+            "/api/v1/plans",
+            "/api/v1/quotes"
+    );
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         String path = exchange.getRequest().getPath().value();
 
-        // Skip tenant resolution for health checks and actuator
-        if (path.startsWith("/actuator") || path.startsWith("/swagger") || path.startsWith("/v3/api-docs")) {
+        // Skip tenant resolution for platform-level paths
+        if (PLATFORM_PATHS.stream().anyMatch(path::startsWith)) {
             return chain.filter(exchange);
         }
 

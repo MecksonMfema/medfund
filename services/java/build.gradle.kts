@@ -29,6 +29,12 @@ subprojects {
     }
 
     dependencies {
+        // Lombok — version managed by Spring Boot BOM
+        "compileOnly"("org.projectlombok:lombok")
+        "annotationProcessor"("org.projectlombok:lombok")
+        "testCompileOnly"("org.projectlombok:lombok")
+        "testAnnotationProcessor"("org.projectlombok:lombok")
+
         "implementation"("org.slf4j:slf4j-api")
         "testImplementation"("org.springframework.boot:spring-boot-starter-test")
         "testImplementation"("io.projectreactor:reactor-test")

@@ -104,7 +104,13 @@
       <div class="health-header">
         <div>
           <h3>System Health</h3>
-          <p class="health-subtitle">{{ systemHealth.length }} services monitored</p>
+          <p class="health-subtitle">
+            @if (systemHealth.length) {
+              {{ systemHealth.length }} services monitored
+            } @else {
+              Checking services…
+            }
+          </p>
         </div>
         <span class="health-badge" [class]="overallHealthClass">
           {{ overallHealthLabel }}

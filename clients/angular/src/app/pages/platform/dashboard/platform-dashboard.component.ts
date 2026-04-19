@@ -109,12 +109,14 @@ export class PlatformDashboardComponent implements OnInit {
   }
 
   get overallHealthClass(): string {
+    if (!this.systemHealth.length) return 'degraded';
     if (this.systemHealth.some((h) => h.status === 'down')) return 'down';
     if (this.systemHealth.some((h) => h.status === 'degraded')) return 'degraded';
     return 'healthy';
   }
 
   get overallHealthLabel(): string {
+    if (!this.systemHealth.length) return 'Loading…';
     if (this.systemHealth.some((h) => h.status === 'down')) return 'Outage';
     if (this.systemHealth.some((h) => h.status === 'degraded')) return 'Degraded';
     return 'All Systems Operational';

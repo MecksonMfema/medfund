@@ -6,6 +6,7 @@ import { KeycloakService } from 'keycloak-angular';
 import { NavigationService } from '../../core/services/navigation.service';
 import { NavGroup, UserInfo } from '../../core/models/navigation.model';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { clearSession } from '../../auth/keycloak.init';
 
 @Component({
   selector: 'app-sidebar',
@@ -42,7 +43,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.navService.toggleSidebar();
   }
 
-  logout(): void {
+  async logout(): Promise<void> {
+    await clearSession();
     this.keycloak.logout();
   }
 }

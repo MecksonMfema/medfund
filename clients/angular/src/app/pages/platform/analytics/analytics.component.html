@@ -3,14 +3,14 @@
     <h1>Analytics</h1>
     <p class="page-subtitle">Platform-wide performance metrics and insights</p>
   </div>
-  <div class="date-range">
-    <select class="input" [(ngModel)]="selectedPeriod">
-      <option value="7d">Last 7 Days</option>
-      <option value="30d">Last 30 Days</option>
-      <option value="90d">Last 90 Days</option>
-      <option value="12m">Last 12 Months</option>
-      <option value="ytd">Year to Date</option>
-    </select>
+  <div class="period-filter">
+    @for (p of periods; track p.value) {
+      <button
+        class="period-btn"
+        [class.active]="selectedPeriod === p.value"
+        (click)="selectPeriod(p.value)"
+      >{{ p.label }}</button>
+    }
   </div>
 </div>
 
@@ -21,105 +21,138 @@
     [value]="(claimsProcessed | number) || '0'"
     icon="file-text"
     color="blue"
-    [trend]="8.2"
   ></app-stat-card>
   <app-stat-card
-    label="Avg Processing Time"
-    [value]="avgProcessingTime + 'h'"
-    icon="clock"
-    color="green"
-    [trend]="-12.5"
-  ></app-stat-card>
-  <app-stat-card
-    label="Total Revenue"
+    label="Monthly Revenue"
     [value]="'$' + (totalRevenue | number:'1.0-0')"
     icon="dollar"
     color="dark"
-    [trend]="15.7"
   ></app-stat-card>
   <app-stat-card
-    label="Member Growth"
-    [value]="memberGrowthPct + '%'"
-    icon="trending-up"
+    label="Active Users"
+    [value]="(activeUsers | number) || '0'"
+    icon="users"
+    color="green"
+  ></app-stat-card>
+  <app-stat-card
+    label="Active Tenants"
+    [value]="(totalTenants | number) || '0'"
+    icon="building"
     color="cyan"
-    [trend]="memberGrowthPct"
   ></app-stat-card>
 </div>
 
-<!-- Claims Over Time -->
-<div class="chart-card full-width">
-  <div class="chart-header">
-    <h3>Claims Volume Over Time</h3>
-    <span class="chart-period">{{ selectedPeriod === '12m' ? 'Monthly' : 'Daily' }}</span>
-  </div>
-  <div class="chart-body tall">
-    <app-line-chart
-      [data]="claimsOverTime"
-      xAxisLabel="Period"
-      yAxisLabel="Claims"
-      [legend]="true"
-    ></app-line-chart>
-  </div>
-</div>
-
-<!-- Two Column Charts -->
+<!-- Tenant Growth + Member Growth -->
 <div class="charts-row">
   <div class="chart-card">
     <div class="chart-header">
-      <h3>Revenue by Tenant</h3>
+      <h3>Tenant Growth</h3>
+      <span class="chart-period">{{ periodLabel }}</span>
     </div>
     <div class="chart-body">
-      <app-bar-chart
-        [data]="revenueByTenant"
-        xAxisLabel="Tenant"
-        yAxisLabel="Revenue ($)"
-      ></app-bar-chart>
+      <app-area-chart
+        [data]="tenantGrowthData"
+        [xAxisLabel]="xAxisLabel"
+        yAxisLabel="Tenants"
+        [yScaleMax]="tenantGrowthMax"
+      ></app-area-chart>
     </div>
   </div>
   <div class="chart-card">
     <div class="chart-header">
       <h3>Member Growth</h3>
-      <span class="chart-period">Last 12 months</span>
+      <span class="chart-period">{{ periodLabel }}</span>
     </div>
     <div class="chart-body">
       <app-area-chart
         [data]="memberGrowthData"
-        xAxisLabel="Month"
+        [xAxisLabel]="xAxisLabel"
         yAxisLabel="Members"
+        [yScaleMax]="memberGrowthMax"
       ></app-area-chart>
     </div>
   </div>
 </div>
 
-<!-- Performance Metrics Table -->
-<div class="perf-card">
-  <div class="perf-header">
-    <h3>Service Performance</h3>
+<!-- Money Flow -->
+<div class="chart-card full-width">
+  <div class="chart-header">
+    <h3>Money Flow Over Time</h3>
+    <span class="chart-period">{{ periodLabel }}</span>
   </div>
-  <table class="perf-table">
-    <thead>
-      <tr>
-        <th>Service</th>
-        <th>Avg Response</th>
-        <th>P95 Response</th>
-        <th>Uptime</th>
-        <th>Errors (24h)</th>
-      </tr>
-    </thead>
-    <tbody>
-      @for (row of perfMetrics; track row.service) {
+  <div class="chart-tabs">
+    <button class="flow-tab" [class.active]="moneyFlowTab === 'claims'" (click)="moneyFlowTab = 'claims'">
+      <app-icon name="file-medical" [size]="14"></app-icon>
+      Claims
+    </button>
+    <button class="flow-tab" [class.active]="moneyFlowTab === 'billing'" (click)="moneyFlowTab = 'billing'">
+      <app-icon name="file-text" [size]="14"></app-icon>
+      Billing
+    </button>
+    <button class="flow-tab" [class.active]="moneyFlowTab === 'billing-payments'" (click)="moneyFlowTab = 'billing-payments'">
+      <app-icon name="credit-card" [size]="14"></app-icon>
+      Billing Payments
+    </button>
+    <button class="flow-tab" [class.active]="moneyFlowTab === 'claim-payouts'" (click)="moneyFlowTab = 'claim-payouts'">
+      <app-icon name="banknote" [size]="14"></app-icon>
+      Claim Payouts
+    </button>
+  </div>
+  <div class="chart-body tall">
+    @if (moneyFlowTab === 'claims') {
+      <app-area-chart [data]="claimsOverTime" [xAxisLabel]="xAxisLabel" yAxisLabel="Claims"></app-area-chart>
+    }
+    @if (moneyFlowTab === 'billing') {
+      <app-area-chart [data]="billingOverTime" [xAxisLabel]="xAxisLabel" yAxisLabel="Amount ($)"></app-area-chart>
+    }
+    @if (moneyFlowTab === 'billing-payments') {
+      <app-area-chart [data]="billingPaymentsOverTime" [xAxisLabel]="xAxisLabel" yAxisLabel="Received ($)"></app-area-chart>
+    }
+    @if (moneyFlowTab === 'claim-payouts') {
+      <app-area-chart [data]="claimPayoutsOverTime" [xAxisLabel]="xAxisLabel" yAxisLabel="Paid Out ($)"></app-area-chart>
+    }
+  </div>
+</div>
+
+
+<!-- Service Health -->
+<div class="chart-card">
+  <div class="chart-header">
+    <h3>Service Health</h3>
+    <span class="chart-period">{{ serviceHealth.length ? (serviceHealth.length + ' services') : 'Checking…' }}</span>
+  </div>
+  @if (!serviceHealth.length) {
+    <div class="chart-empty">
+      <app-icon name="clock" [size]="20"></app-icon>
+      <span>Checking services…</span>
+    </div>
+  } @else {
+    <table class="health-table">
+      <thead>
         <tr>
-          <td class="service-name">{{ row.service }}</td>
-          <td>{{ row.avgResponse }}ms</td>
-          <td>{{ row.p95Response }}ms</td>
-          <td>
-            <span class="uptime-badge" [class.good]="row.uptime >= 99.9" [class.warn]="row.uptime < 99.9 && row.uptime >= 99" [class.bad]="row.uptime < 99">
-              {{ row.uptime }}%
-            </span>
-          </td>
-          <td>{{ row.errors }}</td>
+          <th>Service</th>
+          <th>Category</th>
+          <th>Latency</th>
+          <th>Status</th>
         </tr>
-      }
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        @for (row of serviceHealth; track row.service) {
+          <tr>
+            <td>
+              <div class="service-name">{{ row.displayName || row.service }}</div>
+              @if (row.description) {
+                <div class="service-desc">{{ row.description }}</div>
+              }
+            </td>
+            <td><span class="category-badge">{{ row.category }}</span></td>
+            <td>{{ row.latency != null ? (row.latency + ' ms') : '—' }}</td>
+            <td>
+              <span class="status-badge" [ngClass]="statusClass(row.status)">{{ row.status }}</span>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
 </div>
