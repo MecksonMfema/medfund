@@ -12,16 +12,17 @@ const PLATFORM_ADMIN_NAV: NavGroup[] = [
   {
     title: 'MANAGEMENT',
     items: [
-      { label: 'Tenants', route: '/platform/tenants', icon: 'building', roles: ['super_admin'] },
-      { label: 'Users', route: '/platform/users', icon: 'users', roles: ['super_admin'] },
-      { label: 'Audit Logs', route: '/platform/audit', icon: 'clipboard', roles: ['super_admin'] },
+      { label: 'Tenants',   route: '/platform/tenants',   icon: 'building',   roles: ['super_admin'] },
+      { label: 'Users',     route: '/platform/users',     icon: 'users',      roles: ['super_admin'] },
+      { label: 'Providers', route: '/platform/providers', icon: 'building',   roles: ['super_admin'] },
+      { label: 'Audit Logs',route: '/platform/audit',     icon: 'clipboard',  roles: ['super_admin'] },
     ],
   },
   {
     title: 'CONFIGURATION',
     items: [
-      { label: 'Settings', route: '/platform/settings', icon: 'settings', roles: ['super_admin'] },
-      { label: 'Analytics', route: '/platform/analytics', icon: 'chart', roles: ['super_admin'] },
+      { label: 'Settings',  route: '/platform/settings',  icon: 'settings',   roles: ['super_admin'] },
+      { label: 'Analytics', route: '/platform/analytics', icon: 'chart',      roles: ['super_admin'] },
     ],
   },
 ];
@@ -43,9 +44,8 @@ const TENANT_NAV: NavGroup[] = [
   {
     title: 'MANAGEMENT',
     items: [
-      { label: 'Providers', route: '/tenant/providers', icon: 'hospital', roles: ['tenant_admin'] },
-      { label: 'Members', route: '/tenant/members', icon: 'users', roles: ['tenant_admin'] },
-      { label: 'Admin', route: '/tenant/admin', icon: 'settings', roles: ['tenant_admin'] },
+      { label: 'Members', route: '/tenant/members', icon: 'users',     roles: ['tenant_admin'] },
+      { label: 'Admin',   route: '/tenant/admin',   icon: 'settings',  roles: ['tenant_admin'] },
     ],
   },
 ];

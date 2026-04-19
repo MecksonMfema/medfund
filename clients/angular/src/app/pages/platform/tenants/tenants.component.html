@@ -3,7 +3,7 @@
     <h1>Tenant Management</h1>
     <p class="page-subtitle">Manage organizations using the platform</p>
   </div>
-  <button class="btn btn-primary" (click)="showCreateModal = true">
+  <button class="btn btn-primary" (click)="openCreateModal()">
     <app-icon name="plus" [size]="18"></app-icon>
     Create Tenant
   </button>
@@ -12,7 +12,7 @@
 <div class="stats-grid">
   <app-stat-card
     label="Total Tenants"
-    [value]="tenants.length"
+    [value]="totalCount"
     icon="building"
     color="blue"
   ></app-stat-card>
@@ -30,15 +30,190 @@
   ></app-stat-card>
 </div>
 
+<!-- Filter bar -->
+<div class="filter-bar">
+  <div class="filter-search">
+    <app-icon name="search" [size]="16"></app-icon>
+    <input
+      class="filter-input"
+      type="text"
+      placeholder="Search by name, slug or email…"
+      [ngModel]="searchTerm"
+      (ngModelChange)="onSearchChange($event)"
+    />
+  </div>
+  <select class="filter-select" [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()">
+    <option value="">All statuses</option>
+    <option value="active">Active</option>
+    <option value="suspended">Suspended</option>
+  </select>
+  <select class="filter-select" [(ngModel)]="modelFilter" (ngModelChange)="onFilterChange()">
+    <option value="">All models</option>
+    <option value="individual">Individual</option>
+    <option value="group">Group</option>
+    <option value="hybrid">Hybrid</option>
+  </select>
+  <select class="filter-select" [(ngModel)]="lineFilter" (ngModelChange)="onFilterChange()">
+    <option value="">All insurance lines</option>
+    @for (line of insuranceLineOptions; track line.value) {
+      <option [value]="line.value">{{ line.label }}</option>
+    }
+  </select>
+</div>
+
 <app-data-table
   title="All Tenants"
-  [subtitle]="tenants.length + ' organizations'"
+  [subtitle]="totalCount + ' organizations'"
   [columns]="columns"
   [data]="tenants"
   [actions]="tableActions"
-  searchPlaceholder="Search tenants..."
+  [searchable]="false"
+  [serverSide]="true"
+  [loading]="loading"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="currentPage"
+  (pageChange)="onPageChange($event)"
   (rowClick)="onTenantClick($event)"
 ></app-data-table>
+
+<!-- Edit Tenant Modal -->
+@if (showEditModal) {
+  <div class="modal-overlay" (click)="showEditModal = false">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Edit Tenant</h2>
+        <button class="btn-icon" (click)="showEditModal = false">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        @if (editServerError) {
+          <div class="form-error-banner">
+            <app-icon name="alert-circle" [size]="16"></app-icon>
+            {{ editServerError }}
+          </div>
+        }
+
+        <!-- Read-only identity (slug + country cannot change) -->
+        <div class="form-row">
+          <div class="form-group">
+            <label>Slug <span class="label-hint">(cannot be changed)</span></label>
+            <input class="input input-readonly" [value]="editTenantSlug" readonly />
+          </div>
+          <div class="form-group">
+            <label>Country Code <span class="label-hint">(cannot be changed)</span></label>
+            <input class="input input-readonly" [value]="editTenantCountry" readonly maxlength="2" />
+          </div>
+        </div>
+
+        <div class="form-group" [class.has-error]="editFieldError('name')">
+          <label>Organization Name <span class="required">*</span></label>
+          <input
+            class="input"
+            placeholder="e.g., HealthFirst Medical Fund"
+            [(ngModel)]="editForm.name"
+            (blur)="touchEdit('name')"
+            [class.input-error]="editFieldError('name')"
+          />
+          @if (editFieldError('name')) {
+            <span class="field-error">{{ editFieldError('name') }}</span>
+          }
+        </div>
+
+        <div class="form-row">
+          <div class="form-group" [class.has-error]="editFieldError('email')">
+            <label>Contact Email</label>
+            <input
+              class="input"
+              type="email"
+              placeholder="admin@example.com"
+              [(ngModel)]="editForm.email"
+              (blur)="touchEdit('email')"
+              [class.input-error]="editFieldError('email')"
+            />
+            @if (editFieldError('email')) {
+              <span class="field-error">{{ editFieldError('email') }}</span>
+            }
+          </div>
+          <div class="form-group">
+            <label>Domain <span class="label-hint">(optional)</span></label>
+            <input
+              class="input"
+              placeholder="e.g., healthfirst.co.zw"
+              [(ngModel)]="editForm.domain"
+            />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Timezone</label>
+            <input
+              class="input"
+              placeholder="e.g., Africa/Harare"
+              [(ngModel)]="editForm.timezone"
+            />
+          </div>
+          <div class="form-group">
+            <label>Membership Model</label>
+            <select class="input" [(ngModel)]="editForm.model">
+              <option value="">Select a model…</option>
+              <option value="INDIVIDUAL_ONLY">Individual only</option>
+              <option value="GROUP_ONLY">Group only</option>
+              <option value="BOTH">Both (individual &amp; group)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Insurance lines -->
+        <div class="form-group" [class.has-error]="editFieldError('insuranceLines')">
+          <label>
+            Insurance Lines <span class="required">*</span>
+            <span class="label-hint">— select all that apply</span>
+          </label>
+          <div class="insurance-grid">
+            @for (line of insuranceLineOptions; track line.value) {
+              <button
+                type="button"
+                class="line-chip"
+                [class.selected]="isEditLineSelected(line.value)"
+                (click)="toggleEditInsuranceLine(line.value); touchEdit('insuranceLines')"
+              >
+                <span class="line-chip-name">{{ line.label }}</span>
+                <span class="line-chip-desc">{{ line.description }}</span>
+              </button>
+            }
+          </div>
+          @if (editFieldError('insuranceLines')) {
+            <span class="field-error">{{ editFieldError('insuranceLines') }}</span>
+          }
+        </div>
+
+        <!-- Provider registration number label -->
+        <div class="form-group">
+          <label>
+            Provider Reg. Number Label
+            <span class="label-hint">— the field label shown in provider-related UI for this tenant</span>
+          </label>
+          <input
+            class="input"
+            [(ngModel)]="editForm.providerRegLabel"
+            [placeholder]="'e.g. ' + (editForm.insuranceLines.length ? 'AHFOZ / Practice Number' : 'Registration / Licence Number')"
+          />
+          <span class="field-hint">Auto-derived from insurance lines. Override here if needed (e.g. for Zimbabwe health tenants: "AHFOZ Number").</span>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" [disabled]="editSubmitting" (click)="showEditModal = false">Cancel</button>
+        <button class="btn btn-primary" [disabled]="editSubmitting" (click)="saveTenant()">
+          @if (editSubmitting) { Saving… } @else { Save changes }
+        </button>
+      </div>
+    </div>
+  </div>
+}
 
 <!-- Create Tenant Modal -->
 @if (showCreateModal) {
@@ -49,37 +224,122 @@
         <button class="btn-icon" (click)="showCreateModal = false">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="form-group">
-          <label>Organization Name</label>
-          <input class="input" placeholder="e.g., HealthFirst Medical Fund" #nameInput />
+        @if (serverError) {
+          <div class="form-error-banner">
+            <app-icon name="alert-circle" [size]="16"></app-icon>
+            {{ serverError }}
+          </div>
+        }
+
+        <div class="form-group" [class.has-error]="fieldError('name')">
+          <label>Organization Name <span class="required">*</span></label>
+          <input
+            class="input"
+            placeholder="e.g., HealthFirst Medical Fund"
+            [ngModel]="form.name"
+            (ngModelChange)="onNameChange($event)"
+            (blur)="touch('name')"
+            [class.input-error]="fieldError('name')"
+          />
+          @if (fieldError('name')) {
+            <span class="field-error">{{ fieldError('name') }}</span>
+          }
         </div>
+
         <div class="form-row">
-          <div class="form-group">
-            <label>Slug</label>
-            <input class="input" placeholder="e.g., healthfirst" #slugInput />
+          <div class="form-group" [class.has-error]="fieldError('slug')">
+            <label>Slug <span class="label-hint">(auto-generated)</span> <span class="required">*</span></label>
+            <input
+              class="input"
+              placeholder="healthfirst"
+              [(ngModel)]="form.slug"
+              (blur)="touch('slug')"
+              (ngModelChange)="touch('slug')"
+              [class.input-error]="fieldError('slug')"
+            />
+            @if (fieldError('slug')) {
+              <span class="field-error">{{ fieldError('slug') }}</span>
+            }
           </div>
-          <div class="form-group">
+          <div class="form-group" [class.has-error]="fieldError('country')">
             <label>Country Code</label>
-            <input class="input" placeholder="e.g., ZW" #countryInput />
+            <input
+              class="input"
+              placeholder="e.g., ZW"
+              [(ngModel)]="form.country"
+              (blur)="touch('country')"
+              maxlength="2"
+              [class.input-error]="fieldError('country')"
+            />
+            @if (fieldError('country')) {
+              <span class="field-error">{{ fieldError('country') }}</span>
+            }
           </div>
         </div>
-        <div class="form-group">
+
+        <div class="form-group" [class.has-error]="fieldError('email')">
           <label>Contact Email</label>
-          <input class="input" type="email" placeholder="admin@healthfirst.co.zw" #emailInput />
+          <input
+            class="input"
+            type="email"
+            placeholder="admin@healthfirst.co.zw"
+            [(ngModel)]="form.email"
+            (blur)="touch('email')"
+            [class.input-error]="fieldError('email')"
+          />
+          @if (fieldError('email')) {
+            <span class="field-error">{{ fieldError('email') }}</span>
+          }
         </div>
-        <div class="form-group">
-          <label>Membership Model</label>
-          <select class="input" #modelInput>
-            <option value="individual">Individual</option>
-            <option value="group">Group</option>
-            <option value="hybrid">Hybrid</option>
+
+        <div class="form-group" [class.has-error]="fieldError('model')">
+          <label>Membership Model <span class="required">*</span></label>
+          <select
+            class="input"
+            [(ngModel)]="form.model"
+            (blur)="touch('model')"
+            (ngModelChange)="touch('model')"
+            [class.input-error]="fieldError('model')"
+          >
+            <option value="" disabled>Select a model…</option>
+            <option value="INDIVIDUAL_ONLY">Individual only</option>
+            <option value="GROUP_ONLY">Group only</option>
+            <option value="BOTH">Both (individual &amp; group)</option>
           </select>
+          @if (fieldError('model')) {
+            <span class="field-error">{{ fieldError('model') }}</span>
+          }
         </div>
+
+        <!-- Insurance lines -->
+        <div class="form-group" [class.has-error]="fieldError('insuranceLines')">
+          <label>
+            Insurance Lines <span class="required">*</span>
+            <span class="label-hint">— select all that apply</span>
+          </label>
+          <div class="insurance-grid">
+            @for (line of insuranceLineOptions; track line.value) {
+              <button
+                type="button"
+                class="line-chip"
+                [class.selected]="isLineSelected(line.value)"
+                (click)="toggleInsuranceLine(line.value); touch('insuranceLines')"
+              >
+                <span class="line-chip-name">{{ line.label }}</span>
+                <span class="line-chip-desc">{{ line.description }}</span>
+              </button>
+            }
+          </div>
+          @if (fieldError('insuranceLines')) {
+            <span class="field-error">{{ fieldError('insuranceLines') }}</span>
+          }
+        </div>
+
       </div>
       <div class="modal-footer">
-        <button class="btn btn-outline" (click)="showCreateModal = false">Cancel</button>
-        <button class="btn btn-primary" (click)="createTenant(nameInput.value, slugInput.value, emailInput.value, countryInput.value, modelInput.value)">
-          Create Tenant
+        <button class="btn btn-outline" [disabled]="submitting" (click)="showCreateModal = false">Cancel</button>
+        <button class="btn btn-primary" [disabled]="submitting" (click)="createTenant()">
+          @if (submitting) { Creating… } @else { Create Tenant }
         </button>
       </div>
     </div>

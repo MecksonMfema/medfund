@@ -1,13 +1,256 @@
-<h1>Administration</h1>
+<!-- ── User overview stats ──────────────────────────────────────────────── -->
+<div class="stats-grid">
+  <app-stat-card label="Total Users"    [value]="totalUsers"     color="blue"></app-stat-card>
+  <app-stat-card label="Active"         [value]="activeUsers"    color="green"></app-stat-card>
+  <app-stat-card label="Suspended"      [value]="suspendedUsers" color="red"></app-stat-card>
+  <app-stat-card label="Pending Invite" [value]="pendingUsers"   color="orange"></app-stat-card>
+</div>
 
-<h2>Tenants</h2>
-<app-data-table [columns]="tenantColumns" [data]="tenants"></app-data-table>
+<!-- ── User Management ──────────────────────────────────────────────────── -->
+<div class="section-card">
+  <div class="section-header">
+    <div>
+      <h2 class="section-title">Staff Users</h2>
+      <p class="section-sub">
+        Employees and operators with access to this portal. These are <strong>system users</strong>, distinct from policyholders managed under
+        <a routerLink="/tenant/members" class="inline-link">Members</a>.
+        A staff user may also hold a member/policyholder record — the two roles are tracked separately.
+      </p>
+    </div>
+    <button class="btn btn-primary" (click)="openCreateModal()">
+      <app-icon name="plus" [size]="16"></app-icon>
+      Add user
+    </button>
+  </div>
 
-<h2 style="margin-top:32px">Roles</h2>
-<app-data-table [columns]="roleColumns" [data]="roles"></app-data-table>
+  <app-data-table
+    [columns]="userColumns"
+    [data]="users"
+    [actions]="userActions"
+    [loading]="usersLoading"
+    [searchable]="true"
+    searchPlaceholder="Search by name or email…"
+    emptyMessage="No users yet — add the first one."
+  ></app-data-table>
+</div>
 
-<h2 style="margin-top:32px">Scheduled Jobs</h2>
-<app-data-table [columns]="jobColumns" [data]="jobs"></app-data-table>
+<!-- ── Audit Logs ───────────────────────────────────────────────────────── -->
+<div class="section-card">
+  <div class="section-header">
+    <div>
+      <h2 class="section-title">Audit Log</h2>
+      <p class="section-sub">All actions performed within {{ tenantName }}'s system — who did what and when.</p>
+    </div>
+    <div class="audit-search">
+      <app-icon name="search" [size]="16"></app-icon>
+      <input
+        type="text"
+        placeholder="Search events…"
+        [(ngModel)]="auditSearch"
+        (ngModelChange)="onAuditSearch()"
+        class="search-input"
+      />
+    </div>
+  </div>
 
-<h2 style="margin-top:32px">Audit Log</h2>
-<app-data-table [columns]="auditColumns" [data]="auditEvents"></app-data-table>
+  <app-data-table
+    [columns]="auditColumns"
+    [data]="auditEvents"
+    [loading]="auditLoading"
+    [serverSide]="true"
+    [totalCount]="auditTotal"
+    [serverPage]="auditPage"
+    [pageSize]="20"
+    (pageChange)="onAuditPageChange($event)"
+    emptyMessage="No audit events yet."
+  ></app-data-table>
+</div>
+
+<!-- ── Branding & Appearance ────────────────────────────────────────────── -->
+<div class="section-card branding-card">
+  <div class="section-header">
+    <div>
+      <h2 class="section-title">Branding &amp; Appearance</h2>
+      <p class="section-sub">Personalise how your portal looks. Changes preview immediately — save to persist.</p>
+    </div>
+    <div class="section-actions">
+      @if (brandingSaved) {
+        <span class="saved-badge">
+          <app-icon name="check-circle" [size]="16"></app-icon> Saved
+        </span>
+      }
+      <button class="btn btn-primary" (click)="saveBranding()" [disabled]="brandingSaving">
+        {{ brandingSaving ? 'Saving…' : 'Save changes' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Template gallery -->
+  <div class="branding-section">
+    <h3 class="branding-label">Choose a template</h3>
+    <div class="template-grid">
+      @for (t of templates; track t.id) {
+        <button
+          class="template-card"
+          [class.selected]="branding.templateId === t.id"
+          (click)="selectTemplate(t.id)"
+        >
+          <div class="template-swatches">
+            <span class="swatch" [style.background]="t.previewColors[0]"
+              [style.border]="t.previewColors[0] === '#FFFFFF' ? '1px solid #e5e7eb' : 'none'"></span>
+            <span class="swatch" [style.background]="t.previewColors[1]"></span>
+            <span class="swatch" [style.background]="t.previewColors[2]"
+              [style.border]="t.previewColors[2] === '#F8FDFF' ? '1px solid #e5e7eb' : 'none'"></span>
+          </div>
+          <div class="template-info">
+            <span class="template-name">{{ t.name }}</span>
+            <span class="template-desc">{{ t.description }}</span>
+          </div>
+          @if (branding.templateId === t.id) {
+            <app-icon name="check-circle" [size]="16" class="template-check"></app-icon>
+          }
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Custom colours -->
+  <div class="branding-section">
+    <h3 class="branding-label">Custom colours <span class="label-hint">(override the template)</span></h3>
+    <div class="color-row">
+
+      <div class="color-field">
+        <label class="color-label">Primary colour</label>
+        <p class="color-hint">Buttons, links, and badges in the main content.</p>
+        <div class="color-input-group">
+          <input type="color" class="color-picker"
+            [value]="branding.primaryColor || '#0077B6'"
+            (input)="branding.primaryColor = $any($event.target).value; onColorChange()" />
+          <input type="text" class="color-text"
+            [value]="branding.primaryColor || ''"
+            placeholder="#rrggbb" maxlength="7"
+            (change)="branding.primaryColor = $any($event.target).value; onColorChange()" />
+          @if (branding.primaryColor) {
+            <button class="color-clear" (click)="clearColor('primaryColor')" title="Reset">
+              <app-icon name="x" [size]="14"></app-icon>
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="color-field">
+        <label class="color-label">Accent / sidebar highlight</label>
+        <p class="color-hint">Active nav item and icon colour in the sidebar.</p>
+        <div class="color-input-group">
+          <input type="color" class="color-picker"
+            [value]="branding.accentColor || '#0077B6'"
+            (input)="branding.accentColor = $any($event.target).value; onColorChange()" />
+          <input type="text" class="color-text"
+            [value]="branding.accentColor || ''"
+            placeholder="#rrggbb" maxlength="7"
+            (change)="branding.accentColor = $any($event.target).value; onColorChange()" />
+          @if (branding.accentColor) {
+            <button class="color-clear" (click)="clearColor('accentColor')" title="Reset">
+              <app-icon name="x" [size]="14"></app-icon>
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="color-field">
+        <label class="color-label">Sidebar background</label>
+        <p class="color-hint">Background colour of the navigation sidebar.</p>
+        <div class="color-input-group">
+          <input type="color" class="color-picker"
+            [value]="branding.sidebarBg || '#FFFFFF'"
+            (input)="branding.sidebarBg = $any($event.target).value; onColorChange()" />
+          <input type="text" class="color-text"
+            [value]="branding.sidebarBg || ''"
+            placeholder="#rrggbb" maxlength="7"
+            (change)="branding.sidebarBg = $any($event.target).value; onColorChange()" />
+          @if (branding.sidebarBg) {
+            <button class="color-clear" (click)="clearColor('sidebarBg')" title="Reset">
+              <app-icon name="x" [size]="14"></app-icon>
+            </button>
+          }
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Logo -->
+  <div class="branding-section">
+    <h3 class="branding-label">Logo URL</h3>
+    <p class="color-hint">Must be a publicly accessible <strong>https://</strong> image. Shown in the sidebar and dashboard. Leave blank to use the organisation initial.</p>
+    <div class="logo-row">
+      <input type="url" class="logo-input" [(ngModel)]="branding.logoUrl"
+        placeholder="https://example.com/logo.png" (change)="onColorChange()" />
+      @if (branding.logoUrl) {
+        <img class="logo-preview" [src]="branding.logoUrl" alt="Logo preview" />
+        <button class="color-clear" (click)="clearLogo()" title="Remove logo">
+          <app-icon name="x" [size]="14"></app-icon>
+        </button>
+      }
+    </div>
+  </div>
+</div>
+
+<!-- ── Create user modal ─────────────────────────────────────────────────── -->
+@if (showCreateModal) {
+  <div class="modal-overlay" (click)="showCreateModal = false">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Add user</h3>
+        <button class="modal-close" (click)="showCreateModal = false">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-field" [class.has-error]="createErrors['firstName']">
+            <label>First name *</label>
+            <input type="text" [(ngModel)]="createForm.firstName" placeholder="Jane" />
+            @if (createErrors['firstName']) { <span class="field-error">{{ createErrors['firstName'] }}</span> }
+          </div>
+          <div class="form-field" [class.has-error]="createErrors['lastName']">
+            <label>Last name *</label>
+            <input type="text" [(ngModel)]="createForm.lastName" placeholder="Smith" />
+            @if (createErrors['lastName']) { <span class="field-error">{{ createErrors['lastName'] }}</span> }
+          </div>
+        </div>
+        <div class="form-field" [class.has-error]="createErrors['email']">
+          <label>Email address *</label>
+          <input type="email" [(ngModel)]="createForm.email" placeholder="jane@example.com" />
+          @if (createErrors['email']) { <span class="field-error">{{ createErrors['email'] }}</span> }
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Job title</label>
+            <input type="text" [(ngModel)]="createForm.jobTitle" placeholder="System Administrator" />
+          </div>
+          <div class="form-field">
+            <label>Department</label>
+            <input type="text" [(ngModel)]="createForm.department" placeholder="IT" />
+          </div>
+        </div>
+        <div class="form-field" [class.has-error]="createErrors['realmRole']">
+          <label>Role *</label>
+          <select [(ngModel)]="createForm.realmRole">
+            <option value="">Select a role…</option>
+            @for (r of availableRoles; track r.value) {
+              <option [value]="r.value">{{ r.label }}</option>
+            }
+          </select>
+          @if (createErrors['realmRole']) { <span class="field-error">{{ createErrors['realmRole'] }}</span> }
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="showCreateModal = false">Cancel</button>
+        <button class="btn btn-primary" (click)="submitCreateUser()" [disabled]="createSubmitting">
+          {{ createSubmitting ? 'Creating…' : 'Create user' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

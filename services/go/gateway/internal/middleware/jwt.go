@@ -13,6 +13,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/medfund/gateway/internal/events"
 )
 
 // JWTMiddleware validates JWT tokens against Keycloak's JWKS endpoint.
@@ -23,14 +25,16 @@ type JWTMiddleware struct {
 	publicKeys  map[string]*rsa.PublicKey
 	mu          sync.RWMutex
 	lastFetch   time.Time
+	publisher   *events.Publisher // nil = security event publishing disabled
 }
 
 // NewJWTMiddleware creates a new JWT validation middleware for the given Keycloak instance.
-func NewJWTMiddleware(keycloakURL, realm string) *JWTMiddleware {
+func NewJWTMiddleware(keycloakURL, realm string, publisher *events.Publisher) *JWTMiddleware {
 	return &JWTMiddleware{
 		keycloakURL: keycloakURL,
 		realm:       realm,
 		publicKeys:  make(map[string]*rsa.PublicKey),
+		publisher:   publisher,
 	}
 }
 
@@ -59,9 +63,10 @@ func (j *JWTMiddleware) Handler() fiber.Handler {
 			})
 		}
 
-		// Store claims in context
+		// Store claims and raw token in context
 		c.Locals("jwt_claims", claims)
 		c.Locals("user_id", claims["sub"])
+		c.Locals("jwt_token", tokenStr)
 
 		// Extract tenant from JWT
 		if tenantID, ok := claims["tenant_id"].(string); ok && tenantID != "" {
@@ -73,8 +78,8 @@ func (j *JWTMiddleware) Handler() fiber.Handler {
 	}
 }
 
-// SessionHandler validates a Bearer token and sets it as an HTTP-only cookie.
-// Called once after Keycloak login; subsequent requests use the cookie automatically.
+// SessionHandler validates a Bearer token, sets it as an HTTP-only cookie,
+// and publishes a LOGIN security event to Kafka.
 func (j *JWTMiddleware) SessionHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		auth := c.Get("Authorization")
@@ -84,16 +89,20 @@ func (j *JWTMiddleware) SessionHandler() fiber.Handler {
 		tokenStr := auth[7:]
 		claims, err := j.validateToken(tokenStr)
 		if err != nil {
+			// Publish failed-login event before rejecting
+			j.publishSecurityEvent(c, claims, "LOGIN_ERROR", "invalid or expired token")
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid token"})
 		}
 
-		maxAge := 300 // default 5 minutes
+		maxAge := 300
 		if expFloat, ok := claims["exp"].(float64); ok {
 			remaining := int(expFloat) - int(time.Now().Unix())
 			if remaining > 0 {
 				maxAge = remaining
 			}
 		}
+
+		isRefresh := c.Cookies("access_token") != ""
 
 		c.Cookie(&fiber.Cookie{
 			Name:     "access_token",
@@ -104,13 +113,25 @@ func (j *JWTMiddleware) SessionHandler() fiber.Handler {
 			MaxAge:   maxAge,
 			Path:     "/",
 		})
+
+		// Only publish LOGIN on first session establishment.
+		// Token refreshes (existing cookie present) are silent — not login events.
+		if !isRefresh {
+			j.publishSecurityEvent(c, claims, "LOGIN", "")
+		}
 		return c.JSON(fiber.Map{"status": "ok"})
 	}
 }
 
-// LogoutHandler clears the HTTP-only session cookie.
+// LogoutHandler clears the HTTP-only session cookie and publishes a LOGOUT event.
 func (j *JWTMiddleware) LogoutHandler() fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		// Read claims from the outgoing cookie before clearing it
+		var claims jwt.MapClaims
+		if tokenStr := c.Cookies("access_token"); tokenStr != "" {
+			claims, _ = j.validateToken(tokenStr)
+		}
+
 		c.Cookie(&fiber.Cookie{
 			Name:     "access_token",
 			Value:    "",
@@ -120,8 +141,52 @@ func (j *JWTMiddleware) LogoutHandler() fiber.Handler {
 			MaxAge:   -1,
 			Path:     "/",
 		})
+
+		j.publishSecurityEvent(c, claims, "LOGOUT", "")
 		return c.JSON(fiber.Map{"status": "ok"})
 	}
+}
+
+// publishSecurityEvent sends a fire-and-forget event to the Kafka security topic.
+// No-ops when publisher is nil or claims are empty.
+func (j *JWTMiddleware) publishSecurityEvent(c *fiber.Ctx, claims jwt.MapClaims, eventType, details string) {
+	if j.publisher == nil {
+		return
+	}
+
+	userID := ""
+	actorEmail := ""
+	tenantID := ""
+
+	if claims != nil {
+		if sub, ok := claims["sub"].(string); ok {
+			userID = sub
+		}
+		if email, ok := claims["email"].(string); ok {
+			actorEmail = email
+		} else if username, ok := claims["preferred_username"].(string); ok {
+			actorEmail = username
+		}
+		if tid, ok := claims["tenant_id"].(string); ok {
+			tenantID = tid
+		} else if realm, ok := claims["iss"].(string); ok {
+			// Extract realm name from issuer URL: .../realms/{realm}
+			parts := strings.Split(realm, "/realms/")
+			if len(parts) == 2 {
+				tenantID = parts[1]
+			}
+		}
+	}
+
+	j.publisher.Publish(events.SecurityEvent{
+		TenantID:   tenantID,
+		EventType:  eventType,
+		UserID:     userID,
+		ActorEmail: actorEmail,
+		IPAddress:  c.IP(),
+		UserAgent:  c.Get("User-Agent"),
+		Details:    details,
+	})
 }
 
 // extractToken retrieves the JWT from cookies (preferred) or Authorization header.

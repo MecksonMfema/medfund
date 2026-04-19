@@ -1,8 +1,13 @@
 package com.medfund.tenancy.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.tenancy.dto.CreateTenantRequest;
+import com.medfund.tenancy.dto.TenantPage;
+import com.medfund.tenancy.dto.TenantQueryParams;
+import com.medfund.tenancy.dto.TenantResponse;
 import com.medfund.tenancy.dto.UpdateTenantRequest;
 import com.medfund.tenancy.entity.Tenant;
 import com.medfund.tenancy.entity.TenantCurrencyConfig;
@@ -10,21 +15,31 @@ import com.medfund.tenancy.exception.TenantNotFoundException;
 import com.medfund.tenancy.exception.TenantSlugConflictException;
 import com.medfund.tenancy.repository.TenantCurrencyConfigRepository;
 import com.medfund.tenancy.repository.TenantRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.medfund.tenancy.util.JsonString;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class TenantService {
 
-    private static final Logger log = LoggerFactory.getLogger(TenantService.class);
+    private static final Duration CACHE_TTL = Duration.ofMinutes(2);
 
     private final TenantRepository tenantRepository;
     private final TenantCurrencyConfigRepository currencyConfigRepository;
@@ -32,21 +47,38 @@ public class TenantService {
     private final KeycloakRealmService keycloakRealmService;
     private final AuditPublisher auditPublisher;
     private final TenantEventPublisher eventPublisher;
+    private final ReactiveStringRedisTemplate redis;
+    private final ObjectMapper objectMapper;
+    private final R2dbcEntityTemplate r2dbcTemplate;
 
-    public TenantService(
-            TenantRepository tenantRepository,
-            TenantCurrencyConfigRepository currencyConfigRepository,
-            SchemaProvisioningService schemaProvisioning,
-            KeycloakRealmService keycloakRealmService,
-            AuditPublisher auditPublisher,
-            TenantEventPublisher eventPublisher) {
-        this.tenantRepository = tenantRepository;
-        this.currencyConfigRepository = currencyConfigRepository;
-        this.schemaProvisioning = schemaProvisioning;
-        this.keycloakRealmService = keycloakRealmService;
-        this.auditPublisher = auditPublisher;
-        this.eventPublisher = eventPublisher;
+    // ── Search (paginated, cached) ─────────────────────────────────────────────
+
+    public Mono<TenantPage> search(TenantQueryParams params) {
+        String key = cacheKey(params);
+        return redis.opsForValue().get(key)
+                .flatMap(this::deserializePage)
+                .switchIfEmpty(searchFromDb(params)
+                        .flatMap(page -> serializeAndCache(key, page)));
     }
+
+    private Mono<TenantPage> searchFromDb(TenantQueryParams params) {
+        Mono<List<Tenant>> rowsMono = tenantRepository.search(params).collectList();
+        Mono<Long> countMono = tenantRepository.countSearch(params);
+
+        return Mono.zip(rowsMono, countMono).map(tuple -> {
+            List<Tenant> rows = tuple.getT1();
+            long total = tuple.getT2();
+            int totalPages = (int) Math.ceil((double) total / params.size());
+            return new TenantPage(
+                    rows.stream().map(TenantResponse::from).toList(),
+                    total,
+                    Math.max(totalPages, 1),
+                    params.page(),
+                    params.size());
+        });
+    }
+
+    // ── Lookups ───────────────────────────────────────────────────────────────
 
     public Flux<Tenant> findAll() {
         return tenantRepository.findAllOrderByCreatedAtDesc();
@@ -70,71 +102,76 @@ public class TenantService {
         return tenantRepository.findByStatus(status);
     }
 
+    // ── Writes ────────────────────────────────────────────────────────────────
+
     @Transactional
-    public Mono<Tenant> create(CreateTenantRequest request, String actorId) {
+    public Mono<Tenant> create(CreateTenantRequest request, String actorId, String actorEmail) {
         return tenantRepository.existsBySlug(request.slug())
                 .flatMap(exists -> {
                     if (exists) {
                         return Mono.<Tenant>error(new TenantSlugConflictException(request.slug()));
                     }
 
-                    UUID tenantId = UUID.randomUUID();
-                    String schemaName = "tenant_" + tenantId.toString().replace("-", "");
-                    String realmName = "medfund-" + request.slug();
+                    // Schema name derived from slug — unique and readable.
+                    // e.g. slug "health-first" → schema "tenant_health_first"
+                    String schemaName = "tenant_" + request.slug().replace("-", "_");
+                    String realmName  = "medfund-" + request.slug();
 
                     Tenant tenant = new Tenant();
-                    tenant.setId(tenantId);
+                    // id NOT set — PostgreSQL generates it via DEFAULT gen_random_uuid()
                     tenant.setName(request.name());
                     tenant.setSlug(request.slug());
                     tenant.setDomain(request.domain());
                     tenant.setSchemaName(schemaName);
                     tenant.setPlanId(request.planId());
                     tenant.setStatus("active");
-                    tenant.setSettings("{}");
-                    tenant.setBranding("{}");
+                    tenant.setSettings(JsonString.of(request.settingsOrDefault()));
+                    tenant.setBranding(JsonString.empty());
                     tenant.setContactEmail(request.contactEmail());
                     tenant.setCountryCode(request.countryCode());
                     tenant.setTimezone(request.timezoneOrDefault());
                     tenant.setMembershipModel(request.membershipModelOrDefault());
                     tenant.setKeycloakRealm(realmName);
-                    tenant.setCreatedAt(Instant.now());
-                    tenant.setUpdatedAt(Instant.now());
 
-                    return tenantRepository.save(tenant)
+                    // Use r2dbcTemplate.insert() — always executes INSERT regardless of id state,
+                    // avoiding the repository.save() INSERT/UPDATE ambiguity.
+                    return r2dbcTemplate.insert(tenant)
                             .flatMap(saved -> schemaProvisioning.provisionSchema(schemaName)
                                     .then(keycloakRealmService.createRealm(realmName, saved))
                                     .then(createDefaultCurrencyConfig(saved.getId(), request.defaultCurrencyCodeOrDefault()))
-                                    .then(publishAuditEvent(saved, null, actorId, "CREATE"))
+                                    .then(publishAuditEvent(saved, null, actorId, actorEmail, "CREATE"))
                                     .then(eventPublisher.publishTenantProvisioned(saved))
-                                    .thenReturn(saved));
+                                    .thenReturn(saved))
+                            .flatMap(saved -> evictCaches().thenReturn(saved));
                 });
     }
 
     @Transactional
-    public Mono<Tenant> update(UUID id, UpdateTenantRequest request, String actorId) {
+    public Mono<Tenant> update(UUID id, UpdateTenantRequest request, String actorId, String actorEmail) {
         return tenantRepository.findById(id)
                 .switchIfEmpty(Mono.error(new TenantNotFoundException(id)))
                 .flatMap(existing -> {
                     Tenant old = copyTenant(existing);
 
-                    if (request.name() != null) existing.setName(request.name());
-                    if (request.domain() != null) existing.setDomain(request.domain());
-                    if (request.planId() != null) existing.setPlanId(request.planId());
-                    if (request.contactEmail() != null) existing.setContactEmail(request.contactEmail());
-                    if (request.timezone() != null) existing.setTimezone(request.timezone());
+                    if (request.name() != null)            existing.setName(request.name());
+                    if (request.domain() != null)          existing.setDomain(request.domain());
+                    if (request.planId() != null)          existing.setPlanId(request.planId());
+                    if (request.contactEmail() != null)    existing.setContactEmail(request.contactEmail());
+                    if (request.timezone() != null)        existing.setTimezone(request.timezone());
                     if (request.membershipModel() != null) existing.setMembershipModel(request.membershipModel());
-                    if (request.settings() != null) existing.setSettings(request.settings());
-                    if (request.branding() != null) existing.setBranding(request.branding());
+                    if (request.settings() != null)        existing.setSettings(JsonString.of(request.settings()));
+                    if (request.branding() != null)        existing.setBranding(JsonString.of(request.branding()));
                     existing.setUpdatedAt(Instant.now());
 
                     return tenantRepository.save(existing)
-                            .flatMap(saved -> publishAuditEvent(saved, old, actorId, "UPDATE")
-                                    .thenReturn(saved));
+                            .flatMap(saved -> publishAuditEvent(saved, old, actorId, actorEmail, "UPDATE")
+                                    .thenReturn(saved))
+                            .flatMap(saved -> evictCaches().thenReturn(saved));
                 });
     }
 
     @Transactional
-    public Mono<Tenant> suspend(UUID id, String actorId) {
+    public Mono<Tenant> suspend(UUID id, String actorId, String actorEmail) {
         return tenantRepository.findById(id)
                 .switchIfEmpty(Mono.error(new TenantNotFoundException(id)))
                 .flatMap(tenant -> {
@@ -142,14 +179,15 @@ public class TenantService {
                     tenant.setStatus("suspended");
                     tenant.setUpdatedAt(Instant.now());
                     return tenantRepository.save(tenant)
-                            .flatMap(saved -> publishAuditEvent(saved, old, actorId, "UPDATE")
+                            .flatMap(saved -> publishAuditEvent(saved, old, actorId, actorEmail, "UPDATE")
                                     .then(eventPublisher.publishTenantSuspended(saved))
-                                    .thenReturn(saved));
+                                    .thenReturn(saved))
+                            .flatMap(saved -> evictCaches().thenReturn(saved));
                 });
     }
 
     @Transactional
-    public Mono<Tenant> activate(UUID id, String actorId) {
+    public Mono<Tenant> activate(UUID id, String actorId, String actorEmail) {
         return tenantRepository.findById(id)
                 .switchIfEmpty(Mono.error(new TenantNotFoundException(id)))
                 .flatMap(tenant -> {
@@ -157,35 +195,113 @@ public class TenantService {
                     tenant.setStatus("active");
                     tenant.setUpdatedAt(Instant.now());
                     return tenantRepository.save(tenant)
-                            .flatMap(saved -> publishAuditEvent(saved, old, actorId, "UPDATE")
-                                    .thenReturn(saved));
+                            .flatMap(saved -> publishAuditEvent(saved, old, actorId, actorEmail, "UPDATE")
+                                    .thenReturn(saved))
+                            .flatMap(saved -> evictCaches().thenReturn(saved));
                 });
     }
 
+    // ── Cache helpers ─────────────────────────────────────────────────────────
+
+    private String cacheKey(TenantQueryParams p) {
+        return String.format("tenants:%s:%s:%s:%s:%d:%d",
+                p.q()              != null ? p.q()              : "_",
+                p.status()         != null ? p.status()         : "_",
+                p.membershipModel() != null ? p.membershipModel() : "_",
+                p.countryCode()    != null ? p.countryCode()    : "_",
+                p.page(), p.size());
+    }
+
+    private Mono<TenantPage> deserializePage(String json) {
+        try {
+            return Mono.just(objectMapper.readValue(json, TenantPage.class));
+        } catch (JsonProcessingException e) {
+            return Mono.empty();
+        }
+    }
+
+    private Mono<TenantPage> serializeAndCache(String key, TenantPage page) {
+        try {
+            String json = objectMapper.writeValueAsString(page);
+            return redis.opsForValue().set(key, json, CACHE_TTL).thenReturn(page);
+        } catch (JsonProcessingException e) {
+            return Mono.just(page);
+        }
+    }
+
+    private Mono<Void> evictCaches() {
+        return redis.keys("tenants:*")
+                .collectList()
+                .flatMap(keys -> {
+                    if (keys.isEmpty()) return Mono.just(0L);
+                    return redis.delete(keys.toArray(String[]::new));
+                })
+                .then();
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
     private Mono<Void> createDefaultCurrencyConfig(UUID tenantId, String currencyCode) {
         TenantCurrencyConfig config = new TenantCurrencyConfig();
-        config.setId(UUID.randomUUID());
+        // id NOT set — PostgreSQL generates it via DEFAULT gen_random_uuid()
         config.setTenantId(tenantId);
         config.setCurrencyCode(currencyCode);
         config.setIsDefault(true);
         config.setIsActive(true);
-        return currencyConfigRepository.save(config).then();
+        return r2dbcTemplate.insert(config).then();
     }
 
-    private Mono<Void> publishAuditEvent(Tenant current, Tenant previous, String actorId, String action) {
+    private Mono<Void> publishAuditEvent(Tenant current, Tenant previous,
+                                          String actorId, String actorEmail, String action) {
+        Map<String, Object> oldMap = previous != null ? tenantToMap(previous) : null;
+        Map<String, Object> newMap = tenantToMap(current);
+        String[] changedFields = "UPDATE".equals(action) && oldMap != null
+                ? computeChangedFields(oldMap, newMap) : null;
+
         var event = AuditEvent.create(
                 "platform",
-                "Tenant",
+                "TENANT",
                 current.getId().toString(),
+                current.getName(),
                 action,
                 actorId,
-                null,
-                previous != null ? Map.of("name", previous.getName(), "status", previous.getStatus()) : null,
-                Map.of("name", current.getName(), "status", current.getStatus()),
-                new String[]{"name", "status", "settings", "branding"},
+                actorEmail,
+                oldMap,
+                newMap,
+                changedFields,
                 UUID.randomUUID().toString()
         );
         return auditPublisher.publish(event);
+    }
+
+    private Map<String, Object> tenantToMap(Tenant t) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("name", t.getName());
+        m.put("slug", t.getSlug());
+        m.put("domain", t.getDomain());
+        m.put("status", t.getStatus());
+        m.put("contactEmail", t.getContactEmail());
+        m.put("countryCode", t.getCountryCode());
+        m.put("timezone", t.getTimezone());
+        m.put("membershipModel", t.getMembershipModel());
+        m.put("planId", t.getPlanId() != null ? t.getPlanId().toString() : null);
+        m.put("schemaName", t.getSchemaName());
+        m.put("keycloakRealm", t.getKeycloakRealm());
+        m.put("settings", t.getSettings() != null ? t.getSettings().value() : null);
+        m.put("branding", t.getBranding() != null ? t.getBranding().value() : null);
+        m.put("createdAt", t.getCreatedAt() != null ? t.getCreatedAt().toString() : null);
+        m.put("updatedAt", t.getUpdatedAt() != null ? t.getUpdatedAt().toString() : null);
+        return m;
+    }
+
+    private String[] computeChangedFields(Map<String, Object> oldMap, Map<String, Object> newMap) {
+        List<String> changed = new ArrayList<>();
+        for (String key : newMap.keySet()) {
+            if (!Objects.equals(oldMap.get(key), newMap.get(key))) {
+                changed.add(key);
+            }
+        }
+        return changed.toArray(String[]::new);
     }
 
     private Tenant copyTenant(Tenant source) {

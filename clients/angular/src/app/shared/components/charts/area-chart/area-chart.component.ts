@@ -17,6 +17,11 @@ export class AreaChartComponent {
   @Input() legendTitle = '';
   @Input() colorScheme: Color = OCEAN_BREEZE_SCHEME;
   @Input() yScaleMax: number | undefined = undefined;
+  /** Explicit list of x-axis tick values to display. Empty array means show all ticks. */
+  @Input() xAxisTicks: any[] = [];
 
-  readonly yTickFormat = (value: number): string => Math.round(value).toString();
+  // Only render whole-number labels — fractional ticks (0.5, 1.5 …) get an
+  // empty string so duplicated rounded values never appear on the y-axis.
+  readonly yTickFormat = (value: number): string =>
+    Number.isInteger(value) ? value.toString() : '';
 }

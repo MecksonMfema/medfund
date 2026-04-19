@@ -9,8 +9,9 @@ import com.medfund.user.entity.Member;
 import com.medfund.user.exception.MemberNotFoundException;
 import com.medfund.user.exception.DuplicateMemberException;
 import com.medfund.user.repository.MemberRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
@@ -23,25 +24,16 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class MemberService {
 
-    private static final Logger log = LoggerFactory.getLogger(MemberService.class);
-
     private final MemberRepository memberRepository;
+    private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
     private final UserEventPublisher eventPublisher;
     private final KeycloakSyncService keycloakSyncService;
-
-    public MemberService(MemberRepository memberRepository,
-                         AuditPublisher auditPublisher,
-                         UserEventPublisher eventPublisher,
-                         KeycloakSyncService keycloakSyncService) {
-        this.memberRepository = memberRepository;
-        this.auditPublisher = auditPublisher;
-        this.eventPublisher = eventPublisher;
-        this.keycloakSyncService = keycloakSyncService;
-    }
 
     public Flux<Member> findAll() {
         return memberRepository.findAllOrderByCreatedAtDesc();
@@ -74,7 +66,7 @@ public class MemberService {
         return generateMemberNumber()
             .flatMap(memberNumber -> {
                 var member = new Member();
-                member.setId(UUID.randomUUID());
+                // id NOT set — let PostgreSQL generate via DEFAULT gen_random_uuid()
                 member.setMemberNumber(memberNumber);
                 member.setFirstName(request.firstName());
                 member.setLastName(request.lastName());
@@ -93,7 +85,7 @@ public class MemberService {
                 member.setCreatedBy(UUID.fromString(actorId));
                 member.setUpdatedBy(UUID.fromString(actorId));
 
-                return memberRepository.save(member);
+                return r2dbcTemplate.insert(member);
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
@@ -227,6 +219,7 @@ public class MemberService {
             tenantId != null ? tenantId : "unknown",
             "Member",
             current.getId().toString(),
+            current.getMemberNumber(),
             action,
             actorId,
             null,

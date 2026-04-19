@@ -8,7 +8,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
-public interface TenantRepository extends R2dbcRepository<Tenant, UUID> {
+public interface TenantRepository extends R2dbcRepository<Tenant, UUID>, TenantRepositoryCustom {
 
     @Query("SELECT * FROM public.tenants WHERE slug = :slug")
     Mono<Tenant> findBySlug(String slug);

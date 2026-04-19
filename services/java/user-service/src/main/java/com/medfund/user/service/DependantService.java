@@ -7,6 +7,9 @@ import com.medfund.user.dto.CreateDependantRequest;
 import com.medfund.user.entity.Dependant;
 import com.medfund.user.exception.DependantNotFoundException;
 import com.medfund.user.repository.DependantRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
@@ -16,16 +19,14 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class DependantService {
 
     private final DependantRepository dependantRepository;
+    private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
-
-    public DependantService(DependantRepository dependantRepository, AuditPublisher auditPublisher) {
-        this.dependantRepository = dependantRepository;
-        this.auditPublisher = auditPublisher;
-    }
 
     public Flux<Dependant> findByMemberId(UUID memberId) {
         return dependantRepository.findByMemberId(memberId);
@@ -39,7 +40,7 @@ public class DependantService {
     @Transactional
     public Mono<Dependant> create(CreateDependantRequest request, String actorId) {
         var dependant = new Dependant();
-        dependant.setId(UUID.randomUUID());
+        // id NOT set — let PostgreSQL generate via DEFAULT gen_random_uuid()
         dependant.setMemberId(request.memberId());
         dependant.setFirstName(request.firstName());
         dependant.setLastName(request.lastName());
@@ -53,11 +54,12 @@ public class DependantService {
         dependant.setCreatedBy(UUID.fromString(actorId));
         dependant.setUpdatedBy(UUID.fromString(actorId));
 
-        return dependantRepository.save(dependant)
+        return r2dbcTemplate.insert(dependant)
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
                 var event = AuditEvent.create(
                     tenantId != null ? tenantId : "unknown", "Dependant", saved.getId().toString(),
+                    saved.getFirstName() + " " + saved.getLastName(),
                     "CREATE", actorId, null, null,
                     Map.of("firstName", saved.getFirstName(), "lastName", saved.getLastName(),
                         "relationship", saved.getRelationship(), "memberId", saved.getMemberId().toString()),
@@ -82,6 +84,7 @@ public class DependantService {
                 String tenantId = TenantContext.get(ctx);
                 var event = AuditEvent.create(
                     tenantId != null ? tenantId : "unknown", "Dependant", saved.getId().toString(),
+                    saved.getFirstName() + " " + saved.getLastName(),
                     "UPDATE", actorId, null,
                     Map.of("status", "active"),
                     Map.of("status", "removed"),

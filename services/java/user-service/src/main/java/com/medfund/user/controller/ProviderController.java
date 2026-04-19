@@ -1,6 +1,7 @@
 package com.medfund.user.controller;
 
 import com.medfund.user.dto.CreateProviderRequest;
+import com.medfund.user.dto.ProviderPage;
 import com.medfund.user.dto.ProviderResponse;
 import com.medfund.user.dto.UpdateProviderRequest;
 import com.medfund.user.service.ProviderService;
@@ -10,30 +11,39 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/providers")
-@Tag(name = "Providers", description = "Provider onboarding, AHFOZ verification, and management")
+@RequiredArgsConstructor
+@Tag(name = "Providers", description = "Provider onboarding and management — platform-wide registry")
 @SecurityRequirement(name = "bearer-jwt")
 public class ProviderController {
 
     private final ProviderService providerService;
 
-    public ProviderController(ProviderService providerService) {
-        this.providerService = providerService;
-    }
-
     @GetMapping
-    @Operation(summary = "List all providers")
-    public Flux<ProviderResponse> findAll() {
-        return providerService.findAll().map(ProviderResponse::from);
+    @Operation(summary = "Search and list providers (paginated)",
+        description = "All params are optional. Returns a page object with content, totalCount, totalPages.")
+    public Mono<ProviderPage> search(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String providerType,
+            @RequestParam(defaultValue = "1")  int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return providerService.searchPage(
+            (q != null && !q.isBlank()) ? q : null,
+            (status != null && !status.isBlank()) ? status : null,
+            (providerType != null && !providerType.isBlank()) ? providerType : null,
+            page, size);
     }
 
     @GetMapping("/{id}")
@@ -64,10 +74,10 @@ public class ProviderController {
         return providerService.search(q).map(ProviderResponse::from);
     }
 
-    @GetMapping("/ahfoz/{ahfozNumber}")
-    @Operation(summary = "Find provider by AHFOZ number")
-    public Mono<ProviderResponse> findByAhfozNumber(@PathVariable String ahfozNumber) {
-        return providerService.findByAhfozNumber(ahfozNumber).map(ProviderResponse::from);
+    @GetMapping("/registration/{registrationNumber}")
+    @Operation(summary = "Find provider by registration number")
+    public Mono<ProviderResponse> findByRegistrationNumber(@PathVariable String registrationNumber) {
+        return providerService.findByRegistrationNumber(registrationNumber).map(ProviderResponse::from);
     }
 
     @PostMapping
@@ -78,27 +88,49 @@ public class ProviderController {
         @ApiResponse(responseCode = "201", description = "Provider onboarded"),
         @ApiResponse(responseCode = "400", description = "Validation error")
     })
-    public Mono<ProviderResponse> onboard(@Valid @RequestBody CreateProviderRequest request, Principal principal) {
-        return providerService.onboard(request, principal.getName()).map(ProviderResponse::from);
+    public Mono<ProviderResponse> onboard(@Valid @RequestBody CreateProviderRequest request,
+                                           @AuthenticationPrincipal Jwt jwt) {
+        return providerService.onboard(request, actorId(jwt), actorEmail(jwt))
+                              .map(ProviderResponse::from);
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Update provider details")
     public Mono<ProviderResponse> update(@PathVariable UUID id,
                                           @Valid @RequestBody UpdateProviderRequest request,
-                                          Principal principal) {
-        return providerService.update(id, request, principal.getName()).map(ProviderResponse::from);
+                                          @AuthenticationPrincipal Jwt jwt) {
+        return providerService.update(id, request, actorId(jwt), actorEmail(jwt))
+                              .map(ProviderResponse::from);
     }
 
     @PostMapping("/{id}/verify")
-    @Operation(summary = "Verify provider AHFOZ credentials", description = "Marks provider as active after AHFOZ verification")
-    public Mono<ProviderResponse> verifyAhfoz(@PathVariable UUID id, Principal principal) {
-        return providerService.verifyAhfoz(id, principal.getName()).map(ProviderResponse::from);
+    @Operation(summary = "Verify and activate provider")
+    public Mono<ProviderResponse> verifyAhfoz(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return providerService.verifyAhfoz(id, actorId(jwt), actorEmail(jwt))
+                              .map(ProviderResponse::from);
     }
 
     @PostMapping("/{id}/suspend")
     @Operation(summary = "Suspend provider")
-    public Mono<ProviderResponse> suspend(@PathVariable UUID id, Principal principal) {
-        return providerService.suspend(id, principal.getName()).map(ProviderResponse::from);
+    public Mono<ProviderResponse> suspend(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return providerService.suspend(id, actorId(jwt), actorEmail(jwt))
+                              .map(ProviderResponse::from);
+    }
+
+    @PostMapping("/{id}/activate")
+    @Operation(summary = "Re-activate a suspended provider")
+    public Mono<ProviderResponse> activate(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return providerService.activate(id, actorId(jwt), actorEmail(jwt))
+                              .map(ProviderResponse::from);
+    }
+
+    private static String actorId(Jwt jwt) {
+        return jwt != null ? jwt.getSubject() : "system";
+    }
+
+    private static String actorEmail(Jwt jwt) {
+        if (jwt == null) return null;
+        String email = jwt.getClaimAsString("email");
+        return email != null ? email : jwt.getClaimAsString("preferred_username");
     }
 }

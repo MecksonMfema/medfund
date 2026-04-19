@@ -1,6 +1,8 @@
 package com.medfund.tenancy.controller;
 
 import com.medfund.tenancy.dto.CreateTenantRequest;
+import com.medfund.tenancy.dto.TenantPage;
+import com.medfund.tenancy.dto.TenantQueryParams;
 import com.medfund.tenancy.dto.TenantResponse;
 import com.medfund.tenancy.dto.UpdateTenantRequest;
 import com.medfund.tenancy.service.TenantService;
@@ -13,32 +15,39 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/tenants")
+@RequiredArgsConstructor
 @Tag(name = "Tenants", description = "Tenant lifecycle management — super admin only")
 @SecurityRequirement(name = "bearer-jwt")
 public class TenantController {
 
     private final TenantService tenantService;
 
-    public TenantController(TenantService tenantService) {
-        this.tenantService = tenantService;
-    }
-
     @GetMapping
-    @Operation(summary = "List all tenants", description = "Returns all tenants ordered by creation date descending. Super admin only.")
-    @ApiResponse(responseCode = "200", description = "List of tenants")
-    public Flux<TenantResponse> findAll() {
-        return tenantService.findAll().map(TenantResponse::from);
+    @Operation(
+            summary = "Search tenants",
+            description = "Page-based tenant search with optional text search and filters.")
+    @ApiResponse(responseCode = "200", description = "Paginated tenant list")
+    public Mono<TenantPage> search(
+            @Parameter(description = "Full-text search on name, slug, contact email") @RequestParam(required = false) String q,
+            @Parameter(description = "Filter by status: active | suspended") @RequestParam(required = false) String status,
+            @Parameter(description = "Filter by membership model: INDIVIDUAL_ONLY | GROUP_ONLY | BOTH") @RequestParam(required = false) String membershipModel,
+            @Parameter(description = "Filter by 2-letter country code") @RequestParam(required = false) String countryCode,
+            @Parameter(description = "Page number, 1-indexed (default 1)") @RequestParam(required = false) Integer page,
+            @Parameter(description = "Page size (default 20, max 100)") @RequestParam(required = false) Integer size) {
+        return tenantService.search(TenantQueryParams.of(q, status, membershipModel, countryCode, page, size));
     }
 
     @GetMapping("/{id}")
@@ -48,35 +57,29 @@ public class TenantController {
             @ApiResponse(responseCode = "404", description = "Tenant not found",
                     content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     })
-    public Mono<TenantResponse> findById(
-            @Parameter(description = "Tenant UUID") @PathVariable UUID id) {
+    public Mono<TenantResponse> findById(@Parameter(description = "Tenant UUID") @PathVariable UUID id) {
         return tenantService.findById(id).map(TenantResponse::from);
     }
 
     @GetMapping("/slug/{slug}")
-    @Operation(summary = "Get tenant by slug", description = "Lookup tenant by unique slug (e.g., 'zmmas')")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Tenant found"),
-            @ApiResponse(responseCode = "404", description = "Tenant not found")
-    })
-    public Mono<TenantResponse> findBySlug(
-            @Parameter(description = "Tenant slug", example = "zmmas") @PathVariable String slug) {
+    @Operation(summary = "Get tenant by slug")
+    @ApiResponse(responseCode = "200", description = "Tenant found")
+    public Mono<TenantResponse> findBySlug(@PathVariable String slug) {
         return tenantService.findBySlug(slug).map(TenantResponse::from);
     }
 
     @GetMapping("/status/{status}")
-    @Operation(summary = "List tenants by status", description = "Filter tenants by status: active, suspended, archived")
+    @Operation(summary = "List tenants by status")
     @ApiResponse(responseCode = "200", description = "Filtered list of tenants")
-    public Flux<TenantResponse> findByStatus(
-            @Parameter(description = "Tenant status", example = "active") @PathVariable String status) {
+    public Flux<TenantResponse> findByStatus(@PathVariable String status) {
         return tenantService.findByStatus(status).map(TenantResponse::from);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create a new tenant",
-            description = "Provisions a new tenant: creates DB schema, runs Flyway migrations, creates Keycloak realm, " +
-                    "seeds default data, and publishes TENANT_PROVISIONED Kafka event.")
+            description = "Provisions a new tenant: creates DB schema, runs Flyway migrations, " +
+                    "creates Keycloak realm, seeds default data, and publishes TENANT_PROVISIONED Kafka event.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Tenant created and provisioned"),
             @ApiResponse(responseCode = "400", description = "Validation error",
@@ -84,11 +87,11 @@ public class TenantController {
             @ApiResponse(responseCode = "409", description = "Slug already exists",
                     content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
     })
-    public Mono<TenantResponse> create(
-            @Valid @RequestBody CreateTenantRequest request,
-            Principal principal) {
-        String actorId = principal != null ? principal.getName() : "system";
-        return tenantService.create(request, actorId).map(TenantResponse::from);
+    public Mono<TenantResponse> create(@Valid @RequestBody CreateTenantRequest request,
+                                       @AuthenticationPrincipal Jwt jwt) {
+        String actorId    = jwt != null ? jwt.getSubject() : "system";
+        String actorEmail = jwt != null ? resolveActorEmail(jwt) : null;
+        return tenantService.create(request, actorId, actorEmail).map(TenantResponse::from);
     }
 
     @PutMapping("/{id}")
@@ -97,37 +100,35 @@ public class TenantController {
             @ApiResponse(responseCode = "200", description = "Tenant updated"),
             @ApiResponse(responseCode = "404", description = "Tenant not found")
     })
-    public Mono<TenantResponse> update(
-            @Parameter(description = "Tenant UUID") @PathVariable UUID id,
-            @Valid @RequestBody UpdateTenantRequest request,
-            Principal principal) {
-        String actorId = principal != null ? principal.getName() : "system";
-        return tenantService.update(id, request, actorId).map(TenantResponse::from);
+    public Mono<TenantResponse> update(@PathVariable UUID id,
+                                       @Valid @RequestBody UpdateTenantRequest request,
+                                       @AuthenticationPrincipal Jwt jwt) {
+        String actorId    = jwt != null ? jwt.getSubject() : "system";
+        String actorEmail = jwt != null ? resolveActorEmail(jwt) : null;
+        return tenantService.update(id, request, actorId, actorEmail).map(TenantResponse::from);
     }
 
     @PostMapping("/{id}/suspend")
-    @Operation(summary = "Suspend tenant", description = "Suspends a tenant. Users can no longer log in. Data is preserved.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Tenant suspended"),
-            @ApiResponse(responseCode = "404", description = "Tenant not found")
-    })
-    public Mono<TenantResponse> suspend(
-            @Parameter(description = "Tenant UUID") @PathVariable UUID id,
-            Principal principal) {
-        String actorId = principal != null ? principal.getName() : "system";
-        return tenantService.suspend(id, actorId).map(TenantResponse::from);
+    @Operation(summary = "Suspend tenant", description = "Suspends a tenant. Data is preserved.")
+    @ApiResponse(responseCode = "200", description = "Tenant suspended")
+    public Mono<TenantResponse> suspend(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        String actorId    = jwt != null ? jwt.getSubject() : "system";
+        String actorEmail = jwt != null ? resolveActorEmail(jwt) : null;
+        return tenantService.suspend(id, actorId, actorEmail).map(TenantResponse::from);
     }
 
     @PostMapping("/{id}/activate")
     @Operation(summary = "Activate tenant", description = "Re-activates a suspended tenant.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Tenant activated"),
-            @ApiResponse(responseCode = "404", description = "Tenant not found")
-    })
-    public Mono<TenantResponse> activate(
-            @Parameter(description = "Tenant UUID") @PathVariable UUID id,
-            Principal principal) {
-        String actorId = principal != null ? principal.getName() : "system";
-        return tenantService.activate(id, actorId).map(TenantResponse::from);
+    @ApiResponse(responseCode = "200", description = "Tenant activated")
+    public Mono<TenantResponse> activate(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        String actorId    = jwt != null ? jwt.getSubject() : "system";
+        String actorEmail = jwt != null ? resolveActorEmail(jwt) : null;
+        return tenantService.activate(id, actorId, actorEmail).map(TenantResponse::from);
+    }
+
+    /** Keycloak JWTs carry email in the {@code email} claim; {@code preferred_username} is the fallback. */
+    private static String resolveActorEmail(Jwt jwt) {
+        String email = jwt.getClaimAsString("email");
+        return email != null ? email : jwt.getClaimAsString("preferred_username");
     }
 }

@@ -57,19 +57,22 @@
                 @switch (col.type) {
                   @case ('status') {
                     <span class="badge" [class]="'badge-' + row[col.key]?.toString().toLowerCase().replace(' ', '_')">
-                      {{ row[col.key] }}
+                      {{ toLabel(row[col.key]) }}
                     </span>
                   }
                   @case ('currency') {
                     {{ row[col.key] | number:'1.2-2' }} {{ row['currencyCode'] || 'USD' }}
                   }
                   @case ('date') {
-                    {{ row[col.key] | date:'mediumDate' }}
+                    {{ row[col.key] | date:'dd MMM yyyy, HH:mm' }}
                   }
                   @case ('boolean') {
                     <span class="badge" [class]="row[col.key] ? 'badge-active' : 'badge-suspended'">
                       {{ row[col.key] ? 'Yes' : 'No' }}
                     </span>
+                  }
+                  @case ('label') {
+                    {{ toLabel(row[col.key]) }}
                   }
                   @default {
                     <span [class]="col.class || ''">{{ row[col.key] }}</span>
@@ -80,18 +83,18 @@
             @if (actions.length > 0) {
               <td class="actions-cell">
                 @for (action of actions; track action.label) {
-                  <button
-                    class="action-btn"
-                    [title]="action.label"
-                    (click)="$event.stopPropagation(); action.handler(row)"
-                  >
-                    @if (action.icon) {
-                      <app-icon [name]="action.icon" [size]="16"></app-icon>
-                    }
-                    @if (!action.icon) {
-                      {{ action.label }}
-                    }
-                  </button>
+                  @if (!action.visible || action.visible(row)) {
+                    <button
+                      class="action-btn"
+                      [class]="'action-btn action-btn--' + (action.color || 'default')"
+                      (click)="$event.stopPropagation(); action.handler(row)"
+                    >
+                      @if (action.icon) {
+                        <app-icon [name]="action.icon" [size]="14"></app-icon>
+                      }
+                      <span>{{ action.label }}</span>
+                    </button>
+                  }
                 }
               </td>
             }
@@ -108,7 +111,28 @@
     </table>
   </div>
 
-  @if (filteredData.length > pageSize) {
+  @if (serverSide && (totalPages ?? 1) > 1) {
+    <div class="table-footer">
+      <span class="page-info">
+        Page {{ serverPage }} of {{ totalPages }} &nbsp;·&nbsp; {{ totalCount }} total
+      </span>
+      <div class="pagination">
+        <button class="page-btn" [disabled]="serverPage === 1 || loading" (click)="goToServerPage(serverPage - 1)">
+          <app-icon name="chevron-left" [size]="16"></app-icon>
+        </button>
+        @for (page of serverVisiblePages; track page) {
+          <button class="page-btn" [class.active]="page === serverPage" [disabled]="loading" (click)="goToServerPage(page)">
+            {{ page }}
+          </button>
+        }
+        <button class="page-btn" [disabled]="serverPage === totalPages || loading" (click)="goToServerPage(serverPage + 1)">
+          <app-icon name="chevron-right" [size]="16"></app-icon>
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (!serverSide && filteredData.length > pageSize) {
     <div class="table-footer">
       <span class="page-info">
         Showing {{ (currentPage - 1) * pageSize + 1 }}-{{ Math.min(currentPage * pageSize, filteredData.length) }} of {{ filteredData.length }}
@@ -132,7 +156,7 @@
         }
         <button
           class="page-btn"
-          [disabled]="currentPage === totalPages"
+          [disabled]="currentPage === clientTotalPages"
           (click)="goToPage(currentPage + 1)"
         >
           <app-icon name="chevron-right" [size]="16"></app-icon>
@@ -141,3 +165,4 @@
     </div>
   }
 </div>
+

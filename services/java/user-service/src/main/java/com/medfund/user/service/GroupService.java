@@ -8,6 +8,9 @@ import com.medfund.user.dto.UpdateGroupRequest;
 import com.medfund.user.entity.Group;
 import com.medfund.user.exception.GroupNotFoundException;
 import com.medfund.user.repository.GroupRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
@@ -17,16 +20,14 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class GroupService {
 
     private final GroupRepository groupRepository;
+    private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
-
-    public GroupService(GroupRepository groupRepository, AuditPublisher auditPublisher) {
-        this.groupRepository = groupRepository;
-        this.auditPublisher = auditPublisher;
-    }
 
     public Flux<Group> findAll() {
         return groupRepository.findAllOrderByCreatedAtDesc();
@@ -48,7 +49,7 @@ public class GroupService {
     @Transactional
     public Mono<Group> create(CreateGroupRequest request, String actorId) {
         var group = new Group();
-        group.setId(UUID.randomUUID());
+        // id NOT set — let PostgreSQL generate via DEFAULT gen_random_uuid()
         group.setName(request.name());
         group.setRegistrationNumber(request.registrationNumber());
         group.setContactPerson(request.contactPerson());
@@ -61,11 +62,12 @@ public class GroupService {
         group.setCreatedBy(UUID.fromString(actorId));
         group.setUpdatedBy(UUID.fromString(actorId));
 
-        return groupRepository.save(group)
+        return r2dbcTemplate.insert(group)
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
                 var event = AuditEvent.create(
                     tenantId != null ? tenantId : "unknown", "Group", saved.getId().toString(),
+                    saved.getName(),
                     "CREATE", actorId, null, null,
                     Map.of("name", saved.getName(), "status", saved.getStatus()),
                     new String[]{"name", "status"},
@@ -94,6 +96,7 @@ public class GroupService {
                         String tenantId = TenantContext.get(ctx);
                         var event = AuditEvent.create(
                             tenantId != null ? tenantId : "unknown", "Group", saved.getId().toString(),
+                            saved.getName(),
                             "UPDATE", actorId, null, null,
                             Map.of("name", saved.getName()),
                             new String[]{"name", "contactPerson", "contactEmail"},
@@ -117,6 +120,7 @@ public class GroupService {
                         String tenantId = TenantContext.get(ctx);
                         var event = AuditEvent.create(
                             tenantId != null ? tenantId : "unknown", "Group", saved.getId().toString(),
+                            saved.getName(),
                             "UPDATE", actorId, null,
                             Map.of("status", "active"),
                             Map.of("status", "suspended"),

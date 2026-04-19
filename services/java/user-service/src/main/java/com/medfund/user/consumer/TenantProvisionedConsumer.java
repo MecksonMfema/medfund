@@ -4,31 +4,27 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.user.service.RoleService;
 import jakarta.annotation.PostConstruct;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.kafka.receiver.KafkaReceiver;
 import reactor.kafka.receiver.ReceiverOptions;
+import reactor.util.retry.Retry;
 
+import java.time.Duration;
 import java.util.Collections;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class TenantProvisionedConsumer {
 
-    private static final Logger log = LoggerFactory.getLogger(TenantProvisionedConsumer.class);
     private static final String TOPIC = "medfund.tenants.provisioned";
 
     private final ReceiverOptions<String, String> receiverOptions;
     private final RoleService roleService;
     private final ObjectMapper objectMapper;
-
-    public TenantProvisionedConsumer(ReceiverOptions<String, String> receiverOptions,
-                                     RoleService roleService, ObjectMapper objectMapper) {
-        this.receiverOptions = receiverOptions;
-        this.roleService = roleService;
-        this.objectMapper = objectMapper;
-    }
 
     @PostConstruct
     public void consume() {
@@ -36,31 +32,37 @@ public class TenantProvisionedConsumer {
         KafkaReceiver.create(options)
             .receive()
             .flatMap(record -> {
-                try {
-                    return processEvent(record.value())
-                        .doOnSuccess(v -> record.receiverOffset().acknowledge())
-                        .doOnError(e -> log.error("Failed to process tenant provisioned event: {}", e.getMessage()));
-                } catch (Exception e) {
-                    log.error("Error deserializing tenant provisioned event: {}", e.getMessage());
-                    record.receiverOffset().acknowledge();
-                    return Mono.empty();
-                }
+                // Per-record errors are swallowed here — they must never escape to
+                // the outer stream, otherwise .retryWhen() would re-subscribe from
+                // the earliest offset and replay all historical messages in a tight loop.
+                return processEvent(record.value())
+                    .doOnSuccess(v -> record.receiverOffset().acknowledge())
+                    .onErrorResume(e -> {
+                        log.error("[tenant-provisioned] Failed to process record offset={}: {}",
+                            record.receiverOffset().offset(), e.getMessage());
+                        // Acknowledge the bad record so we don't get stuck on it
+                        record.receiverOffset().acknowledge();
+                        return Mono.empty();
+                    });
             })
-            .doOnError(e -> log.error("Tenant provisioned consumer error: {}", e.getMessage()))
-            .retry()
+            // Outer retryWhen only fires on Kafka infrastructure errors (connection lost, etc.)
+            // Exponential backoff prevents CPU-spinning on repeated failures.
+            .retryWhen(Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(5))
+                .maxBackoff(Duration.ofMinutes(2))
+                .doBeforeRetry(sig -> log.warn("[tenant-provisioned] Consumer restarting after error: {}",
+                    sig.failure().getMessage())))
             .subscribe();
     }
 
-    public Mono<Void> processEvent(String json) {
+    private Mono<Void> processEvent(String json) {
         try {
             JsonNode node = objectMapper.readTree(json);
             String tenantId = node.get("tenantId").asText();
-            String slug = node.get("slug").asText();
-            log.info("Processing tenant provisioned event: tenantId={}, slug={}", tenantId, slug);
-            return roleService.seedDefaultRoles(tenantId)
-                .then();
+            String slug     = node.get("slug").asText();
+            log.info("[tenant-provisioned] Seeding default roles for tenant={} slug={}", tenantId, slug);
+            return roleService.seedDefaultRoles(tenantId).then();
         } catch (Exception e) {
-            log.error("Failed to parse tenant provisioned event: {}", e.getMessage());
+            log.error("[tenant-provisioned] Failed to parse event payload: {}", e.getMessage());
             return Mono.error(e);
         }
     }

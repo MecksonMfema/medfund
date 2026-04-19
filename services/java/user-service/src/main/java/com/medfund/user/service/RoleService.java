@@ -9,13 +9,14 @@ import com.medfund.user.dto.RoleResponse;
 import com.medfund.user.entity.Role;
 import com.medfund.user.entity.RolePermission;
 import com.medfund.user.entity.UserRole;
-import com.medfund.user.exception.RoleNotFoundException;
 import com.medfund.user.exception.DuplicateRoleException;
+import com.medfund.user.exception.RoleNotFoundException;
 import com.medfund.user.repository.RolePermissionRepository;
 import com.medfund.user.repository.RoleRepository;
 import com.medfund.user.repository.UserRoleRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
@@ -25,31 +26,18 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class RoleService {
-
-    private static final Logger log = LoggerFactory.getLogger(RoleService.class);
 
     private final RoleRepository roleRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final UserRoleRepository userRoleRepository;
+    private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
     private final UserEventPublisher eventPublisher;
     private final KeycloakSyncService keycloakSyncService;
-
-    public RoleService(RoleRepository roleRepository,
-                       RolePermissionRepository rolePermissionRepository,
-                       UserRoleRepository userRoleRepository,
-                       AuditPublisher auditPublisher,
-                       UserEventPublisher eventPublisher,
-                       KeycloakSyncService keycloakSyncService) {
-        this.roleRepository = roleRepository;
-        this.rolePermissionRepository = rolePermissionRepository;
-        this.userRoleRepository = userRoleRepository;
-        this.auditPublisher = auditPublisher;
-        this.eventPublisher = eventPublisher;
-        this.keycloakSyncService = keycloakSyncService;
-    }
 
     public Flux<Role> findAll() {
         return roleRepository.findAllOrderByName();
@@ -75,15 +63,13 @@ public class RoleService {
                 if (exists) return Mono.error(new DuplicateRoleException(request.name()));
 
                 var role = new Role();
-                role.setId(UUID.randomUUID());
+                // id NOT set — let PostgreSQL generate via DEFAULT gen_random_uuid()
                 role.setName(request.name());
                 role.setDisplayName(request.displayName());
                 role.setDescription(request.description());
                 role.setIsSystem(false);
-                role.setCreatedAt(Instant.now());
-                role.setUpdatedAt(Instant.now());
 
-                return roleRepository.save(role)
+                return r2dbcTemplate.insert(role)
                     .flatMap(savedRole -> {
                         if (request.permissions() == null || request.permissions().isEmpty()) {
                             return Mono.just(savedRole);
@@ -91,11 +77,11 @@ public class RoleService {
                         return Flux.fromIterable(request.permissions())
                             .flatMap(pe -> {
                                 var rp = new RolePermission();
-                                rp.setId(UUID.randomUUID());
+                                // id NOT set — let PostgreSQL generate
                                 rp.setRoleId(savedRole.getId());
                                 rp.setPermission(pe.permission());
                                 rp.setAccessLevel(pe.accessLevelOrDefault());
-                                return rolePermissionRepository.save(rp);
+                                return r2dbcTemplate.insert(rp);
                             })
                             .then(Mono.just(savedRole));
                     })
@@ -103,6 +89,7 @@ public class RoleService {
                         String tenantId = TenantContext.get(ctx);
                         var event = AuditEvent.create(
                             tenantId != null ? tenantId : "unknown", "Role", savedRole.getId().toString(),
+                            savedRole.getName(),
                             "CREATE", actorId, null, null,
                             Map.of("name", savedRole.getName(), "displayName", savedRole.getDisplayName()),
                             new String[]{"name", "displayName", "permissions"},
@@ -122,13 +109,13 @@ public class RoleService {
                     .next();
 
                 var userRole = new UserRole();
-                userRole.setId(UUID.randomUUID());
+                // id NOT set — let PostgreSQL generate
                 userRole.setUserId(request.userId());
                 userRole.setRoleId(request.roleId());
                 userRole.setAssignedAt(Instant.now());
                 userRole.setAssignedBy(UUID.fromString(actorId));
 
-                return userRoleRepository.save(userRole)
+                return r2dbcTemplate.insert(userRole)
                     .flatMap(saved -> roleRepository.findById(request.roleId())
                         .flatMap(role -> Mono.deferContextual(ctx -> {
                             String tenantId = TenantContext.get(ctx);
@@ -139,6 +126,7 @@ public class RoleService {
                             ).then(Mono.deferContextual(innerCtx -> {
                                 var event = AuditEvent.create(
                                     tenantId != null ? tenantId : "unknown", "UserRole", saved.getId().toString(),
+                                    role.getName(),
                                     "CREATE", actorId, null, null,
                                     Map.of("userId", request.userId().toString(), "roleName", role.getName()),
                                     new String[]{"userId", "roleId"},
@@ -155,12 +143,12 @@ public class RoleService {
         log.info("Seeding default roles for tenant: {}", tenantId);
 
         var defaultRoles = java.util.List.of(
-            Map.entry("TENANT_ADMIN", "Tenant Administrator"),
-            Map.entry("OPERATIONS", "Operations Staff"),
-            Map.entry("CLAIMS_OFFICER", "Claims Officer"),
+            Map.entry("TENANT_ADMIN",    "Tenant Administrator"),
+            Map.entry("OPERATIONS",      "Operations Staff"),
+            Map.entry("CLAIMS_OFFICER",  "Claims Officer"),
             Map.entry("FINANCE_OFFICER", "Finance Officer"),
-            Map.entry("PROVIDER", "Healthcare Provider"),
-            Map.entry("MEMBER", "Scheme Member")
+            Map.entry("PROVIDER",        "Service Provider"),
+            Map.entry("MEMBER",          "Scheme Member")
         );
 
         return Flux.fromIterable(defaultRoles)
@@ -168,17 +156,15 @@ public class RoleService {
                 .flatMap(exists -> {
                     if (exists) {
                         log.debug("Role {} already exists for tenant {}, skipping", entry.getKey(), tenantId);
-                        return Mono.empty();
+                        return Mono.<Role>empty();
                     }
                     var role = new Role();
-                    role.setId(UUID.randomUUID());
+                    // id NOT set — let PostgreSQL generate via DEFAULT gen_random_uuid()
                     role.setName(entry.getKey());
                     role.setDisplayName(entry.getValue());
                     role.setDescription("Default system role: " + entry.getValue());
                     role.setIsSystem(true);
-                    role.setCreatedAt(Instant.now());
-                    role.setUpdatedAt(Instant.now());
-                    return roleRepository.save(role);
+                    return r2dbcTemplate.insert(role);
                 }))
             .then();
     }
@@ -191,6 +177,7 @@ public class RoleService {
                 var event = AuditEvent.create(
                     tenantId != null ? tenantId : "unknown", "UserRole",
                     userId.toString() + ":" + roleId.toString(),
+                    roleId.toString(),
                     "DELETE", actorId, null,
                     Map.of("userId", userId.toString(), "roleId", roleId.toString()),
                     null,

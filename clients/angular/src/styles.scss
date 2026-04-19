@@ -174,7 +174,7 @@ a:hover {
   box-shadow: var(--shadow-md);
 }
 
-/* Badge Variants */
+/* Badge / Pill Variants */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -182,11 +182,12 @@ a:hover {
   border-radius: var(--radius-full);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
+  letter-spacing: 0.01em;
   line-height: 1.5;
+  white-space: nowrap;
 }
 
+/* Green — active / success states */
 .badge-active,
 .badge-approved,
 .badge-adjudicated,
@@ -196,23 +197,31 @@ a:hover {
   color: #1a9a8e;
 }
 
+/* Amber — pending / in-progress states */
 .badge-pending,
 .badge-submitted,
 .badge-draft,
 .badge-in_adjudication,
-.badge-processing {
+.badge-in-adjudication,
+.badge-pending_verification,
+.badge-processing,
+.badge-invited {
   background: var(--color-warning-light);
   color: #c47800;
 }
 
+/* Red — rejected / suspended / failed states */
 .badge-rejected,
 .badge-suspended,
 .badge-overdue,
-.badge-failed {
+.badge-failed,
+.badge-over_age,
+.badge-terminated {
   background: var(--color-error-light);
   color: #c4162d;
 }
 
+/* Blue — enrolled / verified / info states */
 .badge-enrolled,
 .badge-verified,
 .badge-info {

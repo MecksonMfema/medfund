@@ -30,7 +30,15 @@ public record CreateTenantRequest(
         @Pattern(regexp = "^(GROUP_ONLY|INDIVIDUAL_ONLY|BOTH)$", message = "Must be GROUP_ONLY, INDIVIDUAL_ONLY, or BOTH")
         String membershipModel,
 
-        String defaultCurrencyCode
+        String defaultCurrencyCode,
+
+        /**
+         * Initial tenant settings as a JSON string.
+         * Primarily used to store {@code insuranceLines} — the set of insurance
+         * products this tenant offers (e.g. HEALTH, LIFE, VEHICLE, FUNERAL).
+         * Example: {@code {"insuranceLines":["HEALTH","LIFE"]}}
+         */
+        String settings
 ) {
     public String timezoneOrDefault() {
         return (timezone == null || timezone.isBlank()) ? "UTC" : timezone;
@@ -42,5 +50,9 @@ public record CreateTenantRequest(
 
     public String defaultCurrencyCodeOrDefault() {
         return (defaultCurrencyCode == null || defaultCurrencyCode.isBlank()) ? "USD" : defaultCurrencyCode;
+    }
+
+    public String settingsOrDefault() {
+        return (settings == null || settings.isBlank()) ? "{}" : settings;
     }
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
 	"github.com/medfund/gateway/internal/config"
+	"github.com/medfund/gateway/internal/events"
 	"github.com/medfund/gateway/internal/middleware"
 	"github.com/medfund/gateway/internal/routes"
 )
@@ -33,15 +34,18 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	// JWT middleware (used for session and protected routes)
-	jwtMw := middleware.NewJWTMiddleware(cfg.KeycloakURL, cfg.KeycloakRealm)
+	// Kafka publisher for security events (login, logout, failed auth).
+	// If Kafka is unreachable the publisher is still created — writes fail
+	// silently so auth is never blocked by Kafka availability.
+	publisher := events.NewPublisher(cfg.KafkaBrokers)
+	defer publisher.Close()
+
+	// JWT middleware — receives the publisher so it can emit security events
+	jwtMw := middleware.NewJWTMiddleware(cfg.KeycloakURL, cfg.KeycloakRealm, publisher)
 
 	// Health check and auth endpoints — no JWT required
 	app.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{
-			"status":  "ok",
-			"service": "gateway",
-		})
+		return c.JSON(fiber.Map{"status": "ok", "service": "gateway"})
 	})
 	app.Post("/auth/session", jwtMw.SessionHandler())
 	app.Post("/auth/logout", jwtMw.LogoutHandler())

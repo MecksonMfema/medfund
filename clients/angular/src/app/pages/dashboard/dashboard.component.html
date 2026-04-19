@@ -1,14 +1,83 @@
-<h1>Dashboard</h1>
-<div class="stats-grid">
-  <app-stat-card label="Total Claims" [value]="totalClaims" color="blue"></app-stat-card>
-  <app-stat-card label="Pending Claims" [value]="pendingClaims" color="orange"></app-stat-card>
-  <app-stat-card label="Approved Today" [value]="approvedToday" color="green"></app-stat-card>
-  <app-stat-card label="Rejected" [value]="rejectedClaims" color="red"></app-stat-card>
+<!-- Welcome banner -->
+<div class="welcome-banner">
+  <div class="welcome-brand">
+    @if (logoUrl) {
+      <img class="welcome-logo" [src]="logoUrl" [alt]="tenantName" />
+    } @else {
+      <div class="welcome-initial">{{ tenantInitial }}</div>
+    }
+    <div class="welcome-text">
+      <h2 class="welcome-title">{{ tenantName }}</h2>
+      <p class="welcome-sub">System overview — staff access, activity, and security events.</p>
+    </div>
+  </div>
 </div>
-<div class="section">
-  <app-data-table
-    title="Recent Claims"
-    [columns]="claimColumns"
-    [data]="recentClaims">
-  </app-data-table>
+
+<!-- User stats -->
+<div class="stats-grid">
+  <app-stat-card label="Total Users"    [value]="totalUsers"     color="blue"></app-stat-card>
+  <app-stat-card label="Active"         [value]="activeUsers"    color="green"></app-stat-card>
+  <app-stat-card label="Suspended"      [value]="suspendedUsers" color="red"></app-stat-card>
+  <app-stat-card label="Pending Invite" [value]="pendingUsers"   color="orange"></app-stat-card>
+</div>
+
+<!-- Main content row -->
+<div class="content-row">
+
+  <!-- System activity chart -->
+  <div class="content-left">
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>System Activity</h3>
+        <span class="chart-period">Audit events per day — last 30 days</span>
+      </div>
+      <div class="chart-body">
+        @if (!hasTenantContext) {
+          <div class="chart-empty">No tenant context — navigate from the platform admin to view data.</div>
+        } @else {
+          <app-area-chart
+            [data]="activityData"
+            [colorScheme]="colorScheme"
+            xAxisLabel="Date"
+            yAxisLabel="Events"
+            [legend]="false"
+            [xAxisTicks]="activityTicks"
+          ></app-area-chart>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent audit log -->
+  <div class="content-right">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">Recent Activity</h3>
+        <a class="card-link" routerLink="/tenant/admin">View all</a>
+      </div>
+
+      @if (!hasTenantContext) {
+        <div class="audit-empty">Navigate from Platform Admin → Tenant Portal to see tenant-scoped events.</div>
+      } @else if (auditLoading) {
+        <div class="audit-empty">Loading…</div>
+      } @else if (recentAudit.length === 0) {
+        <div class="audit-empty">No events yet for this tenant.</div>
+      } @else {
+        <ul class="audit-list">
+          @for (event of recentAudit; track event.id) {
+            <li class="audit-item">
+              <span class="audit-dot" [class]="'audit-dot--' + actionColor(event.action)"></span>
+              <div class="audit-body">
+                <span class="audit-action">{{ actionLabel(event.action) }}</span>
+                <span class="audit-entity">{{ formatDisplay(event._display) }}</span>
+                <span class="audit-meta">by {{ formatDisplay(event._actor) }}</span>
+              </div>
+              <span class="audit-time">{{ event.timestamp | date:'dd MMM, HH:mm' }}</span>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+
 </div>

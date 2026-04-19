@@ -28,11 +28,15 @@ func Handler(backendURL string) fiber.Handler {
 		req.SetRequestURI(backendURL + string(c.Request().RequestURI()))
 		req.Header.SetHost("") // Let fasthttp set the host from URI
 
-		// Forward tenant and auth headers
+		// Forward tenant header
 		if tenantID := c.Get("X-Tenant-ID"); tenantID != "" {
 			req.Header.Set("X-Tenant-ID", tenantID)
 		}
-		if auth := c.Get("Authorization"); auth != "" {
+
+		// Inject Authorization header from validated JWT (cookie auth sends no header)
+		if token, ok := c.Locals("jwt_token").(string); ok && token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		} else if auth := c.Get("Authorization"); auth != "" {
 			req.Header.Set("Authorization", auth)
 		}
 

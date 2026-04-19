@@ -1,0 +1,57 @@
+<div class="tenant-shell" [class.collapsed]="collapsed" #shell>
+  <app-tenant-sidebar></app-tenant-sidebar>
+
+  <div class="tenant-main">
+    <header class="t-header">
+      <!-- Left: hamburger + tenant brand + current page -->
+      <div class="t-header-left">
+        <button class="t-menu-btn" (click)="toggleSidebar()" title="Toggle sidebar">
+          <app-icon name="menu" [size]="20"></app-icon>
+        </button>
+
+        <!-- Tenant identity -->
+        <div class="t-brand">
+          @if (tenantLogoUrl) {
+            <img class="t-brand-logo" [src]="tenantLogoUrl" [alt]="tenantName" />
+          } @else if (tenantInitial) {
+            <span class="t-brand-initial">{{ tenantInitial }}</span>
+          }
+          <span class="t-brand-name">{{ tenantName }}</span>
+        </div>
+
+        <!-- Separator + current page context -->
+        @if (pageTitle && tenantName) {
+          <span class="t-breadcrumb-sep">/</span>
+          <span class="t-page-label">{{ pageTitle }}</span>
+        }
+      </div>
+
+      <!-- Right: notifications + user -->
+      <div class="t-header-right">
+        <button class="t-icon-btn" title="Notifications">
+          <app-icon name="bell" [size]="20"></app-icon>
+          <span class="t-notif-dot"></span>
+        </button>
+
+        <div class="t-user" (click)="userMenuOpen = !userMenuOpen">
+          <div class="t-avatar">{{ userInitials }}</div>
+          <span class="t-user-name">{{ userName }}</span>
+          <app-icon name="chevron-down" [size]="14"></app-icon>
+        </div>
+
+        @if (userMenuOpen) {
+          <div class="t-user-menu" (click)="userMenuOpen = false">
+            <button class="t-menu-item danger" (click)="logout()">
+              <app-icon name="logout" [size]="16"></app-icon>
+              <span>Sign out</span>
+            </button>
+          </div>
+        }
+      </div>
+    </header>
+
+    <div class="tenant-content">
+      <router-outlet></router-outlet>
+    </div>
+  </div>
+</div>

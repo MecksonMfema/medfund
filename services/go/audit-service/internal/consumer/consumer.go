@@ -3,6 +3,7 @@ package consumer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -45,11 +46,14 @@ func (c *AuditConsumer) consume(ctx context.Context, topic string, handle func([
 		MinBytes:       1,
 		MaxBytes:       10 << 20, // 10 MB
 		MaxWait:        500 * time.Millisecond,
-		StartOffset:    kafka.LastOffset,
+		// FirstOffset: on first run (or after consumer-group reset) replay all
+		// retained messages so the in-memory store is fully populated on startup.
+		// For subsequent restarts the committed group offset takes precedence.
+		StartOffset:    kafka.FirstOffset,
 		CommitInterval: time.Second,
 		Logger:         kafka.LoggerFunc(func(msg string, args ...interface{}) {}), // silence info logs
-		ErrorLogger:    kafka.LoggerFunc(func(msg string, args ...interface{}) {
-			log.Printf("[audit-consumer][%s] %s", topic, msg)
+		ErrorLogger: kafka.LoggerFunc(func(msg string, args ...interface{}) {
+			log.Printf("[audit-consumer][%s] %s", topic, fmt.Sprintf(msg, args...))
 		}),
 	})
 	defer r.Close()

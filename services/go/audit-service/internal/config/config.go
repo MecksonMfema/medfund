@@ -7,6 +7,7 @@ type Config struct {
 	KafkaBrokers    string
 	ConsumerGroupID string
 	DatabaseURL     string
+	RedisURL        string
 }
 
 func Load() *Config {
@@ -14,7 +15,8 @@ func Load() *Config {
 		Port:            getEnv("PORT", "3002"),
 		KafkaBrokers:    getEnv("KAFKA_BROKERS", "localhost:9092"),
 		ConsumerGroupID: getEnv("CONSUMER_GROUP_ID", "audit-service"),
-		DatabaseURL:     getEnv("DATABASE_URL", "postgres://medfund:medfund@localhost:5432/medfund_audit?sslmode=disable"),
+		DatabaseURL:     getEnv("DATABASE_URL", "postgres://medfund:medfund@localhost:5432/medfund?sslmode=disable"),
+		RedisURL:        getEnv("REDIS_URL", "redis://localhost:6379/0"),
 	}
 }
 

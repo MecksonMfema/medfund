@@ -9,10 +9,11 @@ public record CreateProviderRequest(
     String name,
 
     @Size(max = 50)
-    String practiceNumber,
+    String providerType,
 
-    @Size(max = 50)
-    String ahfozNumber,
+    /** Generic registration / licence / AHFOZ number — meaning depends on tenant insurance line. */
+    @Size(max = 100)
+    String registrationNumber,
 
     @Size(max = 100)
     String specialty,
@@ -22,6 +23,9 @@ public record CreateProviderRequest(
 
     @Size(max = 50)
     String phone,
+
+    @Size(max = 100)
+    String city,
 
     String address,
 

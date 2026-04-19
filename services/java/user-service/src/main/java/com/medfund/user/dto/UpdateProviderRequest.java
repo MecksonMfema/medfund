@@ -8,10 +8,10 @@ public record UpdateProviderRequest(
     String name,
 
     @Size(max = 50)
-    String practiceNumber,
+    String providerType,
 
-    @Size(max = 50)
-    String ahfozNumber,
+    @Size(max = 100)
+    String registrationNumber,
 
     @Size(max = 100)
     String specialty,
@@ -21,6 +21,9 @@ public record UpdateProviderRequest(
 
     @Size(max = 50)
     String phone,
+
+    @Size(max = 100)
+    String city,
 
     String address,
 

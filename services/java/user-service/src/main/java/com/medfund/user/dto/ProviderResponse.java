@@ -8,11 +8,12 @@ import java.util.UUID;
 public record ProviderResponse(
     UUID id,
     String name,
-    String practiceNumber,
-    String ahfozNumber,
+    String providerType,
+    String registrationNumber,
     String specialty,
     String email,
     String phone,
+    String city,
     String address,
     String bankingDetails,
     String keycloakUserId,
@@ -22,8 +23,9 @@ public record ProviderResponse(
 ) {
     public static ProviderResponse from(Provider p) {
         return new ProviderResponse(
-            p.getId(), p.getName(), p.getPracticeNumber(), p.getAhfozNumber(),
-            p.getSpecialty(), p.getEmail(), p.getPhone(), p.getAddress(),
+            p.getId(), p.getName(), p.getProviderType(),
+            p.getRegistrationNumber(),
+            p.getSpecialty(), p.getEmail(), p.getPhone(), p.getCity(), p.getAddress(),
             p.getBankingDetails(), p.getKeycloakUserId(), p.getStatus(),
             p.getCreatedAt(), p.getUpdatedAt()
         );

@@ -7,6 +7,7 @@ type Event struct {
 	TenantID      string                 `json:"tenantId"`
 	EntityType    string                 `json:"entityType"`
 	EntityID      string                 `json:"entityId"`
+	EntityName    string                 `json:"entityName"`
 	Action        string                 `json:"action"`
 	ActorID       string                 `json:"actorId"`
 	ActorEmail    string                 `json:"actorEmail"`
@@ -18,14 +19,15 @@ type Event struct {
 }
 
 type SecurityEvent struct {
-	ID        string    `json:"id"`
-	TenantID  string    `json:"tenantId"`
-	EventType string    `json:"eventType"` // LOGIN, LOGOUT, FAILED_AUTH, MFA, PASSWORD_CHANGE, etc.
-	UserID    string    `json:"userId"`
-	IPAddress string    `json:"ipAddress"`
-	UserAgent string    `json:"userAgent"`
-	Details   string    `json:"details"`
-	Timestamp time.Time `json:"timestamp"`
+	ID         string    `json:"id"`
+	TenantID   string    `json:"tenantId"`
+	EventType  string    `json:"eventType"` // LOGIN, LOGOUT, LOGIN_ERROR, RESET_PASSWORD, VERIFY_EMAIL, etc.
+	UserID     string    `json:"userId"`
+	ActorEmail string    `json:"actorEmail"` // email or username resolved by the Keycloak SPI
+	IPAddress  string    `json:"ipAddress"`
+	UserAgent  string    `json:"userAgent"`
+	Details    string    `json:"details"`
+	Timestamp  time.Time `json:"timestamp"`
 }
 
 type QueryFilter struct {
@@ -34,6 +36,7 @@ type QueryFilter struct {
 	EntityID   string
 	Action     string
 	ActorID    string
+	Query      string // free-text: matches entityType, entityName, entityId, actorEmail, actorId
 	StartDate  time.Time
 	EndDate    time.Time
 	Page       int

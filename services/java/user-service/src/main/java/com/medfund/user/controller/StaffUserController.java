@@ -69,8 +69,9 @@ public class StaffUserController {
     public Mono<StaffUserResponse> create(
             @Valid @RequestBody CreateStaffUserRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        String actorId = jwt != null ? jwt.getSubject() : null;
-        return service.create(request, actorId).map(StaffUserResponse::from);
+        String actorId    = jwt != null ? jwt.getSubject()          : null;
+        String actorEmail = jwt != null ? resolveActorEmail(jwt)     : null;
+        return service.create(request, actorId, actorEmail).map(StaffUserResponse::from);
     }
 
     @PutMapping("/{id}")
@@ -79,8 +80,9 @@ public class StaffUserController {
             @PathVariable UUID id,
             @Valid @RequestBody UpdateStaffUserRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        String actorId = jwt != null ? jwt.getSubject() : null;
-        return service.update(id, request, actorId).map(StaffUserResponse::from);
+        String actorId    = jwt != null ? jwt.getSubject()      : null;
+        String actorEmail = jwt != null ? resolveActorEmail(jwt) : null;
+        return service.update(id, request, actorId, actorEmail).map(StaffUserResponse::from);
     }
 
     @PostMapping("/{id}/suspend")
@@ -88,8 +90,9 @@ public class StaffUserController {
     public Mono<StaffUserResponse> suspend(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
-        String actorId = jwt != null ? jwt.getSubject() : null;
-        return service.suspend(id, actorId).map(StaffUserResponse::from);
+        String actorId    = jwt != null ? jwt.getSubject()      : null;
+        String actorEmail = jwt != null ? resolveActorEmail(jwt) : null;
+        return service.suspend(id, actorId, actorEmail).map(StaffUserResponse::from);
     }
 
     @PostMapping("/{id}/activate")
@@ -97,8 +100,18 @@ public class StaffUserController {
     public Mono<StaffUserResponse> activate(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
-        String actorId = jwt != null ? jwt.getSubject() : null;
-        return service.activate(id, actorId).map(StaffUserResponse::from);
+        String actorId    = jwt != null ? jwt.getSubject()      : null;
+        String actorEmail = jwt != null ? resolveActorEmail(jwt) : null;
+        return service.activate(id, actorId, actorEmail).map(StaffUserResponse::from);
+    }
+
+    @PostMapping("/{id}/resend-invite")
+    @Operation(summary = "Resend invite email",
+               description = "Re-triggers Keycloak's execute-actions-email so the user gets a fresh password-setup link.")
+    @ApiResponse(responseCode = "200", description = "Invite email re-sent")
+    @ApiResponse(responseCode = "404", description = "User not found")
+    public Mono<StaffUserResponse> resendInvite(@PathVariable UUID id) {
+        return service.resendInvite(id).map(StaffUserResponse::from);
     }
 
     @DeleteMapping("/{id}")
@@ -107,7 +120,14 @@ public class StaffUserController {
     public Mono<Void> delete(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
-        String actorId = jwt != null ? jwt.getSubject() : null;
-        return service.delete(id, actorId);
+        String actorId    = jwt != null ? jwt.getSubject()      : null;
+        String actorEmail = jwt != null ? resolveActorEmail(jwt) : null;
+        return service.delete(id, actorId, actorEmail);
+    }
+
+    /** Reads email from the JWT, falling back to preferred_username. */
+    private static String resolveActorEmail(Jwt jwt) {
+        String email = jwt.getClaimAsString("email");
+        return email != null ? email : jwt.getClaimAsString("preferred_username");
     }
 }

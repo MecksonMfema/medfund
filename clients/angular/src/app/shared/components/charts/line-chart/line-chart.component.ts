@@ -17,4 +17,6 @@ export class LineChartComponent {
   @Input() legendTitle = '';
   @Input() gradient = false;
   @Input() colorScheme: Color = OCEAN_BREEZE_SCHEME;
+  /** Pass [undefined, height] to let the chart fill its container width. */
+  @Input() view: [number, number] | undefined = undefined;
 }

@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard, roleGuard } from './auth/auth.guard';
 import { LayoutComponent } from './layout/layout.component';
+import { TenantLayoutComponent } from './layout/tenant-layout/tenant-layout.component';
 
 // Lazy load the role redirect component - reused by multiple routes
 const loadRoleRedirect = () =>
@@ -44,12 +45,17 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/platform/analytics/analytics.component').then(m => m.AnalyticsComponent),
         data: { title: 'Analytics' },
       },
+      {
+        path: 'providers',
+        loadComponent: () => import('./pages/providers/providers.component').then(m => m.ProvidersComponent),
+        data: { title: 'Providers' },
+      },
     ],
   },
-  // Tenant-scoped routes (existing pages)
+  // Tenant-scoped routes — uses dedicated TenantLayoutComponent (dark teal sidebar)
   {
     path: 'tenant',
-    component: LayoutComponent,
+    component: TenantLayoutComponent,
     canActivate: [authGuard],
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
@@ -58,7 +64,6 @@ export const routes: Routes = [
       { path: 'contributions', loadComponent: () => import('./pages/contributions/contributions.component').then(m => m.ContributionsComponent), data: { title: 'Contributions' } },
       { path: 'finance', loadComponent: () => import('./pages/finance/finance.component').then(m => m.FinanceComponent), data: { title: 'Finance' } },
       { path: 'members', loadComponent: () => import('./pages/members/members.component').then(m => m.MembersComponent), data: { title: 'Members' } },
-      { path: 'providers', loadComponent: () => import('./pages/providers/providers.component').then(m => m.ProvidersComponent), data: { title: 'Providers' } },
       { path: 'admin', loadComponent: () => import('./pages/admin/admin.component').then(m => m.AdminComponent), data: { title: 'Administration' } },
     ],
   },
@@ -68,7 +73,7 @@ export const routes: Routes = [
   { path: 'contributions', canActivate: [authGuard], loadComponent: loadRoleRedirect },
   { path: 'finance', canActivate: [authGuard], loadComponent: loadRoleRedirect },
   { path: 'members', canActivate: [authGuard], loadComponent: loadRoleRedirect },
-  { path: 'providers', canActivate: [authGuard], loadComponent: loadRoleRedirect },
+  { path: 'providers', redirectTo: '/platform/providers', pathMatch: 'full' },
   { path: 'admin', canActivate: [authGuard], loadComponent: loadRoleRedirect },
   // Root — role-based redirect
   {
