@@ -1,6 +1,7 @@
 package com.medfund.user.controller;
 
 import com.medfund.user.dto.CreateMemberRequest;
+import com.medfund.user.dto.CursorPage;
 import com.medfund.user.dto.MemberResponse;
 import com.medfund.user.dto.UpdateMemberRequest;
 import com.medfund.user.service.MemberService;
@@ -14,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.security.Principal;
 import java.util.UUID;
@@ -31,9 +33,15 @@ public class MemberController {
     }
 
     @GetMapping
-    @Operation(summary = "List all members")
-    public Flux<MemberResponse> findAll() {
-        return memberService.findAll().map(MemberResponse::from);
+    @Operation(summary = "List members with cursor pagination",
+               description = "Pass cursor from previous response to get the next page. " +
+                             "Use q for full-text search, status to filter by member status.")
+    public Mono<CursorPage<MemberResponse>> findAll(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(defaultValue = "20") int limit) {
+        return memberService.findPage(q, status, cursor, Math.min(limit, 100));
     }
 
     @GetMapping("/{id}")

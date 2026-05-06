@@ -85,8 +85,8 @@ This starts PostgreSQL 17, Redis 7, Kafka (KRaft), Keycloak 26, and MinIO.
 
 | Service | URL |
 |---------|-----|
-| PostgreSQL | `localhost:5432` (user: `medfund`, pass: `medfund`) |
-| Redis | `localhost:6379` |
+| PostgreSQL | `localhost:5433` (user: `medfund`, pass: `medfund`) |
+| Redis | `localhost:6380` |
 | Kafka | `localhost:9092` |
 | Kafka UI | http://localhost:8090 |
 | Keycloak | http://localhost:9080 (admin: `admin`/`admin`) |

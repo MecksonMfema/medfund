@@ -64,6 +64,7 @@ export const routes: Routes = [
       { path: 'contributions', loadComponent: () => import('./pages/contributions/contributions.component').then(m => m.ContributionsComponent), data: { title: 'Contributions' } },
       { path: 'finance', loadComponent: () => import('./pages/finance/finance.component').then(m => m.FinanceComponent), data: { title: 'Finance' } },
       { path: 'members', loadComponent: () => import('./pages/members/members.component').then(m => m.MembersComponent), data: { title: 'Members' } },
+      { path: 'users', loadComponent: () => import('./pages/tenant-users/tenant-users.component').then(m => m.TenantUsersComponent), data: { title: 'Users & Members' } },
       { path: 'admin', loadComponent: () => import('./pages/admin/admin.component').then(m => m.AdminComponent), data: { title: 'Administration' } },
     ],
   },

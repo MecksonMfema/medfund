@@ -83,8 +83,13 @@ public class KeycloakSyncService {
      * Errors are propagated — the caller receives a failure if email delivery cannot be initiated.
      */
     public Mono<Void> sendInviteEmail(String realm, String keycloakUserId) {
-        String path = String.format("%s/admin/realms/%s/users/%s/execute-actions-email?client_id=%s",
-                keycloakUrl, realm, keycloakUserId, keycloakClientId);
+        // lifespan = how long the magic link in the email stays valid (seconds).
+        // Mirrors StaffUserService.INVITE_TTL — kept here as a literal to avoid
+        // a cross-package import in this thin Keycloak adapter.
+        long lifespanSeconds = java.time.Duration.ofDays(7).toSeconds();
+        String path = String.format(
+                "%s/admin/realms/%s/users/%s/execute-actions-email?client_id=%s&lifespan=%d",
+                keycloakUrl, realm, keycloakUserId, keycloakClientId, lifespanSeconds);
         return getAdminToken()
             .flatMap(token -> webClient.put()
                 .uri(path)

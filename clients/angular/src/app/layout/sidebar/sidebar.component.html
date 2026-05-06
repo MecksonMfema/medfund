@@ -5,10 +5,16 @@
     @if (!collapsed) {
       <span class="logo-text">MedFund</span>
     }
-    <button class="collapse-btn" (click)="toggleSidebar()">
-      <app-icon [name]="collapsed ? 'chevron-right' : 'chevron-left'" [size]="18"></app-icon>
-    </button>
   </div>
+
+  <!-- Floating collapse / expand button — half-overlaps the sidebar's right edge -->
+  <button
+    class="collapse-btn"
+    (click)="toggleSidebar()"
+    [title]="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+    [attr.aria-label]="collapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+    <app-icon [name]="collapsed ? 'chevron-right' : 'chevron-left'" [size]="14"></app-icon>
+  </button>
 
   <!-- User Info -->
   <div class="user-section">

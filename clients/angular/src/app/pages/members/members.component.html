@@ -1,15 +1,22 @@
 <h1>Members</h1>
 <div class="stats-grid">
-  <app-stat-card label="Active Members" [value]="activeCount" color="green"></app-stat-card>
-  <app-stat-card label="Enrolled" [value]="enrolledCount" color="blue"></app-stat-card>
-  <app-stat-card label="Suspended" [value]="suspendedCount" color="orange"></app-stat-card>
-  <app-stat-card label="Terminated" [value]="terminatedCount" color="red"></app-stat-card>
+  <app-stat-card label="Active Members"  [value]="activeCount"    color="green"></app-stat-card>
+  <app-stat-card label="Enrolled"        [value]="enrolledCount"  color="blue"></app-stat-card>
+  <app-stat-card label="Suspended"       [value]="suspendedCount" color="orange"></app-stat-card>
+  <app-stat-card label="Terminated"      [value]="terminatedCount" color="red"></app-stat-card>
 </div>
 <div class="search-bar">
-  <input type="text" [(ngModel)]="searchQuery" (input)="onSearch()" placeholder="Search by name or member number..." />
+  <input type="text" [(ngModel)]="searchQuery" (ngModelChange)="onSearch()" placeholder="Search by name or member number..." />
 </div>
 <app-data-table
   title="Member List"
   [columns]="columns"
-  [data]="filteredMembers">
+  [data]="members"
+  [loading]="loading"
+  [serverSide]="true"
+  [searchable]="false"
+  [hasPrev]="hasPrev"
+  [hasNext]="hasNext"
+  (prevPage)="prevPage()"
+  (nextPage)="nextPage()">
 </app-data-table>

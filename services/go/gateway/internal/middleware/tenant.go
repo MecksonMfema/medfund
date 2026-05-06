@@ -8,6 +8,10 @@ import (
 
 // platformPaths are platform-level endpoints that do not belong to any single
 // tenant and must be accessible without a tenant context (super admin operations).
+//
+// Providers live in a single platform-wide registry — the same doctor / clinic
+// can serve members of multiple tenants — so they are never tenant-scoped.
+// Audit events span all tenants when viewed from the platform admin portal.
 var platformPaths = []string{
 	"/health",
 	"/swagger",
@@ -17,6 +21,10 @@ var platformPaths = []string{
 	"/api/v1/staff-users",
 	"/api/v1/platform",
 	"/api/v1/roles",
+	"/api/v1/tenant-stats",
+	"/api/v1/providers",
+	"/api/v1/audit",
+	"/api/v1/scheduled-jobs",
 }
 
 // TenantResolver returns a Fiber middleware that resolves the current tenant from

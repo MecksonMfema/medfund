@@ -51,7 +51,7 @@ public class PlatformStatsController {
                         .map(s -> {
                             long total = multimap.getOrDefault(s, java.util.List.of())
                                     .stream().mapToLong(v -> v == null ? 0L : v).sum();
-                            return (Map<String, Object>) Map.of(
+                            return Map.<String, Object>of(
                                     "status", s,
                                     "count",  total,
                                     "color",  colors.getOrDefault(s, "#cccccc"));

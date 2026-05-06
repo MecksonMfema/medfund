@@ -12,7 +12,7 @@ services:
       POSTGRES_DB: medfund
       POSTGRES_HOST_AUTH_METHOD: trust
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/docker/init-db.sql:/docker-entrypoint-initdb.d/init.sql
@@ -28,7 +28,7 @@ services:
     container_name: medfund-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -82,8 +82,8 @@ services:
     container_name: medfund-mailpit
     restart: unless-stopped
     ports:
-      - "1025:1025"   # SMTP — Keycloak and services send here
-      - "8025:8025"   # Web UI — view all caught emails
+      - "1026:1025"   # SMTP — Keycloak and services send here
+      - "8026:8025"   # Web UI — view all caught emails
     environment:
       MP_MAX_MESSAGES: 5000
       MP_SMTP_AUTH_ACCEPT_ANY: 1

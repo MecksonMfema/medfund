@@ -32,18 +32,12 @@
         <span class="chart-period">Audit events per day — last 30 days</span>
       </div>
       <div class="chart-body">
-        @if (!hasTenantContext) {
-          <div class="chart-empty">No tenant context — navigate from the platform admin to view data.</div>
-        } @else {
-          <app-area-chart
-            [data]="activityData"
-            [colorScheme]="colorScheme"
-            xAxisLabel="Date"
-            yAxisLabel="Events"
-            [legend]="false"
-            [xAxisTicks]="activityTicks"
-          ></app-area-chart>
-        }
+        <app-area-chart
+          [data]="activityData"
+          xAxisLabel="Date"
+          yAxisLabel="Events"
+          [yScaleMax]="activityMax"
+        ></app-area-chart>
       </div>
     </div>
   </div>

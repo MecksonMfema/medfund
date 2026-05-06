@@ -36,8 +36,17 @@ public class StaffUser {
     private String department;
     @Column("realm_role")       private String realmRole;
     @Column("keycloak_user_id") private String keycloakUserId;
+    /** Null for platform super_admin users; non-null for all tenant-scoped staff. */
+    @Column("tenant_id")        private UUID tenantId;
 
     private String status;
+
+    /**
+     * Timestamp the most recent invite email was sent. The Keycloak link
+     * generated alongside it expires {@link com.medfund.user.service.StaffUserService#INVITE_TTL}
+     * after this point. Cleared (or simply ignored) once status flips to 'active'.
+     */
+    @Column("invited_at") private Instant invitedAt;
 
     @CreatedDate  @Column("created_at") private Instant createdAt;
     @LastModifiedDate @Column("updated_at") private Instant updatedAt;

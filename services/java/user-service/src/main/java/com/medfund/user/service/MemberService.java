@@ -4,6 +4,8 @@ import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import com.medfund.user.dto.CreateMemberRequest;
+import com.medfund.user.dto.CursorPage;
+import com.medfund.user.dto.MemberResponse;
 import com.medfund.user.dto.UpdateMemberRequest;
 import com.medfund.user.entity.Member;
 import com.medfund.user.exception.MemberNotFoundException;
@@ -17,8 +19,10 @@ import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -37,6 +41,53 @@ public class MemberService {
 
     public Flux<Member> findAll() {
         return memberRepository.findAllOrderByCreatedAtDesc();
+    }
+
+    /**
+     * Cursor-based paginated list of members with optional search and status filter.
+     * Decodes the cursor to retrieve the correct page; encodes a next cursor from the last item.
+     */
+    public Mono<CursorPage<MemberResponse>> findPage(String q, String status, String cursor, int limit) {
+        Instant cursorTs = null;
+        UUID cursorId = null;
+        if (cursor != null && !cursor.isBlank()) {
+            String[] parts = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8).split(":", 2);
+            cursorTs = Instant.ofEpochMilli(Long.parseLong(parts[0]));
+            cursorId = UUID.fromString(parts[1]);
+        }
+
+        boolean hasQ = q != null && !q.isBlank();
+        boolean hasStatus = status != null && !status.isBlank();
+        int fetch = limit + 1; // one extra to detect hasMore
+
+        Flux<Member> source;
+        if (hasQ) {
+            source = cursorTs == null
+                    ? memberRepository.searchFirstPage(q, fetch)
+                    : memberRepository.searchNextPage(q, cursorTs, cursorId, fetch);
+        } else if (hasStatus) {
+            source = cursorTs == null
+                    ? memberRepository.findFirstPageByStatus(status, fetch)
+                    : memberRepository.findNextPageByStatus(status, cursorTs, cursorId, fetch);
+        } else {
+            source = cursorTs == null
+                    ? memberRepository.findFirstPage(fetch)
+                    : memberRepository.findNextPage(cursorTs, cursorId, fetch);
+        }
+
+        return source.collectList().map(rows -> {
+            boolean hasMore = rows.size() > limit;
+            List<Member> content = hasMore ? rows.subList(0, limit) : rows;
+            String nextCursor = null;
+            if (hasMore && !content.isEmpty()) {
+                Member last = content.get(content.size() - 1);
+                String raw = last.getCreatedAt().toEpochMilli() + ":" + last.getId();
+                nextCursor = Base64.getUrlEncoder().withoutPadding()
+                        .encodeToString(raw.getBytes(StandardCharsets.UTF_8));
+            }
+            List<MemberResponse> dto = content.stream().map(MemberResponse::from).toList();
+            return new CursorPage<>(dto, nextCursor, hasMore, limit);
+        });
     }
 
     public Mono<Member> findById(UUID id) {

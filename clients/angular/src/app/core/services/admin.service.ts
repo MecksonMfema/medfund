@@ -3,6 +3,13 @@ import { Observable, of, shareReplay } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 import { ApiService } from './api.service';
 
+export interface CursorPage<T> {
+  content: T[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  limit: number;
+}
+
 export interface StaffUser {
   id: string;
   firstName: string;
@@ -12,7 +19,14 @@ export interface StaffUser {
   jobTitle?: string;
   department?: string;
   realmRole: string;
+  tenantId?: string;
   status: string;
+  /** ISO timestamp the most recent invite email was sent. */
+  invitedAt?: string;
+  /** ISO timestamp the invite link expires (invitedAt + 7d). */
+  inviteExpiresAt?: string;
+  /** True when the user has completed the password-set flow. */
+  inviteAccepted?: boolean;
   createdAt: string;
 }
 
@@ -134,7 +148,22 @@ export class AdminService {
   }
 
   // Users
-  getStaffUsers(params?: Record<string, string>): Observable<StaffUser[]> {
+  getStaffPage(opts: { q?: string; cursor?: string; limit?: number }, tenantId?: string): Observable<CursorPage<StaffUser>> {
+    const params: Record<string, string> = {};
+    if (opts.q)      params['q']      = opts.q;
+    if (opts.cursor) params['cursor'] = opts.cursor;
+    if (opts.limit)  params['limit']  = String(opts.limit);
+    if (tenantId) {
+      return this.api.getWithHeaders<CursorPage<StaffUser>>('/staff-users', { 'X-Tenant-ID': tenantId }, params);
+    }
+    return this.api.get<CursorPage<StaffUser>>('/staff-users', params);
+  }
+
+  /** @deprecated use getStaffPage */
+  getStaffUsers(params?: Record<string, string>, tenantId?: string): Observable<StaffUser[]> {
+    if (tenantId) {
+      return this.api.getWithHeaders<StaffUser[]>('/staff-users', { 'X-Tenant-ID': tenantId }, params);
+    }
     return this.api.get<StaffUser[]>('/staff-users', params);
   }
 
@@ -146,6 +175,7 @@ export class AdminService {
   createStaffUser(data: {
     firstName: string; lastName: string; email: string;
     jobTitle?: string; department?: string; realmRole: string;
+    tenantId?: string | null;
   }): Observable<StaffUser> {
     return this.api.post<StaffUser>('/staff-users', data);
   }
@@ -159,6 +189,17 @@ export class AdminService {
 
   resendStaffInvite(id: string): Observable<StaffUser> {
     return this.api.post<StaffUser>(`/staff-users/${id}/resend-invite`, {});
+  }
+
+  /** All staff users with status='invited' (platform-scoped when no tenantId). */
+  getInvitations(tenantId?: string): Observable<StaffUser[]> {
+    const params: Record<string, string> = {};
+    if (tenantId) params['tenantId'] = tenantId;
+    return this.api.get<StaffUser[]>('/staff-users/invitations', params);
+  }
+
+  deleteStaffUser(id: string): Observable<void> {
+    return this.api.delete<void>(`/staff-users/${id}`);
   }
 
   suspendStaffUser(id: string): Observable<StaffUser> {
@@ -258,12 +299,23 @@ export class AdminService {
         );
         break;
       case 'USER':
-      case 'AUTH': // AUTH entityId is a Keycloak user UUID — try staff-users lookup
-        source$ = this.api.get<any>(`/staff-users/${entityId}`).pipe(
-          map((u: any) => u?.email || u?.username || entityId),
+        // Audit events store actorId = JWT sub (Keycloak user id), not the
+        // internal staff_users.id — resolve via the keycloak-id endpoint so
+        // the actor column shows a real name/email instead of a UUID.
+        source$ = this.api.get<any>(`/staff-users/by-keycloak-id/${entityId}`).pipe(
+          map((u: any) => {
+            if (!u) return entityId;
+            if (u.email) return u.email;
+            if (u.firstName && u.lastName) return `${u.firstName} ${u.lastName}`;
+            return entityId;
+          }),
           catchError(() => of(entityId))
         );
         break;
+      case 'AUTH':
+        // AUTH entityId is a Keycloak session UUID — not resolvable via staff-users primary key.
+        // Return as-is; the actorEmail field on the event carries the meaningful identity.
+        return of(entityId);
       default:
         return of(entityId);
     }
@@ -278,6 +330,21 @@ export class AdminService {
 
     this.pendingNameRequests.set(key, shared$);
     return shared$;
+  }
+
+  getTenantStats(tenantId: string): Observable<{
+    totalStaff: number; activeStaff: number; suspendedStaff: number; pendingStaff: number;
+    totalMembers: number; activeMembers: number; enrolledMembers: number;
+  }> {
+    return this.api.getWithHeaders('/tenant-stats', { 'X-Tenant-ID': tenantId });
+  }
+
+  /** Daily audit event counts. The tenant interceptor adds X-Tenant-ID automatically on /tenant/ routes. */
+  getAuditDailyCounts(days = 30): Observable<{ date: string; count: number }[]> {
+    return this.api.get<{ date: string; count: number }[]>(
+      '/audit/events/daily-counts',
+      { days: String(days) },
+    );
   }
 
   // Platform Settings

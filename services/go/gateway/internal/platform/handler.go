@@ -323,9 +323,11 @@ func severityFor(action string) string {
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
 
-type growthPoint struct {
-	Month string `json:"month"`
-	Count int    `json:"count"`
+// seriesPoint is a chart-ready {name, value} pair returned directly to the
+// frontend — the client performs no label generation or index mapping.
+type seriesPoint struct {
+	Name  string `json:"name"`
+	Value int    `json:"value"`
 }
 
 type distributionItem struct {
@@ -334,14 +336,118 @@ type distributionItem struct {
 	Color  string `json:"color"`
 }
 
-// getTenantGrowth fetches all tenants from the tenancy service and groups
-// them by month of creation, returning a 12-month time series.
+// parseTimestamp tries RFC3339Nano then RFC3339.
+func parseTimestamp(s string) (time.Time, bool) {
+	t, err := time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		t, err = time.Parse(time.RFC3339, s)
+	}
+	return t, err == nil
+}
+
+// periodBuckets generates chart-ready zero-filled series for the given period.
+// Returns the bucket labels, bucket start times, and bucket duration so callers
+// can drop data into the correct bucket by timestamp.
+func periodBuckets(period string) (labels []string, starts []time.Time, bucketDur time.Duration) {
+	now := time.Now().UTC()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+
+	switch period {
+	case "week":
+		labels = make([]string, 7)
+		starts = make([]time.Time, 7)
+		bucketDur = 24 * time.Hour
+		for i := 0; i < 7; i++ {
+			d := today.AddDate(0, 0, -(6 - i))
+			starts[i] = d
+			labels[i] = d.Format("Mon 2")
+		}
+	case "month":
+		n := 10
+		labels = make([]string, n)
+		starts = make([]time.Time, n)
+		bucketDur = 3 * 24 * time.Hour // ~3 days per bucket
+		for i := 0; i < n; i++ {
+			daysAgo := int(float64(29) * (1 - float64(i)/float64(n-1)))
+			d := today.AddDate(0, 0, -daysAgo)
+			starts[i] = d
+			labels[i] = d.Format("2 Jan")
+		}
+	default: // year, all
+		labels = []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}
+		starts = make([]time.Time, 12)
+		bucketDur = 0 // special: match by month index
+		for i := 0; i < 12; i++ {
+			starts[i] = time.Date(now.Year(), time.Month(i+1), 1, 0, 0, 0, 0, time.UTC)
+		}
+	}
+	return
+}
+
+// bucketIndex returns which bucket a timestamp belongs to.
+func bucketIndex(ts time.Time, period string, starts []time.Time, bucketDur time.Duration) int {
+	if period == "year" || period == "all" || period == "" {
+		return int(ts.Month()) - 1
+	}
+	// For week/month: find the last bucket whose start <= ts
+	best := -1
+	for i, s := range starts {
+		if !ts.Before(s) {
+			best = i
+		}
+	}
+	return best
+}
+
+// buildGrowthSeries counts timestamps into period-aware buckets.
+func buildGrowthSeries(period string, timestamps []time.Time) []seriesPoint {
+	labels, starts, dur := periodBuckets(period)
+	counts := make([]int, len(labels))
+
+	cutoff := time.Now().UTC()
+	switch period {
+	case "week":
+		cutoff = cutoff.AddDate(0, 0, -7)
+	case "month":
+		cutoff = cutoff.AddDate(0, 0, -30)
+	default:
+		cutoff = cutoff.AddDate(-1, 0, 0)
+	}
+
+	for _, ts := range timestamps {
+		if ts.Before(cutoff) {
+			continue
+		}
+		idx := bucketIndex(ts, period, starts, dur)
+		if idx >= 0 && idx < len(counts) {
+			counts[idx]++
+		}
+	}
+
+	out := make([]seriesPoint, len(labels))
+	for i, l := range labels {
+		out[i] = seriesPoint{Name: l, Value: counts[i]}
+	}
+	return out
+}
+
+// emptySeriesForPeriod returns zero-filled series matching the period bucket count.
+func emptySeriesForPeriod(period string) []seriesPoint {
+	labels, _, _ := periodBuckets(period)
+	out := make([]seriesPoint, len(labels))
+	for i, l := range labels {
+		out[i] = seriesPoint{Name: l, Value: 0}
+	}
+	return out
+}
+
 func (h *Handler) getTenantGrowth(c *fiber.Ctx) error {
+	period := c.Query("period", "year")
 	token := c.Cookies("access_token")
 
 	body, err := h.fetchJSON(h.cfg.TenancyServiceURL+"/api/v1/tenants?size=1000&page=1", token)
 	if err != nil {
-		return c.JSON(zeroMonthSeries())
+		return c.JSON(emptySeriesForPeriod(period))
 	}
 
 	var page struct {
@@ -350,63 +456,54 @@ func (h *Handler) getTenantGrowth(c *fiber.Ctx) error {
 		} `json:"content"`
 	}
 	if err := json.Unmarshal(body, &page); err != nil {
-		return c.JSON(zeroMonthSeries())
+		return c.JSON(emptySeriesForPeriod(period))
 	}
 
-	// Count tenants created in each calendar month of the current year.
-	now := time.Now()
-	counts := make(map[string]int) // "Jan", "Feb", ...
+	var timestamps []time.Time
 	for _, t := range page.Content {
-		ts, err := time.Parse(time.RFC3339Nano, t.CreatedAt)
-		if err != nil {
-			// Try without nanoseconds
-			ts, err = time.Parse(time.RFC3339, t.CreatedAt)
-			if err != nil {
-				continue
-			}
-		}
-		// Only include the last 12 months
-		if now.Sub(ts) <= 365*24*time.Hour {
-			counts[ts.Format("Jan")]++
+		if ts, ok := parseTimestamp(t.CreatedAt); ok {
+			timestamps = append(timestamps, ts)
 		}
 	}
-
-	months := []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}
-	out := make([]growthPoint, len(months))
-	for i, m := range months {
-		out[i] = growthPoint{Month: m, Count: counts[m]}
-	}
-	return c.JSON(out)
+	return c.JSON(buildGrowthSeries(period, timestamps))
 }
 
-// getMemberGrowth fetches real member growth data from the user-service.
 func (h *Handler) getMemberGrowth(c *fiber.Ctx) error {
+	period := c.Query("period", "year")
 	token := c.Cookies("access_token")
 
 	body, err := h.fetchJSON(h.cfg.UserServiceURL+"/api/v1/platform/member-growth", token)
 	if err != nil {
-		return c.JSON(zeroMonthSeries())
+		return c.JSON(emptySeriesForPeriod(period))
 	}
 
-	var points []growthPoint
-	if err := json.Unmarshal(body, &points); err != nil {
-		return c.JSON(zeroMonthSeries())
+	// The user-service returns [{month, count}] for all 12 months.
+	// For year/all we can use it directly; for week/month we return zeros
+	// since the backend doesn't support daily granularity yet.
+	if period == "week" || period == "month" {
+		return c.JSON(emptySeriesForPeriod(period))
 	}
-	if len(points) == 0 {
-		return c.JSON(zeroMonthSeries())
+
+	var raw []struct {
+		Month string `json:"month"`
+		Count int    `json:"count"`
 	}
-	return c.JSON(points)
+	if err := json.Unmarshal(body, &raw); err != nil || len(raw) == 0 {
+		return c.JSON(emptySeriesForPeriod(period))
+	}
+	out := make([]seriesPoint, len(raw))
+	for i, r := range raw {
+		out[i] = seriesPoint{Name: r.Month, Value: r.Count}
+	}
+	return c.JSON(out)
 }
 
-// getClaimsDistribution fetches the real claim status breakdown from the claims service.
 func (h *Handler) getClaimsDistribution(c *fiber.Ctx) error {
 	token := c.Cookies("access_token")
-
 	body, err := h.fetchJSON(h.cfg.ClaimsServiceURL+"/api/v1/platform/claims-distribution", token)
 	if err != nil {
 		return c.JSON(placeholderDistribution())
 	}
-
 	var items []distributionItem
 	if err := json.Unmarshal(body, &items); err != nil {
 		return c.JSON(placeholderDistribution())
@@ -415,37 +512,26 @@ func (h *Handler) getClaimsDistribution(c *fiber.Ctx) error {
 }
 
 func (h *Handler) getClaimsOverTime(c *fiber.Ctx) error {
-	return c.JSON(zeroMonthSeries())
+	return c.JSON(emptySeriesForPeriod(c.Query("period", "year")))
 }
 
 func (h *Handler) getBillingOverTime(c *fiber.Ctx) error {
-	return c.JSON(zeroMonthSeries())
+	return c.JSON(emptySeriesForPeriod(c.Query("period", "year")))
 }
 
 func (h *Handler) getBillingPaymentsOverTime(c *fiber.Ctx) error {
-	return c.JSON(zeroMonthSeries())
+	return c.JSON(emptySeriesForPeriod(c.Query("period", "year")))
 }
 
 func (h *Handler) getClaimPayoutsOverTime(c *fiber.Ctx) error {
-	return c.JSON(zeroMonthSeries())
+	return c.JSON(emptySeriesForPeriod(c.Query("period", "year")))
 }
 
 func (h *Handler) getRevenueByTenant(c *fiber.Ctx) error {
 	return c.JSON([]fiber.Map{})
 }
 
-// zeroMonthSeries returns a 12-element slice with all counts set to 0.
-// Used as a fallback when real data cannot be fetched.
-func zeroMonthSeries() []growthPoint {
-	months := []string{"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"}
-	out := make([]growthPoint, len(months))
-	for i, m := range months {
-		out[i] = growthPoint{Month: m, Count: 0}
-	}
-	return out
-}
-
-// placeholderDistribution returns equal-weight placeholder slices when real data
+// placeholderDistribution returns zero-count placeholder slices when real data
 // is unavailable — the dashboard renders these as equal-sized pie segments.
 func placeholderDistribution() []distributionItem {
 	return []distributionItem{

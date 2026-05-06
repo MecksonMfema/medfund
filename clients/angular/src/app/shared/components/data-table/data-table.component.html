@@ -1,4 +1,4 @@
-<div class="table-container">
+<div class="table-container" [class.is-loading]="loading">
   <div class="table-header">
     <div class="table-title-section">
       @if (title) {
@@ -103,7 +103,16 @@
         @if (filteredData.length === 0) {
           <tr>
             <td [attr.colspan]="columns.length + (actions.length > 0 ? 1 : 0)" class="empty">
-              {{ emptyMessage }}
+              @if (loading) {
+                <span class="empty-loading">
+                  <span class="empty-loading__dot"></span>
+                  <span class="empty-loading__dot"></span>
+                  <span class="empty-loading__dot"></span>
+                  Loading…
+                </span>
+              } @else {
+                {{ emptyMessage }}
+              }
             </td>
           </tr>
         }
@@ -111,7 +120,23 @@
     </table>
   </div>
 
-  @if (serverSide && (totalPages ?? 1) > 1) {
+  @if (serverSide && (hasPrev || hasNext)) {
+    <div class="table-footer">
+      <span class="page-info">{{ displayCount }} results</span>
+      <div class="pagination">
+        <button class="page-btn" [disabled]="!hasPrev || loading" (click)="prevPage.emit()">
+          <app-icon name="chevron-left" [size]="16"></app-icon>
+          Previous
+        </button>
+        <button class="page-btn" [disabled]="!hasNext || loading" (click)="nextPage.emit()">
+          Next
+          <app-icon name="chevron-right" [size]="16"></app-icon>
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (serverSide && !hasPrev && !hasNext && (totalPages ?? 1) > 1) {
     <div class="table-footer">
       <span class="page-info">
         Page {{ serverPage }} of {{ totalPages }} &nbsp;·&nbsp; {{ totalCount }} total

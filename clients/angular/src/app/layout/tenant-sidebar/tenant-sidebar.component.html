@@ -14,10 +14,16 @@
         </div>
       }
     </div>
-    <button class="ts-collapse-btn" (click)="toggleSidebar()" [title]="collapsed ? 'Expand' : 'Collapse'">
-      <app-icon [name]="collapsed ? 'chevron-right' : 'chevron-left'" [size]="16"></app-icon>
-    </button>
   </div>
+
+  <!-- Floating collapse / expand button — half-overlaps the sidebar's right edge -->
+  <button
+    class="ts-collapse-btn"
+    (click)="toggleSidebar()"
+    [title]="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+    [attr.aria-label]="collapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+    <app-icon [name]="collapsed ? 'chevron-right' : 'chevron-left'" [size]="14"></app-icon>
+  </button>
 
   <!-- Back to Platform (super admin only path) -->
   <div class="ts-back">

@@ -8,7 +8,7 @@ import { DataTableComponent, TableAction } from '../../../shared/components/data
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { AdminService, StaffUser, Tenant, TenantMember } from '../../../core/services/admin.service';
 
-type Tab = 'staff' | 'members';
+type Tab = 'staff' | 'members' | 'invitations';
 
 @Component({
   selector: 'app-users',
@@ -46,9 +46,20 @@ export class UsersComponent implements OnInit, OnDestroy {
   inviteSubmitting = false;
   inviteSuccess = false;
   inviteServerError = '';
-  invite = { firstName: '', lastName: '', email: '', jobTitle: '', department: '', realmRole: '' };
+  invite = { firstName: '', lastName: '', email: '', jobTitle: '', department: '', realmRole: '', tenantId: '' };
   inviteErrors: Record<string, string> = {};
   inviteTouched: Record<string, boolean> = {};
+
+  /** True when the selected role requires a tenant link (anything except super_admin). */
+  get inviteNeedsTenant(): boolean {
+    return !!this.invite.realmRole && this.invite.realmRole !== 'super_admin';
+  }
+
+  /** When role changes, clear the tenantId so a stale selection is not carried over. */
+  onInviteRoleChange(): void {
+    if (!this.inviteNeedsTenant) this.invite.tenantId = '';
+    if (this.inviteTouched['tenantId']) this.validateInviteField('tenantId');
+  }
 
   // Tenant members
   members: TenantMember[] = [];
@@ -56,6 +67,10 @@ export class UsersComponent implements OnInit, OnDestroy {
   memberSearch = '';
   selectedTenantId = '';
   tenants: Tenant[] = [];
+
+  // Invitations (status='invited')
+  invitations: StaffUser[] = [];
+  invitationsLoading = false;
 
   staffColumns = [
     { key: 'firstName',  label: 'First Name' },
@@ -78,6 +93,30 @@ export class UsersComponent implements OnInit, OnDestroy {
     { key: 'enrollmentDate', label: 'Enrolled', type: 'date' },
   ];
 
+  invitationColumns = [
+    { key: 'firstName',       label: 'First Name' },
+    { key: 'lastName',        label: 'Last Name' },
+    { key: 'email',           label: 'Email' },
+    { key: 'realmRole',       label: 'Role', type: 'label' },
+    { key: 'invitedAt',       label: 'Invited', type: 'date' },
+    { key: 'inviteExpiresAt', label: 'Expires', type: 'date' },
+  ];
+
+  invitationActions: TableAction[] = [
+    {
+      label: 'Resend',
+      icon: 'bell',
+      color: 'default',
+      handler: (row: StaffUser) => this.resendInvite(row),
+    },
+    {
+      label: 'Cancel',
+      icon: 'x-circle',
+      color: 'danger',
+      handler: (row: StaffUser) => this.cancelInvitation(row),
+    },
+  ];
+
   staffActions: TableAction[] = [
     {
       label: 'Edit',
@@ -89,6 +128,7 @@ export class UsersComponent implements OnInit, OnDestroy {
       label: 'Resend Invite',
       icon: 'bell',
       color: 'default',
+      visible: (row: StaffUser) => !row.inviteAccepted && row.status?.toLowerCase() === 'invited',
       handler: (row: StaffUser) => this.resendInvite(row),
     },
     {
@@ -116,6 +156,7 @@ export class UsersComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadTenants();
     this.loadStaffUsers();
+    this.loadInvitations();
 
     this.staffSearch$.pipe(
       debounceTime(400), distinctUntilChanged(), takeUntil(this.destroy$),
@@ -170,7 +211,11 @@ export class UsersComponent implements OnInit, OnDestroy {
     const params: Record<string, string> = {};
     if (this.staffSearch.trim()) params['q'] = this.staffSearch.trim();
     this.adminService.getStaffUsers(params).subscribe({
-      next: users => { this.staffUsers = users ?? []; this.staffLoading = false; },
+      next: (raw: any) => {
+        // Backend now returns CursorPage<StaffUser>; handle both shapes defensively
+        this.staffUsers = Array.isArray(raw) ? raw : (raw?.content ?? []);
+        this.staffLoading = false;
+      },
       error: () => { this.staffLoading = false; },
     });
   }
@@ -235,7 +280,23 @@ export class UsersComponent implements OnInit, OnDestroy {
 
   resendInvite(user: StaffUser): void {
     this.adminService.resendStaffInvite(user.id).subscribe({
-      next: () => {},
+      next: () => this.loadInvitations(),
+      error: () => {},
+    });
+  }
+
+  loadInvitations(): void {
+    this.invitationsLoading = true;
+    this.adminService.getInvitations().subscribe({
+      next: (rows) => { this.invitations = rows ?? []; this.invitationsLoading = false; },
+      error: () => { this.invitationsLoading = false; },
+    });
+  }
+
+  cancelInvitation(user: StaffUser): void {
+    if (!confirm(`Cancel the invitation for ${user.email}? The user will be removed.`)) return;
+    this.adminService.deleteStaffUser(user.id).subscribe({
+      next: () => { this.loadInvitations(); this.loadStaffUsers(); },
       error: () => {},
     });
   }
@@ -243,7 +304,7 @@ export class UsersComponent implements OnInit, OnDestroy {
   // ── Invite modal ──────────────────────────────────────────────────────────
 
   openInviteModal(): void {
-    this.invite = { firstName: '', lastName: '', email: '', jobTitle: '', department: '', realmRole: '' };
+    this.invite = { firstName: '', lastName: '', email: '', jobTitle: '', department: '', realmRole: '', tenantId: '' };
     this.inviteErrors = {};
     this.inviteTouched = {};
     this.inviteServerError = '';
@@ -272,11 +333,16 @@ export class UsersComponent implements OnInit, OnDestroy {
         else this.inviteErrors[field] = '';
         break;
       case 'realmRole':  this.inviteErrors[field] = v.realmRole ? '' : 'Please select a role.'; break;
+      case 'tenantId':
+        this.inviteErrors[field] = (this.inviteNeedsTenant && !v.tenantId) ? 'Please select a tenant.' : '';
+        break;
     }
   }
 
   private validateAllInvite(): boolean {
-    ['firstName', 'lastName', 'email', 'realmRole'].forEach(f => {
+    const fields = ['firstName', 'lastName', 'email', 'realmRole'];
+    if (this.inviteNeedsTenant) fields.push('tenantId');
+    fields.forEach(f => {
       this.inviteTouched[f] = true;
       this.validateInviteField(f);
     });
@@ -288,7 +354,11 @@ export class UsersComponent implements OnInit, OnDestroy {
     this.inviteSubmitting = true;
     this.inviteServerError = '';
     this.inviteSuccess = false;
-    this.adminService.createStaffUser(this.invite).subscribe({
+    const payload = {
+      ...this.invite,
+      tenantId: this.inviteNeedsTenant ? (this.invite.tenantId || null) : null,
+    };
+    this.adminService.createStaffUser(payload).subscribe({
       next: () => {
         this.inviteSubmitting = false;
         this.inviteSuccess = true;

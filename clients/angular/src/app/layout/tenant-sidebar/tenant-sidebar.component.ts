@@ -30,7 +30,7 @@ export class TenantSidebarComponent implements OnInit, OnDestroy {
 
   navItems: NavItem[] = [
     { label: 'Dashboard',      icon: 'dashboard',   route: '/tenant/dashboard' },
-    { label: 'Members',        icon: 'users',       route: '/tenant/members' },
+    { label: 'Users & Members', icon: 'users',      route: '/tenant/users' },
     { label: 'Claims',         icon: 'file-text',   route: '/tenant/claims' },
     { label: 'Contributions',  icon: 'credit-card', route: '/tenant/contributions' },
     { label: 'Finance',        icon: 'banknote',    route: '/tenant/finance' },

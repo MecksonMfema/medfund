@@ -35,13 +35,13 @@ This starts:
 
 | Service | URL / Port | Credentials |
 |---------|-----------|-------------|
-| PostgreSQL 17 | `localhost:5432` | `medfund` / `medfund` |
-| Redis 7 | `localhost:6379` | — |
+| PostgreSQL 17 | `localhost:5433` | `medfund` / `medfund` |
+| Redis 7 | `localhost:6380` | — |
 | Apache Kafka | `localhost:9092` | — |
 | Kafka UI | http://localhost:8090 | — |
 | Keycloak 26 | http://localhost:9080 | `admin` / `admin` |
 | MinIO (S3-compatible) | http://localhost:9001 (console) | `medfund` / `medfund123` |
-| Mailpit (email catcher) | http://localhost:8025 | — |
+| Mailpit (email catcher) | http://localhost:8026 | — |
 
 Check that all containers are healthy before proceeding:
 
@@ -282,8 +282,8 @@ make infra && make keycloak-setup
 | Live Dashboard | 4000 | Elixir / Phoenix |
 | Chat Service | 4001 | Elixir / Phoenix |
 | Angular Web App | 4200 | Angular 19 |
-| PostgreSQL | 5432 | — |
-| Redis | 6379 | — |
+| PostgreSQL | 5433 | — |
+| Redis | 6380 | — |
 | Kafka | 9092 | — |
 | Kafka UI | 8090 | — |
 | Keycloak | 9080 | — |
@@ -301,7 +301,7 @@ make infra && make keycloak-setup
 — Infrastructure is still starting. Wait for `make infra-ps` to show all services as `healthy`.
 
 **Invitation emails not arriving**
-— Open Mailpit at http://localhost:8025. All outbound emails (Keycloak invites, password resets) are caught there. Emails never reach real inboxes in local dev.
+— Open Mailpit at http://localhost:8026. All outbound emails (Keycloak invites, password resets) are caught there. Emails never reach real inboxes in local dev.
 
 **`air: command not found`**
 — Run `go install github.com/air-verse/air@latest` and ensure `$GOPATH/bin` is on your `PATH`.
@@ -313,4 +313,4 @@ make infra && make keycloak-setup
 — Run `pip install uv` or follow https://docs.astral.sh/uv/getting-started/installation/.
 
 **Elixir `mix ecto.create` fails**
-— Ensure `make infra` is running first and PostgreSQL is accepting connections on `localhost:5432`.
+— Ensure `make infra` is running first and PostgreSQL is accepting connections on `localhost:5433`.

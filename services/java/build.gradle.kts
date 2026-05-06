@@ -46,4 +46,12 @@ subprojects {
     tasks.test {
         useJUnitPlatform()
     }
+
+    // Spring Boot DevTools: only on subprojects that apply the Spring Boot plugin
+    // (the `developmentOnly` configuration is created by that plugin).
+    pluginManager.withPlugin("org.springframework.boot") {
+        dependencies {
+            "developmentOnly"("org.springframework.boot:spring-boot-devtools")
+        }
+    }
 }

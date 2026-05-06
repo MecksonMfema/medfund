@@ -91,76 +91,40 @@ export class AnalyticsComponent implements OnInit {
     return this.periods.find(p => p.value === this.selectedPeriod)?.label ?? '';
   }
 
+  /** All chart data comes from the backend as [{name, value}] — no client-side label mapping. */
   private loadCharts(): void {
     const p = this.periodParam;
-    const labels = this.axisLabels();
 
-    this.dashboardService.getTenantGrowth(p).subscribe((d) => {
-      const series = labels.map((label, i) => ({
-        name: label,
-        value: d[i]?.count ?? d[i]?.value ?? 0,
-      }));
-      this.tenantGrowthData = [{ name: 'Tenants', series }];
-      const max = Math.max(...series.map(s => s.value));
-      this.tenantGrowthMax = max > 0 ? Math.ceil(max * 1.2) : 5;
+    const toSeries = (d: any[]) => d.map(p => ({ name: p.name, value: p.value ?? p.count ?? 0 }));
+    const yMax = (s: any[]) => { const m = Math.max(...s.map(p => p.value)); return m > 0 ? Math.ceil(m * 1.2) : 5; };
+
+    this.dashboardService.getTenantGrowth(p).subscribe(d => {
+      const s = toSeries(d);
+      this.tenantGrowthData = [{ name: 'Tenants', series: s }];
+      this.tenantGrowthMax = yMax(s);
     });
 
-    this.dashboardService.getMemberGrowth(p).subscribe((d) => {
-      const series = labels.map((label, i) => ({
-        name: label,
-        value: d[i]?.count ?? d[i]?.value ?? 0,
-      }));
-      this.memberGrowthData = [{ name: 'Members', series }];
-      const max = Math.max(...series.map(s => s.value));
-      this.memberGrowthMax = max > 0 ? Math.ceil(max * 1.2) : 5;
+    this.dashboardService.getMemberGrowth(p).subscribe(d => {
+      const s = toSeries(d);
+      this.memberGrowthData = [{ name: 'Members', series: s }];
+      this.memberGrowthMax = yMax(s);
     });
 
-    this.dashboardService.getClaimsOverTime(p).subscribe((d) => {
-      this.claimsOverTime = [{ name: 'Claims', series: labels.map((label, i) => ({ name: label, value: d[i]?.count ?? d[i]?.value ?? 0 })) }];
+    this.dashboardService.getClaimsOverTime(p).subscribe(d => {
+      this.claimsOverTime = [{ name: 'Claims', series: toSeries(d) }];
     });
 
-    this.dashboardService.getBillingOverTime(p).subscribe((d) => {
-      this.billingOverTime = [{ name: 'Billed', series: labels.map((label, i) => ({ name: label, value: d[i]?.amount ?? d[i]?.value ?? 0 })) }];
+    this.dashboardService.getBillingOverTime(p).subscribe(d => {
+      this.billingOverTime = [{ name: 'Billed', series: toSeries(d) }];
     });
 
-    this.dashboardService.getBillingPaymentsOverTime(p).subscribe((d) => {
-      this.billingPaymentsOverTime = [{ name: 'Received', series: labels.map((label, i) => ({ name: label, value: d[i]?.amount ?? d[i]?.value ?? 0 })) }];
+    this.dashboardService.getBillingPaymentsOverTime(p).subscribe(d => {
+      this.billingPaymentsOverTime = [{ name: 'Received', series: toSeries(d) }];
     });
 
-    this.dashboardService.getClaimPayoutsOverTime(p).subscribe((d) => {
-      this.claimPayoutsOverTime = [{ name: 'Paid Out', series: labels.map((label, i) => ({ name: label, value: d[i]?.amount ?? d[i]?.value ?? 0 })) }];
+    this.dashboardService.getClaimPayoutsOverTime(p).subscribe(d => {
+      this.claimPayoutsOverTime = [{ name: 'Paid Out', series: toSeries(d) }];
     });
-
-  }
-
-  /** Returns x-axis labels appropriate for the selected period. */
-  private axisLabels(): string[] {
-    const today = new Date();
-
-    switch (this.selectedPeriod) {
-      case 'week':
-        // Last 7 days — all shown, formatted as "Mon 13"
-        return Array.from({ length: 7 }, (_, i) => {
-          const d = new Date(today);
-          d.setDate(today.getDate() - (6 - i));
-          return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' });
-        });
-
-      case 'month':
-        // Last 30 days — 10 evenly spaced actual dates, formatted as "21 Mar"
-        return Array.from({ length: 10 }, (_, i) => {
-          const daysAgo = Math.round(29 * (1 - i / 9));
-          const d = new Date(today);
-          d.setDate(today.getDate() - daysAgo);
-          return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-        });
-
-      case 'year':
-      case 'all':
-      default:
-        return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    }
   }
 
   statusClass(status: string): string {

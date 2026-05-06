@@ -6,12 +6,13 @@ import { KeycloakService } from 'keycloak-angular';
 import { routes } from './app.routes';
 import { initializeKeycloak } from './auth/keycloak.init';
 import { tenantInterceptor } from './core/interceptors/tenant.interceptor';
+import { loadingInterceptor } from './core/interceptors/loading.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([tenantInterceptor])),
+    provideHttpClient(withInterceptors([loadingInterceptor, tenantInterceptor])),
     provideAnimations(),
     KeycloakService,
     {

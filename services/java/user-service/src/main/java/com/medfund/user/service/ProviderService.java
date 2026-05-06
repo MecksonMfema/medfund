@@ -2,7 +2,6 @@ package com.medfund.user.service;
 
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
-import com.medfund.shared.tenant.TenantContext;
 import com.medfund.user.dto.CreateProviderRequest;
 import com.medfund.user.dto.ProviderPage;
 import com.medfund.user.dto.ProviderResponse;
@@ -27,6 +26,15 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class ProviderService {
+
+    /**
+     * Providers are a platform-wide registry — a single doctor / clinic serves
+     * members of every tenant — so their identities live in the platform realm,
+     * not in any per-tenant realm. Audit events for provider mutations are
+     * tagged with the {@link #PLATFORM_TENANT} sentinel for the same reason.
+     */
+    private static final String PLATFORM_REALM  = "medfund-platform";
+    private static final String PLATFORM_TENANT = "platform";
 
     private final ProviderRepository providerRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
@@ -100,14 +108,11 @@ public class ProviderService {
         }
 
         return r2dbcTemplate.insert(provider)
-            .flatMap(saved -> Mono.deferContextual(ctx -> {
-                String tenantId = TenantContext.get(ctx);
-                String realm = "tenant-" + tenantId;
-
+            .flatMap(saved -> {
                 Mono<Void> keycloakSync = Mono.empty();
                 if (saved.getEmail() != null && !saved.getEmail().isBlank()) {
                     keycloakSync = keycloakSyncService.createUser(
-                        realm, saved.getEmail(), saved.getName(), "",
+                        PLATFORM_REALM, saved.getEmail(), saved.getName(), "",
                         List.of("provider")
                     ).flatMap(keycloakUserId -> {
                         saved.setKeycloakUserId(keycloakUserId);
@@ -119,10 +124,10 @@ public class ProviderService {
                 }
 
                 return keycloakSync
-                    .then(publishAudit(tenantId, saved, null, actorId, actorEmail, "CREATE"))
+                    .then(publishAudit(saved, null, actorId, actorEmail, "CREATE"))
                     .then(eventPublisher.publishProviderOnboarded(saved.getId().toString(), saved.getName()))
                     .thenReturn(saved);
-            }));
+            });
     }
 
     @Transactional
@@ -136,11 +141,8 @@ public class ProviderService {
                 existing.setUpdatedBy(UUID.fromString(actorId));
 
                 return providerRepository.save(existing)
-                    .flatMap(saved -> Mono.deferContextual(ctx -> {
-                        String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE")
-                            .thenReturn(saved);
-                    }));
+                    .flatMap(saved -> publishAudit(saved, previous, actorId, actorEmail, "UPDATE")
+                        .thenReturn(saved));
             });
     }
 
@@ -164,11 +166,8 @@ public class ProviderService {
                 existing.setUpdatedBy(UUID.fromString(actorId));
 
                 return providerRepository.save(existing)
-                    .flatMap(saved -> Mono.deferContextual(ctx -> {
-                        String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE")
-                            .thenReturn(saved);
-                    }));
+                    .flatMap(saved -> publishAudit(saved, previous, actorId, actorEmail, "UPDATE")
+                        .thenReturn(saved));
             });
     }
 
@@ -182,11 +181,8 @@ public class ProviderService {
                 existing.setUpdatedAt(Instant.now());
                 existing.setUpdatedBy(UUID.fromString(actorId));
                 return providerRepository.save(existing)
-                    .flatMap(saved -> Mono.deferContextual(ctx -> {
-                        String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE")
-                            .thenReturn(saved);
-                    }));
+                    .flatMap(saved -> publishAudit(saved, previous, actorId, actorEmail, "UPDATE")
+                        .thenReturn(saved));
             });
     }
 
@@ -201,24 +197,23 @@ public class ProviderService {
                 existing.setUpdatedBy(UUID.fromString(actorId));
 
                 return providerRepository.save(existing)
-                    .flatMap(saved -> Mono.deferContextual(ctx -> {
-                        String tenantId = TenantContext.get(ctx);
+                    .flatMap(saved -> {
                         Mono<Void> keycloakDisable = Mono.empty();
                         if (saved.getKeycloakUserId() != null) {
                             keycloakDisable = keycloakSyncService.disableUser(
-                                "tenant-" + tenantId, saved.getKeycloakUserId());
+                                PLATFORM_REALM, saved.getKeycloakUserId());
                         }
                         return keycloakDisable
-                            .then(publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE"))
+                            .then(publishAudit(saved, previous, actorId, actorEmail, "UPDATE"))
                             .thenReturn(saved);
-                    }));
+                    });
             });
     }
 
-    private Mono<Void> publishAudit(String tenantId, Provider current, Provider previous,
+    private Mono<Void> publishAudit(Provider current, Provider previous,
                                      String actorId, String actorEmail, String action) {
         var event = AuditEvent.create(
-            tenantId != null ? tenantId : "platform",
+            PLATFORM_TENANT,
             "PROVIDER",
             current.getId().toString(),
             current.getName(),                       // entityName — human-readable, never a UUID

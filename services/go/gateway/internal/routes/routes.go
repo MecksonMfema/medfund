@@ -19,14 +19,19 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/plans/*", proxy.Handler(cfg.TenancyServiceURL))
 
 	// ── User Service ──────────────────────────────────────────────────────────
+	app.All("/api/v1/staff-users", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/staff-users/*", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/members", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/members/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/dependants/*", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/providers", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/providers/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/groups/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/roles/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/waiting-periods/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/scheduled-jobs/*", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/tenant-stats", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/tenant-stats/*", proxy.Handler(cfg.UserServiceURL))
 
 	// ── Claims Service ────────────────────────────────────────────────────────
 	app.All("/api/v1/claims/*", proxy.Handler(cfg.ClaimsServiceURL))
@@ -49,6 +54,7 @@ func Register(app *fiber.App, cfg *config.Config) {
 
 	// ── Go Services ───────────────────────────────────────────────────────────
 	app.All("/api/v1/notifications/*", proxy.Handler(cfg.NotifServiceURL))
+	app.All("/api/v1/audit", proxy.Handler(cfg.AuditServiceURL))
 	app.All("/api/v1/audit/*", proxy.Handler(cfg.AuditServiceURL))
 	app.All("/api/v1/files/*", proxy.Handler(cfg.FileServiceURL))
 	app.All("/api/v1/pay/*", proxy.Handler(cfg.PaymentServiceURL))

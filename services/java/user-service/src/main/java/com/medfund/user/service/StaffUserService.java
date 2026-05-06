@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.user.dto.CreateStaffUserRequest;
+import com.medfund.user.dto.CursorPage;
+import com.medfund.user.dto.StaffUserResponse;
 import com.medfund.user.dto.UpdateStaffUserRequest;
 import com.medfund.user.entity.StaffUser;
 import com.medfund.user.repository.StaffUserRepository;
@@ -17,9 +19,11 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +38,8 @@ public class StaffUserService {
     private static final String   PLATFORM_REALM  = "medfund-platform";
     private static final String   PLATFORM_TENANT = "platform";
     private static final Duration CACHE_TTL       = Duration.ofMinutes(2);
+    /** How long an invitation email stays valid. Mirrored to the Keycloak action-link lifespan. */
+    public  static final Duration INVITE_TTL      = Duration.ofDays(7);
     private static final TypeReference<List<StaffUser>> LIST_TYPE = new TypeReference<>() {};
 
     private final StaffUserRepository         repository;
@@ -45,38 +51,153 @@ public class StaffUserService {
 
     // ── Reads (cached) ────────────────────────────────────────────────────────
 
+    /** Platform super_admin users only (tenant_id IS NULL). */
+    public Flux<StaffUser> findPlatformStaff() {
+        return cached("staff-users:platform", repository.findPlatformStaff());
+    }
+
+    /** All staff belonging to a specific tenant. */
+    public Flux<StaffUser> findByTenantId(UUID tenantId) {
+        return cached("staff-users:tenant:" + tenantId, repository.findByTenantId(tenantId));
+    }
+
     public Flux<StaffUser> findAll() {
         return cached("staff-users:all", repository.findAllOrderByCreatedAtDesc());
     }
 
     public Mono<StaffUser> findById(UUID id) {
         return repository.findById(id)
-                .switchIfEmpty(Mono.error(new RuntimeException("Staff user not found: " + id)));
+                .switchIfEmpty(Mono.error(new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Staff user not found: " + id)));
     }
 
-    public Flux<StaffUser> findByStatus(String status) {
-        return cached("staff-users:status:" + status, repository.findByStatus(status));
+    /**
+     * Lookup by the Keycloak {@code sub} (the JWT subject we record on audit
+     * events as {@code actorId}). Used by the audit page to resolve the actor
+     * column to a real name when the event predates {@code actorEmail} capture.
+     */
+    public Mono<StaffUser> findByKeycloakUserId(String keycloakUserId) {
+        return repository.findByKeycloakUserId(keycloakUserId)
+                .switchIfEmpty(Mono.error(new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND,
+                        "Staff user not found for keycloakUserId: " + keycloakUserId)));
+    }
+
+    public Flux<StaffUser> findByStatus(String status, UUID tenantId) {
+        if (tenantId != null) {
+            return cached("staff-users:tenant:" + tenantId + ":status:" + status,
+                    repository.findByTenantIdAndStatus(tenantId, status));
+        }
+        return cached("staff-users:platform:status:" + status,
+                repository.findPlatformStaffByStatus(status));
     }
 
     public Flux<StaffUser> findByRole(String role) {
         return cached("staff-users:role:" + role, repository.findByRealmRole(role));
     }
 
-    public Flux<StaffUser> search(String query) {
-        return cached("staff-users:search:" + query.toLowerCase(), repository.search(query));
+    public Flux<StaffUser> search(String query, UUID tenantId) {
+        if (tenantId != null) {
+            return cached("staff-users:tenant:" + tenantId + ":search:" + query.toLowerCase(),
+                    repository.searchByTenant(tenantId, query));
+        }
+        return cached("staff-users:platform:search:" + query.toLowerCase(),
+                repository.searchPlatformStaff(query));
+    }
+
+    /**
+     * Cursor-based paginated list of staff users, scoped to a tenant (or platform if null).
+     * Supports optional full-text search on name/email.
+     */
+    public Mono<CursorPage<StaffUserResponse>> findPage(UUID tenantId, String q, String cursor, int limit) {
+        Instant cursorTs = null;
+        UUID cursorId = null;
+        if (cursor != null && !cursor.isBlank()) {
+            String[] parts = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8).split(":", 2);
+            cursorTs = Instant.ofEpochMilli(Long.parseLong(parts[0]));
+            cursorId = UUID.fromString(parts[1]);
+        }
+
+        boolean hasQ = q != null && !q.isBlank();
+        int fetch = limit + 1;
+        boolean isTenant = tenantId != null;
+
+        Flux<StaffUser> source;
+        if (hasQ) {
+            source = isTenant
+                    ? (cursorTs == null
+                        ? repository.searchTenantFirstPage(tenantId, q, fetch)
+                        : repository.searchTenantNextPage(tenantId, q, cursorTs, cursorId, fetch))
+                    : (cursorTs == null
+                        ? repository.searchPlatformFirstPage(q, fetch)
+                        : repository.searchPlatformNextPage(q, cursorTs, cursorId, fetch));
+        } else {
+            source = isTenant
+                    ? (cursorTs == null
+                        ? repository.findTenantFirstPage(tenantId, fetch)
+                        : repository.findTenantNextPage(tenantId, cursorTs, cursorId, fetch))
+                    : (cursorTs == null
+                        ? repository.findPlatformFirstPage(fetch)
+                        : repository.findPlatformNextPage(cursorTs, cursorId, fetch));
+        }
+
+        return source.collectList().map(rows -> {
+            boolean hasMore = rows.size() > limit;
+            List<StaffUser> content = hasMore ? rows.subList(0, limit) : rows;
+            String nextCursor = null;
+            if (hasMore && !content.isEmpty()) {
+                StaffUser last = content.get(content.size() - 1);
+                String raw = last.getCreatedAt().toEpochMilli() + ":" + last.getId();
+                nextCursor = Base64.getUrlEncoder().withoutPadding()
+                        .encodeToString(raw.getBytes(StandardCharsets.UTF_8));
+            }
+            return new CursorPage<>(content.stream().map(StaffUserResponse::from).toList(), nextCursor, hasMore, limit);
+        });
     }
 
     public Mono<StaffUser> resendInvite(UUID id) {
         return repository.findById(id)
-                .switchIfEmpty(Mono.error(new RuntimeException("Staff user not found: " + id)))
+                .switchIfEmpty(Mono.error(new java.util.NoSuchElementException("Staff user not found: " + id)))
                 .flatMap(user -> {
                     if (user.getKeycloakUserId() == null) {
-                        return Mono.error(new RuntimeException(
+                        return Mono.error(new IllegalStateException(
                                 "User has no Keycloak account — create the user first"));
                     }
+                    if ("active".equalsIgnoreCase(user.getStatus())) {
+                        return Mono.error(new IllegalStateException(
+                                "User has already accepted their invitation"));
+                    }
                     return keycloakSyncService.sendInviteEmail(PLATFORM_REALM, user.getKeycloakUserId())
-                            .thenReturn(user);
+                            .then(Mono.defer(() -> {
+                                user.setInvitedAt(Instant.now());
+                                if (!"invited".equalsIgnoreCase(user.getStatus())) {
+                                    user.setStatus("invited");
+                                }
+                                return repository.save(user);
+                            }))
+                            .flatMap(saved -> evict().thenReturn(saved));
                 });
+    }
+
+    /**
+     * Marks a user as having accepted their invitation. Called by the
+     * security-event consumer when Keycloak emits a successful UPDATE_PASSWORD
+     * for the user's keycloak_user_id. No-op if no matching staff user exists
+     * or the user is already active.
+     */
+    public Mono<Void> markInviteAccepted(String keycloakUserId) {
+        if (keycloakUserId == null || keycloakUserId.isBlank()) return Mono.empty();
+        return repository.findByKeycloakUserId(keycloakUserId)
+                .filter(u -> "invited".equalsIgnoreCase(u.getStatus()))
+                .flatMap(u -> {
+                    Map<String, Object> before = toMap(u);
+                    u.setStatus("active");
+                    return repository.save(u)
+                            .flatMap(saved -> audit(saved, "INVITE_ACCEPTED", null, null,
+                                    before, toMap(saved), new String[]{"status"}))
+                            .flatMap(saved -> evict().thenReturn(saved));
+                })
+                .then();
     }
 
     // ── Writes (each evicts all staff-user caches) ────────────────────────────
@@ -84,7 +205,7 @@ public class StaffUserService {
     public Mono<StaffUser> create(CreateStaffUserRequest request, String actorId, String actorEmail) {
         return repository.existsByEmail(request.email())
                 .flatMap(exists -> {
-                    if (exists) return Mono.error(new RuntimeException(
+                    if (exists) return Mono.error(new IllegalStateException(
                             "A staff user with email " + request.email() + " already exists"));
 
                     StaffUser user = new StaffUser();
@@ -95,7 +216,9 @@ public class StaffUserService {
                     user.setJobTitle(request.jobTitle());
                     user.setDepartment(request.department());
                     user.setRealmRole(request.realmRole());
-                    user.setStatus("active");
+                    user.setTenantId(request.tenantId()); // null for super_admin
+                    user.setStatus("invited");
+                    user.setInvitedAt(Instant.now());
                     if (actorId != null) {
                         UUID actorUuid = UUID.fromString(actorId);
                         user.setCreatedBy(actorUuid);
@@ -123,7 +246,7 @@ public class StaffUserService {
 
     public Mono<StaffUser> update(UUID id, UpdateStaffUserRequest request, String actorId, String actorEmail) {
         return repository.findById(id)
-                .switchIfEmpty(Mono.error(new RuntimeException("Staff user not found: " + id)))
+                .switchIfEmpty(Mono.error(new java.util.NoSuchElementException("Staff user not found: " + id)))
                 .flatMap(user -> {
                     Map<String, Object> before = toMap(user); // snapshot before mutation
                     String oldRole = user.getRealmRole();
@@ -162,7 +285,7 @@ public class StaffUserService {
 
     public Mono<StaffUser> suspend(UUID id, String actorId, String actorEmail) {
         return repository.findById(id)
-                .switchIfEmpty(Mono.error(new RuntimeException("Staff user not found: " + id)))
+                .switchIfEmpty(Mono.error(new java.util.NoSuchElementException("Staff user not found: " + id)))
                 .flatMap(user -> {
                     Map<String, Object> before = toMap(user);
                     user.setStatus("suspended");
@@ -180,7 +303,7 @@ public class StaffUserService {
 
     public Mono<StaffUser> activate(UUID id, String actorId, String actorEmail) {
         return repository.findById(id)
-                .switchIfEmpty(Mono.error(new RuntimeException("Staff user not found: " + id)))
+                .switchIfEmpty(Mono.error(new java.util.NoSuchElementException("Staff user not found: " + id)))
                 .flatMap(user -> {
                     Map<String, Object> before = toMap(user);
                     user.setStatus("active");
@@ -198,18 +321,20 @@ public class StaffUserService {
 
     public Mono<Void> delete(UUID id, String actorId, String actorEmail) {
         return repository.findById(id)
-                .switchIfEmpty(Mono.error(new RuntimeException("Staff user not found: " + id)))
+                .switchIfEmpty(Mono.error(new java.util.NoSuchElementException("Staff user not found: " + id)))
                 .flatMap(user -> {
                     Map<String, Object> before = toMap(user);
                     String entityName = displayName(user);
                     Mono<Void> keycloakCleanup = user.getKeycloakUserId() != null
                             ? keycloakSyncService.disableUser(PLATFORM_REALM, user.getKeycloakUserId())
                             : Mono.empty();
+                    String tenantContext = user.getTenantId() != null
+                            ? user.getTenantId().toString() : PLATFORM_TENANT;
                     return keycloakCleanup
                             .then(repository.deleteById(id))
                             .then(Mono.defer(() -> {
                                 var event = AuditEvent.create(
-                                        PLATFORM_TENANT, "USER", id.toString(), entityName,
+                                        tenantContext, "USER", id.toString(), entityName,
                                         "DELETE", actorId, actorEmail,
                                         before, null, null,
                                         UUID.randomUUID().toString());
@@ -254,8 +379,13 @@ public class StaffUserService {
     private Mono<StaffUser> audit(StaffUser user, String action, String actorId, String actorEmail,
                                    Map<String, Object> before, Map<String, Object> after,
                                    String[] changedFields) {
+        // Tag the event with the staff user's tenant when assigned; fall back to
+        // the platform sentinel so super-admin events stay in the platform audit log.
+        String tenantContext = user.getTenantId() != null
+                ? user.getTenantId().toString()
+                : PLATFORM_TENANT;
         var event = AuditEvent.create(
-                PLATFORM_TENANT, "USER", user.getId().toString(), displayName(user),
+                tenantContext, "USER", user.getId().toString(), displayName(user),
                 action, actorId, actorEmail, before, after, changedFields,
                 UUID.randomUUID().toString());
         return auditPublisher.publish(event).thenReturn(user);
@@ -271,6 +401,7 @@ public class StaffUserService {
         m.put("jobTitle",   u.getJobTitle());
         m.put("department", u.getDepartment());
         m.put("realmRole",  u.getRealmRole());
+        m.put("tenantId",   u.getTenantId());
         m.put("status",     u.getStatus());
         return m;
     }

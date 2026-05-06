@@ -47,9 +47,14 @@ export class DataTableComponent implements OnInit, OnDestroy {
   @Input() totalCount?: number;
   @Input() totalPages?: number;
   @Input() serverPage = 1;
+  // Cursor pagination (used instead of page numbers when set)
+  @Input() hasPrev = false;
+  @Input() hasNext = false;
   @Output() rowClick = new EventEmitter<any>();
   @Output() searchChange = new EventEmitter<string>();
   @Output() pageChange = new EventEmitter<number>();
+  @Output() prevPage = new EventEmitter<void>();
+  @Output() nextPage = new EventEmitter<void>();
 
   searchTerm = '';
   sortKey = '';

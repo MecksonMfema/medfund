@@ -177,6 +177,83 @@ func (s *Store) Query(filter QueryFilter) ([]Event, int) {
 	return events, total
 }
 
+// DailyCounts returns event counts grouped by calendar day (UTC) for the last
+// `days` days, scoped to `tenantID` when non-empty. Every day in the range is
+// always present in the result (count = 0 for days with no events), giving the
+// frontend a continuous series ready for charting — no client-side calculation.
+func (s *Store) DailyCounts(tenantID string, days int) []DailyCount {
+	if days <= 0 || days > 365 {
+		days = 30
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	since := time.Now().UTC().AddDate(0, 0, -days)
+
+	var query string
+	var args []interface{}
+	if tenantID != "" {
+		query = `
+			SELECT TO_CHAR(timestamp AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS date,
+			       COUNT(*) AS count
+			FROM audit_events
+			WHERE tenant_id = $1 AND timestamp >= $2
+			GROUP BY 1 ORDER BY 1 ASC`
+		args = []interface{}{tenantID, since}
+	} else {
+		query = `
+			SELECT TO_CHAR(timestamp AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS date,
+			       COUNT(*) AS count
+			FROM audit_events
+			WHERE timestamp >= $1
+			GROUP BY 1 ORDER BY 1 ASC`
+		args = []interface{}{since}
+	}
+
+	rows, err := s.pool.Query(ctx, query, args...)
+	if err != nil {
+		log.Printf("[audit-store] daily counts error: %v", err)
+		return s.emptyDailyCounts(days)
+	}
+	defer rows.Close()
+
+	// Seed every day in the range with 0 so the series is always continuous.
+	counts := make(map[string]int, days)
+	for i := days - 1; i >= 0; i-- {
+		d := time.Now().UTC().AddDate(0, 0, -i)
+		counts[d.Format("2006-01-02")] = 0
+	}
+
+	for rows.Next() {
+		var date string
+		var count int
+		if err := rows.Scan(&date, &count); err != nil {
+			log.Printf("[audit-store] daily counts scan error: %v", err)
+			continue
+		}
+		counts[date] = count
+	}
+
+	// Return as an ordered slice oldest → newest.
+	result := make([]DailyCount, 0, days)
+	for i := days - 1; i >= 0; i-- {
+		d := time.Now().UTC().AddDate(0, 0, -i)
+		date := d.Format("2006-01-02")
+		result = append(result, DailyCount{Date: date, Count: counts[date]})
+	}
+	return result
+}
+
+func (s *Store) emptyDailyCounts(days int) []DailyCount {
+	result := make([]DailyCount, days)
+	for i := range result {
+		d := time.Now().UTC().AddDate(0, 0, -(days - 1 - i))
+		result[i] = DailyCount{Date: d.Format("2006-01-02"), Count: 0}
+	}
+	return result
+}
+
 // Count returns the total number of audit events stored.
 func (s *Store) Count() int {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

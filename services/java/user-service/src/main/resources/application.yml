@@ -1,5 +1,10 @@
 server:
   port: 8082
+  error:
+    include-stacktrace: never
+    include-message: never
+    include-binding-errors: never
+    include-exception: false
 
 spring:
   application:
@@ -7,9 +12,9 @@ spring:
   data:
     redis:
       host: localhost
-      port: 6379
+      port: 6380
   r2dbc:
-    url: r2dbc:postgresql://localhost:5432/medfund
+    url: r2dbc:postgresql://localhost:5433/medfund
     username: medfund
     password: medfund
   security:

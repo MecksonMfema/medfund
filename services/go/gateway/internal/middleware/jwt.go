@@ -13,6 +13,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 
 	"github.com/medfund/gateway/internal/events"
 )
@@ -68,10 +69,14 @@ func (j *JWTMiddleware) Handler() fiber.Handler {
 		c.Locals("user_id", claims["sub"])
 		c.Locals("jwt_token", tokenStr)
 
-		// Extract tenant from JWT
+		// Extract tenant from JWT. Only forward as X-Tenant-ID when the claim
+		// parses as a UUID — sentinel values like "platform" or stale formats
+		// would otherwise be rejected downstream as invalid tenant context.
 		if tenantID, ok := claims["tenant_id"].(string); ok && tenantID != "" {
-			c.Locals("tenant_id", tenantID)
-			c.Request().Header.Set("X-Tenant-ID", tenantID)
+			if _, err := uuid.Parse(tenantID); err == nil {
+				c.Locals("tenant_id", tenantID)
+				c.Request().Header.Set("X-Tenant-ID", tenantID)
+			}
 		}
 
 		return c.Next()

@@ -15,6 +15,7 @@
 <div class="stats-grid">
   <app-stat-card label="Platform Staff" [value]="staffUsers.length" icon="shield" color="blue"></app-stat-card>
   <app-stat-card label="Active Staff" [value]="activeStaff" icon="check-circle" color="green"></app-stat-card>
+  <app-stat-card label="Pending Invites" [value]="invitations.length" icon="bell" color="orange"></app-stat-card>
   <app-stat-card label="Tenant Members Loaded" [value]="members.length" icon="users" color="cyan"></app-stat-card>
   <app-stat-card label="Active Members" [value]="activeMembers" icon="user-check" color="dark" ></app-stat-card>
 </div>
@@ -25,6 +26,13 @@
     <app-icon name="shield" [size]="16"></app-icon>
     Platform Staff
     <span class="tab-count">{{ staffUsers.length }}</span>
+  </button>
+  <button class="tab-btn" [class.active]="activeTab === 'invitations'" (click)="setTab('invitations')">
+    <app-icon name="bell" [size]="16"></app-icon>
+    Invitations
+    @if (invitations.length) {
+      <span class="tab-count">{{ invitations.length }}</span>
+    }
   </button>
   <button class="tab-btn" [class.active]="activeTab === 'members'" (click)="setTab('members')">
     <app-icon name="users" [size]="16"></app-icon>
@@ -59,6 +67,20 @@
     [loading]="staffLoading"
     [searchable]="false"
     emptyMessage="No staff users found."
+  ></app-data-table>
+}
+
+<!-- ── Invitations ─────────────────────────────────────────────────────── -->
+@if (activeTab === 'invitations') {
+  <app-data-table
+    title="Pending Invitations"
+    [subtitle]="invitations.length + ' awaiting acceptance'"
+    [columns]="invitationColumns"
+    [data]="invitations"
+    [actions]="invitationActions"
+    [loading]="invitationsLoading"
+    [searchable]="false"
+    emptyMessage="No pending invitations."
   ></app-data-table>
 }
 
@@ -221,14 +243,33 @@
         </div>
 
         <div class="form-group" [class.has-error]="inviteFieldError('realmRole')">
-          <label>Platform Role <span class="required">*</span></label>
-          <select class="input" [(ngModel)]="invite.realmRole" (blur)="touchInvite('realmRole')" [class.input-error]="inviteFieldError('realmRole')">
+          <label>Role <span class="required">*</span></label>
+          <select class="input" [(ngModel)]="invite.realmRole"
+                  (blur)="touchInvite('realmRole')"
+                  (ngModelChange)="onInviteRoleChange()"
+                  [class.input-error]="inviteFieldError('realmRole')">
             <option value="" disabled>Select a role…</option>
             <option value="super_admin">Super Admin</option>
             <option value="tenant_admin">Tenant Admin</option>
           </select>
           @if (inviteFieldError('realmRole')) { <span class="field-error">{{ inviteFieldError('realmRole') }}</span> }
         </div>
+
+        @if (inviteNeedsTenant) {
+          <div class="form-group" [class.has-error]="inviteFieldError('tenantId')">
+            <label>Assign to Tenant <span class="required">*</span></label>
+            <select class="input" [(ngModel)]="invite.tenantId"
+                    (blur)="touchInvite('tenantId')"
+                    [class.input-error]="inviteFieldError('tenantId')">
+              <option value="" disabled>Select a tenant…</option>
+              @for (t of tenants; track t.id) {
+                <option [value]="t.id">{{ t.name }}</option>
+              }
+            </select>
+            @if (inviteFieldError('tenantId')) { <span class="field-error">{{ inviteFieldError('tenantId') }}</span> }
+            <span class="field-hint">This user will only appear in the selected tenant's portal.</span>
+          </div>
+        }
       </div>
 
       <div class="modal-footer">

@@ -13,9 +13,11 @@ $ts-width-col: 64px;
   display: flex;
   flex-direction: column;
   transition: width 0.25s ease, min-width 0.25s ease;
-  overflow: hidden;
+  /* allow the floating collapse button to overflow the right edge */
+  overflow: visible;
   border-right: 1px solid var(--ts-border, #f3f4f6);
   box-shadow: 1px 0 0 var(--ts-border, #f3f4f6);
+  position: relative;
 
   &.collapsed {
     width: $ts-width-col;
@@ -26,7 +28,7 @@ $ts-width-col: 64px;
     .ts-back          { padding: 8px 6px; }
     .ts-back-btn      { justify-content: center; padding: 8px; }
     .ts-nav-item      { justify-content: center; padding: 10px; margin: 2px 6px; }
-    .ts-nav-item.active::before { left: -6px; }
+    .ts-nav-item.active::before { display: none; }
     .ts-logout-btn    { justify-content: center; padding: 10px; }
   }
 }
@@ -93,23 +95,46 @@ $ts-width-col: 64px;
   text-overflow: ellipsis;
 }
 
+/* Circular pill that straddles the sidebar's right edge — visible always when
+   collapsed, on hover when expanded. Sits at the vertical midpoint of the
+   header so it never collides with the logo or nav items. */
 .ts-collapse-btn {
-  background: none;
-  border: none;
+  position: absolute;
+  top: 26px;
+  right: -12px;
+  width: 24px;
+  height: 24px;
+  background: var(--ts-bg, #ffffff);
   color: var(--ts-text-muted, #9ca3af);
+  border: 1px solid var(--ts-border, #f3f4f6);
+  border-radius: 9999px;
   cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
   display: flex;
-  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
   opacity: 0;
-  transition: opacity 0.15s, color 0.15s;
+  transition: opacity 0.15s, background 0.15s, color 0.15s, transform 0.15s;
+  z-index: 110;
 
   .tenant-sidebar:hover & { opacity: 1; }
-  &:hover { color: var(--ts-text, #4b5563); }
+
+  &:hover {
+    background: var(--ts-accent, #0077b6);
+    color: #ffffff;
+    border-color: var(--ts-accent, #0077b6);
+    transform: scale(1.05);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ts-accent, #0077b6);
+    outline-offset: 2px;
+    opacity: 1;
+  }
 }
 
-.collapsed .ts-collapse-btn { opacity: 1; }
+.tenant-sidebar.collapsed .ts-collapse-btn { opacity: 1; }
 
 // ── Back to Platform ─────────────────────────────────────────────────────────
 

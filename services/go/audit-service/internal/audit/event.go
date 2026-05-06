@@ -30,6 +30,12 @@ type SecurityEvent struct {
 	Timestamp  time.Time `json:"timestamp"`
 }
 
+// DailyCount holds the event count for a single calendar day (UTC).
+type DailyCount struct {
+	Date  string `json:"date"`  // "YYYY-MM-DD"
+	Count int    `json:"count"`
+}
+
 type QueryFilter struct {
 	TenantID   string
 	EntityType string

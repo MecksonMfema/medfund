@@ -30,7 +30,12 @@ public class TenantAwareConnectionFactory implements ConnectionFactory {
                                             .execute())
                                     .then(Mono.just(conn));
                         }
-                        return Mono.just(conn);
+                        // Reset search_path for platform-level queries so a pooled
+                        // connection that previously served a tenant request doesn't
+                        // keep the tenant schema in its search_path.
+                        return Mono.from(conn.createStatement("SET search_path TO public")
+                                        .execute())
+                                .then(Mono.just(conn));
                     });
         });
     }

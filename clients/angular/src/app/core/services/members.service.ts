@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
+import { CursorPage } from './admin.service';
 
 export interface Member {
   id: string;
@@ -30,24 +31,25 @@ export interface Dependant {
 export class MembersService {
   constructor(private api: ApiService) {}
 
-  list(): Observable<Member[]> {
-    return this.api.get<Member[]>('/members');
+  getPage(opts: { q?: string; status?: string; cursor?: string; limit?: number } = {}): Observable<CursorPage<Member>> {
+    const params: Record<string, string> = {};
+    if (opts.q)      params['q']      = opts.q;
+    if (opts.status) params['status'] = opts.status;
+    if (opts.cursor) params['cursor'] = opts.cursor;
+    if (opts.limit)  params['limit']  = String(opts.limit);
+    return this.api.get<CursorPage<Member>>('/members', params);
   }
 
   getById(id: string): Observable<Member> {
     return this.api.get<Member>(`/members/${id}`);
   }
 
-  search(q: string): Observable<Member[]> {
-    return this.api.get<Member[]>('/members/search', { q });
-  }
-
-  getByStatus(status: string): Observable<Member[]> {
-    return this.api.get<Member[]>(`/members/status/${status}`);
-  }
-
   enroll(data: any): Observable<Member> {
     return this.api.post<Member>('/members', data);
+  }
+
+  update(id: string, data: any): Observable<Member> {
+    return this.api.put<Member>(`/members/${id}`, data);
   }
 
   activate(id: string): Observable<Member> {

@@ -83,12 +83,11 @@
   display: grid;
   grid-template-columns: 1fr 340px;
   gap: var(--spacing-xl);
-  align-items: stretch;
+  align-items: start;  // each column sizes to its own content
 
-  @media (max-width: 1100px) { grid-template-columns: 1fr; align-items: start; }
+  @media (max-width: 1100px) { grid-template-columns: 1fr; }
 }
 
-// Grid cells must propagate their stretched height to card children
 .content-left,
 .content-right {
   display: flex;
@@ -105,7 +104,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  flex: 1; // Fill the content-left cell fully
+  height: 460px;  // matches the activity card
 }
 
 .chart-header {
@@ -156,7 +155,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  flex: 1; // Fill the content-right cell fully
+  height: 460px;  // fixed — list scrolls inside
 }
 
 .card-header {

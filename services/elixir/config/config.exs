@@ -1,11 +1,13 @@
 import Config
 
+db_host = System.get_env("MEDFUND_DB_HOST", "localhost")
+
 config :live_dashboard, LiveDashboard.Repo,
   username: "medfund",
   password: "medfund",
-  hostname: "172.29.83.165",
+  hostname: db_host,
   database: "medfund",
-  port: 5432
+  port: 5433
 
 config :live_dashboard, LiveDashboardWeb.Endpoint,
   url: [host: "localhost"],
@@ -14,9 +16,9 @@ config :live_dashboard, LiveDashboardWeb.Endpoint,
 config :chat_service, ChatService.Repo,
   username: "medfund",
   password: "medfund",
-  hostname: "172.29.83.165",
+  hostname: db_host,
   database: "medfund",
-  port: 5432
+  port: 5433
 
 config :chat_service, ChatServiceWeb.Endpoint,
   url: [host: "localhost"],

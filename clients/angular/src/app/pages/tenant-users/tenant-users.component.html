@@ -1,0 +1,434 @@
+<!-- ── Page header ────────────────────────────────────────────────────────── -->
+<h1>Users &amp; Members</h1>
+<p class="page-sub">
+  Manage who has access to this portal (<strong>staff users</strong>) and who is covered by your insurance policies (<strong>members</strong>).
+  A staff user may also hold a member record — the two are tracked separately.
+</p>
+
+<!-- ── Stat cards ─────────────────────────────────────────────────────────── -->
+<div class="stats-grid">
+  <app-stat-card label="Staff Users"    [value]="staffTotal"   color="blue"></app-stat-card>
+  <app-stat-card label="Active Staff"   [value]="staffActive"  color="green"></app-stat-card>
+  <app-stat-card label="Total Members"  [value]="membersTotal" color="teal"></app-stat-card>
+  <app-stat-card label="Active Members" [value]="membersActive" color="green"></app-stat-card>
+</div>
+
+<!-- ── Tab navigation ─────────────────────────────────────────────────────── -->
+<div class="section-card">
+  <div class="tab-bar">
+    <button
+      class="tab-btn"
+      [class.active]="activeTab === 'staff'"
+      (click)="selectTab('staff')"
+    >
+      <app-icon name="briefcase" [size]="16"></app-icon>
+      Staff Users
+      <span class="tab-badge">{{ staffTotal }}</span>
+    </button>
+    <button
+      class="tab-btn"
+      [class.active]="activeTab === 'members'"
+      (click)="selectTab('members')"
+    >
+      <app-icon name="users" [size]="16"></app-icon>
+      Members
+      <span class="tab-badge">{{ membersTotal }}</span>
+    </button>
+  </div>
+
+  <!-- ── Staff Users tab ──────────────────────────────────────────────────── -->
+  @if (activeTab === 'staff') {
+    <div class="tab-content">
+      <div class="content-header">
+        <div>
+          <h2 class="content-title">Staff Users</h2>
+          <p class="content-sub">
+            Employees and operators with portal access. Staff users authenticate via Keycloak and have role-based permissions.
+            A staff user may also be enrolled as a member/policyholder — if so, they will appear in both tabs.
+          </p>
+        </div>
+        <button class="btn btn-primary" (click)="openAddStaffModal()">
+          <app-icon name="plus" [size]="16"></app-icon>
+          Add staff user
+        </button>
+      </div>
+
+      <div class="toolbar">
+        <div class="search-bar">
+          <app-icon name="search" [size]="16"></app-icon>
+          <input
+            type="text"
+            placeholder="Search by name or email…"
+            [(ngModel)]="staffQuery"
+            (ngModelChange)="onStaffQueryChange()"
+          />
+        </div>
+      </div>
+
+      <app-data-table
+        [columns]="staffColumns"
+        [data]="staff"
+        [actions]="staffActions"
+        [loading]="staffLoading"
+        [serverSide]="true"
+        [searchable]="false"
+        [hasPrev]="staffHasPrev"
+        [hasNext]="staffHasNext"
+        (prevPage)="staffPrevPage()"
+        (nextPage)="staffNextPage()"
+        emptyMessage="No staff users yet — add the first one."
+      ></app-data-table>
+    </div>
+  }
+
+  <!-- ── Members tab ──────────────────────────────────────────────────────── -->
+  @if (activeTab === 'members') {
+    <div class="tab-content">
+      <div class="content-header">
+        <div>
+          <h2 class="content-title">Members (Policyholders)</h2>
+          <p class="content-sub">
+            Individuals covered by this organisation's insurance policies. Members are enrolled in schemes and may have dependants.
+            Note: a member is not automatically a staff user — they are separate records.
+          </p>
+        </div>
+        <button class="btn btn-primary" (click)="openEnrollModal()">
+          <app-icon name="plus" [size]="16"></app-icon>
+          Enroll member
+        </button>
+      </div>
+
+      <div class="toolbar">
+        <div class="search-bar">
+          <app-icon name="search" [size]="16"></app-icon>
+          <input
+            type="text"
+            placeholder="Search by name or member number…"
+            [(ngModel)]="memberQuery"
+            (ngModelChange)="onMemberQueryChange()"
+          />
+        </div>
+        <select class="filter-select" [(ngModel)]="memberStatus" (ngModelChange)="onMemberStatusChange()">
+          @for (opt of memberStatusOptions; track opt.value) {
+            <option [value]="opt.value">{{ opt.label }}</option>
+          }
+        </select>
+      </div>
+
+      <app-data-table
+        [columns]="memberColumns"
+        [data]="members"
+        [actions]="memberActions"
+        [loading]="membersLoading"
+        [serverSide]="true"
+        [searchable]="false"
+        [hasPrev]="memberHasPrev"
+        [hasNext]="memberHasNext"
+        (prevPage)="memberPrevPage()"
+        (nextPage)="memberNextPage()"
+        emptyMessage="No members enrolled yet."
+      ></app-data-table>
+    </div>
+  }
+</div>
+
+<!-- ── Add staff user modal ───────────────────────────────────────────────── -->
+@if (showAddStaffModal) {
+  <div class="modal-overlay" (click)="showAddStaffModal = false">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Add staff user</h3>
+        <button class="modal-close" (click)="showAddStaffModal = false">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="notice-box">
+          <app-icon name="info" [size]="15"></app-icon>
+          <span>Staff users get portal access via Keycloak. If this person is also a policyholder, enroll them separately under the <strong>Members</strong> tab.</span>
+        </div>
+        <div class="form-row">
+          <div class="form-field" [class.has-error]="addStaffErrors['firstName']">
+            <label>First name *</label>
+            <input type="text" [(ngModel)]="addStaffForm.firstName" placeholder="Jane" />
+            @if (addStaffErrors['firstName']) { <span class="field-error">{{ addStaffErrors['firstName'] }}</span> }
+          </div>
+          <div class="form-field" [class.has-error]="addStaffErrors['lastName']">
+            <label>Last name *</label>
+            <input type="text" [(ngModel)]="addStaffForm.lastName" placeholder="Smith" />
+            @if (addStaffErrors['lastName']) { <span class="field-error">{{ addStaffErrors['lastName'] }}</span> }
+          </div>
+        </div>
+        <div class="form-field" [class.has-error]="addStaffErrors['email']">
+          <label>Email address *</label>
+          <input type="email" [(ngModel)]="addStaffForm.email" placeholder="jane@company.com" />
+          @if (addStaffErrors['email']) { <span class="field-error">{{ addStaffErrors['email'] }}</span> }
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Job title</label>
+            <input type="text" [(ngModel)]="addStaffForm.jobTitle" placeholder="Claims Clerk" />
+          </div>
+          <div class="form-field">
+            <label>Department</label>
+            <input type="text" [(ngModel)]="addStaffForm.department" placeholder="Operations" />
+          </div>
+        </div>
+        <div class="form-field" [class.has-error]="addStaffErrors['realmRole']">
+          <label>Portal role *</label>
+          <select [(ngModel)]="addStaffForm.realmRole">
+            <option value="">Select a role…</option>
+            @for (r of availableRoles; track r.value) {
+              <option [value]="r.value">{{ r.label }}</option>
+            }
+          </select>
+          @if (addStaffErrors['realmRole']) { <span class="field-error">{{ addStaffErrors['realmRole'] }}</span> }
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="showAddStaffModal = false">Cancel</button>
+        <button class="btn btn-primary" (click)="submitAddStaff()" [disabled]="addStaffSubmitting">
+          {{ addStaffSubmitting ? 'Creating…' : 'Create user' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ── Edit staff user modal ──────────────────────────────────────────────── -->
+@if (showEditStaffModal) {
+  <div class="modal-overlay" (click)="showEditStaffModal = false">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Edit staff user</h3>
+        <button class="modal-close" (click)="showEditStaffModal = false">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-field" [class.has-error]="editStaffErrors['firstName']">
+            <label>First name *</label>
+            <input type="text" [(ngModel)]="editStaffForm.firstName" />
+            @if (editStaffErrors['firstName']) { <span class="field-error">{{ editStaffErrors['firstName'] }}</span> }
+          </div>
+          <div class="form-field" [class.has-error]="editStaffErrors['lastName']">
+            <label>Last name *</label>
+            <input type="text" [(ngModel)]="editStaffForm.lastName" />
+            @if (editStaffErrors['lastName']) { <span class="field-error">{{ editStaffErrors['lastName'] }}</span> }
+          </div>
+        </div>
+        <div class="form-field" [class.has-error]="editStaffErrors['email']">
+          <label>Email address *</label>
+          <input type="email" [(ngModel)]="editStaffForm.email" />
+          @if (editStaffErrors['email']) { <span class="field-error">{{ editStaffErrors['email'] }}</span> }
+        </div>
+        <div class="form-field">
+          <label>Phone</label>
+          <input type="tel" [(ngModel)]="editStaffForm.phone" placeholder="+263 77 123 4567" />
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Job title</label>
+            <input type="text" [(ngModel)]="editStaffForm.jobTitle" />
+          </div>
+          <div class="form-field">
+            <label>Department</label>
+            <input type="text" [(ngModel)]="editStaffForm.department" />
+          </div>
+        </div>
+        <div class="form-field" [class.has-error]="editStaffErrors['realmRole']">
+          <label>Portal role *</label>
+          <select [(ngModel)]="editStaffForm.realmRole">
+            <option value="">Select a role…</option>
+            @for (r of editStaffRoleOptions; track r.value) {
+              <option [value]="r.value">{{ r.label }}</option>
+            }
+          </select>
+          @if (editStaffErrors['realmRole']) { <span class="field-error">{{ editStaffErrors['realmRole'] }}</span> }
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-enroll" (click)="openEnrollFromStaff(editingStaff!)">
+          <app-icon name="user-plus" [size]="15"></app-icon>
+          Enroll as member
+        </button>
+        <div class="modal-footer-right">
+          <button class="btn btn-ghost" (click)="showEditStaffModal = false">Cancel</button>
+          <button class="btn btn-primary" (click)="submitEditStaff()" [disabled]="editStaffSubmitting">
+            {{ editStaffSubmitting ? 'Saving…' : 'Save changes' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ── Enroll member modal ────────────────────────────────────────────────── -->
+@if (showEnrollModal) {
+  <div class="modal-overlay" (click)="showEnrollModal = false">
+    <div class="modal modal-wide" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Enroll member</h3>
+        <button class="modal-close" (click)="showEnrollModal = false">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        @if (enrollFromStaffName) {
+          <div class="notice-box notice-box--highlight">
+            <app-icon name="user-plus" [size]="15"></app-icon>
+            <span>Enrolling <strong>{{ enrollFromStaffName }}</strong> as a policyholder. Their name, email and phone have been pre-filled from their staff record. Complete the remaining required fields below.</span>
+          </div>
+        } @else {
+          <div class="notice-box">
+            <app-icon name="info" [size]="15"></app-icon>
+            <span>Members are policyholders enrolled in an insurance scheme. If this person also needs portal access, add them separately under <strong>Staff Users</strong>.</span>
+          </div>
+        }
+        <div class="form-row">
+          <div class="form-field" [class.has-error]="enrollErrors['firstName']">
+            <label>First name *</label>
+            <input type="text" [(ngModel)]="enrollForm.firstName" placeholder="John" />
+            @if (enrollErrors['firstName']) { <span class="field-error">{{ enrollErrors['firstName'] }}</span> }
+          </div>
+          <div class="form-field" [class.has-error]="enrollErrors['lastName']">
+            <label>Last name *</label>
+            <input type="text" [(ngModel)]="enrollForm.lastName" placeholder="Doe" />
+            @if (enrollErrors['lastName']) { <span class="field-error">{{ enrollErrors['lastName'] }}</span> }
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field" [class.has-error]="enrollErrors['dateOfBirth']">
+            <label>Date of birth *</label>
+            <input type="date" [(ngModel)]="enrollForm.dateOfBirth" />
+            @if (enrollErrors['dateOfBirth']) { <span class="field-error">{{ enrollErrors['dateOfBirth'] }}</span> }
+          </div>
+          <div class="form-field" [class.has-error]="enrollErrors['gender']">
+            <label>Gender *</label>
+            <select [(ngModel)]="enrollForm.gender">
+              <option value="">Select…</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+            @if (enrollErrors['gender']) { <span class="field-error">{{ enrollErrors['gender'] }}</span> }
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>National ID / Passport</label>
+            <input type="text" [(ngModel)]="enrollForm.nationalId" placeholder="ID number" />
+          </div>
+          <div class="form-field">
+            <label>Phone</label>
+            <input type="tel" [(ngModel)]="enrollForm.phone" placeholder="+263 77 123 4567" />
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Email</label>
+          <input type="email" [(ngModel)]="enrollForm.email" placeholder="john@example.com" />
+        </div>
+        <div class="form-field">
+          <label>Address</label>
+          <input type="text" [(ngModel)]="enrollForm.address" placeholder="123 Main St, Harare" />
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Group ID <span class="field-hint">(optional)</span></label>
+            <input type="text" [(ngModel)]="enrollForm.groupId" placeholder="Corporate group UUID" />
+          </div>
+          <div class="form-field">
+            <label>Scheme ID <span class="field-hint">(optional)</span></label>
+            <input type="text" [(ngModel)]="enrollForm.schemeId" placeholder="Insurance scheme UUID" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="showEnrollModal = false">Cancel</button>
+        <button class="btn btn-primary" (click)="submitEnroll()" [disabled]="enrollSubmitting">
+          {{ enrollSubmitting ? 'Enrolling…' : 'Enroll member' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ── Edit member modal ──────────────────────────────────────────────────── -->
+@if (showEditMemberModal) {
+  <div class="modal-overlay" (click)="showEditMemberModal = false">
+    <div class="modal modal-wide" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Edit member — {{ editingMember?.memberNumber }}</h3>
+        <button class="modal-close" (click)="showEditMemberModal = false">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-field" [class.has-error]="editMemberErrors['firstName']">
+            <label>First name *</label>
+            <input type="text" [(ngModel)]="editMemberForm.firstName" />
+            @if (editMemberErrors['firstName']) { <span class="field-error">{{ editMemberErrors['firstName'] }}</span> }
+          </div>
+          <div class="form-field" [class.has-error]="editMemberErrors['lastName']">
+            <label>Last name *</label>
+            <input type="text" [(ngModel)]="editMemberForm.lastName" />
+            @if (editMemberErrors['lastName']) { <span class="field-error">{{ editMemberErrors['lastName'] }}</span> }
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field" [class.has-error]="editMemberErrors['dateOfBirth']">
+            <label>Date of birth *</label>
+            <input type="date" [(ngModel)]="editMemberForm.dateOfBirth" />
+            @if (editMemberErrors['dateOfBirth']) { <span class="field-error">{{ editMemberErrors['dateOfBirth'] }}</span> }
+          </div>
+          <div class="form-field" [class.has-error]="editMemberErrors['gender']">
+            <label>Gender *</label>
+            <select [(ngModel)]="editMemberForm.gender">
+              <option value="">Select…</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+            @if (editMemberErrors['gender']) { <span class="field-error">{{ editMemberErrors['gender'] }}</span> }
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>National ID / Passport</label>
+            <input type="text" [(ngModel)]="editMemberForm.nationalId" placeholder="ID number" />
+          </div>
+          <div class="form-field">
+            <label>Phone</label>
+            <input type="tel" [(ngModel)]="editMemberForm.phone" placeholder="+263 77 123 4567" />
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Email</label>
+          <input type="email" [(ngModel)]="editMemberForm.email" />
+        </div>
+        <div class="form-field">
+          <label>Address</label>
+          <input type="text" [(ngModel)]="editMemberForm.address" />
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Group ID <span class="field-hint">(optional)</span></label>
+            <input type="text" [(ngModel)]="editMemberForm.groupId" placeholder="Corporate group UUID" />
+          </div>
+          <div class="form-field">
+            <label>Scheme ID <span class="field-hint">(optional)</span></label>
+            <input type="text" [(ngModel)]="editMemberForm.schemeId" placeholder="Insurance scheme UUID" />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" (click)="showEditMemberModal = false">Cancel</button>
+        <button class="btn btn-primary" (click)="submitEditMember()" [disabled]="editMemberSubmitting">
+          {{ editMemberSubmitting ? 'Saving…' : 'Save changes' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

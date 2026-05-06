@@ -39,4 +39,51 @@ public interface MemberRepository extends R2dbcRepository<Member, UUID> {
 
     @Query("SELECT * FROM members ORDER BY created_at DESC")
     Flux<Member> findAllOrderByCreatedAtDesc();
+
+    // ── Cursor pagination ──────────────────────────────────────────────────
+
+    @Query("SELECT * FROM members ORDER BY created_at DESC, id DESC LIMIT :limit")
+    Flux<Member> findFirstPage(int limit);
+
+    @Query("""
+        SELECT * FROM members
+        WHERE created_at < :cursorTs
+           OR (created_at = :cursorTs AND id < :cursorId)
+        ORDER BY created_at DESC, id DESC
+        LIMIT :limit
+        """)
+    Flux<Member> findNextPage(java.time.Instant cursorTs, UUID cursorId, int limit);
+
+    @Query("SELECT * FROM members WHERE status = :status ORDER BY created_at DESC, id DESC LIMIT :limit")
+    Flux<Member> findFirstPageByStatus(String status, int limit);
+
+    @Query("""
+        SELECT * FROM members
+        WHERE status = :status
+          AND (created_at < :cursorTs OR (created_at = :cursorTs AND id < :cursorId))
+        ORDER BY created_at DESC, id DESC
+        LIMIT :limit
+        """)
+    Flux<Member> findNextPageByStatus(String status, java.time.Instant cursorTs, UUID cursorId, int limit);
+
+    @Query("""
+        SELECT * FROM members
+        WHERE (LOWER(first_name) LIKE LOWER(CONCAT('%', :q, '%'))
+            OR LOWER(last_name)  LIKE LOWER(CONCAT('%', :q, '%'))
+            OR member_number     LIKE CONCAT('%', :q, '%'))
+        ORDER BY created_at DESC, id DESC
+        LIMIT :limit
+        """)
+    Flux<Member> searchFirstPage(String q, int limit);
+
+    @Query("""
+        SELECT * FROM members
+        WHERE (LOWER(first_name) LIKE LOWER(CONCAT('%', :q, '%'))
+            OR LOWER(last_name)  LIKE LOWER(CONCAT('%', :q, '%'))
+            OR member_number     LIKE CONCAT('%', :q, '%'))
+          AND (created_at < :cursorTs OR (created_at = :cursorTs AND id < :cursorId))
+        ORDER BY created_at DESC, id DESC
+        LIMIT :limit
+        """)
+    Flux<Member> searchNextPage(String q, java.time.Instant cursorTs, UUID cursorId, int limit);
 }

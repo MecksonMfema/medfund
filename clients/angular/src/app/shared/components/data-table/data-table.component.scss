@@ -278,3 +278,47 @@ tbody tr:hover {
   cursor: not-allowed;
 }
 
+
+/* ── Loading state ──────────────────────────────────────────────────────── */
+
+/* Subtle dim on the existing table while a refresh is in flight. */
+.table-container.is-loading .table-scroll {
+  position: relative;
+}
+.table-container.is-loading .table-scroll::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+  animation: table-fade-in 200ms ease-out;
+}
+
+@keyframes table-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Animated three-dot indicator shown in the empty row during a fresh load. */
+.empty-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.empty-loading__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-sidebar-active-indicator, #0077b6);
+  animation: empty-loading-bounce 1.2s infinite ease-in-out;
+}
+.empty-loading__dot:nth-child(2) { animation-delay: 0.15s; }
+.empty-loading__dot:nth-child(3) { animation-delay: 0.30s; }
+
+@keyframes empty-loading-bounce {
+  0%, 80%, 100% { opacity: 0.25; transform: scale(0.85); }
+  40%           { opacity: 1;    transform: scale(1); }
+}
