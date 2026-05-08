@@ -17,6 +17,10 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// ── Tenancy Service ───────────────────────────────────────────────────────
 	app.All("/api/v1/tenants/*", proxy.Handler(cfg.TenancyServiceURL))
 	app.All("/api/v1/plans/*", proxy.Handler(cfg.TenancyServiceURL))
+	app.All("/api/v1/currencies", proxy.Handler(cfg.TenancyServiceURL))
+	app.All("/api/v1/currencies/*", proxy.Handler(cfg.TenancyServiceURL))
+	app.All("/api/v1/exchange-rates", proxy.Handler(cfg.TenancyServiceURL))
+	app.All("/api/v1/exchange-rates/*", proxy.Handler(cfg.TenancyServiceURL))
 
 	// ── User Service ──────────────────────────────────────────────────────────
 	app.All("/api/v1/staff-users", proxy.Handler(cfg.UserServiceURL))
