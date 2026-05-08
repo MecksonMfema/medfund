@@ -489,6 +489,21 @@
   </div>
 }
 
+<!-- Billing -->
+@if (activeTab === 'billing') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <div class="section-header">
+        <div>
+          <h3 class="section-title">Billing</h3>
+          <p class="section-sub">Tenant catalogues that drive contribution generation, transaction recording, and dunning.</p>
+        </div>
+      </div>
+      <app-tenant-billing-tab></app-tenant-billing-tab>
+    </div>
+  </div>
+}
+
 <!-- Roles & Permissions -->
 @if (activeTab === 'roles') {
   <div class="settings-section">

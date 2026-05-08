@@ -1,0 +1,84 @@
+<div class="form-page">
+  <header class="page-header">
+    <div>
+      <h1>Record transaction</h1>
+      <p class="page-sub">Transaction types and payment methods come from Settings → Billing. When the chosen method requires a reference, the reference field becomes mandatory.</p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/billing/transactions">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success">{{ successMessage }}</div>
+  }
+
+  <form (submit)="$event.preventDefault(); submit()" class="form-grid">
+    <label class="field">
+      <span class="field-label">Contribution id (optional)</span>
+      <input [(ngModel)]="form.contributionId" name="contributionId" placeholder="UUID" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Invoice id (optional)</span>
+      <input [(ngModel)]="form.invoiceId" name="invoiceId" placeholder="UUID" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Amount</span>
+      <input type="number" step="any" min="0" [(ngModel)]="form.amount" name="amount" required />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Currency</span>
+      <select [(ngModel)]="form.currencyCode" name="currencyCode" required>
+        <option [value]="''" disabled>Pick a currency</option>
+        @for (c of currencies; track c.id) {
+          <option [value]="c.currencyCode">{{ c.currencyCode }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="field">
+      <span class="field-label">Transaction type</span>
+      <select [(ngModel)]="form.transactionTypeCode" name="transactionType" required>
+        <option [value]="''" disabled>Pick a type</option>
+        @for (t of transactionTypes; track t.id) {
+          <option [value]="t.code">{{ t.label }} ({{ t.sign }})</option>
+        }
+      </select>
+    </label>
+
+    <label class="field">
+      <span class="field-label">Payment method</span>
+      <select [(ngModel)]="form.paymentMethodCode" name="paymentMethod">
+        <option [value]="''">— None —</option>
+        @for (p of paymentMethods; track p.id) {
+          <option [value]="p.code">{{ p.label }}{{ p.requiresReference ? ' (requires reference)' : '' }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="field span-2">
+      <span class="field-label">
+        Reference
+        @if (selectedMethod()?.requiresReference) {
+          <span class="required">required</span>
+        }
+      </span>
+      <input [(ngModel)]="form.reference" name="reference"
+             [placeholder]="selectedMethod()?.requiresReference ? 'Bank reference / receipt #' : 'Optional'" />
+    </label>
+
+    <div class="form-actions span-2">
+      <a class="btn btn-default" routerLink="/tenant/billing/transactions">Cancel</a>
+      <button type="submit" class="btn btn-primary" [disabled]="saving">
+        {{ saving ? 'Saving…' : 'Record transaction' }}
+      </button>
+    </div>
+  </form>
+</div>

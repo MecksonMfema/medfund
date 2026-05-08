@@ -60,6 +60,7 @@ public final class Permissions {
     public static final String BILLING_POST_TRANSACTIONS         = "billing:post_transactions";
     public static final String BILLING_VIEW_CURRENCIES           = "billing:view_currencies";
     public static final String BILLING_MANAGE_CURRENCIES         = "billing:manage_currencies";
+    public static final String BILLING_MANAGE_BILLING_SETTINGS   = "billing:manage_billing_settings";
     public static final String BILLING_VIEW_CREDITORS            = "billing:view_creditors";
     public static final String BILLING_MANAGE_BAD_DEBTS          = "billing:manage_bad_debts";
 
@@ -114,8 +115,8 @@ public final class Permissions {
             BILLING_VIEW, BILLING_MANAGE_SCHEMES, BILLING_MANAGE_AGE_GROUPS,
             BILLING_MANAGE_WAITING_PERIODS, BILLING_MANAGE_GROUPS, BILLING_MANAGE_DEPENDANTS,
             BILLING_GENERATE_BILLING, BILLING_VIEW_STATEMENTS, BILLING_POST_TRANSACTIONS,
-            BILLING_VIEW_CURRENCIES, BILLING_MANAGE_CURRENCIES, BILLING_VIEW_CREDITORS,
-            BILLING_MANAGE_BAD_DEBTS,
+            BILLING_VIEW_CURRENCIES, BILLING_MANAGE_CURRENCIES, BILLING_MANAGE_BILLING_SETTINGS,
+            BILLING_VIEW_CREDITORS, BILLING_MANAGE_BAD_DEBTS,
 
             FINANCE_VIEW, FINANCE_CREATE_PAYMENT_RUN, FINANCE_APPROVE_PAYMENT_RUN,
             FINANCE_VIEW_ADVANCE_PAYMENTS, FINANCE_MANAGE_ADVANCE_PAYMENTS,

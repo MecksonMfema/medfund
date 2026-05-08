@@ -44,6 +44,12 @@ export interface OperationalNavGroup {
  */
 export const OPERATIONAL_NAV: OperationalNavGroup[] = [
   {
+    title: 'Overview',
+    items: [
+      { label: 'Dashboard', icon: 'dashboard', route: '/tenant/dashboard' },
+    ],
+  },
+  {
     title: 'Billing',
     items: [
       { label: 'Schemes',        icon: 'briefcase',  route: '/tenant/billing/schemes',      permissions: ['billing:view', 'billing:manage_schemes'] },
@@ -59,12 +65,6 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
       { label: 'Members',     icon: 'users',     route: '/tenant/members',          permissions: ['members:view'] },
       { label: 'Dependants',  icon: 'user-plus', route: '/tenant/members/dependants', permissions: ['members:view_dependants'] },
       { label: 'Groups',      icon: 'building',  route: '/tenant/members/groups',   permissions: ['billing:manage_groups'] },
-    ],
-  },
-  {
-    title: 'Overview',
-    items: [
-      { label: 'Dashboard', icon: 'dashboard', route: '/tenant/dashboard' },
     ],
   },
   {

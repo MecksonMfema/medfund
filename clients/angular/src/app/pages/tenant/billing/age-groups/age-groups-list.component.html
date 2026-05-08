@@ -1,0 +1,54 @@
+<div class="age-groups-page">
+  <header class="page-header">
+    <div>
+      <h1>Age groups</h1>
+      <p class="page-sub">Pricing tiers per scheme. Each row is a contribution amount that applies to members in the configured age band. Currency is inherited from the parent scheme.</p>
+    </div>
+    <a class="btn btn-primary" routerLink="/tenant/billing/age-groups/add">
+      <app-icon name="plus" [size]="14"></app-icon>
+      Add age group
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <div class="filters">
+    <label class="field">
+      <span class="field-label">Scheme</span>
+      <select [(ngModel)]="selectedSchemeId" (change)="onSchemeChange()" name="scheme">
+        @for (s of schemes; track s.id) {
+          <option [value]="s.id">{{ s.name }} ({{ s.currencyCode || '—' }})</option>
+        }
+      </select>
+    </label>
+  </div>
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (rows.length === 0) {
+    <p class="empty-state">No age groups configured for this scheme yet.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Min age</th>
+          <th>Max age</th>
+          <th>Contribution</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows; track row.id) {
+          <tr>
+            <td><strong>{{ row.name }}</strong></td>
+            <td>{{ row.minAge }}</td>
+            <td>{{ row.maxAge }}</td>
+            <td>{{ row.contributionAmount | currencyFormat:row.currencyCode }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

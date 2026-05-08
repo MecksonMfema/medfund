@@ -37,6 +37,15 @@ public class GlobalExceptionHandler {
         return Mono.just(problem);
     }
 
+    @ExceptionHandler(BillingCooldownException.class)
+    public Mono<ProblemDetail> handleBillingCooldown(BillingCooldownException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        problem.setType(URI.create("https://medfund.healthcare/errors/billing-cooldown"));
+        problem.setTitle("Billing Cooldown Active");
+        problem.setProperty("remainingMinutes", ex.getRemainingMinutes());
+        return Mono.just(problem);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public Mono<ProblemDetail> handleBadRequest(IllegalArgumentException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());

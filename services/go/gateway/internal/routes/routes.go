@@ -48,10 +48,14 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/icd-codes/*", proxy.Handler(cfg.ClaimsServiceURL))
 
 	// ── Contributions Service ─────────────────────────────────────────────────
+	app.All("/api/v1/schemes", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/schemes/*", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/contributions", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/contributions/*", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/invoices/*", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/transactions", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/transactions/*", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/billing/*", proxy.Handler(cfg.ContribServiceURL))
 
 	// ── Finance Service ───────────────────────────────────────────────────────
 	app.All("/api/v1/payments/*", proxy.Handler(cfg.FinanceServiceURL))

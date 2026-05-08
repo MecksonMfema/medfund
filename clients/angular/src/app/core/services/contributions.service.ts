@@ -5,10 +5,22 @@ import { ApiService } from './api.service';
 export interface Scheme {
   id: string;
   name: string;
-  description: string;
-  schemeType: string;
+  description?: string;
+  schemeType?: string;
   status: string;
   effectiveDate: string;
+  endDate?: string;
+  currencyCode?: string;
+}
+
+export interface AgeGroup {
+  id: string;
+  schemeId: string;
+  name: string;
+  minAge: number;
+  maxAge: number;
+  contributionAmount: string;
+  currencyCode: string;
 }
 
 export interface Contribution {
@@ -23,6 +35,21 @@ export interface Contribution {
   status: string;
 }
 
+export interface Transaction {
+  id: string;
+  transactionNumber: string;
+  contributionId?: string;
+  invoiceId?: string;
+  amount: string;
+  currencyCode: string;
+  transactionType: string;
+  paymentMethod?: string;
+  reference?: string;
+  status: string;
+  transactionDate?: string;
+  createdAt: string;
+}
+
 export interface Invoice {
   id: string;
   invoiceNumber: string;
@@ -33,10 +60,71 @@ export interface Invoice {
   dueDate: string;
 }
 
+export interface UpsertSchemePayload {
+  name: string;
+  description?: string;
+  schemeType?: string;
+  effectiveDate: string;
+  endDate?: string;
+  currencyCode?: string;
+}
+
+export interface UpsertAgeGroupPayload {
+  schemeId: string;
+  name: string;
+  minAge: number;
+  maxAge: number;
+  contributionAmount: string;
+  currencyCode?: string;
+}
+
+export interface BillingFilterPayload {
+  periodStart: string;
+  periodEnd: string;
+  schemeIds?: string[];
+  groupIds?: string[];
+  memberIds?: string[];
+}
+
+export interface BillingPreviewSampleRow {
+  memberId: string;
+  memberNumber: string;
+  schemeId: string;
+  schemeName: string;
+  groupId: string | null;
+  amount: string;
+  currencyCode: string;
+}
+
+export interface BillingPreviewResponse {
+  totalRows: number;
+  totalsByCurrency: Record<string, string>;
+  sample: BillingPreviewSampleRow[];
+  cooldownActive: boolean;
+  cooldownRemainingMinutes: number | null;
+}
+
+export interface BillingCommitResponse {
+  contributionsCreated: number;
+  totalsByCurrency: Record<string, string>;
+  committedAt: string;
+}
+
+export interface RecordTransactionPayload {
+  contributionId?: string;
+  invoiceId?: string;
+  amount: string;
+  currencyCode: string;
+  transactionType: string;
+  paymentMethod?: string;
+  reference?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ContributionsService {
   constructor(private api: ApiService) {}
 
+  // ── Schemes ──
   getSchemes(): Observable<Scheme[]> {
     return this.api.get<Scheme[]>('/schemes');
   }
@@ -45,22 +133,54 @@ export class ContributionsService {
     return this.api.get<Scheme>(`/schemes/${id}`);
   }
 
-  createScheme(data: any): Observable<Scheme> {
+  createScheme(data: UpsertSchemePayload): Observable<Scheme> {
     return this.api.post<Scheme>('/schemes', data);
   }
 
-  getContributions(memberId: string): Observable<Contribution[]> {
+  updateScheme(id: string, data: UpsertSchemePayload): Observable<Scheme> {
+    return this.api.put<Scheme>(`/schemes/${id}`, data);
+  }
+
+  // ── Age groups ──
+  getAgeGroupsByScheme(schemeId: string): Observable<AgeGroup[]> {
+    return this.api.get<AgeGroup[]>(`/schemes/${schemeId}/age-groups`);
+  }
+
+  createAgeGroup(data: UpsertAgeGroupPayload): Observable<AgeGroup> {
+    return this.api.post<AgeGroup>('/schemes/age-groups', data);
+  }
+
+  // ── Contributions ──
+  getContributionsByMember(memberId: string): Observable<Contribution[]> {
     return this.api.get<Contribution[]>(`/contributions/member/${memberId}`);
+  }
+
+  getContributionsByGroup(groupId: string): Observable<Contribution[]> {
+    return this.api.get<Contribution[]>(`/contributions/group/${groupId}`);
   }
 
   getContributionsByStatus(status: string): Observable<Contribution[]> {
     return this.api.get<Contribution[]>(`/contributions/status/${status}`);
   }
 
-  generateBilling(data: any): Observable<number> {
-    return this.api.post<number>('/contributions/generate-billing', data);
+  previewBilling(filters: BillingFilterPayload): Observable<BillingPreviewResponse> {
+    return this.api.post<BillingPreviewResponse>('/contributions/preview', filters);
   }
 
+  commitBilling(filters: BillingFilterPayload): Observable<BillingCommitResponse> {
+    return this.api.post<BillingCommitResponse>('/contributions/commit', filters);
+  }
+
+  // ── Transactions ──
+  recordTransaction(data: RecordTransactionPayload): Observable<Transaction> {
+    return this.api.post<Transaction>('/transactions', data);
+  }
+
+  getTransactionsByContribution(contributionId: string): Observable<Transaction[]> {
+    return this.api.get<Transaction[]>(`/transactions/contribution/${contributionId}`);
+  }
+
+  // ── Invoices ──
   getInvoicesByGroup(groupId: string): Observable<Invoice[]> {
     return this.api.get<Invoice[]>(`/invoices/group/${groupId}`);
   }

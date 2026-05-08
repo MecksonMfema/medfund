@@ -1,0 +1,289 @@
+<div class="billing-tab">
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+  }
+
+  <nav class="sub-nav">
+    @for (s of subSections; track s.id) {
+      <button type="button" class="sub-nav-btn" [class.active]="active === s.id" (click)="active = s.id">
+        <app-icon [name]="s.icon" [size]="14"></app-icon>
+        {{ s.label }}
+      </button>
+    }
+  </nav>
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else {
+
+    <!-- ── Benefit Types ─────────────────────────────────────────────── -->
+    @if (active === 'benefit-types') {
+      <section class="section">
+        <header class="section-header">
+          <div>
+            <h3 class="section-title">Benefit Types</h3>
+            <p class="section-sub">The catalogue of benefits a scheme can offer. Renaming or removing a row does not affect existing scheme benefits — those keep the snapshot label they were created with.</p>
+          </div>
+        </header>
+
+        <table class="data-table">
+          <thead>
+            <tr><th>Code</th><th>Label</th><th>Description</th><th>Order</th><th>Active</th><th></th></tr>
+          </thead>
+          <tbody>
+            @for (b of benefitTypes; track b.id) {
+              @if (benefitDraft.id === b.id) {
+                <tr class="editing">
+                  <td><input [(ngModel)]="benefitDraft.code" name="bt-code-{{b.id}}" maxlength="50" required /></td>
+                  <td><input [(ngModel)]="benefitDraft.label" name="bt-label-{{b.id}}" maxlength="200" required /></td>
+                  <td><input [(ngModel)]="benefitDraft.description" name="bt-desc-{{b.id}}" /></td>
+                  <td><input type="number" [(ngModel)]="benefitDraft.sortOrder" name="bt-sort-{{b.id}}" /></td>
+                  <td><input type="checkbox" [(ngModel)]="benefitDraft.isActive" name="bt-active-{{b.id}}" /></td>
+                  <td>
+                    <button class="btn btn-primary btn-xs" (click)="saveBenefit(benefitDraft)" [disabled]="saving">Save</button>
+                    <button class="btn btn-default btn-xs" (click)="cancelBenefitEdit()">Cancel</button>
+                  </td>
+                </tr>
+              } @else {
+                <tr [class.pending]="pendingId === b.id">
+                  <td><strong>{{ b.code }}</strong></td>
+                  <td>{{ b.label }}</td>
+                  <td class="muted">{{ b.description || '—' }}</td>
+                  <td>{{ b.sortOrder }}</td>
+                  <td><input type="checkbox" [checked]="b.isActive" disabled /></td>
+                  <td>
+                    <button class="link-btn" (click)="startEditBenefit(b)">Edit</button>
+                    <button class="link-btn danger" (click)="deleteBenefit(b)">Delete</button>
+                  </td>
+                </tr>
+              }
+            }
+            <tr class="new-row">
+              <td><input [(ngModel)]="newBenefit.code" name="bt-new-code" placeholder="OUTPATIENT" maxlength="50" /></td>
+              <td><input [(ngModel)]="newBenefit.label" name="bt-new-label" placeholder="Label" maxlength="200" /></td>
+              <td><input [(ngModel)]="newBenefit.description" name="bt-new-desc" placeholder="Optional" /></td>
+              <td><input type="number" [(ngModel)]="newBenefit.sortOrder" name="bt-new-sort" /></td>
+              <td><input type="checkbox" [(ngModel)]="newBenefit.isActive" name="bt-new-active" /></td>
+              <td>
+                <button class="btn btn-primary btn-xs" (click)="saveBenefit(newBenefit)"
+                        [disabled]="saving || !newBenefit.code || !newBenefit.label">Add</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    }
+
+    <!-- ── Payment Methods ───────────────────────────────────────────── -->
+    @if (active === 'payment-methods') {
+      <section class="section">
+        <header class="section-header">
+          <div>
+            <h3 class="section-title">Payment Methods</h3>
+            <p class="section-sub">Methods accepted on the Record Transaction form. When a method requires a reference, the reference field is mandatory.</p>
+          </div>
+        </header>
+
+        <table class="data-table">
+          <thead>
+            <tr><th>Code</th><th>Label</th><th>Description</th><th>Requires reference</th><th>Active</th><th></th></tr>
+          </thead>
+          <tbody>
+            @for (p of paymentMethods; track p.id) {
+              @if (paymentDraft.id === p.id) {
+                <tr class="editing">
+                  <td><input [(ngModel)]="paymentDraft.code" name="pm-code-{{p.id}}" maxlength="50" required /></td>
+                  <td><input [(ngModel)]="paymentDraft.label" name="pm-label-{{p.id}}" required /></td>
+                  <td><input [(ngModel)]="paymentDraft.description" name="pm-desc-{{p.id}}" /></td>
+                  <td><input type="checkbox" [(ngModel)]="paymentDraft.requiresReference" name="pm-ref-{{p.id}}" /></td>
+                  <td><input type="checkbox" [(ngModel)]="paymentDraft.isActive" name="pm-active-{{p.id}}" /></td>
+                  <td>
+                    <button class="btn btn-primary btn-xs" (click)="savePayment(paymentDraft)" [disabled]="saving">Save</button>
+                    <button class="btn btn-default btn-xs" (click)="cancelPaymentEdit()">Cancel</button>
+                  </td>
+                </tr>
+              } @else {
+                <tr [class.pending]="pendingId === p.id">
+                  <td><strong>{{ p.code }}</strong></td>
+                  <td>{{ p.label }}</td>
+                  <td class="muted">{{ p.description || '—' }}</td>
+                  <td><input type="checkbox" [checked]="p.requiresReference" disabled /></td>
+                  <td><input type="checkbox" [checked]="p.isActive" disabled /></td>
+                  <td>
+                    <button class="link-btn" (click)="startEditPayment(p)">Edit</button>
+                    <button class="link-btn danger" (click)="deletePayment(p)">Delete</button>
+                  </td>
+                </tr>
+              }
+            }
+            <tr class="new-row">
+              <td><input [(ngModel)]="newPayment.code" name="pm-new-code" placeholder="CASH" maxlength="50" /></td>
+              <td><input [(ngModel)]="newPayment.label" name="pm-new-label" placeholder="Label" /></td>
+              <td><input [(ngModel)]="newPayment.description" name="pm-new-desc" /></td>
+              <td><input type="checkbox" [(ngModel)]="newPayment.requiresReference" name="pm-new-ref" /></td>
+              <td><input type="checkbox" [(ngModel)]="newPayment.isActive" name="pm-new-active" /></td>
+              <td>
+                <button class="btn btn-primary btn-xs" (click)="savePayment(newPayment)"
+                        [disabled]="saving || !newPayment.code || !newPayment.label">Add</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    }
+
+    <!-- ── Transaction Types ─────────────────────────────────────────── -->
+    @if (active === 'transaction-types') {
+      <section class="section">
+        <header class="section-header">
+          <div>
+            <h3 class="section-title">Transaction Types</h3>
+            <p class="section-sub">Categorise every recorded transaction. Sign controls whether the entry adds to or subtracts from the running balance. Mark sensitive types as requiring approval.</p>
+          </div>
+        </header>
+
+        <table class="data-table">
+          <thead>
+            <tr><th>Code</th><th>Label</th><th>Description</th><th>Sign</th><th>Approval</th><th>Active</th><th></th></tr>
+          </thead>
+          <tbody>
+            @for (t of transactionTypes; track t.id) {
+              @if (transactionDraft.id === t.id) {
+                <tr class="editing">
+                  <td><input [(ngModel)]="transactionDraft.code" name="tt-code-{{t.id}}" required /></td>
+                  <td><input [(ngModel)]="transactionDraft.label" name="tt-label-{{t.id}}" required /></td>
+                  <td><input [(ngModel)]="transactionDraft.description" name="tt-desc-{{t.id}}" /></td>
+                  <td>
+                    <select [(ngModel)]="transactionDraft.sign" name="tt-sign-{{t.id}}">
+                      <option value="+">+ (debit)</option>
+                      <option value="-">- (credit)</option>
+                    </select>
+                  </td>
+                  <td><input type="checkbox" [(ngModel)]="transactionDraft.requiresApproval" name="tt-appr-{{t.id}}" /></td>
+                  <td><input type="checkbox" [(ngModel)]="transactionDraft.isActive" name="tt-active-{{t.id}}" /></td>
+                  <td>
+                    <button class="btn btn-primary btn-xs" (click)="saveTransaction(transactionDraft)" [disabled]="saving">Save</button>
+                    <button class="btn btn-default btn-xs" (click)="cancelTransactionEdit()">Cancel</button>
+                  </td>
+                </tr>
+              } @else {
+                <tr [class.pending]="pendingId === t.id">
+                  <td><strong>{{ t.code }}</strong></td>
+                  <td>{{ t.label }}</td>
+                  <td class="muted">{{ t.description || '—' }}</td>
+                  <td><code>{{ t.sign }}</code></td>
+                  <td><input type="checkbox" [checked]="t.requiresApproval" disabled /></td>
+                  <td><input type="checkbox" [checked]="t.isActive" disabled /></td>
+                  <td>
+                    <button class="link-btn" (click)="startEditTransaction(t)">Edit</button>
+                    <button class="link-btn danger" (click)="deleteTransaction(t)">Delete</button>
+                  </td>
+                </tr>
+              }
+            }
+            <tr class="new-row">
+              <td><input [(ngModel)]="newTransaction.code" name="tt-new-code" placeholder="ORDINARY" /></td>
+              <td><input [(ngModel)]="newTransaction.label" name="tt-new-label" placeholder="Label" /></td>
+              <td><input [(ngModel)]="newTransaction.description" name="tt-new-desc" /></td>
+              <td>
+                <select [(ngModel)]="newTransaction.sign" name="tt-new-sign">
+                  <option value="+">+ (debit)</option>
+                  <option value="-">- (credit)</option>
+                </select>
+              </td>
+              <td><input type="checkbox" [(ngModel)]="newTransaction.requiresApproval" name="tt-new-appr" /></td>
+              <td><input type="checkbox" [(ngModel)]="newTransaction.isActive" name="tt-new-active" /></td>
+              <td>
+                <button class="btn btn-primary btn-xs" (click)="saveTransaction(newTransaction)"
+                        [disabled]="saving || !newTransaction.code || !newTransaction.label">Add</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    }
+
+    <!-- ── Dunning ───────────────────────────────────────────────────── -->
+    @if (active === 'dunning') {
+      <section class="section">
+        <header class="section-header">
+          <div>
+            <h3 class="section-title">Dunning Rules</h3>
+            <p class="section-sub">Thresholds that drive overdue / suspension / write-off transitions. Auto-toggles enable scheduled enforcement; leave them off to require manual action.</p>
+          </div>
+        </header>
+
+        <form class="cfg-form" (submit)="$event.preventDefault(); saveDunning()">
+          <label class="field">
+            <span class="field-label">Grace period (days)</span>
+            <input type="number" min="0" [(ngModel)]="dunningDraft.graceDays" name="grace" required />
+          </label>
+          <label class="field">
+            <span class="field-label">Suspension threshold (days)</span>
+            <input type="number" min="0" [(ngModel)]="dunningDraft.suspensionDays" name="suspension" required />
+          </label>
+          <label class="field">
+            <span class="field-label">Write-off threshold (days)</span>
+            <input type="number" min="0" [(ngModel)]="dunningDraft.writeOffDays" name="writeoff" required />
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" [(ngModel)]="dunningDraft.autoSuspend" name="auto-susp" />
+            Auto-suspend at the suspension threshold
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" [(ngModel)]="dunningDraft.autoWriteOff" name="auto-wo" />
+            Auto-write-off at the write-off threshold
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" [disabled]="saving">Save dunning rules</button>
+          </div>
+        </form>
+      </section>
+    }
+
+    <!-- ── Cycle ─────────────────────────────────────────────────────── -->
+    @if (active === 'cycle') {
+      <section class="section">
+        <header class="section-header">
+          <div>
+            <h3 class="section-title">Billing Cycle</h3>
+            <p class="section-sub">Default frequency, day-of-month and the cooldown that prevents accidental double commits. Auto-generate is opt-in — when off, billing only runs from the operational Generate wizard.</p>
+          </div>
+        </header>
+
+        <form class="cfg-form" (submit)="$event.preventDefault(); saveCycle()">
+          <label class="field">
+            <span class="field-label">Frequency</span>
+            <select [(ngModel)]="cycleDraft.frequency" name="freq">
+              <option value="MONTHLY">Monthly</option>
+              <option value="QUARTERLY">Quarterly</option>
+              <option value="ANNUAL">Annual</option>
+              <option value="CUSTOM">Custom (manual only)</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Day of month</span>
+            <input type="number" min="1" max="28" [(ngModel)]="cycleDraft.dayOfMonth" name="dom" />
+          </label>
+          <label class="field">
+            <span class="field-label">Commit cooldown (hours)</span>
+            <input type="number" min="0" [(ngModel)]="cycleDraft.commitCooldownHours" name="cooldown" />
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" [(ngModel)]="cycleDraft.autoGenerate" name="auto-gen" />
+            Auto-generate billing on the chosen day-of-month
+          </label>
+          @if (cycle?.lastCommittedAt) {
+            <p class="muted">Last commit: {{ cycle?.lastCommittedAt | date:'medium' }}</p>
+          }
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" [disabled]="saving">Save billing cycle</button>
+          </div>
+        </form>
+      </section>
+    }
+  }
+</div>

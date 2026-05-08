@@ -1,0 +1,68 @@
+<div class="scheme-form-page">
+  <header class="page-header">
+    <div>
+      <h1>{{ schemeId ? 'Edit scheme' : 'Add scheme' }}</h1>
+      <p class="page-sub">A scheme bundles benefits and contribution pricing under a single currency. Members and groups join a scheme; the billing wizard generates contributions for everyone in their schemes.</p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/billing/schemes">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back to schemes
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+  }
+
+  <form (submit)="$event.preventDefault(); submit()" class="form-grid">
+    <label class="field">
+      <span class="field-label">Name</span>
+      <input [(ngModel)]="form.name" name="name" maxlength="200" required />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Type</span>
+      <select [(ngModel)]="form.schemeType" name="schemeType">
+        @for (t of schemeTypes; track t.code) {
+          <option [value]="t.code">{{ t.label }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="field span-2">
+      <span class="field-label">Description</span>
+      <textarea [(ngModel)]="form.description" name="description" rows="3"></textarea>
+    </label>
+
+    <label class="field">
+      <span class="field-label">Effective from</span>
+      <input type="date" [(ngModel)]="form.effectiveDate" name="effectiveDate" required />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Effective until (optional)</span>
+      <input type="date" [(ngModel)]="form.endDate" name="endDate" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Currency</span>
+      <select [(ngModel)]="form.currencyCode" name="currencyCode" required>
+        <option [value]="''" disabled>Pick a currency</option>
+        @for (c of allowedCurrencies; track c.id) {
+          <option [value]="c.currencyCode">{{ c.currencyCode }}{{ c.isDefault ? ' (default)' : '' }}</option>
+        }
+      </select>
+      <small class="muted">Only currencies marked as billing currencies in Settings → Currencies are listed.</small>
+    </label>
+
+    <div class="form-actions span-2">
+      <a class="btn btn-default" routerLink="/tenant/billing/schemes">Cancel</a>
+      <button type="submit" class="btn btn-primary" [disabled]="saving || loading">
+        {{ saving ? 'Saving…' : (schemeId ? 'Save changes' : 'Create scheme') }}
+      </button>
+    </div>
+  </form>
+</div>

@@ -26,6 +26,7 @@ export type PermissionKey =
   | 'billing:manage_dependants' | 'billing:generate_billing'
   | 'billing:view_statements' | 'billing:post_transactions'
   | 'billing:view_currencies' | 'billing:manage_currencies'
+  | 'billing:manage_billing_settings'
   | 'billing:view_creditors' | 'billing:manage_bad_debts'
   // Finance
   | 'finance:view' | 'finance:create_payment_run' | 'finance:approve_payment_run'
@@ -98,6 +99,7 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'billing:post_transactions',        label: 'Post transactions',                description: 'Record contribution or invoice transactions.' },
       { key: 'billing:view_currencies',          label: 'View currencies',                  description: 'View configured currency / FX pairs.' },
       { key: 'billing:manage_currencies',        label: 'Manage currencies',                description: 'Add or edit currency / FX pair configurations.' },
+      { key: 'billing:manage_billing_settings',  label: 'Manage billing settings',          description: 'Edit benefit-type, payment-method, transaction-type catalogues plus dunning and cycle configuration.' },
       { key: 'billing:view_creditors',           label: 'View creditors',                   description: 'View outstanding balances owed by members and groups.' },
       { key: 'billing:manage_bad_debts',         label: 'Manage bad debts',                 description: 'Write off receivables that cannot be collected.' },
     ],

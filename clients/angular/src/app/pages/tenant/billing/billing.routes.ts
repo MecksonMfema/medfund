@@ -33,20 +33,61 @@ export const BILLING_ROUTES: Routes = [
     loadComponent: () => import('../../contributions/contributions.component').then(m => m.ContributionsComponent),
     data: { title: 'Schemes', sidebar: 'operational' },
   },
-  cs('schemes/add',                  'Add Scheme',                  '/policies/add-schemes',                  'Create a new benefit scheme.',                                    ['billing:manage_schemes']),
-  cs('age-groups',                   'Age Groups',                  '/policies/view-age-group',               'Configure age-band boundaries used by pricing rules.',            ['billing:view', 'billing:manage_age_groups']),
-  cs('age-groups/add',               'Add Age Group',               '/policies/add-age-group',                'Add a new age-band tier.',                                        ['billing:manage_age_groups']),
+  {
+    path: 'schemes/add',
+    canActivate: [permissionGuard(['billing:manage_schemes'])],
+    loadComponent: () => import('./schemes/scheme-form.component').then(m => m.SchemeFormComponent),
+    data: { title: 'Add Scheme', sidebar: 'operational' },
+  },
+  {
+    path: 'schemes/:id/edit',
+    canActivate: [permissionGuard(['billing:manage_schemes'])],
+    loadComponent: () => import('./schemes/scheme-form.component').then(m => m.SchemeFormComponent),
+    data: { title: 'Edit Scheme', sidebar: 'operational' },
+  },
+  {
+    path: 'age-groups',
+    canActivate: [permissionGuard(['billing:view', 'billing:manage_age_groups'])],
+    loadComponent: () => import('./age-groups/age-groups-list.component').then(m => m.AgeGroupsListComponent),
+    data: { title: 'Age Groups', sidebar: 'operational' },
+  },
+  {
+    path: 'age-groups/add',
+    canActivate: [permissionGuard(['billing:manage_age_groups'])],
+    loadComponent: () => import('./age-groups/age-group-form.component').then(m => m.AgeGroupFormComponent),
+    data: { title: 'Add Age Group', sidebar: 'operational' },
+  },
   cs('waiting-periods',              'Waiting Periods',             '/policies/waiting-period',               'Configure new-member waiting periods.',                           ['billing:manage_waiting_periods']),
   cs('scheme-change-waiting-periods','Scheme-Change Waiting Periods','/policies/scheme-change-waiting-periods','Waiting periods applied when members switch schemes.',           ['billing:manage_waiting_periods']),
 
   // ── Generation & statements ────────────────────────────────────────────────
-  cs('generate',          'Generate Billing',     '/generate/generate-contributions', 'Run periodic contribution / invoice generation.',         ['billing:generate_billing']),
-  cs('view',              'View Contributions',   '/generate/view-contributions',     'View generated contributions.',                            ['billing:view']),
+  {
+    path: 'generate',
+    canActivate: [permissionGuard(['billing:generate_billing'])],
+    loadComponent: () => import('./generate/generate-billing-wizard.component').then(m => m.GenerateBillingWizardComponent),
+    data: { title: 'Generate Billing', sidebar: 'operational' },
+  },
+  {
+    path: 'view',
+    canActivate: [permissionGuard(['billing:view'])],
+    loadComponent: () => import('./contributions/contributions-list.component').then(m => m.ContributionsListComponent),
+    data: { title: 'View Contributions', sidebar: 'operational' },
+  },
   cs('statements',        'Statements',           '/generate/contribution-statement', 'Browse and export contribution statements.',              ['billing:view_statements']),
 
   // ── Transactions ───────────────────────────────────────────────────────────
-  cs('transactions',                'Transactions',                  '/payments/view-transactions',                'All recorded transactions.',                       ['billing:view']),
-  cs('transactions/add',            'Add Transaction',               '/payments/add-transactions',                 'Record a new transaction.',                        ['billing:post_transactions']),
+  {
+    path: 'transactions',
+    canActivate: [permissionGuard(['billing:view'])],
+    loadComponent: () => import('./transactions/transactions-list.component').then(m => m.TransactionsListComponent),
+    data: { title: 'Transactions', sidebar: 'operational' },
+  },
+  {
+    path: 'transactions/add',
+    canActivate: [permissionGuard(['billing:post_transactions'])],
+    loadComponent: () => import('./transactions/transaction-form.component').then(m => m.TransactionFormComponent),
+    data: { title: 'Add Transaction', sidebar: 'operational' },
+  },
   cs('transactions/adjustments',    'Adjustment Transactions',       '/payments/view-adjustment-transactions',     'Transactions posted as adjustments.',              ['billing:post_transactions']),
   cs('transactions/bank',           'Bank Transactions',             '/payments/view-bank-transactions',           'Bank-source transactions for reconciliation.',     ['billing:view']),
   cs('transactions/fc',             'Fund Custodian Transactions',   '/payments/view-fc-transactions',             'Custodian-routed transactions.',                   ['billing:view']),

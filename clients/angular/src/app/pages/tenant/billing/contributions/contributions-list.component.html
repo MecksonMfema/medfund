@@ -1,0 +1,55 @@
+<div class="contributions-page">
+  <header class="page-header">
+    <div>
+      <h1>Contributions</h1>
+      <p class="page-sub">Browse contribution rows by status. Generate new ones from the billing wizard.</p>
+    </div>
+    <a class="btn btn-primary" routerLink="/tenant/billing/generate">
+      <app-icon name="play-circle" [size]="14"></app-icon>
+      Generate billing
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <div class="filters">
+    @for (s of statuses; track s) {
+      <button type="button" class="status-chip" [class.active]="status === s" (click)="status = s; refresh()">
+        {{ s }}
+      </button>
+    }
+  </div>
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (rows.length === 0) {
+    <p class="empty-state">No {{ status }} contributions.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Member</th>
+          <th>Scheme</th>
+          <th>Group</th>
+          <th>Period</th>
+          <th>Amount</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows; track row.id) {
+          <tr>
+            <td>{{ row.memberId }}</td>
+            <td>{{ row.schemeId }}</td>
+            <td>{{ row.groupId || '—' }}</td>
+            <td>{{ row.periodStart }} → {{ row.periodEnd }}</td>
+            <td>{{ row.amount | currencyFormat:row.currencyCode }}</td>
+            <td><span class="status-badge status-{{ row.status }}">{{ row.status }}</span></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

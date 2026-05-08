@@ -1,0 +1,58 @@
+<div class="form-page">
+  <header class="page-header">
+    <div>
+      <h1>Add age group</h1>
+      <p class="page-sub">Defines a per-age contribution tier within a scheme. Currency is locked to the parent scheme.</p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/billing/age-groups">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form (submit)="$event.preventDefault(); submit()" class="form-grid">
+    <label class="field span-2">
+      <span class="field-label">Scheme</span>
+      <select [(ngModel)]="form.schemeId" name="schemeId" required>
+        <option [value]="''" disabled>Pick a scheme</option>
+        @for (s of schemes; track s.id) {
+          <option [value]="s.id">{{ s.name }} ({{ s.currencyCode || '—' }})</option>
+        }
+      </select>
+      @if (selectedScheme(); as s) {
+        <small class="muted">Contribution amount will be in <strong>{{ s.currencyCode || 'USD' }}</strong>.</small>
+      }
+    </label>
+
+    <label class="field span-2">
+      <span class="field-label">Name</span>
+      <input [(ngModel)]="form.name" name="name" placeholder="Adult, Child, Senior, etc." required />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Min age</span>
+      <input type="number" min="0" [(ngModel)]="form.minAge" name="minAge" required />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Max age</span>
+      <input type="number" min="0" [(ngModel)]="form.maxAge" name="maxAge" required />
+    </label>
+
+    <label class="field span-2">
+      <span class="field-label">Contribution amount</span>
+      <input type="number" step="any" min="0" [(ngModel)]="form.contributionAmount" name="amount" required />
+    </label>
+
+    <div class="form-actions span-2">
+      <a class="btn btn-default" routerLink="/tenant/billing/age-groups">Cancel</a>
+      <button type="submit" class="btn btn-primary" [disabled]="saving">
+        {{ saving ? 'Saving…' : 'Add age group' }}
+      </button>
+    </div>
+  </form>
+</div>

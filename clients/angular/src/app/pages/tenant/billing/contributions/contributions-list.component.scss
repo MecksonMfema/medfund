@@ -1,0 +1,84 @@
+.contributions-page {
+  padding: 1.5rem;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+  gap: 1rem;
+}
+
+.page-header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
+.page-sub { margin: 0; color: var(--text-muted, #6b7280); font-size: 0.9rem; max-width: 60ch; }
+
+.banner {
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-bottom: 1rem;
+}
+
+.banner-error {
+  background: var(--danger-bg, #fee2e2);
+  color: var(--danger-fg, #991b1b);
+}
+
+.filters {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.status-chip {
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--border, #e5e7eb);
+  background: var(--card-bg, white);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-transform: capitalize;
+}
+
+.status-chip.active {
+  background: var(--primary, #2563eb);
+  color: white;
+  border-color: var(--primary, #2563eb);
+}
+
+.empty-state {
+  color: var(--text-muted, #6b7280);
+  font-style: italic;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card-bg, white);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  font-size: 0.875rem;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  background: var(--bg-soft, #f3f4f6);
+  color: var(--text, #374151);
+}
+
+.status-paid { background: var(--success-bg, #d1fae5); color: var(--success-fg, #047857); }
+.status-overdue { background: var(--warning-bg, #fef3c7); color: var(--warning-fg, #92400e); }
+.status-written_off { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }

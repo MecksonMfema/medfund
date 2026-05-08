@@ -1,0 +1,146 @@
+<div class="wizard-page">
+  <header class="page-header">
+    <div>
+      <h1>Generate billing</h1>
+      <p class="page-sub">Pick the period and (optionally) a scheme subset, preview the contributions that would be created, and commit when you're satisfied. The cooldown configured in Settings → Billing prevents accidental double commits.</p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/billing/view">
+      <app-icon name="list" [size]="14"></app-icon>
+      View contributions
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <ol class="wizard-steps">
+    <li [class.active]="step === 'filters'">1. Filters</li>
+    <li [class.active]="step === 'preview'">2. Preview</li>
+    <li [class.active]="step === 'committed'">3. Commit</li>
+  </ol>
+
+  <!-- ── Step 1: Filters ────────────────────────────────────────────── -->
+  @if (step === 'filters') {
+    <section class="card">
+      <h2 class="card-title">Period</h2>
+      <div class="row">
+        <label class="field">
+          <span class="field-label">Period start</span>
+          <input type="date" [(ngModel)]="periodStart" name="periodStart" required />
+        </label>
+        <label class="field">
+          <span class="field-label">Period end</span>
+          <input type="date" [(ngModel)]="periodEnd" name="periodEnd" required />
+        </label>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title">Schemes</h2>
+      <p class="card-sub">Leave all unchecked to bill every active scheme.</p>
+      <div class="scheme-grid">
+        @for (s of schemes; track s.id) {
+          <label class="scheme-tile" [class.selected]="isSchemeSelected(s.id)">
+            <input type="checkbox" [checked]="isSchemeSelected(s.id)" (change)="toggleScheme(s.id)" />
+            <span class="scheme-name">{{ s.name }}</span>
+            <span class="scheme-meta">{{ s.currencyCode || '—' }} · {{ s.status }}</span>
+          </label>
+        }
+      </div>
+    </section>
+
+    <div class="form-actions">
+      <button class="btn btn-primary" (click)="runPreview()" [disabled]="loading">
+        {{ loading ? 'Computing preview…' : 'Preview' }}
+      </button>
+    </div>
+  }
+
+  <!-- ── Step 2: Preview ─────────────────────────────────────────────── -->
+  @if (step === 'preview' && preview) {
+    @if (preview.cooldownActive) {
+      <div class="banner banner-warning">
+        Billing cooldown is active — commit will be rejected for another {{ preview.cooldownRemainingMinutes }} minute(s).
+      </div>
+    }
+
+    <section class="card">
+      <header class="card-header">
+        <h2 class="card-title">Preview</h2>
+        <button class="btn btn-default" (click)="backToFilters()">
+          <app-icon name="arrow-left" [size]="14"></app-icon>
+          Edit filters
+        </button>
+      </header>
+
+      <div class="preview-summary">
+        <div class="stat">
+          <span class="stat-label">Rows to create</span>
+          <span class="stat-value">{{ preview.totalRows }}</span>
+        </div>
+        @for (code of totalsKeys(preview.totalsByCurrency); track code) {
+          <div class="stat">
+            <span class="stat-label">Total ({{ code }})</span>
+            <span class="stat-value">{{ preview.totalsByCurrency[code] | currencyFormat:code }}</span>
+          </div>
+        }
+      </div>
+
+      @if (preview.sample.length > 0) {
+        <h3 class="card-sub-title">Sample rows ({{ preview.sample.length }} of {{ preview.totalRows }})</h3>
+        <table class="data-table">
+          <thead>
+            <tr><th>Member</th><th>Scheme</th><th>Amount</th></tr>
+          </thead>
+          <tbody>
+            @for (row of preview.sample; track row.memberId) {
+              <tr>
+                <td>{{ row.memberNumber }}</td>
+                <td>{{ row.schemeName }}</td>
+                <td>{{ row.amount | currencyFormat:row.currencyCode }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <p class="empty-state">No members matched these filters.</p>
+      }
+    </section>
+
+    <div class="form-actions">
+      <button class="btn btn-primary" (click)="commit()"
+              [disabled]="saving || preview.totalRows === 0 || preview.cooldownActive">
+        {{ saving ? 'Committing…' : 'Commit ' + preview.totalRows + ' contributions' }}
+      </button>
+    </div>
+  }
+
+  <!-- ── Step 3: Committed ──────────────────────────────────────────── -->
+  @if (step === 'committed') {
+    <section class="card success">
+      <h2 class="card-title">
+        <app-icon name="check-circle" [size]="20"></app-icon>
+        Billing committed
+      </h2>
+      <p class="card-sub">{{ committedCount }} contributions created at {{ committedAt | date:'medium' }}.</p>
+
+      <div class="preview-summary">
+        @for (code of totalsKeys(committedTotals); track code) {
+          <div class="stat">
+            <span class="stat-label">Total ({{ code }})</span>
+            <span class="stat-value">{{ committedTotals[code] | currencyFormat:code }}</span>
+          </div>
+        }
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-default" (click)="startAnother()">Run another</button>
+        <a class="btn btn-primary" routerLink="/tenant/billing/view">
+          View contributions
+          <app-icon name="arrow-right" [size]="14"></app-icon>
+        </a>
+      </div>
+    </section>
+  }
+</div>
