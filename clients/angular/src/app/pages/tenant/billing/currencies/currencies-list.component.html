@@ -1,0 +1,76 @@
+<div class="currency-page">
+  <header class="page-header">
+    <div>
+      <h1>Currencies</h1>
+      <p class="page-sub">Manage the currencies this tenant operates in. Set scope flags to control where each currency can be used.</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-default" (click)="goToRates()">
+        <app-icon name="trending-up"></app-icon>
+        Exchange rates
+      </button>
+      <a class="btn btn-primary" routerLink="/tenant/billing/currencies/add">
+        <app-icon name="plus"></app-icon>
+        Add currency
+      </a>
+    </div>
+  </header>
+
+  <div class="error-banner" *ngIf="errorMessage" (click)="errorMessage = null">
+    {{ errorMessage }}
+  </div>
+
+  <ng-container *ngIf="!loading; else loadingTpl">
+    <div class="empty-state" *ngIf="rows.length === 0">
+      <p>No currencies configured for this tenant yet.</p>
+    </div>
+
+    <table class="currency-table" *ngIf="rows.length > 0">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Name</th>
+          <th>Symbol</th>
+          <th>Default</th>
+          <th>Billing</th>
+          <th>Claims</th>
+          <th>Payments</th>
+          <th>Rate source</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of rows" [class.pending]="pendingId === row.id">
+          <td><strong>{{ row.currencyCode }}</strong></td>
+          <td>{{ row.name || '—' }}</td>
+          <td>{{ row.symbol || '' }}</td>
+          <td>
+            <button class="default-btn" (click)="setDefault(row)" [disabled]="row.isDefault">
+              <app-icon [name]="row.isDefault ? 'check-circle' : 'circle'"></app-icon>
+              {{ row.isDefault ? 'Default' : 'Set default' }}
+            </button>
+          </td>
+          <td>
+            <input type="checkbox" [checked]="row.isBillingCurrency" (change)="toggleFlag(row, 'isBillingCurrency')" />
+          </td>
+          <td>
+            <input type="checkbox" [checked]="row.isClaimsCurrency" (change)="toggleFlag(row, 'isClaimsCurrency')" />
+          </td>
+          <td>
+            <input type="checkbox" [checked]="row.isPaymentCurrency" (change)="toggleFlag(row, 'isPaymentCurrency')" />
+          </td>
+          <td><code>{{ row.exchangeRateSource }}</code></td>
+          <td>
+            <button class="btn-link danger" (click)="remove(row)" [disabled]="row.isDefault">
+              <app-icon name="trash-2"></app-icon>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </ng-container>
+
+  <ng-template #loadingTpl>
+    <app-skeleton></app-skeleton>
+  </ng-template>
+</div>

@@ -57,16 +57,21 @@ public class InsuranceQuoteService {
                     .flatMap(benefits -> {
                         int memberAge = Period.between(request.dateOfBirth(), LocalDate.now()).getYears();
 
-                        // Find member's age group and premium
+                        // Find member's age group and premium. Currency is inherited from
+                        // the scheme; the matching age-group's currency is sanity-checked
+                        // against it to catch legacy rows that fell out of sync.
                         BigDecimal memberPremium = BigDecimal.ZERO;
                         String memberAgeGroupName = "Unknown";
-                        String currency = "USD";
+                        String currency = (scheme.getCurrencyCode() == null || scheme.getCurrencyCode().isBlank())
+                            ? "USD" : scheme.getCurrencyCode();
 
                         for (var ag : ageGroups) {
                             if (memberAge >= ag.getMinAge() && memberAge <= ag.getMaxAge()) {
                                 memberPremium = ag.getContributionAmount();
                                 memberAgeGroupName = ag.getName();
-                                currency = ag.getCurrencyCode();
+                                if (ag.getCurrencyCode() != null && !ag.getCurrencyCode().isBlank()) {
+                                    currency = ag.getCurrencyCode();
+                                }
                                 break;
                             }
                         }

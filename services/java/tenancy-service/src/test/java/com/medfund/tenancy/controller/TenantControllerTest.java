@@ -4,6 +4,7 @@ import com.medfund.tenancy.config.SecurityConfig;
 import com.medfund.tenancy.entity.Tenant;
 import com.medfund.tenancy.exception.GlobalExceptionHandler;
 import com.medfund.tenancy.exception.TenantNotFoundException;
+import com.medfund.tenancy.service.TenantEmailTemplateService;
 import com.medfund.tenancy.service.TenantService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +32,9 @@ class TenantControllerTest {
 
     @MockBean
     TenantService tenantService;
+
+    @MockBean
+    TenantEmailTemplateService emailTemplateService;
 
     @Test
     void findAll_returns200() {
@@ -71,7 +75,7 @@ class TenantControllerTest {
 
     @Test
     void create_validRequest_returns201() {
-        when(tenantService.create(any(), anyString())).thenReturn(Mono.just(createTestTenant()));
+        when(tenantService.create(any(), anyString(), any())).thenReturn(Mono.just(createTestTenant()));
 
         webTestClient.mutateWith(mockJwt())
                 .post().uri("/api/v1/tenants")
@@ -88,7 +92,7 @@ class TenantControllerTest {
         Tenant tenant = createTestTenant();
         tenant.setId(id);
         tenant.setStatus("suspended");
-        when(tenantService.suspend(any(UUID.class), anyString())).thenReturn(Mono.just(tenant));
+        when(tenantService.suspend(any(UUID.class), anyString(), any())).thenReturn(Mono.just(tenant));
 
         webTestClient.mutateWith(mockJwt())
                 .post().uri("/api/v1/tenants/{id}/suspend", id)

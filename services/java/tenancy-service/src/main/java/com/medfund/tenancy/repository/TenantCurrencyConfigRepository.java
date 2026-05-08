@@ -15,4 +15,17 @@ public interface TenantCurrencyConfigRepository extends R2dbcRepository<TenantCu
 
     @Query("SELECT * FROM public.tenant_currency_config WHERE tenant_id = :tenantId AND is_default = true")
     Mono<TenantCurrencyConfig> findDefaultByTenantId(UUID tenantId);
+
+    @Query("SELECT * FROM public.tenant_currency_config WHERE tenant_id = :tenantId AND currency_code = :code")
+    Mono<TenantCurrencyConfig> findByTenantIdAndCurrencyCode(UUID tenantId, String code);
+
+    @Query("""
+        SELECT EXISTS(
+            SELECT 1 FROM public.tenant_currency_config
+             WHERE tenant_id = :tenantId
+               AND currency_code = :code
+               AND is_active = true
+        )
+        """)
+    Mono<Boolean> existsActiveByTenantIdAndCurrencyCode(UUID tenantId, String code);
 }

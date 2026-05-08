@@ -314,7 +314,7 @@ public class ClaimService {
                             line.setQuantity(lineReq.quantity());
                             line.setUnitPrice(lineReq.unitPrice());
                             line.setClaimedAmount(lineReq.claimedAmount());
-                            line.setCurrencyCode(lineReq.currencyCode() != null ? lineReq.currencyCode() : "USD");
+                            line.setCurrencyCode(lineReq.currencyCode() != null ? lineReq.currencyCode() : saved.getCurrencyCode());
                             line.setCreatedAt(java.time.Instant.now());
                             return claimLineRepository.save(line);
                         })

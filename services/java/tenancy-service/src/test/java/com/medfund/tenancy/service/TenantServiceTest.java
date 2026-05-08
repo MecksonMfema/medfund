@@ -1,5 +1,6 @@
 package com.medfund.tenancy.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.tenancy.dto.CreateTenantRequest;
@@ -8,13 +9,18 @@ import com.medfund.tenancy.entity.Tenant;
 import com.medfund.tenancy.entity.TenantCurrencyConfig;
 import com.medfund.tenancy.exception.TenantNotFoundException;
 import com.medfund.tenancy.exception.TenantSlugConflictException;
+import com.medfund.tenancy.repository.CurrencyRepository;
 import com.medfund.tenancy.repository.TenantCurrencyConfigRepository;
 import com.medfund.tenancy.repository.TenantRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -26,6 +32,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,6 +48,9 @@ class TenantServiceTest {
     private TenantCurrencyConfigRepository currencyConfigRepository;
 
     @Mock
+    private CurrencyRepository currencyRepository;
+
+    @Mock
     private SchemaProvisioningService schemaProvisioning;
 
     @Mock
@@ -51,8 +62,24 @@ class TenantServiceTest {
     @Mock
     private TenantEventPublisher eventPublisher;
 
+    @Mock
+    private ReactiveStringRedisTemplate redis;
+
+    @Mock
+    private ObjectMapper objectMapper;
+
+    @Mock
+    private R2dbcEntityTemplate r2dbcTemplate;
+
     @InjectMocks
     private TenantService tenantService;
+
+    @BeforeEach
+    void stubRedis() {
+        // Cache eviction is a side effect of every write; stub it for all tests so we
+        // don't have to repeat the boilerplate in each method.
+        lenient().when(redis.keys(anyString())).thenReturn(Flux.empty());
+    }
 
     @Test
     void findAll_returnsAllTenants() {
@@ -116,22 +143,33 @@ class TenantServiceTest {
     }
 
     @Test
-    void create_validRequest_createsTenantWithSchemaAndRealm() {
+    void create_validRequest_createsTenantWithSchemaAndRealmAndDefaultCurrency() {
         var request = new CreateTenantRequest(
                 "Test Society", "test-soc", null, null,
-                "admin@test.com", "US", null, null, null
+                "admin@test.com", "US", null, null, null, null
         );
 
+        when(currencyRepository.existsActiveByCode("USD")).thenReturn(Mono.just(true));
         when(tenantRepository.existsBySlug("test-soc")).thenReturn(Mono.just(false));
-        when(tenantRepository.save(any(Tenant.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(r2dbcTemplate.insert(any(Tenant.class)))
+                .thenAnswer(inv -> {
+                    Tenant t = inv.getArgument(0);
+                    t.setId(UUID.randomUUID());
+                    return Mono.just(t);
+                });
+        when(r2dbcTemplate.insert(any(TenantCurrencyConfig.class)))
+                .thenAnswer(inv -> {
+                    TenantCurrencyConfig c = inv.getArgument(0);
+                    c.setId(UUID.randomUUID());
+                    return Mono.just(c);
+                });
         when(schemaProvisioning.provisionSchema(anyString())).thenReturn(Mono.empty());
         when(keycloakRealmService.createRealm(anyString(), any(Tenant.class))).thenReturn(Mono.empty());
-        when(currencyConfigRepository.save(any(TenantCurrencyConfig.class)))
-                .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any(AuditEvent.class))).thenReturn(Mono.empty());
         when(eventPublisher.publishTenantProvisioned(any(Tenant.class))).thenReturn(Mono.empty());
+        when(redis.keys(anyString())).thenReturn(Flux.empty());
 
-        StepVerifier.create(tenantService.create(request, "actor-123"))
+        StepVerifier.create(tenantService.create(request, "actor-123", "actor@test.com"))
                 .assertNext(tenant -> {
                     assertThat(tenant.getName()).isEqualTo("Test Society");
                     assertThat(tenant.getSlug()).isEqualTo("test-soc");
@@ -148,7 +186,11 @@ class TenantServiceTest {
 
         verify(schemaProvisioning).provisionSchema(anyString());
         verify(keycloakRealmService).createRealm(eq("medfund-test-soc"), any(Tenant.class));
-        verify(currencyConfigRepository).save(any(TenantCurrencyConfig.class));
+        // The seeded currency config must carry all four scope flags TRUE.
+        ArgumentCaptor<TenantCurrencyConfig> seedCaptor = ArgumentCaptor.forClass(TenantCurrencyConfig.class);
+        verify(r2dbcTemplate).insert(seedCaptor.capture());
+        // The first capture is the Tenant; check we get a TenantCurrencyConfig as well.
+        verify(r2dbcTemplate, atLeastOnce()).insert(any(TenantCurrencyConfig.class));
         verify(auditPublisher).publish(any(AuditEvent.class));
         verify(eventPublisher).publishTenantProvisioned(any(Tenant.class));
     }
@@ -157,16 +199,36 @@ class TenantServiceTest {
     void create_duplicateSlug_throwsConflict() {
         var request = new CreateTenantRequest(
                 "Test Society", "test-soc", null, null,
-                "admin@test.com", "US", null, null, null
+                "admin@test.com", "US", null, null, null, null
         );
 
+        when(currencyRepository.existsActiveByCode("USD")).thenReturn(Mono.just(true));
         when(tenantRepository.existsBySlug("test-soc")).thenReturn(Mono.just(true));
 
-        StepVerifier.create(tenantService.create(request, "actor-123"))
+        StepVerifier.create(tenantService.create(request, "actor-123", "actor@test.com"))
                 .expectError(TenantSlugConflictException.class)
                 .verify();
 
-        verify(tenantRepository, never()).save(any());
+        verify(r2dbcTemplate, never()).insert(any(Tenant.class));
+    }
+
+    @Test
+    void create_unknownCurrencyCode_rejected() {
+        var request = new CreateTenantRequest(
+                "Test Society", "test-soc", null, null,
+                "admin@test.com", "US", null, null, "XYZ", null
+        );
+
+        when(currencyRepository.existsActiveByCode("XYZ")).thenReturn(Mono.just(false));
+
+        StepVerifier.create(tenantService.create(request, "actor-123", "actor@test.com"))
+                .expectErrorSatisfies(err -> {
+                    assertThat(err).isInstanceOf(IllegalArgumentException.class);
+                    assertThat(err.getMessage()).contains("XYZ");
+                })
+                .verify();
+
+        verify(tenantRepository, never()).existsBySlug(anyString());
     }
 
     @Test
@@ -183,7 +245,7 @@ class TenantServiceTest {
         when(tenantRepository.save(any(Tenant.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any(AuditEvent.class))).thenReturn(Mono.empty());
 
-        StepVerifier.create(tenantService.update(tenantId, request, "actor-123"))
+        StepVerifier.create(tenantService.update(tenantId, request, "actor-123", "actor@test.com"))
                 .assertNext(tenant -> {
                     assertThat(tenant.getName()).isEqualTo("Updated Name");
                     assertThat(tenant.getContactEmail()).isEqualTo("new@test.com");
@@ -207,7 +269,7 @@ class TenantServiceTest {
         when(auditPublisher.publish(any(AuditEvent.class))).thenReturn(Mono.empty());
         when(eventPublisher.publishTenantSuspended(any(Tenant.class))).thenReturn(Mono.empty());
 
-        StepVerifier.create(tenantService.suspend(tenantId, "actor-123"))
+        StepVerifier.create(tenantService.suspend(tenantId, "actor-123", "actor@test.com"))
                 .assertNext(result -> {
                     assertThat(result.getStatus()).isEqualTo("suspended");
                     assertThat(result.getId()).isEqualTo(tenantId);
@@ -228,7 +290,7 @@ class TenantServiceTest {
         when(tenantRepository.save(any(Tenant.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any(AuditEvent.class))).thenReturn(Mono.empty());
 
-        StepVerifier.create(tenantService.activate(tenantId, "actor-123"))
+        StepVerifier.create(tenantService.activate(tenantId, "actor-123", "actor@test.com"))
                 .assertNext(result -> {
                     assertThat(result.getStatus()).isEqualTo("active");
                     assertThat(result.getId()).isEqualTo(tenantId);

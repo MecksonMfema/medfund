@@ -75,6 +75,7 @@ public class SchemeService {
                 scheme.setStatus("active");
                 scheme.setEffectiveDate(request.effectiveDate());
                 scheme.setEndDate(request.endDate());
+                scheme.setCurrencyCode(normalizeCurrency(request.currencyCode()));
                 scheme.setCreatedAt(Instant.now());
                 scheme.setUpdatedAt(Instant.now());
                 scheme.setCreatedBy(UUID.fromString(actorId));
@@ -114,6 +115,9 @@ public class SchemeService {
                 }
                 if (request.endDate() != null) {
                     scheme.setEndDate(request.endDate());
+                }
+                if (request.currencyCode() != null && !request.currencyCode().isBlank()) {
+                    scheme.setCurrencyCode(normalizeCurrency(request.currencyCode()));
                 }
                 scheme.setUpdatedAt(Instant.now());
                 scheme.setUpdatedBy(UUID.fromString(actorId));
@@ -158,21 +162,27 @@ public class SchemeService {
 
     @Transactional
     public Mono<SchemeBenefit> createBenefit(CreateSchemeBenefitRequest request, String actorId) {
-        var benefit = new SchemeBenefit();
-        benefit.setId(UUID.randomUUID());
-        benefit.setSchemeId(request.schemeId());
-        benefit.setName(request.name());
-        benefit.setBenefitType(request.benefitType());
-        benefit.setAnnualLimit(request.annualLimit());
-        benefit.setDailyLimit(request.dailyLimit());
-        benefit.setEventLimit(request.eventLimit());
-        benefit.setCurrencyCode(request.currencyCode());
-        benefit.setWaitingPeriodDays(request.waitingPeriodDays());
-        benefit.setDescription(request.description());
-        benefit.setCreatedAt(Instant.now());
-        benefit.setUpdatedAt(Instant.now());
+        return schemeRepository.findById(request.schemeId())
+            .switchIfEmpty(Mono.error(new SchemeNotFoundException(request.schemeId())))
+            .flatMap(scheme -> {
+                String resolvedCurrency = resolveChildCurrency(scheme, request.currencyCode());
 
-        return schemeBenefitRepository.save(benefit)
+                var benefit = new SchemeBenefit();
+                benefit.setId(UUID.randomUUID());
+                benefit.setSchemeId(request.schemeId());
+                benefit.setName(request.name());
+                benefit.setBenefitType(request.benefitType());
+                benefit.setAnnualLimit(request.annualLimit());
+                benefit.setDailyLimit(request.dailyLimit());
+                benefit.setEventLimit(request.eventLimit());
+                benefit.setCurrencyCode(resolvedCurrency);
+                benefit.setWaitingPeriodDays(request.waitingPeriodDays());
+                benefit.setDescription(request.description());
+                benefit.setCreatedAt(Instant.now());
+                benefit.setUpdatedAt(Instant.now());
+
+                return schemeBenefitRepository.save(benefit);
+            })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
                 return publishAudit(tenantId, "SchemeBenefit", saved.getId().toString(), "CREATE", actorId,
@@ -189,17 +199,23 @@ public class SchemeService {
 
     @Transactional
     public Mono<AgeGroup> createAgeGroup(CreateAgeGroupRequest request, String actorId) {
-        var ageGroup = new AgeGroup();
-        ageGroup.setId(UUID.randomUUID());
-        ageGroup.setSchemeId(request.schemeId());
-        ageGroup.setName(request.name());
-        ageGroup.setMinAge(request.minAge());
-        ageGroup.setMaxAge(request.maxAge());
-        ageGroup.setContributionAmount(request.contributionAmount());
-        ageGroup.setCurrencyCode(request.currencyCode());
-        ageGroup.setCreatedAt(Instant.now());
+        return schemeRepository.findById(request.schemeId())
+            .switchIfEmpty(Mono.error(new SchemeNotFoundException(request.schemeId())))
+            .flatMap(scheme -> {
+                String resolvedCurrency = resolveChildCurrency(scheme, request.currencyCode());
 
-        return ageGroupRepository.save(ageGroup)
+                var ageGroup = new AgeGroup();
+                ageGroup.setId(UUID.randomUUID());
+                ageGroup.setSchemeId(request.schemeId());
+                ageGroup.setName(request.name());
+                ageGroup.setMinAge(request.minAge());
+                ageGroup.setMaxAge(request.maxAge());
+                ageGroup.setContributionAmount(request.contributionAmount());
+                ageGroup.setCurrencyCode(resolvedCurrency);
+                ageGroup.setCreatedAt(Instant.now());
+
+                return ageGroupRepository.save(ageGroup);
+            })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
                 return publishAudit(tenantId, "AgeGroup", saved.getId().toString(), "CREATE", actorId,
@@ -212,6 +228,35 @@ public class SchemeService {
     }
 
     // ---- Private helpers ----
+
+    private static String normalizeCurrency(String code) {
+        if (code == null || code.isBlank()) {
+            return "USD";
+        }
+        return code.toUpperCase();
+    }
+
+    /**
+     * Children of a scheme (benefits, age groups, contributions) inherit the scheme's
+     * currency. If a request explicitly sets a different currency, reject — the rule
+     * "one currency per scheme" is enforced here so error messages name the offending
+     * field. A blank/null request currency is silently inherited from the parent.
+     */
+    private static String resolveChildCurrency(Scheme scheme, String requested) {
+        String schemeCurrency = scheme.getCurrencyCode();
+        if (schemeCurrency == null || schemeCurrency.isBlank()) {
+            schemeCurrency = "USD";
+        }
+        if (requested == null || requested.isBlank()) {
+            return schemeCurrency;
+        }
+        if (!schemeCurrency.equalsIgnoreCase(requested)) {
+            throw new IllegalArgumentException(
+                "currencyCode '" + requested + "' does not match the parent scheme's currency '"
+                    + schemeCurrency + "'. Schemes are single-currency.");
+        }
+        return schemeCurrency;
+    }
 
     private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
                                      String action, String actorId,

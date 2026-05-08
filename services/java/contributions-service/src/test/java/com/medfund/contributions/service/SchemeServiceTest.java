@@ -97,7 +97,7 @@ class SchemeServiceTest {
 
     @Test
     void create_validRequest_createsScheme() {
-        var request = new CreateSchemeRequest("Gold Plan", "Premium plan", null, LocalDate.now(), null);
+        var request = new CreateSchemeRequest("Gold Plan", "Premium plan", null, LocalDate.now(), null, null);
 
         when(schemeRepository.existsByName("Gold Plan")).thenReturn(Mono.just(false));
         when(schemeRepository.save(any(Scheme.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
@@ -123,7 +123,7 @@ class SchemeServiceTest {
 
     @Test
     void create_duplicateName_throwsConflict() {
-        var request = new CreateSchemeRequest("Gold Plan", "Premium plan", null, LocalDate.now(), null);
+        var request = new CreateSchemeRequest("Gold Plan", "Premium plan", null, LocalDate.now(), null, null);
 
         when(schemeRepository.existsByName("Gold Plan")).thenReturn(Mono.just(true));
 
@@ -166,6 +166,12 @@ class SchemeServiceTest {
             "USD", 30, "Outpatient benefit"
         );
 
+        var parentScheme = new Scheme();
+        parentScheme.setId(schemeId);
+        parentScheme.setName("Gold");
+        parentScheme.setCurrencyCode("USD");
+
+        when(schemeRepository.findById(schemeId)).thenReturn(Mono.just(parentScheme));
         when(schemeBenefitRepository.save(any(SchemeBenefit.class)))
             .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
@@ -194,6 +200,12 @@ class SchemeServiceTest {
             new BigDecimal("200.00"), "USD"
         );
 
+        var parentScheme = new Scheme();
+        parentScheme.setId(schemeId);
+        parentScheme.setName("Gold");
+        parentScheme.setCurrencyCode("USD");
+
+        when(schemeRepository.findById(schemeId)).thenReturn(Mono.just(parentScheme));
         when(ageGroupRepository.save(any(AgeGroup.class)))
             .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());

@@ -107,14 +107,20 @@ class BillingServiceTest {
 
     @Test
     void generateBilling_validRequest_createsContribution() {
+        var schemeId = UUID.randomUUID();
         var request = new GenerateBillingRequest(
-            UUID.randomUUID(),
+            schemeId,
             UUID.randomUUID(),
             LocalDate.now().withDayOfMonth(1),
             LocalDate.now().withDayOfMonth(1).plusMonths(1).minusDays(1),
             null
         );
 
+        var parentScheme = new com.medfund.contributions.entity.Scheme();
+        parentScheme.setId(schemeId);
+        parentScheme.setCurrencyCode("USD");
+
+        when(schemeRepository.findById(schemeId)).thenReturn(Mono.just(parentScheme));
         when(contributionRepository.save(any(Contribution.class)))
             .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());

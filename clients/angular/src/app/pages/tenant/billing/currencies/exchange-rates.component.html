@@ -1,0 +1,89 @@
+<div class="rates-page">
+  <header class="page-header">
+    <div>
+      <h1>Exchange rates</h1>
+      <p class="page-sub">Manual rate entry and history. Each rate is an immutable, date-stamped snapshot — record a new rate to update the live rate; existing rates are never modified.</p>
+    </div>
+    <a class="btn-link" routerLink="/tenant/billing/currencies">
+      <app-icon name="arrow-left"></app-icon>
+      Back to currencies
+    </a>
+  </header>
+
+  <div class="error-banner" *ngIf="errorMessage" (click)="errorMessage = null">{{ errorMessage }}</div>
+  <div class="success-banner" *ngIf="successMessage" (click)="successMessage = null">{{ successMessage }}</div>
+
+  <section class="rate-form">
+    <h2>Record rate</h2>
+    <form (submit)="$event.preventDefault(); recordRate()">
+      <div class="grid">
+        <label>
+          From
+          <select [(ngModel)]="base" name="base" required>
+            <option [value]="''" disabled>Choose currency</option>
+            <option *ngFor="let c of configs" [value]="c.currencyCode">{{ c.currencyCode }}</option>
+          </select>
+        </label>
+        <label>
+          To
+          <select [(ngModel)]="quote" name="quote" required>
+            <option [value]="''" disabled>Choose currency</option>
+            <option *ngFor="let c of configs" [value]="c.currencyCode">{{ c.currencyCode }}</option>
+          </select>
+        </label>
+        <label>
+          Rate
+          <input type="number" step="any" min="0.0000000001" [(ngModel)]="rate" name="rate" required />
+        </label>
+        <label>
+          Effective date
+          <input type="date" [(ngModel)]="rateDate" name="rateDate" required />
+        </label>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-primary" type="submit" [disabled]="saving">
+          {{ saving ? 'Saving...' : 'Record rate' }}
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section class="history-section">
+    <header class="history-header">
+      <h2>History</h2>
+      <form class="history-filters" (submit)="$event.preventDefault(); loadHistory()">
+        <input type="date" [(ngModel)]="from" name="from" />
+        <input type="date" [(ngModel)]="to" name="to" />
+        <button class="btn btn-default" type="submit" [disabled]="loading">
+          {{ loading ? 'Loading...' : 'Refresh' }}
+        </button>
+      </form>
+    </header>
+
+    <table class="rate-table" *ngIf="history.length > 0">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Pair</th>
+          <th>Rate</th>
+          <th>Source</th>
+          <th>Tenant-scoped</th>
+          <th>Recorded</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let r of history">
+          <td>{{ r.rateDate }}</td>
+          <td>{{ r.baseCurrency }} → {{ r.quoteCurrency }}</td>
+          <td><strong>{{ r.rate }}</strong></td>
+          <td><code>{{ r.source }}</code></td>
+          <td>{{ r.tenantId ? 'Yes' : 'No' }}</td>
+          <td>{{ r.createdAt | date:'short' }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="empty-state" *ngIf="history.length === 0 && !loading">
+      No rates recorded for this pair in the selected range.
+    </p>
+  </section>
+</div>

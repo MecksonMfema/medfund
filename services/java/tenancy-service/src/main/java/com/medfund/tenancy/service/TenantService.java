@@ -13,6 +13,7 @@ import com.medfund.tenancy.entity.Tenant;
 import com.medfund.tenancy.entity.TenantCurrencyConfig;
 import com.medfund.tenancy.exception.TenantNotFoundException;
 import com.medfund.tenancy.exception.TenantSlugConflictException;
+import com.medfund.tenancy.repository.CurrencyRepository;
 import com.medfund.tenancy.repository.TenantCurrencyConfigRepository;
 import com.medfund.tenancy.repository.TenantRepository;
 import com.medfund.tenancy.util.JsonString;
@@ -43,6 +44,7 @@ public class TenantService {
 
     private final TenantRepository tenantRepository;
     private final TenantCurrencyConfigRepository currencyConfigRepository;
+    private final CurrencyRepository currencyRepository;
     private final SchemaProvisioningService schemaProvisioning;
     private final KeycloakRealmService keycloakRealmService;
     private final AuditPublisher auditPublisher;
@@ -106,9 +108,18 @@ public class TenantService {
 
     @Transactional
     public Mono<Tenant> create(CreateTenantRequest request, String actorId, String actorEmail) {
-        return tenantRepository.existsBySlug(request.slug())
+        String defaultCurrency = request.defaultCurrencyCodeOrDefault();
+        return currencyRepository.existsActiveByCode(defaultCurrency)
+                .flatMap(currencyExists -> {
+                    if (Boolean.FALSE.equals(currencyExists)) {
+                        return Mono.<Boolean>error(new IllegalArgumentException(
+                                "defaultCurrencyCode '" + defaultCurrency
+                                        + "' is not in the active master registry"));
+                    }
+                    return tenantRepository.existsBySlug(request.slug());
+                })
                 .flatMap(exists -> {
-                    if (exists) {
+                    if (Boolean.TRUE.equals(exists)) {
                         return Mono.<Tenant>error(new TenantSlugConflictException(request.slug()));
                     }
 
@@ -248,6 +259,10 @@ public class TenantService {
         config.setCurrencyCode(currencyCode);
         config.setIsDefault(true);
         config.setIsActive(true);
+        config.setIsBillingCurrency(true);
+        config.setIsClaimsCurrency(true);
+        config.setIsPaymentCurrency(true);
+        config.setExchangeRateSource("manual");
         return r2dbcTemplate.insert(config).then();
     }
 

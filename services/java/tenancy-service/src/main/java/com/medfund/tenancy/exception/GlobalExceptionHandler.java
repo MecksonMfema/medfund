@@ -34,6 +34,20 @@ public class GlobalExceptionHandler {
         return Mono.just(problem);
     }
 
+    @ExceptionHandler(CurrencyConflictException.class)
+    public Mono<ProblemDetail> handleCurrencyConflict(CurrencyConflictException ex) {
+        var problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        problem.setType(URI.create("https://medfund.healthcare/errors/currency-conflict"));
+        return Mono.just(problem);
+    }
+
+    @ExceptionHandler(ExchangeRateNotFoundException.class)
+    public Mono<ProblemDetail> handleRateNotFound(ExchangeRateNotFoundException ex) {
+        var problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        problem.setType(URI.create("https://medfund.healthcare/errors/exchange-rate-not-found"));
+        return Mono.just(problem);
+    }
+
     @ExceptionHandler(NoSuchElementException.class)
     public Mono<ProblemDetail> handleNoSuchElement(NoSuchElementException ex) {
         var problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());

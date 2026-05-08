@@ -31,6 +31,9 @@ public class Scheme {
     @Column("end_date")
     private LocalDate endDate;
 
+    @Column("currency_code")
+    private String currencyCode;
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;
@@ -66,6 +69,9 @@ public class Scheme {
 
     public LocalDate getEndDate() { return endDate; }
     public void setEndDate(LocalDate endDate) { this.endDate = endDate; }
+
+    public String getCurrencyCode() { return currencyCode; }
+    public void setCurrencyCode(String currencyCode) { this.currencyCode = currencyCode; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

@@ -21,6 +21,22 @@ export interface Tenant {
    */
   schemeLabelSingular?: string;
   schemeLabelPlural?: string;
+
+  /**
+   * Whether this tenant treats pharmaceutical claims as a separate domain.
+   * Health insurers usually want it on (separate adjudication queues, drug
+   * inventory, drug pre-auth); car/property/funeral insurers don't have
+   * drug claims at all. Defaults to true for back-compat — existing tenants
+   * keep seeing the legacy behaviour until they explicitly opt out.
+   */
+  drugClaimsEnabled?: boolean;
+
+  /**
+   * The tenant's primary currency. Used as the implicit fallback when a form
+   * does not specify a currency, and as the reporting currency on dashboards.
+   * Populated from {@code tenant_currency_config} where {@code is_default = true}.
+   */
+  defaultCurrencyCode?: string;
 }
 
 const SESSION_KEY = 'medfund_current_tenant';

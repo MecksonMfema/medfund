@@ -21,4 +21,8 @@ dependencies {
     // per-(tenant,user) permission cache with 60-s TTL.
     api("org.springframework.boot:spring-boot-starter-aop")
     api("com.github.ben-manes.caffeine:caffeine:3.1.8")
+
+    // JavaMoney / Moneta — used by shared.currency.Money and CurrencyConverter.
+    api("javax.money:money-api:1.1")
+    api("org.javamoney:moneta:1.4.4")
 }

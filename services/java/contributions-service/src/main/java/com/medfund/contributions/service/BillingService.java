@@ -74,25 +74,39 @@ public class BillingService {
 
     @Transactional
     public Mono<Long> generateBilling(GenerateBillingRequest request, String actorId) {
-        var contribution = new Contribution();
-        contribution.setId(UUID.randomUUID());
-        contribution.setSchemeId(request.schemeId());
-        contribution.setGroupId(request.groupId());
-        contribution.setCurrencyCode(request.currencyCode());
-        contribution.setPeriodStart(request.periodStart());
-        contribution.setPeriodEnd(request.periodEnd());
-        contribution.setStatus("pending");
-        contribution.setCreatedAt(Instant.now());
-        contribution.setUpdatedAt(Instant.now());
-        contribution.setCreatedBy(UUID.fromString(actorId));
-        contribution.setUpdatedBy(UUID.fromString(actorId));
+        return schemeRepository.findById(request.schemeId())
+            .switchIfEmpty(Mono.error(new IllegalArgumentException(
+                "Scheme not found: " + request.schemeId())))
+            .flatMap(scheme -> {
+                String currency = (request.currencyCode() == null || request.currencyCode().isBlank())
+                    ? schemeCurrencyOrUsd(scheme.getCurrencyCode())
+                    : request.currencyCode();
+                if (scheme.getCurrencyCode() != null && !scheme.getCurrencyCode().isBlank()
+                    && !scheme.getCurrencyCode().equalsIgnoreCase(currency)) {
+                    return Mono.<Contribution>error(new IllegalArgumentException(
+                        "Contribution currency '" + currency
+                            + "' does not match scheme currency '" + scheme.getCurrencyCode() + "'"));
+                }
+                var contribution = new Contribution();
+                contribution.setId(UUID.randomUUID());
+                contribution.setSchemeId(request.schemeId());
+                contribution.setGroupId(request.groupId());
+                contribution.setCurrencyCode(currency);
+                contribution.setPeriodStart(request.periodStart());
+                contribution.setPeriodEnd(request.periodEnd());
+                contribution.setStatus("pending");
+                contribution.setCreatedAt(Instant.now());
+                contribution.setUpdatedAt(Instant.now());
+                contribution.setCreatedBy(UUID.fromString(actorId));
+                contribution.setUpdatedBy(UUID.fromString(actorId));
 
-        // Run tenant pricing rules before persistence. The pricing service
-        // mutates contribution.amount in place when SET_PREMIUM /
-        // APPLY_LOADED_PREMIUM rules fire; tenants without pricing rules
-        // get the legacy behaviour (whatever amount the request supplied).
-        return pricingService.price(contribution)
-            .then(Mono.defer(() -> contributionRepository.save(contribution)))
+                // Run tenant pricing rules before persistence. The pricing service
+                // mutates contribution.amount in place when SET_PREMIUM /
+                // APPLY_LOADED_PREMIUM rules fire; tenants without pricing rules
+                // get the legacy behaviour (whatever amount the request supplied).
+                return pricingService.price(contribution)
+                    .then(Mono.defer(() -> contributionRepository.save(contribution)));
+            })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
                 return publishAudit(tenantId, "Contribution", saved.getId().toString(), "CREATE", actorId,
@@ -219,6 +233,10 @@ public class BillingService {
     }
 
     // ---- Private helpers ----
+
+    private static String schemeCurrencyOrUsd(String schemeCurrency) {
+        return (schemeCurrency == null || schemeCurrency.isBlank()) ? "USD" : schemeCurrency;
+    }
 
     private Mono<String> generateInvoiceNumber() {
         String number = "INV-" + String.format("%06d", ThreadLocalRandom.current().nextInt(0, 999999));

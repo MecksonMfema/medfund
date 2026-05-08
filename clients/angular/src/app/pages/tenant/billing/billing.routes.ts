@@ -54,8 +54,27 @@ export const BILLING_ROUTES: Routes = [
   cs('transactions/ctc',            'CTC Transactions',              '/payments/view-ctc-transactions',            'Cost-to-cure transaction history.',                ['billing:view']),
 
   // ── Currencies ─────────────────────────────────────────────────────────────
-  cs('currencies',          'Currencies',          '/payments/view-currency',     'Configured currency / FX pairs.',     ['billing:view_currencies']),
-  cs('currencies/add',      'Add Currency',        '/payments/add-currency',      'Add a new currency / FX pair.',       ['billing:manage_currencies']),
+  {
+    path: 'currencies',
+    canActivate: [permissionGuard(['billing:view_currencies'])],
+    loadComponent: () =>
+      import('./currencies/currencies-list.component').then(m => m.TenantCurrenciesListComponent),
+    data: { title: 'Currencies', sidebar: 'operational' },
+  },
+  {
+    path: 'currencies/add',
+    canActivate: [permissionGuard(['billing:manage_currencies'])],
+    loadComponent: () =>
+      import('./currencies/currency-add.component').then(m => m.TenantCurrencyAddComponent),
+    data: { title: 'Add Currency', sidebar: 'operational' },
+  },
+  {
+    path: 'currencies/rates',
+    canActivate: [permissionGuard(['billing:view_currencies'])],
+    loadComponent: () =>
+      import('./currencies/exchange-rates.component').then(m => m.ExchangeRatesComponent),
+    data: { title: 'Exchange Rates', sidebar: 'operational' },
+  },
 
   // ── Receivables (creditors / bad debts) ────────────────────────────────────
   cs('creditors',           'Creditors',           '/payments/view-creditors',         'Outstanding balances owed by members and groups.',  ['billing:view_creditors']),

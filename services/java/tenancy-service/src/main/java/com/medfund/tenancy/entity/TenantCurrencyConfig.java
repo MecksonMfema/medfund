@@ -29,4 +29,16 @@ public class TenantCurrencyConfig {
 
     @Column("is_active")
     private Boolean isActive;
+
+    @Column("is_billing_currency")
+    private Boolean isBillingCurrency;
+
+    @Column("is_claims_currency")
+    private Boolean isClaimsCurrency;
+
+    @Column("is_payment_currency")
+    private Boolean isPaymentCurrency;
+
+    @Column("exchange_rate_source")
+    private String exchangeRateSource;
 }
