@@ -65,38 +65,38 @@ export class CurrencyService {
   constructor(private api: ApiService) {}
 
   listMaster(activeOnly = true): Observable<Currency[]> {
-    return this.api.get<Currency[]>('/api/v1/currencies', { active: String(activeOnly) });
+    return this.api.get<Currency[]>('/currencies', { active: String(activeOnly) });
   }
 
   listForTenant(tenantId: string): Observable<TenantCurrencyConfig[]> {
-    return this.api.get<TenantCurrencyConfig[]>(`/api/v1/tenants/${tenantId}/currencies`);
+    return this.api.get<TenantCurrencyConfig[]>(`/tenants/${tenantId}/currencies`);
   }
 
   addToTenant(tenantId: string, body: AddTenantCurrencyPayload): Observable<TenantCurrencyConfig> {
-    return this.api.post<TenantCurrencyConfig>(`/api/v1/tenants/${tenantId}/currencies`, body);
+    return this.api.post<TenantCurrencyConfig>(`/tenants/${tenantId}/currencies`, body);
   }
 
   updateTenantCurrency(tenantId: string, configId: string, body: UpdateTenantCurrencyPayload): Observable<TenantCurrencyConfig> {
-    return this.api.put<TenantCurrencyConfig>(`/api/v1/tenants/${tenantId}/currencies/${configId}`, body);
+    return this.api.put<TenantCurrencyConfig>(`/tenants/${tenantId}/currencies/${configId}`, body);
   }
 
   removeFromTenant(tenantId: string, configId: string): Observable<void> {
-    return this.api.delete<void>(`/api/v1/tenants/${tenantId}/currencies/${configId}`);
+    return this.api.delete<void>(`/tenants/${tenantId}/currencies/${configId}`);
   }
 
   getRate(base: string, quote: string, date: string, tenantId?: string): Observable<ExchangeRate> {
     const params: Record<string, string> = { base, quote, date };
     if (tenantId) params['tenantId'] = tenantId;
-    return this.api.get<ExchangeRate>('/api/v1/exchange-rates', params);
+    return this.api.get<ExchangeRate>('/exchange-rates', params);
   }
 
   rateHistory(base: string, quote: string, from: string, to: string, tenantId?: string): Observable<ExchangeRate[]> {
     const params: Record<string, string> = { base, quote, from, to };
     if (tenantId) params['tenantId'] = tenantId;
-    return this.api.get<ExchangeRate[]>('/api/v1/exchange-rates/history', params);
+    return this.api.get<ExchangeRate[]>('/exchange-rates/history', params);
   }
 
   recordRate(body: RecordExchangeRatePayload): Observable<ExchangeRate> {
-    return this.api.post<ExchangeRate>('/api/v1/exchange-rates', body);
+    return this.api.post<ExchangeRate>('/exchange-rates', body);
   }
 }
