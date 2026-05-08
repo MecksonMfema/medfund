@@ -10,6 +10,7 @@ import {
   TenantEmailTemplate,
 } from '../../../core/services/admin.service';
 import { TenantRolesTabComponent } from './roles/roles-tab.component';
+import { TenantCurrenciesTabComponent } from './currencies/currencies-tab.component';
 import { TenantService } from '../../../core/services/tenant.service';
 import {
   BrandingService,
@@ -24,6 +25,7 @@ import {
   parseProviderRegLabel,
   deriveProviderRegLabel,
   parseSchemeTerminology,
+  parseDrugClaimsEnabled,
   DEFAULT_SCHEME_TERMINOLOGY,
   SCHEME_TERMINOLOGY_PRESETS,
   SchemeTerminology,
@@ -43,7 +45,7 @@ const MEMBERSHIP_MODELS = [
   { value: 'BOTH',            label: 'Both individual and group' },
 ];
 
-type TabId = 'general' | 'branding' | 'insurance-lines' | 'email-templates' | 'roles';
+type TabId = 'general' | 'branding' | 'insurance-lines' | 'currencies' | 'email-templates' | 'roles';
 
 interface Tab {
   id: TabId;
@@ -61,7 +63,7 @@ interface Tab {
 @Component({
   selector: 'app-tenant-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, EditorComponent, TenantRolesTabComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, EditorComponent, TenantRolesTabComponent, TenantCurrenciesTabComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
 })
@@ -72,6 +74,7 @@ export class TenantSettingsComponent implements OnInit {
     { id: 'general',         label: 'General',                icon: 'settings' },
     { id: 'branding',        label: 'Branding',               icon: 'globe' },
     { id: 'insurance-lines', label: 'Insurance Lines',        icon: 'briefcase' },
+    { id: 'currencies',      label: 'Currencies',             icon: 'dollar-sign' },
     { id: 'email-templates', label: 'Email Templates',        icon: 'file-text' },
     { id: 'roles',           label: 'Roles & Permissions',    icon: 'shield' },
   ];
@@ -151,6 +154,10 @@ export class TenantSettingsComponent implements OnInit {
   schemeTerminology: SchemeTerminology = { ...DEFAULT_SCHEME_TERMINOLOGY };
   private originalSchemeTerminologyId = 'scheme';
   private originalSchemeTerminology: SchemeTerminology = { ...DEFAULT_SCHEME_TERMINOLOGY };
+
+  // ── Drug-claims toggle ───────────────────────────────────────────────────
+  drugClaimsEnabled = true;
+  private originalDrugClaimsEnabled = true;
 
   constructor(
     private adminService: AdminService,
@@ -294,9 +301,11 @@ export class TenantSettingsComponent implements OnInit {
         const lines = parseInsuranceLines(t.settings);
         const label = parseProviderRegLabel(t.settings);
         const term  = parseSchemeTerminology(t.settings);
+        const drug  = parseDrugClaimsEnabled(t.settings);
         this.selectedLines           = [...lines];
         this.providerRegLabel        = label;
         this.schemeTerminology       = { ...term };
+        this.drugClaimsEnabled       = drug;
         // Match against a preset to pre-select the dropdown; falls through
         // to 'custom' when no preset matches the saved labels.
         const matched = SCHEME_TERMINOLOGY_PRESETS.find(p =>
@@ -306,6 +315,7 @@ export class TenantSettingsComponent implements OnInit {
         this.originalProviderRegLabel   = label;
         this.originalSchemeTerminology  = { ...term };
         this.originalSchemeTerminologyId = this.schemeTerminologyId;
+        this.originalDrugClaimsEnabled  = drug;
         this.insuranceLoading           = false;
       },
       error: () => {
@@ -349,6 +359,7 @@ export class TenantSettingsComponent implements OnInit {
     if (this.selectedLines.length !== this.originalLines.length) return true;
     if (this.selectedLines.some(v => !this.originalLines.includes(v))) return true;
     if (this.providerRegLabel.trim() !== this.originalProviderRegLabel.trim()) return true;
+    if (this.drugClaimsEnabled !== this.originalDrugClaimsEnabled) return true;
     return this.schemeTerminologyDirty();
   }
 
@@ -378,6 +389,7 @@ export class TenantSettingsComponent implements OnInit {
       providerRegLabel:     this.providerRegLabel.trim() || deriveProviderRegLabel(this.selectedLines),
       schemeLabelSingular:  singular,
       schemeLabelPlural:    plural,
+      drugClaimsEnabled:    this.drugClaimsEnabled,
     });
 
     this.adminService.updateTenant(tenant.id, { settings }).subscribe({
@@ -386,14 +398,17 @@ export class TenantSettingsComponent implements OnInit {
         this.originalProviderRegLabel    = this.providerRegLabel.trim();
         this.originalSchemeTerminology   = { singular, plural };
         this.originalSchemeTerminologyId = this.schemeTerminologyId;
-        // Refresh the cached tenant so anything reading insuranceLines or the
-        // scheme labels reactively (sidebar, page titles) sees the new values.
+        this.originalDrugClaimsEnabled   = this.drugClaimsEnabled;
+        // Refresh the cached tenant so anything reading insuranceLines, scheme
+        // labels, or feature flags reactively (sidebar, page titles) sees the
+        // new values without a page reload.
         this.tenantService.setTenant({
           ...tenant,
           insuranceLines:       [...this.selectedLines],
           providerRegLabel:     this.providerRegLabel.trim() || deriveProviderRegLabel(this.selectedLines),
           schemeLabelSingular:  singular,
           schemeLabelPlural:    plural,
+          drugClaimsEnabled:    this.drugClaimsEnabled,
         });
         this.insuranceSaving = false;
         this.insuranceSaved  = true;

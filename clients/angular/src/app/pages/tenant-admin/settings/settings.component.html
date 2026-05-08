@@ -330,6 +330,15 @@
         </div>
 
         <div class="branding-section">
+          <h4 class="branding-label">Drug claims</h4>
+          <p class="color-hint">Health insurers usually manage pharmaceutical claims as a separate domain — distinct queues, drug pre-auth, drug inventory. Car, property, funeral and other non-health lines can leave this off and the related sidebar items disappear.</p>
+          <label class="switch-row">
+            <input type="checkbox" [(ngModel)]="drugClaimsEnabled" />
+            <span>Manage drug claims separately</span>
+          </label>
+        </div>
+
+        <div class="branding-section">
           <h4 class="branding-label">Scheme terminology</h4>
           <p class="color-hint">Some tenants call them Schemes; others use Plans, Packages, Policies, or Products. The labels you pick here flow through to the sidebar, page titles, and member-facing copy.</p>
           <div class="general-grid">
@@ -461,6 +470,21 @@
           }
         </div>
       }
+    </div>
+  </div>
+}
+
+<!-- Currencies -->
+@if (activeTab === 'currencies') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <div class="section-header">
+        <div>
+          <h3 class="section-title">Currencies</h3>
+          <p class="section-sub">Choose the currencies this tenant operates in and record exchange rates.</p>
+        </div>
+      </div>
+      <app-tenant-currencies-tab></app-tenant-currencies-tab>
     </div>
   </div>
 }

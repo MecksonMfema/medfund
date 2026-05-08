@@ -53,28 +53,8 @@ export const BILLING_ROUTES: Routes = [
   cs('transactions/debit-credit',   'Debit / Credit Transactions',   '/payments/view-debit-credit-transactions',   'Balance-changing entries.',                        ['billing:view']),
   cs('transactions/ctc',            'CTC Transactions',              '/payments/view-ctc-transactions',            'Cost-to-cure transaction history.',                ['billing:view']),
 
-  // ── Currencies ─────────────────────────────────────────────────────────────
-  {
-    path: 'currencies',
-    canActivate: [permissionGuard(['billing:view_currencies'])],
-    loadComponent: () =>
-      import('./currencies/currencies-list.component').then(m => m.TenantCurrenciesListComponent),
-    data: { title: 'Currencies', sidebar: 'operational' },
-  },
-  {
-    path: 'currencies/add',
-    canActivate: [permissionGuard(['billing:manage_currencies'])],
-    loadComponent: () =>
-      import('./currencies/currency-add.component').then(m => m.TenantCurrencyAddComponent),
-    data: { title: 'Add Currency', sidebar: 'operational' },
-  },
-  {
-    path: 'currencies/rates',
-    canActivate: [permissionGuard(['billing:view_currencies'])],
-    loadComponent: () =>
-      import('./currencies/exchange-rates.component').then(m => m.ExchangeRatesComponent),
-    data: { title: 'Exchange Rates', sidebar: 'operational' },
-  },
+  // Currencies are managed in /tenant/admin/settings under the "Currencies" tab —
+  // they're a tenant-admin concern, not an operational/billing day-to-day task.
 
   // ── Receivables (creditors / bad debts) ────────────────────────────────────
   cs('creditors',           'Creditors',           '/payments/view-creditors',         'Outstanding balances owed by members and groups.',  ['billing:view_creditors']),
