@@ -1,9 +1,11 @@
 package com.medfund.contributions.service;
 
 import com.medfund.contributions.dto.RecordTransactionRequest;
+import com.medfund.contributions.dto.TransactionFilterParams;
 import com.medfund.contributions.entity.Transaction;
 import com.medfund.contributions.repository.ContributionRepository;
 import com.medfund.contributions.repository.InvoiceRepository;
+import com.medfund.contributions.repository.TransactionQueryRepository;
 import com.medfund.contributions.repository.TransactionRepository;
 import com.medfund.contributions.repository.TransactionTypeRepository;
 import com.medfund.shared.audit.AuditPublisher;
@@ -39,6 +41,9 @@ class TransactionServiceTest {
 
     @Mock
     private InvoiceRepository invoiceRepository;
+
+    @Mock
+    private TransactionQueryRepository queryRepository;
 
     @Mock
     private BalanceService balanceService;
@@ -125,6 +130,52 @@ class TransactionServiceTest {
 
         verify(transactionRepository).save(any(Transaction.class));
         verify(auditPublisher).publish(any());
+    }
+
+    @Test
+    void search_emptyFilters_returnsAllPaged() {
+        var t1 = createTestTransaction();
+        var t2 = createTestTransaction();
+        var params = new TransactionFilterParams(null, null, null, null, null,
+                null, null, null, 0, 20);
+
+        when(queryRepository.search(any(TransactionFilterParams.class), eq(20), eq(0)))
+                .thenReturn(Flux.just(t1, t2));
+        when(queryRepository.count(any(TransactionFilterParams.class)))
+                .thenReturn(Mono.just(2L));
+
+        StepVerifier.create(transactionService.search(params))
+                .assertNext(page -> {
+                    assertThat(page.content()).containsExactly(t1, t2);
+                    assertThat(page.total()).isEqualTo(2L);
+                    assertThat(page.page()).isEqualTo(0);
+                    assertThat(page.size()).isEqualTo(20);
+                    assertThat(page.totalPages()).isEqualTo(1);
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void search_clampsSize_andComputesOffset() {
+        var params = new TransactionFilterParams("USD", "ORDINARY", null, null, null,
+                null, null, "REF", 2, 500); // size 500 should be capped to 100
+
+        when(queryRepository.search(any(TransactionFilterParams.class), eq(100), eq(200)))
+                .thenReturn(Flux.empty());
+        when(queryRepository.count(any(TransactionFilterParams.class)))
+                .thenReturn(Mono.just(0L));
+
+        StepVerifier.create(transactionService.search(params))
+                .assertNext(page -> {
+                    assertThat(page.content()).isEmpty();
+                    assertThat(page.total()).isEqualTo(0L);
+                    assertThat(page.size()).isEqualTo(100);
+                    assertThat(page.page()).isEqualTo(2);
+                })
+                .verifyComplete();
+
+        verify(queryRepository).search(any(TransactionFilterParams.class), eq(100), eq(200));
+        verify(queryRepository).count(any(TransactionFilterParams.class));
     }
 
     // ---- Helpers ----

@@ -1,11 +1,14 @@
 package com.medfund.contributions.service;
 
+import com.medfund.contributions.dto.PageResponse;
 import com.medfund.contributions.dto.RecordTransactionRequest;
+import com.medfund.contributions.dto.TransactionFilterParams;
 import com.medfund.contributions.entity.Contribution;
 import com.medfund.contributions.entity.Invoice;
 import com.medfund.contributions.entity.Transaction;
 import com.medfund.contributions.repository.ContributionRepository;
 import com.medfund.contributions.repository.InvoiceRepository;
+import com.medfund.contributions.repository.TransactionQueryRepository;
 import com.medfund.contributions.repository.TransactionRepository;
 import com.medfund.contributions.repository.TransactionTypeRepository;
 import com.medfund.shared.audit.AuditEvent;
@@ -32,6 +35,7 @@ public class TransactionService {
     private final TransactionTypeRepository transactionTypeRepository;
     private final ContributionRepository contributionRepository;
     private final InvoiceRepository invoiceRepository;
+    private final TransactionQueryRepository queryRepository;
     private final BalanceService balanceService;
     private final AuditPublisher auditPublisher;
 
@@ -39,14 +43,26 @@ public class TransactionService {
                               TransactionTypeRepository transactionTypeRepository,
                               ContributionRepository contributionRepository,
                               InvoiceRepository invoiceRepository,
+                              TransactionQueryRepository queryRepository,
                               BalanceService balanceService,
                               AuditPublisher auditPublisher) {
         this.transactionRepository = transactionRepository;
         this.transactionTypeRepository = transactionTypeRepository;
         this.contributionRepository = contributionRepository;
         this.invoiceRepository = invoiceRepository;
+        this.queryRepository = queryRepository;
         this.balanceService = balanceService;
         this.auditPublisher = auditPublisher;
+    }
+
+    public Mono<PageResponse<Transaction>> search(TransactionFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 100);
+        int offset = page * size;
+        return queryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(queryRepository.count(params))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 
     public Flux<Transaction> findByContributionId(UUID contributionId) {

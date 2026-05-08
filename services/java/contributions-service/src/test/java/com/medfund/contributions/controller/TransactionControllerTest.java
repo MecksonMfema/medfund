@@ -1,6 +1,7 @@
 package com.medfund.contributions.controller;
 
 import com.medfund.contributions.config.SecurityConfig;
+import com.medfund.contributions.dto.PageResponse;
 import com.medfund.contributions.entity.Transaction;
 import com.medfund.contributions.service.TransactionService;
 import org.junit.jupiter.api.Test;
@@ -32,8 +33,9 @@ class TransactionControllerTest {
     private TransactionService transactionService;
 
     @Test
-    void findAll_returns200() {
-        when(transactionService.findAll()).thenReturn(Flux.just(createTestTransaction()));
+    void search_returns200() {
+        when(transactionService.search(any())).thenReturn(Mono.just(
+                PageResponse.of(java.util.List.of(createTestTransaction()), 1L, 0, 20)));
 
         webTestClient.mutateWith(mockJwt())
                 .get().uri("/api/v1/transactions")

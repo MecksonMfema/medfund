@@ -154,6 +154,27 @@ export interface RecordTransactionPayload {
   reference?: string;
 }
 
+export interface TransactionSearchParams {
+  currency?: string;
+  transactionType?: string;
+  paymentMethod?: string;
+  periodStart?: string;  // YYYY-MM-DD
+  periodEnd?: string;    // YYYY-MM-DD
+  contributionId?: string;
+  invoiceId?: string;
+  q?: string;
+  page?: number;
+  size?: number;
+}
+
+export interface TransactionsPage {
+  content: Transaction[];
+  total: number;
+  page: number;
+  size: number;
+  totalPages: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ContributionsService {
   constructor(private api: ApiService) {}
@@ -234,6 +255,21 @@ export class ContributionsService {
   }
 
   // ── Transactions ──
+  searchTransactions(params: TransactionSearchParams = {}): Observable<TransactionsPage> {
+    const q: Record<string, string> = {};
+    if (params.currency)        q['currency'] = params.currency;
+    if (params.transactionType) q['transactionType'] = params.transactionType;
+    if (params.paymentMethod)   q['paymentMethod'] = params.paymentMethod;
+    if (params.periodStart)     q['periodStart'] = params.periodStart;
+    if (params.periodEnd)       q['periodEnd'] = params.periodEnd;
+    if (params.contributionId)  q['contributionId'] = params.contributionId;
+    if (params.invoiceId)       q['invoiceId'] = params.invoiceId;
+    if (params.q)               q['q'] = params.q;
+    if (params.page !== undefined) q['page'] = String(params.page);
+    if (params.size !== undefined) q['size'] = String(params.size);
+    return this.api.get<TransactionsPage>('/transactions', q);
+  }
+
   recordTransaction(data: RecordTransactionPayload): Observable<Transaction> {
     return this.api.post<Transaction>('/transactions', data);
   }

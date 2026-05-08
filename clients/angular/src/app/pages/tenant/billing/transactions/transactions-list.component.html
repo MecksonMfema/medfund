@@ -1,0 +1,108 @@
+<div class="transactions-page">
+  <header class="page-header">
+    <div>
+      <h1>Transactions</h1>
+      <p class="page-sub">Recorded payments and adjustments. Filter by currency, type, payment method, period, or search transaction / receipt numbers.</p>
+    </div>
+    <a class="btn btn-primary" routerLink="/tenant/billing/transactions/add">
+      <app-icon name="plus" [size]="14"></app-icon>
+      Record transaction
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <div class="filters">
+    <label class="field">
+      <span class="field-label">Currency</span>
+      <select [(ngModel)]="selectedCurrency" (change)="onFilterChange()" name="currency">
+        <option [value]="''">Any</option>
+        @for (c of currencies; track c.id) {
+          <option [value]="c.currencyCode">{{ c.currencyCode }}{{ c.isDefault ? ' (default)' : '' }}</option>
+        }
+      </select>
+    </label>
+    <label class="field">
+      <span class="field-label">Type</span>
+      <select [(ngModel)]="selectedType" (change)="onFilterChange()" name="type">
+        <option [value]="''">Any</option>
+        @for (t of transactionTypes; track t.id) {
+          <option [value]="t.code">{{ t.label }}</option>
+        }
+      </select>
+    </label>
+    <label class="field">
+      <span class="field-label">Method</span>
+      <select [(ngModel)]="selectedMethod" (change)="onFilterChange()" name="method">
+        <option [value]="''">Any</option>
+        @for (m of paymentMethods; track m.id) {
+          <option [value]="m.code">{{ m.label }}</option>
+        }
+      </select>
+    </label>
+    <label class="field">
+      <span class="field-label">Period start</span>
+      <input type="date" [(ngModel)]="periodStart" (change)="onFilterChange()" name="periodStart" />
+    </label>
+    <label class="field">
+      <span class="field-label">Period end</span>
+      <input type="date" [(ngModel)]="periodEnd" (change)="onFilterChange()" name="periodEnd" />
+    </label>
+    <label class="field grow">
+      <span class="field-label">Search</span>
+      <input type="search" [ngModel]="search" (ngModelChange)="onSearchChange($event)"
+             name="search" placeholder="Receipt # or reference…" />
+    </label>
+    <button type="button" class="btn btn-default reset-btn" (click)="clearFilters()">
+      <app-icon name="x" [size]="12"></app-icon>
+      Clear
+    </button>
+  </div>
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (rows.length === 0) {
+    <p class="empty-state">No transactions match these filters.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Method</th>
+          <th class="right">Amount</th>
+          <th>Receipt #</th>
+          <th>Reference</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows; track row.id) {
+          <tr>
+            <td>{{ (row.transactionDate || row.createdAt) | date:'medium' }}</td>
+            <td>{{ row.transactionType | humanize }}</td>
+            <td>{{ row.paymentMethod ? (row.paymentMethod | humanize) : '—' }}</td>
+            <td class="right"><strong>{{ row.amount | currencyFormat:row.currencyCode }}</strong></td>
+            <td><code>{{ row.transactionNumber }}</code></td>
+            <td>{{ row.reference || '—' }}</td>
+            <td><span class="status-badge status-{{ row.status }}">{{ row.status | humanize }}</span></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    <footer class="page-footer">
+      <span class="muted">Page {{ page + 1 }} of {{ totalPages }} — {{ totalRows }} total</span>
+      <div class="pager">
+        <button class="btn btn-default" (click)="prevPage()" [disabled]="page === 0">
+          <app-icon name="chevron-left" [size]="14"></app-icon> Prev
+        </button>
+        <button class="btn btn-default" (click)="nextPage()" [disabled]="page >= totalPages - 1">
+          Next <app-icon name="chevron-right" [size]="14"></app-icon>
+        </button>
+      </div>
+    </footer>
+  }
+</div>
