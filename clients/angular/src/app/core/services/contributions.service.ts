@@ -23,6 +23,13 @@ export interface AgeGroup {
   currencyCode: string;
 }
 
+export interface GroupOption {
+  id: string;
+  name: string;
+  registrationNumber?: string;
+  contactEmail?: string;
+}
+
 export interface Contribution {
   id: string;
   memberId: string;
@@ -139,6 +146,13 @@ export class ContributionsService {
 
   updateScheme(id: string, data: UpsertSchemePayload): Observable<Scheme> {
     return this.api.put<Scheme>(`/schemes/${id}`, data);
+  }
+
+  // ── Groups (read-only autocomplete) ──
+  searchGroups(q: string, limit = 20): Observable<GroupOption[]> {
+    const params: Record<string, string> = { limit: String(limit) };
+    if (q) params['q'] = q;
+    return this.api.get<GroupOption[]>('/billing/groups/search', params);
   }
 
   // ── Age groups ──

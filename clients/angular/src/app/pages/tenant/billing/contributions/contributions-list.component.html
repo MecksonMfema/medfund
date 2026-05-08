@@ -17,7 +17,7 @@
   <div class="filters">
     @for (s of statuses; track s) {
       <button type="button" class="status-chip" [class.active]="status === s" (click)="status = s; refresh()">
-        {{ s }}
+        {{ s | humanize }}
       </button>
     }
   </div>
@@ -25,7 +25,7 @@
   @if (loading) {
     <app-skeleton></app-skeleton>
   } @else if (rows.length === 0) {
-    <p class="empty-state">No {{ status }} contributions.</p>
+    <p class="empty-state">No {{ status | humanize | lowercase }} contributions.</p>
   } @else {
     <table class="data-table">
       <thead>
@@ -46,7 +46,7 @@
             <td>{{ row.groupId || '—' }}</td>
             <td>{{ row.periodStart }} → {{ row.periodEnd }}</td>
             <td>{{ row.amount | currencyFormat:row.currencyCode }}</td>
-            <td><span class="status-badge status-{{ row.status }}">{{ row.status }}</span></td>
+            <td><span class="status-badge status-{{ row.status }}">{{ row.status | humanize }}</span></td>
           </tr>
         }
       </tbody>

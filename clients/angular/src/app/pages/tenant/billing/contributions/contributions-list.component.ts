@@ -6,13 +6,14 @@ import { ContributionsService, Contribution } from '../../../../core/services/co
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
+import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
 
 const STATUSES = ['pending', 'paid', 'overdue', 'written_off'] as const;
 
 @Component({
   selector: 'app-contributions-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SkeletonComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
   templateUrl: './contributions-list.component.html',
   styleUrl: './contributions-list.component.scss',
 })

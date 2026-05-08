@@ -98,9 +98,24 @@ export const BILLING_ROUTES: Routes = [
   // they're a tenant-admin concern, not an operational/billing day-to-day task.
 
   // ── Receivables (creditors / bad debts) ────────────────────────────────────
-  cs('creditors',           'Creditors',           '/payments/view-creditors',         'Outstanding balances owed by members and groups.',  ['billing:view_creditors']),
-  cs('bad-debts',           'Bad Debts',           '/payments/bad-debts',              'Write-offs and irrecoverable balances.',             ['billing:manage_bad_debts']),
-  cs('group-charge',        'Group Charge',        '/payments/view-current-group-charge','Current employer group billing.',                  ['billing:view_creditors']),
+  {
+    path: 'creditors',
+    canActivate: [permissionGuard(['billing:view_creditors'])],
+    loadComponent: () => import('./creditors/creditors-list.component').then(m => m.CreditorsListComponent),
+    data: { title: 'Creditors', sidebar: 'operational' },
+  },
+  {
+    path: 'bad-debts',
+    canActivate: [permissionGuard(['billing:manage_bad_debts'])],
+    loadComponent: () => import('./bad-debts/bad-debts-list.component').then(m => m.BadDebtsListComponent),
+    data: { title: 'Bad Debts', sidebar: 'operational' },
+  },
+  {
+    path: 'group-charge',
+    canActivate: [permissionGuard(['billing:view_creditors'])],
+    loadComponent: () => import('./group-charge/group-charge.component').then(m => m.GroupChargeComponent),
+    data: { title: 'Group Charge', sidebar: 'operational' },
+  },
 
   // ── Email campaigns ────────────────────────────────────────────────────────
   cs('emails',              'Emails',              '/email/view-emails',          'Email campaign history.',                              ['admin:manage_settings']),

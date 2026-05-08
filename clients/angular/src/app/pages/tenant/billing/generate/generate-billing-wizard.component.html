@@ -44,7 +44,7 @@
           <label class="scheme-tile" [class.selected]="isSchemeSelected(s.id)">
             <input type="checkbox" [checked]="isSchemeSelected(s.id)" (change)="toggleScheme(s.id)" />
             <span class="scheme-name">{{ s.name }}</span>
-            <span class="scheme-meta">{{ s.currencyCode || '—' }} · {{ s.status }}</span>
+            <span class="scheme-meta">{{ s.currencyCode || '—' }} · {{ s.status | humanize }}</span>
           </label>
         }
       </div>

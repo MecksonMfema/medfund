@@ -53,6 +53,7 @@ public class BillingService {
     private final AuditPublisher auditPublisher;
     private final ContributionEventPublisher eventPublisher;
     private final ContributionPricingService pricingService;
+    private final BalanceService balanceService;
     private final DatabaseClient db;
 
     public BillingService(ContributionRepository contributionRepository,
@@ -63,6 +64,7 @@ public class BillingService {
                           AuditPublisher auditPublisher,
                           ContributionEventPublisher eventPublisher,
                           ContributionPricingService pricingService,
+                          BalanceService balanceService,
                           DatabaseClient db) {
         this.contributionRepository = contributionRepository;
         this.invoiceRepository = invoiceRepository;
@@ -72,6 +74,7 @@ public class BillingService {
         this.auditPublisher = auditPublisher;
         this.eventPublisher = eventPublisher;
         this.pricingService = pricingService;
+        this.balanceService = balanceService;
         this.db = db;
     }
 
@@ -159,6 +162,7 @@ public class BillingService {
                 contribution.setUpdatedBy(UUID.fromString(actorId));
 
                 return contributionRepository.save(contribution)
+                    .flatMap(saved -> balanceService.applyContributionPaid(saved).thenReturn(saved))
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
                         return publishAudit(tenantId, "Contribution", saved.getId().toString(), "UPDATE", actorId,
@@ -385,7 +389,8 @@ public class BillingService {
         c.setUpdatedAt(now);
         c.setCreatedBy(actorUuid);
         c.setUpdatedBy(actorUuid);
-        return contributionRepository.save(c);
+        return contributionRepository.save(c)
+                .flatMap(saved -> balanceService.applyContributionDebit(saved).thenReturn(saved));
     }
 
     /**

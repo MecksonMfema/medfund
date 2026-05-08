@@ -10,13 +10,14 @@ import {
 } from '../../../../core/services/contributions.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
+import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
 
 type WizardStep = 'filters' | 'preview' | 'committed';
 
 @Component({
   selector: 'app-generate-billing-wizard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, CurrencyFormatPipe, HumanizePipe],
   templateUrl: './generate-billing-wizard.component.html',
   styleUrl: './generate-billing-wizard.component.scss',
 })

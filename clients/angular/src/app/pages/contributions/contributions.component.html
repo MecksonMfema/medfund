@@ -1,8 +1,25 @@
-<h1>Contributions</h1>
+<header class="page-header">
+  <div>
+    <h1>Schemes</h1>
+    <p class="page-sub">Benefit schemes available in this tenant. Currency is locked at the scheme level — every contribution and benefit on a scheme inherits it.</p>
+  </div>
+  <a class="btn btn-primary" routerLink="/tenant/billing/schemes/add">
+    <app-icon name="plus" [size]="14"></app-icon>
+    Add scheme
+  </a>
+</header>
+
 <div class="stats-grid">
   <app-stat-card label="Active Schemes" [value]="schemeCount" color="blue"></app-stat-card>
   <app-stat-card label="Pending Contributions" [value]="pendingCount" color="orange"></app-stat-card>
   <app-stat-card label="Paid" [value]="paidCount" color="green"></app-stat-card>
   <app-stat-card label="Overdue" [value]="overdueCount" color="red"></app-stat-card>
 </div>
-<app-data-table title="Schemes" [columns]="schemeColumns" [data]="schemes"></app-data-table>
+
+<app-data-table
+  title="Schemes"
+  [columns]="schemeColumns"
+  [data]="schemes"
+  [actions]="schemeActions"
+  [showActions]="true">
+</app-data-table>

@@ -2,8 +2,12 @@ package com.medfund.contributions.service;
 
 import com.medfund.contributions.dto.RecordTransactionRequest;
 import com.medfund.contributions.entity.Transaction;
+import com.medfund.contributions.repository.ContributionRepository;
+import com.medfund.contributions.repository.InvoiceRepository;
 import com.medfund.contributions.repository.TransactionRepository;
+import com.medfund.contributions.repository.TransactionTypeRepository;
 import com.medfund.shared.audit.AuditPublisher;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -28,12 +32,33 @@ class TransactionServiceTest {
     private TransactionRepository transactionRepository;
 
     @Mock
+    private TransactionTypeRepository transactionTypeRepository;
+
+    @Mock
+    private ContributionRepository contributionRepository;
+
+    @Mock
+    private InvoiceRepository invoiceRepository;
+
+    @Mock
+    private BalanceService balanceService;
+
+    @Mock
     private AuditPublisher auditPublisher;
 
     @InjectMocks
     private TransactionService transactionService;
 
     private final String actorId = UUID.randomUUID().toString();
+
+    @BeforeEach
+    void setupBalanceMocks() {
+        // Transaction recording now looks up the catalogue entry to read the
+        // sign and updates the balance. These tests focus on the persistence
+        // path; default to "no catalogue entry" so the balance update short-
+        // circuits, mirroring an unconfigured tenant.
+        lenient().when(transactionTypeRepository.findByCode(any())).thenReturn(Mono.empty());
+    }
 
     @Test
     void findAll_returnsTransactions() {

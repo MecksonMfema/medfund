@@ -1,0 +1,73 @@
+<div class="creditors-page">
+  <header class="page-header">
+    <div>
+      <h1>Creditors</h1>
+      <p class="page-sub">Members and groups with outstanding balances. Filter by currency, search by name / email / member number / registration number.</p>
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <div class="filters">
+    <label class="field">
+      <span class="field-label">Currency</span>
+      <select [(ngModel)]="selectedCurrency" (change)="onCurrencyChange()" name="currency">
+        @for (c of currencies; track c.id) {
+          <option [value]="c.currencyCode">{{ c.currencyCode }}{{ c.isDefault ? ' (default)' : '' }}</option>
+        }
+      </select>
+    </label>
+    <label class="field grow">
+      <span class="field-label">Search</span>
+      <input type="search" [ngModel]="search" (ngModelChange)="onSearchChange($event)"
+             name="search" placeholder="Name, email, code…" />
+    </label>
+  </div>
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (rows.length === 0) {
+    <p class="empty-state">No outstanding balances in {{ selectedCurrency || '—' }}.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Name</th>
+          <th>Code</th>
+          <th>Email</th>
+          <th class="right">Outstanding</th>
+          <th>Last payment</th>
+          <th class="right">Days since</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows; track row.subjectId) {
+          <tr>
+            <td><span class="type-badge type-{{ row.subjectType.toLowerCase() }}">{{ row.subjectType | humanize }}</span></td>
+            <td>{{ row.subjectName || '—' }}</td>
+            <td><code>{{ row.subjectCode || '' }}</code></td>
+            <td>{{ row.subjectEmail || '' }}</td>
+            <td class="right"><strong>{{ row.balance | currencyFormat:row.currencyCode }}</strong></td>
+            <td>{{ row.lastPaymentAt ? (row.lastPaymentAt | date:'mediumDate') : '—' }}</td>
+            <td class="right">{{ row.daysSinceLastActivity ?? '—' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    <footer class="page-footer">
+      <span class="muted">Page {{ page + 1 }} of {{ totalPages }} — {{ totalRows }} total</span>
+      <div class="pager">
+        <button class="btn btn-default" (click)="prevPage()" [disabled]="page === 0">
+          <app-icon name="chevron-left" [size]="14"></app-icon> Prev
+        </button>
+        <button class="btn btn-default" (click)="nextPage()" [disabled]="page >= totalPages - 1">
+          Next <app-icon name="chevron-right" [size]="14"></app-icon>
+        </button>
+      </div>
+    </footer>
+  }
+</div>

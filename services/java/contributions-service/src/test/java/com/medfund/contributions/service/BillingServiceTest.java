@@ -5,15 +5,18 @@ import com.medfund.contributions.entity.Contribution;
 import com.medfund.contributions.entity.Invoice;
 import com.medfund.contributions.exception.ContributionNotFoundException;
 import com.medfund.contributions.repository.AgeGroupRepository;
+import com.medfund.contributions.repository.BillingCycleConfigRepository;
 import com.medfund.contributions.repository.ContributionRepository;
 import com.medfund.contributions.repository.InvoiceRepository;
 import com.medfund.contributions.repository.SchemeRepository;
 import com.medfund.shared.audit.AuditPublisher;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.r2dbc.core.DatabaseClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -53,8 +56,25 @@ class BillingServiceTest {
     @Mock
     private ContributionPricingService pricingService;
 
+    @Mock
+    private BillingCycleConfigRepository billingCycleConfigRepository;
+
+    @Mock
+    private BalanceService balanceService;
+
+    @Mock
+    private DatabaseClient databaseClient;
+
     @InjectMocks
     private BillingService billingService;
+
+    @BeforeEach
+    void setupBalanceMocks() {
+        // BalanceService is a hook on every contribution write; the tests in
+        // this class care about the BillingService logic, so always succeed.
+        lenient().when(balanceService.applyContributionDebit(any())).thenReturn(Mono.empty());
+        lenient().when(balanceService.applyContributionPaid(any())).thenReturn(Mono.empty());
+    }
 
     private final String actorId = UUID.randomUUID().toString();
 

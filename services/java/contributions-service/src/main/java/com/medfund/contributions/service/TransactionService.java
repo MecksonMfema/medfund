@@ -1,8 +1,13 @@
 package com.medfund.contributions.service;
 
 import com.medfund.contributions.dto.RecordTransactionRequest;
+import com.medfund.contributions.entity.Contribution;
+import com.medfund.contributions.entity.Invoice;
 import com.medfund.contributions.entity.Transaction;
+import com.medfund.contributions.repository.ContributionRepository;
+import com.medfund.contributions.repository.InvoiceRepository;
 import com.medfund.contributions.repository.TransactionRepository;
+import com.medfund.contributions.repository.TransactionTypeRepository;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
@@ -24,11 +29,23 @@ public class TransactionService {
     private static final Logger log = LoggerFactory.getLogger(TransactionService.class);
 
     private final TransactionRepository transactionRepository;
+    private final TransactionTypeRepository transactionTypeRepository;
+    private final ContributionRepository contributionRepository;
+    private final InvoiceRepository invoiceRepository;
+    private final BalanceService balanceService;
     private final AuditPublisher auditPublisher;
 
     public TransactionService(TransactionRepository transactionRepository,
+                              TransactionTypeRepository transactionTypeRepository,
+                              ContributionRepository contributionRepository,
+                              InvoiceRepository invoiceRepository,
+                              BalanceService balanceService,
                               AuditPublisher auditPublisher) {
         this.transactionRepository = transactionRepository;
+        this.transactionTypeRepository = transactionTypeRepository;
+        this.contributionRepository = contributionRepository;
+        this.invoiceRepository = invoiceRepository;
+        this.balanceService = balanceService;
         this.auditPublisher = auditPublisher;
     }
 
@@ -64,6 +81,7 @@ public class TransactionService {
         transaction.setCreatedBy(UUID.fromString(actorId));
 
         return transactionRepository.save(transaction)
+            .flatMap(this::applyBalanceUpdate)
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
                 return publishAudit(tenantId, "Transaction", saved.getId().toString(), "CREATE", actorId,
@@ -72,10 +90,43 @@ public class TransactionService {
                                "status", saved.getStatus(),
                                "amount", saved.getAmount().toString(),
                                "transactionType", saved.getTransactionType(),
-                               "paymentMethod", saved.getPaymentMethod()))
+                               "paymentMethod", saved.getPaymentMethod() != null ? saved.getPaymentMethod() : ""))
                     .thenReturn(saved);
             }));
     }
+
+    /**
+     * Look up the transaction-type catalogue row by code, read its sign,
+     * resolve the affected member/group via the linked contribution or
+     * invoice, then apply the balance delta. A transaction without either
+     * link is a no-op (no balance to touch).
+     */
+    private Mono<Transaction> applyBalanceUpdate(Transaction t) {
+        if (t.getTransactionType() == null) return Mono.just(t);
+        if (t.getContributionId() == null && t.getInvoiceId() == null) return Mono.just(t);
+
+        return transactionTypeRepository.findByCode(t.getTransactionType())
+                .flatMap(type -> resolveOwners(t)
+                        .flatMap(owners -> balanceService.applyTransaction(t, type.getSign(), owners.memberId(), owners.groupId())
+                                .thenReturn(t)))
+                .defaultIfEmpty(t);
+    }
+
+    private Mono<Owners> resolveOwners(Transaction t) {
+        if (t.getContributionId() != null) {
+            return contributionRepository.findById(t.getContributionId())
+                    .map(c -> new Owners(c.getMemberId(), c.getGroupId()))
+                    .defaultIfEmpty(new Owners(null, null));
+        }
+        if (t.getInvoiceId() != null) {
+            return invoiceRepository.findById(t.getInvoiceId())
+                    .map(i -> new Owners(i.getMemberId(), i.getGroupId()))
+                    .defaultIfEmpty(new Owners(null, null));
+        }
+        return Mono.just(new Owners(null, null));
+    }
+
+    private record Owners(UUID memberId, UUID groupId) {}
 
     // ---- Private helpers ----
 
