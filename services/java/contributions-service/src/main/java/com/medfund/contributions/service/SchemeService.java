@@ -3,6 +3,7 @@ package com.medfund.contributions.service;
 import com.medfund.contributions.dto.CreateAgeGroupRequest;
 import com.medfund.contributions.dto.CreateSchemeBenefitRequest;
 import com.medfund.contributions.dto.CreateSchemeRequest;
+import com.medfund.contributions.dto.UpdateSchemeBenefitRequest;
 import com.medfund.contributions.dto.UpdateSchemeRequest;
 import com.medfund.contributions.entity.AgeGroup;
 import com.medfund.contributions.entity.Scheme;
@@ -191,6 +192,58 @@ public class SchemeService {
                                "schemeId", saved.getSchemeId().toString()))
                     .thenReturn(saved);
             }));
+    }
+
+    public Mono<SchemeBenefit> findBenefitById(UUID id) {
+        return schemeBenefitRepository.findById(id)
+            .switchIfEmpty(Mono.error(new IllegalArgumentException("Scheme benefit not found: " + id)));
+    }
+
+    @Transactional
+    public Mono<SchemeBenefit> updateBenefit(UUID id, UpdateSchemeBenefitRequest request, String actorId) {
+        return schemeBenefitRepository.findById(id)
+            .switchIfEmpty(Mono.error(new IllegalArgumentException("Scheme benefit not found: " + id)))
+            .flatMap(existing -> schemeRepository.findById(existing.getSchemeId())
+                .switchIfEmpty(Mono.error(new SchemeNotFoundException(existing.getSchemeId())))
+                .flatMap(scheme -> {
+                    String previousName = existing.getName();
+                    String previousType = existing.getBenefitType();
+                    String resolvedCurrency = resolveChildCurrency(scheme, request.currencyCode());
+
+                    existing.setName(request.name());
+                    existing.setBenefitType(request.benefitType());
+                    existing.setAnnualLimit(request.annualLimit());
+                    existing.setDailyLimit(request.dailyLimit());
+                    existing.setEventLimit(request.eventLimit());
+                    existing.setCurrencyCode(resolvedCurrency);
+                    existing.setWaitingPeriodDays(request.waitingPeriodDays());
+                    existing.setDescription(request.description());
+                    existing.setUpdatedAt(Instant.now());
+
+                    return schemeBenefitRepository.save(existing)
+                        .flatMap(saved -> Mono.deferContextual(ctx -> {
+                            String tenantId = TenantContext.get(ctx);
+                            return publishAudit(tenantId, "SchemeBenefit", saved.getId().toString(), "UPDATE", actorId,
+                                    Map.of("name", previousName, "benefitType", previousType),
+                                    Map.of("name", saved.getName(), "benefitType", saved.getBenefitType(),
+                                           "annualLimit", saved.getAnnualLimit() != null ? saved.getAnnualLimit().toString() : ""))
+                                .thenReturn(saved);
+                        }));
+                }));
+    }
+
+    @Transactional
+    public Mono<Void> deleteBenefit(UUID id, String actorId) {
+        return schemeBenefitRepository.findById(id)
+            .switchIfEmpty(Mono.error(new IllegalArgumentException("Scheme benefit not found: " + id)))
+            .flatMap(existing -> schemeBenefitRepository.delete(existing)
+                .then(Mono.deferContextual(ctx -> {
+                    String tenantId = TenantContext.get(ctx);
+                    return publishAudit(tenantId, "SchemeBenefit", existing.getId().toString(), "DELETE", actorId,
+                            Map.of("name", existing.getName(), "benefitType", existing.getBenefitType(),
+                                   "schemeId", existing.getSchemeId().toString()),
+                            null);
+                })));
     }
 
     public Flux<AgeGroup> findAgeGroupsBySchemeId(UUID schemeId) {

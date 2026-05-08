@@ -1,0 +1,71 @@
+<div class="form-page">
+  <header class="page-header">
+    <div>
+      <h1>{{ benefitId ? 'Edit benefit' : 'Add benefit' }}</h1>
+      @if (scheme) {
+        <p class="page-sub">
+          Scheme <strong>{{ scheme.name }}</strong> · currency {{ scheme.currencyCode || '—' }}.
+          Limits are recorded in the scheme's currency.
+        </p>
+      }
+    </div>
+    <a class="btn btn-default" [routerLink]="['/tenant/billing/schemes', schemeId, 'benefits']">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form (submit)="$event.preventDefault(); submit()" class="form-grid">
+    <label class="field span-2">
+      <span class="field-label">Benefit type</span>
+      <select [ngModel]="form.benefitType" (ngModelChange)="onTypeChange($event)" name="benefitType" required>
+        <option [value]="''" disabled>Choose a type from the catalogue</option>
+        @for (t of benefitTypes; track t.id) {
+          <option [value]="t.label">{{ t.label }}</option>
+        }
+      </select>
+      <small class="muted">Manage the catalogue under Settings → Billing → Benefit Types.</small>
+    </label>
+
+    <label class="field span-2">
+      <span class="field-label">Name</span>
+      <input [(ngModel)]="form.name" name="name" maxlength="200" required />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Annual limit ({{ scheme?.currencyCode || '—' }})</span>
+      <input type="number" step="any" min="0" [(ngModel)]="form.annualLimit" name="annualLimit" placeholder="Leave blank for none" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Daily limit ({{ scheme?.currencyCode || '—' }})</span>
+      <input type="number" step="any" min="0" [(ngModel)]="form.dailyLimit" name="dailyLimit" placeholder="Leave blank for none" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Per-event limit ({{ scheme?.currencyCode || '—' }})</span>
+      <input type="number" step="any" min="0" [(ngModel)]="form.eventLimit" name="eventLimit" placeholder="Leave blank for none" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Waiting period (days)</span>
+      <input type="number" min="0" [(ngModel)]="form.waitingPeriodDays" name="waitingDays" />
+    </label>
+
+    <label class="field span-2">
+      <span class="field-label">Description (optional)</span>
+      <textarea rows="3" [(ngModel)]="form.description" name="description"></textarea>
+    </label>
+
+    <div class="form-actions span-2">
+      <a class="btn btn-default" [routerLink]="['/tenant/billing/schemes', schemeId, 'benefits']">Cancel</a>
+      <button type="submit" class="btn btn-primary" [disabled]="saving || loading">
+        {{ saving ? 'Saving…' : (benefitId ? 'Save changes' : 'Add benefit') }}
+      </button>
+    </div>
+  </form>
+</div>

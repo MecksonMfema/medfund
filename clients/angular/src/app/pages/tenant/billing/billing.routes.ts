@@ -46,6 +46,24 @@ export const BILLING_ROUTES: Routes = [
     data: { title: 'Edit Scheme', sidebar: 'operational' },
   },
   {
+    path: 'schemes/:schemeId/benefits',
+    canActivate: [permissionGuard(['billing:view', 'billing:manage_schemes'])],
+    loadComponent: () => import('./benefits/benefits-list.component').then(m => m.BenefitsListComponent),
+    data: { title: 'Scheme Benefits', sidebar: 'operational' },
+  },
+  {
+    path: 'schemes/:schemeId/benefits/add',
+    canActivate: [permissionGuard(['billing:manage_schemes'])],
+    loadComponent: () => import('./benefits/benefit-form.component').then(m => m.BenefitFormComponent),
+    data: { title: 'Add Benefit', sidebar: 'operational' },
+  },
+  {
+    path: 'schemes/:schemeId/benefits/:id/edit',
+    canActivate: [permissionGuard(['billing:manage_schemes'])],
+    loadComponent: () => import('./benefits/benefit-form.component').then(m => m.BenefitFormComponent),
+    data: { title: 'Edit Benefit', sidebar: 'operational' },
+  },
+  {
     path: 'age-groups',
     canActivate: [permissionGuard(['billing:view', 'billing:manage_age_groups'])],
     loadComponent: () => import('./age-groups/age-groups-list.component').then(m => m.AgeGroupsListComponent),

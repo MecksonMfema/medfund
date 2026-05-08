@@ -30,6 +30,33 @@ export interface GroupOption {
   contactEmail?: string;
 }
 
+export interface SchemeBenefit {
+  id: string;
+  schemeId: string;
+  name: string;
+  benefitType: string;
+  annualLimit?: string;
+  dailyLimit?: string;
+  eventLimit?: string;
+  currencyCode: string;
+  waitingPeriodDays?: number;
+  description?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UpsertBenefitPayload {
+  schemeId?: string;
+  name: string;
+  benefitType: string;
+  annualLimit?: string;
+  dailyLimit?: string;
+  eventLimit?: string;
+  currencyCode?: string;
+  waitingPeriodDays?: number;
+  description?: string;
+}
+
 export interface Contribution {
   id: string;
   memberId: string;
@@ -162,6 +189,27 @@ export class ContributionsService {
 
   createAgeGroup(data: UpsertAgeGroupPayload): Observable<AgeGroup> {
     return this.api.post<AgeGroup>('/schemes/age-groups', data);
+  }
+
+  // ── Scheme benefits ──
+  getBenefitsByScheme(schemeId: string): Observable<SchemeBenefit[]> {
+    return this.api.get<SchemeBenefit[]>(`/schemes/${schemeId}/benefits`);
+  }
+
+  getBenefitById(id: string): Observable<SchemeBenefit> {
+    return this.api.get<SchemeBenefit>(`/schemes/benefits/${id}`);
+  }
+
+  createBenefit(data: UpsertBenefitPayload): Observable<SchemeBenefit> {
+    return this.api.post<SchemeBenefit>('/schemes/benefits', data);
+  }
+
+  updateBenefit(id: string, data: UpsertBenefitPayload): Observable<SchemeBenefit> {
+    return this.api.put<SchemeBenefit>(`/schemes/benefits/${id}`, data);
+  }
+
+  deleteBenefit(id: string): Observable<void> {
+    return this.api.delete<void>(`/schemes/benefits/${id}`);
   }
 
   // ── Contributions ──

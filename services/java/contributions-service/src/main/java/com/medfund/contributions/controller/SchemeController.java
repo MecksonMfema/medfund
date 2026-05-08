@@ -102,6 +102,34 @@ public class SchemeController {
         return schemeService.createBenefit(request, principal.getName()).map(SchemeBenefitResponse::from);
     }
 
+    @GetMapping("/benefits/{id}")
+    @Operation(summary = "Get a scheme benefit by id")
+    public Mono<SchemeBenefitResponse> findBenefitById(@PathVariable UUID id) {
+        return schemeService.findBenefitById(id).map(SchemeBenefitResponse::from);
+    }
+
+    @PutMapping("/benefits/{id}")
+    @Operation(summary = "Update an existing scheme benefit",
+        description = "Currency stays inherited from the parent scheme — pass it explicitly only as a defensive check.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Scheme benefit updated"),
+        @ApiResponse(responseCode = "400", description = "Validation error or currency mismatch with parent scheme"),
+        @ApiResponse(responseCode = "404", description = "Scheme benefit not found")
+    })
+    public Mono<SchemeBenefitResponse> updateBenefit(@PathVariable UUID id,
+                                                     @Valid @RequestBody UpdateSchemeBenefitRequest request,
+                                                     Principal principal) {
+        return schemeService.updateBenefit(id, request, principal.getName()).map(SchemeBenefitResponse::from);
+    }
+
+    @DeleteMapping("/benefits/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Delete a scheme benefit")
+    @ApiResponse(responseCode = "204", description = "Scheme benefit deleted")
+    public Mono<Void> deleteBenefit(@PathVariable UUID id, Principal principal) {
+        return schemeService.deleteBenefit(id, principal.getName());
+    }
+
     @GetMapping("/{schemeId}/age-groups")
     @Operation(summary = "List age groups for a scheme")
     public Flux<AgeGroupResponse> findAgeGroups(@PathVariable UUID schemeId) {

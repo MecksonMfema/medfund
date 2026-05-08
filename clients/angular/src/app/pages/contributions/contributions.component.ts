@@ -30,6 +30,12 @@ export class ContributionsComponent implements OnInit {
 
   schemeActions: TableAction[] = [
     {
+      label: 'Benefits',
+      icon: 'list',
+      color: 'default',
+      handler: (row: Scheme) => this.router.navigate(['/tenant/billing/schemes', row.id, 'benefits']),
+    },
+    {
       label: 'Edit',
       icon: 'edit',
       color: 'default',
