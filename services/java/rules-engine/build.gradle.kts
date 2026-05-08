@@ -1,11 +1,21 @@
+// rules-engine: hosts both
+//   1. The Drools-backed rule library (TenantRuleEngine, DrlCompiler, model types)
+//      that claims-service consumes via `implementation(project(":rules-engine"))`.
+//   2. A Spring Boot HTTP layer on port 8086 that serves the tenant rule CRUD
+//      endpoints used by the Angular Rules Engine UI.
+//
+// Both concerns share one source set so the CRUD path can call back into
+// TenantRuleEngine.reloadRules(...) for hot-reload after every mutation.
+
 plugins {
-    `java-library`
+    id("org.springframework.boot")
 }
 
 dependencies {
-    api(project(":shared"))
-    api("org.drools:drools-core:9.44.0.Final")
-    api("org.drools:drools-compiler:9.44.0.Final")
-    api("org.drools:drools-mvel:9.44.0.Final")
+    implementation(project(":shared"))
+    implementation("org.drools:drools-core:9.44.0.Final")
+    implementation("org.drools:drools-compiler:9.44.0.Final")
+    implementation("org.drools:drools-mvel:9.44.0.Final")
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    runtimeOnly("org.springframework.boot:spring-boot-starter-actuator")
 }

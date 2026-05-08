@@ -58,6 +58,22 @@ public class UserEventPublisher {
         ));
     }
 
+    /**
+     * Tells every service to drop cached permissions for one user (or every
+     * user in a tenant when {@code userId} is null). Consumed by
+     * {@code PermissionInvalidationConsumer} in the shared module.
+     *
+     * <p>The key is the tenant ID so partitions are stable per tenant —
+     * a single tenant's invalidations are never re-ordered relative to each
+     * other.
+     */
+    public Mono<Void> publishPermissionsInvalidated(String tenantId, String userId) {
+        Map<String, String> payload = userId != null
+                ? Map.of("event", "PERMISSIONS_INVALIDATED", "tenantId", tenantId, "userId", userId)
+                : Map.of("event", "PERMISSIONS_INVALIDATED", "tenantId", tenantId);
+        return publishEvent("medfund.permissions.invalidated", tenantId, payload);
+    }
+
     private Mono<Void> publishEvent(String topic, String key, Map<String, String> payload) {
         try {
             String json = objectMapper.writeValueAsString(payload);

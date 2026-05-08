@@ -26,6 +26,11 @@ spring:
     # Run both public and tenant migrations in the public schema for local dev.
     # In production, tenant migrations run per-schema via SchemaProvisioningService.
     locations: classpath:db/migration/public,classpath:db/migration/tenant
+    # out-of-order: tenant migrations (V001..) and public migrations (V100..)
+    # share this history table in dev, so a newly-added tenant V00X often arrives
+    # AFTER higher-numbered V1XX entries are already applied. Production runs them
+    # in separate schema histories, so this is a dev-only allowance.
+    out-of-order: true
     enabled: true
   security:
     oauth2:

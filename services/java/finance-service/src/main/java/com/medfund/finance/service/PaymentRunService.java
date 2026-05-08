@@ -8,6 +8,8 @@ import com.medfund.finance.repository.PaymentRepository;
 import com.medfund.finance.repository.PaymentRunItemRepository;
 import com.medfund.finance.repository.PaymentRunRepository;
 import com.medfund.finance.repository.ProviderBalanceRepository;
+
+import java.math.BigDecimal;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
@@ -34,19 +36,22 @@ public class PaymentRunService {
     private final ProviderBalanceRepository providerBalanceRepository;
     private final AuditPublisher auditPublisher;
     private final FinanceEventPublisher eventPublisher;
+    private final PaymentRunDecisionService decisionService;
 
     public PaymentRunService(PaymentRunRepository paymentRunRepository,
                              PaymentRunItemRepository paymentRunItemRepository,
                              PaymentRepository paymentRepository,
                              ProviderBalanceRepository providerBalanceRepository,
                              AuditPublisher auditPublisher,
-                             FinanceEventPublisher eventPublisher) {
+                             FinanceEventPublisher eventPublisher,
+                             PaymentRunDecisionService decisionService) {
         this.paymentRunRepository = paymentRunRepository;
         this.paymentRunItemRepository = paymentRunItemRepository;
         this.paymentRepository = paymentRepository;
         this.providerBalanceRepository = providerBalanceRepository;
         this.auditPublisher = auditPublisher;
         this.eventPublisher = eventPublisher;
+        this.decisionService = decisionService;
     }
 
     public Flux<PaymentRun> findAll() {
@@ -103,6 +108,9 @@ public class PaymentRunService {
                 run.setUpdatedAt(Instant.now());
 
                 return paymentRunRepository.save(run)
+                    .flatMap(inProgress -> applyTenantRulesToItems(inProgress.getId())
+                        .thenReturn(inProgress))
+                    .flatMap(this::recomputeRunTotal)
                     .flatMap(inProgress -> {
                         // Transition to completed
                         inProgress.setStatus("completed");
@@ -123,6 +131,42 @@ public class PaymentRunService {
                                 completed.getPaymentCount() != null ? completed.getPaymentCount() : 0))
                             .thenReturn(completed);
                     }));
+            });
+    }
+
+    /**
+     * Run PROVIDER_PAYMENT + RECONCILIATION rules over every item in the run.
+     * The decision service mutates each item in place: status flips to
+     * {@code scheduled} when a SCHEDULE_PAYMENT_RUN rule fires, and
+     * {@code amount} is reduced by the withhold portion when WITHHOLD_PAYMENT
+     * fires. Items where the rules choose not to schedule (no scheduling rule
+     * matched + no withhold) are left at their current status — payment
+     * downstream code is expected to skip non-{@code scheduled} items.
+     *
+     * <p>Tenants without finance rules see no behaviour change — every item's
+     * status / amount stays as it was.
+     */
+    private Mono<Void> applyTenantRulesToItems(UUID runId) {
+        return paymentRunItemRepository.findByPaymentRunId(runId)
+            .flatMap(item -> decisionService.decide(item)
+                .then(paymentRunItemRepository.save(item)))
+            .then();
+    }
+
+    /**
+     * Recalculate the run's {@code totalAmount} after withholds may have
+     * shrunk individual item amounts. Cheap — runs are typically tens of
+     * items, not thousands.
+     */
+    private Mono<PaymentRun> recomputeRunTotal(PaymentRun run) {
+        return paymentRunItemRepository.findByPaymentRunId(run.getId())
+            .map(PaymentRunItem::getAmount)
+            .filter(amt -> amt != null)
+            .reduce(BigDecimal.ZERO, BigDecimal::add)
+            .flatMap(total -> {
+                run.setTotalAmount(total);
+                run.setUpdatedAt(Instant.now());
+                return paymentRunRepository.save(run);
             });
     }
 

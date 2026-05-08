@@ -83,6 +83,76 @@ export interface Role {
   displayName: string;
   description: string;
   isSystem: boolean;
+  /** Stable Keycloak realm-role identifier (set on creation, immutable). */
+  keycloakRoleName?: string;
+}
+
+export interface RoleWithPermissions extends Role {
+  permissions: { id: string; permission: string; accessLevel: string }[];
+}
+
+export interface PermissionDescriptor {
+  key: string;
+  label: string;
+  description: string;
+}
+
+export interface PermissionDomain {
+  id: string;
+  label: string;
+  permissions: PermissionDescriptor[];
+}
+
+export interface PermissionCatalogue {
+  domains: PermissionDomain[];
+}
+
+/**
+ * Aggregate counts powering the operational dashboard. Each block can be
+ * absent when the user lacks the corresponding view permission — frontend
+ * code should default missing fields to zero rather than fail.
+ */
+export interface TenantStats {
+  // Staff (admin scope — used by /tenant/admin/users)
+  totalStaff: number; activeStaff: number; suspendedStaff: number; pendingStaff: number;
+  // Members
+  totalMembers: number; activeMembers: number; enrolledMembers: number;
+  newMembersThisMonth: number; newGroupsThisMonth: number;
+  // Claims — labels mirror the legacy Masca-Claims-Admin dashboard
+  claimsNewTasks: number;            // pending / in_adjudication
+  claimsThisMonth: number;           // every claim created this month
+  claimsAcceptedThisMonth: number;
+  claimsRejectedThisMonth: number;
+  // Billing — currency totals (BigDecimal serialised as number).
+  schemesActive: number;
+  contributionsPending: number;
+  contributionsAmountThisMonth: number;
+  contributionsAmountThisYear: number;
+  // Finance — payment counts + currency totals.
+  paymentsPending: number;
+  paymentsAmountThisMonth: number;
+  paymentsAmountThisYear: number;
+}
+
+/**
+ * 12-month trend points for the operational dashboard charts. Each series is
+ * an array of {@code {name, value}} objects already shaped for ngx-charts —
+ * the dashboard component wraps each in a single-series `[{ name: 'X', series: ... }]`
+ * envelope before passing to {@code <app-area-chart>}.
+ */
+export interface TrendPoint { name: string; value: number; }
+export interface TenantCharts {
+  claimsByMonth:              TrendPoint[];
+  contributionsAmountByMonth: TrendPoint[];
+  paymentsAmountByMonth:      TrendPoint[];
+}
+
+export interface UserRoleAssignment {
+  id: string;
+  userId: string;
+  roleId: string;
+  assignedAt: string;
+  assignedBy?: string;
 }
 
 export interface ScheduledJob {
@@ -175,6 +245,8 @@ export class AdminService {
   createStaffUser(data: {
     firstName: string; lastName: string; email: string;
     jobTitle?: string; department?: string; realmRole: string;
+    /** Tenant DB role IDs — populates user_roles in the tenant schema. */
+    roleIds?: string[];
     tenantId?: string | null;
   }): Observable<StaffUser> {
     return this.api.post<StaffUser>('/staff-users', data);
@@ -183,6 +255,8 @@ export class AdminService {
   updateStaffUser(id: string, data: {
     firstName?: string; lastName?: string; email?: string;
     phone?: string; jobTitle?: string; department?: string; realmRole?: string;
+    /** When non-null, replace the user's tenant role assignments with this set. */
+    roleIds?: string[];
   }): Observable<StaffUser> {
     return this.api.put<StaffUser>(`/staff-users/${id}`, data);
   }
@@ -223,8 +297,49 @@ export class AdminService {
     return this.api.get<Role[]>('/roles');
   }
 
-  createRole(data: any): Observable<Role> {
+  getRole(id: string): Observable<RoleWithPermissions> {
+    return this.api.get<RoleWithPermissions>(`/roles/${id}`);
+  }
+
+  createRole(data: { name: string; displayName: string; description?: string;
+                     permissions?: { permission: string; accessLevel?: string }[] }): Observable<Role> {
     return this.api.post<Role>('/roles', data);
+  }
+
+  updateRole(id: string, data: { displayName: string; description?: string }): Observable<Role> {
+    return this.api.put<Role>(`/roles/${id}`, data);
+  }
+
+  deleteRole(id: string): Observable<void> {
+    return this.api.delete<void>(`/roles/${id}`);
+  }
+
+  /** Atomically replace a role's permission set. Backend rejects unknown keys with 400. */
+  replaceRolePermissions(id: string, permissions: string[]): Observable<RoleWithPermissions> {
+    return this.api.put<RoleWithPermissions>(`/roles/${id}/permissions`, { permissions });
+  }
+
+  /** Canonical platform-wide permission catalogue, grouped by domain. */
+  getPermissionCatalogue(): Observable<PermissionCatalogue> {
+    return this.api.get<PermissionCatalogue>('/permissions/catalogue');
+  }
+
+  /** All user_roles rows holding the given role — drives the Members drawer. */
+  getRoleMembers(roleId: string): Observable<UserRoleAssignment[]> {
+    // The backend exposes user-by-role via /roles/user/{userId} only; for
+    // listing members we filter on the client. Optimised endpoint can come
+    // later if member counts grow large.
+    return this.api.get<UserRoleAssignment[]>(`/roles/${roleId}/members`);
+  }
+
+  /** Assign a role to a user — also syncs the underlying Keycloak realm role. */
+  assignRoleToUser(userId: string, roleId: string): Observable<UserRoleAssignment> {
+    return this.api.post<UserRoleAssignment>('/roles/assign', { userId, roleId });
+  }
+
+  /** Revoke a role from a user. */
+  revokeRoleFromUser(userId: string, roleId: string): Observable<void> {
+    return this.api.delete<void>(`/roles/user/${userId}/role/${roleId}`);
   }
 
   // Scheduled Jobs
@@ -332,11 +447,12 @@ export class AdminService {
     return shared$;
   }
 
-  getTenantStats(tenantId: string): Observable<{
-    totalStaff: number; activeStaff: number; suspendedStaff: number; pendingStaff: number;
-    totalMembers: number; activeMembers: number; enrolledMembers: number;
-  }> {
-    return this.api.getWithHeaders('/tenant-stats', { 'X-Tenant-ID': tenantId });
+  getTenantStats(tenantId: string): Observable<TenantStats> {
+    return this.api.getWithHeaders<TenantStats>('/tenant-stats', { 'X-Tenant-ID': tenantId });
+  }
+
+  getTenantCharts(tenantId: string): Observable<TenantCharts> {
+    return this.api.getWithHeaders<TenantCharts>('/tenant-stats/charts', { 'X-Tenant-ID': tenantId });
   }
 
   /** Daily audit event counts. The tenant interceptor adds X-Tenant-ID automatically on /tenant/ routes. */
@@ -359,4 +475,42 @@ export class AdminService {
   getFeatureFlags(): Observable<any[]> {
     return this.api.get<any[]>('/platform/feature-flags');
   }
+
+  // ── Tenant email templates ────────────────────────────────────────────────
+
+  getTenantEmailTemplates(tenantId: string): Observable<TenantEmailTemplate[]> {
+    return this.api.get<TenantEmailTemplate[]>(`/tenants/${tenantId}/email-templates`);
+  }
+
+  upsertTenantEmailTemplate(tenantId: string, key: string, body: TenantEmailTemplateUpdate): Observable<TenantEmailTemplate> {
+    return this.api.put<TenantEmailTemplate>(`/tenants/${tenantId}/email-templates/${key}`, body);
+  }
+
+  resetTenantEmailTemplate(tenantId: string, key: string): Observable<void> {
+    return this.api.delete<void>(`/tenants/${tenantId}/email-templates/${key}`);
+  }
+}
+
+export interface TenantEmailTemplate {
+  key: string;
+  name: string;
+  description: string;
+  overridden: boolean;
+  enabled: boolean;
+  subject: string;
+  htmlBody: string;
+  textBody?: string;
+  defaultSubject: string;
+  defaultHtmlBody: string;
+  defaultTextBody?: string;
+  id?: string;
+  version?: number;
+  updatedAt?: string;
+}
+
+export interface TenantEmailTemplateUpdate {
+  subject: string;
+  htmlBody: string;
+  textBody?: string;
+  enabled?: boolean;
 }

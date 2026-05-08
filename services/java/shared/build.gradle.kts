@@ -16,4 +16,9 @@ dependencies {
 
     api("io.micrometer:micrometer-tracing-bridge-otel")
     api("io.opentelemetry:opentelemetry-exporter-otlp")
+
+    // Permission enforcement: AOP for @RequiresPermission, Caffeine for the
+    // per-(tenant,user) permission cache with 60-s TTL.
+    api("org.springframework.boot:spring-boot-starter-aop")
+    api("com.github.ben-manes.caffeine:caffeine:3.1.8")
 }

@@ -4,6 +4,7 @@ import { ActivatedRoute, NavigationEnd, Router, RouterOutlet } from '@angular/ro
 import { Subscription, filter, map } from 'rxjs';
 import { KeycloakService } from 'keycloak-angular';
 import { TenantSidebarComponent } from '../tenant-sidebar/tenant-sidebar.component';
+import { OperationalSidebarComponent } from '../operational-sidebar/operational-sidebar.component';
 import { NavigationService } from '../../core/services/navigation.service';
 import { TenantService } from '../../core/services/tenant.service';
 import { AdminService } from '../../core/services/admin.service';
@@ -15,7 +16,7 @@ import { clearSession } from '../../auth/keycloak.init';
 @Component({
   selector: 'app-tenant-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, TenantSidebarComponent, IconComponent, ProgressBarComponent],
+  imports: [CommonModule, RouterOutlet, TenantSidebarComponent, OperationalSidebarComponent, IconComponent, ProgressBarComponent],
   templateUrl: './tenant-layout.component.html',
   styleUrl: './tenant-layout.component.scss',
 })
@@ -30,6 +31,14 @@ export class TenantLayoutComponent implements OnInit, OnDestroy {
   userName = 'User';
   userInitials = 'U';
   userMenuOpen = false;
+  /**
+   * Which sidebar to render — driven by route data {@code data.sidebar}:
+   * <ul>
+   *   <li>{@code 'operational'} → /tenant/{dashboard,claims,billing,finance,members}/*</li>
+   *   <li>anything else (incl. unset) → IT-admin sidebar (the existing /tenant/admin/* tree)</li>
+   * </ul>
+   */
+  sidebarVariant: 'admin' | 'operational' = 'admin';
 
   private subs: Subscription[] = [];
 
@@ -48,25 +57,46 @@ export class TenantLayoutComponent implements OnInit, OnDestroy {
 
     // If no tenant is in session (direct login or page refresh without navigation
     // from the platform admin), bootstrap it from the JWT tenant_id claim.
+    //
+    // Edge case: the platform realm hardcodes tenant_id="platform" for super_admin
+    // users (see bootstrap-keycloak.sh). That's not a valid tenant UUID, so we
+    // both skip the fetch AND redirect super_admin to the platform tenants list
+    // — they can't usefully render the operational portal without a real tenant.
     if (!this.tenantService.getTenant()) {
       const token = this.keycloak.getKeycloakInstance()?.tokenParsed as Record<string, any> | undefined;
       const tenantId: string | undefined = token?.['tenant_id'];
-      if (tenantId) {
-        this.adminService.getTenantById(tenantId).subscribe({
+      const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isUuid = !!tenantId && UUID_RE.test(tenantId);
+
+      if (isUuid) {
+        this.adminService.getTenantById(tenantId!).subscribe({
           next: (full: any) => {
-            this.tenantService.setTenant({
-              id: full.id,
-              name: full.name,
-              slug: full.slug,
-              status: full.status,
-              branding: full.branding ? this.brandingService.parseBranding(full.branding) : { templateId: 'platform' },
-              timezone: full.timezone ?? '',
-              insuranceLines: [],
-              providerRegLabel: '',
+            // Lazy-import to avoid a static dep cycle with insurance-lines.
+            import('../../core/models/insurance-lines').then(m => {
+              const lines = m.parseInsuranceLines(full.settings);
+              const term  = m.parseSchemeTerminology(full.settings);
+              this.tenantService.setTenant({
+                id: full.id,
+                name: full.name,
+                slug: full.slug,
+                status: full.status,
+                branding: full.branding ? this.brandingService.parseBranding(full.branding) : { templateId: 'platform' },
+                timezone: full.timezone ?? '',
+                insuranceLines: lines,
+                providerRegLabel: m.parseProviderRegLabel(full.settings),
+                schemeLabelSingular: term.singular,
+                schemeLabelPlural:   term.plural,
+              });
             });
           },
           error: () => { /* tenant fetch failed — proceed without branding */ },
         });
+      } else {
+        // No real tenant context available. If the user is super_admin send
+        // them to the tenants picker; otherwise to /unauthorized.
+        const roles = this.keycloak.getUserRoles(true) ?? [];
+        const target = roles.includes('super_admin') ? '/platform/tenants' : '/unauthorized';
+        this.router.navigate([target], { replaceUrl: true });
       }
     }
 
@@ -83,14 +113,17 @@ export class TenantLayoutComponent implements OnInit, OnDestroy {
       })
     );
 
-    // Track page title from route data
+    // Track page title + which sidebar variant the active route prefers.
     this.subs.push(
       this.router.events.pipe(
         filter(e => e instanceof NavigationEnd),
-        map(() => this.resolveTitle())
-      ).subscribe(title => (this.pageTitle = title))
+      ).subscribe(() => {
+        this.pageTitle      = this.resolveTitle();
+        this.sidebarVariant = this.resolveSidebar();
+      })
     );
-    this.pageTitle = this.resolveTitle();
+    this.pageTitle      = this.resolveTitle();
+    this.sidebarVariant = this.resolveSidebar();
 
     // User info from Keycloak token
     const token = this.keycloak.getKeycloakInstance()?.idTokenParsed as Record<string, any> | undefined;
@@ -125,5 +158,22 @@ export class TenantLayoutComponent implements OnInit, OnDestroy {
     if (t) return t;
     const seg = this.router.url.split('/').filter(Boolean).pop() || 'dashboard';
     return seg.charAt(0).toUpperCase() + seg.slice(1).replace(/-/g, ' ');
+  }
+
+  /**
+   * Walks the activated route tree and returns the deepest {@code sidebar}
+   * route-data value found. Defaults to {@code 'admin'} so existing
+   * {@code /tenant/admin/*} routes (which don't declare {@code sidebar}) keep
+   * the IT-admin sidebar.
+   */
+  private resolveSidebar(): 'admin' | 'operational' {
+    let r = this.route;
+    let pick: 'admin' | 'operational' = 'admin';
+    while (r.firstChild) {
+      r = r.firstChild;
+      const v = r.snapshot.data['sidebar'];
+      if (v === 'admin' || v === 'operational') pick = v;
+    }
+    return pick;
   }
 }

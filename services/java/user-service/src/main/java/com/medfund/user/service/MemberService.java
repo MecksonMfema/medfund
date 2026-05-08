@@ -38,6 +38,7 @@ public class MemberService {
     private final AuditPublisher auditPublisher;
     private final UserEventPublisher eventPublisher;
     private final KeycloakSyncService keycloakSyncService;
+    private final MemberLifecycleService lifecycleService;
 
     public Flux<Member> findAll() {
         return memberRepository.findAllOrderByCreatedAtDesc();
@@ -157,7 +158,21 @@ public class MemberService {
                     });
                 }
 
-                return keycloakSync.then(publishAudit(tenantId, saved, null, actorId, "CREATE"))
+                // Run AGE_GROUP / UNDERWRITING / MEMBER_LIFECYCLE rules so the
+                // tenant's enrollment policy fires (loaded premiums, manual-review
+                // flags, etc.). Outcomes land in the audit trail; tenants without
+                // lifecycle rules see no behaviour change.
+                Mono<Void> lifecycleEval = lifecycleService.evaluateOnEnrollment(saved)
+                        .doOnNext(fact -> {
+                            if (fact.getResults() != null && !fact.getResults().isEmpty()) {
+                                log.info("Lifecycle rules fired for new member {}: {}",
+                                        saved.getMemberNumber(), fact.getResults().size());
+                            }
+                        })
+                        .then();
+
+                return keycloakSync.then(lifecycleEval)
+                    .then(publishAudit(tenantId, saved, null, actorId, "CREATE"))
                     .then(eventPublisher.publishMemberEnrolled(
                         saved.getId().toString(),
                         saved.getMemberNumber(),

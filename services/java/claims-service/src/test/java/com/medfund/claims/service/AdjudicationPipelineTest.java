@@ -46,6 +46,8 @@ class AdjudicationPipelineTest {
     @Mock private PreAuthorizationRepository preAuthorizationRepository;
     @Mock private RejectionReasonRepository rejectionReasonRepository;
     @Mock private RuleEvaluationService ruleEvaluationService;
+    @Mock private com.medfund.rules.service.TenantRuleLoader tenantRuleLoader;
+    @Mock private ClaimFactBuilder factBuilder;
     @Mock private DatabaseClient databaseClient;
 
     private AdjudicationPipeline adjudicationPipeline;
@@ -57,8 +59,19 @@ class AdjudicationPipelineTest {
                 tariffCodeRepository, tariffModifierRepository,
                 icdCodeRepository, diagnosisProcedureMappingRepository,
                 preAuthorizationRepository, rejectionReasonRepository,
-                ruleEvaluationService, databaseClient, new ObjectMapper()
+                ruleEvaluationService, tenantRuleLoader, factBuilder,
+                databaseClient, new ObjectMapper()
         );
+
+        // Tenant-rules stage defaults: no rules loaded, returns empty result list.
+        when(tenantRuleLoader.ensureLoaded(any(java.util.UUID.class))).thenReturn(Mono.empty());
+        when(factBuilder.build(any())).thenReturn(Mono.just(
+                new ClaimFactBuilder.Facts(
+                        new com.medfund.rules.fact.ClaimFact(),
+                        new com.medfund.rules.fact.MemberFact(),
+                        new com.medfund.rules.fact.ProviderFact())));
+        when(ruleEvaluationService.evaluateClaim(anyString(), any(), any(), any()))
+                .thenReturn(Mono.just(java.util.List.of()));
 
         // Default mock: DatabaseClient returns active member enrolled 1 year ago, no waiting rules, no usage
         DatabaseClient.GenericExecuteSpec spec = mock(DatabaseClient.GenericExecuteSpec.class);
@@ -85,7 +98,7 @@ class AdjudicationPipelineTest {
                 .assertNext(result -> {
                     assertThat(result.decision()).isEqualTo("APPROVED");
                     assertThat(result.approvedAmount()).isEqualByComparingTo(new BigDecimal("500.00"));
-                    assertThat(result.stageResults()).hasSize(6);
+                    assertThat(result.stageResults()).hasSize(7);
                     assertThat(result.stageResults()).allMatch(stage -> stage.passed());
                 })
                 .verifyComplete();

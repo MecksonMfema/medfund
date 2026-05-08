@@ -1,0 +1,93 @@
+<div class="drawer-overlay" (click)="onClose()">
+  <aside class="drawer" (click)="$event.stopPropagation()">
+
+    <header class="drawer-header">
+      <div>
+        <span class="eyebrow">Dry-run</span>
+        <h2>{{ rule.name }}</h2>
+        <p class="meta">
+          <span class="meta-pill">{{ rule.category.replace('_', ' ').toLowerCase() }}</span>
+          <span class="meta-pill">priority {{ rule.priority }}</span>
+          @if (!rule.enabled) {
+            <span class="meta-pill meta-warn">disabled</span>
+          }
+        </p>
+      </div>
+      <button class="btn-icon" (click)="onClose()" aria-label="Close">
+        <app-icon name="x" [size]="18"></app-icon>
+      </button>
+    </header>
+
+    <div class="drawer-body">
+
+      <div class="section">
+        <header class="section-header">
+          <h3>Sample facts</h3>
+          <button class="btn btn-outline btn-sm" (click)="loadSeed()" type="button">
+            <app-icon name="trending-up" [size]="14"></app-icon>
+            Reset to category seed
+          </button>
+        </header>
+        <textarea
+          class="input json-editor"
+          [(ngModel)]="factsJson"
+          spellcheck="false"
+          rows="14"
+        ></textarea>
+        @if (parseError) {
+          <div class="inline-error">{{ parseError }}</div>
+        }
+        <p class="hint">
+          Top-level keys: <code>claim</code> (required), <code>member</code>,
+          <code>dependant</code>, <code>provider</code>, <code>family</code>.
+          Each value mirrors the corresponding fact class fields.
+        </p>
+      </div>
+
+      <div class="run-row">
+        <button class="btn btn-primary" (click)="run()" [disabled]="running">
+          @if (running) { Running… } @else {
+            <app-icon name="play-circle" [size]="16"></app-icon>
+            Run
+          }
+        </button>
+        @if (serverError) {
+          <span class="inline-error">{{ serverError }}</span>
+        }
+      </div>
+
+      @if (result) {
+        <div class="section result-section">
+          <header class="section-header">
+            <h3>Result</h3>
+            <span class="exec-time">{{ result.executionMs }} ms</span>
+          </header>
+
+          <div class="decision-card" [class]="'decision-' + decisionClass()">
+            <div class="decision-label">Decision</div>
+            <div class="decision-value">{{ result.decision }}</div>
+          </div>
+
+          @if (result.matched.length) {
+            <div class="match-list">
+              <h4 class="match-list-title">Rule results ({{ result.matched.length }})</h4>
+              @for (m of result.matched; track $index) {
+                <div class="match-row" [class]="'match-' + m.type.toLowerCase()">
+                  <span class="match-type">{{ m.type }}</span>
+                  @if (m.code) { <span class="match-code">{{ m.code }}</span> }
+                  <span class="match-message">{{ m.message }}</span>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="match-empty">
+              The rule did not fire on these facts. Try adjusting field values
+              so the conditions match.
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+  </aside>
+</div>

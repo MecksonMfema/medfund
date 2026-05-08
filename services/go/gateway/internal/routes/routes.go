@@ -27,7 +27,11 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/providers", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/providers/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/groups/*", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/roles", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/roles/*", proxy.Handler(cfg.UserServiceURL))
+	// RBAC: permission catalogue + caller's effective permissions.
+	app.All("/api/v1/permissions/*", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/me/permissions", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/waiting-periods/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/scheduled-jobs/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/tenant-stats", proxy.Handler(cfg.UserServiceURL))
@@ -51,6 +55,12 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/provider-balances/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/adjustments/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reconciliations/*", proxy.Handler(cfg.FinanceServiceURL))
+
+	// ── Rules Service (per-tenant Drools rules) ───────────────────────────────
+	app.All("/api/v1/rules", proxy.Handler(cfg.RulesServiceURL))
+	app.All("/api/v1/rules/*", proxy.Handler(cfg.RulesServiceURL))
+	app.All("/api/v1/rule-templates", proxy.Handler(cfg.RulesServiceURL))
+	app.All("/api/v1/rule-templates/*", proxy.Handler(cfg.RulesServiceURL))
 
 	// ── Go Services ───────────────────────────────────────────────────────────
 	app.All("/api/v1/notifications/*", proxy.Handler(cfg.NotifServiceURL))

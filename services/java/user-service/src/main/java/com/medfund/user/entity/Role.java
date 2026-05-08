@@ -25,6 +25,16 @@ public class Role {
     @Column("is_system")
     private Boolean isSystem;
 
+    /**
+     * Stable Keycloak realm-role identifier — set on creation and never updated
+     * even if {@code displayName} or {@code description} change. Reserved for
+     * future Keycloak realm-role mirroring of tenant-defined roles. Today the
+     * platform resolves permissions server-side from the DB, so this column
+     * is only populated for the seeded {@code tenant_admin} role.
+     */
+    @Column("keycloak_role_name")
+    private String keycloakRoleName;
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;
@@ -47,6 +57,9 @@ public class Role {
 
     public Boolean getIsSystem() { return isSystem; }
     public void setIsSystem(Boolean isSystem) { this.isSystem = isSystem; }
+
+    public String getKeycloakRoleName() { return keycloakRoleName; }
+    public void setKeycloakRoleName(String keycloakRoleName) { this.keycloakRoleName = keycloakRoleName; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

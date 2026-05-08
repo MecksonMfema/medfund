@@ -1,11 +1,15 @@
 package com.medfund.tenancy.controller;
 
 import com.medfund.tenancy.dto.CreateTenantRequest;
+import com.medfund.tenancy.dto.TenantEmailTemplateResponse;
 import com.medfund.tenancy.dto.TenantPage;
 import com.medfund.tenancy.dto.TenantQueryParams;
 import com.medfund.tenancy.dto.TenantResponse;
+import com.medfund.tenancy.dto.UpdateTenantEmailTemplateRequest;
 import com.medfund.tenancy.dto.UpdateTenantRequest;
+import com.medfund.tenancy.service.TenantEmailTemplateService;
 import com.medfund.tenancy.service.TenantService;
+import org.springframework.http.ResponseEntity;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -34,6 +38,7 @@ import java.util.UUID;
 public class TenantController {
 
     private final TenantService tenantService;
+    private final TenantEmailTemplateService emailTemplateService;
 
     @GetMapping
     @Operation(
@@ -124,6 +129,54 @@ public class TenantController {
         String actorId    = jwt != null ? jwt.getSubject() : "system";
         String actorEmail = jwt != null ? resolveActorEmail(jwt) : null;
         return tenantService.activate(id, actorId, actorEmail).map(TenantResponse::from);
+    }
+
+    // ── Email templates (per-tenant overrides) ────────────────────────────────
+
+    @GetMapping("/{id}/email-templates")
+    @Operation(summary = "List email templates for a tenant",
+            description = "Returns every template in the platform catalogue. " +
+                    "Each entry carries the platform default subject/body plus " +
+                    "the tenant's override (if any).")
+    @ApiResponse(responseCode = "200", description = "Templates returned")
+    public Flux<TenantEmailTemplateResponse> listEmailTemplates(@PathVariable UUID id) {
+        return emailTemplateService.listForTenant(id);
+    }
+
+    @PutMapping("/{id}/email-templates/{key}")
+    @Operation(summary = "Override an email template for a tenant",
+            description = "Creates or updates the tenant's override for the given template key. " +
+                    "When the override is enabled the next email of this type will use it; " +
+                    "when disabled or missing, the platform default is used.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Override saved"),
+            @ApiResponse(responseCode = "400", description = "Unknown template key or invalid body",
+                    content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+    })
+    public Mono<TenantEmailTemplateResponse> upsertEmailTemplate(
+            @PathVariable UUID id,
+            @PathVariable String key,
+            @Valid @RequestBody UpdateTenantEmailTemplateRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        String actorId    = jwt != null ? jwt.getSubject() : "system";
+        String actorEmail = jwt != null ? resolveActorEmail(jwt) : null;
+        return emailTemplateService.upsert(id, key, request, actorId, actorEmail);
+    }
+
+    @DeleteMapping("/{id}/email-templates/{key}")
+    @Operation(summary = "Reset a tenant's email template override",
+            description = "Removes the tenant's override so subsequent sends fall back " +
+                    "to the platform default. Idempotent — succeeds whether or not an " +
+                    "override exists.")
+    @ApiResponse(responseCode = "204", description = "Override removed (or absent)")
+    public Mono<ResponseEntity<Void>> resetEmailTemplate(
+            @PathVariable UUID id,
+            @PathVariable String key,
+            @AuthenticationPrincipal Jwt jwt) {
+        String actorId    = jwt != null ? jwt.getSubject() : "system";
+        String actorEmail = jwt != null ? resolveActorEmail(jwt) : null;
+        return emailTemplateService.reset(id, key, actorId, actorEmail)
+                .thenReturn(ResponseEntity.noContent().<Void>build());
     }
 
     /** Keycloak JWTs carry email in the {@code email} claim; {@code preferred_username} is the fallback. */

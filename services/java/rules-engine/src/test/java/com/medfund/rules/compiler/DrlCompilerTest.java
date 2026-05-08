@@ -17,7 +17,25 @@ class DrlCompilerTest {
 
     @BeforeEach
     void setUp() {
-        compiler = new DrlCompiler();
+        // Hand-wire every emitter the existing tests exercise. Adding a new
+        // ActionEmitter implementation is a one-line addition here.
+        compiler = new DrlCompiler(java.util.List.of(
+                new ActionEmitters.RejectEmitter(),
+                new ActionEmitters.FlagEmitter(),
+                new ActionEmitters.WarnEmitter(),
+                new ActionEmitters.CapToTariffEmitter(),
+                new ActionEmitters.ApplyCopayEmitter(),
+                new ActionEmitters.SetAgeGroupEmitter(),
+                new ActionEmitters.AutoRenewEmitter(),
+                new ActionEmitters.TerminateEmitter(),
+                new ActionEmitters.RequireUnderwritingEmitter(),
+                new ActionEmitters.ApplyLoadedPremiumEmitter(),
+                new ActionEmitters.SetPremiumEmitter(),
+                new ActionEmitters.ApplyLateFeeEmitter(),
+                new ActionEmitters.SchedulePaymentRunEmitter(),
+                new ActionEmitters.WithholdPaymentEmitter(),
+                new ActionEmitters.MatchRecordsEmitter()
+        ));
     }
 
     @Test

@@ -50,6 +50,9 @@ class BillingServiceTest {
     @Mock
     private ContributionEventPublisher eventPublisher;
 
+    @Mock
+    private ContributionPricingService pricingService;
+
     @InjectMocks
     private BillingService billingService;
 
@@ -117,6 +120,10 @@ class BillingServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishBillingGenerated(any(), any(), any(), anyInt()))
             .thenReturn(Mono.empty());
+        // Pricing rules are out of scope for this test — return an empty fact
+        // so generateBilling proceeds straight to save.
+        when(pricingService.price(any(Contribution.class)))
+            .thenReturn(Mono.just(new com.medfund.rules.fact.ContributionFact()));
 
         StepVerifier.create(billingService.generateBilling(request, actorId)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))

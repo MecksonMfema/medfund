@@ -19,6 +19,7 @@ import com.medfund.rules.fact.MemberFact;
 import com.medfund.rules.fact.ProviderFact;
 import com.medfund.rules.fact.RuleResult;
 import com.medfund.rules.service.RuleEvaluationService;
+import com.medfund.rules.service.TenantRuleLoader;
 import com.medfund.shared.tenant.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,17 +33,26 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
- * Six-stage adjudication pipeline for claims processing.
- * <p>
- * Stages:
- * 1. Eligibility — verifies member is active, provider registered, scheme valid
- * 2. Waiting Period — checks member enrollment date against scheme waiting period rules
- * 3. Benefit Limits — checks claimed amount against member's remaining benefit balance
- * 4. Pre-Authorization — checks if required pre-auths exist and are valid
- * 5. Tariff Pricing — validates tariff codes and price limits
- * 6. Clinical Validation — checks diagnosis-procedure mappings
+ * Adjudication pipeline for claims processing.
+ *
+ * <p>The first six stages are platform defaults that every tenant inherits:
+ * <ol>
+ *   <li>Eligibility — verifies member is active, provider registered, scheme valid</li>
+ *   <li>Waiting Period — checks member enrollment date against scheme waiting period rules</li>
+ *   <li>Benefit Limits — checks claimed amount against member's remaining benefit balance</li>
+ *   <li>Pre-Authorization — checks if required pre-auths exist and are valid</li>
+ *   <li>Tariff Pricing — validates tariff codes and price limits</li>
+ *   <li>Clinical Validation — checks diagnosis-procedure mappings</li>
+ * </ol>
+ *
+ * <p>Stage 7 — <b>Tenant Rules</b> — runs whatever the tenant has authored
+ * in the rules engine on top of the platform defaults. REJECT outcomes
+ * surface as a stage failure; FLAG_FOR_REVIEW / WARN / APPLY_COPAY surface
+ * as informational details so the operator can see what fired. Tenants
+ * who haven't written any rules see no behaviour change.
  */
 @Service
 public class AdjudicationPipeline {
@@ -56,6 +66,8 @@ public class AdjudicationPipeline {
     private final PreAuthorizationRepository preAuthorizationRepository;
     private final RejectionReasonRepository rejectionReasonRepository;
     private final RuleEvaluationService ruleEvaluationService;
+    private final TenantRuleLoader tenantRuleLoader;
+    private final ClaimFactBuilder factBuilder;
     private final DatabaseClient databaseClient;
     private final ObjectMapper objectMapper;
 
@@ -66,6 +78,8 @@ public class AdjudicationPipeline {
                                 PreAuthorizationRepository preAuthorizationRepository,
                                 RejectionReasonRepository rejectionReasonRepository,
                                 RuleEvaluationService ruleEvaluationService,
+                                TenantRuleLoader tenantRuleLoader,
+                                ClaimFactBuilder factBuilder,
                                 DatabaseClient databaseClient,
                                 ObjectMapper objectMapper) {
         this.tariffCodeRepository = tariffCodeRepository;
@@ -75,6 +89,8 @@ public class AdjudicationPipeline {
         this.preAuthorizationRepository = preAuthorizationRepository;
         this.rejectionReasonRepository = rejectionReasonRepository;
         this.ruleEvaluationService = ruleEvaluationService;
+        this.tenantRuleLoader = tenantRuleLoader;
+        this.factBuilder = factBuilder;
         this.databaseClient = databaseClient;
         this.objectMapper = objectMapper;
     }
@@ -101,6 +117,10 @@ public class AdjudicationPipeline {
             }))
             .flatMap(results -> validateClinical(claim, lines).map(s6 -> {
                 results.add(s6);
+                return results;
+            }))
+            .flatMap(results -> evaluateTenantRules(claim).map(s7 -> {
+                results.add(s7);
                 return results;
             }))
             .map(results -> buildDecision(claim, lines, results));
@@ -364,6 +384,53 @@ public class AdjudicationPipeline {
             log.warn("Failed to parse diagnosis codes JSON: {}", diagnosisCodesJson, e);
             return List.of();
         }
+    }
+
+    // ---- Stage 7: Tenant Rules ----
+
+    /**
+     * Run the tenant's rule set against the claim. Rules are loaded lazily —
+     * the first claim for a tenant after this service starts triggers a load
+     * from {@code public.tenant_rules}; subsequent claims reuse the cached
+     * KieContainer until a {@code medfund.rules.updated} event invalidates it.
+     *
+     * <p>Tenants who haven't authored any rules see this stage report
+     * "No tenant rules configured — passed" with no other side effects.
+     */
+    private Mono<StageResult> evaluateTenantRules(Claim claim) {
+        return Mono.deferContextual(ctx -> {
+            String tenant = TenantContext.get(ctx);
+            UUID tenantId = parseTenant(tenant);
+            if (tenantId == null) {
+                return Mono.just(new StageResult("TenantRules", true,
+                        "No tenant context — skipping tenant rules"));
+            }
+            return tenantRuleLoader.ensureLoaded(tenantId)
+                .then(factBuilder.build(claim))
+                .flatMap(facts -> ruleEvaluationService
+                    .evaluateClaim(tenantId.toString(), facts.claim(), facts.member(), facts.provider())
+                    .map(this::summariseRuleResults));
+        });
+    }
+
+    private StageResult summariseRuleResults(List<RuleResult> results) {
+        if (results == null || results.isEmpty()) {
+            return new StageResult("TenantRules", true, "No tenant rules fired — passed");
+        }
+        boolean rejected = results.stream().anyMatch(r -> "REJECT".equalsIgnoreCase(r.getType()));
+        String details = results.stream()
+                .map(r -> {
+                    String code = r.getCode() != null ? r.getCode() + ": " : "";
+                    return r.getType() + " — " + code + (r.getMessage() != null ? r.getMessage() : "");
+                })
+                .reduce((a, b) -> a + "; " + b)
+                .orElse("");
+        return new StageResult("TenantRules", !rejected, details);
+    }
+
+    private UUID parseTenant(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try { return UUID.fromString(raw); } catch (IllegalArgumentException e) { return null; }
     }
 
     // ---- Decision Builder ----

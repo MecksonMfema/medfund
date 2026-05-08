@@ -27,25 +27,25 @@ const PLATFORM_ADMIN_NAV: NavGroup[] = [
   },
 ];
 
+// Tenant IT-admin console: configures the tenant's slice of the platform.
+// Operational portals (claims, finance, member self-service, providers) live
+// in their own apps and are intentionally absent here. The hardcoded
+// `tenant-sidebar.component.ts` array drives the actual rendering — this list
+// is the canonical role-aware version that any other consumer of
+// {@code NavigationService.getNavigation()} can rely on.
 const TENANT_NAV: NavGroup[] = [
   {
     items: [
-      { label: 'Dashboard', route: '/tenant/dashboard', icon: 'dashboard', roles: ['tenant_admin', 'claims_clerk', 'finance_officer'] },
-    ],
-  },
-  {
-    title: 'OPERATIONS',
-    items: [
-      { label: 'Claims', route: '/tenant/claims', icon: 'file-text', roles: ['tenant_admin', 'claims_clerk'] },
-      { label: 'Contributions', route: '/tenant/contributions', icon: 'wallet', roles: ['tenant_admin', 'finance_officer'] },
-      { label: 'Finance', route: '/tenant/finance', icon: 'dollar', roles: ['tenant_admin', 'finance_officer'] },
+      { label: 'Dashboard',    route: '/tenant/admin/dashboard', icon: 'dashboard', roles: ['tenant_admin'] },
     ],
   },
   {
     title: 'MANAGEMENT',
     items: [
-      { label: 'Members', route: '/tenant/members', icon: 'users',     roles: ['tenant_admin'] },
-      { label: 'Admin',   route: '/tenant/admin',   icon: 'settings',  roles: ['tenant_admin'] },
+      { label: 'Users',        route: '/tenant/admin/users',     icon: 'users',     roles: ['tenant_admin'] },
+      { label: 'Audit Logs',   route: '/tenant/admin/audit',     icon: 'clipboard', roles: ['tenant_admin'] },
+      { label: 'Rules Engine', route: '/tenant/admin/rules',     icon: 'filter',    roles: ['tenant_admin'] },
+      { label: 'Settings',     route: '/tenant/admin/settings',  icon: 'settings',  roles: ['tenant_admin'] },
     ],
   },
 ];

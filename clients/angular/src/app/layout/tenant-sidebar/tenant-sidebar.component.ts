@@ -28,13 +28,15 @@ export class TenantSidebarComponent implements OnInit, OnDestroy {
   logoUrl = '';
   tenantInitial = 'T';
 
+  // Tenant IT-admin console: configures the tenant's own slice of the platform.
+  // Operational portals (claims adjudication, finance, member self-service,
+  // provider workflows) live in their own apps; intentionally not linked here.
   navItems: NavItem[] = [
-    { label: 'Dashboard',      icon: 'dashboard',   route: '/tenant/dashboard' },
-    { label: 'Users & Members', icon: 'users',      route: '/tenant/users' },
-    { label: 'Claims',         icon: 'file-text',   route: '/tenant/claims' },
-    { label: 'Contributions',  icon: 'credit-card', route: '/tenant/contributions' },
-    { label: 'Finance',        icon: 'banknote',    route: '/tenant/finance' },
-    { label: 'Administration', icon: 'settings',    route: '/tenant/admin' },
+    { label: 'Dashboard',    icon: 'dashboard', route: '/tenant/admin/dashboard' },
+    { label: 'Users',        icon: 'users',     route: '/tenant/admin/users' },
+    { label: 'Audit Logs',   icon: 'clipboard', route: '/tenant/admin/audit' },
+    { label: 'Rules Engine', icon: 'filter',    route: '/tenant/admin/rules' },
+    { label: 'Settings',     icon: 'settings',  route: '/tenant/admin/settings' },
   ];
 
   private sub?: Subscription;

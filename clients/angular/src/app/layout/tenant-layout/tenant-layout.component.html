@@ -1,6 +1,10 @@
 <app-progress-bar />
 <div class="tenant-shell" [class.collapsed]="collapsed" #shell>
-  <app-tenant-sidebar></app-tenant-sidebar>
+  @if (sidebarVariant === 'operational') {
+    <app-operational-sidebar></app-operational-sidebar>
+  } @else {
+    <app-tenant-sidebar></app-tenant-sidebar>
+  }
 
   <div class="tenant-main">
     <header class="t-header">

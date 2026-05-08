@@ -99,6 +99,40 @@ export function parseProviderRegLabel(settings: string | null | undefined): stri
 }
 
 /**
+ * Tenant-configurable scheme terminology. Some tenants call them "Schemes",
+ * others "Packages", "Plans", or "Policies". Returns the singular + plural
+ * labels for use across the operational portal — sidebar, page titles, etc.
+ */
+export interface SchemeTerminology {
+  singular: string;
+  plural: string;
+}
+
+export const DEFAULT_SCHEME_TERMINOLOGY: SchemeTerminology = { singular: 'Scheme', plural: 'Schemes' };
+
+/** Predefined choices the Settings UI offers in addition to a custom override. */
+export const SCHEME_TERMINOLOGY_PRESETS: Array<SchemeTerminology & { id: string }> = [
+  { id: 'scheme',  singular: 'Scheme',  plural: 'Schemes'  },
+  { id: 'package', singular: 'Package', plural: 'Packages' },
+  { id: 'plan',    singular: 'Plan',    plural: 'Plans'    },
+  { id: 'policy',  singular: 'Policy',  plural: 'Policies' },
+  { id: 'product', singular: 'Product', plural: 'Products' },
+];
+
+export function parseSchemeTerminology(settings: string | null | undefined): SchemeTerminology {
+  if (!settings || settings === '{}') return { ...DEFAULT_SCHEME_TERMINOLOGY };
+  try {
+    const parsed = JSON.parse(settings);
+    return {
+      singular: parsed?.schemeLabelSingular || DEFAULT_SCHEME_TERMINOLOGY.singular,
+      plural:   parsed?.schemeLabelPlural   || DEFAULT_SCHEME_TERMINOLOGY.plural,
+    };
+  } catch {
+    return { ...DEFAULT_SCHEME_TERMINOLOGY };
+  }
+}
+
+/**
  * Derives the default provider registration number label from a tenant's
  * insurance lines. Uses the first matching line's label as the default.
  * Falls back to the generic label when no lines match.

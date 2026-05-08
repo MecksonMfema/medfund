@@ -1,0 +1,80 @@
+<nav class="op-sidebar" [class.collapsed]="collapsed">
+
+  <!-- Header: tenant logo / initial -->
+  <div class="op-header">
+    <div class="op-tenant-badge">
+      @if (logoUrl) {
+        <img class="op-tenant-logo" [src]="logoUrl" [alt]="tenantName" />
+      } @else {
+        <div class="op-tenant-icon">{{ tenantInitial }}</div>
+      }
+      @if (!collapsed) {
+        <div class="op-tenant-info">
+          <span class="op-tenant-name">{{ tenantName }}</span>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Floating collapse toggle -->
+  <button
+    class="op-collapse-btn"
+    (click)="toggleSidebar()"
+    [title]="collapsed ? 'Expand sidebar' : 'Collapse sidebar'">
+    <app-icon [name]="collapsed ? 'chevron-right' : 'chevron-left'" [size]="14"></app-icon>
+  </button>
+
+  <!-- Tenant Admin shortcut (visible only to users with admin permissions) -->
+  @if (canAccessAdmin) {
+    <div class="op-admin-link">
+      <button class="op-admin-btn" (click)="goAdmin()" [title]="collapsed ? 'Tenant Admin' : ''">
+        <app-icon name="settings" [size]="16"></app-icon>
+        @if (!collapsed) { <span>Tenant Admin</span> }
+      </button>
+    </div>
+  }
+
+  <!-- Permission-filtered navigation -->
+  <div class="op-nav-scroll">
+    @for (group of visibleGroups; track group.title) {
+      @if (!collapsed) {
+        <div class="op-section-label">{{ group.title }}</div>
+      }
+      <ul class="op-nav-list">
+        @for (item of group.items; track item.route) {
+          <li>
+            <a
+              [routerLink]="item.route"
+              routerLinkActive="active"
+              [routerLinkActiveOptions]="{ exact: false }"
+              class="op-nav-item"
+              [title]="collapsed ? item.label : ''">
+              <span class="op-nav-icon">
+                <app-icon [name]="item.icon" [size]="20"></app-icon>
+              </span>
+              @if (!collapsed) {
+                <span class="op-nav-label">{{ item.label }}</span>
+              }
+            </a>
+          </li>
+        }
+      </ul>
+    }
+
+    @if (visibleGroups.length === 0 && !collapsed) {
+      <div class="op-empty">
+        <p>No sections available for your role yet.</p>
+        <p class="op-empty-hint">Ask your tenant administrator to assign you a role.</p>
+      </div>
+    }
+  </div>
+
+  <!-- Footer: sign out -->
+  <div class="op-footer">
+    <button class="op-logout-btn" (click)="logout()" [title]="collapsed ? 'Sign out' : ''">
+      <app-icon name="logout" [size]="18"></app-icon>
+      @if (!collapsed) { <span>Sign out</span> }
+    </button>
+  </div>
+
+</nav>

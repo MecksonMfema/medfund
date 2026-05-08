@@ -80,4 +80,21 @@ public class RuleEvaluationService {
                         tenantRuleEngine.evaluate(tenantId, claim, member, family, provider))
                 .subscribeOn(Schedulers.boundedElastic());
     }
+
+    /**
+     * Generic evaluation entry-point for non-claims domains (contributions,
+     * member-lifecycle, finance, …). The caller passes whatever fact mix
+     * the domain rules expect; the engine inserts each non-null fact into
+     * the {@code KieSession} and fires all rules.
+     *
+     * <p>Most domains read their action outcomes off their own fact instance
+     * after the call returns (e.g. {@code contributionFact.getPremiumAmount()})
+     * — the returned {@code RuleResult} list is sourced from
+     * {@link ClaimFact#getResults()} only, so it'll be empty when no
+     * {@code ClaimFact} is in the inserted set.
+     */
+    public Mono<List<RuleResult>> evaluate(String tenantId, Object... facts) {
+        return Mono.fromCallable(() -> tenantRuleEngine.evaluate(tenantId, facts))
+                .subscribeOn(Schedulers.boundedElastic());
+    }
 }

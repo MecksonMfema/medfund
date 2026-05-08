@@ -1,0 +1,475 @@
+<div class="page-header">
+  <div>
+    <h1>Settings</h1>
+    <p class="page-subtitle">Customise how this tenant's portals look and behave</p>
+  </div>
+</div>
+
+<!-- Tab Navigation -->
+<div class="tabs">
+  @for (tab of tabs; track tab.id) {
+    <button
+      class="tab"
+      [class.active]="activeTab === tab.id"
+      (click)="activeTab = tab.id"
+    >
+      <app-icon [name]="tab.icon" [size]="18"></app-icon>
+      {{ tab.label }}
+    </button>
+  }
+</div>
+
+<!-- General -->
+@if (activeTab === 'general') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <div class="section-header">
+        <div>
+          <h3 class="section-title">General</h3>
+          <p class="section-sub">Tenant identity, contact details, and operating model.</p>
+        </div>
+        <div class="section-actions">
+          @if (generalSaved) {
+            <span class="saved-badge">
+              <app-icon name="check-circle" [size]="16"></app-icon> Saved
+            </span>
+          }
+          <button class="btn btn-primary" (click)="saveGeneral()" [disabled]="generalSaving || generalLoading">
+            {{ generalSaving ? 'Saving…' : 'Save changes' }}
+          </button>
+        </div>
+      </div>
+
+      @if (generalLoading) {
+        <div class="general-grid">
+          @for (_ of [0,1,2,3,4,5,6,7]; track $index) {
+            <div class="form-field">
+              <app-skeleton variant="line" width="40%" height="14px"></app-skeleton>
+              <div style="height: 8px"></div>
+              <app-skeleton variant="line" width="100%" height="38px"></app-skeleton>
+            </div>
+          }
+        </div>
+      } @else {
+        @if (generalError) {
+          <div class="general-error">{{ generalError }}</div>
+        }
+
+        <div class="general-grid">
+
+          <div class="form-field">
+            <label class="form-label">Tenant name</label>
+            <input type="text" class="form-input" [(ngModel)]="general.name" maxlength="200" />
+          </div>
+
+          <div class="form-field">
+            <label class="form-label">Slug <span class="label-hint">(read-only)</span></label>
+            <input type="text" class="form-input" [value]="generalReadonly.slug" disabled />
+          </div>
+
+          <div class="form-field">
+            <label class="form-label">Custom domain</label>
+            <p class="color-hint">Optional vanity host, e.g. portal.acme.com.</p>
+            <input type="text" class="form-input" [(ngModel)]="general.domain"
+              placeholder="portal.acme.com" maxlength="255" />
+          </div>
+
+          <div class="form-field">
+            <label class="form-label">Contact email</label>
+            <p class="color-hint">Primary contact for this tenant — billing, escalations.</p>
+            <input type="email" class="form-input" [(ngModel)]="general.contactEmail"
+              placeholder="ops@acme.com" />
+          </div>
+
+          <div class="form-field">
+            <label class="form-label">Timezone</label>
+            <p class="color-hint">Used for scheduling, payment runs, and time-of-day rules.</p>
+            <input type="text" class="form-input" [(ngModel)]="general.timezone"
+              placeholder="Africa/Harare" />
+          </div>
+
+          <div class="form-field">
+            <label class="form-label">Country code <span class="label-hint">(read-only)</span></label>
+            <input type="text" class="form-input" [value]="generalReadonly.countryCode" disabled />
+          </div>
+
+          <div class="form-field">
+            <label class="form-label">Membership model</label>
+            <p class="color-hint">Whether this tenant enrols individuals, employer groups, or both.</p>
+            <select class="form-input" [(ngModel)]="general.membershipModel">
+              <option value="">— Select —</option>
+              @for (m of membershipModels; track m.value) {
+                <option [value]="m.value">{{ m.label }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="form-field">
+            <label class="form-label">Status <span class="label-hint">(read-only)</span></label>
+            <input type="text" class="form-input" [value]="generalReadonly.status" disabled />
+          </div>
+
+        </div>
+      }
+    </div>
+  </div>
+}
+
+<!-- Branding — lifted from the legacy Administration page -->
+@if (activeTab === 'branding') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <div class="section-header">
+        <div>
+          <h3 class="section-title">Branding &amp; Appearance</h3>
+          <p class="section-sub">Personalise how your portal looks. Changes preview immediately — save to persist.</p>
+        </div>
+        <div class="section-actions">
+          @if (brandingSaved) {
+            <span class="saved-badge">
+              <app-icon name="check-circle" [size]="16"></app-icon> Saved
+            </span>
+          }
+          <button class="btn btn-primary" (click)="saveBranding()" [disabled]="brandingSaving">
+            {{ brandingSaving ? 'Saving…' : 'Save changes' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Template gallery -->
+      <div class="branding-section">
+        <h4 class="branding-label">Choose a template</h4>
+        <div class="template-grid">
+          @for (t of templates; track t.id) {
+            <button
+              class="template-card"
+              [class.selected]="branding.templateId === t.id"
+              (click)="selectTemplate(t.id)"
+            >
+              <div class="template-swatches">
+                <span class="swatch" [style.background]="t.previewColors[0]"
+                  [style.border]="t.previewColors[0] === '#FFFFFF' ? '1px solid #e5e7eb' : 'none'"></span>
+                <span class="swatch" [style.background]="t.previewColors[1]"></span>
+                <span class="swatch" [style.background]="t.previewColors[2]"
+                  [style.border]="t.previewColors[2] === '#F8FDFF' ? '1px solid #e5e7eb' : 'none'"></span>
+              </div>
+              <div class="template-info">
+                <span class="template-name">{{ t.name }}</span>
+                <span class="template-desc">{{ t.description }}</span>
+              </div>
+              @if (branding.templateId === t.id) {
+                <app-icon name="check-circle" [size]="16" class="template-check"></app-icon>
+              }
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- Custom colours -->
+      <div class="branding-section">
+        <h4 class="branding-label">Custom colours <span class="label-hint">(override the template)</span></h4>
+        <div class="color-row">
+
+          <div class="color-field">
+            <label class="color-label">Primary colour</label>
+            <p class="color-hint">Buttons, links, and badges in the main content.</p>
+            <div class="color-input-group">
+              <input type="color" class="color-picker"
+                [value]="branding.primaryColor || '#0077B6'"
+                (input)="branding.primaryColor = $any($event.target).value; onColorChange()" />
+              <input type="text" class="color-text"
+                [value]="branding.primaryColor || ''"
+                placeholder="#rrggbb" maxlength="7"
+                (change)="branding.primaryColor = $any($event.target).value; onColorChange()" />
+              @if (branding.primaryColor) {
+                <button class="color-clear" (click)="clearColor('primaryColor')" title="Reset">
+                  <app-icon name="x" [size]="14"></app-icon>
+                </button>
+              }
+            </div>
+          </div>
+
+          <div class="color-field">
+            <label class="color-label">Accent / sidebar highlight</label>
+            <p class="color-hint">Active nav item and icon colour in the sidebar.</p>
+            <div class="color-input-group">
+              <input type="color" class="color-picker"
+                [value]="branding.accentColor || '#0077B6'"
+                (input)="branding.accentColor = $any($event.target).value; onColorChange()" />
+              <input type="text" class="color-text"
+                [value]="branding.accentColor || ''"
+                placeholder="#rrggbb" maxlength="7"
+                (change)="branding.accentColor = $any($event.target).value; onColorChange()" />
+              @if (branding.accentColor) {
+                <button class="color-clear" (click)="clearColor('accentColor')" title="Reset">
+                  <app-icon name="x" [size]="14"></app-icon>
+                </button>
+              }
+            </div>
+          </div>
+
+          <div class="color-field">
+            <label class="color-label">Sidebar background</label>
+            <p class="color-hint">Background colour of the navigation sidebar.</p>
+            <div class="color-input-group">
+              <input type="color" class="color-picker"
+                [value]="branding.sidebarBg || '#FFFFFF'"
+                (input)="branding.sidebarBg = $any($event.target).value; onColorChange()" />
+              <input type="text" class="color-text"
+                [value]="branding.sidebarBg || ''"
+                placeholder="#rrggbb" maxlength="7"
+                (change)="branding.sidebarBg = $any($event.target).value; onColorChange()" />
+              @if (branding.sidebarBg) {
+                <button class="color-clear" (click)="clearColor('sidebarBg')" title="Reset">
+                  <app-icon name="x" [size]="14"></app-icon>
+                </button>
+              }
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Logo -->
+      <div class="branding-section">
+        <h4 class="branding-label">Logo</h4>
+        <p class="color-hint">Shown in the sidebar and dashboard. PNG, JPEG, SVG, or WEBP — up to 256 KB. Leave empty to use the organisation initial.</p>
+
+        <div class="logo-upload">
+          @if (branding.logoUrl) {
+            <img class="logo-preview-large" [src]="branding.logoUrl" alt="Logo preview" />
+          } @else {
+            <div class="logo-placeholder" aria-hidden="true">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <circle cx="8.5" cy="8.5" r="1.5"/>
+                <path d="m21 15-5-5L5 21"/>
+              </svg>
+            </div>
+          }
+
+          <div class="logo-upload-actions">
+            <input type="file" #logoInput class="visually-hidden"
+              accept="image/png,image/jpeg,image/svg+xml,image/webp"
+              (change)="onLogoFileSelected($event)" />
+            <button type="button" class="btn btn-ghost"
+              (click)="logoInput.click()" [disabled]="logoUploading">
+              {{ logoUploading ? 'Reading…' : (branding.logoUrl ? 'Replace logo' : 'Upload logo') }}
+            </button>
+            @if (branding.logoUrl) {
+              <button type="button" class="btn btn-ghost btn-danger" (click)="clearLogo()">Remove</button>
+            }
+          </div>
+        </div>
+
+        @if (logoError) {
+          <div class="general-error" style="margin-top: 8px">{{ logoError }}</div>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Insurance Lines -->
+@if (activeTab === 'insurance-lines') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <div class="section-header">
+        <div>
+          <h3 class="section-title">Insurance Lines</h3>
+          <p class="section-sub">Pick the insurance products this tenant offers. Members and providers in your portal are filtered to these lines.</p>
+        </div>
+        <div class="section-actions">
+          @if (insuranceSaved) {
+            <span class="saved-badge">
+              <app-icon name="check-circle" [size]="16"></app-icon> Saved
+            </span>
+          }
+          <button class="btn btn-primary" (click)="saveInsuranceLines()"
+            [disabled]="insuranceSaving || insuranceLoading || !insuranceLinesDirty()">
+            {{ insuranceSaving ? 'Saving…' : 'Save changes' }}
+          </button>
+        </div>
+      </div>
+
+      @if (insuranceLoading) {
+        <div class="insurance-grid">
+          @for (_ of [0,1,2,3,4,5,6,7]; track $index) {
+            <app-skeleton variant="card" height="92px"></app-skeleton>
+          }
+        </div>
+      } @else {
+        @if (insuranceError) {
+          <div class="general-error">{{ insuranceError }}</div>
+        }
+
+        <div class="insurance-grid">
+          @for (line of insuranceLineOptions; track line.value) {
+            <button type="button"
+              class="insurance-card"
+              [class.selected]="isInsuranceLineSelected(line.value)"
+              (click)="toggleInsuranceLine(line.value)">
+              <div class="insurance-card-head">
+                <span class="insurance-name">{{ line.label }}</span>
+                @if (isInsuranceLineSelected(line.value)) {
+                  <app-icon name="check-circle" [size]="18" class="template-check"></app-icon>
+                }
+              </div>
+              <p class="insurance-desc">{{ line.description }}</p>
+              <p class="insurance-reg">Default reg. label: <em>{{ line.registrationLabel }}</em></p>
+            </button>
+          }
+        </div>
+
+        <div class="branding-section">
+          <h4 class="branding-label">Provider registration label <span class="label-hint">(optional override)</span></h4>
+          <p class="color-hint">Shown next to the registration / licence number field on every provider in this portal. Leave blank to derive from your insurance lines.</p>
+          <input type="text" class="form-input" [(ngModel)]="providerRegLabel"
+            placeholder="AHFOZ / Practice Number" maxlength="120" />
+        </div>
+
+        <div class="branding-section">
+          <h4 class="branding-label">Scheme terminology</h4>
+          <p class="color-hint">Some tenants call them Schemes; others use Plans, Packages, Policies, or Products. The labels you pick here flow through to the sidebar, page titles, and member-facing copy.</p>
+          <div class="general-grid">
+            <div class="form-field">
+              <label class="form-label">Preset</label>
+              <select class="form-input"
+                [ngModel]="schemeTerminologyId"
+                (ngModelChange)="onSchemeTerminologyPreset($event)">
+                @for (p of schemeTerminologyPresets; track p.id) {
+                  <option [value]="p.id">{{ p.singular }} / {{ p.plural }}</option>
+                }
+                <option value="custom">Custom…</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label">Singular</label>
+              <input type="text" class="form-input"
+                [(ngModel)]="schemeTerminology.singular"
+                [readonly]="schemeTerminologyId !== 'custom'"
+                placeholder="Scheme" maxlength="40" />
+            </div>
+            <div class="form-field">
+              <label class="form-label">Plural</label>
+              <input type="text" class="form-input"
+                [(ngModel)]="schemeTerminology.plural"
+                [readonly]="schemeTerminologyId !== 'custom'"
+                placeholder="Schemes" maxlength="40" />
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+}
+
+<!-- Email Templates -->
+@if (activeTab === 'email-templates') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <div class="section-header">
+        <div>
+          <h3 class="section-title">Email Templates</h3>
+          <p class="section-sub">Override the platform's transactional emails. When a template has no override, members and staff receive the platform default.</p>
+        </div>
+      </div>
+
+      @if (emailTemplatesLoading) {
+        <div class="email-template-list">
+          @for (_ of [0,1,2,3,4]; track $index) {
+            <div class="email-template-row">
+              <div class="email-template-head">
+                <div class="email-template-meta" style="flex: 1;">
+                  <app-skeleton variant="line" width="180px" height="16px"></app-skeleton>
+                </div>
+                <app-skeleton variant="line" width="80px" height="32px"></app-skeleton>
+              </div>
+              <div style="height: 6px"></div>
+              <app-skeleton variant="line" width="60%" height="12px"></app-skeleton>
+            </div>
+          }
+        </div>
+      } @else {
+        @if (emailTemplatesError) {
+          <div class="general-error">{{ emailTemplatesError }}</div>
+        }
+
+        <div class="email-template-list">
+          @for (t of emailTemplates; track t.key) {
+            <div class="email-template-row" [class.editing]="editingEmailKey === t.key">
+              <div class="email-template-head">
+                <div class="email-template-meta">
+                  <span class="email-template-name">{{ t.name }}</span>
+                  @if (t.overridden) {
+                    <span class="badge badge-overridden">Customised</span>
+                  } @else {
+                    <span class="badge badge-default">Platform default</span>
+                  }
+                  <span class="email-template-key">{{ t.key }}</span>
+                </div>
+                <div class="email-template-actions">
+                  @if (editingEmailKey !== t.key) {
+                    <button class="btn btn-ghost" (click)="startEditingEmail(t)">
+                      {{ t.overridden ? 'Edit' : 'Customise' }}
+                    </button>
+                    @if (t.overridden) {
+                      <button class="btn btn-ghost btn-danger"
+                        (click)="resetEmailTemplate(t)"
+                        [disabled]="emailSaving && emailSavingKey === t.key">
+                        Reset to default
+                      </button>
+                    }
+                  }
+                </div>
+              </div>
+              <p class="email-template-desc">{{ t.description }}</p>
+
+              @if (editingEmailKey === t.key) {
+                <div class="email-template-editor">
+                  <div class="form-field">
+                    <label class="form-label">Subject</label>
+                    <input type="text" class="form-input" [(ngModel)]="emailDraft.subject" maxlength="255" />
+                  </div>
+
+                  <div class="form-field">
+                    <label class="form-label">HTML body</label>
+                    <p class="color-hint">Use the toolbar to format. Variables like <code>{{ '{{user.firstName}}' }}</code> and <code>{{ '{{tenant.name}}' }}</code> are kept verbatim and substituted at send time.</p>
+                    <editor
+                      licenseKey="gpl"
+                      [init]="tinymceInit"
+                      [(ngModel)]="emailDraft.htmlBody">
+                    </editor>
+                  </div>
+
+                  <div class="form-field">
+                    <label class="form-label">Plain-text body <span class="label-hint">(optional)</span></label>
+                    <p class="color-hint">Used when the recipient's client doesn't render HTML. Leave blank to auto-strip from the HTML at send time.</p>
+                    <textarea class="form-textarea" rows="4" [(ngModel)]="emailDraft.textBody"></textarea>
+                  </div>
+
+                  <div class="email-editor-actions">
+                    <button class="btn btn-ghost" (click)="cancelEditingEmail()" [disabled]="emailSaving">Cancel</button>
+                    <button class="btn btn-primary" (click)="saveEmailTemplate(t)" [disabled]="emailSaving">
+                      {{ emailSaving && emailSavingKey === t.key ? 'Saving…' : 'Save override' }}
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+  </div>
+}
+
+<!-- Roles & Permissions -->
+@if (activeTab === 'roles') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <app-tenant-roles-tab></app-tenant-roles-tab>
+    </div>
+  </div>
+}

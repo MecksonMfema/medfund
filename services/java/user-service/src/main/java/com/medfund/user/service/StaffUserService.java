@@ -5,12 +5,15 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
+import com.medfund.shared.tenant.TenantContext;
 import com.medfund.user.dto.CreateStaffUserRequest;
 import com.medfund.user.dto.CursorPage;
 import com.medfund.user.dto.StaffUserResponse;
 import com.medfund.user.dto.UpdateStaffUserRequest;
 import com.medfund.user.entity.StaffUser;
+import com.medfund.user.entity.UserRole;
 import com.medfund.user.repository.StaffUserRepository;
+import com.medfund.user.repository.UserRoleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
@@ -48,6 +51,8 @@ public class StaffUserService {
     private final ReactiveStringRedisTemplate redis;
     private final ObjectMapper                objectMapper;
     private final R2dbcEntityTemplate         r2dbcTemplate;
+    private final UserRoleRepository          userRoleRepository;
+    private final UserEventPublisher          userEventPublisher;
 
     // ── Reads (cached) ────────────────────────────────────────────────────────
 
@@ -239,6 +244,11 @@ public class StaffUserService {
                                             .thenReturn(s));
                         })
                         .defaultIfEmpty(saved))
+                // After the user exists in both DB + Keycloak, write tenant
+                // user_roles rows. Skips for super_admin (tenantId == null).
+                .flatMap(saved -> syncTenantRoles(saved.getId(), saved.getTenantId(),
+                                request.roleIds(), actorId)
+                        .thenReturn(saved))
                 .flatMap(saved -> audit(saved, "CREATE", actorId, actorEmail,
                         null, toMap(saved), null))
                 .flatMap(saved -> evict().thenReturn(saved));
@@ -276,7 +286,12 @@ public class StaffUserService {
                                     afterSync = Mono.just(saved);
                                 }
                                 Map<String, Object> after = toMap(saved);
-                                return afterSync.flatMap(s -> audit(s, "UPDATE", actorId, actorEmail,
+                                Mono<StaffUser> withRoles = afterSync
+                                        // When the request supplies roleIds, replace the
+                                        // user's tenant role assignments. Null = leave alone.
+                                        .flatMap(s -> syncTenantRoles(s.getId(), s.getTenantId(),
+                                                request.roleIds(), actorId).thenReturn(s));
+                                return withRoles.flatMap(s -> audit(s, "UPDATE", actorId, actorEmail,
                                         before, after, computeChangedFields(before, after)));
                             });
                 })
@@ -372,6 +387,55 @@ public class StaffUserService {
                 .collectList()
                 .flatMap(keys -> keys.isEmpty() ? Mono.just(0L) : redis.delete(keys.toArray(String[]::new)))
                 .then();
+    }
+
+    // ── Tenant-role assignment helpers ────────────────────────────────────────
+
+    /**
+     * Replace the user's tenant {@code user_roles} rows with exactly
+     * {@code roleIds}, scoping all DB writes to {@code tenantId}'s schema via
+     * the reactive context. Idempotent — diffing happens by skipping inserts
+     * that already exist (UNIQUE(user_id, role_id) makes them no-ops). When
+     * {@code roleIds} is null this is a no-op; when empty, every existing
+     * assignment is revoked.
+     *
+     * <p>Publishes one targeted invalidation event so all services drop the
+     * affected user's cached permission set within ~1 s of the write.
+     */
+    private Mono<Void> syncTenantRoles(UUID userId, UUID tenantId, List<UUID> roleIds, String actorId) {
+        if (tenantId == null || roleIds == null) return Mono.empty();
+        return userRoleRepository.findByUserId(userId)
+                .map(UserRole::getRoleId)
+                .collectList()
+                .flatMap(existing -> {
+                    List<UUID> toAdd = roleIds.stream().filter(id -> !existing.contains(id)).toList();
+                    List<UUID> toRemove = existing.stream().filter(id -> !roleIds.contains(id)).toList();
+
+                    Mono<Void> adds = Flux.fromIterable(toAdd)
+                            .flatMap(roleId -> {
+                                var ur = new UserRole();
+                                ur.setUserId(userId);
+                                ur.setRoleId(roleId);
+                                ur.setAssignedAt(Instant.now());
+                                if (actorId != null) {
+                                    try { ur.setAssignedBy(UUID.fromString(actorId)); } catch (Exception ignored) {}
+                                }
+                                return r2dbcTemplate.insert(ur);
+                            })
+                            .then();
+
+                    Mono<Void> removes = Flux.fromIterable(toRemove)
+                            .flatMap(roleId -> userRoleRepository.deleteByUserIdAndRoleId(userId, roleId))
+                            .then();
+
+                    Mono<Void> invalidate = (toAdd.isEmpty() && toRemove.isEmpty())
+                            ? Mono.empty()
+                            : userEventPublisher.publishPermissionsInvalidated(
+                                    tenantId.toString(), userId.toString());
+
+                    return adds.then(removes).then(invalidate);
+                })
+                .contextWrite(ctx -> TenantContext.put(ctx, tenantId.toString()));
     }
 
     // ── Audit helpers ─────────────────────────────────────────────────────────

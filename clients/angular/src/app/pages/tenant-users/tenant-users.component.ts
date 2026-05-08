@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
-import { AdminService, StaffUser } from '../../core/services/admin.service';
+import { AdminService, Role, StaffUser } from '../../core/services/admin.service';
 import { MembersService, Member } from '../../core/services/members.service';
 import { TenantService } from '../../core/services/tenant.service';
 import { DataTableComponent, TableAction } from '../../shared/components/data-table/data-table.component';
@@ -83,14 +83,16 @@ export class TenantUsersComponent implements OnInit, OnDestroy {
     },
   ];
 
-  availableRoles = [
-    { value: 'tenant_admin',          label: 'Tenant Admin' },
-    { value: 'claims_clerk',          label: 'Claims Clerk' },
-    { value: 'claims_assessor',       label: 'Claims Assessor' },
-    { value: 'finance_officer',       label: 'Finance Officer' },
-    { value: 'contributions_officer', label: 'Contributions Officer' },
-    { value: 'operations_staff',      label: 'Operations Staff' },
-  ];
+  /**
+   * Tenant-defined DB roles loaded at component init via {@code GET /api/v1/roles}.
+   * Mapped onto the {value,label} shape the existing template expects so the
+   * dropdown can swap drop-in. The {@code value} is the role's UUID — submit
+   * sends it as both {@code roleIds: [id]} (writes user_roles) and as
+   * {@code realmRole: <name>} (kept for legacy Keycloak gating until Phase 5).
+   */
+  availableRoles: { value: string; label: string }[] = [];
+  /** Full Role objects keyed by id — used to derive the legacy realmRole string on submit. */
+  private rolesById: Record<string, Role> = {};
 
   showAddStaffModal = false;
   addStaffForm = { firstName: '', lastName: '', email: '', jobTitle: '', department: '', realmRole: '' };
@@ -210,9 +212,12 @@ export class TenantUsersComponent implements OnInit, OnDestroy {
         this.loadStats();
         this.loadStaff();
         this.loadMembers();
+        this.loadRoles();
       } else {
         this.staff          = [];
         this.members        = [];
+        this.availableRoles = [];
+        this.rolesById      = {};
         this.staffLoading   = false;
         this.membersLoading = false;
       }
@@ -276,6 +281,22 @@ export class TenantUsersComponent implements OnInit, OnDestroy {
     this.showAddStaffModal = true;
   }
 
+  /**
+   * Pull tenant-defined DB roles from the backend so the invite/edit dropdown
+   * shows whatever the IT admin has configured under
+   * Settings → Roles & Permissions. Falls back to an empty list on error;
+   * the validation message tells the admin to create a role first.
+   */
+  private loadRoles(): void {
+    this.adminService.getRoles().subscribe({
+      next: roles => {
+        this.rolesById      = Object.fromEntries(roles.map(r => [r.id, r]));
+        this.availableRoles = roles.map(r => ({ value: r.id, label: r.displayName }));
+      },
+      error: () => { this.availableRoles = []; this.rolesById = {}; },
+    });
+  }
+
   submitAddStaff(): void {
     this.addStaffErrors = {};
     if (!this.addStaffForm.firstName.trim()) this.addStaffErrors['firstName'] = 'Required';
@@ -285,7 +306,19 @@ export class TenantUsersComponent implements OnInit, OnDestroy {
     if (Object.keys(this.addStaffErrors).length) return;
 
     this.addStaffSubmitting = true;
-    this.adminService.createStaffUser(this.addStaffForm).subscribe({
+    // The dropdown holds role UUIDs; submit sends them as roleIds (writes
+    // user_roles in the tenant schema) AND derives the legacy realmRole
+    // string from the picked role's name to satisfy the @NotBlank Keycloak
+    // gate until Phase 5 retires the column.
+    const selectedRole = this.rolesById[this.addStaffForm.realmRole];
+    const realmRoleName = selectedRole?.name ?? this.addStaffForm.realmRole;
+    const roleIds = selectedRole ? [selectedRole.id] : undefined;
+
+    this.adminService.createStaffUser({
+      ...this.addStaffForm,
+      realmRole: realmRoleName,
+      roleIds,
+    }).subscribe({
       next: () => {
         this.showAddStaffModal  = false;
         this.addStaffSubmitting = false;
@@ -298,17 +331,21 @@ export class TenantUsersComponent implements OnInit, OnDestroy {
 
   openEditStaffModal(u: StaffUser): void {
     this.editingStaff = u;
-    const matchedRole = this.availableRoles.find(
-      r => r.value === u.realmRole || r.value === u.realmRole?.toLowerCase()
-    )?.value ?? u.realmRole ?? '';
-    const inList = this.availableRoles.some(r => r.value === matchedRole);
-    this.editStaffRoleOptions = inList
+    // Dropdown values are role UUIDs. Match by role.name = realmRole (the
+    // legacy field still set on staff_users) so the user's current role is
+    // pre-selected when its corresponding tenant role exists. If the
+    // realmRole doesn't map to any tenant role, leave the dropdown empty
+    // and surface the legacy name as a synthetic option.
+    const match = Object.values(this.rolesById).find(r => r.name === u.realmRole);
+    this.editStaffRoleOptions = match
       ? this.availableRoles
-      : [{ value: u.realmRole, label: this.formatRoleLabel(u.realmRole) }, ...this.availableRoles];
+      : (u.realmRole
+          ? [{ value: '__legacy__', label: this.formatRoleLabel(u.realmRole) + ' (legacy)' }, ...this.availableRoles]
+          : this.availableRoles);
     this.editStaffForm = {
       firstName: u.firstName, lastName: u.lastName, email: u.email,
       phone: u.phone ?? '', jobTitle: u.jobTitle ?? '',
-      department: u.department ?? '', realmRole: matchedRole,
+      department: u.department ?? '', realmRole: match?.id ?? (u.realmRole ? '__legacy__' : ''),
     };
     this.editStaffErrors = {};
     this.showEditStaffModal = true;
@@ -324,7 +361,15 @@ export class TenantUsersComponent implements OnInit, OnDestroy {
     if (Object.keys(this.editStaffErrors).length) return;
 
     this.editStaffSubmitting = true;
-    this.adminService.updateStaffUser(this.editingStaff.id, this.editStaffForm).subscribe({
+    // Same pattern as create: derive realmRole from the picked role's name
+    // and send roleIds so user_roles is replaced atomically.
+    const selected = this.rolesById[this.editStaffForm.realmRole];
+    const payload = {
+      ...this.editStaffForm,
+      realmRole: selected?.name ?? this.editStaffForm.realmRole,
+      roleIds: selected ? [selected.id] : undefined,
+    };
+    this.adminService.updateStaffUser(this.editingStaff.id, payload).subscribe({
       next: () => {
         this.showEditStaffModal  = false;
         this.editStaffSubmitting = false;

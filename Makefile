@@ -78,6 +78,9 @@ contributions:
 finance:
 	cd services/java && ./gradlew :finance-service:bootRun
 
+rules:
+	cd services/java && ./gradlew :rules-engine:bootRun
+
 ## Run all Java services in parallel (each in its own terminal via tmux — optional)
 java-all:
 	$(COMPOSE) $(BASE) up -d postgres redis kafka keycloak

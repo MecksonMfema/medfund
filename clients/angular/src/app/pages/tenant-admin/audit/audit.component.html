@@ -1,0 +1,142 @@
+<div class="page-header">
+  <div>
+    <h1>Audit Logs</h1>
+    <p class="page-subtitle">Track all activity and changes inside this tenant</p>
+  </div>
+  <button class="btn btn-outline" (click)="exportCsv()">
+    <app-icon name="download" [size]="18"></app-icon>
+    Export CSV
+  </button>
+</div>
+
+<!-- Filters -->
+<div class="filter-bar">
+  <div class="filter-group">
+    <label>Entity Type</label>
+    <select class="input" [(ngModel)]="entityFilter" (ngModelChange)="applyFilters()">
+      <option value="">All Entities</option>
+      <option value="AUTH">Auth / Security</option>
+      <option value="USER">User</option>
+      <option value="MEMBER">Member</option>
+      <option value="DEPENDANT">Dependant</option>
+      <option value="PROVIDER">Provider</option>
+      <option value="CLAIM">Claim</option>
+      <option value="SCHEME">Scheme</option>
+      <option value="PAYMENT">Payment</option>
+      <option value="ROLE">Role</option>
+      <option value="RULE">Rule</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Action</label>
+    <select class="input" [(ngModel)]="actionFilter" (ngModelChange)="applyFilters()">
+      <option value="">All Actions</option>
+      <option value="CREATE">Create</option>
+      <option value="UPDATE">Update</option>
+      <option value="DELETE">Delete</option>
+      <optgroup label="Auth Events">
+        <option value="LOGIN">Login</option>
+        <option value="LOGIN_ERROR">Login Failed</option>
+        <option value="LOGOUT">Logout</option>
+        <option value="REGISTER">Register</option>
+        <option value="RESET_PASSWORD">Reset Password</option>
+        <option value="SEND_RESET_PASSWORD">Password Reset Email Sent</option>
+        <option value="UPDATE_PASSWORD">Password Changed</option>
+        <option value="VERIFY_EMAIL">Email Verified</option>
+        <option value="SEND_VERIFY_EMAIL">Verification Email Sent</option>
+        <option value="UPDATE_EMAIL">Email Updated</option>
+        <option value="UPDATE_PROFILE">Profile Updated</option>
+      </optgroup>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label>Date From</label>
+    <input class="input" type="date" [(ngModel)]="dateFrom" (ngModelChange)="applyFilters()" />
+  </div>
+  <div class="filter-group">
+    <label>Date To</label>
+    <input class="input" type="date" [(ngModel)]="dateTo" (ngModelChange)="applyFilters()" />
+  </div>
+</div>
+
+<app-data-table
+  title="Audit Events"
+  [subtitle]="totalCount + ' events'"
+  [columns]="columns"
+  [data]="events"
+  [actions]="tableActions"
+  [serverSide]="true"
+  [loading]="loading"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="currentPage"
+  searchPlaceholder="Search entity, actor, action..."
+  (searchChange)="onSearch($event)"
+  (pageChange)="loadPage($event)"
+></app-data-table>
+
+<!-- Diff Modal -->
+@if (showDiff && selectedEvent) {
+  <div class="modal-overlay" (click)="closeDiff()">
+    <div class="modal" (click)="$event.stopPropagation()">
+
+      <div class="modal-header">
+        <div class="modal-title">
+          <span class="badge" [class]="'badge-' + selectedEvent.action?.toLowerCase()">
+            {{ selectedEvent.action }}
+          </span>
+          <span>{{ selectedEvent.entityType }} &mdash; {{ selectedEvent._entityDisplay }}</span>
+        </div>
+        <button class="close-btn" (click)="closeDiff()">
+          <app-icon name="x" [size]="18"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-meta">
+        <span>Actor: <strong>{{ selectedEvent._actorDisplay }}</strong></span>
+        <span>{{ selectedEvent.timestamp | date:'medium' }}</span>
+        @if (selectedEvent.correlationId) {
+          <span class="correlation">{{ selectedEvent.correlationId }}</span>
+        }
+      </div>
+
+      <div class="modal-body">
+        @if (diffRows.length === 0) {
+          <p class="no-changes">No field data recorded for this event.</p>
+        } @else {
+          <table class="diff-table">
+            <thead>
+              <tr>
+                <th class="field-col">Field</th>
+                @if (selectedEvent.action === 'UPDATE') {
+                  <th class="before-col">Before</th>
+                  <th class="after-col">After</th>
+                } @else if (selectedEvent.action === 'CREATE') {
+                  <th class="after-col">New Value</th>
+                } @else {
+                  <th class="before-col">Removed Value</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of diffRows; track row.field) {
+                <tr>
+                  <td class="field-name">{{ formatField(row.field) }}</td>
+                  @if (selectedEvent.action === 'UPDATE') {
+                    <td class="value before">{{ formatValue(row.before) }}</td>
+                    <td class="value after">{{ formatValue(row.after) }}</td>
+                  } @else if (selectedEvent.action === 'CREATE') {
+                    <td class="value after">{{ formatValue(row.after) }}</td>
+                  } @else {
+                    <td class="value before">{{ formatValue(row.before) }}</td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+
+    </div>
+  </div>
+}

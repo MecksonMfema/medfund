@@ -45,6 +45,9 @@ class PaymentRunServiceTest {
     @Mock
     private FinanceEventPublisher eventPublisher;
 
+    @Mock
+    private PaymentRunDecisionService decisionService;
+
     @InjectMocks
     private PaymentRunService paymentRunService;
 
@@ -98,6 +101,10 @@ class PaymentRunServiceTest {
 
         when(paymentRunRepository.findById(run.getId())).thenReturn(Mono.just(run));
         when(paymentRunRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        // No items in this run — applyTenantRulesToItems and recomputeRunTotal both
+        // call findByPaymentRunId; an empty Flux exercises the wiring without
+        // dragging rule logic into this test.
+        when(paymentRunItemRepository.findByPaymentRunId(run.getId())).thenReturn(Flux.empty());
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishPaymentRunExecuted(any(), any(), anyInt())).thenReturn(Mono.empty());
 
@@ -114,8 +121,8 @@ class PaymentRunServiceTest {
                 .verifyComplete();
 
         verify(paymentRunRepository).findById(run.getId());
-        // save called twice: once for in_progress, once for completed
-        verify(paymentRunRepository, times(2)).save(any());
+        // save called 3x: in_progress, recomputeRunTotal (totalAmount=0), completed
+        verify(paymentRunRepository, times(3)).save(any());
         verify(auditPublisher).publish(any());
         verify(eventPublisher).publishPaymentRunExecuted(any(), any(), anyInt());
     }

@@ -51,6 +51,22 @@ public class ClaimFact {
         results.add(new RuleResult("FLAG", null, message));
     }
 
+    /**
+     * APPLY_COPAY action — record a percentage-of-amount co-pay against the claim.
+     * The actual deduction is applied by the consuming service when it reads the
+     * result; the engine only emits the intent and the computed amount.
+     */
+    public void applyPercentageCopay(double percentage, String message) {
+        BigDecimal pct = BigDecimal.valueOf(percentage);
+        BigDecimal copay = amount != null ? amount.multiply(pct).movePointLeft(2) : BigDecimal.ZERO;
+        results.add(new RuleResult("APPLY_COPAY", "PCT-" + percentage, message, copay));
+    }
+
+    /** APPLY_COPAY action — record a fixed-amount co-pay. */
+    public void applyFixedCopay(BigDecimal copayAmount, String message) {
+        results.add(new RuleResult("APPLY_COPAY", "FIXED", message, copayAmount));
+    }
+
     public boolean hasRejections() {
         return results.stream().anyMatch(r -> "REJECT".equals(r.getType()));
     }

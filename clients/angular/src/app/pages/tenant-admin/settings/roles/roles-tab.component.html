@@ -1,0 +1,196 @@
+<div class="roles-tab">
+  <div class="section-header">
+    <div>
+      <h3 class="section-title">Roles &amp; Permissions</h3>
+      <p class="section-sub">Define which permissions each role grants. Assign roles to staff users so they only see what they should.</p>
+    </div>
+    <div class="section-actions">
+      <button class="btn btn-primary" (click)="openCreate()">
+        <app-icon name="plus" [size]="16"></app-icon> New Role
+      </button>
+    </div>
+  </div>
+
+  @if (loadError) {
+    <div class="error-banner">{{ loadError }}</div>
+  }
+
+  @if (loading) {
+    <div class="role-list">
+      @for (_ of [0,1,2,3]; track $index) {
+        <app-skeleton variant="card" height="68px"></app-skeleton>
+      }
+    </div>
+  } @else {
+    <div class="role-list">
+      @for (role of roles; track role.id) {
+        <div class="role-card">
+          <div class="role-meta">
+            <div class="role-name-row">
+              <span class="role-name">{{ role.displayName }}</span>
+              @if (role.isSystem) {
+                <span class="badge badge-system">System</span>
+              }
+              <span class="role-key">{{ role.name }}</span>
+            </div>
+            @if (role.description) {
+              <p class="role-desc">{{ role.description }}</p>
+            }
+            <div class="role-stats">
+              <button class="link-btn" (click)="openMembers(role)">
+                <app-icon name="users" [size]="14"></app-icon>
+                {{ role.memberCount }} {{ role.memberCount === 1 ? 'member' : 'members' }}
+              </button>
+            </div>
+          </div>
+          <div class="role-actions">
+            <button class="btn btn-ghost" (click)="openEdit(role)">Edit</button>
+            @if (!role.isSystem) {
+              <button class="btn btn-ghost btn-danger" (click)="delete(role)">Delete</button>
+            }
+          </div>
+        </div>
+      }
+      @if (roles.length === 0) {
+        <div class="empty">
+          <p>No roles defined yet. Click <strong>New Role</strong> to add the first one.</p>
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<!-- Editor drawer (modal-style overlay) -->
+@if (editingMode) {
+  <div class="drawer-overlay" (click)="closeEditor()"></div>
+  <aside class="drawer">
+    <div class="drawer-header">
+      <h3>{{ editingMode === 'create' ? 'New Role' : 'Edit Role' }}</h3>
+      <button class="icon-btn" (click)="closeEditor()" title="Close">
+        <app-icon name="x" [size]="18"></app-icon>
+      </button>
+    </div>
+
+    <div class="drawer-body">
+      @if (editorError) {
+        <div class="error-banner">{{ editorError }}</div>
+      }
+      <div class="form-grid">
+        <div class="form-field">
+          <label class="form-label">Name <span class="label-hint">(unique identifier)</span></label>
+          <input type="text" class="form-input"
+            [(ngModel)]="editorForm.name"
+            [disabled]="editingMode === 'edit'"
+            placeholder="claims_reviewer" maxlength="100" />
+        </div>
+        <div class="form-field">
+          <label class="form-label">Display name</label>
+          <input type="text" class="form-input"
+            [(ngModel)]="editorForm.displayName"
+            placeholder="Claims Reviewer" maxlength="200" />
+        </div>
+        <div class="form-field form-field-full">
+          <label class="form-label">Description <span class="label-hint">(optional)</span></label>
+          <textarea class="form-textarea" rows="2"
+            [(ngModel)]="editorForm.description"
+            placeholder="What this role does"></textarea>
+        </div>
+      </div>
+
+      <h4 class="section-subtitle">Permissions</h4>
+      <p class="hint">Pick the actions this role can perform. Hover the label for what each one allows.</p>
+
+      <div class="permission-grid">
+        @for (domain of catalogue; track domain.id) {
+          <div class="domain-card">
+            <button class="domain-header" (click)="toggleDomain(domain.id)">
+              <div class="domain-head-left">
+                <span class="domain-chevron">
+                  <app-icon [name]="isDomainExpanded(domain.id) ? 'chevron-down' : 'chevron-right'" [size]="14"></app-icon>
+                </span>
+                <span class="domain-label">{{ domain.label }}</span>
+                <span class="domain-count">
+                  ({{
+                    domain.permissions | slice:0:0
+                  }}<!-- placeholder -->)
+                </span>
+              </div>
+              <label class="all-toggle" (click)="$event.stopPropagation()">
+                <input type="checkbox"
+                  [checked]="isDomainAllSelected(domain)"
+                  [indeterminate]="isDomainPartiallySelected(domain)"
+                  (change)="toggleAllInDomain(domain)" />
+                <span>Select all</span>
+              </label>
+            </button>
+            @if (isDomainExpanded(domain.id)) {
+              <div class="permission-list">
+                @for (p of domain.permissions; track p.key) {
+                  <label class="permission-row" [title]="p.description">
+                    <input type="checkbox"
+                      [checked]="isSelected(p.key)"
+                      (change)="togglePermission(p.key)" />
+                    <span class="permission-label">{{ p.label }}</span>
+                    <span class="permission-key">{{ p.key }}</span>
+                  </label>
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </div>
+
+    <div class="drawer-footer">
+      <button class="btn btn-ghost" (click)="closeEditor()" [disabled]="editorSaving">Cancel</button>
+      <button class="btn btn-primary" (click)="saveEditor()" [disabled]="editorSaving">
+        {{ editorSaving ? 'Saving…' : (editingMode === 'create' ? 'Create role' : 'Save changes') }}
+      </button>
+    </div>
+  </aside>
+}
+
+<!-- Members drawer -->
+@if (membersFor) {
+  <div class="drawer-overlay" (click)="closeMembers()"></div>
+  <aside class="drawer">
+    <div class="drawer-header">
+      <h3>Members of "{{ membersFor.displayName }}"</h3>
+      <button class="icon-btn" (click)="closeMembers()" title="Close">
+        <app-icon name="x" [size]="18"></app-icon>
+      </button>
+    </div>
+
+    <div class="drawer-body">
+      @if (membersLoading) {
+        <app-skeleton variant="card" height="48px"></app-skeleton>
+      } @else {
+        <div class="add-member-row">
+          <select class="form-input" [(ngModel)]="selectedCandidateId">
+            <option value="">— Select a staff user —</option>
+            @for (u of candidateUsers; track u.id) {
+              <option [value]="u.id">{{ u.firstName }} {{ u.lastName }} &lt;{{ u.email }}&gt;</option>
+            }
+          </select>
+          <button class="btn btn-primary" (click)="addMember()"
+            [disabled]="!selectedCandidateId || membersSaving">Add</button>
+        </div>
+
+        <div class="member-list">
+          @for (m of members; track m.userId) {
+            <div class="member-row">
+              <div class="member-meta">
+                <span class="member-name">{{ m.name ?? m.userId }}</span>
+                @if (m.email) { <span class="member-email">{{ m.email }}</span> }
+              </div>
+              <button class="btn btn-ghost btn-danger" (click)="removeMember(m)" [disabled]="membersSaving">Remove</button>
+            </div>
+          }
+          @if (members.length === 0) {
+            <p class="empty">No members yet.</p>
+          }
+        </div>
+      }
+    </div>
+  </aside>
+}

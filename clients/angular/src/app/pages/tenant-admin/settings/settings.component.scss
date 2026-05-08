@@ -1,0 +1,562 @@
+/* The page-header + tabs stick to the top of the scrolling content area so
+   the user always sees which page they're on and which tab is active —
+   independent of how far they've scrolled inside a tab's content. */
+.page-header {
+  position: sticky;
+  top: calc(-1 * var(--spacing-xl));   /* offset by the .tenant-content padding */
+  z-index: 5;
+  background: var(--color-bg);
+  margin: calc(-1 * var(--spacing-xl)) calc(-1 * var(--spacing-xl)) 0;
+  padding: var(--spacing-xl) var(--spacing-xl) var(--spacing-base);
+}
+.page-header h1 { font-size: var(--font-size-2xl); margin-bottom: 4px; }
+.page-subtitle { color: var(--color-text-secondary); font-size: var(--font-size-base); }
+
+/* ── Tabs (mirrors platform settings) ───────────────────────────────────── */
+
+.tabs {
+  position: sticky;
+  /* Sticks below the page-header (subtitle line is ~24px → header reserves ~96px) */
+  top: 80px;
+  z-index: 5;
+  background: var(--color-bg);
+  display: flex;
+  gap: 4px;
+  margin: 0 calc(-1 * var(--spacing-xl)) var(--spacing-xl);
+  padding: 0 var(--spacing-xl);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-base);
+  border: none;
+  background: none;
+  color: var(--color-text-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all var(--transition-fast);
+}
+.tab:hover  { color: var(--color-primary); }
+.tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xl);
+}
+
+.settings-card {
+  padding: var(--spacing-xl);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+}
+.settings-card h3 {
+  font-size: var(--font-size-lg);
+  margin-bottom: 4px;
+}
+.placeholder .placeholder-text {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  margin: 8px 0 0;
+}
+
+/* ── Branding card (lifted from admin.component.scss) ───────────────────── */
+
+.branding-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+}
+
+.section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
+  flex-wrap: wrap;
+}
+
+.section-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 4px;
+}
+
+.section-sub {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-base);
+}
+
+.saved-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-success);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 9px 20px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  border: none;
+  transition: background var(--transition-fast), opacity var(--transition-fast);
+
+  &:disabled { opacity: 0.6; cursor: default; }
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+  &:hover:not(:disabled) { background: var(--color-primary-hover); }
+}
+
+/* Branding sections */
+
+.branding-section {
+  padding-top: var(--spacing-xl);
+  border-top: 1px solid var(--color-border-light);
+  margin-top: var(--spacing-xl);
+
+  &:first-of-type { padding-top: 0; border-top: none; margin-top: 0; }
+}
+
+.branding-label {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--spacing-base);
+}
+
+.label-hint {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+}
+
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--spacing-base);
+}
+
+.template-card {
+  position: relative;
+  background: var(--color-bg);
+  border: 2px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:hover    { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-light); }
+  &.selected { border-color: var(--color-primary); background: var(--color-primary-light); box-shadow: 0 0 0 3px var(--color-primary-light); }
+}
+
+.template-swatches {
+  display: flex;
+  gap: 3px;
+  margin-bottom: var(--spacing-sm);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.swatch { flex: 1; height: 28px; display: block; }
+
+.template-info { display: flex; flex-direction: column; gap: 2px; }
+.template-name {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.template-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+.template-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: var(--color-primary);
+}
+
+/* Custom colours */
+
+.color-hint { font-size: var(--font-size-sm); color: var(--color-text-secondary); margin: 0 0 var(--spacing-sm); }
+
+.color-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--spacing-xl);
+}
+
+/* Align hints and inputs across the grid even when hints wrap to a different
+   number of lines — input groups pin to the bottom of each cell. */
+.color-field {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.color-label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+}
+
+.color-input-group {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: auto;
+}
+
+.color-picker {
+  width: 40px; height: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  background: var(--color-surface);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.color-text {
+  flex: 1; height: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--spacing-sm);
+  font-size: var(--font-size-base);
+  font-family: var(--font-family);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  outline: none;
+  &:focus { border-color: var(--color-primary); }
+}
+
+.color-clear {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+  &:hover { color: var(--color-error); border-color: var(--color-error); }
+}
+
+/* Logo row */
+
+.logo-row { display: flex; align-items: center; gap: var(--spacing-md); flex-wrap: wrap; }
+
+.logo-input {
+  flex: 1; min-width: 280px; height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--spacing-md);
+  font-size: var(--font-size-base);
+  font-family: var(--font-family);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  outline: none;
+  &:focus { border-color: var(--color-primary); }
+}
+
+.logo-preview {
+  width: 48px; height: 48px;
+  object-fit: contain;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  padding: 4px;
+}
+
+/* ── Logo upload ────────────────────────────────────────────────────────── */
+
+.logo-upload {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-base);
+  flex-wrap: wrap;
+}
+
+.logo-preview-large,
+.logo-placeholder {
+  width: 96px;
+  height: 96px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.logo-preview-large {
+  border-style: solid;
+  object-fit: contain;
+  padding: 6px;
+}
+
+.logo-upload-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── General tab form ───────────────────────────────────────────────────── */
+
+.general-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--spacing-xl);
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  /* Ensures the trailing input pins to the bottom of the cell — see .form-input rule. */
+  height: 100%;
+}
+
+.form-label {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+}
+
+.form-input {
+  height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--spacing-md);
+  font-size: var(--font-size-base);
+  font-family: var(--font-family);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  outline: none;
+  /* Push the input to the bottom of the column so rows line up regardless
+     of whether a sibling cell has a hint or a wrapped multi-line hint. */
+  margin-top: auto;
+  &:focus    { border-color: var(--color-primary); }
+  &:disabled { background: var(--color-bg); color: var(--color-text-muted); cursor: not-allowed; }
+}
+
+.general-error {
+  background: var(--color-error-light, #fee2e2);
+  color: var(--color-error, #b91c1c);
+  border: 1px solid var(--color-error, #b91c1c);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--spacing-base);
+}
+
+/* ── Insurance Lines tab ────────────────────────────────────────────────── */
+
+.insurance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--spacing-base);
+}
+
+.insurance-card {
+  position: relative;
+  background: var(--color-bg);
+  border: 2px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-base);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:hover    { border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-primary-light); }
+  &.selected { border-color: var(--color-primary); background: var(--color-primary-light); box-shadow: 0 0 0 3px var(--color-primary-light); }
+}
+
+.insurance-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.insurance-name {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.insurance-desc {
+  margin: 0 0 8px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.insurance-reg {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Email Templates tab ────────────────────────────────────────────────── */
+
+.email-template-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-base);
+}
+
+.email-template-row {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-base);
+  background: var(--color-bg);
+  transition: border-color var(--transition-fast);
+
+  &.editing { border-color: var(--color-primary); background: var(--color-surface); }
+}
+
+.email-template-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+}
+
+.email-template-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+.email-template-name {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.email-template-key {
+  font-family: monospace;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.email-template-desc {
+  margin: 6px 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.email-template-actions { display: flex; gap: var(--spacing-sm); }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.badge-default {
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border-light);
+}
+
+.badge-overridden {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.btn-ghost {
+  background: none;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  &:hover:not(:disabled) { background: var(--color-bg); }
+}
+
+.btn-danger {
+  color: var(--color-error, #b91c1c);
+  border-color: var(--color-error, #b91c1c);
+  &:hover:not(:disabled) { background: var(--color-error-light, #fee2e2); }
+}
+
+.email-template-editor {
+  margin-top: var(--spacing-base);
+  padding-top: var(--spacing-base);
+  border-top: 1px solid var(--color-border-light);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-base);
+}
+
+.form-textarea {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  resize: vertical;
+  outline: none;
+  &:focus { border-color: var(--color-primary); }
+}
+.form-textarea.code {
+  font-family: monospace;
+  font-size: var(--font-size-sm);
+}
+
+.email-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+}

@@ -1,0 +1,219 @@
+<div class="modal-overlay" (click)="onCancel()">
+  <div class="modal modal-wide" (click)="$event.stopPropagation()">
+
+    <div class="modal-header">
+      <div>
+        <h2>{{ mode === 'create' ? 'New Rule' : 'Edit Rule' }}</h2>
+        <p class="modal-sub">
+          {{ form.category.replace('_', ' ').toLowerCase() }} · priority {{ form.priority }}
+        </p>
+      </div>
+      <button class="btn-icon" (click)="onCancel()">
+        <app-icon name="x" [size]="18"></app-icon>
+      </button>
+    </div>
+
+    <!-- Mode toggle -->
+    <div class="mode-toggle">
+      <button
+        class="mode-btn"
+        [class.active]="editorMode === 'visual'"
+        (click)="editorMode = 'visual'"
+      >Visual</button>
+      <button
+        class="mode-btn"
+        [class.active]="editorMode === 'drl'"
+        (click)="editorMode = 'drl'"
+      >DRL</button>
+      @if (editorMode === 'drl') {
+        <span class="mode-warn">
+          <app-icon name="alert-circle" [size]="14"></app-icon>
+          DRL override is used as-is. The visual form below is preserved but bypassed at compile time.
+        </span>
+      }
+    </div>
+
+    <div class="modal-body">
+
+      @if (serverError) {
+        <div class="error-banner">
+          <app-icon name="alert-circle" [size]="16"></app-icon>
+          {{ serverError }}
+        </div>
+      }
+
+      <!-- Common fields -->
+      <div class="form-row two-col">
+        <div class="form-field">
+          <label>Name *</label>
+          <input class="input" [(ngModel)]="form.name" placeholder="e.g. Maternity waiting period — 300 days" />
+        </div>
+        <div class="form-field">
+          <label>Rule Key *</label>
+          <input
+            class="input"
+            [(ngModel)]="form.ruleKey"
+            [disabled]="mode === 'edit'"
+            placeholder="e.g. maternity-waiting-period-300d"
+          />
+          @if (mode === 'edit') {
+            <span class="field-hint">Rule key is immutable. Delete + create to rename.</span>
+          }
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-field">
+          <label>Description</label>
+          <textarea class="input" [(ngModel)]="form.description" rows="2"
+            placeholder="What this rule does and why."></textarea>
+        </div>
+      </div>
+
+      <div class="form-row three-col">
+        <div class="form-field">
+          <label>Category *</label>
+          <select class="input" [(ngModel)]="form.category">
+            @for (c of categories; track c.id) {
+              <option [value]="c.id">{{ c.label }}</option>
+            }
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Priority</label>
+          <input class="input" type="number" min="0" max="999" [(ngModel)]="form.priority" />
+          <span class="field-hint">Higher fires earlier in the same category.</span>
+        </div>
+        <div class="form-field form-field--checkbox">
+          <label class="checkbox-label">
+            <input type="checkbox" [(ngModel)]="form.enabled" />
+            Enabled
+          </label>
+        </div>
+      </div>
+
+      <!-- Visual mode -->
+      @if (editorMode === 'visual') {
+        <section class="section">
+          <header class="section-header">
+            <h3>Conditions</h3>
+            <div class="op-toggle">
+              <button class="op-btn" [class.active]="form.conditionsOperator === 'AND'"
+                (click)="form.conditionsOperator = 'AND'">All match (AND)</button>
+              <button class="op-btn" [class.active]="form.conditionsOperator === 'OR'"
+                (click)="form.conditionsOperator = 'OR'">Any match (OR)</button>
+            </div>
+          </header>
+
+          <div class="condition-rows">
+            @for (row of form.conditionRows; track $index) {
+              <div class="condition-row">
+                <input class="input field-input"
+                  [(ngModel)]="row.field"
+                  placeholder="claim.daysSinceService" />
+                <select class="input op-input" [(ngModel)]="row.operator">
+                  @for (op of operators; track op.id) {
+                    <option [value]="op.id">{{ op.label }}</option>
+                  }
+                </select>
+                <input class="input value-input"
+                  [(ngModel)]="row.value"
+                  placeholder="value" />
+                <button class="row-remove" (click)="removeCondition($index)" title="Remove">
+                  <app-icon name="x" [size]="14"></app-icon>
+                </button>
+              </div>
+            }
+            <button class="add-condition" (click)="addCondition()">
+              <app-icon name="plus" [size]="14"></app-icon>
+              Add condition
+            </button>
+          </div>
+        </section>
+
+        <section class="section">
+          <header class="section-header">
+            <h3>Action</h3>
+          </header>
+
+          <div class="form-row two-col">
+            <div class="form-field">
+              <label>Type *</label>
+              <select class="input" [(ngModel)]="form.actionType">
+                @for (a of actionTypes; track a.id) {
+                  <option [value]="a.id">{{ a.label }}</option>
+                }
+              </select>
+              <span class="field-hint">
+                @for (a of actionTypes; track a.id) {
+                  @if (form.actionType === a.id) {
+                    {{ a.description }}
+                  }
+                }
+              </span>
+            </div>
+            @if (form.actionType === 'REJECT') {
+              <div class="form-field">
+                <label>Rejection Code *</label>
+                <input class="input" [(ngModel)]="form.rejectionCode" placeholder="e.g. R02" />
+              </div>
+            } @else if (actionTakesValue) {
+              <div class="form-field">
+                <label>Value *</label>
+                <input class="input" [(ngModel)]="form.actionValue" [placeholder]="actionValueHint" />
+                <span class="field-hint">Format: {{ actionValueHint }}</span>
+              </div>
+            }
+          </div>
+
+          <div class="form-row">
+            <div class="form-field">
+              <label>Message *</label>
+              <textarea class="input" [(ngModel)]="form.message" rows="2"
+                placeholder="Shown to the operator when this rule fires."></textarea>
+            </div>
+          </div>
+        </section>
+      }
+
+      <!-- DRL mode -->
+      @if (editorMode === 'drl') {
+        <section class="section">
+          <header class="section-header">
+            <h3>DRL override</h3>
+          </header>
+          <div class="form-row">
+            <div class="form-field">
+              <label>Drools rule source</label>
+              <textarea
+                class="input drl-editor"
+                [(ngModel)]="form.drlOverride"
+                spellcheck="false"
+                rows="14"
+                placeholder='rule "Example"
+  when
+    $c : ClaimFact( daysSinceService > 90 )
+  then
+    $c.addRejection("R15", "Submitted more than 90 days after service");
+end'
+              ></textarea>
+              <span class="field-hint">
+                Inserted DRL is compiled directly into the tenant&apos;s KieSession.
+                Available facts: <code>ClaimFact</code>, <code>MemberFact</code>,
+                <code>DependantFact</code>, <code>ProviderFact</code>, <code>FamilyFact</code>.
+              </span>
+            </div>
+          </div>
+        </section>
+      }
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" (click)="onCancel()" [disabled]="saving">Cancel</button>
+      <button class="btn btn-primary" (click)="submit()" [disabled]="saving">
+        {{ saving ? 'Saving…' : (mode === 'create' ? 'Create rule' : 'Save changes') }}
+      </button>
+    </div>
+
+  </div>
+</div>

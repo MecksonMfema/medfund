@@ -1,5 +1,6 @@
 package com.medfund.rules.engine;
 
+import com.medfund.rules.compiler.ActionEmitters;
 import com.medfund.rules.compiler.DrlCompiler;
 import com.medfund.rules.fact.ClaimFact;
 import com.medfund.rules.fact.MemberFact;
@@ -23,7 +24,12 @@ class TenantRuleEngineTest {
 
     @BeforeEach
     void setUp() {
-        compiler = new DrlCompiler();
+        compiler = new DrlCompiler(List.of(
+                new ActionEmitters.RejectEmitter(),
+                new ActionEmitters.FlagEmitter(),
+                new ActionEmitters.WarnEmitter(),
+                new ActionEmitters.CapToTariffEmitter()
+        ));
         engine = new TenantRuleEngine(compiler);
     }
 

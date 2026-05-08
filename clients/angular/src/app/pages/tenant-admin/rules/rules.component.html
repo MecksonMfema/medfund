@@ -1,0 +1,129 @@
+<div class="page-header">
+  <div>
+    <h1>Rules Engine</h1>
+    <p class="page-subtitle">Per-tenant adjudication rules — configure how claims are accepted, flagged, or rejected.</p>
+  </div>
+  <button class="btn btn-primary" (click)="openTemplatePicker()">
+    <app-icon name="plus" [size]="18"></app-icon>
+    New Rule
+  </button>
+</div>
+
+<div class="rules-shell">
+  <!-- Category sidebar -->
+  <aside class="category-rail">
+    <h3 class="rail-title">Categories</h3>
+    <ul class="category-list">
+      @for (c of categories; track trackCategory($index, c)) {
+        <li>
+          <button
+            class="category-item"
+            [class.active]="selectedCategory === c.id"
+            (click)="selectCategory(c.id)"
+          >
+            <app-icon [name]="c.icon" [size]="16"></app-icon>
+            <span class="category-label">{{ c.label }}</span>
+            <span class="category-count">{{ countsByCategory[c.id] || 0 }}</span>
+          </button>
+        </li>
+      }
+    </ul>
+  </aside>
+
+  <!-- Main panel -->
+  <section class="main-panel">
+    <app-data-table
+      title="{{ selectedCategoryLabel }}"
+      [subtitle]="rules.length + ' rules'"
+      [columns]="columns"
+      [data]="rules"
+      [actions]="actions"
+      [loading]="loading"
+      [searchable]="false"
+      emptyMessage="No rules in this category yet. Click New Rule to add one."
+    ></app-data-table>
+  </section>
+</div>
+
+<!-- Template picker modal -->
+@if (showTemplatePicker) {
+  <div class="modal-overlay" (click)="showTemplatePicker = false">
+    <div class="modal modal-wide" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Pick a starting point</h2>
+        <button class="btn-icon" (click)="showTemplatePicker = false">
+          <app-icon name="x" [size]="18"></app-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="hint">
+          Templates seed the editor with sensible defaults for the
+          <strong>{{ selectedCategoryLabel }}</strong> category.
+          You can also start blank and write everything from scratch.
+        </p>
+
+        <div class="picker-search">
+          <app-icon name="search" [size]="16"></app-icon>
+          <input
+            type="text"
+            class="search-input"
+            placeholder="Search templates by name…"
+            [(ngModel)]="templateSearch"
+          />
+        </div>
+
+        @if (templatesLoading) {
+          <div class="picker-loading">Loading templates…</div>
+        } @else if (filteredTemplates.length === 0) {
+          <div class="picker-empty">
+            No templates available for this category. Start blank instead.
+          </div>
+        } @else {
+          <div class="template-grid">
+            @for (t of filteredTemplates; track t.id) {
+              <button class="template-card" (click)="pickTemplate(t)">
+                <div class="template-card__header">
+                  <span class="template-card__name">{{ t.name }}</span>
+                  <span class="template-card__priority">P{{ t.priority }}</span>
+                </div>
+                @if (t.description) {
+                  <p class="template-card__desc">{{ t.description }}</p>
+                }
+                @if (t.definition.action?.type) {
+                  <span class="template-card__badge" [class]="'badge-' + t.definition.action!.type!.toLowerCase()">
+                    {{ t.definition.action!.type }}
+                  </span>
+                }
+              </button>
+            }
+          </div>
+        }
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="startBlankRule()">Start blank</button>
+        <button class="btn btn-ghost" (click)="showTemplatePicker = false">Cancel</button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Editor (visual + DRL modes) -->
+@if (showEditor) {
+  <app-rule-editor
+    [mode]="editorMode"
+    [seed]="editorSeed"
+    [rule]="editingRule"
+    [defaultCategory]="selectedCategory"
+    (create)="onEditorCreate($event)"
+    (update)="onEditorUpdate($event)"
+    (cancel)="onEditorCancelled()"
+  ></app-rule-editor>
+}
+
+<!-- Dry-run sandbox -->
+@if (showDryRun && dryRunRule) {
+  <app-rule-dry-run
+    [rule]="dryRunRule"
+    (close)="closeDryRun()"
+  ></app-rule-dry-run>
+}

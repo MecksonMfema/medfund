@@ -1,11 +1,7 @@
 import { Routes } from '@angular/router';
-import { authGuard, roleGuard } from './auth/auth.guard';
+import { authGuard, roleGuard, rootRedirectGuard } from './auth/auth.guard';
 import { LayoutComponent } from './layout/layout.component';
 import { TenantLayoutComponent } from './layout/tenant-layout/tenant-layout.component';
-
-// Lazy load the role redirect component - reused by multiple routes
-const loadRoleRedirect = () =>
-  import('./pages/role-redirect/role-redirect.component').then(m => m.RoleRedirectComponent);
 
 export const routes: Routes = [
   // Platform admin routes
@@ -52,38 +48,81 @@ export const routes: Routes = [
       },
     ],
   },
-  // Tenant-scoped routes — uses dedicated TenantLayoutComponent (dark teal sidebar)
+  // Tenant IT-admin routes — uses dedicated TenantLayoutComponent (dark teal sidebar).
+  // Mounted under /tenant/admin/* so the URL itself signals "this is the IT
+  // admin console", leaving /tenant/* free for any future operational tenant
+  // portals (claims, finance, etc.) that we'll reattach later.
   {
-    path: 'tenant',
+    path: 'tenant/admin',
     component: TenantLayoutComponent,
     canActivate: [authGuard],
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'dashboard', loadComponent: () => import('./pages/dashboard/dashboard.component').then(m => m.DashboardComponent), data: { title: 'Dashboard' } },
-      { path: 'claims', loadComponent: () => import('./pages/claims/claims.component').then(m => m.ClaimsComponent), data: { title: 'Claims' } },
-      { path: 'contributions', loadComponent: () => import('./pages/contributions/contributions.component').then(m => m.ContributionsComponent), data: { title: 'Contributions' } },
-      { path: 'finance', loadComponent: () => import('./pages/finance/finance.component').then(m => m.FinanceComponent), data: { title: 'Finance' } },
-      { path: 'members', loadComponent: () => import('./pages/members/members.component').then(m => m.MembersComponent), data: { title: 'Members' } },
-      { path: 'users', loadComponent: () => import('./pages/tenant-users/tenant-users.component').then(m => m.TenantUsersComponent), data: { title: 'Users & Members' } },
-      { path: 'admin', loadComponent: () => import('./pages/admin/admin.component').then(m => m.AdminComponent), data: { title: 'Administration' } },
+      { path: 'users',     loadComponent: () => import('./pages/tenant-users/tenant-users.component').then(m => m.TenantUsersComponent), data: { title: 'Users' } },
+      { path: 'audit',     loadComponent: () => import('./pages/tenant-admin/audit/audit.component').then(m => m.TenantAuditComponent), data: { title: 'Audit Logs' } },
+      { path: 'rules',     loadComponent: () => import('./pages/tenant-admin/rules/rules.component').then(m => m.TenantRulesComponent), data: { title: 'Rules Engine' } },
+      { path: 'settings',  loadComponent: () => import('./pages/tenant-admin/settings/settings.component').then(m => m.TenantSettingsComponent), data: { title: 'Settings' } },
     ],
   },
-  // Legacy route redirects — catch old URLs and role-redirect them
-  { path: 'dashboard', canActivate: [authGuard], loadComponent: loadRoleRedirect },
-  { path: 'claims', canActivate: [authGuard], loadComponent: loadRoleRedirect },
-  { path: 'contributions', canActivate: [authGuard], loadComponent: loadRoleRedirect },
-  { path: 'finance', canActivate: [authGuard], loadComponent: loadRoleRedirect },
-  { path: 'members', canActivate: [authGuard], loadComponent: loadRoleRedirect },
-  { path: 'providers', redirectTo: '/platform/providers', pathMatch: 'full' },
-  { path: 'admin', canActivate: [authGuard], loadComponent: loadRoleRedirect },
-  // Root — role-based redirect
+  // Operational portal — sibling of /tenant/admin/*, same TenantLayoutComponent
+  // but the layout reads `data.sidebar` and renders OperationalSidebarComponent
+  // instead of the IT-admin sidebar. Each section's children are scaffolded in
+  // Phase 4 of the operational-portal plan; today most resolve to ComingSoon.
+  {
+    path: 'tenant',
+    component: TenantLayoutComponent,
+    canActivate: [authGuard],
+    data: { sidebar: 'operational' },
+    children: [
+      { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+      {
+        path: 'dashboard',
+        loadComponent: () => import('./pages/tenant/dashboard/dashboard.component').then(m => m.TenantOperationalDashboardComponent),
+        data: { title: 'Dashboard', sidebar: 'operational' },
+      },
+      // Each section's full route tree is in its own file — Phase 4 wires
+      // ~150 reference routes, mostly to ComingSoon, with the existing
+      // functional shells (claims/contributions/finance/members) becoming the
+      // index of their respective section.
+      {
+        path: 'claims',
+        loadChildren: () => import('./pages/tenant/claims/claims.routes').then(m => m.CLAIMS_ROUTES),
+      },
+      {
+        path: 'billing',
+        loadChildren: () => import('./pages/tenant/billing/billing.routes').then(m => m.BILLING_ROUTES),
+      },
+      {
+        path: 'finance',
+        loadChildren: () => import('./pages/tenant/finance/finance.routes').then(m => m.FINANCE_ROUTES),
+      },
+      {
+        path: 'members',
+        loadChildren: () => import('./pages/tenant/members/members.routes').then(m => m.MEMBERS_ROUTES),
+      },
+    ],
+  },
+  // Legacy unprefixed paths — keep as redirectTo so old bookmarks resolve.
+  // Each lands on the equivalent operational route in the new portal; the
+  // operational layout's `permissionGuard` then enforces access.
+  { path: 'dashboard',     pathMatch: 'full', redirectTo: '/tenant/dashboard' },
+  { path: 'claims',        pathMatch: 'full', redirectTo: '/tenant/claims' },
+  { path: 'contributions', pathMatch: 'full', redirectTo: '/tenant/billing/schemes' },
+  { path: 'finance',       pathMatch: 'full', redirectTo: '/tenant/finance/runs' },
+  { path: 'members',       pathMatch: 'full', redirectTo: '/tenant/members' },
+  { path: 'providers',     pathMatch: 'full', redirectTo: '/platform/providers' },
+  { path: 'admin',         pathMatch: 'full', redirectTo: '/tenant/admin/dashboard' },
+
+  // Root — dispatcher: super_admin → /platform, everyone else → /tenant.
+  // The guard returns a UrlTree, so this route never renders a component.
   {
     path: '',
     pathMatch: 'full',
-    canActivate: [authGuard],
-    loadComponent: loadRoleRedirect,
+    canActivate: [rootRedirectGuard],
+    children: [],
   },
   { path: 'unauthorized', loadComponent: () => import('./pages/unauthorized/unauthorized.component').then(m => m.UnauthorizedComponent) },
-  // Catch-all — also role-redirect (not redirectTo which can break)
-  { path: '**', canActivate: [authGuard], loadComponent: loadRoleRedirect },
+  // Catch-all — same dispatcher so a 404'd URL doesn't strand the user.
+  { path: '**', canActivate: [rootRedirectGuard], children: [] },
 ];

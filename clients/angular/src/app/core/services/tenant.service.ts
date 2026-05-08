@@ -12,6 +12,15 @@ export interface Tenant {
   timezone: string;
   insuranceLines: string[];
   providerRegLabel: string;
+  /**
+   * What this tenant calls a Scheme. Common alternatives: Package, Plan,
+   * Policy. Singular + plural stored separately so we don't pluralize "Policy"
+   * as "Policys" or "Plan" as "Plans" via algorithm. Defaults to Scheme/Schemes
+   * — consumers should fall back to those when the field is missing (older
+   * cached tenant snapshots predate the setting).
+   */
+  schemeLabelSingular?: string;
+  schemeLabelPlural?: string;
 }
 
 const SESSION_KEY = 'medfund_current_tenant';

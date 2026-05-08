@@ -290,7 +290,7 @@ export class TenantsComponent implements OnInit, OnDestroy {
           insuranceLines: lines,
           providerRegLabel: parseProviderRegLabel(full.settings) || deriveProviderRegLabel(lines),
         });
-        this.router.navigate(['/tenant/dashboard']);
+        this.router.navigate(['/tenant/admin/dashboard']);
       },
       error: () => {
         const lines = parseInsuranceLines((tenant as any).settings);
@@ -304,7 +304,7 @@ export class TenantsComponent implements OnInit, OnDestroy {
           insuranceLines: lines,
           providerRegLabel: deriveProviderRegLabel(lines),
         });
-        this.router.navigate(['/tenant/dashboard']);
+        this.router.navigate(['/tenant/admin/dashboard']);
       },
     });
   }

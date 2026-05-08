@@ -37,19 +37,22 @@ public class BillingService {
     private final AgeGroupRepository ageGroupRepository;
     private final AuditPublisher auditPublisher;
     private final ContributionEventPublisher eventPublisher;
+    private final ContributionPricingService pricingService;
 
     public BillingService(ContributionRepository contributionRepository,
                           InvoiceRepository invoiceRepository,
                           SchemeRepository schemeRepository,
                           AgeGroupRepository ageGroupRepository,
                           AuditPublisher auditPublisher,
-                          ContributionEventPublisher eventPublisher) {
+                          ContributionEventPublisher eventPublisher,
+                          ContributionPricingService pricingService) {
         this.contributionRepository = contributionRepository;
         this.invoiceRepository = invoiceRepository;
         this.schemeRepository = schemeRepository;
         this.ageGroupRepository = ageGroupRepository;
         this.auditPublisher = auditPublisher;
         this.eventPublisher = eventPublisher;
+        this.pricingService = pricingService;
     }
 
     public Flux<Contribution> findContributionsByMemberId(UUID memberId) {
@@ -84,7 +87,12 @@ public class BillingService {
         contribution.setCreatedBy(UUID.fromString(actorId));
         contribution.setUpdatedBy(UUID.fromString(actorId));
 
-        return contributionRepository.save(contribution)
+        // Run tenant pricing rules before persistence. The pricing service
+        // mutates contribution.amount in place when SET_PREMIUM /
+        // APPLY_LOADED_PREMIUM rules fire; tenants without pricing rules
+        // get the legacy behaviour (whatever amount the request supplied).
+        return pricingService.price(contribution)
+            .then(Mono.defer(() -> contributionRepository.save(contribution)))
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
                 return publishAudit(tenantId, "Contribution", saved.getId().toString(), "CREATE", actorId,
