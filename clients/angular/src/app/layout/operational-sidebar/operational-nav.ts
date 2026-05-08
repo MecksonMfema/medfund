@@ -4,12 +4,24 @@ import { PermissionKey } from '../../core/security/permissions';
  * Sidebar item shape — declares the permission(s) under which the item is
  * visible. ANY-of semantics: holding at least one permission renders the
  * item. An empty/missing array means the item is always visible.
+ *
+ * <p>{@code exactMatch} = true forces routerLinkActive to use exact path
+ * comparison instead of prefix. Set this on any item whose route is a
+ * prefix of another sibling item's route — e.g. {@code /tenant/claims}
+ * needs exactMatch because {@code /tenant/claims/drug} is a separate
+ * item; without exact, both stay highlighted when on the drug subpath.
+ *
+ * <p>{@code featureFlag} ties an item's visibility to a tenant feature
+ * toggle from {@code TenantService.tenant$} (e.g. "drugClaims"). The
+ * sidebar resolves the flag at render time.
  */
 export interface OperationalNavItem {
   label: string;
   icon: string;
   route: string;
   permissions?: PermissionKey[];
+  exactMatch?: boolean;
+  featureFlag?: 'drugClaims';
 }
 
 /**
@@ -32,6 +44,24 @@ export interface OperationalNavGroup {
  */
 export const OPERATIONAL_NAV: OperationalNavGroup[] = [
   {
+    title: 'Billing',
+    items: [
+      { label: 'Schemes',        icon: 'briefcase',  route: '/tenant/billing/schemes',      permissions: ['billing:view', 'billing:manage_schemes'] },
+      { label: 'Generate',       icon: 'play-circle', route: '/tenant/billing/generate',    permissions: ['billing:generate_billing'] },
+      { label: 'Statements',     icon: 'file-text',  route: '/tenant/billing/statements',   permissions: ['billing:view_statements'] },
+      { label: 'Transactions',   icon: 'activity',   route: '/tenant/billing/transactions', permissions: ['billing:post_transactions', 'billing:view'] },
+      { label: 'Creditors',      icon: 'trending-down', route: '/tenant/billing/creditors', permissions: ['billing:view_creditors'] },
+    ],
+  },
+  {
+    title: 'Members',
+    items: [
+      { label: 'Members',     icon: 'users',     route: '/tenant/members',          permissions: ['members:view'] },
+      { label: 'Dependants',  icon: 'user-plus', route: '/tenant/members/dependants', permissions: ['members:view_dependants'] },
+      { label: 'Groups',      icon: 'building',  route: '/tenant/members/groups',   permissions: ['billing:manage_groups'] },
+    ],
+  },
+  {
     title: 'Overview',
     items: [
       { label: 'Dashboard', icon: 'dashboard', route: '/tenant/dashboard' },
@@ -40,22 +70,13 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
   {
     title: 'Claims',
     items: [
-      { label: 'All Claims',      icon: 'file-medical', route: '/tenant/claims',         permissions: ['claims:view'] },
-      { label: 'Drug Claims',     icon: 'wallet',       route: '/tenant/claims/drug',    permissions: ['claims:view_drug'] },
-      { label: 'Pre-Authorizations', icon: 'check-circle', route: '/tenant/claims/preauth', permissions: ['claims:manage_preauth'] },
-      { label: 'Tariffs',         icon: 'banknote',     route: '/tenant/claims/tariffs', permissions: ['claims:manage_tariffs'] },
-      { label: 'Tasks',           icon: 'clipboard',    route: '/tenant/claims/tasks',   permissions: ['claims:manage_tasks'] },
-    ],
-  },
-  {
-    title: 'Billing',
-    items: [
-      { label: 'Schemes',        icon: 'briefcase',  route: '/tenant/billing/schemes',      permissions: ['billing:view', 'billing:manage_schemes'] },
-      { label: 'Generate',       icon: 'play-circle', route: '/tenant/billing/generate',    permissions: ['billing:generate_billing'] },
-      { label: 'Statements',     icon: 'file-text',  route: '/tenant/billing/statements',   permissions: ['billing:view_statements'] },
-      { label: 'Transactions',   icon: 'activity',   route: '/tenant/billing/transactions', permissions: ['billing:post_transactions', 'billing:view'] },
-      { label: 'Currencies',     icon: 'dollar',     route: '/tenant/billing/currencies',   permissions: ['billing:view_currencies'] },
-      { label: 'Creditors',      icon: 'trending-down', route: '/tenant/billing/creditors', permissions: ['billing:view_creditors'] },
+      // exactMatch on the parent route — Drug Claims, Pre-Auth, Tariffs and
+      // Tasks are all children that would otherwise keep this item highlighted.
+      { label: 'All Claims',         icon: 'file-medical',  route: '/tenant/claims',         permissions: ['claims:view'], exactMatch: true },
+      { label: 'Drug Claims',        icon: 'wallet',        route: '/tenant/claims/drug',    permissions: ['claims:view_drug'], featureFlag: 'drugClaims' },
+      { label: 'Pre-Authorizations', icon: 'check-circle',  route: '/tenant/claims/preauth', permissions: ['claims:manage_preauth'] },
+      { label: 'Tariffs',            icon: 'banknote',      route: '/tenant/claims/tariffs', permissions: ['claims:manage_tariffs'] },
+      { label: 'Tasks',              icon: 'clipboard',     route: '/tenant/claims/tasks',   permissions: ['claims:manage_tasks'] },
     ],
   },
   {
@@ -67,14 +88,6 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
       { label: 'Banks',          icon: 'building',     route: '/tenant/finance/banks',        permissions: ['finance:manage_banks'] },
       { label: 'Adjustments',    icon: 'edit',         route: '/tenant/finance/adjustments',  permissions: ['finance:post_adjustments'] },
       { label: 'Reports',        icon: 'chart',        route: '/tenant/finance/reports',      permissions: ['finance:view_debtors', 'finance:view_subledger'] },
-    ],
-  },
-  {
-    title: 'Members',
-    items: [
-      { label: 'Members',     icon: 'users',     route: '/tenant/members',          permissions: ['members:view'] },
-      { label: 'Dependants',  icon: 'user-plus', route: '/tenant/members/dependants', permissions: ['members:view_dependants'] },
-      { label: 'Groups',      icon: 'building',  route: '/tenant/members/groups',   permissions: ['billing:manage_groups'] },
     ],
   },
 ];
