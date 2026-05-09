@@ -30,6 +30,7 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/dependants/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/providers", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/providers/*", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/groups", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/groups/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/roles", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/roles/*", proxy.Handler(cfg.UserServiceURL))

@@ -186,6 +186,22 @@ export const BILLING_ROUTES: Routes = [
   cs('users/add',           'Add User (legacy)',   '/additions/add-user',         'Legacy add-user form — superseded by Tenant Admin → Users.',                              ['admin:manage_users']),
 
   // ── Group / member admin helpers ──────────────────────────────────────────
-  cs('groups',              'Groups',              '/lookup/view-group',          'Employer groups participating in tenant schemes.',     ['billing:manage_groups']),
-  cs('groups/add',          'Add Group',           '/additions/add-group',        'Register a new employer group.',                       ['billing:manage_groups']),
+  {
+    path: 'groups',
+    canActivate: [permissionGuard(['billing:view', 'billing:manage_groups'])],
+    loadComponent: () => import('./groups/groups-list.component').then(m => m.GroupsListComponent),
+    data: { title: 'Groups', sidebar: 'operational' },
+  },
+  {
+    path: 'groups/add',
+    canActivate: [permissionGuard(['billing:manage_groups'])],
+    loadComponent: () => import('./groups/group-form.component').then(m => m.GroupFormComponent),
+    data: { title: 'Add Group', sidebar: 'operational' },
+  },
+  {
+    path: 'groups/:id/edit',
+    canActivate: [permissionGuard(['billing:manage_groups'])],
+    loadComponent: () => import('./groups/group-form.component').then(m => m.GroupFormComponent),
+    data: { title: 'Edit Group', sidebar: 'operational' },
+  },
 ];

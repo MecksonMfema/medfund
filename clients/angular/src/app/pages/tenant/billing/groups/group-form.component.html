@@ -1,0 +1,79 @@
+<div class="form-page">
+  <header class="page-header">
+    <div>
+      <h1>{{ groupId ? 'Edit group' : 'Add group' }}</h1>
+      <p class="page-sub">Employer or corporate group whose members participate in tenant schemes. Required only for groups that should appear on the Group Charge selector.</p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/billing/groups">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form (ngSubmit)="submit()" class="form-grid">
+    <label class="field span-2">
+      <span class="field-label">Name *</span>
+      <input
+        type="text"
+        [(ngModel)]="form.name"
+        name="name"
+        required
+        maxlength="200" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Registration #</span>
+      <input
+        type="text"
+        [(ngModel)]="form.registrationNumber"
+        name="registrationNumber"
+        maxlength="100" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Contact person</span>
+      <input
+        type="text"
+        [(ngModel)]="form.contactPerson"
+        name="contactPerson"
+        maxlength="200" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Contact email</span>
+      <input
+        type="email"
+        [(ngModel)]="form.contactEmail"
+        name="contactEmail"
+        maxlength="255" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Contact phone</span>
+      <input
+        type="text"
+        [(ngModel)]="form.contactPhone"
+        name="contactPhone"
+        maxlength="50" />
+    </label>
+
+    <label class="field span-2">
+      <span class="field-label">Address</span>
+      <textarea
+        [(ngModel)]="form.address"
+        name="address"
+        rows="3"></textarea>
+    </label>
+
+    <div class="form-actions span-2">
+      <a class="btn btn-default" routerLink="/tenant/billing/groups">Cancel</a>
+      <button type="submit" class="btn btn-primary" [disabled]="saving || loading">
+        {{ saving ? 'Saving…' : (groupId ? 'Save changes' : 'Create group') }}
+      </button>
+    </div>
+  </form>
+</div>

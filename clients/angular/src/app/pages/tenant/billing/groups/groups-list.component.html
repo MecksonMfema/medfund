@@ -1,0 +1,70 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Groups</h1>
+      <p class="page-sub">Employer groups participating in tenant schemes. Use Group Charge to post a one-off charge against any group balance.</p>
+    </div>
+    <a class="btn btn-primary" routerLink="/tenant/billing/groups/add">
+      <app-icon name="plus" [size]="14"></app-icon>
+      Add group
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <div class="filters">
+    <label class="field">
+      <span class="field-label">Search</span>
+      <input
+        type="text"
+        [(ngModel)]="query"
+        (ngModelChange)="onQueryChange()"
+        placeholder="Search by name…"
+        name="q" />
+    </label>
+  </div>
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (rows.length === 0) {
+    <p class="empty-state">No groups{{ query ? ' match this search' : ' yet' }}.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Registration #</th>
+          <th>Contact person</th>
+          <th>Email</th>
+          <th>Phone</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows; track row.id) {
+          <tr [class.pending]="pendingId === row.id">
+            <td><strong>{{ row.name }}</strong></td>
+            <td class="muted">{{ row.registrationNumber || '—' }}</td>
+            <td>{{ row.contactPerson || '—' }}</td>
+            <td class="muted">{{ row.contactEmail || '—' }}</td>
+            <td class="muted">{{ row.contactPhone || '—' }}</td>
+            <td>
+              <span class="status-badge" [class.suspended]="row.status === 'SUSPENDED'">
+                {{ row.status | humanize }}
+              </span>
+            </td>
+            <td class="actions">
+              <button class="link-btn" (click)="edit(row)">Edit</button>
+              @if (row.status !== 'SUSPENDED') {
+                <button class="link-btn danger" (click)="suspend(row)">Suspend</button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>
