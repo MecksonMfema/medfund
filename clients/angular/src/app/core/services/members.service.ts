@@ -44,6 +44,10 @@ export class MembersService {
     return this.api.get<Member>(`/members/${id}`);
   }
 
+  searchByName(q: string): Observable<Member[]> {
+    return this.api.get<Member[]>('/members/search', { q });
+  }
+
   enroll(data: any): Observable<Member> {
     return this.api.post<Member>('/members', data);
   }

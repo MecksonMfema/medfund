@@ -2,7 +2,7 @@
   <header class="page-header">
     <div>
       <h1>Record transaction</h1>
-      <p class="page-sub">Transaction types and payment methods come from Settings → Billing. When the chosen method requires a reference, the reference field becomes mandatory.</p>
+      <p class="page-sub">Pick a target, choose one of their open contributions, then enter the payment details.</p>
     </div>
     <a class="btn btn-default" routerLink="/tenant/billing/transactions">
       <app-icon name="arrow-left" [size]="14"></app-icon>
@@ -17,64 +17,152 @@
     <div class="banner banner-success">{{ successMessage }}</div>
   }
 
-  <form (submit)="$event.preventDefault(); submit()" class="form-grid">
-    <label class="field">
-      <span class="field-label">Contribution id (optional)</span>
-      <input [(ngModel)]="form.contributionId" name="contributionId" placeholder="UUID" />
-    </label>
+  <form (submit)="$event.preventDefault(); submit()" class="card">
 
-    <label class="field">
-      <span class="field-label">Invoice id (optional)</span>
-      <input [(ngModel)]="form.invoiceId" name="invoiceId" placeholder="UUID" />
-    </label>
+    <!-- ── Section 1: Target & contribution ───────────────────────────── -->
+    <section class="section">
+      <h3 class="section-title">Target</h3>
 
-    <label class="field">
-      <span class="field-label">Amount</span>
-      <input type="number" step="any" min="0" [(ngModel)]="form.amount" name="amount" required />
-    </label>
+      @if (membershipModel === 'BOTH') {
+        <div class="segmented" role="tablist">
+          <label class="segment" [class.active]="targetType === 'GROUP'">
+            <input
+              type="radio"
+              name="targetType"
+              value="GROUP"
+              [(ngModel)]="targetType"
+              (ngModelChange)="onTargetTypeChange()" />
+            Group
+          </label>
+          <label class="segment" [class.active]="targetType === 'INDIVIDUAL'">
+            <input
+              type="radio"
+              name="targetType"
+              value="INDIVIDUAL"
+              [(ngModel)]="targetType"
+              (ngModelChange)="onTargetTypeChange()" />
+            Individual
+          </label>
+        </div>
+      }
 
-    <label class="field">
-      <span class="field-label">Currency</span>
-      <select [(ngModel)]="form.currencyCode" name="currencyCode" required>
-        <option [value]="''" disabled>Pick a currency</option>
-        @for (c of currencies; track c.id) {
-          <option [value]="c.currencyCode">{{ c.currencyCode }}</option>
+      <label class="field">
+        <span class="field-label">
+          @if (targetType === 'GROUP') { Group } @else { Member }
+        </span>
+        @if (selectedTarget) {
+          <div class="selected-pill">
+            <div class="selected-info">
+              <strong>{{ selectedTarget.label }}</strong>
+              @if (selectedTarget.sublabel) { <span class="muted">{{ selectedTarget.sublabel }}</span> }
+            </div>
+            <button type="button" class="link-btn" (click)="clearTarget()">Change</button>
+          </div>
+        } @else {
+          <div class="search-wrapper">
+            <input
+              type="text"
+              [(ngModel)]="targetQuery"
+              (ngModelChange)="onTargetQueryChange()"
+              (focus)="showMatches = true"
+              name="targetQuery"
+              [placeholder]="targetType === 'GROUP' ? 'Search by group name…' : 'Search by member name…'"
+              autocomplete="off" />
+            @if (showMatches && targetQuery.trim()) {
+              <ul class="suggestions">
+                @if (targetSearching) {
+                  <li class="suggestion muted">Searching…</li>
+                } @else if (targetMatches.length === 0) {
+                  <li class="suggestion muted">No matches</li>
+                } @else {
+                  @for (m of targetMatches; track m.id) {
+                    <li class="suggestion" (click)="pickTarget(m)">
+                      <strong>{{ m.label }}</strong>
+                      @if (m.sublabel) { <span class="muted">— {{ m.sublabel }}</span> }
+                    </li>
+                  }
+                }
+              </ul>
+            }
+          </div>
         }
-      </select>
-    </label>
+      </label>
 
-    <label class="field">
-      <span class="field-label">Transaction type</span>
-      <select [(ngModel)]="form.transactionTypeCode" name="transactionType" required>
-        <option [value]="''" disabled>Pick a type</option>
-        @for (t of transactionTypes; track t.id) {
-          <option [value]="t.code">{{ t.label }} ({{ t.sign }})</option>
-        }
-      </select>
-    </label>
+      @if (selectedTarget) {
+        <label class="field">
+          <span class="field-label">Contribution</span>
+          @if (loadingContributions) {
+            <p class="muted">Loading contributions…</p>
+          } @else if (contributions.length === 0) {
+            <p class="muted">No open contributions for this {{ targetType === 'GROUP' ? 'group' : 'member' }}.</p>
+          } @else {
+            <select [(ngModel)]="form.contributionId" name="contributionId" required>
+              <option [value]="''" disabled>Pick a contribution</option>
+              @for (c of contributions; track c.id) {
+                <option [value]="c.id">
+                  {{ c.periodStart }} → {{ c.periodEnd }} · {{ c.amount }} {{ c.currencyCode }} · {{ c.status | humanize }}
+                </option>
+              }
+            </select>
+          }
+        </label>
+      }
+    </section>
 
-    <label class="field">
-      <span class="field-label">Payment method</span>
-      <select [(ngModel)]="form.paymentMethodCode" name="paymentMethod">
-        <option [value]="''">— None —</option>
-        @for (p of paymentMethods; track p.id) {
-          <option [value]="p.code">{{ p.label }}{{ p.requiresReference ? ' (requires reference)' : '' }}</option>
-        }
-      </select>
-    </label>
+    <!-- ── Section 2: Payment details ─────────────────────────────────── -->
+    <section class="section">
+      <h3 class="section-title">Payment details</h3>
 
-    <label class="field span-2">
-      <span class="field-label">
-        Reference
-        @if (selectedMethod()?.requiresReference) {
-          <span class="required">required</span>
-        }
-      </span>
-      <input [(ngModel)]="form.reference" name="reference"
-             [placeholder]="selectedMethod()?.requiresReference ? 'Bank reference / receipt #' : 'Optional'" />
-    </label>
+      <div class="form-grid">
+        <label class="field">
+          <span class="field-label">Amount</span>
+          <input type="number" step="any" min="0" [(ngModel)]="form.amount" name="amount" required />
+        </label>
 
-    <div class="form-actions span-2">
+        <label class="field">
+          <span class="field-label">Currency</span>
+          <select [(ngModel)]="form.currencyCode" name="currencyCode" required>
+            <option [value]="''" disabled>Pick a currency</option>
+            @for (c of currencies; track c.id) {
+              <option [value]="c.currencyCode">{{ c.currencyCode }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Transaction type</span>
+          <select [(ngModel)]="form.transactionTypeCode" name="transactionType" required>
+            <option [value]="''" disabled>Pick a type</option>
+            @for (t of transactionTypes; track t.id) {
+              <option [value]="t.code">{{ t.label }} ({{ t.sign }})</option>
+            }
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Payment method</span>
+          <select [(ngModel)]="form.paymentMethodCode" name="paymentMethod">
+            <option [value]="''">— None —</option>
+            @for (p of paymentMethods; track p.id) {
+              <option [value]="p.code">{{ p.label }}{{ p.requiresReference ? ' (requires reference)' : '' }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="field span-2">
+          <span class="field-label">
+            Reference
+            @if (selectedMethod()?.requiresReference) {
+              <span class="required">required</span>
+            }
+          </span>
+          <input [(ngModel)]="form.reference" name="reference"
+                 [placeholder]="selectedMethod()?.requiresReference ? 'Bank reference / receipt #' : 'Optional'" />
+        </label>
+      </div>
+    </section>
+
+    <div class="form-actions">
       <a class="btn btn-default" routerLink="/tenant/billing/transactions">Cancel</a>
       <button type="submit" class="btn btn-primary" [disabled]="saving">
         {{ saving ? 'Saving…' : 'Record transaction' }}

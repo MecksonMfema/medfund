@@ -37,6 +37,14 @@ export interface Tenant {
    * Populated from {@code tenant_currency_config} where {@code is_default = true}.
    */
   defaultCurrencyCode?: string;
+
+  /**
+   * Whether this tenant supports individuals, corporate groups, or both.
+   * Drives whether forms (e.g. record-transaction) offer a Group/Individual
+   * target picker. Defaults to BOTH when the field is missing on older
+   * cached snapshots so the picker stays usable.
+   */
+  membershipModel?: 'INDIVIDUAL_ONLY' | 'GROUP_ONLY' | 'BOTH';
 }
 
 const SESSION_KEY = 'medfund_current_tenant';

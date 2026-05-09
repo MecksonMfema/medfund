@@ -75,6 +75,7 @@ export class TenantLayoutComponent implements OnInit, OnDestroy {
             import('../../core/models/insurance-lines').then(m => {
               const lines = m.parseInsuranceLines(full.settings);
               const term  = m.parseSchemeTerminology(full.settings);
+              const drug  = m.parseDrugClaimsEnabled(full.settings);
               this.tenantService.setTenant({
                 id: full.id,
                 name: full.name,
@@ -86,6 +87,8 @@ export class TenantLayoutComponent implements OnInit, OnDestroy {
                 providerRegLabel: m.parseProviderRegLabel(full.settings),
                 schemeLabelSingular: term.singular,
                 schemeLabelPlural:   term.plural,
+                drugClaimsEnabled:   drug,
+                membershipModel:     full.membershipModel,
               });
             });
           },
