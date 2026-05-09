@@ -269,7 +269,14 @@ export const CLAIMS_ROUTES: Routes = [
     loadComponent: () => import('./lookups/tariff-lookup.component').then(m => m.TariffLookupComponent),
     data: { title: 'Tariff Lookup', sidebar: 'operational' },
   },
-  cs('group-charge',           'Group Charge Lookup',  '/group-charge-lookup', 'Look up employer group billing.',    ['billing:view_creditors']),
+  // Group charge lives under billing — same employer-balance lookup is
+  // surfaced here so claims clerks don't have to switch sections.
+  {
+    path: 'group-charge',
+    canActivate: [permissionGuard(['billing:view_creditors'])],
+    redirectTo: '/tenant/billing/group-charge',
+    pathMatch: 'full' as const,
+  },
   cs('special-waivers',        'Special Waivers',      '/special-waivers',     'Override benefit limits per member.',['members:manage_waivers']),
 
   // ── Tasks ──────────────────────────────────────────────────────────────────
