@@ -80,9 +80,24 @@ export const CLAIMS_ROUTES: Routes = [
   cs('drug/tax-withheld',   'Tax-Withheld Drug Claims', '/tax-with-held-drugclaims', 'Drug claims with tax deduction.',          ['claims:view_drug', 'finance:view_withheld_tax']),
 
   // ── Pre-authorisation ──────────────────────────────────────────────────────
-  cs('preauth',                  'New Pre-Auth',         '/pre-auth',                       'Request approval for treatment before claim submission.', ['claims:manage_preauth']),
-  cs('preauth/list',             'Pre-Auth Requests',    '/pre-auth-list',                  'View all pre-authorization requests.',                    ['claims:manage_preauth']),
-  cs('preauth/print',            'Print Pre-Auth',       '/print-pre-auth',                 'Generate the pre-auth approval document.',                ['claims:manage_preauth']),
+  {
+    path: 'preauth',
+    canActivate: [permissionGuard(['claims:manage_preauth'])],
+    loadComponent: () => import('./preauth/pre-auth-list.component').then(m => m.PreAuthListComponent),
+    data: { title: 'Pre-Authorizations', sidebar: 'operational' },
+  },
+  {
+    path: 'preauth/new',
+    canActivate: [permissionGuard(['claims:manage_preauth'])],
+    loadComponent: () => import('./preauth/pre-auth-form.component').then(m => m.PreAuthFormComponent),
+    data: { title: 'New Pre-Auth', sidebar: 'operational' },
+  },
+  {
+    path: 'preauth/:id',
+    canActivate: [permissionGuard(['claims:manage_preauth'])],
+    loadComponent: () => import('./preauth/pre-auth-detail.component').then(m => m.PreAuthDetailComponent),
+    data: { title: 'Pre-Auth Detail', sidebar: 'operational' },
+  },
   cs('drug/preauth',             'Drug Pre-Auth',        '/pre-authorization-drug-claims',  'Request pharmaceutical approval before claim.',           ['claims:manage_drug_preauth']),
   cs('drug/preauth/list',        'Drug Pre-Auth List',   '/drug-pre-auth-list',             'View all drug pre-auth requests.',                        ['claims:manage_drug_preauth']),
 

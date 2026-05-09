@@ -1,0 +1,97 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      @if (preAuth) {
+        <h1>{{ preAuth.authNumber }}</h1>
+        <p class="page-sub">
+          <span class="status-badge status-{{ preAuth.status }}">{{ preAuth.status | humanize }}</span>
+          · requested {{ preAuth.requestedDate }}
+          @if (preAuth.decisionDate) { · decided {{ preAuth.decisionDate }} }
+        </p>
+      } @else {
+        <h1>Pre-authorization</h1>
+      }
+    </div>
+    <div class="header-actions">
+      @if (preAuth?.status === 'approved') {
+        <button type="button" class="btn btn-default" (click)="printLetter()">
+          <app-icon name="printer" [size]="14"></app-icon>
+          Print
+        </button>
+      }
+      <a class="btn btn-default" routerLink="/tenant/claims/preauth">
+        <app-icon name="arrow-left" [size]="14"></app-icon>
+        Back
+      </a>
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success">{{ successMessage }}</div>
+  }
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (!preAuth) {
+    <p class="empty-state">Pre-authorization not found.</p>
+  } @else {
+    <!-- ── Letter / detail ──────────────────────────────────────── -->
+    <div class="letter">
+      <h2>Pre-authorization {{ preAuth.authNumber }}</h2>
+      <dl class="detail-grid">
+        <dt>Member</dt><dd><code>{{ preAuth.memberId }}</code></dd>
+        <dt>Provider</dt><dd><code>{{ preAuth.providerId }}</code></dd>
+        @if (preAuth.schemeId) { <dt>Scheme</dt><dd><code>{{ preAuth.schemeId }}</code></dd> }
+        <dt>Tariff code</dt><dd><code>{{ preAuth.tariffCode }}</code></dd>
+        @if (preAuth.diagnosisCode) { <dt>Diagnosis</dt><dd><code>{{ preAuth.diagnosisCode }}</code></dd> }
+        <dt>Requested</dt><dd>{{ preAuth.requestedAmount | currencyFormat:preAuth.currencyCode }}</dd>
+        @if (preAuth.approvedAmount) {
+          <dt>Approved</dt><dd>{{ preAuth.approvedAmount | currencyFormat:preAuth.currencyCode }}</dd>
+        }
+        @if (preAuth.expiryDate) {
+          <dt>Valid until</dt><dd>{{ preAuth.expiryDate }}</dd>
+        }
+        @if (preAuth.notes) { <dt>Notes</dt><dd>{{ preAuth.notes }}</dd> }
+        @if (preAuth.rejectionReason) { <dt>Rejection reason</dt><dd>{{ preAuth.rejectionReason }}</dd> }
+      </dl>
+    </div>
+
+    <!-- ── Decision panel — only for pending requests ───────────── -->
+    @if (canDecide()) {
+      <div class="decision-card">
+        <h3>Decide</h3>
+        <div class="decision-grid">
+          <label class="field">
+            <span class="field-label">Approved amount</span>
+            <input type="number" step="0.01" min="0" [(ngModel)]="approvedAmount" name="approvedAmount" />
+          </label>
+          <label class="field">
+            <span class="field-label">Expiry date</span>
+            <input type="date" [(ngModel)]="expiryDate" name="expiryDate" />
+          </label>
+        </div>
+        <div class="decision-actions">
+          <button type="button" class="btn btn-primary" [disabled]="busy" (click)="approve()">
+            Approve
+          </button>
+        </div>
+
+        <hr class="divider" />
+
+        <label class="field">
+          <span class="field-label">Rejection reason</span>
+          <input type="text" [(ngModel)]="rejectReason" name="rejectReason"
+                 placeholder="Reason — surfaced on the printable letter" />
+        </label>
+        <div class="decision-actions">
+          <button type="button" class="btn btn-default reject" [disabled]="busy" (click)="reject()">
+            Reject
+          </button>
+        </div>
+      </div>
+    }
+  }
+</div>
