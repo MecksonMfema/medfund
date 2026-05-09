@@ -1,5 +1,9 @@
 import { Routes } from '@angular/router';
 import { permissionGuard } from '../../../auth/auth.guard';
+import { PermissionKey } from '../../../core/security/permissions';
+
+const loadComingSoon = () =>
+  import('../../../shared/components/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent);
 
 /**
  * Billing domain — covers the legacy "Contributions" admin (schemes,
@@ -8,9 +12,23 @@ import { permissionGuard } from '../../../auth/auth.guard';
  * because "Billing" is the umbrella that fits contributions + group
  * invoices + transaction posting under one section.
  *
- * Every route below is fully implemented — there are no ComingSoon
- * placeholders left in this section.
+ * Tenant-staff user management lives entirely under Tenant Admin — billing
+ * has no business managing users; the only "users" billing touches are
+ * members, which have their own section under /tenant/members.
  */
+const cs = (
+  path: string,
+  title: string,
+  ref: string,
+  description: string,
+  perms: PermissionKey[],
+): import('@angular/router').Route => ({
+  path,
+  canActivate: [permissionGuard(perms)],
+  loadComponent: loadComingSoon,
+  data: { title, description, sidebar: 'operational', ref },
+});
+
 export const BILLING_ROUTES: Routes = [
   // ── Schemes (real shell — existing functional component) ──────────────────
   {
@@ -245,26 +263,12 @@ export const BILLING_ROUTES: Routes = [
   },
 
   // ── Tasks ──────────────────────────────────────────────────────────────────
-  // Tasks (legacy MASCA in-app ticketing) intentionally dropped — most teams
-  // use Jira / Linear / ServiceNow externally. If a tenant ever asks for it,
-  // we'll scope it as its own greenfield slice rather than a half-feature.
-
-  // ── User management (legacy MASCA had user mgmt under contributions) ──────
-  // Legacy MASCA put user management under Contributions; in our system this
-  // lives under Tenant Admin → Users. The two sidebar entries land on a small
-  // redirect page that points users to the new home.
-  {
-    path: 'users',
-    canActivate: [permissionGuard(['admin:manage_users'])],
-    loadComponent: () => import('./users/legacy-users-redirect.component').then(m => m.LegacyUsersRedirectComponent),
-    data: { title: 'Users (moved)', sidebar: 'operational' },
-  },
-  {
-    path: 'users/add',
-    canActivate: [permissionGuard(['admin:manage_users'])],
-    loadComponent: () => import('./users/legacy-users-redirect.component').then(m => m.LegacyUsersRedirectComponent),
-    data: { title: 'Add User (moved)', sidebar: 'operational' },
-  },
+  // Deferred — will be implemented alongside the notification-service rebuild
+  // (the two are tightly coupled: assigned tasks need notification dispatch).
+  cs('tasks',               'Tasks',               '/tickets/view-tasks',         'Billing-related work items.',                          ['billing:view']),
+  cs('tasks/add',           'Add Task',            '/tickets/add-tasks',          'Create a new work item.',                              ['billing:view']),
+  cs('tasks/assign',        'Assign Tasks',        '/tickets/assign-tasks',       'Allocate work items to billing clerks.',               ['billing:view']),
+  cs('tasks/incomplete',    'Incomplete Tasks',    '/tickets/incomplete-tasks',   'Open billing work.',                                   ['billing:view']),
 
   // ── Group / member admin helpers ──────────────────────────────────────────
   {
