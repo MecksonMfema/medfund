@@ -1,0 +1,41 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Tariff modifiers</h1>
+      <p class="page-sub">Adjustments applied to a tariff line at adjudication time — bilateral, after-hours, assistant, etc. Modifiers are managed centrally; tenants pick from the catalogue when claiming.</p>
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (rows.length === 0) {
+    <p class="empty-state">No tariff modifiers configured. The platform team seeds these when standard procedure modifiers are agreed.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Name</th>
+          <th>Type</th>
+          <th class="right">Adjustment</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows; track row.id) {
+          <tr [class.inactive]="!row.isActive">
+            <td><code>{{ row.code }}</code></td>
+            <td><strong>{{ row.name }}</strong></td>
+            <td><span class="adj-type">{{ row.adjustmentType | humanize }}</span></td>
+            <td class="right">{{ formatAdjustment(row) }}</td>
+            <td class="muted">{{ row.description || '—' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

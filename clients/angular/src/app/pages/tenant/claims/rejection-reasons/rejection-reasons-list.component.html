@@ -1,0 +1,55 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Rejection reasons</h1>
+      <p class="page-sub">Catalogue of R-codes referenced by the adjudication pipeline and manual rejection flows. The platform seeds R01–R18; you can add tenant-specific codes or deactivate ones you don't use.</p>
+    </div>
+    <a class="btn btn-primary" routerLink="/tenant/claims/rejection-reasons/add">
+      <app-icon name="plus" [size]="14"></app-icon>
+      Add reason
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (rows.length === 0) {
+    <p class="empty-state">No rejection reasons configured.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Category</th>
+          <th>Description</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows; track row.id) {
+          <tr [class.pending]="pendingId === row.id" [class.inactive]="!row.isActive">
+            <td><code>{{ row.code }}</code></td>
+            <td>{{ row.category ? (row.category | humanize) : '—' }}</td>
+            <td>{{ row.description }}</td>
+            <td>
+              <span class="status-badge" [class.active]="row.isActive" [class.inactive]="!row.isActive">
+                {{ row.isActive ? 'Active' : 'Inactive' }}
+              </span>
+            </td>
+            <td class="actions">
+              <button class="link-btn" (click)="edit(row)">Edit</button>
+              <button class="link-btn" (click)="toggleActive(row)">
+                {{ row.isActive ? 'Deactivate' : 'Activate' }}
+              </button>
+              <button class="link-btn danger" (click)="remove(row)">Delete</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

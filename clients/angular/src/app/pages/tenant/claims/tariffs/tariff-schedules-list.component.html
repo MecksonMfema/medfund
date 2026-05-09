@@ -1,0 +1,51 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Tariff schedules</h1>
+      <p class="page-sub">A schedule is a versioned set of tariff codes effective between two dates. The adjudication pipeline reads from the active schedule when validating per-line pricing.</p>
+    </div>
+    <a class="btn btn-primary" routerLink="/tenant/claims/tariffs/add">
+      <app-icon name="plus" [size]="14"></app-icon>
+      New schedule
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (rows.length === 0) {
+    <p class="empty-state">No tariff schedules yet. Create the first one to start adding tariff codes.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Source</th>
+          <th>Effective from</th>
+          <th>End date</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows; track row.id) {
+          <tr (click)="openCodes(row)" class="clickable">
+            <td><strong>{{ row.name }}</strong></td>
+            <td class="muted">{{ row.source || '—' }}</td>
+            <td>{{ row.effectiveDate }}</td>
+            <td class="muted">{{ row.endDate || '—' }}</td>
+            <td>
+              <span class="status-badge status-{{ row.status?.toLowerCase() }}">{{ row.status | humanize }}</span>
+            </td>
+            <td class="actions">
+              <button class="link-btn" (click)="$event.stopPropagation(); openCodes(row)">View codes</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

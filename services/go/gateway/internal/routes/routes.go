@@ -50,6 +50,8 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/tariffs/*", proxy.Handler(cfg.ClaimsServiceURL))
 	app.All("/api/v1/pre-authorizations/*", proxy.Handler(cfg.ClaimsServiceURL))
 	app.All("/api/v1/icd-codes/*", proxy.Handler(cfg.ClaimsServiceURL))
+	app.All("/api/v1/rejection-reasons", proxy.Handler(cfg.ClaimsServiceURL))
+	app.All("/api/v1/rejection-reasons/*", proxy.Handler(cfg.ClaimsServiceURL))
 
 	// ── Contributions Service ─────────────────────────────────────────────────
 	app.All("/api/v1/schemes", proxy.Handler(cfg.ContribServiceURL))

@@ -1,0 +1,103 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>{{ schedule?.name || 'Tariff codes' }}</h1>
+      <p class="page-sub">
+        @if (schedule) {
+          Effective {{ schedule.effectiveDate }}{{ schedule.endDate ? ' → ' + schedule.endDate : '' }}.
+          {{ schedule.source ? 'Source: ' + schedule.source + '.' : '' }}
+        } @else {
+          Service codes priced under this schedule.
+        }
+      </p>
+    </div>
+    <div class="header-actions">
+      <a class="btn btn-default" routerLink="/tenant/claims/tariffs">
+        <app-icon name="arrow-left" [size]="14"></app-icon>
+        Schedules
+      </a>
+      <button type="button" class="btn btn-primary" (click)="toggleForm()">
+        <app-icon name="plus" [size]="14"></app-icon>
+        {{ showForm ? 'Hide form' : 'Add code' }}
+      </button>
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  @if (showForm) {
+    <form (ngSubmit)="submitDraft()" class="card form-grid">
+      <label class="field">
+        <span class="field-label">Code *</span>
+        <input type="text" [(ngModel)]="draft.code" name="code" required maxlength="50" placeholder="0001A" />
+      </label>
+      <label class="field">
+        <span class="field-label">Category</span>
+        <input type="text" [(ngModel)]="draft.category" name="category" placeholder="Consultation / Surgery / Diagnostic" />
+      </label>
+      <label class="field span-2">
+        <span class="field-label">Description *</span>
+        <input type="text" [(ngModel)]="draft.description" name="description" required />
+      </label>
+      <label class="field">
+        <span class="field-label">Unit price *</span>
+        <input type="number" step="0.0001" min="0" [(ngModel)]="draft.unitPrice" name="unitPrice" required />
+      </label>
+      <label class="field">
+        <span class="field-label">Currency</span>
+        <select [(ngModel)]="draft.currencyCode" name="currencyCode">
+          <option value="USD">USD</option>
+          <option value="ZWL">ZWL</option>
+          <option value="ZAR">ZAR</option>
+        </select>
+      </label>
+      <label class="field span-2 checkbox">
+        <input type="checkbox" [(ngModel)]="draft.requiresPreAuth" name="requiresPreAuth" />
+        Requires pre-authorization (claims for this code without an approved pre-auth will be rejected)
+      </label>
+      <div class="form-actions span-2">
+        <button type="button" class="btn btn-default" (click)="toggleForm()">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving">
+          {{ saving ? 'Saving…' : 'Add code' }}
+        </button>
+      </div>
+    </form>
+  }
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (rows.length === 0) {
+    <p class="empty-state">No tariff codes in this schedule yet.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Description</th>
+          <th>Category</th>
+          <th class="right">Unit price</th>
+          <th>Pre-auth</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows; track row.id) {
+          <tr>
+            <td><code>{{ row.code }}</code></td>
+            <td>{{ row.description }}</td>
+            <td class="muted">{{ row.category || '—' }}</td>
+            <td class="right">{{ row.unitPrice | currencyFormat:(row.currencyCode || 'USD') }}</td>
+            <td>
+              @if (row.requiresPreAuth) {
+                <span class="status-badge required">Required</span>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

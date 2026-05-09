@@ -1,0 +1,52 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>ICD-10 codes</h1>
+      <p class="page-sub">Read-only search across the diagnosis-code catalogue. The same picker is embedded in claim submission and pre-auth forms.</p>
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <div class="search-bar">
+    <app-icon name="search" [size]="16"></app-icon>
+    <input
+      type="text"
+      [(ngModel)]="query"
+      (ngModelChange)="onQueryChange()"
+      placeholder="Search by code or description (e.g. J18, pneumonia)…"
+      autocomplete="off"
+      autofocus />
+  </div>
+
+  @if (!query.trim()) {
+    <p class="hint">Type at least one character to search.</p>
+  } @else if (searching) {
+    <p class="hint">Searching…</p>
+  } @else if (rows.length === 0) {
+    <p class="empty-state">No ICD codes match "{{ query }}".</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Description</th>
+          <th>Chapter</th>
+          <th>Category</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows; track row.id) {
+          <tr [class.inactive]="row.isActive === false">
+            <td><code>{{ row.code }}</code></td>
+            <td>{{ row.description }}</td>
+            <td class="muted">{{ row.chapter || '—' }}</td>
+            <td class="muted">{{ row.category || '—' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

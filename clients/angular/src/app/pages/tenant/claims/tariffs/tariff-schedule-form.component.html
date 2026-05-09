@@ -1,0 +1,54 @@
+<div class="form-page">
+  <header class="page-header">
+    <div>
+      <h1>New tariff schedule</h1>
+      <p class="page-sub">After creating a schedule you'll add tariff codes to it. The adjudication pipeline reads from the schedule that's active at each claim's service date.</p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/claims/tariffs">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form (ngSubmit)="submit()" class="form-grid">
+    <label class="field span-2">
+      <span class="field-label">Schedule name *</span>
+      <input
+        type="text"
+        [(ngModel)]="form.name"
+        name="name"
+        required
+        placeholder="2026 AHFOZ Medical Tariff" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Effective from *</span>
+      <input type="date" [(ngModel)]="form.effectiveDate" name="effectiveDate" required />
+    </label>
+
+    <label class="field">
+      <span class="field-label">End date</span>
+      <input type="date" [(ngModel)]="form.endDate" name="endDate" />
+    </label>
+
+    <label class="field span-2">
+      <span class="field-label">Source <span class="muted">(optional)</span></span>
+      <input
+        type="text"
+        [(ngModel)]="form.source"
+        name="source"
+        placeholder="AHFOZ / Tenant-specific / Manual" />
+    </label>
+
+    <div class="form-actions span-2">
+      <a class="btn btn-default" routerLink="/tenant/claims/tariffs">Cancel</a>
+      <button type="submit" class="btn btn-primary" [disabled]="saving">
+        {{ saving ? 'Saving…' : 'Create schedule' }}
+      </button>
+    </div>
+  </form>
+</div>

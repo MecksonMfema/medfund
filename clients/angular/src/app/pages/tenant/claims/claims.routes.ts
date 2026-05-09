@@ -70,11 +70,55 @@ export const CLAIMS_ROUTES: Routes = [
   cs('request-code',           'Request Verification Code',  '/request-verification-code',   'Issue a new verification code.',                  ['claims:manage_verification_codes']),
   cs('preverification',        'Pre-Verification',           '/submit-preverification',      'Validate a claim before submission.',             ['claims:verify']),
 
-  // ── Configuration (tariffs, modifiers, rejection reasons) ─────────────────
-  cs('tariffs',                'Tariffs',             '/tariff-lookup',          'Service tariff catalogue.',                    ['claims:manage_tariffs']),
-  cs('tariffs/add',            'Add Tariff',          '/add-tarrifs',            'Create a new service tariff.',                 ['claims:manage_tariffs']),
-  cs('modifiers/add',          'Add Modifier',        '/add-modifiers',          'Define a new tariff rate modifier.',           ['claims:manage_modifiers']),
-  cs('rejection-reasons',      'Rejection Reasons',   '/rejection-reasons',      'Manage the catalogue of rejection reasons.',   ['claims:manage_rejection_reasons']),
+  // ── Configuration (tariffs, modifiers, rejection reasons, ICD) ────────────
+  {
+    path: 'tariffs',
+    canActivate: [permissionGuard(['claims:manage_tariffs'])],
+    loadComponent: () => import('./tariffs/tariff-schedules-list.component').then(m => m.TariffSchedulesListComponent),
+    data: { title: 'Tariff Schedules', sidebar: 'operational' },
+  },
+  {
+    path: 'tariffs/add',
+    canActivate: [permissionGuard(['claims:manage_tariffs'])],
+    loadComponent: () => import('./tariffs/tariff-schedule-form.component').then(m => m.TariffScheduleFormComponent),
+    data: { title: 'New Tariff Schedule', sidebar: 'operational' },
+  },
+  {
+    path: 'tariffs/:scheduleId/codes',
+    canActivate: [permissionGuard(['claims:manage_tariffs'])],
+    loadComponent: () => import('./tariffs/tariff-codes-list.component').then(m => m.TariffCodesListComponent),
+    data: { title: 'Tariff Codes', sidebar: 'operational' },
+  },
+  {
+    path: 'modifiers',
+    canActivate: [permissionGuard(['claims:manage_modifiers'])],
+    loadComponent: () => import('./modifiers/modifiers-list.component').then(m => m.ModifiersListComponent),
+    data: { title: 'Tariff Modifiers', sidebar: 'operational' },
+  },
+  {
+    path: 'rejection-reasons',
+    canActivate: [permissionGuard(['claims:manage_rejection_reasons'])],
+    loadComponent: () => import('./rejection-reasons/rejection-reasons-list.component').then(m => m.RejectionReasonsListComponent),
+    data: { title: 'Rejection Reasons', sidebar: 'operational' },
+  },
+  {
+    path: 'rejection-reasons/add',
+    canActivate: [permissionGuard(['claims:manage_rejection_reasons'])],
+    loadComponent: () => import('./rejection-reasons/rejection-reason-form.component').then(m => m.RejectionReasonFormComponent),
+    data: { title: 'Add Rejection Reason', sidebar: 'operational' },
+  },
+  {
+    path: 'rejection-reasons/:id/edit',
+    canActivate: [permissionGuard(['claims:manage_rejection_reasons'])],
+    loadComponent: () => import('./rejection-reasons/rejection-reason-form.component').then(m => m.RejectionReasonFormComponent),
+    data: { title: 'Edit Rejection Reason', sidebar: 'operational' },
+  },
+  {
+    path: 'icd-codes',
+    canActivate: [permissionGuard(['claims:view'])],
+    loadComponent: () => import('./icd-codes/icd-codes-search.component').then(m => m.IcdCodesSearchComponent),
+    data: { title: 'ICD-10 Codes', sidebar: 'operational' },
+  },
   cs('scheme-limits',          'Scheme Limits',       '/scheme-limits',          'View per-scheme benefit caps.',                ['claims:view']),
 
   // ── Lookups ────────────────────────────────────────────────────────────────

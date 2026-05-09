@@ -1,0 +1,64 @@
+<div class="form-page">
+  <header class="page-header">
+    <div>
+      <h1>{{ reasonId ? 'Edit rejection reason' : 'Add rejection reason' }}</h1>
+      <p class="page-sub">Codes are stable identifiers — once issued they're referenced from claim history, so editing the description or category is preferred over deleting and re-creating.</p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/claims/rejection-reasons">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form (ngSubmit)="submit()" class="form-grid">
+    <label class="field">
+      <span class="field-label">Code *</span>
+      <input
+        type="text"
+        [(ngModel)]="form.code"
+        name="code"
+        required
+        maxlength="20"
+        placeholder="R19"
+        [readOnly]="!!reasonId" />
+      @if (reasonId) {
+        <small class="muted">Codes are immutable once created.</small>
+      }
+    </label>
+
+    <label class="field">
+      <span class="field-label">Category</span>
+      <select [(ngModel)]="form.category" name="category">
+        <option [value]="''">— None —</option>
+        @for (c of categories; track c) {
+          <option [value]="c">{{ c }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="field span-2">
+      <span class="field-label">Description *</span>
+      <textarea
+        [(ngModel)]="form.description"
+        name="description"
+        rows="3"
+        required></textarea>
+    </label>
+
+    <label class="field span-2 checkbox">
+      <input type="checkbox" [(ngModel)]="form.isActive" name="isActive" />
+      Active — shown in adjudication / manual rejection pickers
+    </label>
+
+    <div class="form-actions span-2">
+      <a class="btn btn-default" routerLink="/tenant/claims/rejection-reasons">Cancel</a>
+      <button type="submit" class="btn btn-primary" [disabled]="saving || loading">
+        {{ saving ? 'Saving…' : (reasonId ? 'Save changes' : 'Add reason') }}
+      </button>
+    </div>
+  </form>
+</div>
