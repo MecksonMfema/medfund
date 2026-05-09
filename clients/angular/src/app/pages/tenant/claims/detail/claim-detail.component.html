@@ -1,0 +1,146 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      @if (claim) {
+        <h1>{{ claim.claimNumber }}</h1>
+        <p class="page-sub">
+          <span class="status-badge status-{{ claim.status?.toLowerCase() }}">{{ claim.status | humanize }}</span>
+          · service date {{ claim.serviceDate }} · submitted {{ claim.createdAt | date:'mediumDate' }}
+        </p>
+      } @else {
+        <h1>Claim</h1>
+      }
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/claims">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success">{{ successMessage }}</div>
+  }
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (!claim) {
+    <p class="empty-state">Claim not found.</p>
+  } @else {
+    <div class="tabs">
+      <button class="tab" [class.active]="activeTab === 'services'" (click)="setTab('services')">
+        Services ({{ lines.length }})
+      </button>
+      <button class="tab" [class.active]="activeTab === 'header'" (click)="setTab('header')">
+        Header
+      </button>
+      <button class="tab" [class.active]="activeTab === 'audit'" (click)="setTab('audit')">
+        Audit
+      </button>
+    </div>
+
+    <div class="tab-body">
+      @if (activeTab === 'services') {
+        @if (lines.length === 0) {
+          <p class="empty-state">No service lines on this claim.</p>
+        } @else {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Tariff</th>
+                <th>Description</th>
+                <th class="right">Qty</th>
+                <th class="right">Unit price</th>
+                <th>Modifiers</th>
+                <th class="right">Claimed</th>
+                <th class="right">Approved</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (line of lines; track line.id) {
+                <tr>
+                  <td><code>{{ line.tariffCode }}</code></td>
+                  <td>{{ line.description || '—' }}</td>
+                  <td class="right">{{ line.quantity }}</td>
+                  <td class="right">{{ line.unitPrice | currencyFormat:claim.currencyCode }}</td>
+                  <td class="muted">{{ line.modifierCodes || '—' }}</td>
+                  <td class="right">{{ line.claimedAmount | currencyFormat:claim.currencyCode }}</td>
+                  <td class="right">
+                    {{ line.approvedAmount ? (line.approvedAmount | currencyFormat:claim.currencyCode) : '—' }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="5" class="right total-label">Total</td>
+                <td class="right total-amount">{{ claim.claimedAmount | currencyFormat:claim.currencyCode }}</td>
+                <td class="right total-amount">
+                  {{ claim.approvedAmount ? (claim.approvedAmount | currencyFormat:claim.currencyCode) : '—' }}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        }
+      }
+
+      @if (activeTab === 'header') {
+        <dl class="header-grid">
+          <dt>Member</dt><dd><code>{{ claim.memberId }}</code></dd>
+          @if (claim.dependantId) { <dt>Dependant</dt><dd><code>{{ claim.dependantId }}</code></dd> }
+          <dt>Provider</dt><dd><code>{{ claim.providerId }}</code></dd>
+          <dt>Scheme</dt><dd><code>{{ claim.schemeId }}</code></dd>
+          <dt>Type</dt><dd>{{ claim.claimType | humanize }}</dd>
+          <dt>Currency</dt><dd>{{ claim.currencyCode }}</dd>
+          <dt>Service date</dt><dd>{{ claim.serviceDate }}</dd>
+          @if (claim.diagnosisCodes) { <dt>Diagnosis codes</dt><dd>{{ claim.diagnosisCodes }}</dd> }
+          @if (claim.notes) { <dt>Notes</dt><dd>{{ claim.notes }}</dd> }
+          @if (claim.rejectionReason) { <dt>Rejection reason</dt><dd><code>{{ claim.rejectionReason }}</code></dd> }
+          @if (claim.rejectionNotes) { <dt>Rejection notes</dt><dd>{{ claim.rejectionNotes }}</dd> }
+        </dl>
+      }
+
+      @if (activeTab === 'audit') {
+        <dl class="header-grid">
+          <dt>Created</dt><dd>{{ claim.createdAt | date:'medium' }}</dd>
+          <dt>Updated</dt><dd>{{ claim.updatedAt | date:'medium' }}</dd>
+          @if (claim.verifiedAt) { <dt>Verified</dt><dd>{{ claim.verifiedAt | date:'medium' }}</dd> }
+          @if (claim.adjudicatedAt) { <dt>Adjudicated</dt><dd>{{ claim.adjudicatedAt | date:'medium' }}</dd> }
+          @if (claim.adjudicatedBy) { <dt>Adjudicated by</dt><dd><code>{{ claim.adjudicatedBy }}</code></dd> }
+        </dl>
+        <p class="muted">Full audit timeline will surface here once the claims-audit consumer ships its query API.</p>
+      }
+    </div>
+
+    <!-- ── Action bar ─────────────────────────────────────────────── -->
+    <div class="action-bar">
+      <button type="button" class="btn btn-primary" [disabled]="busy || !canAct('adjudicate')"
+              (click)="adjudicate()">
+        <app-icon name="zap" [size]="14"></app-icon>
+        Run pipeline
+      </button>
+      <button type="button" class="btn btn-default" [disabled]="busy || !canAct('approve')"
+              (click)="approve()">
+        Approve
+      </button>
+      <div class="reject-group">
+        <select [(ngModel)]="rejectingCode" name="rejectionCode" [disabled]="busy || !canAct('reject')">
+          <option [value]="''" disabled>Pick reason…</option>
+          @for (r of rejectionReasons; track r.id) {
+            <option [value]="r.code">{{ r.code }} — {{ r.description }}</option>
+          }
+        </select>
+        <button type="button" class="btn btn-default reject" [disabled]="busy || !canAct('reject')"
+                (click)="reject()">
+          Reject
+        </button>
+      </div>
+      <button type="button" class="btn btn-default" [disabled]="busy || !canAct('cancel')"
+              (click)="cancel()">
+        Cancel
+      </button>
+    </div>
+  }
+</div>

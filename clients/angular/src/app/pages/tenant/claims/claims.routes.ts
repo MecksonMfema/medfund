@@ -39,7 +39,23 @@ export const CLAIMS_ROUTES: Routes = [
 
   // ── Claims pipeline ────────────────────────────────────────────────────────
   cs('accepted',       'Accepted Claims',     '/accepted-claims',     'Approved claims awaiting payment.',                        ['claims:view']),
-  cs('pending',        'Pending Claims',      '/pending-claims',      'Claims in the queue awaiting review.',                     ['claims:view']),
+  {
+    path: 'pending',
+    canActivate: [permissionGuard(['claims:view'])],
+    loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
+    data: {
+      title: 'Pending Claims',
+      description: 'Verified claims queued for adjudication.',
+      presetStatus: 'VERIFIED',
+      sidebar: 'operational',
+    },
+  },
+  {
+    path: ':id',
+    canActivate: [permissionGuard(['claims:view'])],
+    loadComponent: () => import('./detail/claim-detail.component').then(m => m.ClaimDetailComponent),
+    data: { title: 'Claim Detail', sidebar: 'operational' },
+  },
   cs('rejected',       'Rejected Claims',     '/rejected-claims',     'Denied claims with rejection reasons.',                    ['claims:view']),
   cs('staged',         'Staged Claims',       '/staged-claims',       'Draft claims being prepared.',                              ['claims:view']),
   cs('captured',       'Captured Claims',     '/captured-claims',     'Recently submitted claims.',                                ['claims:view']),
