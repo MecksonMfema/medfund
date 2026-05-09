@@ -7,9 +7,11 @@ import com.medfund.user.exception.MemberNotFoundException;
 import com.medfund.user.repository.MemberRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.BeforeEach;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -38,8 +40,31 @@ class MemberServiceTest {
     @Mock
     private KeycloakSyncService keycloakSyncService;
 
+    @Mock
+    private R2dbcEntityTemplate r2dbcTemplate;
+
+    @Mock
+    private MemberLifecycleService lifecycleService;
+
     @InjectMocks
     private MemberService memberService;
+
+    @BeforeEach
+    void stubInsert() {
+        // Fresh members are inserted via r2dbcTemplate; postgres assigns the id
+        // through DEFAULT gen_random_uuid() — mimic that here so audit logging
+        // (which reads saved.getId()) doesn't NPE.
+        lenient().when(r2dbcTemplate.insert(any(Member.class))).thenAnswer(inv -> {
+            Member m = inv.getArgument(0);
+            if (m.getId() == null) m.setId(UUID.randomUUID());
+            return Mono.just(m);
+        });
+        // The post-enrollment lifecycle hook is exercised by its own tests;
+        // here it just needs to be a no-op (empty Mono completes without firing
+        // the doOnNext branch in MemberService.enroll).
+        lenient().when(lifecycleService.evaluateOnEnrollment(any(Member.class)))
+                .thenReturn(Mono.empty());
+    }
 
     @Test
     void findAll_returnsAllMembers() {

@@ -7,9 +7,11 @@ import com.medfund.user.exception.DependantNotFoundException;
 import com.medfund.user.repository.DependantRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.BeforeEach;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -20,6 +22,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,8 +35,20 @@ class DependantServiceTest {
     @Mock
     private AuditPublisher auditPublisher;
 
+    @Mock
+    private R2dbcEntityTemplate r2dbcTemplate;
+
     @InjectMocks
     private DependantService dependantService;
+
+    @BeforeEach
+    void stubInsert() {
+        lenient().when(r2dbcTemplate.insert(any(Dependant.class))).thenAnswer(inv -> {
+            Dependant d = inv.getArgument(0);
+            if (d.getId() == null) d.setId(UUID.randomUUID());
+            return Mono.just(d);
+        });
+    }
 
     @Test
     void findByMemberId_returnsDependants() {
@@ -87,7 +102,6 @@ class DependantServiceTest {
             "female", "child", null
         );
 
-        when(dependantRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -103,7 +117,7 @@ class DependantServiceTest {
             })
             .verifyComplete();
 
-        verify(dependantRepository).save(any());
+        verify(r2dbcTemplate).insert(any(Dependant.class));
         verify(auditPublisher).publish(any());
     }
 

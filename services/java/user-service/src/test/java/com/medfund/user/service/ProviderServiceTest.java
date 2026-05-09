@@ -8,9 +8,11 @@ import com.medfund.user.exception.ProviderNotFoundException;
 import com.medfund.user.repository.ProviderRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.BeforeEach;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -38,8 +40,20 @@ class ProviderServiceTest {
     @Mock
     private KeycloakSyncService keycloakSyncService;
 
+    @Mock
+    private R2dbcEntityTemplate r2dbcTemplate;
+
     @InjectMocks
     private ProviderService providerService;
+
+    @BeforeEach
+    void stubInsert() {
+        lenient().when(r2dbcTemplate.insert(any(Provider.class))).thenAnswer(inv -> {
+            Provider p = inv.getArgument(0);
+            if (p.getId() == null) p.setId(UUID.randomUUID());
+            return Mono.just(p);
+        });
+    }
 
     @Test
     void findAll_returnsProviders() {
@@ -86,9 +100,10 @@ class ProviderServiceTest {
     @Test
     void onboard_validRequest_createsProviderPendingVerification() {
         var actorId = UUID.randomUUID().toString();
+        var actorEmail = "ops@medfund.test";
         var request = new CreateProviderRequest(
-            "City Hospital", "PR-001", "AH-001", "General Practice",
-            "info@cityhospital.com", null, null, null
+            "City Hospital", null, "AH-001", "General Practice",
+            "info@cityhospital.com", null, null, null, null
         );
 
         when(providerRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
@@ -97,14 +112,13 @@ class ProviderServiceTest {
         when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
 
         StepVerifier.create(
-            providerService.onboard(request, actorId)
+            providerService.onboard(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(provider -> {
                 assertThat(provider.getStatus()).isEqualTo("pending_verification");
                 assertThat(provider.getName()).isEqualTo("City Hospital");
-                assertThat(provider.getPracticeNumber()).isEqualTo("PR-001");
-                assertThat(provider.getAhfozNumber()).isEqualTo("AH-001");
+                assertThat(provider.getRegistrationNumber()).isEqualTo("AH-001");
             })
             .verifyComplete();
 
@@ -119,13 +133,14 @@ class ProviderServiceTest {
         provider.setStatus("pending_verification");
         var id = provider.getId();
         var actorId = UUID.randomUUID().toString();
+        var actorEmail = "ops@medfund.test";
 
         when(providerRepository.findById(id)).thenReturn(Mono.just(provider));
         when(providerRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            providerService.verifyAhfoz(id, actorId)
+            providerService.verifyAhfoz(id, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(result -> assertThat(result.getStatus()).isEqualTo("active"))
@@ -139,9 +154,10 @@ class ProviderServiceTest {
         var provider = createTestProvider();
         var id = provider.getId();
         var actorId = UUID.randomUUID().toString();
+        var actorEmail = "ops@medfund.test";
         var request = new UpdateProviderRequest(
             "Updated Hospital", null, null, "Cardiology",
-            null, null, null, null
+            null, null, null, null, null
         );
 
         when(providerRepository.findById(id)).thenReturn(Mono.just(provider));
@@ -149,13 +165,13 @@ class ProviderServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            providerService.update(id, request, actorId)
+            providerService.update(id, request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(result -> {
                 assertThat(result.getName()).isEqualTo("Updated Hospital");
                 assertThat(result.getSpecialty()).isEqualTo("Cardiology");
-                assertThat(result.getPracticeNumber()).isEqualTo("PR-001");
+                assertThat(result.getRegistrationNumber()).isEqualTo("AH-001");
             })
             .verifyComplete();
     }
@@ -165,13 +181,14 @@ class ProviderServiceTest {
         var provider = createTestProvider();
         var id = provider.getId();
         var actorId = UUID.randomUUID().toString();
+        var actorEmail = "ops@medfund.test";
 
         when(providerRepository.findById(id)).thenReturn(Mono.just(provider));
         when(providerRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            providerService.suspend(id, actorId)
+            providerService.suspend(id, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(result -> assertThat(result.getStatus()).isEqualTo("suspended"))
@@ -184,8 +201,7 @@ class ProviderServiceTest {
         var provider = new Provider();
         provider.setId(UUID.randomUUID());
         provider.setName("City Hospital");
-        provider.setPracticeNumber("PR-001");
-        provider.setAhfozNumber("AH-001");
+        provider.setRegistrationNumber("AH-001");
         provider.setSpecialty("General Practice");
         provider.setEmail("info@cityhospital.com");
         provider.setStatus("active");

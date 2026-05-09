@@ -54,7 +54,9 @@ public class TenantProvisionedConsumer {
             .subscribe();
     }
 
-    private Mono<Void> processEvent(String json) {
+    // Package-private so the unit test in the matching package can drive the
+    // event-handling logic without spinning up the full Kafka receiver.
+    Mono<Void> processEvent(String json) {
         try {
             JsonNode node = objectMapper.readTree(json);
             String tenantId = node.get("tenantId").asText();

@@ -71,12 +71,14 @@ class ProviderControllerTest {
 
     @Test
     void onboard_returns201() {
-        when(providerService.onboard(any(), anyString())).thenReturn(Mono.just(createTestProvider()));
+        // anyString() doesn't match null; the mock JWT has no email claim so
+        // actorEmail(jwt) resolves to null. Use any() so the stub fires either way.
+        when(providerService.onboard(any(), any(), any())).thenReturn(Mono.just(createTestProvider()));
 
         webTestClient.mutateWith(mockJwt())
                 .post().uri("/api/v1/providers")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"name\":\"City Hospital\",\"practiceNumber\":\"PR-001\",\"specialty\":\"general\",\"email\":\"info@hospital.com\"}")
+                .bodyValue("{\"name\":\"City Hospital\",\"registrationNumber\":\"PR-001\",\"specialty\":\"general\",\"email\":\"info@hospital.com\"}")
                 .header("X-Tenant-ID", "test-tenant")
                 .exchange()
                 .expectStatus().isCreated();
@@ -86,7 +88,7 @@ class ProviderControllerTest {
         var p = new Provider();
         p.setId(UUID.randomUUID());
         p.setName("City Hospital");
-        p.setPracticeNumber("PR-001");
+        p.setRegistrationNumber("PR-001");
         p.setSpecialty("general");
         p.setStatus("active");
         return p;

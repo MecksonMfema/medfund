@@ -8,9 +8,11 @@ import com.medfund.user.exception.GroupNotFoundException;
 import com.medfund.user.repository.GroupRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.BeforeEach;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -20,6 +22,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,8 +35,24 @@ class GroupServiceTest {
     @Mock
     private AuditPublisher auditPublisher;
 
+    @Mock
+    private R2dbcEntityTemplate r2dbcTemplate;
+
     @InjectMocks
     private GroupService groupService;
+
+    @BeforeEach
+    void stubInsert() {
+        // GroupService now inserts via r2dbcTemplate.insert(...) instead of repo.save().
+        // In production Postgres stamps an id via DEFAULT gen_random_uuid() and r2dbc
+        // populates it on the returned entity; mimic that here so saved.getId() is
+        // non-null when the audit log reads it.
+        lenient().when(r2dbcTemplate.insert(any(Group.class))).thenAnswer(inv -> {
+            Group g = inv.getArgument(0);
+            if (g.getId() == null) g.setId(UUID.randomUUID());
+            return Mono.just(g);
+        });
+    }
 
     @Test
     void findAll_returnsGroups() {
@@ -84,7 +103,6 @@ class GroupServiceTest {
             "Acme Corp", "REG-001", "Jane Smith", "jane@acme.com", null, null
         );
 
-        when(groupRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -99,7 +117,7 @@ class GroupServiceTest {
             })
             .verifyComplete();
 
-        verify(groupRepository).save(any());
+        verify(r2dbcTemplate).insert(any(Group.class));
         verify(auditPublisher).publish(any());
     }
 

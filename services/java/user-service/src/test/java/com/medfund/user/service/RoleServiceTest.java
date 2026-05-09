@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -24,6 +25,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -48,8 +50,36 @@ class RoleServiceTest {
     @Mock
     private KeycloakSyncService keycloakSyncService;
 
+    @Mock
+    private R2dbcEntityTemplate r2dbcTemplate;
+
     @InjectMocks
     private RoleService roleService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void stubInsert() {
+        // RoleService now uses r2dbcTemplate.insert(...) instead of repository.save(...)
+        // for fresh inserts. Default to echoing the entity back so tests don't need
+        // to wire up per-test stubs unless they care about the persistence call.
+        // Type-specific matchers are required: insert is generic so a bare any()
+        // matcher leaves the resolved overload unstubbed and the call returns null.
+        lenient().when(r2dbcTemplate.insert(any(Role.class))).thenAnswer(inv -> {
+            Role r = inv.getArgument(0);
+            if (r.getId() == null) r.setId(UUID.randomUUID());
+            return Mono.just(r);
+        });
+        lenient().when(r2dbcTemplate.insert(any(com.medfund.user.entity.RolePermission.class))).thenAnswer(inv -> {
+            com.medfund.user.entity.RolePermission rp = inv.getArgument(0);
+            if (rp.getId() == null) rp.setId(UUID.randomUUID());
+            return Mono.just(rp);
+        });
+        lenient().when(r2dbcTemplate.insert(any(UserRole.class))).thenAnswer(inv -> {
+            UserRole ur = inv.getArgument(0);
+            if (ur.getId() == null) ur.setId(UUID.randomUUID());
+            return Mono.just(ur);
+        });
+        lenient().when(eventPublisher.publishPermissionsInvalidated(any(), any())).thenReturn(Mono.empty());
+    }
 
     @Test
     void findAll_returnsRoles() {
@@ -71,12 +101,10 @@ class RoleServiceTest {
     void create_validRequest_createsRoleWithPermissions() {
         var actorId = UUID.randomUUID().toString();
         var request = new CreateRoleRequest("test_role", "Test Role", "A test role", List.of(
-            new CreateRoleRequest.PermissionEntry("claims:read", "full")
+            new CreateRoleRequest.PermissionEntry("claims:view", "full")
         ));
 
         when(roleRepository.existsByName("test_role")).thenReturn(Mono.just(false));
-        when(roleRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-        when(rolePermissionRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -91,8 +119,7 @@ class RoleServiceTest {
             })
             .verifyComplete();
 
-        verify(roleRepository).save(any());
-        verify(rolePermissionRepository).save(any());
+        verify(r2dbcTemplate).insert(any(Role.class));
         verify(auditPublisher).publish(any());
     }
 
@@ -100,7 +127,7 @@ class RoleServiceTest {
     void create_duplicateName_throwsConflict() {
         var actorId = UUID.randomUUID().toString();
         var request = new CreateRoleRequest("test_role", "Test Role", "A test role", List.of(
-            new CreateRoleRequest.PermissionEntry("claims:read", "full")
+            new CreateRoleRequest.PermissionEntry("claims:view", "full")
         ));
 
         when(roleRepository.existsByName("test_role")).thenReturn(Mono.just(true));
@@ -124,7 +151,6 @@ class RoleServiceTest {
         role.setId(roleId);
 
         when(userRoleRepository.existsByUserIdAndRoleId(userId, roleId)).thenReturn(Mono.just(false));
-        when(userRoleRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(roleRepository.findById(roleId)).thenReturn(Mono.just(role));
         when(eventPublisher.publishRoleAssigned(any(), any(), any())).thenReturn(Mono.empty());
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
@@ -140,7 +166,7 @@ class RoleServiceTest {
             })
             .verifyComplete();
 
-        verify(userRoleRepository).save(any());
+        verify(r2dbcTemplate).insert(any(UserRole.class));
         verify(eventPublisher).publishRoleAssigned(any(), any(), any());
     }
 
