@@ -70,13 +70,50 @@ export const CLAIMS_ROUTES: Routes = [
   cs('tax-withheld',   'Tax-Withheld Claims', '/tax-with-held-claims','Claims with tax deduction applied.',                       ['claims:view', 'finance:view_withheld_tax']),
 
   // ── Drug claims ────────────────────────────────────────────────────────────
-  cs('drug',                'Drug Claims',          '/drug-claims',                'Approved pharmaceutical claims.',           ['claims:view_drug']),
-  cs('drug/pending',        'Pending Drug Claims',  '/pending-drug-claims',        'Drug claims under review.',                  ['claims:view_drug']),
-  cs('drug/rejected',       'Rejected Drug Claims', '/rejected-drug-claims',       'Denied pharmaceutical claims.',              ['claims:view_drug']),
-  cs('drug/staged',         'Staged Drug Claims',   '/staged-drug-claims',         'Draft drug submissions.',                    ['claims:view_drug']),
-  cs('drug/captured',       'Captured Drug Claims', '/captured-drug-claims',       'Recently added drug claims.',                ['claims:view_drug']),
-  cs('drug/submit',         'Submit Drug Claim',    '/submit-drug-claim',          'New pharmaceutical claim entry.',            ['claims:create_drug']),
-  cs('drug/search',         'Search Drug Claims',   '/search-member-drug-claims',  'Find drug claims by member.',                ['claims:view_drug']),
+  // Drug claims share the Claim entity with claim_type='drug' — the existing
+  // pending-claims-list filters by both status and claim type via route data.
+  {
+    path: 'drug',
+    canActivate: [permissionGuard(['claims:view_drug'])],
+    loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
+    data: { title: 'Drug Claims', description: 'Pharmaceutical claims, all statuses.', presetClaimType: 'drug', sidebar: 'operational' },
+  },
+  {
+    path: 'drug/pending',
+    canActivate: [permissionGuard(['claims:view_drug'])],
+    loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
+    data: { title: 'Pending Drug Claims', description: 'Drug claims awaiting adjudication.', presetClaimType: 'drug', presetStatus: 'VERIFIED', sidebar: 'operational' },
+  },
+  {
+    path: 'drug/rejected',
+    canActivate: [permissionGuard(['claims:view_drug'])],
+    loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
+    data: { title: 'Rejected Drug Claims', description: 'Denied pharmaceutical claims.', presetClaimType: 'drug', presetStatus: 'REJECTED', sidebar: 'operational' },
+  },
+  {
+    path: 'drug/captured',
+    canActivate: [permissionGuard(['claims:view_drug'])],
+    loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
+    data: { title: 'Captured Drug Claims', description: 'Recently submitted drug claims.', presetClaimType: 'drug', presetStatus: 'SUBMITTED', sidebar: 'operational' },
+  },
+  {
+    path: 'drug/staged',
+    canActivate: [permissionGuard(['claims:view_drug'])],
+    loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
+    data: { title: 'Staged Drug Claims', description: 'Drug claims pending info.', presetClaimType: 'drug', presetStatus: 'PENDING_INFO', sidebar: 'operational' },
+  },
+  {
+    path: 'drug/search',
+    canActivate: [permissionGuard(['claims:view_drug'])],
+    loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
+    data: { title: 'Search Drug Claims', description: 'All drug claims; use the search box to filter by claim # or notes.', presetClaimType: 'drug', sidebar: 'operational' },
+  },
+  {
+    path: 'drug/submit',
+    canActivate: [permissionGuard(['claims:create_drug'])],
+    loadComponent: () => import('./submit/submit-claim.component').then(m => m.SubmitClaimComponent),
+    data: { title: 'Submit Drug Claim', sidebar: 'operational' },
+  },
   cs('drug/tax-withheld',   'Tax-Withheld Drug Claims', '/tax-with-held-drugclaims', 'Drug claims with tax deduction.',          ['claims:view_drug', 'finance:view_withheld_tax']),
 
   // ── Pre-authorisation ──────────────────────────────────────────────────────

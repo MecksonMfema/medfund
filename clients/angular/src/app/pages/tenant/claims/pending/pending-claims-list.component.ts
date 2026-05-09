@@ -25,10 +25,11 @@ export class PendingClaimsListComponent implements OnInit {
   loading = false;
   errorMessage: string | null = null;
 
-  // Preset (route-driven) — locks the status filter when set so the URL
-  // identity is preserved. Sub-routes (accepted, rejected, etc.) seed this
-  // via route data.
+  // Preset (route-driven) — locks the status / claim-type filter when set so
+  // the URL identity is preserved. Sub-routes (accepted, rejected, drug, etc.)
+  // seed these via route data.
   presetStatus = '';
+  presetClaimType = '';
   pageTitle = 'Pending claims';
   pageDescription = 'Claims queued for adjudication. Click any row to open the detail view and decide.';
 
@@ -43,9 +44,14 @@ export class PendingClaimsListComponent implements OnInit {
     if (data['presetStatus']) {
       this.presetStatus = data['presetStatus'];
       this.statusFilter = this.presetStatus;
+    } else if (data['presetClaimType']) {
+      // Drug-claim sub-routes default to "all statuses" — they're a type slice,
+      // not a queue. Operators pick the status filter from the dropdown.
+      this.statusFilter = '';
     } else {
       this.statusFilter = 'VERIFIED'; // default to "ready for adjudication"
     }
+    if (data['presetClaimType']) this.presetClaimType = data['presetClaimType'];
     if (data['title']) this.pageTitle = data['title'];
     if (data['description']) this.pageDescription = data['description'];
 
@@ -79,12 +85,19 @@ export class PendingClaimsListComponent implements OnInit {
   }
 
   private applyFilter(): void {
+    let rows = this.rows;
+    // Drug routes set presetClaimType so the drug section only sees drug
+    // claims; medical routes leave it blank and see everything that passed
+    // the status filter.
+    if (this.presetClaimType) {
+      rows = rows.filter(c => c.claimType?.toLowerCase() === this.presetClaimType.toLowerCase());
+    }
     const q = this.searchTerm.trim().toLowerCase();
     if (!q) {
-      this.filtered = this.rows;
+      this.filtered = rows;
       return;
     }
-    this.filtered = this.rows.filter(c =>
+    this.filtered = rows.filter(c =>
       c.claimNumber?.toLowerCase().includes(q) ||
       (c.notes && c.notes.toLowerCase().includes(q)),
     );
