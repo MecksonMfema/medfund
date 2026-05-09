@@ -75,8 +75,42 @@ export const BILLING_ROUTES: Routes = [
     loadComponent: () => import('./age-groups/age-group-form.component').then(m => m.AgeGroupFormComponent),
     data: { title: 'Add Age Group', sidebar: 'operational' },
   },
-  cs('waiting-periods',              'Waiting Periods',             '/policies/waiting-period',               'Configure new-member waiting periods.',                           ['billing:manage_waiting_periods']),
-  cs('scheme-change-waiting-periods','Scheme-Change Waiting Periods','/policies/scheme-change-waiting-periods','Waiting periods applied when members switch schemes.',           ['billing:manage_waiting_periods']),
+  {
+    path: 'waiting-periods',
+    canActivate: [permissionGuard(['billing:view', 'billing:manage_waiting_periods'])],
+    loadComponent: () => import('./waiting-periods/waiting-periods-list.component').then(m => m.WaitingPeriodsListComponent),
+    data: { title: 'Waiting Periods', sidebar: 'operational' },
+  },
+  {
+    path: 'waiting-periods/add',
+    canActivate: [permissionGuard(['billing:manage_waiting_periods'])],
+    loadComponent: () => import('./waiting-periods/waiting-period-form.component').then(m => m.WaitingPeriodFormComponent),
+    data: { title: 'Add Waiting Period', sidebar: 'operational' },
+  },
+  {
+    path: 'waiting-periods/:id/edit',
+    canActivate: [permissionGuard(['billing:manage_waiting_periods'])],
+    loadComponent: () => import('./waiting-periods/waiting-period-form.component').then(m => m.WaitingPeriodFormComponent),
+    data: { title: 'Edit Waiting Period', sidebar: 'operational' },
+  },
+  {
+    path: 'scheme-change-waiting-periods',
+    canActivate: [permissionGuard(['billing:view', 'billing:manage_waiting_periods'])],
+    loadComponent: () => import('./scheme-change-waiting-periods/scheme-change-waiting-periods-list.component').then(m => m.SchemeChangeWaitingPeriodsListComponent),
+    data: { title: 'Scheme-Change Waiting Periods', sidebar: 'operational' },
+  },
+  {
+    path: 'scheme-change-waiting-periods/add',
+    canActivate: [permissionGuard(['billing:manage_waiting_periods'])],
+    loadComponent: () => import('./scheme-change-waiting-periods/scheme-change-waiting-period-form.component').then(m => m.SchemeChangeWaitingPeriodFormComponent),
+    data: { title: 'Add Scheme-Change Rule', sidebar: 'operational' },
+  },
+  {
+    path: 'scheme-change-waiting-periods/:id/edit',
+    canActivate: [permissionGuard(['billing:manage_waiting_periods'])],
+    loadComponent: () => import('./scheme-change-waiting-periods/scheme-change-waiting-period-form.component').then(m => m.SchemeChangeWaitingPeriodFormComponent),
+    data: { title: 'Edit Scheme-Change Rule', sidebar: 'operational' },
+  },
 
   // ── Generation & statements ────────────────────────────────────────────────
   {

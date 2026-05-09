@@ -36,7 +36,6 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// RBAC: permission catalogue + caller's effective permissions.
 	app.All("/api/v1/permissions/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/me/permissions", proxy.Handler(cfg.UserServiceURL))
-	app.All("/api/v1/waiting-periods/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/scheduled-jobs/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/tenant-stats", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/tenant-stats/*", proxy.Handler(cfg.UserServiceURL))
@@ -56,6 +55,10 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/transactions", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/transactions/*", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/billing/*", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/waiting-periods", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/waiting-periods/*", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/scheme-change-waiting-periods", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/scheme-change-waiting-periods/*", proxy.Handler(cfg.ContribServiceURL))
 
 	// ── Finance Service ───────────────────────────────────────────────────────
 	app.All("/api/v1/payments/*", proxy.Handler(cfg.FinanceServiceURL))

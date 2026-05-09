@@ -1,0 +1,60 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Waiting periods</h1>
+      <p class="page-sub">Initial-enrolment waits per scheme. Used by the adjudication pipeline to gate benefits during the configured number of days after a member joins. For waits triggered by scheme change, use the Scheme-Change Waiting Periods page.</p>
+    </div>
+    <a class="btn btn-primary" routerLink="/tenant/billing/waiting-periods/add">
+      <app-icon name="plus" [size]="14"></app-icon>
+      Add waiting period
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <div class="filters">
+    <label class="field">
+      <span class="field-label">Scheme</span>
+      <select [(ngModel)]="selectedSchemeId" (change)="onSchemeChange()" name="scheme">
+        <option [value]="''">All schemes</option>
+        @for (s of schemes; track s.id) {
+          <option [value]="s.id">{{ s.name }}</option>
+        }
+      </select>
+    </label>
+  </div>
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (rows.length === 0) {
+    <p class="empty-state">No waiting periods configured{{ selectedSchemeId ? ' for this scheme' : '' }}.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Scheme</th>
+          <th>Condition</th>
+          <th class="right">Days</th>
+          <th>Description</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows; track row.id) {
+          <tr [class.pending]="pendingId === row.id">
+            <td>{{ row.schemeName || row.schemeId }}</td>
+            <td>{{ row.conditionType | humanize }}</td>
+            <td class="right">{{ row.waitingDays }}</td>
+            <td class="muted">{{ row.description || '—' }}</td>
+            <td class="actions">
+              <button class="link-btn" (click)="edit(row)">Edit</button>
+              <button class="link-btn danger" (click)="remove(row)">Delete</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

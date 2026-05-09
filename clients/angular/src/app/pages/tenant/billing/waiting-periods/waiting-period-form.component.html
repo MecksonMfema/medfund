@@ -1,0 +1,60 @@
+<div class="form-page">
+  <header class="page-header">
+    <div>
+      <h1>{{ ruleId ? 'Edit waiting period' : 'Add waiting period' }}</h1>
+      <p class="page-sub">Number of days a member on the chosen scheme must wait after enrolment before the named condition becomes claimable.</p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/billing/waiting-periods">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form (submit)="$event.preventDefault(); submit()" class="form-grid">
+    <label class="field span-2">
+      <span class="field-label">Scheme</span>
+      <select [(ngModel)]="form.schemeId" name="schemeId" required>
+        <option [value]="''" disabled>Pick a scheme</option>
+        @for (s of schemes; track s.id) {
+          <option [value]="s.id">{{ s.name }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="field">
+      <span class="field-label">Condition</span>
+      <input list="benefit-types"
+             [(ngModel)]="form.conditionType"
+             name="conditionType"
+             placeholder="OUTPATIENT, CHRONIC, PRE_EXISTING…"
+             required />
+      <datalist id="benefit-types">
+        @for (t of benefitTypes; track t.id) {
+          <option [value]="t.code">{{ t.label }}</option>
+        }
+      </datalist>
+      <small class="muted">Pick from your Benefit Types catalogue or type a custom condition code.</small>
+    </label>
+
+    <label class="field">
+      <span class="field-label">Waiting (days)</span>
+      <input type="number" min="0" [(ngModel)]="form.waitingDays" name="waitingDays" required />
+    </label>
+
+    <label class="field span-2">
+      <span class="field-label">Description (optional)</span>
+      <textarea rows="3" [(ngModel)]="form.description" name="description"></textarea>
+    </label>
+
+    <div class="form-actions span-2">
+      <a class="btn btn-default" routerLink="/tenant/billing/waiting-periods">Cancel</a>
+      <button type="submit" class="btn btn-primary" [disabled]="saving || loading">
+        {{ saving ? 'Saving…' : (ruleId ? 'Save changes' : 'Add waiting period') }}
+      </button>
+    </div>
+  </form>
+</div>

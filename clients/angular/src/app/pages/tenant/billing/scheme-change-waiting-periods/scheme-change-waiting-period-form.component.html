@@ -1,0 +1,62 @@
+<div class="form-page">
+  <header class="page-header">
+    <div>
+      <h1>{{ ruleId ? 'Edit scheme-change rule' : 'Add scheme-change rule' }}</h1>
+      <p class="page-sub">Waiting days applied when a member upgrades or downgrades schemes. Leave benefit blank to apply the wait to every benefit on the destination scheme.</p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/billing/scheme-change-waiting-periods">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form (submit)="$event.preventDefault(); submit()" class="form-grid">
+    <label class="field">
+      <span class="field-label">Direction</span>
+      <select [(ngModel)]="form.changeType" name="changeType" required>
+        <option value="UPGRADE">Upgrade</option>
+        <option value="DOWNGRADE">Downgrade</option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span class="field-label">Waiting (days)</span>
+      <input type="number" min="0" [(ngModel)]="form.waitingDays" name="waitingDays" required />
+    </label>
+
+    <label class="field span-2">
+      <span class="field-label">Benefit (optional)</span>
+      <input list="benefit-types"
+             [(ngModel)]="form.benefitType"
+             name="benefitType"
+             placeholder="Leave blank for all benefits" />
+      <datalist id="benefit-types">
+        @for (t of benefitTypes; track t.id) {
+          <option [value]="t.code">{{ t.label }}</option>
+        }
+      </datalist>
+      <small class="muted">Pick from your Benefit Types catalogue or type a custom code.</small>
+    </label>
+
+    <label class="checkbox span-2">
+      <input type="checkbox" [(ngModel)]="form.isActive" name="isActive" />
+      <span>Active</span>
+    </label>
+
+    <label class="field span-2">
+      <span class="field-label">Description (optional)</span>
+      <textarea rows="3" [(ngModel)]="form.description" name="description"></textarea>
+    </label>
+
+    <div class="form-actions span-2">
+      <a class="btn btn-default" routerLink="/tenant/billing/scheme-change-waiting-periods">Cancel</a>
+      <button type="submit" class="btn btn-primary" [disabled]="saving || loading">
+        {{ saving ? 'Saving…' : (ruleId ? 'Save changes' : 'Add rule') }}
+      </button>
+    </div>
+  </form>
+</div>
