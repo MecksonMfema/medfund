@@ -102,9 +102,28 @@ export const CLAIMS_ROUTES: Routes = [
   cs('drug/preauth/list',        'Drug Pre-Auth List',   '/drug-pre-auth-list',             'View all drug pre-auth requests.',                        ['claims:manage_drug_preauth']),
 
   // ── Verification ───────────────────────────────────────────────────────────
-  cs('verification-codes',     'Verification Codes',         '/verification-codes',          'Manage one-time verification codes.',            ['claims:manage_verification_codes']),
-  cs('request-code',           'Request Verification Code',  '/request-verification-code',   'Issue a new verification code.',                  ['claims:manage_verification_codes']),
-  cs('preverification',        'Pre-Verification',           '/submit-preverification',      'Validate a claim before submission.',             ['claims:verify']),
+  // All three verification entrypoints land on the same component — the
+  // claim-level verificationCode is generated server-side at submission, so
+  // there's no separate "issue a code" flow today; the page focuses on the
+  // front-desk lookup + confirm workflow.
+  {
+    path: 'verification-codes',
+    canActivate: [permissionGuard(['claims:manage_verification_codes'])],
+    loadComponent: () => import('./verification/verification-codes.component').then(m => m.VerificationCodesComponent),
+    data: { title: 'Verify Claim', sidebar: 'operational' },
+  },
+  {
+    path: 'request-code',
+    canActivate: [permissionGuard(['claims:manage_verification_codes'])],
+    loadComponent: () => import('./verification/verification-codes.component').then(m => m.VerificationCodesComponent),
+    data: { title: 'Verify Claim', sidebar: 'operational' },
+  },
+  {
+    path: 'preverification',
+    canActivate: [permissionGuard(['claims:verify'])],
+    loadComponent: () => import('./verification/verification-codes.component').then(m => m.VerificationCodesComponent),
+    data: { title: 'Verify Claim', sidebar: 'operational' },
+  },
 
   // ── Configuration (tariffs, modifiers, rejection reasons, ICD) ────────────
   {
