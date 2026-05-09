@@ -1,0 +1,53 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Tariff lookup</h1>
+      <p class="page-sub">Read-only search across the tariff catalogue. Use this to confirm a code's price or pre-auth requirement before submitting a claim.</p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/claims">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <div class="search-bar">
+    <app-icon name="search" [size]="16"></app-icon>
+    <input type="text" [(ngModel)]="query" (ngModelChange)="onQueryChange()"
+           placeholder="Search by code or description…" autofocus />
+  </div>
+
+  @if (searching) {
+    <p class="muted">Searching…</p>
+  } @else if (query.trim() && rows.length === 0) {
+    <p class="empty-state">No tariff codes match "{{ query }}".</p>
+  } @else if (rows.length > 0) {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Description</th>
+          <th>Category</th>
+          <th class="right">Unit price</th>
+          <th>Pre-auth</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows; track row.id) {
+          <tr>
+            <td><code>{{ row.code }}</code></td>
+            <td>{{ row.description }}</td>
+            <td class="muted">{{ row.category || '—' }}</td>
+            <td class="right">{{ row.unitPrice | currencyFormat:(row.currencyCode || 'USD') }}</td>
+            <td>{{ row.requiresPreAuth ? 'Required' : '—' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  } @else {
+    <p class="hint">Type at least one character to search the tariff catalogue.</p>
+  }
+</div>

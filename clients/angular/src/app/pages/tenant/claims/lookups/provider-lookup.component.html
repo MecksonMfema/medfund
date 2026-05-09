@@ -1,0 +1,79 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Provider lookup</h1>
+      <p class="page-sub">Find a provider by name or registration number; the page surfaces recent claims once you pick one.</p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/claims">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  @if (selected) {
+    <div class="selected-card">
+      <div>
+        <strong>{{ selected.name }}</strong>
+        <span class="muted"> · {{ selected.registrationNumber || '—' }} · {{ selected.specialty || '—' }} · {{ selected.status | humanize }}</span>
+      </div>
+      <button type="button" class="link-btn" (click)="clear()">Change</button>
+    </div>
+
+    @if (loadingHistory) {
+      <p class="muted">Loading claim history…</p>
+    } @else if (history.length === 0) {
+      <p class="empty-state">No claims on file for this provider.</p>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Claim #</th>
+            <th>Service date</th>
+            <th class="right">Claimed</th>
+            <th class="right">Approved</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (c of history; track c.id) {
+            <tr (click)="openClaim(c)" class="clickable">
+              <td><strong>{{ c.claimNumber }}</strong></td>
+              <td>{{ c.serviceDate }}</td>
+              <td class="right">{{ c.claimedAmount | currencyFormat:c.currencyCode }}</td>
+              <td class="right">
+                {{ c.approvedAmount ? (c.approvedAmount | currencyFormat:c.currencyCode) : '—' }}
+              </td>
+              <td><span class="status-badge status-{{ c.status?.toLowerCase() }}">{{ c.status | humanize }}</span></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  } @else {
+    <div class="search-bar">
+      <app-icon name="search" [size]="16"></app-icon>
+      <input type="text" [(ngModel)]="query" (ngModelChange)="onQueryChange()"
+             placeholder="Search by name or registration #…" autofocus />
+    </div>
+    @if (searching) {
+      <p class="muted">Searching…</p>
+    } @else if (query.trim() && matches.length === 0) {
+      <p class="empty-state">No providers match "{{ query }}".</p>
+    } @else if (matches.length > 0) {
+      <ul class="results">
+        @for (p of matches; track p.id) {
+          <li (click)="pick(p)">
+            <strong>{{ p.name }}</strong>
+            <span class="muted"> · {{ p.registrationNumber || '—' }} · {{ p.specialty || '—' }}</span>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="hint">Type at least one character to search the provider directory.</p>
+    }
+  }
+</div>

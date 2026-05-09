@@ -158,8 +158,24 @@ export const CLAIMS_ROUTES: Routes = [
   cs('scheme-limits',          'Scheme Limits',       '/scheme-limits',          'View per-scheme benefit caps.',                ['claims:view']),
 
   // ── Lookups ────────────────────────────────────────────────────────────────
-  cs('provider-lookup',        'Provider Lookup',      '/provider-lookup',     'Search the provider directory.',     ['providers:view']),
-  cs('member-lookup',          'Member Lookup',        '/member-lookup',       'Search the member directory.',       ['members:view']),
+  {
+    path: 'provider-lookup',
+    canActivate: [permissionGuard(['providers:view'])],
+    loadComponent: () => import('./lookups/provider-lookup.component').then(m => m.ProviderLookupComponent),
+    data: { title: 'Provider Lookup', sidebar: 'operational' },
+  },
+  {
+    path: 'member-lookup',
+    canActivate: [permissionGuard(['members:view'])],
+    loadComponent: () => import('./lookups/member-lookup.component').then(m => m.MemberLookupComponent),
+    data: { title: 'Member Lookup', sidebar: 'operational' },
+  },
+  {
+    path: 'tariff-lookup',
+    canActivate: [permissionGuard(['claims:view'])],
+    loadComponent: () => import('./lookups/tariff-lookup.component').then(m => m.TariffLookupComponent),
+    data: { title: 'Tariff Lookup', sidebar: 'operational' },
+  },
   cs('group-charge',           'Group Charge Lookup',  '/group-charge-lookup', 'Look up employer group billing.',    ['billing:view_creditors']),
   cs('special-waivers',        'Special Waivers',      '/special-waivers',     'Override benefit limits per member.',['members:manage_waivers']),
 
