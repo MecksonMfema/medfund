@@ -40,6 +40,8 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/scheduled-jobs/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/email-senders", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/email-senders/*", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/email-campaigns", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/email-campaigns/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/tenant-stats", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/tenant-stats/*", proxy.Handler(cfg.UserServiceURL))
 

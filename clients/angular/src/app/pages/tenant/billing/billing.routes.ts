@@ -1,9 +1,5 @@
 import { Routes } from '@angular/router';
 import { permissionGuard } from '../../../auth/auth.guard';
-import { PermissionKey } from '../../../core/security/permissions';
-
-const loadComingSoon = () =>
-  import('../../../shared/components/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent);
 
 /**
  * Billing domain — covers the legacy "Contributions" admin (schemes,
@@ -11,20 +7,10 @@ const loadComingSoon = () =>
  * {@code MASCA-Frontend/src/setup/routes/index.js}. Renamed in our system
  * because "Billing" is the umbrella that fits contributions + group
  * invoices + transaction posting under one section.
+ *
+ * Every route below is fully implemented — there are no ComingSoon
+ * placeholders left in this section.
  */
-const cs = (
-  path: string,
-  title: string,
-  ref: string,
-  description: string,
-  perms: PermissionKey[],
-): import('@angular/router').Route => ({
-  path,
-  canActivate: [permissionGuard(perms)],
-  loadComponent: loadComingSoon,
-  data: { title, description, sidebar: 'operational', ref },
-});
-
 export const BILLING_ROUTES: Routes = [
   // ── Schemes (real shell — existing functional component) ──────────────────
   {
@@ -227,8 +213,18 @@ export const BILLING_ROUTES: Routes = [
   },
 
   // ── Email campaigns ────────────────────────────────────────────────────────
-  cs('emails',              'Emails',              '/email/view-emails',          'Email campaign history.',                              ['admin:manage_settings']),
-  cs('emails/send',         'Send Emails',         '/email/send-emails',          'Compose and dispatch a member-targeted campaign.',     ['admin:manage_settings']),
+  {
+    path: 'emails',
+    canActivate: [permissionGuard(['admin:manage_settings'])],
+    loadComponent: () => import('./emails/campaigns-list.component').then(m => m.CampaignsListComponent),
+    data: { title: 'Emails', sidebar: 'operational' },
+  },
+  {
+    path: 'emails/send',
+    canActivate: [permissionGuard(['admin:manage_settings'])],
+    loadComponent: () => import('./emails/campaign-composer.component').then(m => m.CampaignComposerComponent),
+    data: { title: 'Send Emails', sidebar: 'operational' },
+  },
   {
     path: 'emails/senders',
     canActivate: [permissionGuard(['admin:manage_settings'])],
@@ -249,10 +245,9 @@ export const BILLING_ROUTES: Routes = [
   },
 
   // ── Tasks ──────────────────────────────────────────────────────────────────
-  cs('tasks',               'Tasks',               '/tickets/view-tasks',         'Billing-related work items.',                          ['billing:view']),
-  cs('tasks/add',           'Add Task',            '/tickets/add-tasks',          'Create a new work item.',                              ['billing:view']),
-  cs('tasks/assign',        'Assign Tasks',        '/tickets/assign-tasks',       'Allocate work items to billing clerks.',               ['billing:view']),
-  cs('tasks/incomplete',    'Incomplete Tasks',    '/tickets/incomplete-tasks',   'Open billing work.',                                   ['billing:view']),
+  // Tasks (legacy MASCA in-app ticketing) intentionally dropped — most teams
+  // use Jira / Linear / ServiceNow externally. If a tenant ever asks for it,
+  // we'll scope it as its own greenfield slice rather than a half-feature.
 
   // ── User management (legacy MASCA had user mgmt under contributions) ──────
   // Legacy MASCA put user management under Contributions; in our system this

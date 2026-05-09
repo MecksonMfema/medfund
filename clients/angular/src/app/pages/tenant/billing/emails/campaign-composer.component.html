@@ -1,0 +1,114 @@
+<div class="composer-page">
+  <header class="page-header">
+    <div>
+      <h1>{{ campaignId ? (readOnly ? 'View campaign' : 'Edit campaign') : 'Compose campaign' }}</h1>
+      <p class="page-sub">Drafts can be edited until they're sent. The audience filter is a JSON object — leave it as <code>{{ '{}' }}</code> to target every member.</p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/billing/emails">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success">{{ successMessage }}</div>
+  }
+
+  <form (submit)="$event.preventDefault(); saveDraft()" class="composer-grid">
+    <section class="card form-section">
+      <h3 class="section-title">Email</h3>
+
+      <label class="field">
+        <span class="field-label">Sender</span>
+        <select [(ngModel)]="form.senderId" name="senderId" [disabled]="readOnly">
+          <option [value]="''">— Pick a verified sender —</option>
+          @for (s of senders; track s.id) {
+            <option [value]="s.id">{{ s.address }}{{ s.displayName ? ' (' + s.displayName + ')' : '' }}</option>
+          }
+        </select>
+        @if (senders.length === 0) {
+          <small class="muted">
+            No verified senders yet — <a routerLink="/tenant/billing/emails/senders/add">add one</a>.
+          </small>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field-label">Subject</span>
+        <input type="text" [(ngModel)]="form.subject" name="subject" maxlength="255" required [readOnly]="readOnly" />
+      </label>
+
+      <label class="field">
+        <span class="field-label">HTML body</span>
+        <textarea [(ngModel)]="form.bodyHtml" name="bodyHtml" rows="14" required
+                  placeholder="<p>Hello {{ '{{firstName}}' }},</p>"
+                  [readOnly]="readOnly"></textarea>
+        <small class="muted">Plain HTML for now. Variable substitution and a rich-text editor are follow-ups.</small>
+      </label>
+
+      <label class="field">
+        <span class="field-label">Plain-text fallback <span class="muted">(optional)</span></span>
+        <textarea [(ngModel)]="form.bodyText" name="bodyText" rows="4"
+                  placeholder="Plain-text version for clients that don't render HTML."
+                  [readOnly]="readOnly"></textarea>
+      </label>
+    </section>
+
+    <section class="card form-section">
+      <h3 class="section-title">Audience</h3>
+
+      <label class="field">
+        <span class="field-label">Filter (JSON)</span>
+        <textarea [(ngModel)]="form.audienceFilter" name="audienceFilter" rows="6"
+                  spellcheck="false" [readOnly]="readOnly"></textarea>
+        <small class="muted">Supported keys: <code>memberStatus</code>, <code>schemeIds</code>, <code>groupIds</code>, <code>enrolledAfter</code> (YYYY-MM-DD).</small>
+      </label>
+
+      <div class="preview-actions">
+        <button type="button" class="btn btn-default" (click)="previewAudience()" [disabled]="previewing">
+          {{ previewing ? 'Previewing…' : 'Preview audience' }}
+        </button>
+        @if (preview) {
+          <span class="preview-count">{{ preview.count }} match{{ preview.count === 1 ? '' : 'es' }}</span>
+        }
+      </div>
+
+      @if (preview && preview.sample.length > 0) {
+        <div class="preview-table">
+          <table>
+            <thead>
+              <tr><th>Member #</th><th>Name</th><th>Email</th></tr>
+            </thead>
+            <tbody>
+              @for (s of preview.sample; track s.memberNumber) {
+                <tr>
+                  <td><code>{{ s.memberNumber }}</code></td>
+                  <td>{{ s.firstName }} {{ s.lastName }}</td>
+                  <td class="muted">{{ s.email || '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (preview.count > preview.sample.length) {
+            <p class="muted">…and {{ preview.count - preview.sample.length }} more.</p>
+          }
+        </div>
+      }
+    </section>
+
+    @if (!readOnly) {
+      <div class="form-actions">
+        <a class="btn btn-default" routerLink="/tenant/billing/emails">Cancel</a>
+        <button type="submit" class="btn btn-default" [disabled]="saving">
+          {{ saving ? 'Saving…' : 'Save draft' }}
+        </button>
+        <button type="button" class="btn btn-primary" (click)="saveAndSend()" [disabled]="saving">
+          {{ saving ? 'Sending…' : 'Save and send' }}
+        </button>
+      </div>
+    }
+  </form>
+</div>
