@@ -2,8 +2,10 @@ package com.medfund.claims.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.medfund.claims.client.AiServiceClient;
 import com.medfund.claims.dto.AdjudicationResult;
 import com.medfund.claims.dto.AdjudicationResult.StageResult;
+import com.medfund.claims.dto.AiSignals;
 import com.medfund.claims.entity.Claim;
 import com.medfund.claims.entity.ClaimLine;
 import com.medfund.claims.entity.DiagnosisProcedureMapping;
@@ -70,6 +72,8 @@ public class AdjudicationPipeline {
     private final ClaimFactBuilder factBuilder;
     private final DatabaseClient databaseClient;
     private final ObjectMapper objectMapper;
+    private final AiServiceClient aiServiceClient;
+    private final AdjudicationDecisionEngine decisionEngine;
 
     public AdjudicationPipeline(TariffCodeRepository tariffCodeRepository,
                                 TariffModifierRepository tariffModifierRepository,
@@ -81,7 +85,9 @@ public class AdjudicationPipeline {
                                 TenantRuleLoader tenantRuleLoader,
                                 ClaimFactBuilder factBuilder,
                                 DatabaseClient databaseClient,
-                                ObjectMapper objectMapper) {
+                                ObjectMapper objectMapper,
+                                AiServiceClient aiServiceClient,
+                                AdjudicationDecisionEngine decisionEngine) {
         this.tariffCodeRepository = tariffCodeRepository;
         this.tariffModifierRepository = tariffModifierRepository;
         this.icdCodeRepository = icdCodeRepository;
@@ -93,10 +99,16 @@ public class AdjudicationPipeline {
         this.factBuilder = factBuilder;
         this.databaseClient = databaseClient;
         this.objectMapper = objectMapper;
+        this.aiServiceClient = aiServiceClient;
+        this.decisionEngine = decisionEngine;
     }
 
     public Mono<AdjudicationResult> execute(Claim claim, List<ClaimLine> lines) {
-        return checkEligibility(claim)
+        // Run the deterministic stages sequentially (each may depend on the
+        // claim's enrichment from the prior step). Run the AI evaluation in
+        // parallel — it doesn't depend on stage outcomes and we don't want
+        // to serialize an external network call behind every DB hit.
+        Mono<List<StageResult>> stagesMono = checkEligibility(claim)
             .flatMap(s1 -> checkWaitingPeriod(claim).map(s2 -> {
                 var results = new ArrayList<StageResult>();
                 results.add(s1);
@@ -122,8 +134,13 @@ public class AdjudicationPipeline {
             .flatMap(results -> evaluateTenantRules(claim).map(s7 -> {
                 results.add(s7);
                 return results;
-            }))
-            .map(results -> buildDecision(claim, lines, results));
+            }));
+
+        Mono<AiSignals> aiMono = aiServiceClient.evaluate(claim, lines)
+                .defaultIfEmpty(AiSignals.empty());
+
+        return Mono.zip(stagesMono, aiMono)
+                .map(tuple -> decisionEngine.decide(claim, tuple.getT1(), tuple.getT2()));
     }
 
     // ---- Stage 1: Eligibility ----
@@ -433,42 +450,10 @@ public class AdjudicationPipeline {
         try { return UUID.fromString(raw); } catch (IllegalArgumentException e) { return null; }
     }
 
-    // ---- Decision Builder ----
-
-    private AdjudicationResult buildDecision(Claim claim, List<ClaimLine> lines, List<StageResult> results) {
-        boolean allPassed = results.stream().allMatch(StageResult::passed);
-        boolean anyFailed = results.stream().anyMatch(r -> !r.passed());
-
-        if (allPassed) {
-            return new AdjudicationResult("APPROVED", claim.getClaimedAmount(), null, null, results);
-        }
-
-        if (anyFailed) {
-            StageResult firstFailure = results.stream()
-                .filter(r -> !r.passed())
-                .findFirst()
-                .orElse(results.get(0));
-
-            // Waiting period and benefit limit failures can be soft (flag for manual review)
-            // if the tenant has configured waivers or the claim is emergency
-            boolean onlySoftFailures = results.stream()
-                .filter(r -> !r.passed())
-                .allMatch(r -> "WaitingPeriod".equals(r.stageName()) || "BenefitLimits".equals(r.stageName()));
-
-            if (onlySoftFailures) {
-                return new AdjudicationResult("MANUAL_REVIEW", null,
-                    firstFailure.stageName(), firstFailure.details(), results);
-            }
-
-            return new AdjudicationResult("REJECTED", null,
-                firstFailure.stageName(), firstFailure.details(), results);
-        }
-
-        return new AdjudicationResult("MANUAL_REVIEW", null, null,
-            "Unable to determine automatic decision — flagged for manual review", results);
-    }
-
     // ---- Helper record ----
+    // Decision matrix lives in AdjudicationDecisionEngine — keeping it
+    // separate lets the matrix be unit-tested without spinning up the
+    // whole pipeline.
 
     private record WaitingPeriodInfo(String conditionType, int waitingDays) {}
 }

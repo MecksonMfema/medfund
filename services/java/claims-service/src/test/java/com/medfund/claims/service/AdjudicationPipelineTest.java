@@ -1,6 +1,8 @@
 package com.medfund.claims.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.medfund.claims.client.AiServiceClient;
+import com.medfund.claims.dto.AiSignals;
 import com.medfund.claims.entity.Claim;
 import com.medfund.claims.entity.ClaimLine;
 import com.medfund.claims.entity.TariffCode;
@@ -49,6 +51,7 @@ class AdjudicationPipelineTest {
     @Mock private com.medfund.rules.service.TenantRuleLoader tenantRuleLoader;
     @Mock private ClaimFactBuilder factBuilder;
     @Mock private DatabaseClient databaseClient;
+    @Mock private AiServiceClient aiServiceClient;
 
     private AdjudicationPipeline adjudicationPipeline;
 
@@ -60,8 +63,14 @@ class AdjudicationPipelineTest {
                 icdCodeRepository, diagnosisProcedureMappingRepository,
                 preAuthorizationRepository, rejectionReasonRepository,
                 ruleEvaluationService, tenantRuleLoader, factBuilder,
-                databaseClient, new ObjectMapper()
+                databaseClient, new ObjectMapper(),
+                aiServiceClient, new AdjudicationDecisionEngine()
         );
+
+        // Default AI mock: empty signal — equivalent to fail-open behavior in
+        // the decision engine. Tests that need to assert AI-influenced paths
+        // override this in the test body.
+        when(aiServiceClient.evaluate(any(), any())).thenReturn(Mono.just(AiSignals.empty()));
 
         // Tenant-rules stage defaults: no rules loaded, returns empty result list.
         when(tenantRuleLoader.ensureLoaded(any(java.util.UUID.class))).thenReturn(Mono.empty());
