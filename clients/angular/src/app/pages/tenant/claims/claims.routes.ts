@@ -43,7 +43,12 @@ export const CLAIMS_ROUTES: Routes = [
   cs('rejected',       'Rejected Claims',     '/rejected-claims',     'Denied claims with rejection reasons.',                    ['claims:view']),
   cs('staged',         'Staged Claims',       '/staged-claims',       'Draft claims being prepared.',                              ['claims:view']),
   cs('captured',       'Captured Claims',     '/captured-claims',     'Recently submitted claims.',                                ['claims:view']),
-  cs('submit',         'Submit Claim',        '/submit-claim',        'Capture a new claim on behalf of a member.',                ['claims:create']),
+  {
+    path: 'submit',
+    canActivate: [permissionGuard(['claims:create'])],
+    loadComponent: () => import('./submit/submit-claim.component').then(m => m.SubmitClaimComponent),
+    data: { title: 'Submit Claim', sidebar: 'operational' },
+  },
   cs('credit',         'Credit Claim',        '/create-credit-claim', 'Process refund / credit claims.',                           ['claims:create']),
   cs('search',         'Search Member Claims',     '/search-member-claims', 'Find claims by member ID or name.',                  ['claims:view']),
   cs('tax-withheld',   'Tax-Withheld Claims', '/tax-with-held-claims','Claims with tax deduction applied.',                       ['claims:view', 'finance:view_withheld_tax']),

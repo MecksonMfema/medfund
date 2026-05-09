@@ -1,0 +1,221 @@
+<div class="form-page">
+  <header class="page-header">
+    <div>
+      <h1>Submit claim</h1>
+      <p class="page-sub">Capture a claim on behalf of a member. After submission a verification code is generated; the member confirms before the claim moves to adjudication.</p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/claims">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success">{{ successMessage }}</div>
+  }
+
+  @if (!submittedClaim) {
+    <!-- ── Capture form ──────────────────────────────────────────────── -->
+    <form (submit)="$event.preventDefault(); submit()" class="card">
+      <section class="section">
+        <h3 class="section-title">Member &amp; provider</h3>
+
+        <label class="field">
+          <span class="field-label">Member *</span>
+          @if (selectedMember) {
+            <div class="selected-pill">
+              <div class="selected-info">
+                <strong>{{ selectedMember.label }}</strong>
+                @if (selectedMember.sublabel) { <span class="muted">{{ selectedMember.sublabel }}</span> }
+              </div>
+              <button type="button" class="link-btn" (click)="clearMember()">Change</button>
+            </div>
+          } @else {
+            <div class="search-wrapper">
+              <input type="text" [(ngModel)]="memberQuery" (ngModelChange)="onMemberQueryChange()"
+                     (focus)="showMemberMatches = true" name="memberQuery"
+                     placeholder="Search by member name…" autocomplete="off" />
+              @if (showMemberMatches && memberQuery.trim()) {
+                <ul class="suggestions">
+                  @if (memberSearching) {
+                    <li class="suggestion muted">Searching…</li>
+                  } @else if (memberMatches.length === 0) {
+                    <li class="suggestion muted">No matches</li>
+                  } @else {
+                    @for (m of memberMatches; track m.id) {
+                      <li class="suggestion" (click)="pickMember(m)">
+                        <strong>{{ m.label }}</strong>
+                        @if (m.sublabel) { <span class="muted">— {{ m.sublabel }}</span> }
+                      </li>
+                    }
+                  }
+                </ul>
+              }
+            </div>
+          }
+        </label>
+
+        <label class="field">
+          <span class="field-label">Provider *</span>
+          @if (selectedProvider) {
+            <div class="selected-pill">
+              <div class="selected-info">
+                <strong>{{ selectedProvider.label }}</strong>
+                @if (selectedProvider.sublabel) { <span class="muted">{{ selectedProvider.sublabel }}</span> }
+              </div>
+              <button type="button" class="link-btn" (click)="clearProvider()">Change</button>
+            </div>
+          } @else {
+            <div class="search-wrapper">
+              <input type="text" [(ngModel)]="providerQuery" (ngModelChange)="onProviderQueryChange()"
+                     (focus)="showProviderMatches = true" name="providerQuery"
+                     placeholder="Search by provider name or registration #…" autocomplete="off" />
+              @if (showProviderMatches && providerQuery.trim()) {
+                <ul class="suggestions">
+                  @if (providerSearching) {
+                    <li class="suggestion muted">Searching…</li>
+                  } @else if (providerMatches.length === 0) {
+                    <li class="suggestion muted">No matches</li>
+                  } @else {
+                    @for (p of providerMatches; track p.id) {
+                      <li class="suggestion" (click)="pickProvider(p)">
+                        <strong>{{ p.label }}</strong>
+                        @if (p.sublabel) { <span class="muted">— {{ p.sublabel }}</span> }
+                      </li>
+                    }
+                  }
+                </ul>
+              }
+            </div>
+          }
+        </label>
+      </section>
+
+      <section class="section">
+        <h3 class="section-title">Claim header</h3>
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">Scheme *</span>
+            <select [(ngModel)]="form.schemeId" name="schemeId" required>
+              <option [value]="''" disabled>Pick a scheme</option>
+              @for (s of schemes; track s.id) {
+                <option [value]="s.id">{{ s.name }}</option>
+              }
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Currency *</span>
+            <select [(ngModel)]="form.currencyCode" name="currencyCode" required>
+              @for (c of currencies; track c.id) {
+                <option [value]="c.currencyCode">{{ c.currencyCode }}{{ c.isDefault ? ' (default)' : '' }}</option>
+              }
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Service date *</span>
+            <input type="date" [(ngModel)]="form.serviceDate" name="serviceDate" required />
+          </label>
+          <label class="field">
+            <span class="field-label">Diagnosis codes</span>
+            <input type="text" [(ngModel)]="form.diagnosisCodes" name="diagnosisCodes"
+                   placeholder='ICD-10 codes, comma-separated (e.g. J18.9, I10)' />
+          </label>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-header">
+          <h3 class="section-title">Line items</h3>
+          <button type="button" class="link-btn" (click)="addLine()">
+            <app-icon name="plus" [size]="12"></app-icon>
+            Add line
+          </button>
+        </div>
+        <table class="lines-table">
+          <thead>
+            <tr>
+              <th>Tariff code</th>
+              <th>Description</th>
+              <th class="right">Qty</th>
+              <th class="right">Unit price</th>
+              <th>Modifiers</th>
+              <th class="right">Subtotal</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of lines; track $index) {
+              <tr>
+                <td><input type="text" [(ngModel)]="line.tariffCode" [name]="'code-' + $index" placeholder="0001A" /></td>
+                <td><input type="text" [(ngModel)]="line.description" [name]="'desc-' + $index" placeholder="Description" /></td>
+                <td class="right"><input type="number" min="1" [(ngModel)]="line.quantity" [name]="'qty-' + $index" /></td>
+                <td class="right"><input type="number" step="0.01" min="0" [(ngModel)]="line.unitPrice" [name]="'price-' + $index" /></td>
+                <td><input type="text" [(ngModel)]="line.modifierCodes" [name]="'mods-' + $index" placeholder="comma-separated" /></td>
+                <td class="right">{{ lineSubtotal(line) | currencyFormat:form.currencyCode }}</td>
+                <td>
+                  <button type="button" class="link-btn danger"
+                          [disabled]="lines.length === 1"
+                          (click)="removeLine($index)">×</button>
+                </td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="5" class="right total-label">Total</td>
+              <td class="right total-amount">{{ totalAmount() | currencyFormat:form.currencyCode }}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </section>
+
+      <section class="section">
+        <label class="field">
+          <span class="field-label">Notes</span>
+          <textarea [(ngModel)]="form.notes" name="notes" rows="3"
+                    placeholder="Anything the adjudicator should know — clinical context, missing receipts, escalations…"></textarea>
+        </label>
+      </section>
+
+      <div class="form-actions">
+        <a class="btn btn-default" routerLink="/tenant/claims">Cancel</a>
+        <button type="submit" class="btn btn-primary" [disabled]="saving">
+          {{ saving ? 'Submitting…' : 'Submit claim' }}
+        </button>
+      </div>
+    </form>
+  } @else {
+    <!-- ── Post-submission verification ──────────────────────────────── -->
+    <div class="card verification-card">
+      <h2>Claim {{ submittedClaim.claimNumber }} submitted</h2>
+      <p class="muted">Status: <strong>{{ submittedClaim.status }}</strong></p>
+
+      @if (submittedClaim.status === 'SUBMITTED') {
+        <p>Ask the member to confirm by reading back the verification code that was sent to them. Enter it below to mark the claim verified — that's the gate to adjudication.</p>
+        <div class="verify-row">
+          <input type="text" [(ngModel)]="verificationCode" name="vcode"
+                 placeholder="6-digit code" maxlength="16" />
+          <button type="button" class="btn btn-primary" [disabled]="verifying" (click)="verify()">
+            {{ verifying ? 'Verifying…' : 'Verify' }}
+          </button>
+        </div>
+        @if (submittedClaim.verificationCode) {
+          <p class="muted dev-note">
+            Dev / front-desk: the active code is <code>{{ submittedClaim.verificationCode }}</code>.
+            In production this would arrive via SMS / portal push.
+          </p>
+        }
+      } @else {
+        <p>Claim is now <strong>{{ submittedClaim.status }}</strong>. {{ submittedClaim.status === 'VERIFIED' ? "It's queued for adjudication." : '' }}</p>
+      }
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-default" (click)="goToList()">Back to claims</button>
+      </div>
+    </div>
+  }
+</div>
