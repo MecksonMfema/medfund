@@ -38,7 +38,12 @@ export const CLAIMS_ROUTES: Routes = [
   },
 
   // ── Claims pipeline ────────────────────────────────────────────────────────
-  cs('accepted',       'Accepted Claims',     '/accepted-claims',     'Approved claims awaiting payment.',                        ['claims:view']),
+  {
+    path: 'accepted',
+    canActivate: [permissionGuard(['claims:view'])],
+    loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
+    data: { title: 'Accepted Claims', description: 'Approved claims awaiting payment.', presetStatus: 'ADJUDICATED', sidebar: 'operational' },
+  },
   {
     path: 'pending',
     canActivate: [permissionGuard(['claims:view'])],
@@ -56,9 +61,24 @@ export const CLAIMS_ROUTES: Routes = [
     loadComponent: () => import('./detail/claim-detail.component').then(m => m.ClaimDetailComponent),
     data: { title: 'Claim Detail', sidebar: 'operational' },
   },
-  cs('rejected',       'Rejected Claims',     '/rejected-claims',     'Denied claims with rejection reasons.',                    ['claims:view']),
-  cs('staged',         'Staged Claims',       '/staged-claims',       'Draft claims being prepared.',                              ['claims:view']),
-  cs('captured',       'Captured Claims',     '/captured-claims',     'Recently submitted claims.',                                ['claims:view']),
+  {
+    path: 'rejected',
+    canActivate: [permissionGuard(['claims:view'])],
+    loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
+    data: { title: 'Rejected Claims', description: 'Denied claims with rejection reasons.', presetStatus: 'REJECTED', sidebar: 'operational' },
+  },
+  {
+    path: 'staged',
+    canActivate: [permissionGuard(['claims:view'])],
+    loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
+    data: { title: 'Staged Claims', description: 'Claims pending additional info.', presetStatus: 'PENDING_INFO', sidebar: 'operational' },
+  },
+  {
+    path: 'captured',
+    canActivate: [permissionGuard(['claims:view'])],
+    loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
+    data: { title: 'Captured Claims', description: 'Recently submitted claims awaiting verification.', presetStatus: 'SUBMITTED', sidebar: 'operational' },
+  },
   {
     path: 'submit',
     canActivate: [permissionGuard(['claims:create'])],
@@ -66,7 +86,12 @@ export const CLAIMS_ROUTES: Routes = [
     data: { title: 'Submit Claim', sidebar: 'operational' },
   },
   cs('credit',         'Credit Claim',        '/create-credit-claim', 'Process refund / credit claims.',                           ['claims:create']),
-  cs('search',         'Search Member Claims',     '/search-member-claims', 'Find claims by member ID or name.',                  ['claims:view']),
+  {
+    path: 'search',
+    canActivate: [permissionGuard(['claims:view'])],
+    loadComponent: () => import('./lookups/member-lookup.component').then(m => m.MemberLookupComponent),
+    data: { title: 'Search Member Claims', sidebar: 'operational' },
+  },
   cs('tax-withheld',   'Tax-Withheld Claims', '/tax-with-held-claims','Claims with tax deduction applied.',                       ['claims:view', 'finance:view_withheld_tax']),
 
   // ── Drug claims ────────────────────────────────────────────────────────────
@@ -135,8 +160,20 @@ export const CLAIMS_ROUTES: Routes = [
     loadComponent: () => import('./preauth/pre-auth-detail.component').then(m => m.PreAuthDetailComponent),
     data: { title: 'Pre-Auth Detail', sidebar: 'operational' },
   },
-  cs('drug/preauth',             'Drug Pre-Auth',        '/pre-authorization-drug-claims',  'Request pharmaceutical approval before claim.',           ['claims:manage_drug_preauth']),
-  cs('drug/preauth/list',        'Drug Pre-Auth List',   '/drug-pre-auth-list',             'View all drug pre-auth requests.',                        ['claims:manage_drug_preauth']),
+  // Drug pre-auths share the pre_authorizations table — tariff_code holds the
+  // drug's tariff and diagnosis_code holds the indication. Same components.
+  {
+    path: 'drug/preauth',
+    canActivate: [permissionGuard(['claims:manage_drug_preauth'])],
+    loadComponent: () => import('./preauth/pre-auth-form.component').then(m => m.PreAuthFormComponent),
+    data: { title: 'New Drug Pre-Auth', sidebar: 'operational' },
+  },
+  {
+    path: 'drug/preauth/list',
+    canActivate: [permissionGuard(['claims:manage_drug_preauth'])],
+    loadComponent: () => import('./preauth/pre-auth-list.component').then(m => m.PreAuthListComponent),
+    data: { title: 'Drug Pre-Auth List', sidebar: 'operational' },
+  },
 
   // ── Verification ───────────────────────────────────────────────────────────
   // All three verification entrypoints land on the same component — the
