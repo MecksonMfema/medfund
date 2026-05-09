@@ -125,7 +125,12 @@ export const BILLING_ROUTES: Routes = [
     loadComponent: () => import('./contributions/contributions-list.component').then(m => m.ContributionsListComponent),
     data: { title: 'View Contributions', sidebar: 'operational' },
   },
-  cs('statements',        'Statements',           '/generate/contribution-statement', 'Browse and export contribution statements.',              ['billing:view_statements']),
+  {
+    path: 'statements',
+    canActivate: [permissionGuard(['billing:view_statements'])],
+    loadComponent: () => import('./statements/statements.component').then(m => m.StatementsComponent),
+    data: { title: 'Statements', sidebar: 'operational' },
+  },
 
   // ── Transactions ───────────────────────────────────────────────────────────
   {
@@ -140,11 +145,63 @@ export const BILLING_ROUTES: Routes = [
     loadComponent: () => import('./transactions/transaction-form.component').then(m => m.TransactionFormComponent),
     data: { title: 'Add Transaction', sidebar: 'operational' },
   },
-  cs('transactions/adjustments',    'Adjustment Transactions',       '/payments/view-adjustment-transactions',     'Transactions posted as adjustments.',              ['billing:post_transactions']),
-  cs('transactions/bank',           'Bank Transactions',             '/payments/view-bank-transactions',           'Bank-source transactions for reconciliation.',     ['billing:view']),
-  cs('transactions/fc',             'Fund Custodian Transactions',   '/payments/view-fc-transactions',             'Custodian-routed transactions.',                   ['billing:view']),
-  cs('transactions/debit-credit',   'Debit / Credit Transactions',   '/payments/view-debit-credit-transactions',   'Balance-changing entries.',                        ['billing:view']),
-  cs('transactions/ctc',            'CTC Transactions',              '/payments/view-ctc-transactions',            'Cost-to-cure transaction history.',                ['billing:view']),
+  // Preset-filtered views of the master Transactions list. Each route loads
+  // the same list component but seeds the type filter via route data.
+  {
+    path: 'transactions/adjustments',
+    canActivate: [permissionGuard(['billing:post_transactions'])],
+    loadComponent: () => import('./transactions/transactions-list.component').then(m => m.TransactionsListComponent),
+    data: {
+      title: 'Adjustment Transactions',
+      description: 'Transactions posted as adjustments — manual debits/credits applied to contributions or balances.',
+      presetTransactionType: 'ADJUSTMENT',
+      sidebar: 'operational',
+    },
+  },
+  {
+    path: 'transactions/bank',
+    canActivate: [permissionGuard(['billing:view'])],
+    loadComponent: () => import('./transactions/transactions-list.component').then(m => m.TransactionsListComponent),
+    data: {
+      title: 'Bank Transactions',
+      description: 'Transactions sourced from bank statements for reconciliation.',
+      presetTransactionType: 'BANK',
+      sidebar: 'operational',
+    },
+  },
+  {
+    path: 'transactions/fc',
+    canActivate: [permissionGuard(['billing:view'])],
+    loadComponent: () => import('./transactions/transactions-list.component').then(m => m.TransactionsListComponent),
+    data: {
+      title: 'Fund Custodian Transactions',
+      description: 'Transactions routed through the fund custodian.',
+      presetTransactionType: 'FC',
+      sidebar: 'operational',
+    },
+  },
+  {
+    path: 'transactions/debit-credit',
+    canActivate: [permissionGuard(['billing:view'])],
+    loadComponent: () => import('./transactions/transactions-list.component').then(m => m.TransactionsListComponent),
+    data: {
+      title: 'Debit / Credit Transactions',
+      description: 'Balance-changing entries — manual debits and credits not tied to a payment run.',
+      presetTransactionType: 'DEBIT_CREDIT',
+      sidebar: 'operational',
+    },
+  },
+  {
+    path: 'transactions/ctc',
+    canActivate: [permissionGuard(['billing:view'])],
+    loadComponent: () => import('./transactions/transactions-list.component').then(m => m.TransactionsListComponent),
+    data: {
+      title: 'CTC Transactions',
+      description: 'Cost-to-cure transactions: clinical-cost transfers between schemes.',
+      presetTransactionType: 'CTC',
+      sidebar: 'operational',
+    },
+  },
 
   // Currencies are managed in /tenant/admin/settings under the "Currencies" tab —
   // they're a tenant-admin concern, not an operational/billing day-to-day task.
@@ -172,8 +229,24 @@ export const BILLING_ROUTES: Routes = [
   // ── Email campaigns ────────────────────────────────────────────────────────
   cs('emails',              'Emails',              '/email/view-emails',          'Email campaign history.',                              ['admin:manage_settings']),
   cs('emails/send',         'Send Emails',         '/email/send-emails',          'Compose and dispatch a member-targeted campaign.',     ['admin:manage_settings']),
-  cs('emails/senders',      'Sender Emails',       '/email/view-sender-email',    'Configured outbound sender addresses.',                ['admin:manage_settings']),
-  cs('emails/senders/add',  'Add Sender Email',    '/email/add-sender-email',     'Add a verified outbound sender.',                       ['admin:manage_settings']),
+  {
+    path: 'emails/senders',
+    canActivate: [permissionGuard(['admin:manage_settings'])],
+    loadComponent: () => import('./email-senders/email-senders-list.component').then(m => m.EmailSendersListComponent),
+    data: { title: 'Sender Emails', sidebar: 'operational' },
+  },
+  {
+    path: 'emails/senders/add',
+    canActivate: [permissionGuard(['admin:manage_settings'])],
+    loadComponent: () => import('./email-senders/email-sender-form.component').then(m => m.EmailSenderFormComponent),
+    data: { title: 'Add Sender Email', sidebar: 'operational' },
+  },
+  {
+    path: 'emails/senders/:id/edit',
+    canActivate: [permissionGuard(['admin:manage_settings'])],
+    loadComponent: () => import('./email-senders/email-sender-form.component').then(m => m.EmailSenderFormComponent),
+    data: { title: 'Edit Sender Email', sidebar: 'operational' },
+  },
 
   // ── Tasks ──────────────────────────────────────────────────────────────────
   cs('tasks',               'Tasks',               '/tickets/view-tasks',         'Billing-related work items.',                          ['billing:view']),
@@ -182,8 +255,21 @@ export const BILLING_ROUTES: Routes = [
   cs('tasks/incomplete',    'Incomplete Tasks',    '/tickets/incomplete-tasks',   'Open billing work.',                                   ['billing:view']),
 
   // ── User management (legacy MASCA had user mgmt under contributions) ──────
-  cs('users',               'Users (legacy)',      '/lookup/view-user',           'Legacy user directory — operational tenant users now live under /tenant/admin/users.', ['admin:manage_users']),
-  cs('users/add',           'Add User (legacy)',   '/additions/add-user',         'Legacy add-user form — superseded by Tenant Admin → Users.',                              ['admin:manage_users']),
+  // Legacy MASCA put user management under Contributions; in our system this
+  // lives under Tenant Admin → Users. The two sidebar entries land on a small
+  // redirect page that points users to the new home.
+  {
+    path: 'users',
+    canActivate: [permissionGuard(['admin:manage_users'])],
+    loadComponent: () => import('./users/legacy-users-redirect.component').then(m => m.LegacyUsersRedirectComponent),
+    data: { title: 'Users (moved)', sidebar: 'operational' },
+  },
+  {
+    path: 'users/add',
+    canActivate: [permissionGuard(['admin:manage_users'])],
+    loadComponent: () => import('./users/legacy-users-redirect.component').then(m => m.LegacyUsersRedirectComponent),
+    data: { title: 'Add User (moved)', sidebar: 'operational' },
+  },
 
   // ── Group / member admin helpers ──────────────────────────────────────────
   {

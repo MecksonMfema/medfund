@@ -1,0 +1,55 @@
+<div class="form-page">
+  <header class="page-header">
+    <div>
+      <h1>{{ senderId ? 'Edit email sender' : 'Add email sender' }}</h1>
+      <p class="page-sub">New senders are saved with status <strong>pending</strong>. Verify the address out-of-band (DNS records, domain ownership), then mark it verified from the senders list.</p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/billing/email-senders">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form (ngSubmit)="submit()" class="form-grid">
+    <label class="field span-2">
+      <span class="field-label">Email address *</span>
+      <input
+        type="email"
+        [(ngModel)]="form.address"
+        name="address"
+        required
+        maxlength="255"
+        placeholder="billing@your-tenant.health" />
+    </label>
+
+    <label class="field span-2">
+      <span class="field-label">Display name</span>
+      <input
+        type="text"
+        [(ngModel)]="form.displayName"
+        name="displayName"
+        maxlength="255"
+        placeholder="MedFund Billing" />
+    </label>
+
+    <label class="field span-2">
+      <span class="field-label">Notes</span>
+      <textarea
+        [(ngModel)]="form.notes"
+        name="notes"
+        rows="3"
+        placeholder="Internal notes about this sender (DNS provider, owner, escalation contact)…"></textarea>
+    </label>
+
+    <div class="form-actions span-2">
+      <a class="btn btn-default" routerLink="/tenant/billing/email-senders">Cancel</a>
+      <button type="submit" class="btn btn-primary" [disabled]="saving || loading">
+        {{ saving ? 'Saving…' : (senderId ? 'Save changes' : 'Add sender') }}
+      </button>
+    </div>
+  </form>
+</div>

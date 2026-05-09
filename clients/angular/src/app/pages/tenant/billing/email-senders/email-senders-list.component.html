@@ -1,0 +1,57 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Email senders</h1>
+      <p class="page-sub">Outbound email addresses your tenant uses for transactional and campaign mail. Only verified senders can be used by future email campaigns.</p>
+    </div>
+    <a class="btn btn-primary" routerLink="/tenant/billing/email-senders/add">
+      <app-icon name="plus" [size]="14"></app-icon>
+      Add sender
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (rows.length === 0) {
+    <p class="empty-state">No email senders configured yet.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Address</th>
+          <th>Display name</th>
+          <th>Status</th>
+          <th>Verified</th>
+          <th>Notes</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows; track row.id) {
+          <tr [class.pending]="pendingId === row.id">
+            <td><strong>{{ row.address }}</strong></td>
+            <td>{{ row.displayName || '—' }}</td>
+            <td>
+              <span class="status-badge status-{{ row.status }}">{{ row.status | humanize }}</span>
+            </td>
+            <td class="muted">{{ row.verifiedAt ? (row.verifiedAt | date:'mediumDate') : '—' }}</td>
+            <td class="muted">{{ row.notes || '—' }}</td>
+            <td class="actions">
+              <button class="link-btn" (click)="edit(row)">Edit</button>
+              @if (row.status === 'pending') {
+                <button class="link-btn primary" (click)="verify(row)">Verify</button>
+              }
+              @if (row.status !== 'revoked') {
+                <button class="link-btn danger" (click)="revoke(row)">Revoke</button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

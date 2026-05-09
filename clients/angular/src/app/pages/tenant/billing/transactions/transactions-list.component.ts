@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import {
@@ -44,6 +44,13 @@ export class TransactionsListComponent implements OnInit {
   periodEnd = '';
   search = '';
 
+  // Preset (route-driven) — locks the Type filter when set so the URL identity
+  // is preserved. Sub-routes like /transactions/bank, /adjustments, /fc set this
+  // via route data instead of query params; clearFilters() falls back to it.
+  presetType = '';
+  pageTitle = 'Transactions';
+  pageDescription = 'Recorded payments and adjustments. Filter by currency, type, payment method, period, or search transaction / receipt numbers.';
+
   // Pagination
   page = 0;
   size = 20;
@@ -61,6 +68,7 @@ export class TransactionsListComponent implements OnInit {
     private catalogue: BillingCatalogueService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
@@ -69,6 +77,14 @@ export class TransactionsListComponent implements OnInit {
       this.errorMessage = 'No active tenant context';
       return;
     }
+
+    const data = this.route.snapshot.data;
+    if (data['presetTransactionType']) {
+      this.presetType = data['presetTransactionType'];
+      this.selectedType = this.presetType;
+    }
+    if (data['title']) this.pageTitle = data['title'];
+    if (data['description']) this.pageDescription = data['description'];
     this.currencyService.listForTenant(tenantId).subscribe({
       next: (configs) => {
         this.currencies = configs.filter(c => c.isActive);
@@ -128,7 +144,7 @@ export class TransactionsListComponent implements OnInit {
 
   clearFilters(): void {
     this.selectedCurrency = '';
-    this.selectedType = '';
+    this.selectedType = this.presetType;
     this.selectedMethod = '';
     this.periodStart = '';
     this.periodEnd = '';

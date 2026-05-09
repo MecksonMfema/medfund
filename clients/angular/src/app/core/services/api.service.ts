@@ -35,6 +35,21 @@ export class ApiService {
     });
   }
 
+  /** GET that returns a Blob — for file downloads (PDF, Excel). */
+  getBlob(path: string, params?: Record<string, string>): Observable<Blob> {
+    let httpParams = new HttpParams();
+    if (params) {
+      Object.keys(params).forEach((key) => {
+        httpParams = httpParams.set(key, params[key]);
+      });
+    }
+    return this.http.get(`${this.baseUrl}${path}`, {
+      params: httpParams,
+      responseType: 'blob',
+      withCredentials: true,
+    });
+  }
+
   post<T>(path: string, body: unknown): Observable<T> {
     return this.http.post<T>(`${this.baseUrl}${path}`, body, {
       withCredentials: true,
