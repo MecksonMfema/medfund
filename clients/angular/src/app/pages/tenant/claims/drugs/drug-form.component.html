@@ -1,0 +1,74 @@
+<div class="form-page">
+  <header class="page-header">
+    <div>
+      <h1>{{ drugId ? 'Edit drug' : 'Add drug' }}</h1>
+      <p class="page-sub">Drugs in the formulary feed the drug-claim adjudication pipeline. Set <code>do_not_pay</code> to auto-reject claims for this drug; flip <code>isActive</code> off to hide it from new submissions without losing claim history.</p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/claims/drugs">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form (ngSubmit)="submit()" class="card form-grid">
+    <label class="field span-2">
+      <span class="field-label">Drug name *</span>
+      <input type="text" [(ngModel)]="form.drugName" name="drugName" required maxlength="200" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Type</span>
+      <select [(ngModel)]="form.drugType" name="drugType">
+        @for (t of drugTypes; track t) { <option [value]="t">{{ t }}</option> }
+      </select>
+    </label>
+
+    <label class="field">
+      <span class="field-label">Unit</span>
+      <select [(ngModel)]="form.unitOfMeasurement" name="unitOfMeasurement">
+        @for (u of units; track u) { <option [value]="u">{{ u }}</option> }
+      </select>
+    </label>
+
+    <label class="field">
+      <span class="field-label">Tariff code</span>
+      <input type="text" [(ngModel)]="form.tariffCode" name="tariffCode" maxlength="50" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Cover %</span>
+      <input type="number" min="0" max="100" step="0.01" [(ngModel)]="form.paymentPercentage" name="paymentPercentage" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Wholesale cost (USD)</span>
+      <input type="number" min="0" step="0.0001" [(ngModel)]="form.wholesaleCostUsd" name="wholesaleCostUsd" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Wholesale cost (ZWL)</span>
+      <input type="number" min="0" step="0.0001" [(ngModel)]="form.wholesaleCostZwl" name="wholesaleCostZwl" />
+    </label>
+
+    <label class="field span-2 checkbox">
+      <input type="checkbox" [(ngModel)]="form.doNotPay" name="doNotPay" />
+      Do not pay — claims for this drug are auto-rejected
+    </label>
+
+    <label class="field span-2 checkbox">
+      <input type="checkbox" [(ngModel)]="form.isActive" name="isActive" />
+      Active — visible in drug-claim submission pickers
+    </label>
+
+    <div class="form-actions span-2">
+      <a class="btn btn-default" routerLink="/tenant/claims/drugs">Cancel</a>
+      <button type="submit" class="btn btn-primary" [disabled]="saving || loading">
+        {{ saving ? 'Saving…' : (drugId ? 'Save changes' : 'Add drug') }}
+      </button>
+    </div>
+  </form>
+</div>

@@ -216,8 +216,24 @@ export const CLAIMS_ROUTES: Routes = [
   cs('ctc/auto',               'Auto CTC Payments',        '/auto-ctc-payments',        'Automated CTC allocation rules.',                ['claims:view_ctc_payments']),
 
   // ── Drug inventory ─────────────────────────────────────────────────────────
-  cs('drugs',                  'Drug Inventory',           '/view-drugs',                'Browse the drug catalogue.',           ['claims:view_drug']),
-  cs('drugs/add',              'Add Drug',                 '/add-drug',                  'Add a drug to the catalogue.',         ['claims:create_drug']),
+  {
+    path: 'drugs',
+    canActivate: [permissionGuard(['claims:view_drug'])],
+    loadComponent: () => import('./drugs/drugs-list.component').then(m => m.DrugsListComponent),
+    data: { title: 'Drug Catalogue', sidebar: 'operational' },
+  },
+  {
+    path: 'drugs/add',
+    canActivate: [permissionGuard(['claims:create_drug'])],
+    loadComponent: () => import('./drugs/drug-form.component').then(m => m.DrugFormComponent),
+    data: { title: 'Add Drug', sidebar: 'operational' },
+  },
+  {
+    path: 'drugs/:id/edit',
+    canActivate: [permissionGuard(['claims:create_drug'])],
+    loadComponent: () => import('./drugs/drug-form.component').then(m => m.DrugFormComponent),
+    data: { title: 'Edit Drug', sidebar: 'operational' },
+  },
 
   // ── Provider registration requests ─────────────────────────────────────────
   cs('registration-requests',  'Provider Registration Requests', '/registration-requests', 'New provider applications awaiting review.', ['providers:create']),
