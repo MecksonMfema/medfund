@@ -224,6 +224,21 @@ export interface CreateNotePayload {
   notes?: string;
 }
 
+// ── Persisted advice records ────────────────────────────────────────────
+export interface PaymentAdviceRecord {
+  id: string;
+  paymentRunId?: string;
+  providerId?: string;
+  currencyCode: string;
+  totalAmount: string;
+  claimCount: number;
+  documentUrl?: string;
+  excelUrl?: string;
+  status: 'generated' | 'sent' | 'failed';
+  issuedAt: string;
+  createdAt: string;
+}
+
 // ── Payment advice ──────────────────────────────────────────────────────
 export interface PaymentAdviceLine {
   claimNumber: string;
@@ -251,6 +266,12 @@ export class FinanceService {
   // ── Payment advice ──
   generateAdvice(paymentRunId: string): Observable<PaymentAdvice> {
     return this.api.get<PaymentAdvice>(`/payment-advices/run/${paymentRunId}`);
+  }
+  listAdviceRecords(): Observable<PaymentAdviceRecord[]> {
+    return this.api.get<PaymentAdviceRecord[]>('/payment-advices');
+  }
+  listAdviceRecordsForRun(paymentRunId: string): Observable<PaymentAdviceRecord[]> {
+    return this.api.get<PaymentAdviceRecord[]>('/payment-advices', { paymentRunId });
   }
 
   // ── Payment runs ──

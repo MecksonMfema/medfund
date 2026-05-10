@@ -84,6 +84,18 @@
 .total-label { font-weight: 600; padding-top: 0.6rem; }
 .total-amount { font-weight: 700; padding-top: 0.6rem; font-size: 1rem; }
 
+.section-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.data-table tr.clickable { cursor: pointer; }
+.data-table tr.clickable:hover { background: var(--color-bg, #f8fdff); }
+
 @media print {
   .no-print { display: none !important; }
   .page { padding: 0; }

@@ -26,6 +26,34 @@
     </button>
   </div>
 
+  @if (history.length > 0 && !advice) {
+    <section class="card no-print">
+      <h2 class="section-title">Recently generated</h2>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Run</th>
+            <th>Status</th>
+            <th class="right">Total</th>
+            <th class="right">Lines</th>
+            <th>Issued</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (h of history; track h.id) {
+            <tr (click)="loadFromHistory(h)" class="clickable">
+              <td><code>{{ h.paymentRunId ? h.paymentRunId.substring(0,8) : '—' }}</code></td>
+              <td class="muted">{{ h.status }}</td>
+              <td class="right">{{ h.totalAmount | currencyFormat:h.currencyCode }}</td>
+              <td class="right">{{ h.claimCount }}</td>
+              <td class="muted">{{ h.issuedAt | date:'short' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+
   @if (loading) {
     <app-skeleton></app-skeleton>
   } @else if (advice) {

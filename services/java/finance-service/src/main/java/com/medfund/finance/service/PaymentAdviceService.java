@@ -2,10 +2,13 @@ package com.medfund.finance.service;
 
 import com.medfund.finance.dto.PaymentAdvice;
 import com.medfund.finance.dto.PaymentAdvice.PaymentAdviceLine;
+import com.medfund.finance.entity.PaymentAdviceRecord;
 import com.medfund.finance.exception.PaymentNotFoundException;
+import com.medfund.finance.repository.PaymentAdviceRecordRepository;
 import com.medfund.finance.repository.PaymentRepository;
 import com.medfund.finance.repository.PaymentRunItemRepository;
 import com.medfund.finance.repository.PaymentRunRepository;
+import reactor.core.publisher.Flux;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
@@ -28,16 +31,31 @@ public class PaymentAdviceService {
     private final PaymentRunRepository paymentRunRepository;
     private final PaymentRunItemRepository paymentRunItemRepository;
     private final PaymentRepository paymentRepository;
+    private final PaymentAdviceRecordRepository adviceRepository;
     private final AuditPublisher auditPublisher;
 
     public PaymentAdviceService(PaymentRunRepository paymentRunRepository,
                                 PaymentRunItemRepository paymentRunItemRepository,
                                 PaymentRepository paymentRepository,
+                                PaymentAdviceRecordRepository adviceRepository,
                                 AuditPublisher auditPublisher) {
         this.paymentRunRepository = paymentRunRepository;
         this.paymentRunItemRepository = paymentRunItemRepository;
         this.paymentRepository = paymentRepository;
+        this.adviceRepository = adviceRepository;
         this.auditPublisher = auditPublisher;
+    }
+
+    public Flux<PaymentAdviceRecord> findByRun(UUID paymentRunId) {
+        return adviceRepository.findByPaymentRunId(paymentRunId);
+    }
+
+    public Flux<PaymentAdviceRecord> findByProvider(UUID providerId) {
+        return adviceRepository.findByProviderId(providerId);
+    }
+
+    public Flux<PaymentAdviceRecord> findAll() {
+        return adviceRepository.findAllOrdered();
     }
 
     public Mono<PaymentAdvice> generateAdvice(UUID paymentRunId) {
@@ -73,6 +91,7 @@ public class PaymentAdviceService {
                     );
                 })
             )
+            .flatMap(advice -> persistAdvice(paymentRunId, advice).thenReturn(advice))
             .flatMap(advice -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
                 return publishAudit(tenantId, "PaymentAdvice", advice.adviceNumber(), "CREATE", "system",
@@ -83,6 +102,19 @@ public class PaymentAdviceService {
                                "lineCount", String.valueOf(advice.lines().size())))
                     .thenReturn(advice);
             }));
+    }
+
+    private Mono<PaymentAdviceRecord> persistAdvice(UUID paymentRunId, PaymentAdvice advice) {
+        var record = new PaymentAdviceRecord();
+        record.setId(UUID.randomUUID());
+        record.setPaymentRunId(paymentRunId);
+        record.setProviderId(advice.providerId());
+        record.setCurrencyCode(advice.currencyCode());
+        record.setTotalAmount(advice.totalAmount());
+        record.setClaimCount(advice.lines().size());
+        record.setIssuedAt(advice.generatedAt() != null ? advice.generatedAt() : Instant.now());
+        record.setStatus("generated");
+        return adviceRepository.save(record);
     }
 
     // ---- Private helpers ----
