@@ -8,152 +8,184 @@
     <div class="dash-error">{{ loadError }}</div>
   }
 
-  <!-- Claims — labels match Masca-Claims-Admin Statistics + masca-admin-dashboard. -->
-  <section *hasPermission="'claims:view'" class="stat-block">
-    <header class="stat-block-head">
-      <div class="stat-block-icon claims">
-        <app-icon name="file-medical" [size]="20"></app-icon>
-      </div>
-      <div class="stat-block-title">
-        <h2>Claims</h2>
-        <a routerLink="/tenant/claims" class="stat-link">Open <app-icon name="chevron-right" [size]="12"></app-icon></a>
-      </div>
-    </header>
-    <div class="stat-row">
-      <div class="stat-card">
-        <span class="stat-label">New Tasks</span>
-        <span class="stat-value">{{ loading ? '—' : stats.claimsNewTasks }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">This Month Claims</span>
-        <span class="stat-value">{{ loading ? '—' : stats.claimsThisMonth }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Claims Accepted</span>
-        <span class="stat-value">{{ loading ? '—' : stats.claimsAcceptedThisMonth }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Claims Rejected</span>
-        <span class="stat-value">{{ loading ? '—' : stats.claimsRejectedThisMonth }}</span>
-      </div>
-    </div>
-    <div class="chart-card">
-      <span class="chart-label">Claims volume — last 12 months</span>
-      <app-area-chart
-        [data]="claimsSeries"
-        [yScaleMax]="claimsMax"
-        xAxisLabel="Month"
-        yAxisLabel="Claims">
-      </app-area-chart>
-    </div>
-  </section>
+  <!-- ── Tab strip ─────────────────────────────────────────────────────────
+       Each tab is gated by *hasPermission so users with no access to that
+       domain don't even see the button. activeTab is auto-selected to the
+       first one the user holds permission for. -->
+  @if (hasAnyView) {
+    <nav class="tab-strip" role="tablist">
+      @for (tab of tabs; track tab.id) {
+        <button
+          *hasPermission="tab.permission"
+          type="button"
+          role="tab"
+          class="tab-button"
+          [class.active]="activeTab === tab.id"
+          [attr.aria-selected]="activeTab === tab.id"
+          (click)="selectTab(tab.id)">
+          {{ tab.label }}
+        </button>
+      }
+    </nav>
+  }
 
-  <!-- Billing — labels match MASCA-Frontend dashboard (transactions + creditors). -->
-  <section *hasPermission="'billing:view'" class="stat-block">
-    <header class="stat-block-head">
-      <div class="stat-block-icon billing">
-        <app-icon name="briefcase" [size]="20"></app-icon>
+  <!-- ── Claims tab — labels match Masca-Claims-Admin Statistics + masca-admin-dashboard. -->
+  @if (activeTab === 'claims') {
+    <section *hasPermission="'claims:view'" class="stat-block" role="tabpanel">
+      <header class="stat-block-head">
+        <div class="stat-block-icon claims">
+          <app-icon name="file-medical" [size]="20"></app-icon>
+        </div>
+        <div class="stat-block-title">
+          <h2>Claims</h2>
+          <a routerLink="/tenant/claims" class="stat-link">Open <app-icon name="chevron-right" [size]="12"></app-icon></a>
+        </div>
+      </header>
+      <div class="stat-row">
+        <div class="stat-card">
+          <span class="stat-label">New Tasks</span>
+          <span class="stat-value">{{ loading ? '—' : stats.claimsNewTasks }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">This Month Claims</span>
+          <span class="stat-value">{{ loading ? '—' : stats.claimsThisMonth }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Claims Accepted</span>
+          <span class="stat-value">{{ loading ? '—' : stats.claimsAcceptedThisMonth }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Claims Rejected</span>
+          <span class="stat-value">{{ loading ? '—' : stats.claimsRejectedThisMonth }}</span>
+        </div>
       </div>
-      <div class="stat-block-title">
-        <h2>Billing</h2>
-        <a routerLink="/tenant/billing/schemes" class="stat-link">Open <app-icon name="chevron-right" [size]="12"></app-icon></a>
+      <div class="chart-card">
+        <span class="chart-label">Claims volume — last 12 months</span>
+        <app-area-chart
+          [data]="claimsSeries"
+          [yScaleMax]="claimsMax"
+          xAxisLabel="Month"
+          yAxisLabel="Claims">
+        </app-area-chart>
       </div>
-    </header>
-    <div class="stat-row">
-      <div class="stat-card">
-        <span class="stat-label">Active {{ schemeLabelPlural }}</span>
-        <span class="stat-value">{{ loading ? '—' : stats.schemesActive }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Outstanding Contributions</span>
-        <span class="stat-value">{{ loading ? '—' : stats.contributionsPending }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">This Month Transactions</span>
-        <span class="stat-value">{{ loading ? '—' : (stats.contributionsAmountThisMonth | currency: 'USD' : 'symbol' : '1.0-0') }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">This Year Transactions</span>
-        <span class="stat-value">{{ loading ? '—' : (stats.contributionsAmountThisYear | currency: 'USD' : 'symbol' : '1.0-0') }}</span>
-      </div>
-    </div>
-    <div class="chart-card">
-      <span class="chart-label">Contributions paid — last 12 months</span>
-      <app-area-chart
-        [data]="contributionsSeries"
-        [yScaleMax]="contributionsMax"
-        xAxisLabel="Month"
-        yAxisLabel="Amount">
-      </app-area-chart>
-    </div>
-  </section>
+    </section>
+  }
 
-  <!-- Finance — labels match Masca-Finance-Typescript topSection. -->
-  <section *hasPermission="'finance:view'" class="stat-block">
-    <header class="stat-block-head">
-      <div class="stat-block-icon finance">
-        <app-icon name="banknote" [size]="20"></app-icon>
+  <!-- ── Billing tab — labels match MASCA-Frontend dashboard (transactions + creditors). -->
+  @if (activeTab === 'billing') {
+    <section *hasPermission="'billing:view'" class="stat-block" role="tabpanel">
+      <header class="stat-block-head">
+        <div class="stat-block-icon billing">
+          <app-icon name="briefcase" [size]="20"></app-icon>
+        </div>
+        <div class="stat-block-title">
+          <h2>Billing</h2>
+          <a routerLink="/tenant/billing/schemes" class="stat-link">Open <app-icon name="chevron-right" [size]="12"></app-icon></a>
+        </div>
+      </header>
+      <div class="stat-row">
+        <div class="stat-card">
+          <span class="stat-label">Active {{ schemeLabelPlural }}</span>
+          <span class="stat-value">{{ loading ? '—' : stats.schemesActive }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Outstanding Contributions</span>
+          <span class="stat-value">{{ loading ? '—' : stats.contributionsPending }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">This Month Transactions</span>
+          <span class="stat-value">{{ loading ? '—' : (stats.contributionsAmountThisMonth | currency: 'USD' : 'symbol' : '1.0-0') }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">This Year Transactions</span>
+          <span class="stat-value">{{ loading ? '—' : (stats.contributionsAmountThisYear | currency: 'USD' : 'symbol' : '1.0-0') }}</span>
+        </div>
       </div>
-      <div class="stat-block-title">
-        <h2>Finance</h2>
-        <a routerLink="/tenant/finance" class="stat-link">Open <app-icon name="chevron-right" [size]="12"></app-icon></a>
+      <div class="chart-card">
+        <span class="chart-label">Contributions paid — last 12 months</span>
+        <app-area-chart
+          [data]="contributionsSeries"
+          [yScaleMax]="contributionsMax"
+          xAxisLabel="Month"
+          yAxisLabel="Amount">
+        </app-area-chart>
       </div>
-    </header>
-    <div class="stat-row">
-      <div class="stat-card">
-        <span class="stat-label">Pending Payments</span>
-        <span class="stat-value">{{ loading ? '—' : stats.paymentsPending }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Total Payments (this month)</span>
-        <span class="stat-value">{{ loading ? '—' : (stats.paymentsAmountThisMonth | currency: 'USD' : 'symbol' : '1.0-0') }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Total Payments (this year)</span>
-        <span class="stat-value">{{ loading ? '—' : (stats.paymentsAmountThisYear | currency: 'USD' : 'symbol' : '1.0-0') }}</span>
-      </div>
-    </div>
-    <div class="chart-card">
-      <span class="chart-label">Payments completed — last 12 months</span>
-      <app-area-chart
-        [data]="paymentsSeries"
-        [yScaleMax]="paymentsMax"
-        xAxisLabel="Month"
-        yAxisLabel="Amount">
-      </app-area-chart>
-    </div>
-  </section>
+    </section>
+  }
 
-  <!-- Members — labels match masca-admin-dashboard ("New Members", "New Groups"). -->
-  <section *hasPermission="'members:view'" class="stat-block">
-    <header class="stat-block-head">
-      <div class="stat-block-icon members">
-        <app-icon name="users" [size]="20"></app-icon>
+  <!-- ── Finance tab — labels match Masca-Finance-Typescript topSection. -->
+  @if (activeTab === 'finance') {
+    <section *hasPermission="'finance:view'" class="stat-block" role="tabpanel">
+      <header class="stat-block-head">
+        <div class="stat-block-icon finance">
+          <app-icon name="banknote" [size]="20"></app-icon>
+        </div>
+        <div class="stat-block-title">
+          <h2>Finance</h2>
+          <a routerLink="/tenant/finance" class="stat-link">Open <app-icon name="chevron-right" [size]="12"></app-icon></a>
+        </div>
+      </header>
+      <div class="stat-row">
+        <div class="stat-card">
+          <span class="stat-label">Pending Payments</span>
+          <span class="stat-value">{{ loading ? '—' : stats.paymentsPending }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Total Payments (this month)</span>
+          <span class="stat-value">{{ loading ? '—' : (stats.paymentsAmountThisMonth | currency: 'USD' : 'symbol' : '1.0-0') }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Total Payments (this year)</span>
+          <span class="stat-value">{{ loading ? '—' : (stats.paymentsAmountThisYear | currency: 'USD' : 'symbol' : '1.0-0') }}</span>
+        </div>
       </div>
-      <div class="stat-block-title">
-        <h2>Members</h2>
-        <a routerLink="/tenant/members" class="stat-link">Open <app-icon name="chevron-right" [size]="12"></app-icon></a>
+      <div class="chart-card">
+        <span class="chart-label">Payments completed — last 12 months</span>
+        <app-area-chart
+          [data]="paymentsSeries"
+          [yScaleMax]="paymentsMax"
+          xAxisLabel="Month"
+          yAxisLabel="Amount">
+        </app-area-chart>
       </div>
-    </header>
-    <div class="stat-row">
-      <div class="stat-card">
-        <span class="stat-label">New Members</span>
-        <span class="stat-value">{{ loading ? '—' : stats.newMembersThisMonth }}</span>
+    </section>
+  }
+
+  <!-- ── Members tab — labels match masca-admin-dashboard ("New Members", "New Groups").
+       The legacy MASCA-Frontend dashboard only surfaces stat cards in this
+       domain; an enrollment trend chart would need a backend extension to
+       TenantCharts.memberEnrollmentByMonth, deferred until that lands. -->
+  @if (activeTab === 'members') {
+    <section *hasPermission="'members:view'" class="stat-block" role="tabpanel">
+      <header class="stat-block-head">
+        <div class="stat-block-icon members">
+          <app-icon name="users" [size]="20"></app-icon>
+        </div>
+        <div class="stat-block-title">
+          <h2>Members</h2>
+          <a routerLink="/tenant/members" class="stat-link">Open <app-icon name="chevron-right" [size]="12"></app-icon></a>
+        </div>
+      </header>
+      <div class="stat-row">
+        <div class="stat-card">
+          <span class="stat-label">New Members</span>
+          <span class="stat-value">{{ loading ? '—' : stats.newMembersThisMonth }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">New Groups</span>
+          <span class="stat-value">{{ loading ? '—' : stats.newGroupsThisMonth }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Active Members</span>
+          <span class="stat-value">{{ loading ? '—' : stats.activeMembers }}</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Total Members</span>
+          <span class="stat-value">{{ loading ? '—' : stats.totalMembers }}</span>
+        </div>
       </div>
-      <div class="stat-card">
-        <span class="stat-label">New Groups</span>
-        <span class="stat-value">{{ loading ? '—' : stats.newGroupsThisMonth }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Active Members</span>
-        <span class="stat-value">{{ loading ? '—' : stats.activeMembers }}</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Total Members</span>
-        <span class="stat-value">{{ loading ? '—' : stats.totalMembers }}</span>
-      </div>
-    </div>
-  </section>
+    </section>
+  }
 
   @if (permissionsResolved && !hasAnyView) {
     <div class="dash-empty">

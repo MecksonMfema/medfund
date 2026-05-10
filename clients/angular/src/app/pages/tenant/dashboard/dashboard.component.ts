@@ -6,6 +6,7 @@ import { catchError, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { HasPermissionDirective } from '../../../shared/directives/has-permission.directive';
 import { AreaChartComponent } from '../../../shared/components/charts/area-chart/area-chart.component';
+import { PermissionKey } from '../../../core/security/permissions';
 import { PermissionService } from '../../../core/security/permission.service';
 import { TenantService } from '../../../core/services/tenant.service';
 import { AdminService, TenantStats, TenantCharts, TrendPoint } from '../../../core/services/admin.service';
@@ -21,11 +22,24 @@ const EMPTY_STATS: TenantStats = {
   paymentsPending: 0, paymentsAmountThisMonth: 0, paymentsAmountThisYear: 0,
 };
 
+type DashboardTab = 'claims' | 'billing' | 'finance' | 'members';
+
+interface TabDef {
+  id: DashboardTab;
+  label: string;
+  permission: PermissionKey;
+}
+
 /**
  * Operational dashboard — surfaces the tenant's at-a-glance stats grouped by
- * domain, with each card visible only when the user holds the corresponding
- * view permission. A finance-only user sees only the Finance block; a claims
- * adjudicator sees only Claims; a tenant admin sees everything.
+ * domain in a tabbed layout. Each tab (and its contents) is gated by the
+ * matching `*:view` permission, so a finance-only user sees only the Finance
+ * tab; a tenant admin sees all four. The tab strip auto-selects the first
+ * tab the user has permission for, so there's no flash of empty state.
+ *
+ * Charts and stat-card labels mirror the legacy MASCA dashboards
+ * (Masca-Claims-Admin, Masca-Finance-Typescript, MASCA-Frontend) — see the
+ * inline comments next to each tab.
  */
 @Component({
   selector: 'app-tenant-operational-dashboard',
@@ -54,7 +68,20 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
   permissionsResolved = false;
   hasAnyView = false;
 
-  private readonly viewKeys = ['claims:view', 'billing:view', 'finance:view', 'members:view'] as const;
+  /** Which domain tab is currently active. {@code null} until permissions resolve. */
+  activeTab: DashboardTab | null = null;
+
+  /**
+   * The four tabs in display order. {@link permission} drives both the
+   * `*hasPermission` gate on the tab button and the auto-select fallback.
+   */
+  readonly tabs: ReadonlyArray<TabDef> = [
+    { id: 'claims',  label: 'Claims',   permission: 'claims:view'   as PermissionKey },
+    { id: 'billing', label: 'Billing',  permission: 'billing:view'  as PermissionKey },
+    { id: 'finance', label: 'Finance',  permission: 'finance:view'  as PermissionKey },
+    { id: 'members', label: 'Members',  permission: 'members:view'  as PermissionKey },
+  ];
+
   private subs: Subscription[] = [];
 
   constructor(
@@ -104,12 +131,29 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
 
     this.subs.push(this.permissions.permissions$.subscribe(set => {
       this.permissionsResolved = true;
-      this.hasAnyView = this.viewKeys.some(k => set.has(k));
+      const allowed = this.tabs.filter(t => set.has(t.permission));
+      this.hasAnyView = allowed.length > 0;
+
+      // Auto-select on first resolution. If the user later loses the active
+      // tab's permission (after a role swap), fall back to the first remaining
+      // tab so we never sit on a blank panel they're not allowed to see.
+      if (!this.activeTab || !set.has(this.tabFor(this.activeTab).permission)) {
+        this.activeTab = allowed.length ? allowed[0].id : null;
+      }
     }));
   }
 
   ngOnDestroy(): void {
     this.subs.forEach(s => s.unsubscribe());
+  }
+
+  /** Imperatively select a tab — wired to the tab-strip click handlers. */
+  selectTab(id: DashboardTab): void {
+    this.activeTab = id;
+  }
+
+  private tabFor(id: DashboardTab): TabDef {
+    return this.tabs.find(t => t.id === id)!;
   }
 
   /**
