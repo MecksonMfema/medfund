@@ -70,7 +70,7 @@ export class StatementsComponent implements OnInit {
       return;
     }
     this.membershipModel = tenant.membershipModel ?? 'BOTH';
-    if (this.membershipModel === 'INDIVIDUAL_ONLY') this.targetType = 'INDIVIDUAL' as StatementTargetType;
+    if (this.membershipModel === 'INDIVIDUAL_ONLY') this.targetType = 'MEMBER';
     else if (this.membershipModel === 'GROUP_ONLY') this.targetType = 'GROUP';
 
     // Default period: first day of current month → today
@@ -223,7 +223,7 @@ export class StatementsComponent implements OnInit {
       l.runningBalance,
     ]);
 
-    (autoTable as (doc: jsPDF, opts: Record<string, unknown>) => void)(doc, {
+    (autoTable as (doc: unknown, opts: Record<string, unknown>) => void)(doc, {
       startY: y + 8,
       head: [['Date', 'Description', 'Reference', 'Debit', 'Credit', 'Balance']],
       body,

@@ -35,19 +35,19 @@ export class FinanceComponent implements OnInit {
   constructor(private financeService: FinanceService) {}
 
   ngOnInit(): void {
-    this.financeService.getPayments().subscribe({
+    this.financeService.listPayments().subscribe({
       next: (p) => { this.payments = p.slice(0, 20); this.paymentCount = p.length; },
       error: () => {}
     });
-    this.financeService.getProviderBalances().subscribe({
+    this.financeService.listProviderBalances().subscribe({
       next: (b) => {
         this.balances = b;
-        const total = b.reduce((sum, bal) => sum + (bal.outstandingBalance || 0), 0);
+        const total = b.reduce((sum, bal) => sum + Number(bal.outstandingBalance || 0), 0);
         this.totalOutstanding = total.toFixed(2);
       },
       error: () => {}
     });
-    this.financeService.getPaymentRuns().subscribe({
+    this.financeService.listRuns().subscribe({
       next: (r) => { this.runCount = r.length; },
       error: () => {}
     });

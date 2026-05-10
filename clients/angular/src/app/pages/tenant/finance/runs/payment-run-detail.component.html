@@ -1,0 +1,86 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <button class="link-back" (click)="back()">
+        <app-icon name="arrow-left" [size]="14"></app-icon>
+        Back to runs
+      </button>
+      @if (run) {
+        <h1>{{ run.runNumber }}</h1>
+        <p class="page-sub">
+          <span class="status-badge status-{{ run.status }}">{{ run.status | humanize }}</span>
+          · {{ run.paymentCount }} item{{ run.paymentCount === 1 ? '' : 's' }}
+          · {{ run.totalAmount | currencyFormat:run.currencyCode }}
+        </p>
+      }
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+  }
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (run) {
+    <section class="tab-body">
+      <h2 class="section-title">Run header</h2>
+      <dl class="header-grid">
+        <dt>Run number</dt><dd><code>{{ run.runNumber }}</code></dd>
+        <dt>Status</dt><dd><span class="status-badge status-{{ run.status }}">{{ run.status | humanize }}</span></dd>
+        <dt>Currency</dt><dd>{{ run.currencyCode }}</dd>
+        <dt>Total</dt><dd>{{ run.totalAmount | currencyFormat:run.currencyCode }}</dd>
+        <dt>Items</dt><dd>{{ run.paymentCount }}</dd>
+        <dt>Description</dt><dd>{{ run.description || '—' }}</dd>
+        <dt>Created</dt><dd>{{ run.createdAt | date:'medium' }}</dd>
+        <dt>Created by</dt><dd>{{ run.createdBy || '—' }}</dd>
+        <dt>Executed</dt><dd>{{ run.executedAt ? (run.executedAt | date:'medium') : '—' }}</dd>
+        <dt>Executed by</dt><dd>{{ run.executedBy || '—' }}</dd>
+      </dl>
+    </section>
+
+    <section class="tab-body">
+      <h2 class="section-title">Items ({{ items.length }})</h2>
+      @if (items.length === 0) {
+        <p class="empty-state">No items in this run.</p>
+      } @else {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Provider</th>
+              <th>Payment</th>
+              <th class="right">Amount</th>
+              <th>Status</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of items; track item.id) {
+              <tr>
+                <td><code>{{ item.providerId }}</code></td>
+                <td>{{ item.paymentId ? '#' + item.paymentId.substring(0, 8) : '—' }}</td>
+                <td class="right">{{ item.amount | currencyFormat:item.currencyCode }}</td>
+                <td><span class="status-badge status-{{ item.status }}">{{ item.status | humanize }}</span></td>
+                <td class="muted">{{ item.createdAt | date:'shortDate' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </section>
+
+    <section class="action-bar">
+      @if (run.status === 'draft' || run.status === 'approved') {
+        <button class="btn btn-primary" (click)="execute()" [disabled]="busy">
+          <app-icon name="check" [size]="14"></app-icon>
+          Execute run
+        </button>
+      } @else {
+        <span class="muted">No actions available for {{ run.status }} runs.</span>
+      }
+    </section>
+  }
+</div>

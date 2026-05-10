@@ -1,0 +1,44 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Generate payment run</h1>
+      <p class="page-sub">
+        Creates a draft run for the selected currency. The backend pulls
+        eligible adjudicated claims into the draft. Approve and execute
+        from the run detail page.
+      </p>
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form class="card" (ngSubmit)="submit()" #f="ngForm">
+    <h2 class="section-title">Run setup</h2>
+
+    <label class="field">
+      <span class="field-label">Currency *</span>
+      <select [(ngModel)]="currencyCode" name="currencyCode" required>
+        <option [value]="''" disabled>Select currency…</option>
+        @for (c of currencies; track c.code) {
+          <option [value]="c.code">{{ c.code }} — {{ c.name }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="field">
+      <span class="field-label">Description</span>
+      <input type="text" [(ngModel)]="description" name="description"
+             maxlength="255" placeholder="Optional run note (e.g. November payouts)" />
+    </label>
+
+    <div class="actions">
+      <button type="button" class="btn" (click)="cancel()" [disabled]="busy">Cancel</button>
+      <button type="submit" class="btn btn-primary" [disabled]="busy || !f.valid">
+        <app-icon name="plus" [size]="14"></app-icon>
+        Create draft run
+      </button>
+    </div>
+  </form>
+</div>

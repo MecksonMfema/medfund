@@ -24,15 +24,36 @@ const cs = (
 });
 
 export const FINANCE_ROUTES: Routes = [
-  // ── Payment runs (real shell — existing functional component) ─────────────
+  // ── Payment runs ───────────────────────────────────────────────────────────
   {
     path: 'runs',
-    canActivate: [permissionGuard(['finance:view', 'finance:create_payment_run'])],
-    loadComponent: () => import('../../finance/finance.component').then(m => m.FinanceComponent),
+    canActivate: [permissionGuard(['finance:view'])],
+    loadComponent: () => import('./runs/payment-runs-list.component').then(m => m.PaymentRunsListComponent),
     data: { title: 'Payment Runs', sidebar: 'operational' },
   },
-  cs('runs/current',          'Current Payment Run',     '/current-payment-run',       'Active draft batch.',                                ['finance:view']),
-  cs('runs/:id',              'Payment Run Detail',      '/view-payment-run',          'Single run inspection.',                             ['finance:view']),
+  {
+    path: 'runs/generate',
+    canActivate: [permissionGuard(['finance:create_payment_run'])],
+    loadComponent: () => import('./runs/payment-run-generate.component').then(m => m.PaymentRunGenerateComponent),
+    data: { title: 'Generate Payment Run', sidebar: 'operational' },
+  },
+  {
+    path: 'runs/current',
+    canActivate: [permissionGuard(['finance:view'])],
+    loadComponent: () => import('./runs/payment-runs-list.component').then(m => m.PaymentRunsListComponent),
+    data: {
+      title: 'Current Payment Run',
+      description: 'Drafts awaiting approval and execution.',
+      presetStatus: 'draft',
+      sidebar: 'operational',
+    },
+  },
+  {
+    path: 'runs/:id',
+    canActivate: [permissionGuard(['finance:view'])],
+    loadComponent: () => import('./runs/payment-run-detail.component').then(m => m.PaymentRunDetailComponent),
+    data: { title: 'Payment Run Detail', sidebar: 'operational' },
+  },
 
   // ── Payments ───────────────────────────────────────────────────────────────
   cs('payments',                  'Payments',                  '/payments',                  'Finalised payments.',                          ['finance:view']),
