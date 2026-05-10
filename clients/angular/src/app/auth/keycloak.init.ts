@@ -1,5 +1,9 @@
 import { KeycloakService } from 'keycloak-angular';
 import { environment } from '../../environments/environment';
+import { AdminService } from '../core/services/admin.service';
+import { BrandingService } from '../core/services/branding.service';
+import { TenantService } from '../core/services/tenant.service';
+import { bootstrapTenantFromJwt } from './tenant-bootstrap';
 
 const GATEWAY_URL = environment.apiBaseUrl.replace('/api/v1', '');
 
@@ -11,7 +15,12 @@ const REFRESH_BUFFER_SECONDS = 60;
 // How often (ms) to proactively check whether the token needs refreshing.
 const PROACTIVE_CHECK_INTERVAL_MS = 30_000;
 
-export function initializeKeycloak(keycloak: KeycloakService): () => Promise<boolean> {
+export function initializeKeycloak(
+  keycloak: KeycloakService,
+  tenantService: TenantService,
+  adminService: AdminService,
+  brandingService: BrandingService,
+): () => Promise<boolean> {
   return () =>
     keycloak
       .init({
@@ -31,6 +40,14 @@ export function initializeKeycloak(keycloak: KeycloakService): () => Promise<boo
       .then(async (authenticated) => {
         if (authenticated) {
           await establishSession(keycloak);
+
+          // Seed TenantService from the JWT before any route activates.
+          // Without this, permissionGuard runs before TenantLayoutComponent
+          // has had a chance to call setTenant(), so PermissionService
+          // hasn't fetched /me/permissions yet — guard times out at 2 s
+          // and 403s the first navigation. Awaited here so the bootstrap
+          // is finished by the time APP_INITIALIZER resolves.
+          await bootstrapTenantFromJwt(keycloak, tenantService, adminService, brandingService);
 
           // Proactive refresh: check every 30 s and renew the cookie before
           // it expires. This prevents the gap caused by onTokenExpired firing

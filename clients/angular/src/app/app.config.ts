@@ -8,6 +8,9 @@ import { routes } from './app.routes';
 import { initializeKeycloak } from './auth/keycloak.init';
 import { tenantInterceptor } from './core/interceptors/tenant.interceptor';
 import { loadingInterceptor } from './core/interceptors/loading.interceptor';
+import { AdminService } from './core/services/admin.service';
+import { BrandingService } from './core/services/branding.service';
+import { TenantService } from './core/services/tenant.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -20,7 +23,7 @@ export const appConfig: ApplicationConfig = {
       provide: APP_INITIALIZER,
       useFactory: initializeKeycloak,
       multi: true,
-      deps: [KeycloakService],
+      deps: [KeycloakService, TenantService, AdminService, BrandingService],
     },
     // Self-hosted TinyMCE — assets are copied to /tinymce/ via angular.json,
     // so the editor wrapper loads tinymce.min.js from there instead of the
