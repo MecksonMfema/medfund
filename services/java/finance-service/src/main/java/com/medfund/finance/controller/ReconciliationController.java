@@ -63,4 +63,16 @@ public class ReconciliationController {
     public Mono<BankReconciliationResponse> markMatched(@PathVariable UUID id, Principal principal) {
         return reconciliationService.markMatched(id, principal.getName()).map(BankReconciliationResponse::from);
     }
+
+    @PostMapping("/{id}/investigate")
+    @Operation(summary = "Flag a reconciliation as under investigation")
+    public Mono<BankReconciliationResponse> markInvestigating(@PathVariable UUID id, Principal principal) {
+        return reconciliationService.markInvestigating(id, principal.getName()).map(BankReconciliationResponse::from);
+    }
+
+    @PostMapping("/{id}/resolve")
+    @Operation(summary = "Mark a previously-investigating reconciliation as resolved")
+    public Mono<BankReconciliationResponse> markResolved(@PathVariable UUID id, Principal principal) {
+        return reconciliationService.markResolved(id, principal.getName()).map(BankReconciliationResponse::from);
+    }
 }

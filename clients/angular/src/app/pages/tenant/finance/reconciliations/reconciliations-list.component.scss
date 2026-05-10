@@ -78,3 +78,4 @@
 .status-resolved      { background: var(--color-primary-light, rgba(0,119,182,0.1)); color: var(--color-primary, #0077b6); }
 
 .btn-sm { padding: 0.25rem 0.6rem; font-size: 0.75rem; }
+.row-actions { display: flex; gap: 0.25rem; flex-wrap: wrap; }

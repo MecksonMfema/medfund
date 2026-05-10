@@ -89,6 +89,38 @@ public class ReconciliationService {
             });
     }
 
+    @Transactional
+    public Mono<BankReconciliation> markInvestigating(UUID id, String actorId) {
+        return transitionStatus(id, "investigating", false, actorId);
+    }
+
+    @Transactional
+    public Mono<BankReconciliation> markResolved(UUID id, String actorId) {
+        return transitionStatus(id, "resolved", true, actorId);
+    }
+
+    private Mono<BankReconciliation> transitionStatus(UUID id, String newStatus, boolean stamp, String actorId) {
+        return bankReconciliationRepository.findById(id)
+            .switchIfEmpty(Mono.error(new RuntimeException("Bank reconciliation not found: " + id)))
+            .flatMap(recon -> {
+                String previousStatus = recon.getStatus();
+                if (previousStatus.equals(newStatus)) return Mono.just(recon);
+                recon.setStatus(newStatus);
+                if (stamp) {
+                    recon.setReconciledAt(Instant.now());
+                    if (actorId != null) recon.setReconciledBy(UUID.fromString(actorId));
+                }
+                return bankReconciliationRepository.save(recon)
+                    .flatMap(saved -> Mono.deferContextual(ctx -> {
+                        String tenantId = TenantContext.get(ctx);
+                        return publishAudit(tenantId, "BankReconciliation", saved.getId().toString(), "UPDATE", actorId,
+                                Map.of("status", previousStatus),
+                                Map.of("status", saved.getStatus()))
+                            .thenReturn(saved);
+                    }));
+            });
+    }
+
     // ---- Private helpers ----
 
     private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,

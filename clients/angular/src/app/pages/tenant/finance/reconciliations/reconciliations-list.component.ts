@@ -54,19 +54,36 @@ export class ReconciliationsListComponent implements OnInit {
   onFilterChange(): void { this.applyFilter(); }
 
   match(row: BankReconciliation, event: Event): void {
+    this.transition(row, event, 'matched', () => this.finance.matchReconciliation(row.id));
+  }
+
+  investigate(row: BankReconciliation, event: Event): void {
+    this.transition(row, event, 'investigating', () => this.finance.investigateReconciliation(row.id));
+  }
+
+  resolve(row: BankReconciliation, event: Event): void {
+    this.transition(row, event, 'resolved', () => this.finance.resolveReconciliation(row.id));
+  }
+
+  private transition(
+    row: BankReconciliation,
+    event: Event,
+    target: string,
+    fn: () => import('rxjs').Observable<BankReconciliation>,
+  ): void {
     event.stopPropagation();
-    if (!confirm(`Mark reconciliation ${row.referenceNumber} as matched?`)) return;
+    if (!confirm(`Mark reconciliation ${row.referenceNumber} as ${target}?`)) return;
     this.busyId = row.id;
-    this.finance.matchReconciliation(row.id).subscribe({
+    fn().subscribe({
       next: (updated) => {
         const idx = this.rows.findIndex(r => r.id === updated.id);
         if (idx >= 0) this.rows[idx] = updated;
         this.applyFilter();
-        this.successMessage = `Reconciliation ${updated.referenceNumber} matched.`;
+        this.successMessage = `Reconciliation ${updated.referenceNumber} → ${target}.`;
         this.busyId = null;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to match';
+        this.errorMessage = err?.error?.detail || `Failed to mark ${target}`;
         this.busyId = null;
       },
     });

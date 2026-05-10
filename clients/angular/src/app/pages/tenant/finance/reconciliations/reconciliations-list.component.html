@@ -65,13 +65,21 @@
               {{ row.difference | currencyFormat:row.currencyCode }}
             </td>
             <td class="muted">{{ row.notes || '—' }}</td>
-            <td>
+            <td class="row-actions">
               @if (row.status === 'unmatched' || row.status === 'investigating') {
                 <button class="btn btn-sm btn-primary"
                         (click)="match(row, $event)"
-                        [disabled]="busyId === row.id">
-                  Match
-                </button>
+                        [disabled]="busyId === row.id">Match</button>
+              }
+              @if (row.status === 'unmatched') {
+                <button class="btn btn-sm"
+                        (click)="investigate(row, $event)"
+                        [disabled]="busyId === row.id">Investigate</button>
+              }
+              @if (row.status === 'investigating') {
+                <button class="btn btn-sm"
+                        (click)="resolve(row, $event)"
+                        [disabled]="busyId === row.id">Resolve</button>
               }
             </td>
           </tr>
