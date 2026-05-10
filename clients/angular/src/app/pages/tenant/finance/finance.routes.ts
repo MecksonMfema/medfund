@@ -93,7 +93,12 @@ export const FINANCE_ROUTES: Routes = [
 
   // ── Banks ──────────────────────────────────────────────────────────────────
   cs('banks',                     'Banks',                     '/bank-management',           'Bank account management.',                     ['finance:manage_banks']),
-  cs('banks/masca',               'Platform Bank Accounts',    '/masca-bank-accounts',       'Platform bank list.',                          ['finance:manage_banks']),
+  {
+    path: 'banks/masca',
+    canActivate: [permissionGuard(['finance:manage_banks'])],
+    loadComponent: () => import('./banks/masca-banks.component').then(m => m.MascaBanksComponent),
+    data: { title: 'Platform Bank Accounts', sidebar: 'operational' },
+  },
   cs('banks/edit',                'Edit Bank Account',         '/edit-bank',                 'Update bank details.',                         ['finance:manage_banks']),
 
   // ── Adjustments ───────────────────────────────────────────────────────────

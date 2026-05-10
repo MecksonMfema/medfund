@@ -132,6 +132,32 @@ export interface CreateReconciliationPayload {
   notes?: string;
 }
 
+// ── MASCA bank accounts ─────────────────────────────────────────────────
+export interface MascaBankAccount {
+  id: string;
+  bankName: string;
+  accountNumber: string;
+  branchCode?: string;
+  swiftCode?: string;
+  accountName: string;
+  currencyCode: string;
+  nominated: boolean;
+  active: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface UpsertMascaBankAccountPayload {
+  bankName: string;
+  accountNumber: string;
+  branchCode?: string;
+  swiftCode?: string;
+  accountName: string;
+  currencyCode: string;
+  nominated?: boolean;
+  active?: boolean;
+}
+
 // ── Payment advice ──────────────────────────────────────────────────────
 export interface PaymentAdviceLine {
   claimNumber: string;
@@ -187,6 +213,13 @@ export class FinanceService {
   createAdjustment(body: CreateAdjustmentPayload): Observable<Adjustment> { return this.api.post<Adjustment>('/adjustments', body); }
   approveAdjustment(id: string): Observable<Adjustment> { return this.api.post<Adjustment>(`/adjustments/${id}/approve`, {}); }
   applyAdjustment(id: string): Observable<Adjustment> { return this.api.post<Adjustment>(`/adjustments/${id}/apply`, {}); }
+
+  // ── MASCA bank accounts ──
+  listMascaBankAccounts(): Observable<MascaBankAccount[]> { return this.api.get<MascaBankAccount[]>('/masca-bank-accounts'); }
+  getMascaBankAccount(id: string): Observable<MascaBankAccount> { return this.api.get<MascaBankAccount>(`/masca-bank-accounts/${id}`); }
+  createMascaBankAccount(body: UpsertMascaBankAccountPayload): Observable<MascaBankAccount> { return this.api.post<MascaBankAccount>('/masca-bank-accounts', body); }
+  updateMascaBankAccount(id: string, body: UpsertMascaBankAccountPayload): Observable<MascaBankAccount> { return this.api.put<MascaBankAccount>(`/masca-bank-accounts/${id}`, body); }
+  deleteMascaBankAccount(id: string): Observable<void> { return this.api.delete<void>(`/masca-bank-accounts/${id}`); }
 
   // ── Reconciliations ──
   listReconciliations(): Observable<BankReconciliation[]> { return this.api.get<BankReconciliation[]>('/reconciliations'); }
