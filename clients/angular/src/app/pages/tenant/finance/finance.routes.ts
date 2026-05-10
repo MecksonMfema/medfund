@@ -56,14 +56,35 @@ export const FINANCE_ROUTES: Routes = [
   },
 
   // ── Payments ───────────────────────────────────────────────────────────────
-  cs('payments',                  'Payments',                  '/payments',                  'Finalised payments.',                          ['finance:view']),
-  cs('payments/pending',          'Pending Payments',          '/pending-payments',          'Payments awaiting execution.',                 ['finance:view']),
+  {
+    path: 'payments',
+    canActivate: [permissionGuard(['finance:view'])],
+    loadComponent: () => import('./payments/payments-list.component').then(m => m.PaymentsListComponent),
+    data: { title: 'Payments', sidebar: 'operational' },
+  },
+  {
+    path: 'payments/pending',
+    canActivate: [permissionGuard(['finance:view'])],
+    loadComponent: () => import('./payments/payments-list.component').then(m => m.PaymentsListComponent),
+    data: {
+      title: 'Pending Payments',
+      description: 'Payments awaiting execution.',
+      presetStatus: 'pending',
+      sidebar: 'operational',
+    },
+  },
   cs('payments/advance',          'Advance Payments',          '/advance-payments',          'Provider prepayments.',                        ['finance:view_advance_payments']),
   cs('payments/advance/add',      'Create Advance Payment',    '/advance-payment',           'New provider prepayment.',                     ['finance:manage_advance_payments']),
   cs('payments/advance/:id',      'Advance Payment Detail',    '/view-advance-payment',      'Single prepayment.',                           ['finance:view_advance_payments']),
   cs('payments/ctc',              'CTC Payments',              '/ctc-payments',              'Cost-to-cure payments from finance.',           ['finance:manage_ctc_payments']),
   cs('payments/ctc/add',          'Create CTC Payment',        '/ctc-payment',               'New CTC allocation.',                          ['finance:manage_ctc_payments']),
   cs('payments/ctc/:id',          'CTC Payment Detail',        '/view-ctc-payment',          'Single CTC payment.',                          ['finance:manage_ctc_payments']),
+  {
+    path: 'payments/:id',
+    canActivate: [permissionGuard(['finance:view'])],
+    loadComponent: () => import('./payments/payment-detail.component').then(m => m.PaymentDetailComponent),
+    data: { title: 'Payment Detail', sidebar: 'operational' },
+  },
 
   // ── Receipts ──────────────────────────────────────────────────────────────
   cs('receipts',                  'Receipts',                  '/receipts',                  'Captured payment receipts.',                   ['finance:manage_receipts']),

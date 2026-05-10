@@ -1,0 +1,56 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <button class="link-back" (click)="back()">
+        <app-icon name="arrow-left" [size]="14"></app-icon>
+        Back to payments
+      </button>
+      @if (payment) {
+        <h1>{{ payment.paymentNumber }}</h1>
+        <p class="page-sub">
+          <span class="status-badge status-{{ payment.status }}">{{ payment.status | humanize }}</span>
+          · {{ payment.amount | currencyFormat:payment.currencyCode }}
+        </p>
+      }
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+  }
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (payment) {
+    <section class="tab-body">
+      <h2 class="section-title">Payment</h2>
+      <dl class="header-grid">
+        <dt>Payment number</dt><dd><code>{{ payment.paymentNumber }}</code></dd>
+        <dt>Status</dt><dd><span class="status-badge status-{{ payment.status }}">{{ payment.status | humanize }}</span></dd>
+        <dt>Amount</dt><dd>{{ payment.amount | currencyFormat:payment.currencyCode }}</dd>
+        <dt>Currency</dt><dd>{{ payment.currencyCode }}</dd>
+        <dt>Type</dt><dd>{{ payment.paymentType ? (payment.paymentType | humanize) : '—' }}</dd>
+        <dt>Method</dt><dd>{{ payment.paymentMethod || '—' }}</dd>
+        <dt>Reference</dt><dd>{{ payment.reference || '—' }}</dd>
+        <dt>Provider</dt><dd><code>{{ payment.providerId }}</code></dd>
+        <dt>Paid</dt><dd>{{ payment.paidAt ? (payment.paidAt | date:'medium') : '—' }}</dd>
+        <dt>Created</dt><dd>{{ payment.createdAt | date:'medium' }}</dd>
+        <dt>Updated</dt><dd>{{ payment.updatedAt ? (payment.updatedAt | date:'medium') : '—' }}</dd>
+      </dl>
+    </section>
+
+    <section class="action-bar">
+      @if (payment.status === 'pending' || payment.status === 'approved') {
+        <button class="btn btn-primary" (click)="markPaid()" [disabled]="busy">
+          <app-icon name="check" [size]="14"></app-icon>
+          Mark paid
+        </button>
+      } @else {
+        <span class="muted">No actions available for {{ payment.status }} payments.</span>
+      }
+    </section>
+  }
+</div>

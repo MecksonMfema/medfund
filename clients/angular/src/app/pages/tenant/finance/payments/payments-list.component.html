@@ -1,0 +1,77 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>{{ pageTitle }}</h1>
+      <p class="page-sub">{{ pageDescription }}</p>
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <div class="filters">
+    @if (!presetStatus) {
+      <label class="field">
+        <span class="field-label">Status</span>
+        <select [(ngModel)]="statusFilter" (change)="onStatusChange()" name="status">
+          <option [value]="''">All</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="paid">Paid</option>
+          <option value="cancelled">Cancelled</option>
+          <option value="failed">Failed</option>
+        </select>
+      </label>
+    }
+    <label class="field">
+      <span class="field-label">Currency</span>
+      <select [(ngModel)]="currencyFilter" (change)="onFilterChange()" name="currency">
+        <option [value]="''">All</option>
+        @for (c of uniqueCurrencies(); track c) {
+          <option [value]="c">{{ c }}</option>
+        }
+      </select>
+    </label>
+    <label class="field grow">
+      <span class="field-label">Search</span>
+      <input type="search" [(ngModel)]="searchTerm" (ngModelChange)="onFilterChange()"
+             name="search" placeholder="Payment # or reference…" />
+    </label>
+  </div>
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (filtered.length === 0) {
+    <p class="empty-state">No payments match these filters.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Payment #</th>
+          <th>Status</th>
+          <th>Type</th>
+          <th class="right">Amount</th>
+          <th>Method</th>
+          <th>Reference</th>
+          <th>Paid</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of filtered; track row.id) {
+          <tr (click)="open(row)" class="clickable">
+            <td><strong>{{ row.paymentNumber }}</strong></td>
+            <td><span class="status-badge status-{{ row.status }}">{{ row.status | humanize }}</span></td>
+            <td class="muted">{{ row.paymentType ? (row.paymentType | humanize) : '—' }}</td>
+            <td class="right">{{ row.amount | currencyFormat:row.currencyCode }}</td>
+            <td class="muted">{{ row.paymentMethod || '—' }}</td>
+            <td class="muted">{{ row.reference || '—' }}</td>
+            <td class="muted">{{ row.paidAt ? (row.paidAt | date:'shortDate') : '—' }}</td>
+            <td class="muted">{{ row.createdAt | date:'shortDate' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>
