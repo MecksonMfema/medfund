@@ -95,6 +95,12 @@ export const FINANCE_ROUTES: Routes = [
     data: { title: 'Record Advance Payment', sidebar: 'operational' },
   },
   {
+    path: 'payments/advance/:id',
+    canActivate: [permissionGuard(['finance:view_advance_payments'])],
+    loadComponent: () => import('./advance/advance-payment-detail.component').then(m => m.AdvancePaymentDetailComponent),
+    data: { title: 'Advance Payment Detail', sidebar: 'operational' },
+  },
+  {
     path: 'payments/ctc',
     canActivate: [permissionGuard(['finance:manage_ctc_payments'])],
     loadComponent: () => import('./ctc/ctc-payments-list.component').then(m => m.CtcPaymentsListComponent),
@@ -107,6 +113,12 @@ export const FINANCE_ROUTES: Routes = [
     data: { title: 'Create CTC Payment', sidebar: 'operational' },
   },
   {
+    path: 'payments/ctc/:id',
+    canActivate: [permissionGuard(['finance:manage_ctc_payments'])],
+    loadComponent: () => import('./ctc/ctc-payment-detail.component').then(m => m.CtcPaymentDetailComponent),
+    data: { title: 'CTC Payment Detail', sidebar: 'operational' },
+  },
+  {
     path: 'payments/:id',
     canActivate: [permissionGuard(['finance:view'])],
     loadComponent: () => import('./payments/payment-detail.component').then(m => m.PaymentDetailComponent),
@@ -114,19 +126,27 @@ export const FINANCE_ROUTES: Routes = [
   },
 
   // ── Receipts ──────────────────────────────────────────────────────────────
-  cs('receipts',                  'Receipts',                  '/receipts',                  'Captured payment receipts.',                   ['finance:manage_receipts']),
-  cs('receipts/groups',           'Group Receipts',            '/groups-receipts-list',      'Employer group receipts.',                     ['finance:manage_receipts']),
+  // Receipts are inbound contribution transactions (legacy MASCA name). The
+  // tenant transactions catalogue doesn't seed a dedicated RECEIPT type, so
+  // the receipts surface is the existing billing transactions list with a
+  // descriptive title. /receipts/report stays ComingSoon — an analytics
+  // dashboard would need a new aggregate endpoint in contributions-service.
+  { path: 'receipts',        pathMatch: 'full', redirectTo: '/tenant/billing/transactions' },
+  { path: 'receipts/groups', pathMatch: 'full', redirectTo: '/tenant/billing/transactions' },
   cs('receipts/report',           'Receipts Report',           '/view-receipts-report',      'Receipts analytics dashboard.',                ['finance:manage_receipts']),
 
   // ── Banks ──────────────────────────────────────────────────────────────────
-  cs('banks',                     'Banks',                     '/bank-management',           'Bank account management.',                     ['finance:manage_banks']),
+  // The only real bank surface today is /banks/masca (platform bank accounts).
+  // The general /banks placeholder and /banks/edit redirect there until
+  // tenant-side bank management ships.
+  { path: 'banks',      pathMatch: 'full', redirectTo: '/tenant/finance/banks/masca' },
+  { path: 'banks/edit', pathMatch: 'full', redirectTo: '/tenant/finance/banks/masca' },
   {
     path: 'banks/masca',
     canActivate: [permissionGuard(['finance:manage_banks'])],
     loadComponent: () => import('./banks/masca-banks.component').then(m => m.MascaBanksComponent),
     data: { title: 'Platform Bank Accounts', sidebar: 'operational' },
   },
-  cs('banks/edit',                'Edit Bank Account',         '/edit-bank',                 'Update bank details.',                         ['finance:manage_banks']),
 
   // ── Adjustments ───────────────────────────────────────────────────────────
   {
@@ -227,7 +247,28 @@ export const FINANCE_ROUTES: Routes = [
   },
   cs('reports/provider-payments/:id',        'Provider Payment Detail',          '/view-provider-payments',                   'Single provider payment list.',                   ['finance:view']),
   cs('reports/provider-payments/:id/details','Provider Payment Details',         '/view-provider-payment-details',            'Transaction-level provider payment.',             ['finance:view']),
-  cs('reports/provider-payment-status',      'Provider Payment Status',          '/provider-payment-status',                  'Provider payment state aggregates.',              ['finance:view']),
+  {
+    path: 'reports/provider-payment-status',
+    canActivate: [permissionGuard(['finance:view'])],
+    loadComponent: () => import('./payments/payments-list.component').then(m => m.PaymentsListComponent),
+    data: {
+      title: 'Provider Payment Status',
+      description: 'Provider payouts grouped by state. Use the status filter to drill into pending / paid / cancelled.',
+      sidebar: 'operational',
+    },
+  },
+  // committed-payments alias — paid-only history under a memorable name.
+  {
+    path: 'reports/committed-payments',
+    canActivate: [permissionGuard(['finance:view'])],
+    loadComponent: () => import('./payments/payments-list.component').then(m => m.PaymentsListComponent),
+    data: {
+      title: 'Committed Payments',
+      description: 'Payouts that have settled. Filtered to status=paid.',
+      presetStatus: 'paid',
+      sidebar: 'operational',
+    },
+  },
   {
     path: 'reports/withheld-tax',
     canActivate: [permissionGuard(['finance:view_withheld_tax'])],

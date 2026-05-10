@@ -1,0 +1,57 @@
+.page { padding: 1.5rem; }
+
+.page-header { margin-bottom: 1.25rem; }
+.page-header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
+.page-sub { margin: 0; color: var(--color-text-muted, #6b7280); font-size: 0.9rem; }
+
+.link-back {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted, #6b7280);
+  font-size: 0.85rem;
+  padding: 0;
+  margin-bottom: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.link-back:hover { color: var(--color-primary, #0077b6); }
+
+.banner {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  margin-bottom: 1rem;
+}
+.banner-error { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
+
+.card {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border-light, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  padding: 1rem;
+}
+
+.section-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.header-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+.header-grid dt { color: var(--color-text-muted, #6b7280); font-size: 0.85rem; }
+.header-grid dd { margin: 0; font-size: 0.95rem; }
+.header-grid code { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 0.85rem; }
+
+.comment { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--color-border-light, #f0f4f8); }
+.field-label { font-weight: 500; font-size: 0.85rem; color: var(--color-text-muted, #6b7280); display: block; margin-bottom: 0.25rem; }
+.comment p { margin: 0; font-size: 0.95rem; }

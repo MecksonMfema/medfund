@@ -53,6 +53,8 @@
 .right { text-align: right; }
 .muted { color: var(--color-text-muted, #6b7280); }
 .data-table code { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 0.8rem; }
+.data-table tr.clickable { cursor: pointer; }
+.data-table tr.clickable:hover { background: var(--color-bg, #f8fdff); }
 
 .badge {
   display: inline-block;

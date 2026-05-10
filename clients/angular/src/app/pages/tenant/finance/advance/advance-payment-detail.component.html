@@ -1,0 +1,46 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <button class="link-back" (click)="back()">
+        <app-icon name="arrow-left" [size]="14"></app-icon>
+        Back to advance payments
+      </button>
+      <h1>Advance payment</h1>
+      @if (payment) {
+        <p class="page-sub">
+          {{ payment.providerId ? 'Provider' : 'Member' }} prepayment
+          · {{ payment.amount | currencyFormat:payment.currencyCode }}
+        </p>
+      }
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (payment) {
+    <section class="card">
+      <h2 class="section-title">Details</h2>
+      <dl class="header-grid">
+        @if (payment.providerId) { <dt>Provider</dt><dd><code>{{ payment.providerId }}</code></dd> }
+        @if (payment.memberId) { <dt>Member</dt><dd><code>{{ payment.memberId }}</code></dd> }
+        <dt>Amount</dt><dd>{{ payment.amount | currencyFormat:payment.currencyCode }}</dd>
+        <dt>Currency</dt><dd>{{ payment.currencyCode }}</dd>
+        <dt>Method</dt><dd>{{ payment.paymentMethod || '—' }}</dd>
+        <dt>Reference</dt><dd>{{ payment.reference || '—' }}</dd>
+        <dt>Linked payment</dt><dd>{{ payment.paymentId ? '#' + payment.paymentId.substring(0, 8) : '—' }}</dd>
+        <dt>Recorded</dt><dd>{{ payment.recordedAt | date:'medium' }}</dd>
+        <dt>Recorded by</dt><dd>{{ payment.recordedBy || '—' }}</dd>
+      </dl>
+      @if (payment.comment) {
+        <div class="comment">
+          <span class="field-label">Comment</span>
+          <p>{{ payment.comment }}</p>
+        </div>
+      }
+    </section>
+  }
+</div>

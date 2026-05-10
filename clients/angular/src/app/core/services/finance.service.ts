@@ -316,6 +316,7 @@ export class FinanceService {
   listCtcPayments(committed?: boolean): Observable<CtcPayment[]> {
     return this.api.get<CtcPayment[]>('/ctc-payments', committed === undefined ? {} : { committed: String(committed) });
   }
+  getCtcPayment(id: string): Observable<CtcPayment> { return this.api.get<CtcPayment>(`/ctc-payments/${id}`); }
   createCtcPayment(body: CreateCtcPaymentPayload): Observable<CtcPayment> { return this.api.post<CtcPayment>('/ctc-payments', body); }
   commitCtcPayment(id: string): Observable<CtcPayment> { return this.api.post<CtcPayment>(`/ctc-payments/${id}/commit`, {}); }
 

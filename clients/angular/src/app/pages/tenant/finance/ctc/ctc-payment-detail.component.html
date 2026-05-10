@@ -1,0 +1,55 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <button class="link-back" (click)="back()">
+        <app-icon name="arrow-left" [size]="14"></app-icon>
+        Back to CTC payments
+      </button>
+      <h1>CTC payment</h1>
+      @if (payment) {
+        <p class="page-sub">
+          {{ payment.groupId ? 'Group' : 'Member' }} transfer
+          · {{ payment.amount | currencyFormat:payment.currencyCode }}
+          @if (payment.committed) { · <span class="badge ok">Committed</span> } @else { · <span class="badge muted">Pending</span> }
+        </p>
+      }
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+  }
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (payment) {
+    <section class="card">
+      <h2 class="section-title">Details</h2>
+      <dl class="header-grid">
+        @if (payment.groupId) { <dt>Group</dt><dd><code>{{ payment.groupId }}</code></dd> }
+        @if (payment.memberId) { <dt>Member</dt><dd><code>{{ payment.memberId }}</code></dd> }
+        <dt>Amount</dt><dd>{{ payment.amount | currencyFormat:payment.currencyCode }}</dd>
+        <dt>Currency</dt><dd>{{ payment.currencyCode }}</dd>
+        <dt>Linked contribution</dt>
+        <dd>{{ payment.contributionId ? '#' + payment.contributionId.substring(0, 8) : '—' }}</dd>
+        <dt>Committed</dt><dd>{{ payment.committed ? 'Yes' : 'No' }}</dd>
+        <dt>Created</dt><dd>{{ payment.createdAt | date:'medium' }}</dd>
+        <dt>Created by</dt><dd>{{ payment.createdBy || '—' }}</dd>
+      </dl>
+    </section>
+
+    <section class="action-bar">
+      @if (!payment.committed) {
+        <button class="btn btn-primary" (click)="commit()" [disabled]="busy">
+          <app-icon name="check" [size]="14"></app-icon>
+          Commit
+        </button>
+      } @else {
+        <span class="muted">No actions available — payment is committed.</span>
+      }
+    </section>
+  }
+</div>

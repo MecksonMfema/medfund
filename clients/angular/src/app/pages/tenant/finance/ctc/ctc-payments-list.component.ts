@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import {
   CtcPayment,
   FinanceService,
@@ -20,13 +20,11 @@ import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pip
 export class CtcPaymentsListComponent implements OnInit {
   rows: CtcPayment[] = [];
   loading = false;
-  busyId: string | null = null;
   errorMessage: string | null = null;
-  successMessage: string | null = null;
 
   committedFilter: '' | 'true' | 'false' = '';
 
-  constructor(private finance: FinanceService) {}
+  constructor(private finance: FinanceService, private router: Router) {}
 
   ngOnInit(): void { this.refresh(); }
 
@@ -42,21 +40,7 @@ export class CtcPaymentsListComponent implements OnInit {
     });
   }
 
-  commit(row: CtcPayment, event: Event): void {
-    event.stopPropagation();
-    if (!confirm('Commit this CTC payment? This is final.')) return;
-    this.busyId = row.id;
-    this.finance.commitCtcPayment(row.id).subscribe({
-      next: (updated) => {
-        const idx = this.rows.findIndex(r => r.id === updated.id);
-        if (idx >= 0) this.rows[idx] = updated;
-        this.successMessage = 'CTC payment committed.';
-        this.busyId = null;
-      },
-      error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to commit';
-        this.busyId = null;
-      },
-    });
+  open(row: CtcPayment): void {
+    this.router.navigate(['/tenant/finance/payments/ctc', row.id]);
   }
 }

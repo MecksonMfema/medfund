@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import {
   AdvancePayment,
   FinanceService,
@@ -26,7 +26,11 @@ export class AdvancePaymentsListComponent implements OnInit {
   searchTerm = '';
   payeeFilter: '' | 'provider' | 'member' = '';
 
-  constructor(private finance: FinanceService) {}
+  constructor(private finance: FinanceService, private router: Router) {}
+
+  open(row: AdvancePayment): void {
+    this.router.navigate(['/tenant/finance/payments/advance', row.id]);
+  }
 
   ngOnInit(): void {
     this.refresh();

@@ -51,7 +51,7 @@
       </thead>
       <tbody>
         @for (row of filtered; track row.id) {
-          <tr>
+          <tr (click)="open(row)" class="clickable">
             <td><code>{{ (row.providerId || row.memberId || '').substring(0, 8) }}</code></td>
             <td class="muted">{{ row.providerId ? 'Provider' : 'Member' }}</td>
             <td class="right">{{ row.amount | currencyFormat:row.currencyCode }}</td>
