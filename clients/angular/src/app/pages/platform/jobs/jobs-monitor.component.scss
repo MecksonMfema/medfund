@@ -11,6 +11,47 @@
 .page-header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
 .page-sub { margin: 0; color: var(--color-text-muted, #6b7280); font-size: 0.9rem; max-width: 70ch; }
 
+.header-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.add-form {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border-light, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+.add-form .field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+}
+.add-form .field-label { font-weight: 500; margin-bottom: 0.25rem; }
+.add-form .field input,
+.add-form .field select,
+.add-form .field textarea {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--color-border, #d1d5db);
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+.add-form .row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+@media (max-width: 600px) { .add-form .row-2 { grid-template-columns: 1fr; } }
+.form-hint { font-size: 0.8rem; color: var(--color-text-muted, #6b7280); margin: 0 0 0.75rem; }
+.form-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border-light, #f0f4f8);
+}
+
 .filter-bar {
   display: flex;
   align-items: center;

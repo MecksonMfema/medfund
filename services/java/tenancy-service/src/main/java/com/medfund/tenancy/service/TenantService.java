@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
+import com.medfund.shared.scheduler.ScheduledJobService;
 import com.medfund.tenancy.dto.CreateTenantRequest;
 import com.medfund.tenancy.dto.TenantPage;
 import com.medfund.tenancy.dto.TenantQueryParams;
@@ -52,6 +53,7 @@ public class TenantService {
     private final ReactiveStringRedisTemplate redis;
     private final ObjectMapper objectMapper;
     private final R2dbcEntityTemplate r2dbcTemplate;
+    private final ScheduledJobService scheduledJobService;
 
     // ── Search (paginated, cached) ─────────────────────────────────────────────
 
@@ -150,6 +152,13 @@ public class TenantService {
                             .flatMap(saved -> schemaProvisioning.provisionSchema(schemaName)
                                     .then(keycloakRealmService.createRealm(realmName, saved))
                                     .then(createDefaultCurrencyConfig(saved.getId(), request.defaultCurrencyCodeOrDefault()))
+                                    // Seed the 6 default scheduled jobs (BILLING_CYCLE,
+                                    // OVERDUE_CHECK, PAYMENT_RUN, AGE_PROCESSING,
+                                    // PRE_AUTH_EXPIRY, TARIFF_ACTIVATION) bound to this
+                                    // tenant. Without this hook the JobDispatcher has
+                                    // nothing to run for the tenant until a platform
+                                    // admin manually re-seeds.
+                                    .then(scheduledJobService.seedDefaults(saved.getId(), actorId))
                                     .then(publishAuditEvent(saved, null, actorId, actorEmail, "CREATE"))
                                     .then(eventPublisher.publishTenantProvisioned(saved))
                                     .thenReturn(saved))

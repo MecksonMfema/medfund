@@ -7,7 +7,14 @@
         every tenant's jobs interleaved; pick a tenant to scope down.
       </p>
     </div>
-    <button class="btn" (click)="refreshJobs()" [disabled]="loadingJobs">Refresh</button>
+    <div class="header-actions">
+      <button class="btn" (click)="seedDefaults()" [disabled]="busy">Seed defaults</button>
+      <button class="btn btn-primary" (click)="openAddForm()" [disabled]="busy || showAddForm">
+        <app-icon name="plus" [size]="14"></app-icon>
+        Add job
+      </button>
+      <button class="btn" (click)="refreshJobs()" [disabled]="loadingJobs">Refresh</button>
+    </div>
   </header>
 
   <div class="filter-bar">
@@ -17,6 +24,55 @@
       (valueChange)="onTenantFilterChange()">
     </app-tenant-picker>
   </div>
+
+  @if (showAddForm) {
+    <form class="card add-form" (ngSubmit)="submitAdd()" #f="ngForm">
+      <h2 class="section-title">New scheduled job</h2>
+      <p class="form-hint">
+        Pick a tenant to bind this job, or leave the picker on "All tenants"
+        to create a platform-wide job that runs without tenant context.
+      </p>
+
+      <label class="field">
+        <span class="field-label">Tenant</span>
+        <app-tenant-picker [(value)]="newJob.tenantId"></app-tenant-picker>
+      </label>
+
+      <div class="row-2">
+        <label class="field">
+          <span class="field-label">Job type *</span>
+          <select [(ngModel)]="newJob.jobType" name="jobType" required>
+            <option [value]="''" disabled>Select type…</option>
+            @for (jt of jobTypes; track jt.type) {
+              <option [value]="jt.type">{{ jt.displayName }}</option>
+            }
+          </select>
+        </label>
+        <label class="field">
+          <span class="field-label">Cron expression *</span>
+          <input type="text" [(ngModel)]="newJob.cronExpression" name="cronExpression" required
+                 placeholder="0 0 0 * * *" />
+        </label>
+      </div>
+
+      <label class="field">
+        <span class="field-label">Display name *</span>
+        <input type="text" [(ngModel)]="newJob.name" name="name" required
+               placeholder="e.g. Monthly Billing Cycle" />
+      </label>
+
+      <label class="field">
+        <span class="field-label">Settings (JSON)</span>
+        <textarea [(ngModel)]="newJob.settings" name="settings" rows="3"
+                  placeholder='{"key":"value"}'></textarea>
+      </label>
+
+      <div class="form-actions">
+        <button type="button" class="btn" (click)="cancelAdd()" [disabled]="busy">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="busy || !f.valid">Create</button>
+      </div>
+    </form>
+  }
 
   @if (errorMessage) {
     <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>

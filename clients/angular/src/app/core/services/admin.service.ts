@@ -394,6 +394,42 @@ export class AdminService {
     return this.api.get<ScheduledJobRun[]>(`/scheduled-jobs/${id}/runs`, params);
   }
 
+  /**
+   * Create a new scheduled job. Tenant-bound when tenantId is provided;
+   * platform-wide when omitted. Backend accepts query params (matching the
+   * Spring @RequestParam controller signature).
+   */
+  createScheduledJob(args: {
+    jobType: string;
+    name: string;
+    cronExpression: string;
+    settings?: string;
+    tenantId?: string | null;
+  }): Observable<ScheduledJob> {
+    const qs = new URLSearchParams();
+    qs.set('jobType', args.jobType);
+    qs.set('name', args.name);
+    qs.set('cronExpression', args.cronExpression);
+    if (args.settings) qs.set('settings', args.settings);
+    if (args.tenantId) qs.set('tenantId', args.tenantId);
+    return this.api.post<ScheduledJob>(`/scheduled-jobs?${qs.toString()}`, {});
+  }
+
+  /**
+   * Seed the 6 default jobs for a tenant. Useful for tenants provisioned
+   * before the auto-seed hook landed, or when an admin wants to reset to
+   * the default cadence. Pass null tenantId to seed platform-wide defaults.
+   */
+  seedDefaultJobs(tenantId: string | null): Observable<void> {
+    const qs = tenantId ? `?tenantId=${encodeURIComponent(tenantId)}` : '';
+    return this.api.post<void>(`/scheduled-jobs/seed-defaults${qs}`, {});
+  }
+
+  /** List the available job types (enum values + labels) for the create form. */
+  listJobTypes(): Observable<{ type: string; displayName: string; description: string }[]> {
+    return this.api.get<{ type: string; displayName: string; description: string }[]>('/scheduled-jobs/types');
+  }
+
   /** Manually trigger a job (records a run with trigger_kind='manual'). */
   runJobNow(id: string): Observable<ScheduledJobRun> {
     return this.api.post<ScheduledJobRun>(`/scheduled-jobs/${id}/run-now`, {});

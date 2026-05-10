@@ -34,10 +34,26 @@ export class JobsMonitorComponent implements OnInit {
   loadingJobs = false;
   loadingRuns = false;
   busyJobId: string | null = null;
+  busy = false;
   errorMessage: string | null = null;
   successMessage: string | null = null;
 
+  // ── Add-job form state ──
+  showAddForm = false;
+  jobTypes: { type: string; displayName: string; description: string }[] = [];
+  newJob = this.blankJob();
+
   constructor(private admin: AdminService) {}
+
+  private blankJob() {
+    return {
+      tenantId: null as string | null,
+      jobType: '',
+      name: '',
+      cronExpression: '0 0 0 * * *',
+      settings: '{}',
+    };
+  }
 
   ngOnInit(): void {
     // Tenant labels for the Tenant column. Same call the picker makes —
@@ -48,7 +64,69 @@ export class JobsMonitorComponent implements OnInit {
       },
       error: () => { /* labels fall back to id substring on miss */ },
     });
+    this.admin.listJobTypes().subscribe({
+      next: (rows) => { this.jobTypes = rows; },
+      error: () => { this.jobTypes = []; },
+    });
     this.refreshJobs();
+  }
+
+  // ── Add-job form ──
+
+  openAddForm(): void {
+    this.newJob = this.blankJob();
+    if (this.tenantFilter) this.newJob.tenantId = this.tenantFilter;
+    if (this.jobTypes.length) this.newJob.jobType = this.jobTypes[0].type;
+    this.showAddForm = true;
+  }
+
+  cancelAdd(): void { this.showAddForm = false; }
+
+  submitAdd(): void {
+    if (!this.newJob.jobType || !this.newJob.name.trim() || !this.newJob.cronExpression.trim()) {
+      this.errorMessage = 'Job type, name, and cron expression are required.';
+      return;
+    }
+    this.busy = true;
+    this.admin.createScheduledJob({
+      jobType: this.newJob.jobType,
+      name: this.newJob.name.trim(),
+      cronExpression: this.newJob.cronExpression.trim(),
+      settings: this.newJob.settings.trim() || '{}',
+      tenantId: this.newJob.tenantId,
+    }).subscribe({
+      next: () => {
+        this.successMessage = `Job "${this.newJob.name}" added.`;
+        this.busy = false;
+        this.showAddForm = false;
+        this.refreshJobs();
+      },
+      error: (err) => {
+        this.errorMessage = err?.error?.detail || 'Failed to create job';
+        this.busy = false;
+      },
+    });
+  }
+
+  // ── Seed defaults ──
+
+  seedDefaults(): void {
+    const target = this.tenantFilter
+      ? `tenant ${this.tenantLabel(this.tenantFilter)}`
+      : 'platform-wide (no tenant)';
+    if (!confirm(`Seed the 6 default jobs for ${target}? Existing jobs are not modified.`)) return;
+    this.busy = true;
+    this.admin.seedDefaultJobs(this.tenantFilter).subscribe({
+      next: () => {
+        this.successMessage = `Defaults seeded for ${target}.`;
+        this.busy = false;
+        this.refreshJobs();
+      },
+      error: (err) => {
+        this.errorMessage = err?.error?.detail || 'Failed to seed defaults';
+        this.busy = false;
+      },
+    });
   }
 
   tenantLabel(tenantId: string | null): string {
