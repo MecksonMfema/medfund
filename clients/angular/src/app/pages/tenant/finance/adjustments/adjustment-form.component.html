@@ -1,0 +1,89 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>New adjustment</h1>
+      <p class="page-sub">
+        Records a financial adjustment against a provider or member
+        balance. Created adjustments start in <em>pending</em> and require
+        approval before they're applied.
+      </p>
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form class="card" (ngSubmit)="submit()" #f="ngForm">
+    <h2 class="section-title">Target</h2>
+    <div class="segmented" role="tablist">
+      <label class="segment" [class.active]="target === 'provider'">
+        <input type="radio" name="target" value="provider" [(ngModel)]="target" />
+        Provider
+      </label>
+      <label class="segment" [class.active]="target === 'member'">
+        <input type="radio" name="target" value="member" [(ngModel)]="target" />
+        Member
+      </label>
+    </div>
+
+    @if (target === 'provider') {
+      <label class="field">
+        <span class="field-label">Provider ID *</span>
+        <input type="text" [(ngModel)]="providerId" name="providerId" required
+               placeholder="UUID of the provider" />
+      </label>
+    } @else {
+      <label class="field">
+        <span class="field-label">Member ID *</span>
+        <input type="text" [(ngModel)]="memberId" name="memberId" required
+               placeholder="UUID of the member" />
+      </label>
+    }
+
+    <h2 class="section-title">Adjustment</h2>
+
+    <div class="row-2">
+      <label class="field">
+        <span class="field-label">Type *</span>
+        <select [(ngModel)]="adjustmentType" name="adjustmentType" required>
+          <option value="IN_PAYMENT">In payment</option>
+          <option value="PAYOUT">Payout</option>
+          <option value="NON_CASH_IN">Non-cash in</option>
+          <option value="NON_CASH_OUT">Non-cash out</option>
+          <option value="TAX_WITHHELD">Tax withheld</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="field-label">Currency *</span>
+        <select [(ngModel)]="currencyCode" name="currencyCode" required>
+          <option [value]="''" disabled>Select currency…</option>
+          @for (c of currencies; track c.code) {
+            <option [value]="c.code">{{ c.code }} — {{ c.name }}</option>
+          }
+        </select>
+      </label>
+    </div>
+
+    <label class="field">
+      <span class="field-label">Amount *</span>
+      <input type="number" step="0.01" min="0" [(ngModel)]="amount" name="amount" required
+             placeholder="0.00" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Reason</span>
+      <textarea [(ngModel)]="reason" name="reason" rows="3"
+                placeholder="Optional explanation"></textarea>
+    </label>
+
+    <div class="actions">
+      <button type="button" class="btn" (click)="cancel()" [disabled]="busy">Cancel</button>
+      <button type="submit" class="btn btn-primary" [disabled]="busy || !f.valid">
+        <app-icon name="plus" [size]="14"></app-icon>
+        Create adjustment
+      </button>
+    </div>
+  </form>
+</div>

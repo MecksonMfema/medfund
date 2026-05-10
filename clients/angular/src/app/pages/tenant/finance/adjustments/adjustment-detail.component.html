@@ -1,0 +1,64 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <button class="link-back" (click)="back()">
+        <app-icon name="arrow-left" [size]="14"></app-icon>
+        Back to adjustments
+      </button>
+      @if (adjustment) {
+        <h1>{{ adjustment.adjustmentNumber }}</h1>
+        <p class="page-sub">
+          <span class="status-badge status-{{ adjustment.status }}">{{ adjustment.status | humanize }}</span>
+          · {{ adjustment.adjustmentType | humanize }}
+          · {{ adjustment.amount | currencyFormat:adjustment.currencyCode }}
+        </p>
+      }
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+  }
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (adjustment) {
+    <section class="tab-body">
+      <h2 class="section-title">Adjustment</h2>
+      <dl class="header-grid">
+        <dt>Number</dt><dd><code>{{ adjustment.adjustmentNumber }}</code></dd>
+        <dt>Type</dt><dd>{{ adjustment.adjustmentType | humanize }}</dd>
+        <dt>Status</dt><dd><span class="status-badge status-{{ adjustment.status }}">{{ adjustment.status | humanize }}</span></dd>
+        <dt>Amount</dt><dd>{{ adjustment.amount | currencyFormat:adjustment.currencyCode }}</dd>
+        <dt>Currency</dt><dd>{{ adjustment.currencyCode }}</dd>
+        @if (adjustment.providerId) { <dt>Provider</dt><dd><code>{{ adjustment.providerId }}</code></dd> }
+        @if (adjustment.memberId) { <dt>Member</dt><dd><code>{{ adjustment.memberId }}</code></dd> }
+        <dt>Reason</dt><dd>{{ adjustment.reason || '—' }}</dd>
+        <dt>Approved</dt><dd>{{ adjustment.approvedAt ? (adjustment.approvedAt | date:'medium') : '—' }}</dd>
+        <dt>Approved by</dt><dd>{{ adjustment.approvedBy || '—' }}</dd>
+        <dt>Created</dt><dd>{{ adjustment.createdAt | date:'medium' }}</dd>
+      </dl>
+    </section>
+
+    <section class="action-bar">
+      @if (adjustment.status === 'pending') {
+        <button class="btn btn-primary" (click)="approve()" [disabled]="busy">
+          <app-icon name="check" [size]="14"></app-icon>
+          Approve
+        </button>
+      }
+      @if (adjustment.status === 'approved') {
+        <button class="btn btn-primary" (click)="apply()" [disabled]="busy">
+          <app-icon name="check" [size]="14"></app-icon>
+          Apply
+        </button>
+      }
+      @if (adjustment.status === 'applied' || adjustment.status === 'cancelled') {
+        <span class="muted">No actions available — adjustment is {{ adjustment.status }}.</span>
+      }
+    </section>
+  }
+</div>

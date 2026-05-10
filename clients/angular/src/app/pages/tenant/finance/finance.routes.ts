@@ -97,8 +97,35 @@ export const FINANCE_ROUTES: Routes = [
   cs('banks/edit',                'Edit Bank Account',         '/edit-bank',                 'Update bank details.',                         ['finance:manage_banks']),
 
   // ── Adjustments ───────────────────────────────────────────────────────────
-  cs('adjustments',               'Payment Adjustments',       '/payment-adjustments',       'Modify payments.',                              ['finance:post_adjustments']),
-  cs('adjustments/tax-withheld',  'Tax-Withheld Adjustments',  '/tax-withheld-adjustments',  'Adjust tax deductions.',                       ['finance:post_adjustments']),
+  {
+    path: 'adjustments',
+    canActivate: [permissionGuard(['finance:post_adjustments'])],
+    loadComponent: () => import('./adjustments/adjustments-list.component').then(m => m.AdjustmentsListComponent),
+    data: { title: 'Adjustments', sidebar: 'operational' },
+  },
+  {
+    path: 'adjustments/new',
+    canActivate: [permissionGuard(['finance:post_adjustments'])],
+    loadComponent: () => import('./adjustments/adjustment-form.component').then(m => m.AdjustmentFormComponent),
+    data: { title: 'New Adjustment', sidebar: 'operational' },
+  },
+  {
+    path: 'adjustments/tax-withheld',
+    canActivate: [permissionGuard(['finance:post_adjustments'])],
+    loadComponent: () => import('./adjustments/adjustments-list.component').then(m => m.AdjustmentsListComponent),
+    data: {
+      title: 'Tax-Withheld Adjustments',
+      description: 'Adjustments recording withheld tax against provider payouts.',
+      presetType: 'TAX_WITHHELD',
+      sidebar: 'operational',
+    },
+  },
+  {
+    path: 'adjustments/:id',
+    canActivate: [permissionGuard(['finance:post_adjustments'])],
+    loadComponent: () => import('./adjustments/adjustment-detail.component').then(m => m.AdjustmentDetailComponent),
+    data: { title: 'Adjustment Detail', sidebar: 'operational' },
+  },
 
   // ── Reconciliation ────────────────────────────────────────────────────────
   cs('subledger-debtors',                 'Subledger Debtors',          '/subledger-debtors',          'Outstanding balances at journal level.', ['finance:view_subledger']),
