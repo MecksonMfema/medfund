@@ -7,6 +7,7 @@ import {
   CreateCtcPaymentPayload,
   FinanceService,
 } from '../../../../core/services/finance.service';
+import { EntityPickerComponent } from '../../../../shared/components/entity-picker/entity-picker.component';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 
 type Target = 'group' | 'member';
@@ -14,7 +15,7 @@ type Target = 'group' | 'member';
 @Component({
   selector: 'app-ctc-payment-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule, EntityPickerComponent, IconComponent],
   templateUrl: './ctc-payment-form.component.html',
   styleUrl: './ctc-payment-form.component.scss',
 })

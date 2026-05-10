@@ -29,13 +29,13 @@
 
     @if (target === 'provider') {
       <label class="field">
-        <span class="field-label">Provider ID *</span>
-        <input type="text" [(ngModel)]="providerId" name="providerId" required />
+        <span class="field-label">Provider *</span>
+        <app-entity-picker kind="provider" [(value)]="providerId"></app-entity-picker>
       </label>
     } @else {
       <label class="field">
-        <span class="field-label">Member ID *</span>
-        <input type="text" [(ngModel)]="memberId" name="memberId" required />
+        <span class="field-label">Member *</span>
+        <app-entity-picker kind="member" [(value)]="memberId"></app-entity-picker>
       </label>
     }
 

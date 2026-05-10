@@ -7,6 +7,7 @@ import {
   CreateAdvancePaymentPayload,
   FinanceService,
 } from '../../../../core/services/finance.service';
+import { EntityPickerComponent } from '../../../../shared/components/entity-picker/entity-picker.component';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 
 type Target = 'provider' | 'member';
@@ -14,7 +15,7 @@ type Target = 'provider' | 'member';
 @Component({
   selector: 'app-advance-payment-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule, EntityPickerComponent, IconComponent],
   templateUrl: './advance-payment-form.component.html',
   styleUrl: './advance-payment-form.component.scss',
 })

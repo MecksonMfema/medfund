@@ -28,13 +28,13 @@
 
     @if (target === 'group') {
       <label class="field">
-        <span class="field-label">Group ID *</span>
-        <input type="text" [(ngModel)]="groupId" name="groupId" required />
+        <span class="field-label">Group *</span>
+        <app-entity-picker kind="group" [(value)]="groupId"></app-entity-picker>
       </label>
     } @else {
       <label class="field">
-        <span class="field-label">Member ID *</span>
-        <input type="text" [(ngModel)]="memberId" name="memberId" required />
+        <span class="field-label">Member *</span>
+        <app-entity-picker kind="member" [(value)]="memberId"></app-entity-picker>
       </label>
     }
 

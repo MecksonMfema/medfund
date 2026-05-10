@@ -1,0 +1,37 @@
+@if (picked) {
+  <div class="picked">
+    <div class="picked-info">
+      <strong>{{ picked.label }}</strong>
+      @if (picked.sublabel) { <span class="muted">{{ picked.sublabel }}</span> }
+    </div>
+    <button type="button" class="link-btn" (click)="clear()" [disabled]="disabled">Change</button>
+  </div>
+} @else {
+  <div class="search-wrapper">
+    <input
+      type="text"
+      [(ngModel)]="query"
+      (ngModelChange)="onQueryChange()"
+      (focus)="showMatches = true"
+      (blur)="onBlur()"
+      [placeholder]="placeholder"
+      [disabled]="disabled"
+      autocomplete="off" />
+    @if (showMatches && query.trim()) {
+      <ul class="suggestions">
+        @if (searching) {
+          <li class="suggestion muted">Searching…</li>
+        } @else if (matches.length === 0) {
+          <li class="suggestion muted">No matches</li>
+        } @else {
+          @for (m of matches; track m.id) {
+            <li class="suggestion" (mousedown)="pick(m)">
+              <strong>{{ m.label }}</strong>
+              @if (m.sublabel) { <span class="muted">— {{ m.sublabel }}</span> }
+            </li>
+          }
+        }
+      </ul>
+    }
+  </div>
+}
