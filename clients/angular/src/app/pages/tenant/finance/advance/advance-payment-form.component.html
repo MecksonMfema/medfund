@@ -1,0 +1,87 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Record advance payment</h1>
+      <p class="page-sub">
+        Captures a prepayment to a provider or member that wasn't part of
+        a regular payment run. Append-only — once recorded, this entry is
+        permanent and audit-logged.
+      </p>
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form class="card" (ngSubmit)="submit()" #f="ngForm">
+    <h2 class="section-title">Payee</h2>
+    <div class="segmented" role="tablist">
+      <label class="segment" [class.active]="target === 'provider'">
+        <input type="radio" name="target" value="provider" [(ngModel)]="target" />
+        Provider
+      </label>
+      <label class="segment" [class.active]="target === 'member'">
+        <input type="radio" name="target" value="member" [(ngModel)]="target" />
+        Member
+      </label>
+    </div>
+
+    @if (target === 'provider') {
+      <label class="field">
+        <span class="field-label">Provider ID *</span>
+        <input type="text" [(ngModel)]="providerId" name="providerId" required />
+      </label>
+    } @else {
+      <label class="field">
+        <span class="field-label">Member ID *</span>
+        <input type="text" [(ngModel)]="memberId" name="memberId" required />
+      </label>
+    }
+
+    <h2 class="section-title">Payment</h2>
+
+    <div class="row-2">
+      <label class="field">
+        <span class="field-label">Amount *</span>
+        <input type="number" step="0.01" min="0" [(ngModel)]="amount" name="amount" required />
+      </label>
+      <label class="field">
+        <span class="field-label">Currency *</span>
+        <select [(ngModel)]="currencyCode" name="currencyCode" required>
+          <option [value]="''" disabled>Select currency…</option>
+          @for (c of currencies; track c.code) {
+            <option [value]="c.code">{{ c.code }} — {{ c.name }}</option>
+          }
+        </select>
+      </label>
+    </div>
+
+    <div class="row-2">
+      <label class="field">
+        <span class="field-label">Payment method</span>
+        <input type="text" [(ngModel)]="paymentMethod" name="paymentMethod"
+               placeholder="EFT, Cash, Cheque, etc." />
+      </label>
+      <label class="field">
+        <span class="field-label">Reference</span>
+        <input type="text" [(ngModel)]="reference" name="reference"
+               placeholder="External payment reference" />
+      </label>
+    </div>
+
+    <label class="field">
+      <span class="field-label">Comment</span>
+      <textarea [(ngModel)]="comment" name="comment" rows="3"
+                placeholder="Optional context"></textarea>
+    </label>
+
+    <div class="actions">
+      <button type="button" class="btn" (click)="cancel()" [disabled]="busy">Cancel</button>
+      <button type="submit" class="btn btn-primary" [disabled]="busy || !f.valid">
+        <app-icon name="plus" [size]="14"></app-icon>
+        Record
+      </button>
+    </div>
+  </form>
+</div>

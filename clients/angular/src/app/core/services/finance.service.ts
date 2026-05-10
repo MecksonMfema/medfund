@@ -158,6 +158,31 @@ export interface UpsertMascaBankAccountPayload {
   active?: boolean;
 }
 
+// ── Advance payments ────────────────────────────────────────────────────
+export interface AdvancePayment {
+  id: string;
+  paymentId?: string;
+  providerId?: string;
+  memberId?: string;
+  amount: string;
+  currencyCode: string;
+  paymentMethod?: string;
+  reference?: string;
+  comment?: string;
+  recordedAt: string;
+  recordedBy?: string;
+}
+
+export interface CreateAdvancePaymentPayload {
+  providerId?: string;
+  memberId?: string;
+  amount: string;
+  currencyCode: string;
+  paymentMethod?: string;
+  reference?: string;
+  comment?: string;
+}
+
 // ── Debit / credit notes ────────────────────────────────────────────────
 export interface FinanceNote {
   id: string;
@@ -240,6 +265,11 @@ export class FinanceService {
   createMascaBankAccount(body: UpsertMascaBankAccountPayload): Observable<MascaBankAccount> { return this.api.post<MascaBankAccount>('/masca-bank-accounts', body); }
   updateMascaBankAccount(id: string, body: UpsertMascaBankAccountPayload): Observable<MascaBankAccount> { return this.api.put<MascaBankAccount>(`/masca-bank-accounts/${id}`, body); }
   deleteMascaBankAccount(id: string): Observable<void> { return this.api.delete<void>(`/masca-bank-accounts/${id}`); }
+
+  // ── Advance payments ──
+  listAdvancePayments(): Observable<AdvancePayment[]> { return this.api.get<AdvancePayment[]>('/advance-payments'); }
+  getAdvancePayment(id: string): Observable<AdvancePayment> { return this.api.get<AdvancePayment>(`/advance-payments/${id}`); }
+  createAdvancePayment(body: CreateAdvancePaymentPayload): Observable<AdvancePayment> { return this.api.post<AdvancePayment>('/advance-payments', body); }
 
   // ── Debit / credit notes ──
   listDebitNotes(): Observable<FinanceNote[]> { return this.api.get<FinanceNote[]>('/debit-notes'); }
