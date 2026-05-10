@@ -158,6 +158,26 @@ export interface UpsertMascaBankAccountPayload {
   active?: boolean;
 }
 
+// ── Debit / credit notes ────────────────────────────────────────────────
+export interface FinanceNote {
+  id: string;
+  amount: string;
+  currencyCode: string;
+  reference?: string;
+  taskId?: string;
+  notes?: string;
+  createdAt: string;
+  createdBy?: string;
+}
+
+export interface CreateNotePayload {
+  amount: string;
+  currencyCode: string;
+  reference?: string;
+  taskId?: string;
+  notes?: string;
+}
+
 // ── Payment advice ──────────────────────────────────────────────────────
 export interface PaymentAdviceLine {
   claimNumber: string;
@@ -220,6 +240,12 @@ export class FinanceService {
   createMascaBankAccount(body: UpsertMascaBankAccountPayload): Observable<MascaBankAccount> { return this.api.post<MascaBankAccount>('/masca-bank-accounts', body); }
   updateMascaBankAccount(id: string, body: UpsertMascaBankAccountPayload): Observable<MascaBankAccount> { return this.api.put<MascaBankAccount>(`/masca-bank-accounts/${id}`, body); }
   deleteMascaBankAccount(id: string): Observable<void> { return this.api.delete<void>(`/masca-bank-accounts/${id}`); }
+
+  // ── Debit / credit notes ──
+  listDebitNotes(): Observable<FinanceNote[]> { return this.api.get<FinanceNote[]>('/debit-notes'); }
+  createDebitNote(body: CreateNotePayload): Observable<FinanceNote> { return this.api.post<FinanceNote>('/debit-notes', body); }
+  listCreditNotes(): Observable<FinanceNote[]> { return this.api.get<FinanceNote[]>('/credit-notes'); }
+  createCreditNote(body: CreateNotePayload): Observable<FinanceNote> { return this.api.post<FinanceNote>('/credit-notes', body); }
 
   // ── Reconciliations ──
   listReconciliations(): Observable<BankReconciliation[]> { return this.api.get<BankReconciliation[]>('/reconciliations'); }

@@ -1,0 +1,88 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>{{ pageTitle() }}</h1>
+      <p class="page-sub">{{ pageDescription() }}</p>
+    </div>
+    <button class="btn btn-primary" (click)="newNote()" [disabled]="showForm">
+      <app-icon name="plus" [size]="14"></app-icon>
+      Record note
+    </button>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+  }
+
+  @if (showForm) {
+    <form class="card" (ngSubmit)="submit()" #f="ngForm">
+      <h2 class="section-title">New {{ mode }} note</h2>
+
+      <div class="row-2">
+        <label class="field">
+          <span class="field-label">Amount *</span>
+          <input type="number" step="0.01" min="0" [(ngModel)]="form.amount" name="amount" required />
+        </label>
+        <label class="field">
+          <span class="field-label">Currency *</span>
+          <select [(ngModel)]="form.currencyCode" name="currencyCode" required>
+            <option [value]="''" disabled>Select currency…</option>
+            @for (c of currencies; track c.code) {
+              <option [value]="c.code">{{ c.code }} — {{ c.name }}</option>
+            }
+          </select>
+        </label>
+      </div>
+
+      <label class="field">
+        <span class="field-label">Reference</span>
+        <input type="text" [(ngModel)]="form.reference" name="reference"
+               placeholder="Receipt #, ticket, or external ref" />
+      </label>
+
+      <label class="field">
+        <span class="field-label">Notes</span>
+        <textarea [(ngModel)]="form.notes" name="notes" rows="3"
+                  placeholder="Optional context"></textarea>
+      </label>
+
+      <div class="actions">
+        <button type="button" class="btn" (click)="cancel()" [disabled]="busy">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="busy || !f.valid">
+          <app-icon name="check" [size]="14"></app-icon>
+          Record
+        </button>
+      </div>
+    </form>
+  }
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (rows.length === 0) {
+    <p class="empty-state">No {{ mode }} notes recorded yet.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Reference</th>
+          <th class="right">Amount</th>
+          <th>Notes</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows; track row.id) {
+          <tr>
+            <td><strong>{{ row.reference || '—' }}</strong></td>
+            <td class="right">{{ row.amount | currencyFormat:row.currencyCode }}</td>
+            <td class="muted">{{ row.notes || '—' }}</td>
+            <td class="muted">{{ row.createdAt | date:'shortDate' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

@@ -131,6 +131,18 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () => import('./adjustments/adjustment-detail.component').then(m => m.AdjustmentDetailComponent),
     data: { title: 'Adjustment Detail', sidebar: 'operational' },
   },
+  {
+    path: 'debit-notes',
+    canActivate: [permissionGuard(['finance:post_adjustments'])],
+    loadComponent: () => import('./notes/notes-list.component').then(m => m.NotesListComponent),
+    data: { title: 'Debit Notes', mode: 'debit', sidebar: 'operational' },
+  },
+  {
+    path: 'credit-notes',
+    canActivate: [permissionGuard(['finance:post_adjustments'])],
+    loadComponent: () => import('./notes/notes-list.component').then(m => m.NotesListComponent),
+    data: { title: 'Credit Notes', mode: 'credit', sidebar: 'operational' },
+  },
 
   // ── Reconciliation ────────────────────────────────────────────────────────
   {
