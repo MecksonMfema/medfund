@@ -57,7 +57,10 @@ public class ScheduledJobService {
     public Mono<ScheduledJobConfig> create(UUID tenantId, String jobType, String name, String cronExpression,
                                             String settings, String actorId) {
         var config = new ScheduledJobConfig();
-        config.setId(UUID.randomUUID());
+        // id deliberately not set — Spring Data R2DBC's save() takes the
+        // UPDATE branch when @Id is non-null, which fails for a new row.
+        // Postgres generates the id via the column's DEFAULT gen_random_uuid()
+        // and save() returns the populated entity.
         config.setTenantId(tenantId);
         config.setJobType(jobType);
         config.setName(name);
@@ -166,7 +169,7 @@ public class ScheduledJobService {
 
     private ScheduledJobConfig createDefault(UUID tenantId, JobType type, String name, String cron, String settings) {
         var config = new ScheduledJobConfig();
-        config.setId(UUID.randomUUID());
+        // id deliberately left null — see comment in create() above.
         config.setTenantId(tenantId);
         config.setJobType(type.name());
         config.setName(name);

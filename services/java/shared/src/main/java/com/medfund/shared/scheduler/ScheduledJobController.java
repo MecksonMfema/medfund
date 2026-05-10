@@ -33,7 +33,7 @@ public class ScheduledJobController {
     @Operation(summary = "List scheduled job configurations",
         description = "Without a tenantId filter, returns every config across every tenant (platform-admin view). " +
                       "With a tenantId, scopes to that tenant. Each row carries its tenantId.")
-    public Flux<ScheduledJobConfig> findAll(@RequestParam(required = false) UUID tenantId) {
+    public Flux<ScheduledJobConfig> findAll(@RequestParam(name = "tenantId", required = false) UUID tenantId) {
         return tenantId != null
             ? scheduledJobService.findAllByTenant(tenantId)
             : scheduledJobService.findAll();
@@ -41,7 +41,7 @@ public class ScheduledJobController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get job config by ID")
-    public Mono<ScheduledJobConfig> findById(@PathVariable UUID id) {
+    public Mono<ScheduledJobConfig> findById(@PathVariable("id") UUID id) {
         return scheduledJobService.findById(id);
     }
 
@@ -58,11 +58,11 @@ public class ScheduledJobController {
         description = "Pass tenantId to bind the job to a tenant. Omit it to create a platform-global job that runs " +
                       "without tenant context (e.g. cross-tenant onboarding sweeps).")
     public Mono<ScheduledJobConfig> create(
-            @RequestParam(required = false) UUID tenantId,
-            @RequestParam String jobType,
-            @RequestParam String name,
-            @RequestParam String cronExpression,
-            @RequestParam(required = false) String settings,
+            @RequestParam(name = "tenantId", required = false) UUID tenantId,
+            @RequestParam(name = "jobType") String jobType,
+            @RequestParam(name = "name") String name,
+            @RequestParam(name = "cronExpression") String cronExpression,
+            @RequestParam(name = "settings", required = false) String settings,
             Principal principal) {
         return scheduledJobService.create(tenantId, jobType, name, cronExpression, settings, principal.getName());
     }
@@ -70,23 +70,23 @@ public class ScheduledJobController {
     @PutMapping("/{id}")
     @Operation(summary = "Update job config (schedule, settings, enabled)")
     public Mono<ScheduledJobConfig> update(
-            @PathVariable UUID id,
-            @RequestParam(required = false) String cronExpression,
-            @RequestParam(required = false) String settings,
-            @RequestParam(required = false) Boolean isEnabled,
+            @PathVariable("id") UUID id,
+            @RequestParam(name = "cronExpression", required = false) String cronExpression,
+            @RequestParam(name = "settings", required = false) String settings,
+            @RequestParam(name = "isEnabled", required = false) Boolean isEnabled,
             Principal principal) {
         return scheduledJobService.update(id, cronExpression, settings, isEnabled, principal.getName());
     }
 
     @PostMapping("/{id}/enable")
     @Operation(summary = "Enable a scheduled job")
-    public Mono<ScheduledJobConfig> enable(@PathVariable UUID id, Principal principal) {
+    public Mono<ScheduledJobConfig> enable(@PathVariable("id") UUID id, Principal principal) {
         return scheduledJobService.enable(id, principal.getName());
     }
 
     @PostMapping("/{id}/disable")
     @Operation(summary = "Disable a scheduled job")
-    public Mono<ScheduledJobConfig> disable(@PathVariable UUID id, Principal principal) {
+    public Mono<ScheduledJobConfig> disable(@PathVariable("id") UUID id, Principal principal) {
         return scheduledJobService.disable(id, principal.getName());
     }
 
@@ -94,7 +94,7 @@ public class ScheduledJobController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Seed default job configs for a tenant",
         description = "Pass tenantId to seed for that tenant; if omitted, the seeded jobs are platform-global.")
-    public Mono<Void> seedDefaults(@RequestParam(required = false) UUID tenantId, Principal principal) {
+    public Mono<Void> seedDefaults(@RequestParam(name = "tenantId", required = false) UUID tenantId, Principal principal) {
         return scheduledJobService.seedDefaults(tenantId, principal.getName());
     }
 
@@ -102,9 +102,9 @@ public class ScheduledJobController {
     @Operation(summary = "List recent runs for a scheduled job",
         description = "Returns the latest job executions ordered newest-first. Each row carries its tenantId. " +
                       "Pass tenantId as a query param to scope results to a single tenant; omit for cross-tenant view.")
-    public Flux<ScheduledJobRun> listRuns(@PathVariable UUID id,
-                                           @RequestParam(required = false, defaultValue = "50") int limit,
-                                           @RequestParam(required = false) UUID tenantId) {
+    public Flux<ScheduledJobRun> listRuns(@PathVariable("id") UUID id,
+                                           @RequestParam(name = "limit", required = false, defaultValue = "50") int limit,
+                                           @RequestParam(name = "tenantId", required = false) UUID tenantId) {
         int capped = Math.max(1, Math.min(limit, 200));
         return tenantId != null
             ? runRepository.findRecentForTenant(id, tenantId, capped)
@@ -114,7 +114,7 @@ public class ScheduledJobController {
     @PostMapping("/{id}/run-now")
     @Operation(summary = "Manually trigger a scheduled job",
         description = "Bypasses the cron schedule and runs the job immediately. Records a run row with trigger_kind='manual'. Errors if no executor in this service handles the job's type.")
-    public Mono<ScheduledJobRun> runNow(@PathVariable UUID id, Principal principal) {
+    public Mono<ScheduledJobRun> runNow(@PathVariable("id") UUID id, Principal principal) {
         UUID actorId = parseActor(principal);
         return scheduledJobService.findById(id)
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Scheduled job not found: " + id)))

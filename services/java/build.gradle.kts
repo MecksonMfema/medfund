@@ -22,6 +22,15 @@ subprojects {
         targetCompatibility = JavaVersion.VERSION_21
     }
 
+    // Preserve method-parameter names in compiled bytecode so Spring can
+    // resolve @RequestParam / @PathVariable bindings without requiring an
+    // explicit `name = "..."` on every annotation. Without this, any bare
+    // @RequestParam falls back to reflection and fails with
+    // "parameter name information not available via reflection".
+    tasks.withType<JavaCompile>().configureEach {
+        options.compilerArgs.add("-parameters")
+    }
+
     the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().apply {
         imports {
             mavenBom("org.springframework.boot:spring-boot-dependencies:3.3.5")

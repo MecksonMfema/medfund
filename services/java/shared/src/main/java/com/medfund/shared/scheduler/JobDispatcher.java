@@ -85,7 +85,10 @@ public class JobDispatcher {
             config.getJobType(), config.getName(), config.getId(), triggerKind);
 
         var runRecord = new ScheduledJobRun();
-        runRecord.setId(UUID.randomUUID());
+        // id deliberately not set — Spring Data R2DBC's save() takes the
+        // UPDATE branch when @Id is non-null. Postgres generates the id
+        // via the column's DEFAULT gen_random_uuid() and save() returns
+        // the populated entity.
         runRecord.setConfigId(config.getId());
         runRecord.setTenantId(config.getTenantId());
         runRecord.setStartedAt(Instant.now());
