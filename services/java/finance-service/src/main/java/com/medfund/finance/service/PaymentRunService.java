@@ -90,6 +90,12 @@ public class PaymentRunService {
                 return publishAudit(tenantId, "PaymentRun", saved.getId().toString(), "CREATE", actorId,
                         null,
                         Map.of("runNumber", saved.getRunNumber(), "status", saved.getStatus()))
+                    .then(eventPublisher.publishPaymentRunCreated(
+                        saved.getId().toString(),
+                        saved.getRunNumber(),
+                        saved.getCurrencyCode(),
+                        saved.getTotalAmount() != null ? saved.getTotalAmount().toPlainString() : "0",
+                        saved.getPaymentCount() != null ? saved.getPaymentCount() : 0))
                     .thenReturn(saved);
             }));
     }

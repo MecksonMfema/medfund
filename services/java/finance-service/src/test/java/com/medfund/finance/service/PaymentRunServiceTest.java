@@ -73,6 +73,8 @@ class PaymentRunServiceTest {
         when(paymentRunRepository.existsByRunNumber(any())).thenReturn(Mono.just(false));
         when(paymentRunRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishPaymentRunCreated(any(), any(), any(), any(), anyInt()))
+            .thenReturn(Mono.empty());
 
         StepVerifier.create(
                 paymentRunService.create(request, actorId)
@@ -92,6 +94,7 @@ class PaymentRunServiceTest {
         verify(paymentRunRepository).existsByRunNumber(any());
         verify(paymentRunRepository).save(any());
         verify(auditPublisher).publish(any());
+        verify(eventPublisher).publishPaymentRunCreated(any(), any(), any(), any(), anyInt());
     }
 
     @Test
