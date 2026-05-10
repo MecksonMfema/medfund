@@ -78,4 +78,16 @@ public class PaymentController {
     public Mono<PaymentResponse> markPaid(@PathVariable UUID id, Principal principal) {
         return paymentService.markPaid(id, principal.getName()).map(PaymentResponse::from);
     }
+
+    @PostMapping("/{id}/cancel")
+    @Operation(summary = "Cancel an unpaid payment",
+        description = "Paid payments cannot be cancelled — post a reversing adjustment instead.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Payment cancelled"),
+        @ApiResponse(responseCode = "400", description = "Cannot cancel a paid payment"),
+        @ApiResponse(responseCode = "404", description = "Payment not found")
+    })
+    public Mono<PaymentResponse> cancel(@PathVariable UUID id, Principal principal) {
+        return paymentService.cancel(id, principal.getName()).map(PaymentResponse::from);
+    }
 }

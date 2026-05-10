@@ -48,6 +48,9 @@
           <app-icon name="check" [size]="14"></app-icon>
           Mark paid
         </button>
+        <button class="btn btn-danger" (click)="cancelPayment()" [disabled]="busy">
+          Cancel payment
+        </button>
       } @else {
         <span class="muted">No actions available for {{ payment.status }} payments.</span>
       }

@@ -288,6 +288,7 @@ export class FinanceService {
   getPaymentsByStatus(status: PaymentStatus): Observable<Payment[]> { return this.api.get<Payment[]>(`/payments/status/${status}`); }
   createPayment(body: CreatePaymentPayload): Observable<Payment> { return this.api.post<Payment>('/payments', body); }
   payPayment(id: string): Observable<Payment> { return this.api.post<Payment>(`/payments/${id}/pay`, {}); }
+  cancelPayment(id: string): Observable<Payment> { return this.api.post<Payment>(`/payments/${id}/cancel`, {}); }
 
   // ── Provider balances ──
   listProviderBalances(): Observable<ProviderBalance[]> { return this.api.get<ProviderBalance[]>('/provider-balances'); }

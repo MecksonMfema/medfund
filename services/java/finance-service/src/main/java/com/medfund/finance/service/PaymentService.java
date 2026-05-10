@@ -110,6 +110,31 @@ public class PaymentService {
             });
     }
 
+    @Transactional
+    public Mono<Payment> cancel(UUID id, String actorId) {
+        return paymentRepository.findById(id)
+            .switchIfEmpty(Mono.error(new PaymentNotFoundException(id)))
+            .flatMap(payment -> {
+                String previousStatus = payment.getStatus();
+                if ("paid".equals(previousStatus)) {
+                    return Mono.error(new IllegalStateException("Cannot cancel a paid payment — post a reversing adjustment"));
+                }
+                if ("cancelled".equals(previousStatus)) return Mono.just(payment);
+                payment.setStatus("cancelled");
+                payment.setUpdatedAt(Instant.now());
+                if (actorId != null) payment.setUpdatedBy(UUID.fromString(actorId));
+
+                return paymentRepository.save(payment)
+                    .flatMap(saved -> Mono.deferContextual(ctx -> {
+                        String tenantId = TenantContext.get(ctx);
+                        return publishAudit(tenantId, "Payment", saved.getId().toString(), "UPDATE", actorId,
+                                Map.of("status", previousStatus),
+                                Map.of("status", saved.getStatus()))
+                            .thenReturn(saved);
+                    }));
+            });
+    }
+
     // ---- Private helpers ----
 
     private Mono<String> generatePaymentNumber() {

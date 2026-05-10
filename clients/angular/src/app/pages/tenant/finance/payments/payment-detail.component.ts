@@ -67,6 +67,23 @@ export class PaymentDetailComponent implements OnInit {
     });
   }
 
+  cancelPayment(): void {
+    if (!this.payment) return;
+    if (!confirm(`Cancel payment ${this.payment.paymentNumber}?`)) return;
+    this.busy = true;
+    this.finance.cancelPayment(this.payment.id).subscribe({
+      next: (p) => {
+        this.payment = p;
+        this.successMessage = `Payment ${p.paymentNumber} cancelled.`;
+        this.busy = false;
+      },
+      error: (err) => {
+        this.errorMessage = err?.error?.detail || 'Failed to cancel';
+        this.busy = false;
+      },
+    });
+  }
+
   back(): void {
     this.router.navigate(['/tenant/finance/payments']);
   }
