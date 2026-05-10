@@ -127,6 +127,8 @@ class PaymentServiceTest {
         when(paymentRepository.findById(payment.getId())).thenReturn(Mono.just(payment));
         when(paymentRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishPaymentCommitted(any(), any(), any(), any()))
+            .thenReturn(Mono.empty());
 
         StepVerifier.create(
                 paymentService.markPaid(payment.getId(), actorId)
@@ -142,6 +144,7 @@ class PaymentServiceTest {
         verify(paymentRepository).findById(payment.getId());
         verify(paymentRepository).save(any());
         verify(auditPublisher).publish(any());
+        verify(eventPublisher).publishPaymentCommitted(any(), any(), any(), any());
     }
 
     // ---- Helper ----

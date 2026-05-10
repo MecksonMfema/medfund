@@ -106,6 +106,11 @@ public class PaymentService {
                         return publishAudit(tenantId, "Payment", saved.getId().toString(), "UPDATE", actorId,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
+                            .then(eventPublisher.publishPaymentCommitted(
+                                saved.getId().toString(),
+                                saved.getProviderId() != null ? saved.getProviderId().toString() : "",
+                                saved.getAmount() != null ? saved.getAmount().toPlainString() : "0",
+                                saved.getCurrencyCode()))
                             .thenReturn(saved);
                     }));
             });
