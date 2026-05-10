@@ -279,8 +279,26 @@ export const FINANCE_ROUTES: Routes = [
   cs('advice/member',                'Member Payment Advice',        '/member-payment-advice',  'Notifications to members.',                 ['finance:view_payment_advice']),
 
   // ── Copayments ────────────────────────────────────────────────────────────
-  cs('copayments',                   'Copayments',                   '/copayments-list',        'Member cost-share records.',                ['finance:manage_copayments']),
-  cs('copayments/create',            'Create Copayments',            '/create-copayments',      'Create or adjust member cost-share.',       ['finance:manage_copayments']),
+  // Copayments are contributions-service transactions with type=COPAYMENT.
+  // Route-data presets reuse the billing transaction list / form so the
+  // operator lands on the same surface they already know from billing.
+  {
+    path: 'copayments',
+    canActivate: [permissionGuard(['finance:manage_copayments'])],
+    loadComponent: () => import('../billing/transactions/transactions-list.component').then(m => m.TransactionsListComponent),
+    data: {
+      title: 'Copayments',
+      description: 'Member cost-share receipts. Filtered to COPAYMENT transaction type.',
+      presetTransactionType: 'COPAYMENT',
+      sidebar: 'operational',
+    },
+  },
+  {
+    path: 'copayments/create',
+    canActivate: [permissionGuard(['finance:manage_copayments'])],
+    loadComponent: () => import('../billing/transactions/transaction-form.component').then(m => m.TransactionFormComponent),
+    data: { title: 'Record Copayment', sidebar: 'operational' },
+  },
 
   // ── Tasks ─────────────────────────────────────────────────────────────────
   cs('tasks/incomplete',             'Incomplete Tasks',             '/incomplete-tasks',         'Open finance work items.',                ['finance:view']),
