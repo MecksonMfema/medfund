@@ -109,7 +109,7 @@ export const routes: Routes = [
   { path: 'dashboard',     pathMatch: 'full', redirectTo: '/tenant/dashboard' },
   { path: 'claims',        pathMatch: 'full', redirectTo: '/tenant/claims' },
   { path: 'contributions', pathMatch: 'full', redirectTo: '/tenant/billing/schemes' },
-  { path: 'finance',       pathMatch: 'full', redirectTo: '/tenant/finance/runs' },
+  { path: 'finance',       pathMatch: 'full', redirectTo: '/tenant/finance' },
   { path: 'members',       pathMatch: 'full', redirectTo: '/tenant/members' },
   { path: 'providers',     pathMatch: 'full', redirectTo: '/platform/providers' },
   { path: 'admin',         pathMatch: 'full', redirectTo: '/tenant/admin/dashboard' },

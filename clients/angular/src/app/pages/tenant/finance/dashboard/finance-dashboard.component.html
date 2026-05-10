@@ -1,0 +1,101 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Finance dashboard</h1>
+      <p class="page-sub">Live overview of payouts, creditor exposure, pending work, and recent runs.</p>
+    </div>
+  </header>
+
+  <section class="kpi-grid">
+    <article class="kpi-card">
+      <header><h2>Weekly payouts</h2></header>
+      @if (weeklyVolume.length === 0) {
+        <p class="empty-state">No payments paid in the last 7 days.</p>
+      } @else {
+        <ul class="kpi-list">
+          @for (v of weeklyVolume; track v.currencyCode) {
+            <li>
+              <span class="kpi-label">{{ v.currencyCode }}</span>
+              <span class="kpi-value">{{ v.total | currencyFormat:v.currencyCode }}</span>
+              <span class="kpi-meta">{{ v.count }} payment{{ v.count === 1 ? '' : 's' }}</span>
+            </li>
+          }
+        </ul>
+      }
+    </article>
+
+    <article class="kpi-card">
+      <header>
+        <h2>Pending</h2>
+        <a routerLink="/tenant/finance/adjustments" class="more">More <app-icon name="chevron-right" [size]="12"></app-icon></a>
+      </header>
+      <ul class="kpi-list">
+        <li>
+          <span class="kpi-label">Adjustments</span>
+          <span class="kpi-value">{{ pendingAdjustments.length }}</span>
+          <span class="kpi-meta">awaiting approval</span>
+        </li>
+        <li>
+          <span class="kpi-label">Reconciliations</span>
+          <span class="kpi-value">{{ unmatchedReconciliations.length }}</span>
+          <span class="kpi-meta">unmatched</span>
+        </li>
+      </ul>
+    </article>
+
+    <article class="kpi-card">
+      <header>
+        <h2>Recent runs</h2>
+        <a routerLink="/tenant/finance/runs" class="more">More <app-icon name="chevron-right" [size]="12"></app-icon></a>
+      </header>
+      @if (recentRuns.length === 0) {
+        <p class="empty-state">No payment runs yet.</p>
+      } @else {
+        <ul class="run-list">
+          @for (r of recentRuns; track r.id) {
+            <li>
+              <a [routerLink]="['/tenant/finance/runs', r.id]" class="run-row">
+                <span class="run-number">{{ r.runNumber }}</span>
+                <span class="status-badge status-{{ r.status }}">{{ r.status | humanize }}</span>
+                <span class="run-amount">{{ r.totalAmount | currencyFormat:r.currencyCode }}</span>
+              </a>
+            </li>
+          }
+        </ul>
+      }
+    </article>
+  </section>
+
+  <section class="creditors">
+    <header class="section-header">
+      <h2>Top creditor exposure</h2>
+      <a routerLink="/tenant/finance/creditors/provider" class="more">All providers <app-icon name="chevron-right" [size]="12"></app-icon></a>
+    </header>
+    @if (topCreditors.length === 0) {
+      <p class="empty-state">No outstanding balances.</p>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Provider</th>
+            <th>Currency</th>
+            <th class="right">Outstanding</th>
+            <th class="right">Paid</th>
+            <th>Last activity</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (b of topCreditors; track b.id) {
+            <tr [routerLink]="['/tenant/finance/creditors/provider', b.providerId]" class="clickable">
+              <td><code>{{ b.providerId }}</code></td>
+              <td>{{ b.currencyCode }}</td>
+              <td class="right strong">{{ b.outstandingBalance | currencyFormat:b.currencyCode }}</td>
+              <td class="right muted">{{ b.totalPaid | currencyFormat:b.currencyCode }}</td>
+              <td class="muted">{{ b.lastUpdatedAt ? (b.lastUpdatedAt | date:'shortDate') : '—' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+</div>

@@ -24,6 +24,15 @@ const cs = (
 });
 
 export const FINANCE_ROUTES: Routes = [
+  // ── Dashboard (index) ──────────────────────────────────────────────────────
+  {
+    path: '',
+    pathMatch: 'full',
+    canActivate: [permissionGuard(['finance:view'])],
+    loadComponent: () => import('./dashboard/finance-dashboard.component').then(m => m.FinanceDashboardComponent),
+    data: { title: 'Finance', sidebar: 'operational' },
+  },
+
   // ── Payment runs ───────────────────────────────────────────────────────────
   {
     path: 'runs',
