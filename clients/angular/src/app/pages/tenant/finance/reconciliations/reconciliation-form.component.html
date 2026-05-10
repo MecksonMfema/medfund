@@ -1,0 +1,64 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Record statement entry</h1>
+      <p class="page-sub">
+        Captures a single line off a bank statement so it can be matched
+        against system payments. The backend computes the difference and
+        sets matched / unmatched automatically based on whether the
+        amount aligns with executed payments on or before the date.
+      </p>
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form class="card" (ngSubmit)="submit()" #f="ngForm">
+    <h2 class="section-title">Statement</h2>
+
+    <div class="row-2">
+      <label class="field">
+        <span class="field-label">Reference number *</span>
+        <input type="text" [(ngModel)]="referenceNumber" name="referenceNumber" required
+               placeholder="Statement reference (e.g. STMT-202604-0123)" />
+      </label>
+      <label class="field">
+        <span class="field-label">Statement date *</span>
+        <input type="date" [(ngModel)]="statementDate" name="statementDate" required />
+      </label>
+    </div>
+
+    <div class="row-2">
+      <label class="field">
+        <span class="field-label">Statement amount *</span>
+        <input type="number" step="0.01" [(ngModel)]="statementAmount" name="statementAmount" required
+               placeholder="0.00" />
+      </label>
+      <label class="field">
+        <span class="field-label">Currency *</span>
+        <select [(ngModel)]="currencyCode" name="currencyCode" required>
+          <option [value]="''" disabled>Select currency…</option>
+          @for (c of currencies; track c.code) {
+            <option [value]="c.code">{{ c.code }} — {{ c.name }}</option>
+          }
+        </select>
+      </label>
+    </div>
+
+    <label class="field">
+      <span class="field-label">Notes</span>
+      <textarea [(ngModel)]="notes" name="notes" rows="3"
+                placeholder="Optional context (bank, account, suspected match)"></textarea>
+    </label>
+
+    <div class="actions">
+      <button type="button" class="btn" (click)="cancel()" [disabled]="busy">Cancel</button>
+      <button type="submit" class="btn btn-primary" [disabled]="busy || !f.valid">
+        <app-icon name="plus" [size]="14"></app-icon>
+        Record statement
+      </button>
+    </div>
+  </form>
+</div>

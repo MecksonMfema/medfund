@@ -128,6 +128,18 @@ export const FINANCE_ROUTES: Routes = [
   },
 
   // ── Reconciliation ────────────────────────────────────────────────────────
+  {
+    path: 'reconciliations',
+    canActivate: [permissionGuard(['finance:view'])],
+    loadComponent: () => import('./reconciliations/reconciliations-list.component').then(m => m.ReconciliationsListComponent),
+    data: { title: 'Bank Reconciliation', sidebar: 'operational' },
+  },
+  {
+    path: 'reconciliations/new',
+    canActivate: [permissionGuard(['finance:view'])],
+    loadComponent: () => import('./reconciliations/reconciliation-form.component').then(m => m.ReconciliationFormComponent),
+    data: { title: 'Record Statement', sidebar: 'operational' },
+  },
   cs('subledger-debtors',                 'Subledger Debtors',          '/subledger-debtors',          'Outstanding balances at journal level.', ['finance:view_subledger']),
   cs('debtors-report',                    'Debtors Report',             '/view-debtors-report',        'Aged-debtors analytics.',                ['finance:view_debtors']),
   cs('billing-to-claims',                 'Billing → Claims',           '/billing-to-claims',          'Reconcile billing runs against claims.', ['finance:manage_billing_reconcile']),
