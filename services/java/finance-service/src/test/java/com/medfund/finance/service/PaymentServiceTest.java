@@ -147,6 +147,54 @@ class PaymentServiceTest {
         verify(eventPublisher).publishPaymentCommitted(any(), any(), any(), any());
     }
 
+    @Test
+    void cancel_pending_flipsToCancelled() {
+        var payment = createTestPayment();
+        payment.setStatus("pending");
+        when(paymentRepository.findById(payment.getId())).thenReturn(Mono.just(payment));
+        when(paymentRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                paymentService.cancel(payment.getId(), UUID.randomUUID().toString())
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("cancelled"))
+                .verifyComplete();
+    }
+
+    @Test
+    void cancel_paid_errors() {
+        var payment = createTestPayment();
+        payment.setStatus("paid");
+        when(paymentRepository.findById(payment.getId())).thenReturn(Mono.just(payment));
+
+        StepVerifier.create(
+                paymentService.cancel(payment.getId(), UUID.randomUUID().toString())
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .expectError(IllegalStateException.class)
+                .verify();
+
+        verify(paymentRepository, never()).save(any());
+    }
+
+    @Test
+    void cancel_alreadyCancelled_isIdempotent() {
+        var payment = createTestPayment();
+        payment.setStatus("cancelled");
+        when(paymentRepository.findById(payment.getId())).thenReturn(Mono.just(payment));
+
+        StepVerifier.create(
+                paymentService.cancel(payment.getId(), UUID.randomUUID().toString())
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("cancelled"))
+                .verifyComplete();
+
+        verify(paymentRepository, never()).save(any());
+    }
+
     // ---- Helper ----
 
     private Payment createTestPayment() {

@@ -3,6 +3,7 @@ package com.medfund.finance.service;
 import com.medfund.finance.dto.CreateReconciliationRequest;
 import com.medfund.finance.entity.BankReconciliation;
 import com.medfund.finance.repository.BankReconciliationRepository;
+import com.medfund.finance.repository.PaymentRepository;
 import com.medfund.shared.audit.AuditPublisher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +21,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -27,6 +29,9 @@ class ReconciliationServiceTest {
 
     @Mock
     private BankReconciliationRepository bankReconciliationRepository;
+
+    @Mock
+    private PaymentRepository paymentRepository;
 
     @Mock
     private AuditPublisher auditPublisher;
@@ -139,6 +144,139 @@ class ReconciliationServiceTest {
         verify(bankReconciliationRepository).findById(recon.getId());
         verify(bankReconciliationRepository).save(any());
         verify(auditPublisher).publish(any());
+    }
+
+    @Test
+    void create_omittedSystemAmount_resolvesFromPayments() {
+        var request = new CreateReconciliationRequest(
+                "REF-AUTO-001",
+                new BigDecimal("500.00"),
+                null,
+                "USD",
+                LocalDate.of(2026, 5, 10),
+                null);
+
+        when(paymentRepository.sumPaidUpTo(eq("USD"), any(Instant.class)))
+                .thenReturn(Mono.just(new BigDecimal("500.00")));
+        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                reconciliationService.create(request, UUID.randomUUID().toString())
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> {
+                    assertThat(saved.getSystemAmount()).isEqualByComparingTo("500.00");
+                    assertThat(saved.getStatus()).isEqualTo("matched");
+                })
+                .verifyComplete();
+
+        verify(paymentRepository).sumPaidUpTo(eq("USD"), any(Instant.class));
+    }
+
+    @Test
+    void create_omittedSystemAmount_emptyResult_defaultsToZero() {
+        var request = new CreateReconciliationRequest(
+                "REF-AUTO-002",
+                new BigDecimal("75.00"),
+                null,
+                "USD",
+                LocalDate.of(2026, 5, 10),
+                null);
+
+        when(paymentRepository.sumPaidUpTo(eq("USD"), any(Instant.class))).thenReturn(Mono.empty());
+        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                reconciliationService.create(request, UUID.randomUUID().toString())
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> {
+                    assertThat(saved.getSystemAmount()).isEqualByComparingTo("0");
+                    assertThat(saved.getStatus()).isEqualTo("unmatched");
+                    assertThat(saved.getDifference()).isEqualByComparingTo("75.00");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void create_explicitSystemAmount_skipsAutoResolve() {
+        var request = new CreateReconciliationRequest(
+                "REF-EXPLICIT",
+                new BigDecimal("100.00"),
+                new BigDecimal("100.00"),
+                "USD",
+                LocalDate.now(),
+                null);
+
+        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                reconciliationService.create(request, UUID.randomUUID().toString())
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("matched"))
+                .verifyComplete();
+
+        verify(paymentRepository, never()).sumPaidUpTo(any(), any());
+    }
+
+    @Test
+    void markInvestigating_unmatched_flipsStatus() {
+        var recon = createTestReconciliation();
+        recon.setStatus("unmatched");
+
+        when(bankReconciliationRepository.findById(recon.getId())).thenReturn(Mono.just(recon));
+        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                reconciliationService.markInvestigating(recon.getId(), UUID.randomUUID().toString())
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("investigating"))
+                .verifyComplete();
+    }
+
+    @Test
+    void markResolved_investigating_stampsReconciled() {
+        var recon = createTestReconciliation();
+        recon.setStatus("investigating");
+
+        when(bankReconciliationRepository.findById(recon.getId())).thenReturn(Mono.just(recon));
+        when(bankReconciliationRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                reconciliationService.markResolved(recon.getId(), UUID.randomUUID().toString())
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> {
+                    assertThat(saved.getStatus()).isEqualTo("resolved");
+                    assertThat(saved.getReconciledAt()).isNotNull();
+                    assertThat(saved.getReconciledBy()).isNotNull();
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void markResolved_alreadyResolved_isIdempotentNoSave() {
+        var recon = createTestReconciliation();
+        recon.setStatus("resolved");
+
+        when(bankReconciliationRepository.findById(recon.getId())).thenReturn(Mono.just(recon));
+
+        StepVerifier.create(
+                reconciliationService.markResolved(recon.getId(), UUID.randomUUID().toString())
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("resolved"))
+                .verifyComplete();
+
+        verify(bankReconciliationRepository, never()).save(any());
+        verify(auditPublisher, never()).publish(any());
     }
 
     // ---- Helper ----

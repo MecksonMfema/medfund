@@ -155,6 +155,70 @@ class AdjustmentServiceTest {
         verify(eventPublisher).publishAdjustmentApplied(any(), any(), any());
     }
 
+    @Test
+    void cancel_pending_flipsToCancelled() {
+        var adjustment = createTestAdjustment();
+        adjustment.setStatus("pending");
+        when(adjustmentRepository.findById(adjustment.getId())).thenReturn(Mono.just(adjustment));
+        when(adjustmentRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                adjustmentService.cancel(adjustment.getId(), UUID.randomUUID().toString())
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("cancelled"))
+                .verifyComplete();
+    }
+
+    @Test
+    void cancel_approved_flipsToCancelled() {
+        var adjustment = createTestAdjustment();
+        adjustment.setStatus("approved");
+        when(adjustmentRepository.findById(adjustment.getId())).thenReturn(Mono.just(adjustment));
+        when(adjustmentRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                adjustmentService.cancel(adjustment.getId(), UUID.randomUUID().toString())
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("cancelled"))
+                .verifyComplete();
+    }
+
+    @Test
+    void cancel_applied_errors() {
+        var adjustment = createTestAdjustment();
+        adjustment.setStatus("applied");
+        when(adjustmentRepository.findById(adjustment.getId())).thenReturn(Mono.just(adjustment));
+
+        StepVerifier.create(
+                adjustmentService.cancel(adjustment.getId(), UUID.randomUUID().toString())
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .expectError(IllegalStateException.class)
+                .verify();
+
+        verify(adjustmentRepository, never()).save(any());
+    }
+
+    @Test
+    void cancel_alreadyCancelled_isIdempotent() {
+        var adjustment = createTestAdjustment();
+        adjustment.setStatus("cancelled");
+        when(adjustmentRepository.findById(adjustment.getId())).thenReturn(Mono.just(adjustment));
+
+        StepVerifier.create(
+                adjustmentService.cancel(adjustment.getId(), UUID.randomUUID().toString())
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("cancelled"))
+                .verifyComplete();
+
+        verify(adjustmentRepository, never()).save(any());
+    }
+
     // ---- Helper ----
 
     private Adjustment createTestAdjustment() {

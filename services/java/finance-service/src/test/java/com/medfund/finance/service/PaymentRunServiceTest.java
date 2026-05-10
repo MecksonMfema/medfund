@@ -130,6 +130,88 @@ class PaymentRunServiceTest {
         verify(eventPublisher).publishPaymentRunExecuted(any(), any(), anyInt());
     }
 
+    @Test
+    void approve_draft_flipsToApproved() {
+        var run = createTestRun();
+        when(paymentRunRepository.findById(run.getId())).thenReturn(Mono.just(run));
+        when(paymentRunRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishPaymentRunApproved(any(), any(), any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                paymentRunService.approve(run.getId(), UUID.randomUUID().toString())
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("approved"))
+                .verifyComplete();
+
+        verify(eventPublisher).publishPaymentRunApproved(any(), any(), any());
+    }
+
+    @Test
+    void approve_nonDraft_errors() {
+        var run = createTestRun();
+        run.setStatus("approved");
+        when(paymentRunRepository.findById(run.getId())).thenReturn(Mono.just(run));
+
+        StepVerifier.create(
+                paymentRunService.approve(run.getId(), UUID.randomUUID().toString())
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .expectError(IllegalStateException.class)
+                .verify();
+
+        verify(paymentRunRepository, never()).save(any());
+    }
+
+    @Test
+    void cancel_draft_flipsToCancelled() {
+        var run = createTestRun();
+        when(paymentRunRepository.findById(run.getId())).thenReturn(Mono.just(run));
+        when(paymentRunRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishPaymentRunCancelled(any(), any(), any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                paymentRunService.cancel(run.getId(), UUID.randomUUID().toString())
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("cancelled"))
+                .verifyComplete();
+    }
+
+    @Test
+    void cancel_executed_errors() {
+        var run = createTestRun();
+        run.setStatus("executed");
+        when(paymentRunRepository.findById(run.getId())).thenReturn(Mono.just(run));
+
+        StepVerifier.create(
+                paymentRunService.cancel(run.getId(), UUID.randomUUID().toString())
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .expectError(IllegalStateException.class)
+                .verify();
+
+        verify(paymentRunRepository, never()).save(any());
+    }
+
+    @Test
+    void cancel_alreadyCancelled_isIdempotent() {
+        var run = createTestRun();
+        run.setStatus("cancelled");
+        when(paymentRunRepository.findById(run.getId())).thenReturn(Mono.just(run));
+
+        StepVerifier.create(
+                paymentRunService.cancel(run.getId(), UUID.randomUUID().toString())
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("cancelled"))
+                .verifyComplete();
+
+        verify(paymentRunRepository, never()).save(any());
+    }
+
     // ---- Helper ----
 
     private PaymentRun createTestRun() {
