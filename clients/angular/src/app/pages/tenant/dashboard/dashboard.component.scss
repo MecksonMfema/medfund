@@ -152,8 +152,23 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
-  /* ngx-charts sizes itself to its container — give it a definite height. */
-  app-area-chart { display: block; height: 240px; }
+  /* ngx-charts sizes itself to its container — give it a definite height.
+     320 px (up from 240 px) lines up with the legacy MASCA chart aspect
+     ratios and leaves room for the legend below the plot. */
+  app-area-chart,
+  app-line-chart,
+  app-bar-chart,
+  app-grouped-bar-chart { display: block; height: 320px; }
+}
+
+/* Finance tab renders one chart per active currency. The grid wraps so
+   single-currency tenants get one full-width chart and multi-currency
+   tenants get N side-by-side, falling back to a single column on narrow
+   screens. */
+.finance-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: var(--spacing-md);
 }
 
 .chart-label {

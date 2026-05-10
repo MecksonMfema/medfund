@@ -252,12 +252,130 @@ public class TenantStatsController {
                 .all().collectList()
                 .onErrorReturn(List.of());
 
+        // Per-currency variants drive the legacy MASCA dashboards' grouped-bar
+        // and multi-line charts. We CROSS JOIN tenant_currency_config so every
+        // active currency contributes one full 12-month series — including
+        // months that had no activity, which surface as zero. The number of
+        // series scales with what the tenant admin has configured: a default
+        // tenant (USD only) gets one series, multi-currency tenants get one
+        // per code. is_default DESC orders the primary currency first, so the
+        // first colour in the legacy palette always lands on the tenant's
+        // chosen primary.
+        String monthsAndCodesCte =
+                "WITH months AS (" +
+                "  SELECT generate_series(" +
+                "    date_trunc('month', NOW()) - INTERVAL '11 months', " +
+                "    date_trunc('month', NOW()), " +
+                "    INTERVAL '1 month') AS bucket" +
+                "), codes AS (" +
+                "  SELECT currency_code, is_default " +
+                "  FROM public.tenant_currency_config " +
+                "  WHERE tenant_id = :tenantId AND is_active = TRUE" +
+                ") ";
+
+        Mono<Map<String, List<Map<String, Object>>>> claimsByCurrency = db.sql(monthsAndCodesCte +
+                "SELECT to_char(m.bucket, 'YYYY-MM') AS bucket_label, " +
+                "       cc.currency_code            AS code, " +
+                "       COALESCE(COUNT(c.id), 0)    AS value " +
+                "FROM months m " +
+                "CROSS JOIN codes cc " +
+                "LEFT JOIN \"" + schema + "\".claims c " +
+                "  ON date_trunc('month', c.created_at) = m.bucket " +
+                "  AND c.currency_code = cc.currency_code " +
+                "GROUP BY m.bucket, cc.currency_code, cc.is_default " +
+                "ORDER BY cc.is_default DESC, cc.currency_code, m.bucket")
+                .bind("tenantId", tenantId)
+                .map(row -> currencyPoint(row.get("code", String.class),
+                                           row.get("bucket_label", String.class),
+                                           row.get("value", Long.class)))
+                .all().collectList()
+                .map(TenantStatsController::groupByCurrency)
+                .onErrorReturn(Map.of());
+
+        Mono<Map<String, List<Map<String, Object>>>> contributionsByCurrency = db.sql(monthsAndCodesCte +
+                "SELECT to_char(m.bucket, 'YYYY-MM') AS bucket_label, " +
+                "       cc.currency_code            AS code, " +
+                "       COALESCE(SUM(c.amount), 0)  AS value " +
+                "FROM months m " +
+                "CROSS JOIN codes cc " +
+                "LEFT JOIN \"" + schema + "\".contributions c " +
+                "  ON date_trunc('month', c.created_at) = m.bucket " +
+                "  AND c.status = 'paid' " +
+                "  AND c.currency_code = cc.currency_code " +
+                "GROUP BY m.bucket, cc.currency_code, cc.is_default " +
+                "ORDER BY cc.is_default DESC, cc.currency_code, m.bucket")
+                .bind("tenantId", tenantId)
+                .map(row -> currencyPoint(row.get("code", String.class),
+                                           row.get("bucket_label", String.class),
+                                           row.get("value", java.math.BigDecimal.class)))
+                .all().collectList()
+                .map(TenantStatsController::groupByCurrency)
+                .onErrorReturn(Map.of());
+
+        Mono<Map<String, List<Map<String, Object>>>> paymentsByCurrency = db.sql(monthsAndCodesCte +
+                "SELECT to_char(m.bucket, 'YYYY-MM') AS bucket_label, " +
+                "       cc.currency_code            AS code, " +
+                "       COALESCE(SUM(p.amount), 0)  AS value " +
+                "FROM months m " +
+                "CROSS JOIN codes cc " +
+                "LEFT JOIN \"" + schema + "\".payments p " +
+                "  ON date_trunc('month', p.created_at) = m.bucket " +
+                "  AND p.status = 'completed' " +
+                "  AND p.currency_code = cc.currency_code " +
+                "GROUP BY m.bucket, cc.currency_code, cc.is_default " +
+                "ORDER BY cc.is_default DESC, cc.currency_code, m.bucket")
+                .bind("tenantId", tenantId)
+                .map(row -> currencyPoint(row.get("code", String.class),
+                                           row.get("bucket_label", String.class),
+                                           row.get("value", java.math.BigDecimal.class)))
+                .all().collectList()
+                .map(TenantStatsController::groupByCurrency)
+                .onErrorReturn(Map.of());
+
         return Mono.zip(claimsTrend, contributionsTrend, paymentsTrend)
-                .map(t -> Map.of(
-                        "claimsByMonth",              (Object) t.getT1(),
-                        "contributionsAmountByMonth", (Object) t.getT2(),
-                        "paymentsAmountByMonth",      (Object) t.getT3()
-                ));
+                .zipWith(Mono.zip(claimsByCurrency, contributionsByCurrency, paymentsByCurrency))
+                .map(pair -> {
+                    var out = new java.util.LinkedHashMap<String, Object>();
+                    out.put("claimsByMonth",                          pair.getT1().getT1());
+                    out.put("contributionsAmountByMonth",             pair.getT1().getT2());
+                    out.put("paymentsAmountByMonth",                  pair.getT1().getT3());
+                    out.put("claimsByMonthByCurrency",                pair.getT2().getT1());
+                    out.put("contributionsAmountByMonthByCurrency",   pair.getT2().getT2());
+                    out.put("paymentsAmountByMonthByCurrency",        pair.getT2().getT3());
+                    return (Map<String, Object>) out;
+                });
+    }
+
+    /**
+     * Carries a {@code (currencyCode, name, value)} triple from the
+     * per-currency trend queries through to {@link #groupByCurrency}, where
+     * we collapse the flat row stream into the
+     * {@code Map<currency, [{ name, value }]>} shape the frontend chart
+     * components expect.
+     */
+    private static Map<String, Object> currencyPoint(String code, String name, Number value) {
+        return Map.of(
+                "_code", code == null ? "" : code,
+                "name",  name == null ? "" : name,
+                "value", value == null ? 0 : value
+        );
+    }
+
+    /**
+     * Group flat per-currency rows into a {@code Map<currency, points[]>}
+     * preserving the order the SQL handed us (is_default first, then
+     * currency code), so the chart legend renders the primary currency
+     * first.
+     */
+    private static Map<String, List<Map<String, Object>>> groupByCurrency(List<Map<String, Object>> rows) {
+        var out = new java.util.LinkedHashMap<String, List<Map<String, Object>>>();
+        for (var row : rows) {
+            String code = (String) row.get("_code");
+            if (code == null || code.isBlank()) continue;
+            var bucket = out.computeIfAbsent(code, k -> new java.util.ArrayList<>());
+            bucket.add(Map.of("name", row.get("name"), "value", row.get("value")));
+        }
+        return out;
     }
 
     private static Map<String, Object> point(String name, Number value) {
@@ -268,11 +386,14 @@ public class TenantStatsController {
     }
 
     private static Map<String, Object> emptyCharts() {
-        return Map.of(
-                "claimsByMonth",              List.of(),
-                "contributionsAmountByMonth", List.of(),
-                "paymentsAmountByMonth",      List.of()
-        );
+        var m = new java.util.LinkedHashMap<String, Object>();
+        m.put("claimsByMonth",                          List.of());
+        m.put("contributionsAmountByMonth",             List.of());
+        m.put("paymentsAmountByMonth",                  List.of());
+        m.put("claimsByMonthByCurrency",                Map.of());
+        m.put("contributionsAmountByMonthByCurrency",   Map.of());
+        m.put("paymentsAmountByMonthByCurrency",        Map.of());
+        return m;
     }
 
     private static long orZero(Long v) {

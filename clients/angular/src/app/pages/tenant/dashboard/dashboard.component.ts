@@ -1,11 +1,14 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { LegendPosition } from '@swimlane/ngx-charts';
 import { forkJoin, of, Subscription } from 'rxjs';
 import { catchError, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { HasPermissionDirective } from '../../../shared/directives/has-permission.directive';
-import { AreaChartComponent } from '../../../shared/components/charts/area-chart/area-chart.component';
+import { GroupedBarChartComponent } from '../../../shared/components/charts/grouped-bar-chart/grouped-bar-chart.component';
+import { LineChartComponent } from '../../../shared/components/charts/line-chart/line-chart.component';
+import { MASCA_LEGACY_PALETTE, MASCA_TWIN_PALETTE } from '../../../shared/components/charts/chart-colors';
 import { PermissionKey } from '../../../core/security/permissions';
 import { PermissionService } from '../../../core/security/permission.service';
 import { TenantService } from '../../../core/services/tenant.service';
@@ -22,7 +25,12 @@ const EMPTY_STATS: TenantStats = {
   paymentsPending: 0, paymentsAmountThisMonth: 0, paymentsAmountThisYear: 0,
 };
 
-type DashboardTab = 'claims' | 'billing' | 'finance' | 'members';
+const EMPTY_CHARTS: TenantCharts = {
+  claimsByMonth: [], contributionsAmountByMonth: [], paymentsAmountByMonth: [],
+  claimsByMonthByCurrency: {}, contributionsAmountByMonthByCurrency: {}, paymentsAmountByMonthByCurrency: {},
+};
+
+type DashboardTab = 'claims' | 'billing' | 'finance';
 
 interface TabDef {
   id: DashboardTab;
@@ -30,21 +38,45 @@ interface TabDef {
   permission: PermissionKey;
 }
 
+interface MultiSeries {
+  name: string;
+  series: TrendPoint[];
+}
+
+interface CurrencyChart {
+  /** Currency code — used as chart title and key. */
+  code: string;
+  /** Two-series envelope: Transactions + Payments for this currency. */
+  data: MultiSeries[];
+  /** Y-axis hint so the chart still renders meaningfully when values are zero. */
+  yMax: number;
+}
+
 /**
  * Operational dashboard — surfaces the tenant's at-a-glance stats grouped by
  * domain in a tabbed layout. Each tab (and its contents) is gated by the
  * matching `*:view` permission, so a finance-only user sees only the Finance
- * tab; a tenant admin sees all four. The tab strip auto-selects the first
- * tab the user has permission for, so there's no flash of empty state.
+ * tab; a tenant admin sees all three. Charts mirror the legacy MASCA
+ * dashboards exactly:
  *
- * Charts and stat-card labels mirror the legacy MASCA dashboards
- * (Masca-Claims-Admin, Masca-Finance-Typescript, MASCA-Frontend) — see the
- * inline comments next to each tab.
+ * - Claims  → grouped bar (one bar per active currency per month) — legacy
+ *             Masca-Claims-Admin / ClaimsGraph.
+ * - Billing → multi-series line (one line per active currency on one chart)
+ *             — legacy MASCA-Frontend / graphs.js.
+ * - Finance → one line chart per active currency, each plotting Transactions
+ *             vs Payments — legacy Masca-Finance-Typescript / topSection.
+ *
+ * The number of chart series is driven by {@code tenant_currency_config};
+ * default tenants (USD only) get single-series charts, multi-currency
+ * tenants get one series per active code.
  */
 @Component({
   selector: 'app-tenant-operational-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, IconComponent, HasPermissionDirective, AreaChartComponent],
+  imports: [
+    CommonModule, RouterLink, IconComponent, HasPermissionDirective,
+    GroupedBarChartComponent, LineChartComponent,
+  ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })
@@ -55,14 +87,21 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
   loadError: string | null = null;
   stats: TenantStats = { ...EMPTY_STATS };
 
-  /** ngx-charts series envelopes — one series each, populated from {@link TenantCharts}. */
-  claimsSeries:        Array<{ name: string; series: TrendPoint[] }> = [];
-  contributionsSeries: Array<{ name: string; series: TrendPoint[] }> = [];
-  paymentsSeries:      Array<{ name: string; series: TrendPoint[] }> = [];
-  /** Y-axis hint so the area chart renders meaningfully when values are zero or tiny. */
+  /** Multi-series shapes — one entry per active currency. */
+  claimsSeries:        MultiSeries[] = [];
+  contributionsSeries: MultiSeries[] = [];
+  /** One twin-series chart per active currency (Finance tab). */
+  financeChartsByCurrency: CurrencyChart[] = [];
+
+  /** Y-axis hints so charts render meaningfully when values are zero or tiny. */
   claimsMax = 5;
   contributionsMax = 1000;
-  paymentsMax = 1000;
+
+  /** Palette references for the templates. */
+  readonly mascaPalette = MASCA_LEGACY_PALETTE;
+  readonly mascaTwinPalette = MASCA_TWIN_PALETTE;
+  /** Legend below the chart matches the legacy chart.js convention. */
+  readonly legendBelow = LegendPosition.Below;
 
   /** True once the permission set has finished its first load — gates the empty state. */
   permissionsResolved = false;
@@ -72,14 +111,15 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
   activeTab: DashboardTab | null = null;
 
   /**
-   * The four tabs in display order. {@link permission} drives both the
+   * The three tabs in display order. {@link permission} drives both the
    * `*hasPermission` gate on the tab button and the auto-select fallback.
+   * The legacy MASCA dashboards have no Members tab — members surface as
+   * stats elsewhere.
    */
   readonly tabs: ReadonlyArray<TabDef> = [
-    { id: 'claims',  label: 'Claims',   permission: 'claims:view'   as PermissionKey },
-    { id: 'billing', label: 'Billing',  permission: 'billing:view'  as PermissionKey },
-    { id: 'finance', label: 'Finance',  permission: 'finance:view'  as PermissionKey },
-    { id: 'members', label: 'Members',  permission: 'members:view'  as PermissionKey },
+    { id: 'claims',  label: 'Claims',  permission: 'claims:view'  as PermissionKey },
+    { id: 'billing', label: 'Billing', permission: 'billing:view' as PermissionKey },
+    { id: 'finance', label: 'Finance', permission: 'finance:view' as PermissionKey },
   ];
 
   private subs: Subscription[] = [];
@@ -108,9 +148,7 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
         return forkJoin({
           stats:  this.adminService.getTenantStats(t.id),
           charts: this.adminService.getTenantCharts(t.id).pipe(
-                    catchError(() => of<TenantCharts>({
-                      claimsByMonth: [], contributionsAmountByMonth: [], paymentsAmountByMonth: [],
-                    })),
+                    catchError(() => of<TenantCharts>(EMPTY_CHARTS)),
                   ),
         });
       }),
@@ -127,7 +165,7 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
       },
     }));
 
-    this.applyCharts({ claimsByMonth: [], contributionsAmountByMonth: [], paymentsAmountByMonth: [] });
+    this.applyCharts(EMPTY_CHARTS);
 
     this.subs.push(this.permissions.permissions$.subscribe(set => {
       this.permissionsResolved = true;
@@ -157,34 +195,102 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Wraps each flat trend array in the {@code [{ name, series }]} envelope
-   * ngx-charts expects, padding to a full 12-month series so the chart
-   * always has tick labels to render — even when the backend returns an
-   * empty array (endpoint not yet deployed, or the tenant has zero data).
+   * Walks the per-currency response into ngx-charts envelopes:
+   *
+   * - claimsSeries / contributionsSeries: multi-series shape
+   *   `[{ name: 'USD', series: [...] }, ...]` — one entry per active
+   *   currency. Single-currency tenants get one entry, which the
+   *   grouped-bar / multi-line components render as a single series.
+   * - financeChartsByCurrency: one `{ code, data, yMax }` per currency,
+   *   each `data` carrying two series (Transactions + Payments) for the
+   *   twin-line chart shape.
+   *
+   * If the per-currency response is empty (older backend, or genuinely
+   * no configured currencies), we fall back to the blended-currency
+   * fields so the dashboard never renders blank.
    */
   private applyCharts(charts: TenantCharts): void {
-    const claimsPoints        = this.padToTwelveMonths(charts.claimsByMonth);
-    const contributionsPoints = this.padToTwelveMonths(charts.contributionsAmountByMonth);
-    const paymentsPoints      = this.padToTwelveMonths(charts.paymentsAmountByMonth);
+    const claimsByCurrency        = charts.claimsByMonthByCurrency        ?? {};
+    const contributionsByCurrency = charts.contributionsAmountByMonthByCurrency ?? {};
+    const paymentsByCurrency      = charts.paymentsAmountByMonthByCurrency ?? {};
 
-    this.claimsSeries        = [{ name: 'Claims',        series: claimsPoints }];
-    this.contributionsSeries = [{ name: 'Contributions', series: contributionsPoints }];
-    this.paymentsSeries      = [{ name: 'Payments',      series: paymentsPoints }];
+    const claimsCodes        = Object.keys(claimsByCurrency);
+    const contributionsCodes = Object.keys(contributionsByCurrency);
 
-    this.claimsMax        = Math.max(5,    ...claimsPoints.map(p => p.value));
-    this.contributionsMax = Math.max(1000, ...contributionsPoints.map(p => p.value));
-    this.paymentsMax      = Math.max(1000, ...paymentsPoints.map(p => p.value));
+    // Claims tab: one series per code, padded to 12 months.
+    if (claimsCodes.length) {
+      this.claimsSeries = claimsCodes.map(code => ({
+        name: code,
+        series: this.padToTwelveMonths(claimsByCurrency[code]),
+      }));
+    } else {
+      // Fallback to the blended series for tenants/backends that haven't
+      // populated the per-currency variant yet.
+      this.claimsSeries = [{ name: 'Claims', series: this.padToTwelveMonths(charts.claimsByMonth) }];
+    }
+
+    // Billing tab: same shape, applied to contributions.
+    if (contributionsCodes.length) {
+      this.contributionsSeries = contributionsCodes.map(code => ({
+        name: code,
+        series: this.padToTwelveMonths(contributionsByCurrency[code]),
+      }));
+    } else {
+      this.contributionsSeries = [{
+        name: 'Contributions',
+        series: this.padToTwelveMonths(charts.contributionsAmountByMonth),
+      }];
+    }
+
+    // Finance tab: union of currencies seen in either contributions or
+    // payments, so a tenant configured for USD + ZWL still gets two charts
+    // even if one currency had no activity in the window.
+    const financeCodes = Array.from(new Set([
+      ...contributionsCodes,
+      ...Object.keys(paymentsByCurrency),
+    ]));
+    if (financeCodes.length) {
+      this.financeChartsByCurrency = financeCodes.map(code => {
+        const tx       = this.padToTwelveMonths(contributionsByCurrency[code] ?? []);
+        const payments = this.padToTwelveMonths(paymentsByCurrency[code] ?? []);
+        const yMax = Math.max(1000, ...tx.map(p => p.value), ...payments.map(p => p.value));
+        return {
+          code,
+          data: [
+            { name: 'Transactions', series: tx },
+            { name: 'Payments',     series: payments },
+          ],
+          yMax,
+        };
+      });
+    } else {
+      // Blended fallback — one chart, no currency split.
+      const tx       = this.padToTwelveMonths(charts.contributionsAmountByMonth);
+      const payments = this.padToTwelveMonths(charts.paymentsAmountByMonth);
+      this.financeChartsByCurrency = [{
+        code: 'All',
+        data: [
+          { name: 'Transactions', series: tx },
+          { name: 'Payments',     series: payments },
+        ],
+        yMax: Math.max(1000, ...tx.map(p => p.value), ...payments.map(p => p.value)),
+      }];
+    }
+
+    // Y-axis hints across all series, so the bar / line charts render
+    // meaningfully when one series happens to be zero.
+    this.claimsMax = Math.max(5,
+      ...this.claimsSeries.flatMap(s => s.series.map(p => p.value)));
+    this.contributionsMax = Math.max(1000,
+      ...this.contributionsSeries.flatMap(s => s.series.map(p => p.value)));
   }
 
   /**
    * Build a 12-month series ending at the current month, merging values from
    * the supplied points (keyed by their {@code "YYYY-MM"} bucket). Months
-   * with no data show 0. Output names are short month labels (Jan…Dec) with
-   * the year suffix appended for the oldest/newest month so adjacent years
-   * don't collide visually on the chart.
+   * with no data show 0. Output names are short month labels (Jan…Dec).
    */
-  private padToTwelveMonths(points: TrendPoint[]): TrendPoint[] {
-    // Index incoming points by their YYYY-MM bucket.
+  private padToTwelveMonths(points: TrendPoint[] | undefined): TrendPoint[] {
     const byBucket = new Map<string, number>();
     for (const p of points ?? []) {
       byBucket.set(p.name, Number(p.value) || 0);

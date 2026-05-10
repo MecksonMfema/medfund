@@ -142,9 +142,19 @@ export interface TenantStats {
  */
 export interface TrendPoint { name: string; value: number; }
 export interface TenantCharts {
+  /** Blended-currency series (legacy single-line view, kept for back-compat). */
   claimsByMonth:              TrendPoint[];
   contributionsAmountByMonth: TrendPoint[];
   paymentsAmountByMonth:      TrendPoint[];
+  /**
+   * Per-currency 12-month trends — keys are currency codes from the tenant's
+   * tenant_currency_config. Single-currency tenants see one entry; configure
+   * additional currencies in the tenant-admin currencies screen and they
+   * surface here. Backend orders the keys with the default currency first.
+   */
+  claimsByMonthByCurrency:              Record<string, TrendPoint[]>;
+  contributionsAmountByMonthByCurrency: Record<string, TrendPoint[]>;
+  paymentsAmountByMonthByCurrency:      Record<string, TrendPoint[]>;
 }
 
 export interface UserRoleAssignment {

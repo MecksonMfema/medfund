@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { NgxChartsModule, Color } from '@swimlane/ngx-charts';
+import { NgxChartsModule, Color, LegendPosition } from '@swimlane/ngx-charts';
 import { OCEAN_BREEZE_SCHEME } from '../chart-colors';
 
 @Component({
@@ -19,4 +19,6 @@ export class LineChartComponent {
   @Input() colorScheme: Color = OCEAN_BREEZE_SCHEME;
   /** Pass [undefined, height] to let the chart fill its container width. */
   @Input() view: [number, number] | undefined = undefined;
+  /** Where the legend renders relative to the chart — defaults to ngx-charts' Right. */
+  @Input() legendPosition: LegendPosition = LegendPosition.Right;
 }

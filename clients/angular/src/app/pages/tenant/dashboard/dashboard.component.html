@@ -29,7 +29,10 @@
     </nav>
   }
 
-  <!-- ── Claims tab — labels match Masca-Claims-Admin Statistics + masca-admin-dashboard. -->
+  <!-- ── Claims tab — labels match Masca-Claims-Admin Statistics + masca-admin-dashboard.
+       Chart matches Masca-Claims-Admin/ClaimsGraph.jsx — grouped vertical
+       bars, one bar per active currency per month. Single-currency tenants
+       see a single-series chart automatically. -->
   @if (activeTab === 'claims') {
     <section *hasPermission="'claims:view'" class="stat-block" role="tabpanel">
       <header class="stat-block-head">
@@ -60,18 +63,21 @@
         </div>
       </div>
       <div class="chart-card">
-        <span class="chart-label">Claims volume — last 12 months</span>
-        <app-area-chart
+        <span class="chart-label">Total number of claims each month</span>
+        <app-grouped-bar-chart
           [data]="claimsSeries"
-          [yScaleMax]="claimsMax"
+          [colorScheme]="mascaPalette"
+          [legendPosition]="legendBelow"
           xAxisLabel="Month"
           yAxisLabel="Claims">
-        </app-area-chart>
+        </app-grouped-bar-chart>
       </div>
     </section>
   }
 
-  <!-- ── Billing tab — labels match MASCA-Frontend dashboard (transactions + creditors). -->
+  <!-- ── Billing tab — labels match MASCA-Frontend dashboard (transactions + creditors).
+       Chart matches MASCA-Frontend/graphs.js — multi-series line, one line
+       per active currency on the same chart. -->
   @if (activeTab === 'billing') {
     <section *hasPermission="'billing:view'" class="stat-block" role="tabpanel">
       <header class="stat-block-head">
@@ -103,17 +109,23 @@
       </div>
       <div class="chart-card">
         <span class="chart-label">Contributions paid — last 12 months</span>
-        <app-area-chart
+        <app-line-chart
           [data]="contributionsSeries"
-          [yScaleMax]="contributionsMax"
+          [colorScheme]="mascaPalette"
+          [legend]="true"
+          [legendPosition]="legendBelow"
           xAxisLabel="Month"
           yAxisLabel="Amount">
-        </app-area-chart>
+        </app-line-chart>
       </div>
     </section>
   }
 
-  <!-- ── Finance tab — labels match Masca-Finance-Typescript topSection. -->
+  <!-- ── Finance tab — labels match Masca-Finance-Typescript topSection.
+       Chart matches Masca-Finance-Typescript/topSection.tsx — one line
+       chart per active currency, each plotting Transactions vs Payments.
+       The grid wraps so single-currency tenants see one chart and
+       multi-currency tenants see N side-by-side. -->
   @if (activeTab === 'finance') {
     <section *hasPermission="'finance:view'" class="stat-block" role="tabpanel">
       <header class="stat-block-head">
@@ -139,50 +151,20 @@
           <span class="stat-value">{{ loading ? '—' : (stats.paymentsAmountThisYear | currency: 'USD' : 'symbol' : '1.0-0') }}</span>
         </div>
       </div>
-      <div class="chart-card">
-        <span class="chart-label">Payments completed — last 12 months</span>
-        <app-area-chart
-          [data]="paymentsSeries"
-          [yScaleMax]="paymentsMax"
-          xAxisLabel="Month"
-          yAxisLabel="Amount">
-        </app-area-chart>
-      </div>
-    </section>
-  }
-
-  <!-- ── Members tab — labels match masca-admin-dashboard ("New Members", "New Groups").
-       The legacy MASCA-Frontend dashboard only surfaces stat cards in this
-       domain; an enrollment trend chart would need a backend extension to
-       TenantCharts.memberEnrollmentByMonth, deferred until that lands. -->
-  @if (activeTab === 'members') {
-    <section *hasPermission="'members:view'" class="stat-block" role="tabpanel">
-      <header class="stat-block-head">
-        <div class="stat-block-icon members">
-          <app-icon name="users" [size]="20"></app-icon>
-        </div>
-        <div class="stat-block-title">
-          <h2>Members</h2>
-          <a routerLink="/tenant/members" class="stat-link">Open <app-icon name="chevron-right" [size]="12"></app-icon></a>
-        </div>
-      </header>
-      <div class="stat-row">
-        <div class="stat-card">
-          <span class="stat-label">New Members</span>
-          <span class="stat-value">{{ loading ? '—' : stats.newMembersThisMonth }}</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">New Groups</span>
-          <span class="stat-value">{{ loading ? '—' : stats.newGroupsThisMonth }}</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Active Members</span>
-          <span class="stat-value">{{ loading ? '—' : stats.activeMembers }}</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Total Members</span>
-          <span class="stat-value">{{ loading ? '—' : stats.totalMembers }}</span>
-        </div>
+      <div class="finance-charts">
+        @for (chart of financeChartsByCurrency; track chart.code) {
+          <div class="chart-card">
+            <span class="chart-label">{{ chart.code }} Transactions vs Payments</span>
+            <app-line-chart
+              [data]="chart.data"
+              [colorScheme]="mascaTwinPalette"
+              [legend]="true"
+              [legendPosition]="legendBelow"
+              xAxisLabel="Month"
+              yAxisLabel="Amount">
+            </app-line-chart>
+          </div>
+        }
       </div>
     </section>
   }
