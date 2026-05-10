@@ -12,9 +12,19 @@
 .page-header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
 .page-sub { margin: 0; color: var(--color-text-muted, #6b7280); font-size: 0.9rem; max-width: 70ch; }
 
-.totals { display: flex; flex-direction: column; align-items: flex-end; }
+.totals { display: flex; flex-direction: column; align-items: flex-end; gap: 0.25rem; }
 .total-label { font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted, #6b7280); }
 .total-value { font-size: 1.5rem; font-weight: 700; color: var(--color-text-primary, #1b2a4a); }
+.total-stack { display: flex; flex-direction: column; align-items: flex-end; gap: 0.15rem; }
+.total-chip {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text-primary, #1b2a4a);
+  padding: 0.1rem 0.5rem;
+  background: var(--color-bg, #f8fdff);
+  border-radius: var(--radius-md, 8px);
+}
+.muted { color: var(--color-text-muted, #6b7280); }
 
 .banner {
   padding: 0.5rem 0.75rem;

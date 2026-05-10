@@ -14,12 +14,7 @@ import {
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
-
-interface CurrencyVolume {
-  currencyCode: string;
-  count: number;
-  total: number;
-}
+import { CurrencyTotal, aggregateByCurrency } from '../../../../shared/utils/currency-totals';
 
 @Component({
   selector: 'app-finance-dashboard',
@@ -31,7 +26,7 @@ interface CurrencyVolume {
 export class FinanceDashboardComponent implements OnInit {
   loading = false;
 
-  weeklyVolume: CurrencyVolume[] = [];
+  weeklyVolume: CurrencyTotal[] = [];
   topCreditors: ProviderBalance[] = [];
   pendingAdjustments: Adjustment[] = [];
   unmatchedReconciliations: BankReconciliation[] = [];
@@ -65,18 +60,11 @@ export class FinanceDashboardComponent implements OnInit {
     });
   }
 
-  private aggregateWeeklyVolume(payments: Payment[]): CurrencyVolume[] {
+  private aggregateWeeklyVolume(payments: Payment[]): CurrencyTotal[] {
     const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     const recent = payments.filter(p => p.status === 'paid'
       && p.paidAt
       && Date.parse(p.paidAt) >= oneWeekAgo);
-    const byCcy = new Map<string, CurrencyVolume>();
-    for (const p of recent) {
-      const v = byCcy.get(p.currencyCode) || { currencyCode: p.currencyCode, count: 0, total: 0 };
-      v.count++;
-      v.total += Number(p.amount || 0);
-      byCcy.set(p.currencyCode, v);
-    }
-    return Array.from(byCcy.values()).sort((a, b) => b.total - a.total);
+    return aggregateByCurrency(recent, 'amount', 'currencyCode');
   }
 }

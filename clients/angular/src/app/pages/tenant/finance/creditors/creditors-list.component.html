@@ -6,7 +6,15 @@
     </div>
     <div class="totals">
       <span class="total-label">Total exposure</span>
-      <span class="total-value">{{ totalOutstanding() | currencyFormat:(currencyFilter || '—') }}</span>
+      @if (totalsByCurrency().length === 0) {
+        <span class="total-value muted">—</span>
+      } @else {
+        <div class="total-stack">
+          @for (t of totalsByCurrency(); track t.currencyCode) {
+            <span class="total-chip">{{ t.total | currencyFormat:t.currencyCode }}</span>
+          }
+        </div>
+      }
     </div>
   </header>
 

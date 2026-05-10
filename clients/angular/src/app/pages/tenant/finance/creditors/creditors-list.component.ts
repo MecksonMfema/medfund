@@ -8,6 +8,7 @@ import {
 } from '../../../../core/services/finance.service';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
+import { CurrencyTotal, aggregateByCurrency } from '../../../../shared/utils/currency-totals';
 
 @Component({
   selector: 'app-creditors-list',
@@ -53,8 +54,13 @@ export class CreditorsListComponent implements OnInit {
     return Array.from(new Set(this.rows.map(r => r.currencyCode))).sort();
   }
 
-  totalOutstanding(): number {
-    return this.filtered.reduce((s, r) => s + Number(r.outstandingBalance || 0), 0);
+  /**
+   * Per-currency totals for the currently filtered rows. Critical Rule 1
+   * forbids summing across currencies, so the page renders one chip per
+   * currency rather than collapsing to a single number.
+   */
+  totalsByCurrency(): CurrencyTotal[] {
+    return aggregateByCurrency(this.filtered, 'outstandingBalance', 'currencyCode');
   }
 
   private applyFilter(): void {
