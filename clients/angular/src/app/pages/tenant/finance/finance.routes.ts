@@ -94,9 +94,18 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () => import('./advance/advance-payment-form.component').then(m => m.AdvancePaymentFormComponent),
     data: { title: 'Record Advance Payment', sidebar: 'operational' },
   },
-  cs('payments/ctc',              'CTC Payments',              '/ctc-payments',              'Cost-to-cure payments from finance.',           ['finance:manage_ctc_payments']),
-  cs('payments/ctc/add',          'Create CTC Payment',        '/ctc-payment',               'New CTC allocation.',                          ['finance:manage_ctc_payments']),
-  cs('payments/ctc/:id',          'CTC Payment Detail',        '/view-ctc-payment',          'Single CTC payment.',                          ['finance:manage_ctc_payments']),
+  {
+    path: 'payments/ctc',
+    canActivate: [permissionGuard(['finance:manage_ctc_payments'])],
+    loadComponent: () => import('./ctc/ctc-payments-list.component').then(m => m.CtcPaymentsListComponent),
+    data: { title: 'CTC Payments', sidebar: 'operational' },
+  },
+  {
+    path: 'payments/ctc/add',
+    canActivate: [permissionGuard(['finance:manage_ctc_payments'])],
+    loadComponent: () => import('./ctc/ctc-payment-form.component').then(m => m.CtcPaymentFormComponent),
+    data: { title: 'Create CTC Payment', sidebar: 'operational' },
+  },
   {
     path: 'payments/:id',
     canActivate: [permissionGuard(['finance:view'])],

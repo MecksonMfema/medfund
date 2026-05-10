@@ -1,0 +1,73 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>New CTC payment</h1>
+      <p class="page-sub">
+        Records a cash-to-cardholder transfer. Created entries land in
+        pending state until accounting commits the transfer.
+      </p>
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form class="card" (ngSubmit)="submit()" #f="ngForm">
+    <h2 class="section-title">Target</h2>
+    <div class="segmented" role="tablist">
+      <label class="segment" [class.active]="target === 'group'">
+        <input type="radio" name="target" value="group" [(ngModel)]="target" />
+        Group
+      </label>
+      <label class="segment" [class.active]="target === 'member'">
+        <input type="radio" name="target" value="member" [(ngModel)]="target" />
+        Member
+      </label>
+    </div>
+
+    @if (target === 'group') {
+      <label class="field">
+        <span class="field-label">Group ID *</span>
+        <input type="text" [(ngModel)]="groupId" name="groupId" required />
+      </label>
+    } @else {
+      <label class="field">
+        <span class="field-label">Member ID *</span>
+        <input type="text" [(ngModel)]="memberId" name="memberId" required />
+      </label>
+    }
+
+    <h2 class="section-title">Payment</h2>
+
+    <div class="row-2">
+      <label class="field">
+        <span class="field-label">Amount *</span>
+        <input type="number" step="0.01" min="0" [(ngModel)]="amount" name="amount" required />
+      </label>
+      <label class="field">
+        <span class="field-label">Currency *</span>
+        <select [(ngModel)]="currencyCode" name="currencyCode" required>
+          <option [value]="''" disabled>Select currency…</option>
+          @for (c of currencies; track c.code) {
+            <option [value]="c.code">{{ c.code }} — {{ c.name }}</option>
+          }
+        </select>
+      </label>
+    </div>
+
+    <label class="field">
+      <span class="field-label">Linked contribution</span>
+      <input type="text" [(ngModel)]="contributionId" name="contributionId"
+             placeholder="Optional contribution UUID" />
+    </label>
+
+    <div class="actions">
+      <button type="button" class="btn" (click)="cancel()" [disabled]="busy">Cancel</button>
+      <button type="submit" class="btn btn-primary" [disabled]="busy || !f.valid">
+        <app-icon name="plus" [size]="14"></app-icon>
+        Create
+      </button>
+    </div>
+  </form>
+</div>

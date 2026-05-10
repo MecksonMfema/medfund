@@ -158,6 +158,27 @@ export interface UpsertMascaBankAccountPayload {
   active?: boolean;
 }
 
+// ── CTC payments ────────────────────────────────────────────────────────
+export interface CtcPayment {
+  id: string;
+  groupId?: string;
+  memberId?: string;
+  amount: string;
+  currencyCode: string;
+  contributionId?: string;
+  committed: boolean;
+  createdAt: string;
+  createdBy?: string;
+}
+
+export interface CreateCtcPaymentPayload {
+  groupId?: string;
+  memberId?: string;
+  amount: string;
+  currencyCode: string;
+  contributionId?: string;
+}
+
 // ── Advance payments ────────────────────────────────────────────────────
 export interface AdvancePayment {
   id: string;
@@ -265,6 +286,13 @@ export class FinanceService {
   createMascaBankAccount(body: UpsertMascaBankAccountPayload): Observable<MascaBankAccount> { return this.api.post<MascaBankAccount>('/masca-bank-accounts', body); }
   updateMascaBankAccount(id: string, body: UpsertMascaBankAccountPayload): Observable<MascaBankAccount> { return this.api.put<MascaBankAccount>(`/masca-bank-accounts/${id}`, body); }
   deleteMascaBankAccount(id: string): Observable<void> { return this.api.delete<void>(`/masca-bank-accounts/${id}`); }
+
+  // ── CTC payments ──
+  listCtcPayments(committed?: boolean): Observable<CtcPayment[]> {
+    return this.api.get<CtcPayment[]>('/ctc-payments', committed === undefined ? {} : { committed: String(committed) });
+  }
+  createCtcPayment(body: CreateCtcPaymentPayload): Observable<CtcPayment> { return this.api.post<CtcPayment>('/ctc-payments', body); }
+  commitCtcPayment(id: string): Observable<CtcPayment> { return this.api.post<CtcPayment>(`/ctc-payments/${id}/commit`, {}); }
 
   // ── Advance payments ──
   listAdvancePayments(): Observable<AdvancePayment[]> { return this.api.get<AdvancePayment[]>('/advance-payments'); }
