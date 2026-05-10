@@ -9,7 +9,10 @@ import java.time.LocalDate;
 public record CreateReconciliationRequest(
         @NotBlank String referenceNumber,
         @NotNull BigDecimal statementAmount,
-        @NotNull BigDecimal systemAmount,
+        // Optional — when omitted, the service auto-resolves the system
+        // amount from paid payments in the same currency on or before
+        // statementDate. Operators can still pass an override.
+        BigDecimal systemAmount,
         @NotNull String currencyCode,
         @NotNull LocalDate statementDate,
         String notes

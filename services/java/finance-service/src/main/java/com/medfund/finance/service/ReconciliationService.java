@@ -3,9 +3,13 @@ package com.medfund.finance.service;
 import com.medfund.finance.dto.CreateReconciliationRequest;
 import com.medfund.finance.entity.BankReconciliation;
 import com.medfund.finance.repository.BankReconciliationRepository;
+import com.medfund.finance.repository.PaymentRepository;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
+
+import java.time.LocalTime;
+import java.time.ZoneOffset;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -24,11 +28,14 @@ public class ReconciliationService {
     private static final Logger log = LoggerFactory.getLogger(ReconciliationService.class);
 
     private final BankReconciliationRepository bankReconciliationRepository;
+    private final PaymentRepository paymentRepository;
     private final AuditPublisher auditPublisher;
 
     public ReconciliationService(BankReconciliationRepository bankReconciliationRepository,
+                                 PaymentRepository paymentRepository,
                                  AuditPublisher auditPublisher) {
         this.bankReconciliationRepository = bankReconciliationRepository;
+        this.paymentRepository = paymentRepository;
         this.auditPublisher = auditPublisher;
     }
 
@@ -42,30 +49,41 @@ public class ReconciliationService {
 
     @Transactional
     public Mono<BankReconciliation> create(CreateReconciliationRequest request, String actorId) {
-        var recon = new BankReconciliation();
-        recon.setId(UUID.randomUUID());
-        recon.setReferenceNumber(request.referenceNumber());
-        recon.setStatementAmount(request.statementAmount());
-        recon.setSystemAmount(request.systemAmount());
-        recon.setCurrencyCode(request.currencyCode());
-        recon.setStatementDate(request.statementDate());
-        recon.setNotes(request.notes());
-        recon.setCreatedAt(Instant.now());
-        recon.setCreatedBy(UUID.fromString(actorId));
+        // Resolve system amount: explicit override wins; otherwise sum the
+        // paid payments in the same currency on/before the statement date.
+        Mono<BigDecimal> systemAmountMono = request.systemAmount() != null
+            ? Mono.just(request.systemAmount())
+            : paymentRepository.sumPaidUpTo(
+                request.currencyCode(),
+                request.statementDate().atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC))
+                .defaultIfEmpty(BigDecimal.ZERO);
 
-        BigDecimal difference = request.statementAmount().subtract(request.systemAmount());
-        recon.setDifference(difference);
-        recon.setStatus(difference.compareTo(BigDecimal.ZERO) == 0 ? "matched" : "unmatched");
+        return systemAmountMono.flatMap(systemAmount -> {
+            var recon = new BankReconciliation();
+            recon.setId(UUID.randomUUID());
+            recon.setReferenceNumber(request.referenceNumber());
+            recon.setStatementAmount(request.statementAmount());
+            recon.setSystemAmount(systemAmount);
+            recon.setCurrencyCode(request.currencyCode());
+            recon.setStatementDate(request.statementDate());
+            recon.setNotes(request.notes());
+            recon.setCreatedAt(Instant.now());
+            if (actorId != null) recon.setCreatedBy(UUID.fromString(actorId));
 
-        return bankReconciliationRepository.save(recon)
-            .flatMap(saved -> Mono.deferContextual(ctx -> {
-                String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "BankReconciliation", saved.getId().toString(), "CREATE", actorId,
-                        null,
-                        Map.of("referenceNumber", saved.getReferenceNumber(), "status", saved.getStatus(),
-                               "difference", saved.getDifference().toString()))
-                    .thenReturn(saved);
-            }));
+            BigDecimal difference = request.statementAmount().subtract(systemAmount);
+            recon.setDifference(difference);
+            recon.setStatus(difference.compareTo(BigDecimal.ZERO) == 0 ? "matched" : "unmatched");
+
+            return bankReconciliationRepository.save(recon)
+                .flatMap(saved -> Mono.deferContextual(ctx -> {
+                    String tenantId = TenantContext.get(ctx);
+                    return publishAudit(tenantId, "BankReconciliation", saved.getId().toString(), "CREATE", actorId,
+                            null,
+                            Map.of("referenceNumber", saved.getReferenceNumber(), "status", saved.getStatus(),
+                                   "difference", saved.getDifference().toString()))
+                        .thenReturn(saved);
+                }));
+        });
     }
 
     @Transactional
