@@ -157,7 +157,16 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () => import('./reconciliations/reconciliation-form.component').then(m => m.ReconciliationFormComponent),
     data: { title: 'Record Statement', sidebar: 'operational' },
   },
-  cs('subledger-debtors',                 'Subledger Debtors',          '/subledger-debtors',          'Outstanding balances at journal level.', ['finance:view_subledger']),
+  {
+    path: 'subledger-debtors',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () => import('./creditors/creditors-list.component').then(m => m.CreditorsListComponent),
+    data: {
+      title: 'Subledger Debtors',
+      description: 'Outstanding provider balances at journal level.',
+      sidebar: 'operational',
+    },
+  },
   cs('debtors-report',                    'Debtors Report',             '/view-debtors-report',        'Aged-debtors analytics.',                ['finance:view_debtors']),
   cs('billing-to-claims',                 'Billing → Claims',           '/billing-to-claims',          'Reconcile billing runs against claims.', ['finance:manage_billing_reconcile']),
   cs('billing-to-claims/:id',             'Billing → Claims Detail',    '/view-billing-to-claims',     'Single reconciliation entry.',          ['finance:manage_billing_reconcile']),
@@ -179,11 +188,30 @@ export const FINANCE_ROUTES: Routes = [
   cs('reports/member-payments/:id',          'Member Payment Detail',            '/view-member-payments',                     'Single member payment list.',                     ['finance:view']),
   cs('reports/member-payments/:id/details',  'Member Payment Details',           '/view-member-payment-details',              'Transaction-level member payment.',               ['finance:view']),
   cs('reports/member-payment-status',        'Member Payment Status',            '/member-payment-status',                    'Member payment state aggregates.',                ['finance:view']),
-  cs('reports/provider-payments',            'Provider Payments',                '/view-providers-payments',                  'Provider payment summary.',                       ['finance:view']),
+  {
+    path: 'reports/provider-payments',
+    canActivate: [permissionGuard(['finance:view'])],
+    loadComponent: () => import('./payments/payments-list.component').then(m => m.PaymentsListComponent),
+    data: {
+      title: 'Provider Payments',
+      description: 'Provider payouts. Filter by status, currency, or search by reference.',
+      sidebar: 'operational',
+    },
+  },
   cs('reports/provider-payments/:id',        'Provider Payment Detail',          '/view-provider-payments',                   'Single provider payment list.',                   ['finance:view']),
   cs('reports/provider-payments/:id/details','Provider Payment Details',         '/view-provider-payment-details',            'Transaction-level provider payment.',             ['finance:view']),
   cs('reports/provider-payment-status',      'Provider Payment Status',          '/provider-payment-status',                  'Provider payment state aggregates.',              ['finance:view']),
-  cs('reports/withheld-tax',                 'Withheld Tax Report',              '/withheld-tax',                             'Tax-withheld claims and payments.',               ['finance:view_withheld_tax']),
+  {
+    path: 'reports/withheld-tax',
+    canActivate: [permissionGuard(['finance:view_withheld_tax'])],
+    loadComponent: () => import('./adjustments/adjustments-list.component').then(m => m.AdjustmentsListComponent),
+    data: {
+      title: 'Withheld Tax Report',
+      description: 'Tax withheld from provider payouts. Filtered to TAX_WITHHELD adjustments.',
+      presetType: 'TAX_WITHHELD',
+      sidebar: 'operational',
+    },
+  },
 
   // ── Creditors ─────────────────────────────────────────────────────────────
   {
@@ -198,7 +226,16 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () => import('./creditors/provider-balance-detail.component').then(m => m.ProviderBalanceDetailComponent),
     data: { title: 'Provider Balance', sidebar: 'operational' },
   },
-  cs('creditors/member',             'Member Creditors',             '/member-creditors',       'Member liabilities.',           ['billing:view_creditors']),
+  {
+    path: 'creditors/member',
+    canActivate: [permissionGuard(['billing:view_creditors'])],
+    loadComponent: () => import('./creditors/creditors-list.component').then(m => m.CreditorsListComponent),
+    data: {
+      title: 'Member Creditors',
+      description: 'Member liabilities. Currently shares the provider list view; member-balance backend lands in a follow-up slice.',
+      sidebar: 'operational',
+    },
+  },
   cs('creditors/:id',                'Creditor Detail',              '/view-creditor',          'Single creditor.',              ['billing:view_creditors']),
 
   // ── Currencies ────────────────────────────────────────────────────────────
