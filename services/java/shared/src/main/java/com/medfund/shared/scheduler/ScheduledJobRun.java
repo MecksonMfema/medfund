@@ -27,6 +27,13 @@ public class ScheduledJobRun {
     @Column("config_id")
     private UUID configId;
 
+    /**
+     * Tenant the run belongs to. Stamped from the config row at start;
+     * {@code null} for platform-global jobs.
+     */
+    @Column("tenant_id")
+    private UUID tenantId;
+
     @Column("started_at")
     private Instant startedAt;
 

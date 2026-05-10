@@ -23,8 +23,21 @@ public class ScheduledJobService {
         this.auditPublisher = auditPublisher;
     }
 
+    /**
+     * Returns all configs across every tenant. Used by the platform-admin
+     * job monitor when no tenant filter is applied.
+     */
     public Flux<ScheduledJobConfig> findAll() {
         return jobRepository.findAllOrderByJobType();
+    }
+
+    /**
+     * Returns just the configs owned by the supplied tenant. Used both by
+     * tenant-admin (working in their own tenant context) and by platform
+     * admins who picked a tenant in the filter.
+     */
+    public Flux<ScheduledJobConfig> findAllByTenant(UUID tenantId) {
+        return jobRepository.findAllByTenant(tenantId);
     }
 
     public Mono<ScheduledJobConfig> findById(UUID id) {
@@ -35,11 +48,17 @@ public class ScheduledJobService {
         return jobRepository.findByJobType(jobType);
     }
 
+    /**
+     * Creates a job config for a specific tenant. {@code tenantId} can be
+     * {@code null} for a platform-global job (e.g. tenant onboarding sweeps);
+     * the executor receives "global" as the tenant arg in that case.
+     */
     @Transactional
-    public Mono<ScheduledJobConfig> create(String jobType, String name, String cronExpression,
+    public Mono<ScheduledJobConfig> create(UUID tenantId, String jobType, String name, String cronExpression,
                                             String settings, String actorId) {
         var config = new ScheduledJobConfig();
         config.setId(UUID.randomUUID());
+        config.setTenantId(tenantId);
         config.setJobType(jobType);
         config.setName(name);
         config.setCronExpression(cronExpression);
@@ -48,13 +67,16 @@ public class ScheduledJobService {
         config.setNextExecutionAt(JobDispatcher.calculateNextExecution(cronExpression));
         config.setCreatedAt(Instant.now());
         config.setUpdatedAt(Instant.now());
-        config.setCreatedBy(UUID.fromString(actorId));
+        config.setCreatedBy(parseActor(actorId));
 
         return jobRepository.save(config)
             .flatMap(saved -> Mono.deferContextual(ctx -> {
-                String tenantId = TenantContext.get(ctx);
+                String ctxTenantId = TenantContext.get(ctx);
+                String auditTenant = saved.getTenantId() != null
+                    ? saved.getTenantId().toString()
+                    : (ctxTenantId != null ? ctxTenantId : "platform");
                 var event = AuditEvent.create(
-                    tenantId != null ? tenantId : "unknown",
+                    auditTenant,
                     "ScheduledJobConfig", saved.getId().toString(), saved.getName(),
                     "CREATE", actorId, null,
                     null,
@@ -64,6 +86,11 @@ public class ScheduledJobService {
                 );
                 return auditPublisher.publish(event).thenReturn(saved);
             }));
+    }
+
+    private static UUID parseActor(String actorId) {
+        if (actorId == null || actorId.isBlank()) return null;
+        try { return UUID.fromString(actorId); } catch (IllegalArgumentException e) { return null; }
     }
 
     @Transactional
@@ -108,37 +135,39 @@ public class ScheduledJobService {
     }
 
     /**
-     * Seed default job configs for a new tenant.
-     * Called during tenant provisioning.
+     * Seed default job configs for a new tenant. Called during tenant
+     * provisioning. The {@code tenantId} is stamped on every row so the
+     * configs are owned by that tenant in the public-schema table.
      */
     @Transactional
-    public Mono<Void> seedDefaults(String actorId) {
+    public Mono<Void> seedDefaults(UUID tenantId, String actorId) {
         return Flux.just(
-            createDefault(JobType.BILLING_CYCLE, "Monthly Billing Cycle",
+            createDefault(tenantId, JobType.BILLING_CYCLE, "Monthly Billing Cycle",
                 "0 0 10 15 * *", // 15th of month at 10am
                 "{\"billingDayOfMonth\":15,\"advanceDays\":0}"),
-            createDefault(JobType.OVERDUE_CHECK, "Daily Overdue Check",
+            createDefault(tenantId, JobType.OVERDUE_CHECK, "Daily Overdue Check",
                 "0 0 2 * * *", // daily 2am
                 "{\"gracePeriodDays\":30}"),
-            createDefault(JobType.PAYMENT_RUN, "Weekly Payment Run",
+            createDefault(tenantId, JobType.PAYMENT_RUN, "Weekly Payment Run",
                 "0 0 6 * * MON", // Monday 6am
                 "{\"autoExecuteAfterHours\":24,\"batchSize\":100}"),
-            createDefault(JobType.AGE_PROCESSING, "Daily Age Processing",
+            createDefault(tenantId, JobType.AGE_PROCESSING, "Daily Age Processing",
                 "0 0 4 * * *", // daily 4am
                 "{\"maxDependantAge\":21,\"maxStudentAge\":26}"),
-            createDefault(JobType.PRE_AUTH_EXPIRY, "Daily Pre-Auth Expiry",
+            createDefault(tenantId, JobType.PRE_AUTH_EXPIRY, "Daily Pre-Auth Expiry",
                 "0 0 3 * * *", // daily 3am
                 "{}"),
-            createDefault(JobType.TARIFF_ACTIVATION, "Daily Tariff Activation",
+            createDefault(tenantId, JobType.TARIFF_ACTIVATION, "Daily Tariff Activation",
                 "0 0 0 * * *", // daily midnight
                 "{}")
         ).flatMap(config -> jobRepository.save(config))
         .then();
     }
 
-    private ScheduledJobConfig createDefault(JobType type, String name, String cron, String settings) {
+    private ScheduledJobConfig createDefault(UUID tenantId, JobType type, String name, String cron, String settings) {
         var config = new ScheduledJobConfig();
         config.setId(UUID.randomUUID());
+        config.setTenantId(tenantId);
         config.setJobType(type.name());
         config.setName(name);
         config.setCronExpression(cron);

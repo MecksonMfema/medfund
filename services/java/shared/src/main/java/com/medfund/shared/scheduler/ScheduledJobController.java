@@ -30,9 +30,13 @@ public class ScheduledJobController {
     }
 
     @GetMapping
-    @Operation(summary = "List all scheduled job configurations")
-    public Flux<ScheduledJobConfig> findAll() {
-        return scheduledJobService.findAll();
+    @Operation(summary = "List scheduled job configurations",
+        description = "Without a tenantId filter, returns every config across every tenant (platform-admin view). " +
+                      "With a tenantId, scopes to that tenant. Each row carries its tenantId.")
+    public Flux<ScheduledJobConfig> findAll(@RequestParam(required = false) UUID tenantId) {
+        return tenantId != null
+            ? scheduledJobService.findAllByTenant(tenantId)
+            : scheduledJobService.findAll();
     }
 
     @GetMapping("/{id}")
@@ -50,14 +54,17 @@ public class ScheduledJobController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Create a new scheduled job config")
+    @Operation(summary = "Create a new scheduled job config",
+        description = "Pass tenantId to bind the job to a tenant. Omit it to create a platform-global job that runs " +
+                      "without tenant context (e.g. cross-tenant onboarding sweeps).")
     public Mono<ScheduledJobConfig> create(
+            @RequestParam(required = false) UUID tenantId,
             @RequestParam String jobType,
             @RequestParam String name,
             @RequestParam String cronExpression,
             @RequestParam(required = false) String settings,
             Principal principal) {
-        return scheduledJobService.create(jobType, name, cronExpression, settings, principal.getName());
+        return scheduledJobService.create(tenantId, jobType, name, cronExpression, settings, principal.getName());
     }
 
     @PutMapping("/{id}")
@@ -85,18 +92,23 @@ public class ScheduledJobController {
 
     @PostMapping("/seed-defaults")
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Seed default job configs for the current tenant")
-    public Mono<Void> seedDefaults(Principal principal) {
-        return scheduledJobService.seedDefaults(principal.getName());
+    @Operation(summary = "Seed default job configs for a tenant",
+        description = "Pass tenantId to seed for that tenant; if omitted, the seeded jobs are platform-global.")
+    public Mono<Void> seedDefaults(@RequestParam(required = false) UUID tenantId, Principal principal) {
+        return scheduledJobService.seedDefaults(tenantId, principal.getName());
     }
 
     @GetMapping("/{id}/runs")
     @Operation(summary = "List recent runs for a scheduled job",
-        description = "Returns the latest job executions ordered newest-first. Used by the platform-admin job monitor to surface success/failure history and per-run errors.")
+        description = "Returns the latest job executions ordered newest-first. Each row carries its tenantId. " +
+                      "Pass tenantId as a query param to scope results to a single tenant; omit for cross-tenant view.")
     public Flux<ScheduledJobRun> listRuns(@PathVariable UUID id,
-                                           @RequestParam(required = false, defaultValue = "50") int limit) {
+                                           @RequestParam(required = false, defaultValue = "50") int limit,
+                                           @RequestParam(required = false) UUID tenantId) {
         int capped = Math.max(1, Math.min(limit, 200));
-        return runRepository.findRecent(id, capped);
+        return tenantId != null
+            ? runRepository.findRecentForTenant(id, tenantId, capped)
+            : runRepository.findRecent(id, capped);
     }
 
     @PostMapping("/{id}/run-now")

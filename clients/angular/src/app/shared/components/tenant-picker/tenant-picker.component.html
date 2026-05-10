@@ -1,0 +1,40 @@
+@if (picked) {
+  <div class="picked">
+    <div class="picked-info">
+      <strong>{{ picked.label }}</strong>
+      @if (picked.sublabel) { <span class="muted">{{ picked.sublabel }}</span> }
+    </div>
+    <button type="button" class="link-btn" (click)="clear()" [disabled]="disabled">All tenants</button>
+  </div>
+} @else {
+  <div class="search-wrapper">
+    <input
+      type="text"
+      [(ngModel)]="query"
+      (focus)="showMatches = true"
+      (blur)="onBlur()"
+      [placeholder]="loading ? 'Loading tenants…' : placeholder"
+      [disabled]="disabled || loading"
+      autocomplete="off" />
+    @if (showMatches) {
+      <ul class="suggestions">
+        <li class="suggestion sentinel" (mousedown)="clear()">
+          <strong>All tenants</strong>
+          <span class="muted">platform-wide view</span>
+        </li>
+        @if (errorMessage) {
+          <li class="suggestion muted">{{ errorMessage }}</li>
+        } @else if (filteredTenants().length === 0) {
+          <li class="suggestion muted">No tenants match "{{ query }}".</li>
+        } @else {
+          @for (t of filteredTenants(); track t.id) {
+            <li class="suggestion" (mousedown)="pick(t)">
+              <strong>{{ t.name }}</strong>
+              <span class="muted">— {{ t.slug }}</span>
+            </li>
+          }
+        }
+      </ul>
+    }
+  </div>
+}

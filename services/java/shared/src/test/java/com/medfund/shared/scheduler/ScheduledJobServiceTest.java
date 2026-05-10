@@ -9,6 +9,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -23,11 +25,26 @@ class ScheduledJobServiceTest {
     @Test
     void seedDefaults_creates6Jobs() {
         when(jobRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        UUID tenantId = UUID.randomUUID();
 
-        StepVerifier.create(scheduledJobService.seedDefaults("system"))
+        StepVerifier.create(scheduledJobService.seedDefaults(tenantId, "system"))
             .verifyComplete();
 
         verify(jobRepository, times(6)).save(any(ScheduledJobConfig.class));
+    }
+
+    @Test
+    void seedDefaults_stampsTenantIdOnEveryConfig() {
+        UUID tenantId = UUID.randomUUID();
+        when(jobRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+
+        StepVerifier.create(scheduledJobService.seedDefaults(tenantId, "system"))
+            .verifyComplete();
+
+        var captor = org.mockito.ArgumentCaptor.forClass(ScheduledJobConfig.class);
+        verify(jobRepository, times(6)).save(captor.capture());
+        captor.getAllValues().forEach(c ->
+            assertThat(c.getTenantId()).isEqualTo(tenantId));
     }
 
     @Test

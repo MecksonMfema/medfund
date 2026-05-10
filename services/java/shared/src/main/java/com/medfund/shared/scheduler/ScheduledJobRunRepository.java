@@ -9,15 +9,19 @@ import java.util.UUID;
 
 public interface ScheduledJobRunRepository extends R2dbcRepository<ScheduledJobRun, UUID> {
 
-    @Query("SELECT * FROM scheduled_job_runs WHERE config_id = :configId " +
+    @Query("SELECT * FROM public.scheduled_job_runs WHERE config_id = :configId " +
            "ORDER BY started_at DESC LIMIT :limit")
     Flux<ScheduledJobRun> findRecent(UUID configId, int limit);
 
-    @Query("SELECT * FROM scheduled_job_runs WHERE status = :status " +
+    @Query("SELECT * FROM public.scheduled_job_runs WHERE config_id = :configId " +
+           "AND tenant_id = :tenantId ORDER BY started_at DESC LIMIT :limit")
+    Flux<ScheduledJobRun> findRecentForTenant(UUID configId, UUID tenantId, int limit);
+
+    @Query("SELECT * FROM public.scheduled_job_runs WHERE status = :status " +
            "ORDER BY started_at DESC LIMIT :limit")
     Flux<ScheduledJobRun> findByStatus(String status, int limit);
 
-    @Query("SELECT COUNT(*) FROM scheduled_job_runs " +
+    @Query("SELECT COUNT(*) FROM public.scheduled_job_runs " +
            "WHERE config_id = :configId AND status = 'FAILED' " +
            "AND started_at > NOW() - INTERVAL '24 hours'")
     Mono<Long> countRecentFailures(UUID configId);

@@ -5,15 +5,17 @@ import {
   AdminService,
   ScheduledJob,
   ScheduledJobRun,
+  Tenant,
 } from '../../../core/services/admin.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../shared/components/skeleton/skeleton.component';
 import { HumanizePipe } from '../../../shared/pipes/humanize.pipe';
+import { TenantPickerComponent } from '../../../shared/components/tenant-picker/tenant-picker.component';
 
 @Component({
   selector: 'app-jobs-monitor',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, HumanizePipe],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, HumanizePipe, TenantPickerComponent],
   templateUrl: './jobs-monitor.component.html',
   styleUrl: './jobs-monitor.component.scss',
 })
@@ -21,6 +23,13 @@ export class JobsMonitorComponent implements OnInit {
   jobs: ScheduledJob[] = [];
   selected: ScheduledJob | null = null;
   runs: ScheduledJobRun[] = [];
+
+  /** null = "All tenants" (cross-tenant view, the default for super admin). */
+  tenantFilter: string | null = null;
+
+  /** Cached id → name map so the Tenant column can render labels without
+      re-fetching the tenant list per row. */
+  private tenantsById: Map<string, string> = new Map();
 
   loadingJobs = false;
   loadingRuns = false;
@@ -31,12 +40,31 @@ export class JobsMonitorComponent implements OnInit {
   constructor(private admin: AdminService) {}
 
   ngOnInit(): void {
+    // Tenant labels for the Tenant column. Same call the picker makes —
+    // both cache server-side at the API layer, so this is cheap.
+    this.admin.getTenants({ size: 500 }).subscribe({
+      next: (page) => {
+        this.tenantsById = new Map(page.content.map((t: Tenant) => [t.id, t.name]));
+      },
+      error: () => { /* labels fall back to id substring on miss */ },
+    });
+    this.refreshJobs();
+  }
+
+  tenantLabel(tenantId: string | null): string {
+    if (!tenantId) return 'Platform';
+    return this.tenantsById.get(tenantId) || tenantId.substring(0, 8);
+  }
+
+  onTenantFilterChange(): void {
+    this.selected = null;
+    this.runs = [];
     this.refreshJobs();
   }
 
   refreshJobs(): void {
     this.loadingJobs = true;
-    this.admin.getScheduledJobs().subscribe({
+    this.admin.getScheduledJobs(this.tenantFilter).subscribe({
       next: (rows) => {
         this.jobs = rows;
         this.loadingJobs = false;
@@ -62,7 +90,7 @@ export class JobsMonitorComponent implements OnInit {
 
   refreshRuns(id: string): void {
     this.loadingRuns = true;
-    this.admin.listJobRuns(id, 50).subscribe({
+    this.admin.listJobRuns(id, 50, this.tenantFilter).subscribe({
       next: (rows) => { this.runs = rows; this.loadingRuns = false; },
       error: (err) => {
         this.errorMessage = err?.error?.detail || 'Failed to load runs';

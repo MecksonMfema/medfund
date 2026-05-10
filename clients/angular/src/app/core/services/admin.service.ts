@@ -157,6 +157,8 @@ export interface UserRoleAssignment {
 
 export interface ScheduledJob {
   id: string;
+  /** Owning tenant — null for platform-global jobs. */
+  tenantId: string | null;
   jobType: string;
   name: string;
   cronExpression: string;
@@ -171,6 +173,8 @@ export type ScheduledJobRunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED';
 export interface ScheduledJobRun {
   id: string;
   configId: string;
+  /** Tenant the run belongs to — null for platform-global jobs. */
+  tenantId: string | null;
   startedAt: string;
   endedAt: string | null;
   durationMs: number | null;
@@ -358,8 +362,13 @@ export class AdminService {
   }
 
   // Scheduled Jobs
-  getScheduledJobs(): Observable<ScheduledJob[]> {
-    return this.api.get<ScheduledJob[]>('/scheduled-jobs');
+  /**
+   * Lists scheduled job configs. Pass a tenantId to scope to that tenant
+   * (the platform-admin tenant filter). Without it, returns every config
+   * across every tenant — each row carries its tenantId.
+   */
+  getScheduledJobs(tenantId?: string | null): Observable<ScheduledJob[]> {
+    return this.api.get<ScheduledJob[]>('/scheduled-jobs', tenantId ? { tenantId } : {});
   }
 
   updateJob(id: string, data: any): Observable<ScheduledJob> {
@@ -374,9 +383,15 @@ export class AdminService {
     return this.api.post<ScheduledJob>(`/scheduled-jobs/${id}/disable`, {});
   }
 
-  /** Recent runs for a job — newest first. Used by the platform job monitor. */
-  listJobRuns(id: string, limit = 50): Observable<ScheduledJobRun[]> {
-    return this.api.get<ScheduledJobRun[]>(`/scheduled-jobs/${id}/runs`, { limit: String(limit) });
+  /**
+   * Recent runs for a job — newest first. Used by the platform job monitor.
+   * Pass tenantId to filter when "All tenants" is on (a single config might
+   * have runs across multiple tenants if it's been duplicated per-tenant).
+   */
+  listJobRuns(id: string, limit = 50, tenantId?: string | null): Observable<ScheduledJobRun[]> {
+    const params: Record<string, string> = { limit: String(limit) };
+    if (tenantId) params['tenantId'] = tenantId;
+    return this.api.get<ScheduledJobRun[]>(`/scheduled-jobs/${id}/runs`, params);
   }
 
   /** Manually trigger a job (records a run with trigger_kind='manual'). */

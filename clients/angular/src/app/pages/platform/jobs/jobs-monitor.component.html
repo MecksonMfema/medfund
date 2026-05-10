@@ -3,12 +3,20 @@
     <div>
       <h1>Scheduled jobs</h1>
       <p class="page-sub">
-        Platform-wide cron jobs across all services. Monitor recent runs,
-        re-trigger manually, or toggle a job off if it's misbehaving.
+        Platform-wide cron jobs across all services. Default view shows
+        every tenant's jobs interleaved; pick a tenant to scope down.
       </p>
     </div>
     <button class="btn" (click)="refreshJobs()" [disabled]="loadingJobs">Refresh</button>
   </header>
+
+  <div class="filter-bar">
+    <label class="filter-label">Tenant</label>
+    <app-tenant-picker
+      [(value)]="tenantFilter"
+      (valueChange)="onTenantFilterChange()">
+    </app-tenant-picker>
+  </div>
 
   @if (errorMessage) {
     <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
@@ -38,10 +46,11 @@
                 <code>{{ job.jobType }}</code> · {{ job.cronExpression }}
               </div>
               <div class="job-row-meta muted">
+                <span class="tenant-chip">{{ tenantLabel(job.tenantId) }}</span>
                 @if (job.lastExecutedAt) {
-                  Last: {{ job.lastExecutedAt | date:'short' }}
+                  · Last: {{ job.lastExecutedAt | date:'short' }}
                 } @else {
-                  Never run
+                  · Never run
                 }
               </div>
             </li>
@@ -94,6 +103,7 @@
           <table class="data-table">
             <thead>
               <tr>
+                <th>Tenant</th>
                 <th>Started</th>
                 <th>Duration</th>
                 <th>Status</th>
@@ -104,6 +114,7 @@
             <tbody>
               @for (run of runs; track run.id) {
                 <tr [class.failed]="run.status === 'FAILED'">
+                  <td><span class="tenant-chip">{{ tenantLabel(run.tenantId) }}</span></td>
                   <td>{{ run.startedAt | date:'short' }}</td>
                   <td class="muted">
                     @if (run.durationMs !== null) { {{ run.durationMs }} ms } @else { … }

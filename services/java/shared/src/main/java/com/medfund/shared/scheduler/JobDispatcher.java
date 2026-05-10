@@ -87,19 +87,29 @@ public class JobDispatcher {
         var runRecord = new ScheduledJobRun();
         runRecord.setId(UUID.randomUUID());
         runRecord.setConfigId(config.getId());
+        runRecord.setTenantId(config.getTenantId());
         runRecord.setStartedAt(Instant.now());
         runRecord.setStatus("RUNNING");
         runRecord.setTriggerKind(triggerKind);
         runRecord.setTriggeredBy(actorId);
 
+        // The executor's downstream queries hit tenant-scoped tables, so we
+        // must write the tenant id into Reactor context before invoking it.
+        // For platform-global jobs (config.tenantId == null) the context
+        // stays unset and the connection factory falls through to public.
+        UUID configTenantId = config.getTenantId();
+        String executorTenantArg = configTenantId != null ? configTenantId.toString() : "global";
+
         return runRepository.save(runRecord)
-            .flatMap(persisted -> Mono.deferContextual(ctx -> {
-                String tenantId = TenantContext.get(ctx);
+            .flatMap(persisted -> {
                 long startMs = System.currentTimeMillis();
-                return executor.execute(tenantId != null ? tenantId : "unknown", config.getSettings())
+                Mono<ScheduledJobRun> executed = executor.execute(executorTenantArg, config.getSettings())
                     .then(Mono.defer(() -> markSuccess(persisted, startMs)))
                     .onErrorResume(e -> markFailure(persisted, startMs, e));
-            }))
+                return configTenantId != null
+                    ? executed.contextWrite(ctx -> TenantContext.put(ctx, configTenantId.toString()))
+                    : executed;
+            })
             .flatMap(finalRun -> updateExecutionTime(config).thenReturn(finalRun));
     }
 

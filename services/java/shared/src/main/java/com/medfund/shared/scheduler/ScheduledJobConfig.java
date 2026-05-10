@@ -15,6 +15,14 @@ public class ScheduledJobConfig {
     @Id
     private UUID id;
 
+    /**
+     * Owning tenant. {@code null} for platform-global jobs (e.g. tenant
+     * onboarding sweeps). Stamped from the writer's {@link
+     * com.medfund.shared.tenant.TenantContext} at create time.
+     */
+    @Column("tenant_id")
+    private UUID tenantId;
+
     @Column("job_type")
     private String jobType;
 
@@ -51,6 +59,14 @@ public class ScheduledJobConfig {
 
     public void setId(UUID id) {
         this.id = id;
+    }
+
+    public UUID getTenantId() {
+        return tenantId;
+    }
+
+    public void setTenantId(UUID tenantId) {
+        this.tenantId = tenantId;
     }
 
     public String getJobType() {
