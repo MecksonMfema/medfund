@@ -33,12 +33,56 @@ public class FinanceEventPublisher {
         ));
     }
 
+    /** Per-payment commit (an item flips paid). Audit + downstream invoicing. */
+    public Mono<Void> publishPaymentCommitted(String paymentId, String providerId,
+                                                String amount, String currencyCode) {
+        return publishEvent("medfund.payments.committed", paymentId, Map.of(
+            "event", "PAYMENT_COMMITTED",
+            "paymentId", paymentId,
+            "providerId", providerId,
+            "amount", amount,
+            "currencyCode", currencyCode
+        ));
+    }
+
+    /** Draft run created — useful for downstream approval / notification flows. */
+    public Mono<Void> publishPaymentRunCreated(String runId, String runNumber,
+                                                 String currencyCode, String totalAmount, int count) {
+        return publishEvent("medfund.payments.run.created", runId, Map.of(
+            "event", "PAYMENT_RUN_CREATED",
+            "runId", runId,
+            "runNumber", runNumber,
+            "currencyCode", currencyCode,
+            "totalAmount", totalAmount,
+            "paymentCount", String.valueOf(count)
+        ));
+    }
+
+    /** Run cleared the approval gate — separate from execute so dual-approval workflows can audit. */
+    public Mono<Void> publishPaymentRunApproved(String runId, String runNumber, String approvedBy) {
+        return publishEvent("medfund.payments.run.approved", runId, Map.of(
+            "event", "PAYMENT_RUN_APPROVED",
+            "runId", runId,
+            "runNumber", runNumber,
+            "approvedBy", approvedBy != null ? approvedBy : ""
+        ));
+    }
+
     public Mono<Void> publishPaymentRunExecuted(String runId, String runNumber, int count) {
-        return publishEvent("medfund.finance.payment-run-executed", runId, Map.of(
+        return publishEvent("medfund.payments.run.executed", runId, Map.of(
             "event", "PAYMENT_RUN_EXECUTED",
             "runId", runId,
             "runNumber", runNumber,
             "paymentCount", String.valueOf(count)
+        ));
+    }
+
+    public Mono<Void> publishPaymentRunCancelled(String runId, String runNumber, String reason) {
+        return publishEvent("medfund.payments.run.cancelled", runId, Map.of(
+            "event", "PAYMENT_RUN_CANCELLED",
+            "runId", runId,
+            "runNumber", runNumber,
+            "reason", reason != null ? reason : ""
         ));
     }
 

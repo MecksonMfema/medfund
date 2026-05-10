@@ -67,7 +67,9 @@ class FinanceEventPublisherTest {
 
         StepVerifier.create(senderRecordCaptor.getValue())
                 .assertNext(record -> {
-                    assertThat(record.topic()).isEqualTo("medfund.finance.payment-run-executed");
+                    // Topic was renamed to medfund.payments.run.executed for the
+                    // claims-plan ↔ finance-plan event-namespace alignment.
+                    assertThat(record.topic()).isEqualTo("medfund.payments.run.executed");
                     assertThat(record.key()).isEqualTo("run-1");
                     assertThat(record.value()).contains("PAYMENT_RUN_EXECUTED");
                 })

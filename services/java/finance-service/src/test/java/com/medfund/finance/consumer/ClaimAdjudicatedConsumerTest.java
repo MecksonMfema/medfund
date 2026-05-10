@@ -54,11 +54,80 @@ class ClaimAdjudicatedConsumerTest {
     }
 
     @Test
-    void processEvent_rejectedClaim_skips() {
+    void processEvent_partialApprovedClaim_updatesProviderBalance() {
+        String providerId = UUID.randomUUID().toString();
         String json = """
-            {"event":"CLAIM_ADJUDICATED","decision":"REJECTED","providerId":"%s","approvedAmount":"0","currencyCode":"USD"}
-            """.formatted(UUID.randomUUID().toString());
+            {"event":"CLAIM_ADJUDICATED","decision":"PARTIAL_APPROVED","providerId":"%s","approvedAmount":"950.00","currencyCode":"USD"}
+            """.formatted(providerId);
+        when(providerBalanceService.updateBalance(any(), any(), any(), any(), any(), any()))
+            .thenReturn(Mono.just(new ProviderBalance()));
 
+        StepVerifier.create(consumer.processEvent(json))
+            .verifyComplete();
+
+        verify(providerBalanceService).updateBalance(
+            UUID.fromString(providerId),
+            "USD",
+            null,
+            new BigDecimal("950.00"),
+            null,
+            "system"
+        );
+    }
+
+    @Test
+    void processEvent_rejectedClaim_callsUpdateWithNullDeltas() {
+        // Slice 2 of the finance plan: rejection still routes through
+        // updateBalance so totalClaimed stays in sync if the event ever
+        // carries claimedAmount. With null deltas it's a no-op write but
+        // still touches the row's last_updated_at audit timestamp.
+        String providerId = UUID.randomUUID().toString();
+        String json = """
+            {"event":"CLAIM_ADJUDICATED","decision":"REJECTED","providerId":"%s","claimedAmount":"500.00","approvedAmount":"0","currencyCode":"USD"}
+            """.formatted(providerId);
+        when(providerBalanceService.updateBalance(any(), any(), any(), any(), any(), any()))
+            .thenReturn(Mono.just(new ProviderBalance()));
+
+        StepVerifier.create(consumer.processEvent(json))
+            .verifyComplete();
+
+        verify(providerBalanceService).updateBalance(
+            UUID.fromString(providerId),
+            "USD",
+            new BigDecimal("500.00"),
+            null,
+            null,
+            "system"
+        );
+    }
+
+    @Test
+    void processEvent_paidClaim_updatesPaidDelta() {
+        String providerId = UUID.randomUUID().toString();
+        String json = """
+            {"event":"CLAIM_ADJUDICATED","decision":"PAID","providerId":"%s","approvedAmount":"750.00","currencyCode":"USD"}
+            """.formatted(providerId);
+        when(providerBalanceService.updateBalance(any(), any(), any(), any(), any(), any()))
+            .thenReturn(Mono.just(new ProviderBalance()));
+
+        StepVerifier.create(consumer.processEvent(json))
+            .verifyComplete();
+
+        verify(providerBalanceService).updateBalance(
+            UUID.fromString(providerId),
+            "USD",
+            null,
+            null,
+            new BigDecimal("750.00"),
+            "system"
+        );
+    }
+
+    @Test
+    void processEvent_missingProviderContext_skips() {
+        String json = """
+            {"event":"CLAIM_ADJUDICATED","decision":"APPROVED","approvedAmount":"100","currencyCode":"USD"}
+            """;
         StepVerifier.create(consumer.processEvent(json))
             .verifyComplete();
 
