@@ -130,7 +130,18 @@ export const FINANCE_ROUTES: Routes = [
   cs('reports/withheld-tax',                 'Withheld Tax Report',              '/withheld-tax',                             'Tax-withheld claims and payments.',               ['finance:view_withheld_tax']),
 
   // ── Creditors ─────────────────────────────────────────────────────────────
-  cs('creditors/provider',           'Provider Creditors',           '/provider-creditors',     'Provider liabilities.',         ['billing:view_creditors']),
+  {
+    path: 'creditors/provider',
+    canActivate: [permissionGuard(['billing:view_creditors'])],
+    loadComponent: () => import('./creditors/creditors-list.component').then(m => m.CreditorsListComponent),
+    data: { title: 'Provider Creditors', sidebar: 'operational' },
+  },
+  {
+    path: 'creditors/provider/:id',
+    canActivate: [permissionGuard(['billing:view_creditors'])],
+    loadComponent: () => import('./creditors/provider-balance-detail.component').then(m => m.ProviderBalanceDetailComponent),
+    data: { title: 'Provider Balance', sidebar: 'operational' },
+  },
   cs('creditors/member',             'Member Creditors',             '/member-creditors',       'Member liabilities.',           ['billing:view_creditors']),
   cs('creditors/:id',                'Creditor Detail',              '/view-creditor',          'Single creditor.',              ['billing:view_creditors']),
 

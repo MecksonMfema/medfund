@@ -1,0 +1,124 @@
+.page { padding: 1.5rem; }
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.page-header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
+.page-sub { margin: 0; color: var(--color-text-muted, #6b7280); font-size: 0.9rem; }
+.page-sub code { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 0.85rem; }
+
+.link-back {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted, #6b7280);
+  font-size: 0.85rem;
+  padding: 0;
+  margin-bottom: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.link-back:hover { color: var(--color-primary, #0077b6); }
+
+.banner {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  margin-bottom: 1rem;
+}
+.banner-error { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
+
+.tab-body {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border-light, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.section-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.empty-state {
+  color: var(--color-text-muted, #6b7280);
+  font-style: italic;
+  padding: 2rem 0;
+  text-align: center;
+}
+
+.header-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+.header-grid dt { color: var(--color-text-muted, #6b7280); font-size: 0.85rem; }
+.header-grid dd { margin: 0; font-size: 0.95rem; }
+.header-grid dd.strong { font-weight: 700; color: var(--color-text-primary, #1b2a4a); }
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--color-border-light, #e5e7eb);
+  margin-bottom: 1rem;
+}
+.tab {
+  background: none;
+  border: none;
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  color: var(--color-text-secondary, #4b5563);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font-family: inherit;
+}
+.tab:hover { color: var(--color-text-primary, #1b2a4a); }
+.tab.active {
+  color: var(--color-primary, #0077b6);
+  border-bottom-color: var(--color-primary, #0077b6);
+  font-weight: 600;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-light, #e5e7eb);
+  font-size: 0.875rem;
+}
+
+.right { text-align: right; }
+.muted { color: var(--color-text-muted, #6b7280); }
+
+.status-badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+}
+.status-pending   { background: var(--color-bg, #f8fdff); color: var(--color-text-secondary, #4b5563); border: 1px solid var(--color-border, #d1d5db); }
+.status-approved  { background: var(--color-primary-light, rgba(0,119,182,0.1)); color: var(--color-primary, #0077b6); }
+.status-applied,
+.status-paid      { background: var(--success-bg, #d1fae5); color: var(--success-fg, #065f46); }
+.status-cancelled,
+.status-failed    { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
