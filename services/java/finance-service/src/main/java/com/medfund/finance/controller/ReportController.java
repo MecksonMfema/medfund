@@ -60,10 +60,10 @@ public class ReportController {
             .map(payments -> {
                 long totalClaims = payments.size();
                 long approvedClaims = payments.stream()
-                    .filter(p -> "completed".equals(p.getStatus()) || "paid".equals(p.getStatus()))
+                    .filter(p -> "paid".equals(p.getStatus()))
                     .count();
                 long rejectedClaims = payments.stream()
-                    .filter(p -> "rejected".equals(p.getStatus()))
+                    .filter(p -> "failed".equals(p.getStatus()) || "cancelled".equals(p.getStatus()))
                     .count();
                 long pendingClaims = payments.stream()
                     .filter(p -> "pending".equals(p.getStatus()))
@@ -73,7 +73,7 @@ public class ReportController {
                     .map(p -> p.getAmount() != null ? p.getAmount() : BigDecimal.ZERO)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
                 BigDecimal approvedAmount = payments.stream()
-                    .filter(p -> "completed".equals(p.getStatus()) || "paid".equals(p.getStatus()))
+                    .filter(p -> "paid".equals(p.getStatus()))
                     .map(p -> p.getAmount() != null ? p.getAmount() : BigDecimal.ZERO)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
@@ -165,9 +165,9 @@ public class ReportController {
                     stats.put("totalAmount", ((BigDecimal) stats.get("totalAmount"))
                         .add(p.getAmount() != null ? p.getAmount() : BigDecimal.ZERO));
 
-                    if ("completed".equals(p.getStatus()) || "paid".equals(p.getStatus())) {
+                    if ("paid".equals(p.getStatus())) {
                         stats.put("approvedCount", (long) stats.get("approvedCount") + 1);
-                    } else if ("rejected".equals(p.getStatus())) {
+                    } else if ("failed".equals(p.getStatus()) || "cancelled".equals(p.getStatus())) {
                         stats.put("rejectedCount", (long) stats.get("rejectedCount") + 1);
                     }
                 });
@@ -212,14 +212,14 @@ public class ReportController {
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
                 BigDecimal paidAmount = payments.stream()
-                    .filter(p -> "completed".equals(p.getStatus()) || "paid".equals(p.getStatus()))
+                    .filter(p -> "paid".equals(p.getStatus()))
                     .map(p -> p.getAmount() != null ? p.getAmount() : BigDecimal.ZERO)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
                 BigDecimal outstandingAmount = totalAmount.subtract(paidAmount);
 
                 long paidCount = payments.stream()
-                    .filter(p -> "completed".equals(p.getStatus()) || "paid".equals(p.getStatus()))
+                    .filter(p -> "paid".equals(p.getStatus()))
                     .count();
 
                 Map<String, Object> summary = new HashMap<>();
