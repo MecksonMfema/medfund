@@ -47,7 +47,7 @@
               <td class="right">
                 {{ c.approvedAmount ? (c.approvedAmount | currencyFormat:c.currencyCode) : '—' }}
               </td>
-              <td><span class="status-badge status-{{ c.status?.toLowerCase() }}">{{ c.status | humanize }}</span></td>
+              <td><span class="status-badge status-{{ c.status.toLowerCase() }}">{{ c.status | humanize }}</span></td>
             </tr>
           }
         </tbody>

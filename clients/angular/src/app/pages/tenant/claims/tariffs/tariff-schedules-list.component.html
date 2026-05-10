@@ -38,7 +38,7 @@
             <td>{{ row.effectiveDate }}</td>
             <td class="muted">{{ row.endDate || '—' }}</td>
             <td>
-              <span class="status-badge status-{{ row.status?.toLowerCase() }}">{{ row.status | humanize }}</span>
+              <span class="status-badge status-{{ row.status.toLowerCase() }}">{{ row.status | humanize }}</span>
             </td>
             <td class="actions">
               <button class="link-btn" (click)="$event.stopPropagation(); openCodes(row)">View codes</button>

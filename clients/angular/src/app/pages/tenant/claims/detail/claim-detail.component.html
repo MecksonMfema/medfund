@@ -4,7 +4,7 @@
       @if (claim) {
         <h1>{{ claim.claimNumber }}</h1>
         <p class="page-sub">
-          <span class="status-badge status-{{ claim.status?.toLowerCase() }}">{{ claim.status | humanize }}</span>
+          <span class="status-badge status-{{ claim.status.toLowerCase() }}">{{ claim.status | humanize }}</span>
           · service date {{ claim.serviceDate }} · submitted {{ claim.createdAt | date:'mediumDate' }}
         </p>
       } @else {

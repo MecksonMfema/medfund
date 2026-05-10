@@ -1,7 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, of, switchMap } from 'rxjs';
 import { GroupsService, Group } from '../../../../core/services/groups.service';
 import { MembersService, Member } from '../../../../core/services/members.service';
@@ -27,7 +26,7 @@ interface TargetOption {
   selector: 'app-statements',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, RouterLink,
+    CommonModule, FormsModule,
     IconComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe,
   ],
   templateUrl: './statements.component.html',

@@ -1,18 +1,16 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
 import {
   ClaimsConfigService,
   TariffModifier,
 } from '../../../../core/services/claims-config.service';
-import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
 
 @Component({
   selector: 'app-modifiers-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, IconComponent, SkeletonComponent, HumanizePipe],
+  imports: [CommonModule, SkeletonComponent, HumanizePipe],
   templateUrl: './modifiers-list.component.html',
   styleUrl: './modifiers-list.component.scss',
 })

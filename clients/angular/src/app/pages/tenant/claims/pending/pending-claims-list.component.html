@@ -67,7 +67,7 @@
               {{ row.approvedAmount ? (row.approvedAmount | currencyFormat:row.currencyCode) : '—' }}
             </td>
             <td>
-              <span class="status-badge status-{{ row.status?.toLowerCase() }}">{{ row.status | humanize }}</span>
+              <span class="status-badge status-{{ row.status.toLowerCase() }}">{{ row.status | humanize }}</span>
             </td>
             <td class="muted">{{ row.createdAt | date:'mediumDate' }}</td>
           </tr>

@@ -31,7 +31,7 @@
       <div class="found-card">
         <dl class="kv">
           <dt>Claim #</dt><dd><strong>{{ found.claimNumber }}</strong></dd>
-          <dt>Status</dt><dd><span class="status-badge status-{{ found.status?.toLowerCase() }}">{{ found.status | humanize }}</span></dd>
+          <dt>Status</dt><dd><span class="status-badge status-{{ found.status.toLowerCase() }}">{{ found.status | humanize }}</span></dd>
           @if (found.verificationCode) {
             <dt>Active code</dt><dd><code class="code">{{ found.verificationCode }}</code></dd>
           }
