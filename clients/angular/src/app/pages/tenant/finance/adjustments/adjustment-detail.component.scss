@@ -76,6 +76,12 @@
 .header-grid dd { margin: 0; font-size: 0.95rem; }
 .header-grid code { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 0.85rem; }
 
+.btn-danger {
+  background: var(--danger-bg, #fee2e2);
+  color: var(--danger-fg, #991b1b);
+  border-color: var(--danger-fg, #991b1b);
+}
+
 .action-bar {
   display: flex;
   gap: 0.5rem;

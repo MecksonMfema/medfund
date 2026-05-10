@@ -83,6 +83,23 @@ export class AdjustmentDetailComponent implements OnInit {
     });
   }
 
+  cancelAdjustment(): void {
+    if (!this.adjustment) return;
+    if (!confirm(`Cancel adjustment ${this.adjustment.adjustmentNumber}?`)) return;
+    this.busy = true;
+    this.finance.cancelAdjustment(this.adjustment.id).subscribe({
+      next: (a) => {
+        this.adjustment = a;
+        this.successMessage = `Adjustment ${a.adjustmentNumber} cancelled.`;
+        this.busy = false;
+      },
+      error: (err) => {
+        this.errorMessage = err?.error?.detail || 'Failed to cancel';
+        this.busy = false;
+      },
+    });
+  }
+
   back(): void {
     this.router.navigate(['/tenant/finance/adjustments']);
   }

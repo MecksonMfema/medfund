@@ -125,6 +125,30 @@ public class AdjustmentService {
             });
     }
 
+    @Transactional
+    public Mono<Adjustment> cancel(UUID id, String actorId) {
+        return adjustmentRepository.findById(id)
+            .switchIfEmpty(Mono.error(new AdjustmentNotFoundException(id)))
+            .flatMap(adjustment -> {
+                String previousStatus = adjustment.getStatus();
+                if ("applied".equals(previousStatus)) {
+                    return Mono.error(new IllegalStateException("Cannot cancel an applied adjustment"));
+                }
+                if ("cancelled".equals(previousStatus)) return Mono.just(adjustment);
+                adjustment.setStatus("cancelled");
+                adjustment.setUpdatedAt(Instant.now());
+
+                return adjustmentRepository.save(adjustment)
+                    .flatMap(saved -> Mono.deferContextual(ctx -> {
+                        String tenantId = TenantContext.get(ctx);
+                        return publishAudit(tenantId, "Adjustment", saved.getId().toString(), "UPDATE", actorId,
+                                Map.of("status", previousStatus),
+                                Map.of("status", saved.getStatus()))
+                            .thenReturn(saved);
+                    }));
+            });
+    }
+
     // ---- Private helpers ----
 
     private Mono<String> generateAdjustmentNumber() {

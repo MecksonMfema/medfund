@@ -56,6 +56,11 @@
           Apply
         </button>
       }
+      @if (adjustment.status === 'pending' || adjustment.status === 'approved') {
+        <button class="btn btn-danger" (click)="cancelAdjustment()" [disabled]="busy">
+          Cancel
+        </button>
+      }
       @if (adjustment.status === 'applied' || adjustment.status === 'cancelled') {
         <span class="muted">No actions available — adjustment is {{ adjustment.status }}.</span>
       }

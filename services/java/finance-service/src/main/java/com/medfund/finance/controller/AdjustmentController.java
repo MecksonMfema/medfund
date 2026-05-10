@@ -82,4 +82,16 @@ public class AdjustmentController {
     public Mono<AdjustmentResponse> apply(@PathVariable UUID id, Principal principal) {
         return adjustmentService.apply(id, principal.getName()).map(AdjustmentResponse::from);
     }
+
+    @PostMapping("/{id}/cancel")
+    @Operation(summary = "Cancel a pending or approved adjustment",
+        description = "Applied adjustments cannot be cancelled — post a reversing adjustment instead.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Adjustment cancelled"),
+        @ApiResponse(responseCode = "400", description = "Cannot cancel an applied adjustment"),
+        @ApiResponse(responseCode = "404", description = "Adjustment not found")
+    })
+    public Mono<AdjustmentResponse> cancel(@PathVariable UUID id, Principal principal) {
+        return adjustmentService.cancel(id, principal.getName()).map(AdjustmentResponse::from);
+    }
 }
