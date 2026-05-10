@@ -103,6 +103,11 @@ public final class Permissions {
     public static final String ADMIN_MANAGE_SETTINGS             = "admin:manage_settings";
     public static final String ADMIN_MANAGE_RULES                = "admin:manage_rules";
 
+    // Platform-level (super-admin) permissions. Tenant admins should never
+    // hold these; they gate the cross-tenant operational tooling.
+    public static final String PLATFORM_VIEW_JOBS                = "platform:view_jobs";
+    public static final String PLATFORM_MANAGE_JOBS              = "platform:manage_jobs";
+
     /** Every key the platform recognises. Validation gate for tenant-admin role edits. */
     public static final Set<String> ALL = Set.of(
             CLAIMS_VIEW, CLAIMS_CREATE, CLAIMS_ASSESS, CLAIMS_ADJUDICATE, CLAIMS_REJECT,
@@ -131,6 +136,8 @@ public final class Permissions {
             PROVIDERS_VIEW, PROVIDERS_CREATE, PROVIDERS_UPDATE, PROVIDERS_MANAGE_CONTRACTS,
 
             ADMIN_MANAGE_ROLES, ADMIN_MANAGE_USERS, ADMIN_VIEW_AUDIT,
-            ADMIN_MANAGE_SETTINGS, ADMIN_MANAGE_RULES
+            ADMIN_MANAGE_SETTINGS, ADMIN_MANAGE_RULES,
+
+            PLATFORM_VIEW_JOBS, PLATFORM_MANAGE_JOBS
     );
 }

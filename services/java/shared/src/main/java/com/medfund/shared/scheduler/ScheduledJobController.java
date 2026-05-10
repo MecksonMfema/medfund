@@ -18,9 +18,15 @@ import java.util.UUID;
 public class ScheduledJobController {
 
     private final ScheduledJobService scheduledJobService;
+    private final ScheduledJobRunRepository runRepository;
+    private final JobDispatcher jobDispatcher;
 
-    public ScheduledJobController(ScheduledJobService scheduledJobService) {
+    public ScheduledJobController(ScheduledJobService scheduledJobService,
+                                   ScheduledJobRunRepository runRepository,
+                                   JobDispatcher jobDispatcher) {
         this.scheduledJobService = scheduledJobService;
+        this.runRepository = runRepository;
+        this.jobDispatcher = jobDispatcher;
     }
 
     @GetMapping
@@ -82,6 +88,31 @@ public class ScheduledJobController {
     @Operation(summary = "Seed default job configs for the current tenant")
     public Mono<Void> seedDefaults(Principal principal) {
         return scheduledJobService.seedDefaults(principal.getName());
+    }
+
+    @GetMapping("/{id}/runs")
+    @Operation(summary = "List recent runs for a scheduled job",
+        description = "Returns the latest job executions ordered newest-first. Used by the platform-admin job monitor to surface success/failure history and per-run errors.")
+    public Flux<ScheduledJobRun> listRuns(@PathVariable UUID id,
+                                           @RequestParam(required = false, defaultValue = "50") int limit) {
+        int capped = Math.max(1, Math.min(limit, 200));
+        return runRepository.findRecent(id, capped);
+    }
+
+    @PostMapping("/{id}/run-now")
+    @Operation(summary = "Manually trigger a scheduled job",
+        description = "Bypasses the cron schedule and runs the job immediately. Records a run row with trigger_kind='manual'. Errors if no executor in this service handles the job's type.")
+    public Mono<ScheduledJobRun> runNow(@PathVariable UUID id, Principal principal) {
+        UUID actorId = parseActor(principal);
+        return scheduledJobService.findById(id)
+            .switchIfEmpty(Mono.error(new IllegalArgumentException("Scheduled job not found: " + id)))
+            .flatMap(config -> jobDispatcher.runNow(config, actorId));
+    }
+
+    private static UUID parseActor(Principal principal) {
+        if (principal == null || principal.getName() == null) return null;
+        try { return UUID.fromString(principal.getName()); }
+        catch (IllegalArgumentException e) { return null; }
     }
 
     public record JobTypeInfo(String type, String displayName, String description) {}

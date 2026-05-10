@@ -96,6 +96,10 @@ public final class PermissionCatalogue {
                     new Permission(Permissions.ADMIN_VIEW_AUDIT,                  "View audit log",                    "Read tenant audit events."),
                     new Permission(Permissions.ADMIN_MANAGE_SETTINGS,             "Manage tenant settings",            "Edit branding, insurance lines, email templates, etc."),
                     new Permission(Permissions.ADMIN_MANAGE_RULES,                "Manage rules engine",               "Author and deploy tenant-specific business rules.")
+            )),
+            new Domain("platform", "Platform administration", List.of(
+                    new Permission(Permissions.PLATFORM_VIEW_JOBS,                "View scheduled jobs",               "View scheduled job configs and recent run history. Platform admins only."),
+                    new Permission(Permissions.PLATFORM_MANAGE_JOBS,              "Manage scheduled jobs",             "Manually trigger jobs and edit schedules. Platform admins only.")
             ))
     );
 }

@@ -166,6 +166,21 @@ export interface ScheduledJob {
   nextExecutionAt: string | null;
 }
 
+export type ScheduledJobRunStatus = 'RUNNING' | 'SUCCESS' | 'FAILED';
+
+export interface ScheduledJobRun {
+  id: string;
+  configId: string;
+  startedAt: string;
+  endedAt: string | null;
+  durationMs: number | null;
+  status: ScheduledJobRunStatus;
+  triggerKind: 'schedule' | 'manual';
+  errorMessage: string | null;
+  triggeredBy: string | null;
+  createdAt: string;
+}
+
 export interface AuditEvent {
   events: any[];
   total: number;
@@ -357,6 +372,16 @@ export class AdminService {
 
   disableJob(id: string): Observable<ScheduledJob> {
     return this.api.post<ScheduledJob>(`/scheduled-jobs/${id}/disable`, {});
+  }
+
+  /** Recent runs for a job — newest first. Used by the platform job monitor. */
+  listJobRuns(id: string, limit = 50): Observable<ScheduledJobRun[]> {
+    return this.api.get<ScheduledJobRun[]>(`/scheduled-jobs/${id}/runs`, { limit: String(limit) });
+  }
+
+  /** Manually trigger a job (records a run with trigger_kind='manual'). */
+  runJobNow(id: string): Observable<ScheduledJobRun> {
+    return this.api.post<ScheduledJobRun>(`/scheduled-jobs/${id}/run-now`, {});
   }
 
   // Audit

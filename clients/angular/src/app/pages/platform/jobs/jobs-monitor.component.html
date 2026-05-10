@@ -1,0 +1,126 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Scheduled jobs</h1>
+      <p class="page-sub">
+        Platform-wide cron jobs across all services. Monitor recent runs,
+        re-trigger manually, or toggle a job off if it's misbehaving.
+      </p>
+    </div>
+    <button class="btn" (click)="refreshJobs()" [disabled]="loadingJobs">Refresh</button>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+  }
+
+  <div class="layout">
+    <aside class="job-list">
+      <h2 class="section-title">Configurations ({{ jobs.length }})</h2>
+      @if (loadingJobs) {
+        <app-skeleton></app-skeleton>
+      } @else if (jobs.length === 0) {
+        <p class="empty-state">No scheduled jobs registered.</p>
+      } @else {
+        <ul>
+          @for (job of jobs; track job.id) {
+            <li (click)="select(job)" [class.active]="selected?.id === job.id" class="job-row">
+              <div class="job-row-head">
+                <strong>{{ job.name }}</strong>
+                <span class="badge" [class.ok]="job.isEnabled" [class.muted]="!job.isEnabled">
+                  {{ job.isEnabled ? 'Enabled' : 'Disabled' }}
+                </span>
+              </div>
+              <div class="job-row-meta">
+                <code>{{ job.jobType }}</code> · {{ job.cronExpression }}
+              </div>
+              <div class="job-row-meta muted">
+                @if (job.lastExecutedAt) {
+                  Last: {{ job.lastExecutedAt | date:'short' }}
+                } @else {
+                  Never run
+                }
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </aside>
+
+    <section class="job-detail">
+      @if (selected) {
+        <div class="detail-header">
+          <div>
+            <h2>{{ selected.name }}</h2>
+            <p class="muted"><code>{{ selected.jobType }}</code> · cron <code>{{ selected.cronExpression }}</code></p>
+          </div>
+          <div class="detail-actions">
+            <button class="btn"
+                    (click)="toggleEnabled(selected, $event)"
+                    [disabled]="busyJobId === selected.id">
+              {{ selected.isEnabled ? 'Disable' : 'Enable' }}
+            </button>
+            <button class="btn btn-primary"
+                    (click)="runNow(selected)"
+                    [disabled]="busyJobId === selected.id || !selected.isEnabled">
+              <app-icon name="play-circle" [size]="14"></app-icon>
+              Run now
+            </button>
+          </div>
+        </div>
+
+        <dl class="header-grid">
+          <dt>Last execution</dt><dd>{{ selected.lastExecutedAt ? (selected.lastExecutedAt | date:'medium') : '—' }}</dd>
+          <dt>Next execution</dt><dd>{{ selected.nextExecutionAt ? (selected.nextExecutionAt | date:'medium') : '—' }}</dd>
+          <dt>Recent failures (24h)</dt>
+          <dd>
+            @if (failureCount() > 0) {
+              <span class="badge danger">{{ failureCount() }} failed</span>
+            } @else {
+              <span class="muted">None</span>
+            }
+          </dd>
+        </dl>
+
+        <h3 class="section-title">Recent runs ({{ runs.length }})</h3>
+        @if (loadingRuns) {
+          <app-skeleton></app-skeleton>
+        } @else if (runs.length === 0) {
+          <p class="empty-state">No runs recorded yet — wait for the next 5-minute dispatch tick or hit Run now.</p>
+        } @else {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Started</th>
+                <th>Duration</th>
+                <th>Status</th>
+                <th>Trigger</th>
+                <th>Error</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (run of runs; track run.id) {
+                <tr [class.failed]="run.status === 'FAILED'">
+                  <td>{{ run.startedAt | date:'short' }}</td>
+                  <td class="muted">
+                    @if (run.durationMs !== null) { {{ run.durationMs }} ms } @else { … }
+                  </td>
+                  <td>
+                    <span class="status-badge status-{{ run.status.toLowerCase() }}">{{ run.status | humanize }}</span>
+                  </td>
+                  <td class="muted">{{ run.triggerKind }}</td>
+                  <td class="error-cell">{{ run.errorMessage || '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      } @else if (!loadingJobs) {
+        <p class="empty-state">Pick a job from the list to see its run history.</p>
+      }
+    </section>
+  </div>
+</div>

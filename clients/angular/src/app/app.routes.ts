@@ -46,6 +46,11 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/providers/providers.component').then(m => m.ProvidersComponent),
         data: { title: 'Providers' },
       },
+      {
+        path: 'jobs',
+        loadComponent: () => import('./pages/platform/jobs/jobs-monitor.component').then(m => m.JobsMonitorComponent),
+        data: { title: 'Scheduled Jobs' },
+      },
     ],
   },
   // Tenant IT-admin routes — uses dedicated TenantLayoutComponent (dark teal sidebar).

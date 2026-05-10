@@ -19,6 +19,12 @@ const PLATFORM_ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
+    title: 'OPERATIONS',
+    items: [
+      { label: 'Scheduled Jobs', route: '/platform/jobs', icon: 'play-circle', roles: ['super_admin'] },
+    ],
+  },
+  {
     title: 'CONFIGURATION',
     items: [
       { label: 'Settings',  route: '/platform/settings',  icon: 'settings',   roles: ['super_admin'] },

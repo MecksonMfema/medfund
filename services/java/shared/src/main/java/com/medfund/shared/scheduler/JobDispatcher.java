@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -20,12 +21,17 @@ import java.util.stream.Collectors;
 public class JobDispatcher {
 
     private static final Logger log = LoggerFactory.getLogger(JobDispatcher.class);
+    private static final int MAX_ERROR_LENGTH = 4000;
 
     private final ScheduledJobRepository jobRepository;
+    private final ScheduledJobRunRepository runRepository;
     private final Map<JobType, JobExecutor> executors;
 
-    public JobDispatcher(ScheduledJobRepository jobRepository, List<JobExecutor> executorList) {
+    public JobDispatcher(ScheduledJobRepository jobRepository,
+                         ScheduledJobRunRepository runRepository,
+                         List<JobExecutor> executorList) {
         this.jobRepository = jobRepository;
+        this.runRepository = runRepository;
         this.executors = executorList.stream()
             .collect(Collectors.toMap(JobExecutor::getJobType, Function.identity()));
         log.info("JobDispatcher initialized with {} executors: {}", executors.size(),
@@ -41,42 +47,78 @@ public class JobDispatcher {
     public void dispatch() {
         try {
             jobRepository.findDueJobs(Instant.now())
-                .flatMap(config -> {
-                    JobType jobType;
-                    try {
-                        jobType = JobType.valueOf(config.getJobType());
-                    } catch (IllegalArgumentException e) {
-                        log.debug("Unknown job type: {}, skipping", config.getJobType());
-                        return Mono.empty();
-                    }
-
-                    JobExecutor executor = executors.get(jobType);
-                    if (executor == null) {
-                        // This service doesn't handle this job type — skip silently
-                        return Mono.empty();
-                    }
-
-                    log.info("Executing job: type={}, name={}, configId={}",
-                        config.getJobType(), config.getName(), config.getId());
-
-                    return Mono.deferContextual(ctx -> {
-                        String tenantId = TenantContext.get(ctx);
-                        return executor.execute(tenantId != null ? tenantId : "unknown", config.getSettings())
-                            .then(updateExecutionTime(config))
-                            .doOnSuccess(v -> log.info("Job completed: type={}, configId={}",
-                                config.getJobType(), config.getId()))
-                            .doOnError(e -> log.error("Job failed: type={}, configId={}, error={}",
-                                config.getJobType(), config.getId(), e.getMessage()));
-                    }).onErrorResume(e -> {
-                        log.error("Job execution error for {}: {}", config.getJobType(), e.getMessage());
-                        return updateExecutionTime(config); // still advance to prevent retry storm
-                    });
-                })
+                .flatMap(config -> runIfExecutable(config, "schedule", null))
                 .then()
                 .block();
         } catch (Exception e) {
             log.error("JobDispatcher cycle failed: {}", e.getMessage(), e);
         }
+    }
+
+    /**
+     * Manual execution path used by the platform-admin job monitor. Skips the
+     * "due now" check and writes a run row with trigger_kind = 'manual'.
+     */
+    public Mono<ScheduledJobRun> runNow(ScheduledJobConfig config, UUID actorId) {
+        return runIfExecutable(config, "manual", actorId)
+            .switchIfEmpty(Mono.error(new IllegalStateException(
+                "No executor in this service handles job type " + config.getJobType())));
+    }
+
+    private Mono<ScheduledJobRun> runIfExecutable(ScheduledJobConfig config, String triggerKind, UUID actorId) {
+        JobType jobType;
+        try {
+            jobType = JobType.valueOf(config.getJobType());
+        } catch (IllegalArgumentException e) {
+            log.debug("Unknown job type: {}, skipping", config.getJobType());
+            return Mono.empty();
+        }
+
+        JobExecutor executor = executors.get(jobType);
+        if (executor == null) {
+            // This service doesn't handle this job type — skip silently for
+            // scheduled ticks; the manual caller maps the empty into an error.
+            return Mono.empty();
+        }
+
+        log.info("Executing job: type={}, name={}, configId={}, trigger={}",
+            config.getJobType(), config.getName(), config.getId(), triggerKind);
+
+        var runRecord = new ScheduledJobRun();
+        runRecord.setId(UUID.randomUUID());
+        runRecord.setConfigId(config.getId());
+        runRecord.setStartedAt(Instant.now());
+        runRecord.setStatus("RUNNING");
+        runRecord.setTriggerKind(triggerKind);
+        runRecord.setTriggeredBy(actorId);
+
+        return runRepository.save(runRecord)
+            .flatMap(persisted -> Mono.deferContextual(ctx -> {
+                String tenantId = TenantContext.get(ctx);
+                long startMs = System.currentTimeMillis();
+                return executor.execute(tenantId != null ? tenantId : "unknown", config.getSettings())
+                    .then(Mono.defer(() -> markSuccess(persisted, startMs)))
+                    .onErrorResume(e -> markFailure(persisted, startMs, e));
+            }))
+            .flatMap(finalRun -> updateExecutionTime(config).thenReturn(finalRun));
+    }
+
+    private Mono<ScheduledJobRun> markSuccess(ScheduledJobRun run, long startMs) {
+        run.setStatus("SUCCESS");
+        run.setEndedAt(Instant.now());
+        run.setDurationMs(System.currentTimeMillis() - startMs);
+        log.info("Job completed: configId={} durationMs={}", run.getConfigId(), run.getDurationMs());
+        return runRepository.save(run);
+    }
+
+    private Mono<ScheduledJobRun> markFailure(ScheduledJobRun run, long startMs, Throwable e) {
+        run.setStatus("FAILED");
+        run.setEndedAt(Instant.now());
+        run.setDurationMs(System.currentTimeMillis() - startMs);
+        String message = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+        run.setErrorMessage(message.length() > MAX_ERROR_LENGTH ? message.substring(0, MAX_ERROR_LENGTH) : message);
+        log.error("Job failed: configId={} error={}", run.getConfigId(), message);
+        return runRepository.save(run);
     }
 
     private Mono<Void> updateExecutionTime(ScheduledJobConfig config) {

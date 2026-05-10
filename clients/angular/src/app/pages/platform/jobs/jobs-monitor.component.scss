@@ -1,0 +1,154 @@
+.page { padding: 1.5rem; }
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+.page-header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
+.page-sub { margin: 0; color: var(--color-text-muted, #6b7280); font-size: 0.9rem; max-width: 70ch; }
+
+.banner {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  margin-bottom: 1rem;
+}
+.banner-error   { background: var(--danger-bg,  #fee2e2); color: var(--danger-fg,  #991b1b); }
+.banner-success { background: var(--success-bg, #d1fae5); color: var(--success-fg, #065f46); }
+
+.layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 1rem;
+}
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+.job-list,
+.job-detail {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border-light, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  padding: 1rem;
+}
+
+.section-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.job-list ul { list-style: none; margin: 0; padding: 0; }
+.job-row {
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  margin-bottom: 0.25rem;
+  border: 1px solid transparent;
+}
+.job-row:hover { background: var(--color-bg, #f8fdff); }
+.job-row.active {
+  border-color: var(--color-primary, #0077b6);
+  background: var(--color-primary-light, rgba(0,119,182,0.06));
+}
+.job-row-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+.job-row-meta {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary, #4b5563);
+  margin-top: 0.2rem;
+}
+.job-row-meta.muted { color: var(--color-text-muted, #6b7280); }
+.job-row-meta code {
+  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-size: 0.75rem;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.detail-header h2 { margin: 0 0 0.25rem; font-size: 1.2rem; }
+.detail-header .muted { color: var(--color-text-muted, #6b7280); font-size: 0.85rem; margin: 0; }
+.detail-header code {
+  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-size: 0.8rem;
+}
+
+.detail-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.header-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.4rem 1rem;
+  margin: 0 0 1rem;
+}
+.header-grid dt { color: var(--color-text-muted, #6b7280); font-size: 0.85rem; }
+.header-grid dd { margin: 0; font-size: 0.95rem; }
+
+.empty-state {
+  color: var(--color-text-muted, #6b7280);
+  font-style: italic;
+  padding: 1rem 0;
+  text-align: center;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.data-table th,
+.data-table td {
+  padding: 0.45rem 0.6rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-light, #e5e7eb);
+  font-size: 0.85rem;
+  vertical-align: top;
+}
+.data-table tr.failed { background: rgba(254, 226, 226, 0.4); }
+
+.error-cell {
+  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-size: 0.75rem;
+  max-width: 320px;
+  overflow-wrap: anywhere;
+  color: var(--danger-fg, #991b1b);
+}
+
+.muted { color: var(--color-text-muted, #6b7280); }
+
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: 9999px;
+}
+.badge.ok    { background: var(--success-bg, #d1fae5); color: var(--success-fg, #065f46); }
+.badge.muted { background: var(--color-bg, #f8fdff); color: var(--color-text-muted, #6b7280); border: 1px solid var(--color-border, #d1d5db); }
+.badge.danger{ background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
+
+.status-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: 9999px;
+}
+.status-running { background: var(--warning-bg, #fef3c7); color: var(--warning-fg, #92400e); }
+.status-success { background: var(--success-bg, #d1fae5); color: var(--success-fg, #065f46); }
+.status-failed  { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }

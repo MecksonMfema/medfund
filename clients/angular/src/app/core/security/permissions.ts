@@ -44,7 +44,9 @@ export type PermissionKey =
   | 'providers:manage_contracts'
   // Tenant administration
   | 'admin:manage_roles' | 'admin:manage_users' | 'admin:view_audit'
-  | 'admin:manage_settings' | 'admin:manage_rules';
+  | 'admin:manage_settings' | 'admin:manage_rules'
+  // Platform administration (super-admin only)
+  | 'platform:view_jobs' | 'platform:manage_jobs';
 
 export interface PermissionDescriptor {
   key: PermissionKey;
@@ -53,7 +55,7 @@ export interface PermissionDescriptor {
 }
 
 export interface PermissionDomain {
-  id: 'claims' | 'billing' | 'finance' | 'members' | 'providers' | 'admin';
+  id: 'claims' | 'billing' | 'finance' | 'members' | 'providers' | 'admin' | 'platform';
   label: string;
   permissions: PermissionDescriptor[];
 }
@@ -157,6 +159,14 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'admin:view_audit',                 label: 'View audit log',                   description: 'Read tenant audit events.' },
       { key: 'admin:manage_settings',            label: 'Manage tenant settings',           description: 'Edit branding, insurance lines, email templates, etc.' },
       { key: 'admin:manage_rules',               label: 'Manage rules engine',              description: 'Author and deploy tenant-specific business rules.' },
+    ],
+  },
+  {
+    id: 'platform',
+    label: 'Platform administration',
+    permissions: [
+      { key: 'platform:view_jobs',               label: 'View scheduled jobs',              description: 'View scheduled job configs and recent run history. Platform admins only.' },
+      { key: 'platform:manage_jobs',             label: 'Manage scheduled jobs',            description: 'Manually trigger jobs and edit schedules. Platform admins only.' },
     ],
   },
 ];
