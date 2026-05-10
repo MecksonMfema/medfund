@@ -8,6 +8,7 @@ import com.medfund.finance.repository.PaymentRepository;
 import com.medfund.finance.repository.PaymentRunItemRepository;
 import com.medfund.finance.repository.PaymentRunRepository;
 import com.medfund.finance.repository.ProviderBalanceRepository;
+import com.medfund.finance.util.Actors;
 
 import java.math.BigDecimal;
 import com.medfund.shared.audit.AuditEvent;
@@ -80,7 +81,7 @@ public class PaymentRunService {
                 run.setPaymentCount(0);
                 run.setCreatedAt(Instant.now());
                 run.setUpdatedAt(Instant.now());
-                run.setCreatedBy(UUID.fromString(actorId));
+                run.setCreatedBy(Actors.parseId(actorId));
 
                 return paymentRunRepository.save(run);
             })
@@ -115,7 +116,7 @@ public class PaymentRunService {
                         // Transition to executed (final terminal state for the happy path).
                         inProgress.setStatus("executed");
                         inProgress.setExecutedAt(Instant.now());
-                        if (actorId != null) inProgress.setExecutedBy(UUID.fromString(actorId));
+                        inProgress.setExecutedBy(Actors.parseId(actorId));
                         inProgress.setUpdatedAt(Instant.now());
 
                         return paymentRunRepository.save(inProgress);

@@ -4,6 +4,7 @@ import com.medfund.finance.dto.CreateAdjustmentRequest;
 import com.medfund.finance.entity.Adjustment;
 import com.medfund.finance.exception.AdjustmentNotFoundException;
 import com.medfund.finance.repository.AdjustmentRepository;
+import com.medfund.finance.util.Actors;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
@@ -65,7 +66,7 @@ public class AdjustmentService {
                 adjustment.setStatus("pending");
                 adjustment.setCreatedAt(Instant.now());
                 adjustment.setUpdatedAt(Instant.now());
-                adjustment.setCreatedBy(UUID.fromString(actorId));
+                adjustment.setCreatedBy(Actors.parseId(actorId));
 
                 return adjustmentRepository.save(adjustment);
             })
@@ -86,7 +87,7 @@ public class AdjustmentService {
             .flatMap(adjustment -> {
                 String previousStatus = adjustment.getStatus();
                 adjustment.setStatus("approved");
-                adjustment.setApprovedBy(UUID.fromString(actorId));
+                adjustment.setApprovedBy(Actors.parseId(actorId));
                 adjustment.setApprovedAt(Instant.now());
                 adjustment.setUpdatedAt(Instant.now());
 

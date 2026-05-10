@@ -4,6 +4,7 @@ import com.medfund.finance.dto.CreatePaymentRequest;
 import com.medfund.finance.entity.Payment;
 import com.medfund.finance.exception.PaymentNotFoundException;
 import com.medfund.finance.repository.PaymentRepository;
+import com.medfund.finance.util.Actors;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
@@ -69,8 +70,8 @@ public class PaymentService {
                 payment.setReference(request.reference());
                 payment.setCreatedAt(Instant.now());
                 payment.setUpdatedAt(Instant.now());
-                payment.setCreatedBy(UUID.fromString(actorId));
-                payment.setUpdatedBy(UUID.fromString(actorId));
+                payment.setCreatedBy(Actors.parseId(actorId));
+                payment.setUpdatedBy(Actors.parseId(actorId));
 
                 return paymentRepository.save(payment);
             })
@@ -97,7 +98,7 @@ public class PaymentService {
                 payment.setStatus("paid");
                 payment.setPaidAt(Instant.now());
                 payment.setUpdatedAt(Instant.now());
-                payment.setUpdatedBy(UUID.fromString(actorId));
+                payment.setUpdatedBy(Actors.parseId(actorId));
 
                 return paymentRepository.save(payment)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
@@ -122,7 +123,7 @@ public class PaymentService {
                 if ("cancelled".equals(previousStatus)) return Mono.just(payment);
                 payment.setStatus("cancelled");
                 payment.setUpdatedAt(Instant.now());
-                if (actorId != null) payment.setUpdatedBy(UUID.fromString(actorId));
+                payment.setUpdatedBy(Actors.parseId(actorId));
 
                 return paymentRepository.save(payment)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {

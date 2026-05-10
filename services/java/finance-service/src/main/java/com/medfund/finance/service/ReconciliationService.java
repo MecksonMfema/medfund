@@ -4,6 +4,7 @@ import com.medfund.finance.dto.CreateReconciliationRequest;
 import com.medfund.finance.entity.BankReconciliation;
 import com.medfund.finance.repository.BankReconciliationRepository;
 import com.medfund.finance.repository.PaymentRepository;
+import com.medfund.finance.util.Actors;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
@@ -68,7 +69,7 @@ public class ReconciliationService {
             recon.setStatementDate(request.statementDate());
             recon.setNotes(request.notes());
             recon.setCreatedAt(Instant.now());
-            if (actorId != null) recon.setCreatedBy(UUID.fromString(actorId));
+            recon.setCreatedBy(Actors.parseId(actorId));
 
             BigDecimal difference = request.statementAmount().subtract(systemAmount);
             recon.setDifference(difference);
@@ -94,7 +95,7 @@ public class ReconciliationService {
                 String previousStatus = recon.getStatus();
                 recon.setStatus("matched");
                 recon.setReconciledAt(Instant.now());
-                recon.setReconciledBy(UUID.fromString(actorId));
+                recon.setReconciledBy(Actors.parseId(actorId));
 
                 return bankReconciliationRepository.save(recon)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
@@ -126,7 +127,7 @@ public class ReconciliationService {
                 recon.setStatus(newStatus);
                 if (stamp) {
                     recon.setReconciledAt(Instant.now());
-                    if (actorId != null) recon.setReconciledBy(UUID.fromString(actorId));
+                    recon.setReconciledBy(Actors.parseId(actorId));
                 }
                 return bankReconciliationRepository.save(recon)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
