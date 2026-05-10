@@ -113,7 +113,7 @@ class PaymentRunServiceTest {
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
-                    assertThat(saved.getStatus()).isEqualTo("completed");
+                    assertThat(saved.getStatus()).isEqualTo("executed");
                     assertThat(saved.getExecutedAt()).isNotNull();
                     assertThat(saved.getExecutedBy()).isNotNull();
                     assertThat(saved.getUpdatedAt()).isNotNull();
@@ -121,7 +121,7 @@ class PaymentRunServiceTest {
                 .verifyComplete();
 
         verify(paymentRunRepository).findById(run.getId());
-        // save called 3x: in_progress, recomputeRunTotal (totalAmount=0), completed
+        // save called 3x: executing, recomputeRunTotal (totalAmount=0), executed
         verify(paymentRunRepository, times(3)).save(any());
         verify(auditPublisher).publish(any());
         verify(eventPublisher).publishPaymentRunExecuted(any(), any(), anyInt());

@@ -73,13 +73,26 @@
     </section>
 
     <section class="action-bar">
+      @if (run.status === 'draft') {
+        <button class="btn btn-primary" (click)="approve()" [disabled]="busy">
+          <app-icon name="check" [size]="14"></app-icon>
+          Approve
+        </button>
+      }
       @if (run.status === 'draft' || run.status === 'approved') {
         <button class="btn btn-primary" (click)="execute()" [disabled]="busy">
           <app-icon name="check" [size]="14"></app-icon>
           Execute run
         </button>
-      } @else {
+        <button class="btn btn-danger" (click)="cancelRun()" [disabled]="busy">
+          Cancel
+        </button>
+      }
+      @if (run.status === 'executed' || run.status === 'cancelled') {
         <span class="muted">No actions available for {{ run.status }} runs.</span>
+      }
+      @if (run.status === 'executing') {
+        <span class="muted">Run is executing — wait for it to settle.</span>
       }
     </section>
   }

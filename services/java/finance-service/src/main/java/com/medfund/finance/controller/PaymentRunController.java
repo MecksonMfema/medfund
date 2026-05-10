@@ -64,14 +64,28 @@ public class PaymentRunController {
         return paymentRunService.create(request, principal.getName()).map(PaymentRunResponse::from);
     }
 
+    @PostMapping("/{id}/approve")
+    @Operation(summary = "Approve a draft payment run",
+        description = "Approval gate before execute. Optional — execute also accepts draft runs.")
+    public Mono<PaymentRunResponse> approve(@PathVariable UUID id, Principal principal) {
+        return paymentRunService.approve(id, principal.getName()).map(PaymentRunResponse::from);
+    }
+
     @PostMapping("/{id}/execute")
     @Operation(summary = "Execute a payment run",
-        description = "Transitions a draft payment run through in_progress to completed")
+        description = "Transitions a draft or approved payment run through executing to executed")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Payment run executed"),
         @ApiResponse(responseCode = "404", description = "Payment run not found")
     })
     public Mono<PaymentRunResponse> execute(@PathVariable UUID id, Principal principal) {
         return paymentRunService.execute(id, principal.getName()).map(PaymentRunResponse::from);
+    }
+
+    @PostMapping("/{id}/cancel")
+    @Operation(summary = "Cancel a payment run",
+        description = "Allowed in draft, approved, or executing states. Once executed, posting a reversing run is the path.")
+    public Mono<PaymentRunResponse> cancel(@PathVariable UUID id, Principal principal) {
+        return paymentRunService.cancel(id, principal.getName()).map(PaymentRunResponse::from);
     }
 }

@@ -98,13 +98,13 @@ public class PaymentRunService {
         return paymentRunRepository.findById(runId)
             .switchIfEmpty(Mono.error(new PaymentNotFoundException(runId)))
             .flatMap(run -> {
-                if (!"draft".equals(run.getStatus())) {
+                String previousStatus = run.getStatus();
+                if (!"draft".equals(previousStatus) && !"approved".equals(previousStatus)) {
                     return Mono.error(new IllegalStateException(
-                        "Payment run " + run.getRunNumber() + " is not in draft status, current: " + run.getStatus()));
+                        "Payment run " + run.getRunNumber() + " must be in draft or approved status, current: " + previousStatus));
                 }
 
-                String previousStatus = run.getStatus();
-                run.setStatus("in_progress");
+                run.setStatus("executing");
                 run.setUpdatedAt(Instant.now());
 
                 return paymentRunRepository.save(run)
@@ -112,10 +112,10 @@ public class PaymentRunService {
                         .thenReturn(inProgress))
                     .flatMap(this::recomputeRunTotal)
                     .flatMap(inProgress -> {
-                        // Transition to completed
-                        inProgress.setStatus("completed");
+                        // Transition to executed (final terminal state for the happy path).
+                        inProgress.setStatus("executed");
                         inProgress.setExecutedAt(Instant.now());
-                        inProgress.setExecutedBy(UUID.fromString(actorId));
+                        if (actorId != null) inProgress.setExecutedBy(UUID.fromString(actorId));
                         inProgress.setUpdatedAt(Instant.now());
 
                         return paymentRunRepository.save(inProgress);
@@ -130,6 +130,61 @@ public class PaymentRunService {
                                 completed.getRunNumber(),
                                 completed.getPaymentCount() != null ? completed.getPaymentCount() : 0))
                             .thenReturn(completed);
+                    }));
+            });
+    }
+
+    @Transactional
+    public Mono<PaymentRun> approve(UUID runId, String actorId) {
+        return paymentRunRepository.findById(runId)
+            .switchIfEmpty(Mono.error(new PaymentNotFoundException(runId)))
+            .flatMap(run -> {
+                String previousStatus = run.getStatus();
+                if (!"draft".equals(previousStatus)) {
+                    return Mono.error(new IllegalStateException(
+                        "Payment run " + run.getRunNumber() + " must be in draft to approve, current: " + previousStatus));
+                }
+                run.setStatus("approved");
+                run.setUpdatedAt(Instant.now());
+                return paymentRunRepository.save(run)
+                    .flatMap(saved -> Mono.deferContextual(ctx -> {
+                        String tenantId = TenantContext.get(ctx);
+                        return publishAudit(tenantId, "PaymentRun", saved.getId().toString(), "UPDATE", actorId,
+                                Map.of("status", previousStatus),
+                                Map.of("status", saved.getStatus()))
+                            .then(eventPublisher.publishPaymentRunApproved(
+                                saved.getId().toString(),
+                                saved.getRunNumber(),
+                                actorId != null ? actorId : "system"))
+                            .thenReturn(saved);
+                    }));
+            });
+    }
+
+    @Transactional
+    public Mono<PaymentRun> cancel(UUID runId, String actorId) {
+        return paymentRunRepository.findById(runId)
+            .switchIfEmpty(Mono.error(new PaymentNotFoundException(runId)))
+            .flatMap(run -> {
+                String previousStatus = run.getStatus();
+                if ("executed".equals(previousStatus)) {
+                    return Mono.error(new IllegalStateException(
+                        "Payment run " + run.getRunNumber() + " is already executed and cannot be cancelled"));
+                }
+                if ("cancelled".equals(previousStatus)) return Mono.just(run);
+                run.setStatus("cancelled");
+                run.setUpdatedAt(Instant.now());
+                return paymentRunRepository.save(run)
+                    .flatMap(saved -> Mono.deferContextual(ctx -> {
+                        String tenantId = TenantContext.get(ctx);
+                        return publishAudit(tenantId, "PaymentRun", saved.getId().toString(), "UPDATE", actorId,
+                                Map.of("status", previousStatus),
+                                Map.of("status", saved.getStatus()))
+                            .then(eventPublisher.publishPaymentRunCancelled(
+                                saved.getId().toString(),
+                                saved.getRunNumber(),
+                                "manual"))
+                            .thenReturn(saved);
                     }));
             });
     }

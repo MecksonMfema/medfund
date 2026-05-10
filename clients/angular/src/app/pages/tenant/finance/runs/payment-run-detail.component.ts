@@ -63,16 +63,32 @@ export class PaymentRunDetailComponent implements OnInit {
   execute(): void {
     if (!this.run) return;
     if (!confirm(`Execute run ${this.run.runNumber}? This commits payments and is final.`)) return;
+    this.transition('executed', () => this.finance.executeRun(this.run!.id));
+  }
+
+  approve(): void {
+    if (!this.run) return;
+    if (!confirm(`Approve run ${this.run.runNumber}?`)) return;
+    this.transition('approved', () => this.finance.approveRun(this.run!.id));
+  }
+
+  cancelRun(): void {
+    if (!this.run) return;
+    if (!confirm(`Cancel run ${this.run.runNumber}?`)) return;
+    this.transition('cancelled', () => this.finance.cancelRun(this.run!.id));
+  }
+
+  private transition(label: string, fn: () => import('rxjs').Observable<import('../../../../core/services/finance.service').PaymentRun>): void {
     this.busy = true;
-    this.finance.executeRun(this.run.id).subscribe({
+    fn().subscribe({
       next: (run) => {
         this.run = run;
-        this.successMessage = `Payment run ${run.runNumber} executed.`;
+        this.successMessage = `Payment run ${run.runNumber} → ${label}.`;
         this.busy = false;
         this.refresh(run.id);
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to execute run';
+        this.errorMessage = err?.error?.detail || `Failed to ${label}`;
         this.busy = false;
       },
     });
