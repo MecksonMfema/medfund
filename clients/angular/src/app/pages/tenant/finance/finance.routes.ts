@@ -189,7 +189,12 @@ export const FINANCE_ROUTES: Routes = [
   cs('currencies/add',               'Add Currency',                 '/add-currency',           'Add a new currency / FX pair.',            ['billing:manage_currencies']),
 
   // ── Payment advice ────────────────────────────────────────────────────────
-  cs('advice',                       'Payment Advice',               '/payment-advice',         'Payment-advice notifications to providers.',['finance:view_payment_advice']),
+  {
+    path: 'advice',
+    canActivate: [permissionGuard(['finance:view_payment_advice'])],
+    loadComponent: () => import('./advice/payment-advice.component').then(m => m.PaymentAdviceComponent),
+    data: { title: 'Payment Advice', sidebar: 'operational' },
+  },
   cs('advice/member',                'Member Payment Advice',        '/member-payment-advice',  'Notifications to members.',                 ['finance:view_payment_advice']),
 
   // ── Copayments ────────────────────────────────────────────────────────────

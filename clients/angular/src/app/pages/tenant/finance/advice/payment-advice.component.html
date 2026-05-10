@@ -1,0 +1,82 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Payment advice</h1>
+      <p class="page-sub">
+        Generates a printable advice for an executed payment run, listing
+        each line item and the total paid. Pick a run from the payment-runs
+        list, paste its ID below, and generate.
+      </p>
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <div class="generator card no-print">
+    <label class="field">
+      <span class="field-label">Payment run ID</span>
+      <input type="text" [(ngModel)]="paymentRunId" name="paymentRunId"
+             placeholder="e.g. 5f8c1234-…" />
+    </label>
+    <button class="btn btn-primary" (click)="generate()" [disabled]="loading">
+      <app-icon name="check" [size]="14"></app-icon>
+      Generate advice
+    </button>
+  </div>
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (advice) {
+    <article class="advice card">
+      <div class="advice-actions no-print">
+        <button class="btn" (click)="print()">
+          <app-icon name="check" [size]="14"></app-icon>
+          Print
+        </button>
+      </div>
+
+      <header class="advice-header">
+        <h2>Payment Advice</h2>
+        <dl class="meta">
+          <dt>Advice #</dt><dd>{{ advice.adviceNumber }}</dd>
+          <dt>Generated</dt><dd>{{ advice.generatedAt | date:'medium' }}</dd>
+          <dt>Currency</dt><dd>{{ advice.currencyCode }}</dd>
+          @if (advice.providerName) { <dt>Provider</dt><dd>{{ advice.providerName }}</dd> }
+        </dl>
+      </header>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Claim #</th>
+            <th>Member</th>
+            <th>Service date</th>
+            <th class="right">Claimed</th>
+            <th class="right">Approved</th>
+            <th class="right">Paid</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (line of advice.lines; track line.claimNumber) {
+            <tr>
+              <td><strong>{{ line.claimNumber }}</strong></td>
+              <td class="muted">{{ line.memberName || '—' }}</td>
+              <td class="muted">{{ line.serviceDate || '—' }}</td>
+              <td class="right">{{ line.claimedAmount | currencyFormat:advice.currencyCode }}</td>
+              <td class="right">{{ line.approvedAmount | currencyFormat:advice.currencyCode }}</td>
+              <td class="right">{{ line.paidAmount | currencyFormat:advice.currencyCode }}</td>
+            </tr>
+          }
+          <tr class="total-row">
+            <td colspan="3" class="total-label">Total paid</td>
+            <td class="right">{{ totalApproved() | currencyFormat:advice.currencyCode }}</td>
+            <td class="right">—</td>
+            <td class="right total-amount">{{ advice.totalAmount | currencyFormat:advice.currencyCode }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </article>
+  }
+</div>

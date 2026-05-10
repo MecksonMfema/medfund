@@ -79,6 +79,7 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/provider-balances/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/adjustments/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reconciliations/*", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/payment-advices/*", proxy.Handler(cfg.FinanceServiceURL))
 
 	// ── Rules Service (per-tenant Drools rules) ───────────────────────────────
 	app.All("/api/v1/rules", proxy.Handler(cfg.RulesServiceURL))

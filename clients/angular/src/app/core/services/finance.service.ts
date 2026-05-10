@@ -132,9 +132,34 @@ export interface CreateReconciliationPayload {
   notes?: string;
 }
 
+// ── Payment advice ──────────────────────────────────────────────────────
+export interface PaymentAdviceLine {
+  claimNumber: string;
+  memberName: string;
+  claimedAmount: string;
+  approvedAmount: string;
+  paidAmount: string;
+  serviceDate: string;
+}
+
+export interface PaymentAdvice {
+  adviceNumber: string;
+  providerId?: string;
+  providerName?: string;
+  totalAmount: string;
+  currencyCode: string;
+  generatedAt: string;
+  lines: PaymentAdviceLine[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class FinanceService {
   constructor(private api: ApiService) {}
+
+  // ── Payment advice ──
+  generateAdvice(paymentRunId: string): Observable<PaymentAdvice> {
+    return this.api.get<PaymentAdvice>(`/payment-advices/run/${paymentRunId}`);
+  }
 
   // ── Payment runs ──
   listRuns(): Observable<PaymentRun[]> { return this.api.get<PaymentRun[]>('/payment-runs'); }
