@@ -11,15 +11,11 @@
 
 set -e
 
-# Detect working Python command (python3 may be a Windows Store stub)
-if python3 -c "pass" 2>/dev/null; then
-  PY=python3
-elif python -c "pass" 2>/dev/null; then
-  PY=python
-else
-  echo "ERROR: No working Python found. Install Python 3."
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "ERROR: python3 not found. Install with: sudo apt install python3"
   exit 1
 fi
+PY=python3
 
 KEYCLOAK_URL="${KEYCLOAK_URL:-http://localhost:9080}"
 ADMIN_USER="${KEYCLOAK_ADMIN:-admin}"

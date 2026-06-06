@@ -1,4 +1,4 @@
-# MedFund — Developer Makefile
+# MedFund — Developer Makefile (Linux)
 #
 # Workflow: run infrastructure in Docker, run application services natively.
 #
@@ -8,26 +8,14 @@
 #   2c. make ai             — run the AI service (Python/uvicorn, port 8000)
 #   2d. make web            — run the Angular app (ng serve, port 4200)
 #   ... (see targets below)
-#
-# On Windows: install make via `choco install make` or use Git Bash / MSYS2.
 
-# Force Git Bash as the shell so Unix syntax (./gradlew, &&, etc.) works from PowerShell/cmd
-SHELL := C:/Program Files/Git/bin/bash.exe
-.SHELLFLAGS := -lc
+SHELL := /bin/bash
+.SHELLFLAGS := -ec
 
-# Elixir/mix installed via Chocolatey — not on Git Bash PATH
-MIX := C:/ProgramData/chocolatey/lib/elixir/tools/bin/mix.bat
+# Elixir/mix is expected on PATH (e.g. `apt install elixir` or asdf).
+MIX := mix
 
-# Use WSL docker if docker is not on the native PATH (Windows + Docker in WSL)
-ifeq ($(shell docker version > /dev/null 2>&1 && echo ok),ok)
-  COMPOSE := docker compose
-  USE_WSL :=
-else
-  COMPOSE := wsl docker compose
-  USE_WSL := 1
-endif
-
-export MSYS_NO_PATHCONV := 1
+COMPOSE := docker compose
 
 # ── Infrastructure (Docker) ───────────────────────────────────────────────────
 
@@ -53,11 +41,7 @@ infra-logs:
 
 ## Bootstrap Keycloak realms and clients (run once after first `make infra`)
 keycloak-setup:
-ifdef USE_WSL
-	wsl --cd "$(CURDIR)" bash scripts/bootstrap-keycloak.sh
-else
 	bash scripts/bootstrap-keycloak.sh
-endif
 
 # ── Java services (Spring Boot) — cd services/java first ─────────────────────
 # Spring Boot DevTools is on classpath — the JVM restarts automatically when
@@ -81,9 +65,9 @@ finance:
 rules:
 	cd services/java && ./gradlew :rules-engine:bootRun
 
-## Run all Java services in parallel (each in its own terminal via tmux — optional)
+## Run all Java services in parallel (each in the background)
 java-all:
-	$(COMPOSE) $(BASE) up -d postgres redis kafka keycloak
+	$(COMPOSE) up -d postgres redis kafka keycloak
 	cd services/java && ./gradlew :tenancy-service:bootRun & \
 	cd services/java && ./gradlew :user-service:bootRun & \
 	cd services/java && ./gradlew :claims-service:bootRun & \
