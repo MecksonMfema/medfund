@@ -98,6 +98,17 @@ export function parseProviderRegLabel(settings: string | null | undefined): stri
   }
 }
 
+/** Whether drug-claim workflows are enabled for this tenant. Defaults to true. */
+export function parseDrugClaimsEnabled(settings: string | null | undefined): boolean {
+  if (!settings || settings === '{}') return true;
+  try {
+    const v = JSON.parse(settings)?.drugClaimsEnabled;
+    return v === undefined ? true : !!v;
+  } catch {
+    return true;
+  }
+}
+
 /**
  * Tenant-configurable scheme terminology. Some tenants call them "Schemes",
  * others "Packages", "Plans", or "Policies". Returns the singular + plural
