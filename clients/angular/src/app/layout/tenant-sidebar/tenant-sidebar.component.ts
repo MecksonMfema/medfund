@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterLink, RouterLinkActive } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { KeycloakService } from 'keycloak-angular';
 import { NavigationService } from '../../core/services/navigation.service';
@@ -28,6 +28,7 @@ export class TenantSidebarComponent implements OnInit, OnDestroy {
   logoUrl = '';
   tenantInitial = 'T';
 
+
   // Tenant IT-admin console: configures the tenant's own slice of the platform.
   // Operational portals (claims adjudication, finance, member self-service,
   // provider workflows) live in their own apps; intentionally not linked here.
@@ -45,7 +46,6 @@ export class TenantSidebarComponent implements OnInit, OnDestroy {
     private navService: NavigationService,
     private tenantService: TenantService,
     private keycloak: KeycloakService,
-    private router: Router,
   ) {}
 
   ngOnInit(): void {
@@ -58,6 +58,7 @@ export class TenantSidebarComponent implements OnInit, OnDestroy {
       this.tenantInitial = tenant.name?.[0]?.toUpperCase() ?? 'T';
       this.logoUrl       = tenant.branding?.logoUrl ?? '';
     });
+
   }
 
   ngOnDestroy(): void {
@@ -66,10 +67,6 @@ export class TenantSidebarComponent implements OnInit, OnDestroy {
 
   toggleSidebar(): void {
     this.navService.toggleSidebar();
-  }
-
-  backToPlatform(): void {
-    this.router.navigate(['/platform/tenants']);
   }
 
   async logout(): Promise<void> {

@@ -187,9 +187,15 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
-  min-width: 160px;
+  min-width: 200px;
   padding: 4px;
   z-index: 100;
+}
+
+.t-menu-divider {
+  height: 1px;
+  background: var(--color-border-light);
+  margin: 4px 8px;
 }
 
 .t-menu-item {

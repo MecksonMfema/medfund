@@ -1,0 +1,11 @@
+<div class="toast-stack" role="region" aria-label="Notifications">
+  @for (toast of toasts$ | async; track toast.id) {
+    <div class="toast" [class]="'toast-' + toast.kind" role="status" aria-live="polite">
+      <app-icon [name]="iconFor(toast.kind)" [size]="18"></app-icon>
+      <span class="toast-message">{{ toast.message }}</span>
+      <button type="button" class="toast-close" (click)="dismiss(toast.id)" aria-label="Dismiss">
+        <app-icon name="x" [size]="14"></app-icon>
+      </button>
+    </div>
+  }
+</div>

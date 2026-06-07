@@ -52,8 +52,10 @@ export class HasPermissionDirective implements OnInit, OnDestroy {
     this.sub?.unsubscribe();
   }
 
-  private evaluate(held: ReadonlySet<string>): void {
-    const allow = this.required.length > 0 && this.required.some(p => held.has(p));
+  private evaluate(_held: ReadonlySet<string>): void {
+    // Delegate to PermissionService.hasAny so super admins auto-pass without
+    // every directive consumer having to wire its own role check.
+    const allow = this.required.length > 0 && this.permissions.hasAny(this.required);
     if (allow && !this.rendered) {
       this.vcr.createEmbeddedView(this.template);
       this.rendered = true;

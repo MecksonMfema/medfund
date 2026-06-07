@@ -22,7 +22,7 @@ export class ContributionsComponent implements OnInit {
 
   schemeColumns = [
     { key: 'name',          label: 'Scheme Name' },
-    { key: 'schemeType',    label: 'Type' },
+    { key: 'schemeType',    label: 'Type', type: 'label' },
     { key: 'currencyCode',  label: 'Currency' },
     { key: 'status',        label: 'Status', type: 'status' },
     { key: 'effectiveDate', label: 'Effective Date', type: 'date' },
@@ -31,7 +31,7 @@ export class ContributionsComponent implements OnInit {
   schemeActions: TableAction[] = [
     {
       label: 'Benefits',
-      icon: 'list',
+      icon: 'clipboard-list',
       color: 'default',
       handler: (row: Scheme) => this.router.navigate(['/tenant/billing/schemes', row.id, 'benefits']),
     },

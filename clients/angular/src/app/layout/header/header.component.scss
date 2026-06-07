@@ -111,6 +111,10 @@
   border: 2px solid var(--color-surface);
 }
 
+.header-user-wrap {
+  position: relative;
+}
+
 .header-user {
   display: flex;
   align-items: center;
@@ -123,6 +127,51 @@
 
 .header-user:hover {
   background: var(--color-bg);
+}
+
+.header-user-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  min-width: 220px;
+  padding: 4px;
+  z-index: 100;
+}
+
+.header-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition-fast), color var(--transition-fast);
+
+  &:hover {
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+  }
+
+  &.danger:hover {
+    background: var(--color-error-light);
+    color: var(--color-error);
+  }
+}
+
+.header-menu-divider {
+  height: 1px;
+  background: var(--color-border-light);
+  margin: 4px 8px;
 }
 
 .header-avatar {

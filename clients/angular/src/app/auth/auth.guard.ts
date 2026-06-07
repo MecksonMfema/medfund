@@ -106,6 +106,14 @@ export const permissionGuard = (required: ReadonlyArray<PermissionKey | string>)
       return false;
     }
 
+    // Super admin bypass — platform admins implicitly hold every permission
+    // and shouldn't be blocked by the tenant-scoped permission set (which is
+    // empty for platform-only users by design, see PermissionService docs).
+    // Also fixes a reload race: on cold boot the tenant restore from
+    // sessionStorage can finish after this guard's 2 s timeout, leaving a
+    // super admin staring at /unauthorized despite having every right.
+    if (keycloak.getUserRoles(true).includes('super_admin')) return true;
+
     // Fast path — already loaded.
     if (required.some(p => permissions.has(p))) return true;
 

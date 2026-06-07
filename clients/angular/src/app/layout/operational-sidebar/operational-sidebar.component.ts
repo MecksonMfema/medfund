@@ -93,11 +93,6 @@ export class OperationalSidebarComponent implements OnInit, OnDestroy {
     this.navService.toggleSidebar();
   }
 
-  goAdmin(): void {
-    // Tenant admins moving from operational to IT-admin console.
-    this.router.navigate(['/tenant/admin/dashboard']);
-  }
-
   async logout(): Promise<void> {
     await clearSession();
     this.keycloak.logout();
@@ -107,21 +102,14 @@ export class OperationalSidebarComponent implements OnInit, OnDestroy {
    * Visibility rule — the user needs ANY one of the declared permissions.
    * An item with an empty permission list is treated as universally visible
    * (used by the dashboard which everyone in the portal can see).
+   *
+   * <p>Delegates to {@link PermissionService#hasAny} so super admins (whose
+   * tenant-scoped permission set is intentionally empty) see every nav item
+   * without each call site having to repeat the role bypass.
    */
-  private allowed(item: OperationalNavItem, held: ReadonlySet<string>): boolean {
+  private allowed(item: OperationalNavItem, _held: ReadonlySet<string>): boolean {
     if (!item.permissions || item.permissions.length === 0) return true;
-    return item.permissions.some(p => held.has(p));
+    return this.permissions.hasAny(item.permissions);
   }
 
-  /** Whether the IT-admin console is reachable to this user — gates the "Tenant Admin" footer link. */
-  get canAccessAdmin(): boolean {
-    // Coarse gate — any admin permission means they have a reason to flip into the admin console.
-    return (
-      this.permissions.has('admin:manage_settings') ||
-      this.permissions.has('admin:manage_users') ||
-      this.permissions.has('admin:manage_roles') ||
-      this.permissions.has('admin:view_audit') ||
-      this.permissions.has('admin:manage_rules')
-    );
-  }
 }

@@ -5,7 +5,9 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ContributionsService, Scheme, UpsertSchemePayload } from '../../../../core/services/contributions.service';
 import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
 import { TenantService } from '../../../../core/services/tenant.service';
+import { SchemeTypeOption, schemeTypesForLines, insuranceLineLabel } from '../../../../core/models/insurance-lines';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
 
 interface SchemeForm {
   name: string;
@@ -35,18 +37,55 @@ export class SchemeFormComponent implements OnInit {
   form: SchemeForm = {
     name: '',
     description: '',
-    schemeType: 'medical_aid',
+    schemeType: '',
     effectiveDate: new Date().toISOString().slice(0, 10),
     endDate: '',
     currencyCode: '',
   };
 
-  readonly schemeTypes = [
-    { code: 'medical_aid',     label: 'Medical aid' },
-    { code: 'health_insurance', label: 'Health insurance' },
-    { code: 'hmo',             label: 'HMO' },
-    { code: 'wellness',        label: 'Wellness' },
-  ];
+  /** Snapshot of the form right after the existing scheme loads — used to
+   *  disable the Save button when nothing has actually been edited. */
+  private originalForm: SchemeForm | null = null;
+
+  /** Dirty-check: true if any field differs from the loaded scheme. On the
+   *  add page (no existing snapshot) we treat the form as dirty whenever the
+   *  required fields are filled, so the button enables as soon as the user
+   *  has provided a name and currency. */
+  get isDirty(): boolean {
+    if (!this.originalForm) return true;
+    const f = this.form, o = this.originalForm;
+    return (
+      f.name          !== o.name ||
+      f.description   !== o.description ||
+      f.schemeType    !== o.schemeType ||
+      f.effectiveDate !== o.effectiveDate ||
+      f.endDate       !== o.endDate ||
+      f.currencyCode  !== o.currencyCode
+    );
+  }
+
+  /** Built from the active tenant's {@code insuranceLines} so e.g. a vehicle
+   *  insurer doesn't see Medical aid / HMO in the dropdown. Populated in
+   *  ngOnInit; empty briefly during initial render before tenant resolves. */
+  schemeTypes: SchemeTypeOption[] = [];
+
+  /** Friendly label for an insurance-line code — used as the optgroup header. */
+  lineLabel(code: string): string { return insuranceLineLabel(code); }
+
+  /** Distinct insurance lines present in the current scheme-type list, in
+   *  configured order — drives the <optgroup> rendering in the template. */
+  get schemeTypeGroups(): string[] {
+    const seen = new Set<string>();
+    const order: string[] = [];
+    for (const t of this.schemeTypes) {
+      if (!seen.has(t.line)) { seen.add(t.line); order.push(t.line); }
+    }
+    return order;
+  }
+
+  schemeTypesForLine(line: string): SchemeTypeOption[] {
+    return this.schemeTypes.filter(t => t.line === line);
+  }
 
   constructor(
     private contributions: ContributionsService,
@@ -54,6 +93,7 @@ export class SchemeFormComponent implements OnInit {
     private tenantService: TenantService,
     private route: ActivatedRoute,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -61,6 +101,16 @@ export class SchemeFormComponent implements OnInit {
     if (!tenantId) {
       this.errorMessage = 'No active tenant context';
       return;
+    }
+
+    // Build the scheme-type dropdown from the tenant's configured insurance
+    // lines. A HEALTH-only tenant sees Medical aid / HMO / ...; a VEHICLE
+    // insurer sees Comprehensive / Third-party / Fleet. Default the form to
+    // the first item so the field is never left blank on a fresh load.
+    const tenant = this.tenantService.getTenant();
+    this.schemeTypes = schemeTypesForLines(tenant?.insuranceLines ?? []);
+    if (!this.form.schemeType && this.schemeTypes.length > 0) {
+      this.form.schemeType = this.schemeTypes[0].code;
     }
 
     this.currencyService.listForTenant(tenantId).subscribe({
@@ -79,11 +129,13 @@ export class SchemeFormComponent implements OnInit {
           this.form = {
             name: s.name,
             description: s.description ?? '',
-            schemeType: s.schemeType ?? 'medical_aid',
+            schemeType: s.schemeType ?? this.schemeTypes[0]?.code ?? '',
             effectiveDate: s.effectiveDate,
             endDate: s.endDate ?? '',
             currencyCode: s.currencyCode ?? '',
           };
+          // Take a copy so isDirty can compare current vs original.
+          this.originalForm = { ...this.form };
           this.loading = false;
         },
         error: (err) => {
@@ -116,17 +168,18 @@ export class SchemeFormComponent implements OnInit {
     const stream = this.schemeId
       ? this.contributions.updateScheme(this.schemeId, payload)
       : this.contributions.createScheme(payload);
+    const isEdit = !!this.schemeId;
     stream.subscribe({
-      next: (saved) => {
+      next: () => {
         this.saving = false;
-        this.successMessage = this.schemeId ? 'Scheme updated' : 'Scheme created';
-        if (!this.schemeId) {
-          this.router.navigate(['/tenant/billing/schemes', saved.id, 'edit']);
-        }
+        this.toast.success(isEdit ? 'Scheme updated' : 'Scheme created');
+        this.router.navigate(['/tenant/billing/schemes']);
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Save failed';
+        const detail = err?.error?.detail || err?.error?.title || 'Save failed';
+        this.errorMessage = detail;
+        this.toast.error(detail);
       },
     });
   }

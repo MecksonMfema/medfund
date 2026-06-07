@@ -22,10 +22,42 @@
       <app-icon name="bell" [size]="20"></app-icon>
       <span class="notification-dot"></span>
     </button>
-    <div class="header-user" (click)="userMenuOpen = !userMenuOpen">
-      <div class="header-avatar">{{ userInfo.initials }}</div>
-      <span class="header-user-name">{{ userInfo.fullName }}</span>
-      <app-icon name="chevron-down" [size]="16"></app-icon>
+    <div class="header-user-wrap">
+      <div class="header-user" (click)="userMenuOpen = !userMenuOpen">
+        <div class="header-avatar">{{ userInfo.initials }}</div>
+        <span class="header-user-name">{{ userInfo.fullName }}</span>
+        <app-icon name="chevron-down" [size]="16"></app-icon>
+      </div>
+
+      @if (userMenuOpen) {
+        <div class="header-user-menu" (click)="$event.stopPropagation()">
+          <!-- Super admin portal hops. Both need a tenant in context;
+               if none is selected, send the user to the tenant picker. -->
+          @if (isSuperAdmin) {
+            @if (hasTenantContext) {
+              <button class="header-menu-item" (click)="goToOperations()">
+                <app-icon name="briefcase" [size]="16"></app-icon>
+                <span>Operational Portal</span>
+              </button>
+              <button class="header-menu-item" (click)="goToTenantAdmin()">
+                <app-icon name="settings" [size]="16"></app-icon>
+                <span>Tenant Admin</span>
+              </button>
+            } @else {
+              <button class="header-menu-item" (click)="goToTenantPicker()">
+                <app-icon name="briefcase" [size]="16"></app-icon>
+                <span>Switch to a Tenant</span>
+              </button>
+            }
+            <div class="header-menu-divider"></div>
+          }
+
+          <button class="header-menu-item danger" (click)="logout()">
+            <app-icon name="logout" [size]="16"></app-icon>
+            <span>Sign out</span>
+          </button>
+        </div>
+      }
     </div>
   </div>
 </header>

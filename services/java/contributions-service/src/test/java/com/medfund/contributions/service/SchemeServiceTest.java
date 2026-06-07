@@ -3,6 +3,7 @@ package com.medfund.contributions.service;
 import com.medfund.contributions.dto.CreateAgeGroupRequest;
 import com.medfund.contributions.dto.CreateSchemeBenefitRequest;
 import com.medfund.contributions.dto.CreateSchemeRequest;
+import com.medfund.contributions.dto.UpdateSchemeRequest;
 import com.medfund.contributions.entity.AgeGroup;
 import com.medfund.contributions.entity.Scheme;
 import com.medfund.contributions.entity.SchemeBenefit;
@@ -11,9 +12,11 @@ import com.medfund.contributions.exception.SchemeNotFoundException;
 import com.medfund.contributions.repository.AgeGroupRepository;
 import com.medfund.contributions.repository.SchemeBenefitRepository;
 import com.medfund.contributions.repository.SchemeRepository;
+import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -100,7 +103,7 @@ class SchemeServiceTest {
         var request = new CreateSchemeRequest("Gold Plan", "Premium plan", null, LocalDate.now(), null, null);
 
         when(schemeRepository.existsByName("Gold Plan")).thenReturn(Mono.just(false));
-        when(schemeRepository.save(any(Scheme.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(schemeRepository.save(any(Scheme.class))).thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(schemeService.create(request, actorId)
@@ -141,7 +144,7 @@ class SchemeServiceTest {
         var scheme = createTestScheme();
 
         when(schemeRepository.findById(scheme.getId())).thenReturn(Mono.just(scheme));
-        when(schemeRepository.save(any(Scheme.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(schemeRepository.save(any(Scheme.class))).thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(schemeService.deactivate(scheme.getId(), actorId)
@@ -173,7 +176,7 @@ class SchemeServiceTest {
 
         when(schemeRepository.findById(schemeId)).thenReturn(Mono.just(parentScheme));
         when(schemeBenefitRepository.save(any(SchemeBenefit.class)))
-            .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+            .thenAnswer(inv -> Mono.just(assignBenefitIdIfMissing(inv.getArgument(0))));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(schemeService.createBenefit(request, actorId)
@@ -207,7 +210,7 @@ class SchemeServiceTest {
 
         when(schemeRepository.findById(schemeId)).thenReturn(Mono.just(parentScheme));
         when(ageGroupRepository.save(any(AgeGroup.class)))
-            .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+            .thenAnswer(inv -> Mono.just(assignAgeGroupIdIfMissing(inv.getArgument(0))));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(schemeService.createAgeGroup(request, actorId)
@@ -226,7 +229,239 @@ class SchemeServiceTest {
         verify(auditPublisher).publish(any());
     }
 
+    // ---- Regression: null @Id on create (bugfix) ----
+
+    @Test
+    void create_leavesIdNullSoSaveTakesInsertPath() {
+        var request = new CreateSchemeRequest("Bronze Plan", null, null, LocalDate.now(), null, null);
+
+        when(schemeRepository.existsByName("Bronze Plan")).thenReturn(Mono.just(false));
+        var captor = ArgumentCaptor.forClass(Scheme.class);
+        when(schemeRepository.save(captor.capture()))
+            .thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(schemeService.create(request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .expectNextCount(1)
+            .verifyComplete();
+
+        // Spring Data R2DBC routes save(entity) to INSERT only when @Id is null.
+        // Pre-setting the ID makes save() take the UPDATE path and fail with
+        // "Row does not exist." The Scheme passed to save() must arrive with
+        // id == null — this regression test locks the bugfix in place.
+        assertThat(captor.getValue().getId()).isNull();
+    }
+
+    // ---- Regression: currency normalization (USD default, upper-casing) ----
+
+    @Test
+    void create_blankCurrency_defaultsToUSD() {
+        var request = new CreateSchemeRequest("Plan A", null, null, LocalDate.now(), null, null);
+
+        when(schemeRepository.existsByName("Plan A")).thenReturn(Mono.just(false));
+        var captor = ArgumentCaptor.forClass(Scheme.class);
+        when(schemeRepository.save(captor.capture()))
+            .thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(schemeService.create(request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .expectNextCount(1)
+            .verifyComplete();
+
+        assertThat(captor.getValue().getCurrencyCode()).isEqualTo("USD");
+    }
+
+    @Test
+    void update_currencyCodeNormalisedToUppercase() {
+        var existing = createTestScheme();
+        existing.setCurrencyCode("USD");
+
+        when(schemeRepository.findById(existing.getId())).thenReturn(Mono.just(existing));
+        var captor = ArgumentCaptor.forClass(Scheme.class);
+        when(schemeRepository.save(captor.capture()))
+            .thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        var request = new UpdateSchemeRequest(null, null, null, null, "EUR");
+
+        StepVerifier.create(schemeService.update(existing.getId(), request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .expectNextCount(1)
+            .verifyComplete();
+
+        assertThat(captor.getValue().getCurrencyCode()).isEqualTo("EUR");
+    }
+
+    // ---- Regression: single-currency-per-scheme enforcement ----
+
+    @Test
+    void createBenefit_currencyMismatch_throwsIllegalArgument() {
+        var schemeId = UUID.randomUUID();
+        var parent = new Scheme();
+        parent.setId(schemeId);
+        parent.setName("Gold");
+        parent.setCurrencyCode("USD");
+        when(schemeRepository.findById(schemeId)).thenReturn(Mono.just(parent));
+
+        var request = new CreateSchemeBenefitRequest(
+            schemeId, "Outpatient", "outpatient",
+            new BigDecimal("5000.00"), null, null,
+            "EUR", 30, null
+        );
+
+        StepVerifier.create(schemeService.createBenefit(request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .expectErrorSatisfies(err -> {
+                assertThat(err).isInstanceOf(IllegalArgumentException.class);
+                assertThat(err.getMessage()).contains("EUR").contains("USD")
+                    .contains("single-currency");
+            })
+            .verify();
+
+        verify(schemeBenefitRepository, never()).save(any());
+        verify(auditPublisher, never()).publish(any());
+    }
+
+    @Test
+    void createBenefit_blankCurrency_inheritsFromScheme() {
+        var schemeId = UUID.randomUUID();
+        var parent = new Scheme();
+        parent.setId(schemeId);
+        parent.setName("Gold");
+        parent.setCurrencyCode("EUR");
+        when(schemeRepository.findById(schemeId)).thenReturn(Mono.just(parent));
+
+        var captor = ArgumentCaptor.forClass(SchemeBenefit.class);
+        when(schemeBenefitRepository.save(captor.capture()))
+            .thenAnswer(inv -> Mono.just(assignBenefitIdIfMissing(inv.getArgument(0))));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        var request = new CreateSchemeBenefitRequest(
+            schemeId, "Outpatient", "outpatient",
+            new BigDecimal("5000.00"), null, null,
+            null, 30, null
+        );
+
+        StepVerifier.create(schemeService.createBenefit(request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .expectNextCount(1)
+            .verifyComplete();
+
+        assertThat(captor.getValue().getCurrencyCode()).isEqualTo("EUR");
+    }
+
+    @Test
+    void createAgeGroup_currencyMismatch_throwsIllegalArgument() {
+        var schemeId = UUID.randomUUID();
+        var parent = new Scheme();
+        parent.setId(schemeId);
+        parent.setCurrencyCode("USD");
+        when(schemeRepository.findById(schemeId)).thenReturn(Mono.just(parent));
+
+        var request = new CreateAgeGroupRequest(
+            schemeId, "Adult", 18, 65,
+            new BigDecimal("200.00"), "ZWL"
+        );
+
+        StepVerifier.create(schemeService.createAgeGroup(request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .expectError(IllegalArgumentException.class)
+            .verify();
+
+        verify(ageGroupRepository, never()).save(any());
+    }
+
+    // ---- Regression: audit envelope emitted on every mutation ----
+
+    @Test
+    void create_publishesAuditEventWithCorrectShape() {
+        var request = new CreateSchemeRequest("Audit Plan", "desc", "hmo", LocalDate.now(), null, "usd");
+
+        when(schemeRepository.existsByName("Audit Plan")).thenReturn(Mono.just(false));
+        when(schemeRepository.save(any(Scheme.class)))
+            .thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
+        var auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+        when(auditPublisher.publish(auditCaptor.capture())).thenReturn(Mono.empty());
+
+        StepVerifier.create(schemeService.create(request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "tenant-7")))
+            .expectNextCount(1)
+            .verifyComplete();
+
+        var evt = auditCaptor.getValue();
+        assertThat(evt.entityType()).isEqualTo("Scheme");
+        assertThat(evt.action()).isEqualTo("CREATE");
+        assertThat(evt.actorId()).isEqualTo(actorId);
+        assertThat(evt.tenantId()).isEqualTo("tenant-7");
+        assertThat(evt.oldValue()).isNull();
+        assertThat(evt.newValue())
+            .containsEntry("name", "Audit Plan")
+            .containsEntry("status", "active")
+            .containsEntry("schemeType", "hmo");
+        assertThat(evt.entityId()).isNotBlank();
+        assertThat(evt.correlationId()).isNotBlank();
+    }
+
+    @Test
+    void deactivate_publishesAuditEventWithStatusTransition() {
+        var scheme = createTestScheme();
+        scheme.setStatus("active");
+
+        when(schemeRepository.findById(scheme.getId())).thenReturn(Mono.just(scheme));
+        when(schemeRepository.save(any(Scheme.class)))
+            .thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
+        var auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+        when(auditPublisher.publish(auditCaptor.capture())).thenReturn(Mono.empty());
+
+        StepVerifier.create(schemeService.deactivate(scheme.getId(), actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "tenant-7")))
+            .expectNextCount(1)
+            .verifyComplete();
+
+        var evt = auditCaptor.getValue();
+        assertThat(evt.action()).isEqualTo("UPDATE");
+        assertThat(evt.oldValue()).containsEntry("status", "active");
+        assertThat(evt.newValue()).containsEntry("status", "inactive");
+    }
+
+    @Test
+    void publishAudit_usesUnknownTenant_whenContextMissing() {
+        // If a downstream caller forgets to set TENANT_ID on the context, the
+        // audit envelope still emits with a sentinel tenant so the audit
+        // trail is never silently dropped.
+        var request = new CreateSchemeRequest("Headless", null, null, LocalDate.now(), null, null);
+
+        when(schemeRepository.existsByName("Headless")).thenReturn(Mono.just(false));
+        when(schemeRepository.save(any(Scheme.class)))
+            .thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
+        var auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
+        when(auditPublisher.publish(auditCaptor.capture())).thenReturn(Mono.empty());
+
+        StepVerifier.create(schemeService.create(request, actorId))
+            .expectNextCount(1)
+            .verifyComplete();
+
+        assertThat(auditCaptor.getValue().tenantId()).isEqualTo("unknown");
+    }
+
     // ---- Helpers ----
+
+    private static Scheme assignIdIfMissing(Scheme s) {
+        if (s.getId() == null) s.setId(UUID.randomUUID());
+        return s;
+    }
+
+    private static SchemeBenefit assignBenefitIdIfMissing(SchemeBenefit b) {
+        if (b.getId() == null) b.setId(UUID.randomUUID());
+        return b;
+    }
+
+    private static AgeGroup assignAgeGroupIdIfMissing(AgeGroup g) {
+        if (g.getId() == null) g.setId(UUID.randomUUID());
+        return g;
+    }
 
     private Scheme createTestScheme() {
         var scheme = new Scheme();

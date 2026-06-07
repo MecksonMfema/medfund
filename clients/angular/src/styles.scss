@@ -254,7 +254,7 @@ a.btn { text-decoration: none; }
   color: #fff;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   background: var(--color-primary-hover);
   color: #fff;
 }
@@ -264,7 +264,7 @@ a.btn { text-decoration: none; }
   color: var(--color-primary);
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
   background: rgba(0, 119, 182, 0.15);
   color: var(--color-primary);
 }
@@ -275,7 +275,7 @@ a.btn { text-decoration: none; }
   border: 1px solid var(--color-border);
 }
 
-.btn-outline:hover {
+.btn-outline:hover:not(:disabled) {
   background: var(--color-bg);
   border-color: var(--color-primary);
   color: var(--color-text-secondary);
@@ -295,9 +295,15 @@ a.btn { text-decoration: none; }
   color: var(--color-text-secondary);
 }
 
-.btn-default:disabled {
-  opacity: 0.55;
+/* Generic disabled treatment — applies to every .btn variant.
+   Dims the surface so it reads as inactive, freezes the cursor as
+   not-allowed, and (combined with :not(:disabled) on each hover above)
+   keeps the hover background from kicking in. */
+.btn:disabled,
+.btn[disabled] {
+  opacity: 0.5;
   cursor: not-allowed;
+  filter: saturate(0.7);
 }
 
 .btn-sm {

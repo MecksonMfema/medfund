@@ -16,6 +16,7 @@ allprojects {
 subprojects {
     apply(plugin = "java")
     apply(plugin = "io.spring.dependency-management")
+    apply(plugin = "jacoco")
 
     java {
         sourceCompatibility = JavaVersion.VERSION_21
@@ -34,6 +35,7 @@ subprojects {
     the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().apply {
         imports {
             mavenBom("org.springframework.boot:spring-boot-dependencies:3.3.5")
+            mavenBom("org.testcontainers:testcontainers-bom:1.20.4")
         }
     }
 
@@ -54,6 +56,36 @@ subprojects {
 
     tasks.test {
         useJUnitPlatform()
+        finalizedBy(tasks.named("jacocoTestReport"))
+    }
+
+    // JaCoCo: emit both HTML (humans, opened locally) and XML (Codecov upload).
+    // Thresholds are deliberately low initially so existing PRs don't break the
+    // build; ratchet upward (+5% per month) toward 70% line coverage per
+    // service. Verification is currently advisory — uncomment the dependsOn
+    // on `check` once baseline measurements land in CI.
+    extensions.configure<org.gradle.testing.jacoco.plugins.JacocoPluginExtension> {
+        toolVersion = "0.8.12"
+    }
+
+    tasks.named<org.gradle.testing.jacoco.tasks.JacocoReport>("jacocoTestReport") {
+        dependsOn(tasks.test)
+        reports {
+            xml.required.set(true)
+            html.required.set(true)
+            csv.required.set(false)
+        }
+    }
+
+    tasks.named<org.gradle.testing.jacoco.tasks.JacocoCoverageVerification>("jacocoTestCoverageVerification") {
+        violationRules {
+            rule {
+                limit {
+                    counter = "LINE"
+                    minimum = "0.35".toBigDecimal()
+                }
+            }
+        }
     }
 
     // Spring Boot DevTools: only on subprojects that apply the Spring Boot plugin

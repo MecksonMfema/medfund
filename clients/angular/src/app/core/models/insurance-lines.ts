@@ -160,3 +160,83 @@ export function deriveProviderRegLabel(lines: string[]): string {
 export function insuranceLineLabel(value: string): string {
   return INSURANCE_LINES.find(l => l.value === value)?.label ?? value;
 }
+
+/**
+ * A choice in the scheme-form's "Scheme type" dropdown — labelled and
+ * categorised by the insurance line it belongs to so a tenant only sees
+ * the types that are relevant to the products they sell.
+ */
+export interface SchemeTypeOption {
+  code: string;
+  label: string;
+  /** Used as the section / optgroup header in the dropdown. */
+  line: string;
+}
+
+/**
+ * Catalogue of scheme types keyed by insurance line. Tenants that have
+ * configured {@code insuranceLines = ['HEALTH']} see only the HEALTH
+ * entries; a multi-line tenant (e.g. {@code ['HEALTH','LIFE']}) sees the
+ * union, in the order their lines are configured.
+ */
+export const SCHEME_TYPES_BY_LINE: Record<string, ReadonlyArray<Omit<SchemeTypeOption, 'line'>>> = {
+  HEALTH: [
+    { code: 'medical_aid',      label: 'Medical aid'         },
+    { code: 'health_insurance', label: 'Health insurance'    },
+    { code: 'hmo',              label: 'HMO'                 },
+    { code: 'wellness',         label: 'Wellness'            },
+    { code: 'hospital_cash',    label: 'Hospital cash plan'  },
+  ],
+  LIFE: [
+    { code: 'term_life',        label: 'Term life'           },
+    { code: 'whole_life',       label: 'Whole life'          },
+    { code: 'endowment',        label: 'Endowment'           },
+  ],
+  VEHICLE: [
+    { code: 'comprehensive',    label: 'Comprehensive'       },
+    { code: 'third_party',      label: 'Third-party'         },
+    { code: 'fleet',            label: 'Fleet'               },
+  ],
+  FUNERAL: [
+    { code: 'funeral_benefit',  label: 'Funeral benefit'     },
+    { code: 'family_funeral',   label: 'Family funeral plan' },
+  ],
+  PROPERTY: [
+    { code: 'buildings',        label: 'Buildings cover'     },
+    { code: 'contents',         label: 'Contents cover'      },
+    { code: 'all_risk',         label: 'All-risk'            },
+  ],
+  GROUP: [
+    { code: 'group_health',     label: 'Group health'        },
+    { code: 'group_life',       label: 'Group life'          },
+    { code: 'group_disability', label: 'Group disability'    },
+  ],
+  TRAVEL: [
+    { code: 'single_trip',      label: 'Single-trip'         },
+    { code: 'multi_trip',       label: 'Multi-trip'          },
+    { code: 'annual_travel',    label: 'Annual travel'       },
+  ],
+  DISABILITY: [
+    { code: 'short_term_disability', label: 'Short-term disability' },
+    { code: 'long_term_disability',  label: 'Long-term disability'  },
+    { code: 'income_protection',     label: 'Income protection'     },
+  ],
+};
+
+/**
+ * Returns the scheme types available to a tenant given its configured
+ * insurance lines, in the order the lines were configured. Falls back to
+ * the HEALTH catalogue when the tenant has no lines set yet — that's
+ * historically what new tenants defaulted to and keeps the form usable
+ * during the brief window before the operator configures lines.
+ */
+export function schemeTypesForLines(lines: string[]): SchemeTypeOption[] {
+  const source = lines.length > 0 ? lines : ['HEALTH'];
+  const out: SchemeTypeOption[] = [];
+  for (const line of source) {
+    const bucket = SCHEME_TYPES_BY_LINE[line];
+    if (!bucket) continue;
+    for (const t of bucket) out.push({ code: t.code, label: t.label, line });
+  }
+  return out;
+}

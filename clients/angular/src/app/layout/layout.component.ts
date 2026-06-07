@@ -5,13 +5,13 @@ import { Subscription } from 'rxjs';
 import { SidebarComponent } from './sidebar/sidebar.component';
 import { HeaderComponent } from './header/header.component';
 import { ProgressBarComponent } from '../shared/components/progress-bar/progress-bar.component';
+import { ToastContainerComponent } from '../shared/components/toast/toast-container.component';
 import { NavigationService } from '../core/services/navigation.service';
-import { TenantService } from '../core/services/tenant.service';
 
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, SidebarComponent, HeaderComponent, ProgressBarComponent],
+  imports: [CommonModule, RouterOutlet, SidebarComponent, HeaderComponent, ProgressBarComponent, ToastContainerComponent],
   templateUrl: './layout.component.html',
   styleUrl: './layout.component.scss',
 })
@@ -21,13 +21,15 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   constructor(
     private navService: NavigationService,
-    private tenantService: TenantService,
   ) {}
 
   ngOnInit(): void {
-    // Clear any leftover tenant context so the interceptor does NOT send
-    // X-Tenant-ID on platform admin requests.
-    this.tenantService.clearTenant();
+    // We deliberately do NOT clearTenant() here. The tenant interceptor
+    // already gates X-Tenant-ID by route URL (only attaches it on /tenant/*
+    // routes), so a platform admin browsing /platform sends no tenant
+    // header regardless of TenantService state. Wiping the cached tenant
+    // would force a re-pick every time a super_admin bounces between the
+    // platform portal and a tenant they're currently administering.
 
     this.sub = this.navService.collapsed$.subscribe(
       (c) => (this.collapsed = c)

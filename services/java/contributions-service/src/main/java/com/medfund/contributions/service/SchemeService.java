@@ -68,8 +68,12 @@ public class SchemeService {
                     return Mono.<Scheme>error(new DuplicateSchemeException(request.name()));
                 }
 
+                // Leave the @Id null — Spring Data R2DBC's repository.save()
+                // detects null IDs and runs INSERT (the table has
+                // DEFAULT gen_random_uuid()). Setting the ID ourselves makes
+                // save() take the UPDATE path and fail with "Row does not
+                // exist" because there's no matching row yet.
                 var scheme = new Scheme();
-                scheme.setId(UUID.randomUUID());
                 scheme.setName(request.name());
                 scheme.setDescription(request.description());
                 scheme.setSchemeType(request.schemeTypeOrDefault());
@@ -169,7 +173,8 @@ public class SchemeService {
                 String resolvedCurrency = resolveChildCurrency(scheme, request.currencyCode());
 
                 var benefit = new SchemeBenefit();
-                benefit.setId(UUID.randomUUID());
+                // @Id left null — see comment on create(): pre-setting the
+                // ID makes save() take the UPDATE path and fail.
                 benefit.setSchemeId(request.schemeId());
                 benefit.setName(request.name());
                 benefit.setBenefitType(request.benefitType());
@@ -258,7 +263,8 @@ public class SchemeService {
                 String resolvedCurrency = resolveChildCurrency(scheme, request.currencyCode());
 
                 var ageGroup = new AgeGroup();
-                ageGroup.setId(UUID.randomUUID());
+                // @Id left null — see comment on create(): pre-setting the
+                // ID makes save() take the UPDATE path and fail.
                 ageGroup.setSchemeId(request.schemeId());
                 ageGroup.setName(request.name());
                 ageGroup.setMinAge(request.minAge());

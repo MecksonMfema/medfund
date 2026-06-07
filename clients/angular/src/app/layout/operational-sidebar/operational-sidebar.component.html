@@ -24,15 +24,8 @@
     <app-icon [name]="collapsed ? 'chevron-right' : 'chevron-left'" [size]="14"></app-icon>
   </button>
 
-  <!-- Tenant Admin shortcut (visible only to users with admin permissions) -->
-  @if (canAccessAdmin) {
-    <div class="op-admin-link">
-      <button class="op-admin-btn" (click)="goAdmin()" [title]="collapsed ? 'Tenant Admin' : ''">
-        <app-icon name="settings" [size]="16"></app-icon>
-        @if (!collapsed) { <span>Tenant Admin</span> }
-      </button>
-    </div>
-  }
+  <!-- Portal navigation (Tenant Admin / Platform Admin) lives in the user
+       dropdown in the header, not here — see tenant-layout.component.html. -->
 
   <!-- Permission-filtered navigation -->
   <div class="op-nav-scroll">

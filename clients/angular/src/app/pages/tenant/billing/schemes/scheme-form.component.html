@@ -26,8 +26,21 @@
     <label class="field">
       <span class="field-label">Type</span>
       <select [(ngModel)]="form.schemeType" name="schemeType">
-        @for (t of schemeTypes; track t.code) {
-          <option [value]="t.code">{{ t.label }}</option>
+        @if (schemeTypes.length === 0) {
+          <option value="" disabled>Configure insurance lines first</option>
+        }
+        @if (schemeTypeGroups.length <= 1) {
+          @for (t of schemeTypes; track t.code) {
+            <option [value]="t.code">{{ t.label }}</option>
+          }
+        } @else {
+          @for (line of schemeTypeGroups; track line) {
+            <optgroup [label]="lineLabel(line)">
+              @for (t of schemeTypesForLine(line); track t.code) {
+                <option [value]="t.code">{{ t.label }}</option>
+              }
+            </optgroup>
+          }
         }
       </select>
     </label>
@@ -60,7 +73,7 @@
 
     <div class="form-actions span-2">
       <a class="btn btn-default" routerLink="/tenant/billing/schemes">Cancel</a>
-      <button type="submit" class="btn btn-primary" [disabled]="saving || loading">
+      <button type="submit" class="btn btn-primary" [disabled]="saving || loading || !isDirty">
         {{ saving ? 'Saving…' : (schemeId ? 'Save changes' : 'Create scheme') }}
       </button>
     </div>

@@ -25,15 +25,8 @@
     <app-icon [name]="collapsed ? 'chevron-right' : 'chevron-left'" [size]="14"></app-icon>
   </button>
 
-  <!-- Back to Platform (super admin only path) -->
-  <div class="ts-back">
-    <button class="ts-back-btn" (click)="backToPlatform()" [title]="collapsed ? 'Back to Platform' : ''">
-      <app-icon name="arrow-left" [size]="16"></app-icon>
-      @if (!collapsed) {
-        <span>Platform Admin</span>
-      }
-    </button>
-  </div>
+  <!-- Portal navigation (Operational Portal / Platform Admin) lives in the
+       user dropdown in the header, not here — see tenant-layout.component.html. -->
 
   <!-- Navigation -->
   <div class="ts-nav-scroll">

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, of } from 'rxjs';
 import { catchError, distinctUntilChanged, map, switchMap, tap } from 'rxjs/operators';
+import { KeycloakService } from 'keycloak-angular';
 import { ApiService } from '../services/api.service';
 import { TenantService } from '../services/tenant.service';
 import { PermissionKey } from './permissions';
@@ -30,6 +31,7 @@ export class PermissionService {
   constructor(
     private api: ApiService,
     private tenantService: TenantService,
+    private keycloak: KeycloakService,
   ) {
     // Refetch whenever the tenant changes — including app boot, when
     // tenant.service restores the cached tenant from sessionStorage.
@@ -42,16 +44,28 @@ export class PermissionService {
       .subscribe(set => this.permissions$$.next(set));
   }
 
+  /** True when the JWT carries the {@code super_admin} realm role.
+   *  Super admins implicitly hold every right, regardless of the
+   *  tenant-scoped permission set on {@link #permissions$} (which is
+   *  empty for platform-only users by design). */
+  isSuperAdmin(): boolean {
+    return (this.keycloak.getUserRoles(true) ?? []).includes('super_admin');
+  }
+
   /**
    * Synchronous check used by route guards and the {@code *hasPermission}
    * directive. Reads the most recent fetch result without re-querying.
+   * Super admins always pass.
    */
   has(permission: PermissionKey | string): boolean {
+    if (this.isSuperAdmin()) return true;
     return this.permissions$$.getValue().has(permission);
   }
 
-  /** Synchronous "any of" check — true when the user holds at least one key. */
+  /** Synchronous "any of" check — true when the user holds at least one
+   *  key, or is a super admin. */
   hasAny(permissions: ReadonlyArray<PermissionKey | string>): boolean {
+    if (this.isSuperAdmin()) return true;
     const held = this.permissions$$.getValue();
     return permissions.some(p => held.has(p));
   }

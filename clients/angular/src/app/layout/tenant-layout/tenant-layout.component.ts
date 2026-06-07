@@ -9,14 +9,16 @@ import { NavigationService } from '../../core/services/navigation.service';
 import { TenantService } from '../../core/services/tenant.service';
 import { AdminService } from '../../core/services/admin.service';
 import { BrandingService } from '../../core/services/branding.service';
+import { PermissionService } from '../../core/security/permission.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { ProgressBarComponent } from '../../shared/components/progress-bar/progress-bar.component';
+import { ToastContainerComponent } from '../../shared/components/toast/toast-container.component';
 import { clearSession } from '../../auth/keycloak.init';
 
 @Component({
   selector: 'app-tenant-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, TenantSidebarComponent, OperationalSidebarComponent, IconComponent, ProgressBarComponent],
+  imports: [CommonModule, RouterOutlet, TenantSidebarComponent, OperationalSidebarComponent, IconComponent, ProgressBarComponent, ToastContainerComponent],
   templateUrl: './tenant-layout.component.html',
   styleUrl: './tenant-layout.component.scss',
 })
@@ -31,6 +33,10 @@ export class TenantLayoutComponent implements OnInit, OnDestroy {
   userName = 'User';
   userInitials = 'U';
   userMenuOpen = false;
+
+  /** Realm-role flags — drive the portal-navigation items in the dropdown. */
+  isSuperAdmin = false;
+  isTenantAdmin = false;
   /**
    * Which sidebar to render — driven by route data {@code data.sidebar}:
    * <ul>
@@ -48,12 +54,17 @@ export class TenantLayoutComponent implements OnInit, OnDestroy {
     private adminService: AdminService,
     private brandingService: BrandingService,
     private keycloak: KeycloakService,
+    private permissions: PermissionService,
     private router: Router,
     private route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
     this.subs.push(this.navService.collapsed$.subscribe(c => (this.collapsed = c)));
+
+    const roles = this.keycloak.getUserRoles(true) ?? [];
+    this.isSuperAdmin  = roles.includes('super_admin');
+    this.isTenantAdmin = roles.includes('tenant_admin');
 
     // If no tenant is in session (direct login or page refresh without navigation
     // from the platform admin), bootstrap it from the JWT tenant_id claim.
@@ -148,6 +159,24 @@ export class TenantLayoutComponent implements OnInit, OnDestroy {
   toggleSidebar(): void {
     this.navService.toggleSidebar();
   }
+
+  /** Convenience for the template — true when at least one tenant-scoped
+   *  admin permission is held (covers tenant admins who don't have the
+   *  realm role but do have admin:* permissions). Super admins always pass. */
+  get canAccessAdmin(): boolean {
+    if (this.isSuperAdmin || this.isTenantAdmin) return true;
+    return (
+      this.permissions.has('admin:manage_settings') ||
+      this.permissions.has('admin:manage_users') ||
+      this.permissions.has('admin:manage_roles') ||
+      this.permissions.has('admin:view_audit') ||
+      this.permissions.has('admin:manage_rules')
+    );
+  }
+
+  goToOperations(): void { this.router.navigate(['/tenant/dashboard']);       this.userMenuOpen = false; }
+  goToTenantAdmin(): void { this.router.navigate(['/tenant/admin/dashboard']); this.userMenuOpen = false; }
+  goToPlatform(): void    { this.router.navigate(['/platform/tenants']);      this.userMenuOpen = false; }
 
   async logout(): Promise<void> {
     await clearSession();

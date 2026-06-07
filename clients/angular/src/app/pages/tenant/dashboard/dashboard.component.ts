@@ -489,15 +489,17 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
 
     this.applyCharts(EMPTY_CHARTS);
 
-    this.subs.push(this.permissions.permissions$.subscribe(set => {
+    this.subs.push(this.permissions.permissions$.subscribe(() => {
       this.permissionsResolved = true;
-      const allowed = this.tabs.filter(t => set.has(t.permission));
+      // Use PermissionService.has() so super admins (with an empty tenant-
+      // scoped set by design) see every tab they need access to.
+      const allowed = this.tabs.filter(t => this.permissions.has(t.permission));
       this.hasAnyView = allowed.length > 0;
 
       // Auto-select on first resolution. If the user later loses the active
       // tab's permission (after a role swap), fall back to the first remaining
       // tab so we never sit on a blank panel they're not allowed to see.
-      if (!this.activeTab || !set.has(this.tabFor(this.activeTab).permission)) {
+      if (!this.activeTab || !this.permissions.has(this.tabFor(this.activeTab).permission)) {
         this.activeTab = allowed.length ? allowed[0].id : null;
       }
     }));
