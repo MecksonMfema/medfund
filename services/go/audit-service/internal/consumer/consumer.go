@@ -18,10 +18,19 @@ const (
 	groupID             = "audit-service"
 )
 
+// eventStore is the minimum surface of audit.Store the consumer needs.
+// Introducing this seam lets the consumer be unit-tested without spinning a
+// real Postgres pool — *audit.Store satisfies it as-is, so the public
+// constructor signature stays unchanged.
+type eventStore interface {
+	Append(audit.Event)
+	AppendSecurity(audit.SecurityEvent)
+}
+
 // AuditConsumer reads audit and security events from Kafka and appends them to the store.
 type AuditConsumer struct {
 	brokers string
-	store   *audit.Store
+	store   eventStore
 }
 
 func New(brokers string, store *audit.Store) *AuditConsumer {

@@ -37,15 +37,26 @@
           <th>Min age</th>
           <th>Max age</th>
           <th>Contribution</th>
+          <th>Status</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
         @for (row of rows; track row.id) {
-          <tr>
+          <tr [class.row-inactive]="row.status === 'inactive'">
             <td><strong>{{ row.name }}</strong></td>
             <td>{{ row.minAge }}</td>
             <td>{{ row.maxAge }}</td>
             <td>{{ row.contributionAmount | currencyFormat:row.currencyCode }}</td>
+            <td>
+              <span class="badge" [class]="'badge-' + (row.status || 'active')">{{ row.status || 'active' }}</span>
+            </td>
+            <td class="actions">
+              <button class="link-btn" (click)="edit(row)">Edit</button>
+              @if (row.status !== 'inactive') {
+                <button class="link-btn danger" (click)="deactivate(row)">Deactivate</button>
+              }
+            </td>
           </tr>
         }
       </tbody>

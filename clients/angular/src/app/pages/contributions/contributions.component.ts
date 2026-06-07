@@ -5,6 +5,7 @@ import { DataTableComponent, TableAction } from '../../shared/components/data-ta
 import { StatCardComponent } from '../../shared/components/stat-card/stat-card.component';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { ContributionsService, Scheme } from '../../core/services/contributions.service';
+import { ToastService } from '../../shared/components/toast/toast.service';
 
 @Component({
   selector: 'app-contributions',
@@ -41,12 +42,34 @@ export class ContributionsComponent implements OnInit {
       color: 'default',
       handler: (row: Scheme) => this.router.navigate(['/tenant/billing/schemes', row.id, 'edit']),
     },
+    {
+      label: 'Deactivate',
+      icon: 'pause-circle',
+      color: 'danger',
+      // Hide once already inactive so the user can't keep clicking it.
+      visible: (row: Scheme) => row.status !== 'inactive',
+      handler: (row: Scheme) => this.deactivateScheme(row),
+    },
   ];
 
   constructor(
     private contribService: ContributionsService,
     private router: Router,
+    private toast: ToastService,
   ) {}
+
+  private deactivateScheme(row: Scheme): void {
+    if (!confirm(`Deactivate scheme "${row.name}"? Existing contributions, benefits, and claims stay on file but new ones won't be generated.`)) return;
+    this.contribService.deactivateScheme(row.id).subscribe({
+      next: (updated) => {
+        this.toast.success(`"${row.name}" deactivated`);
+        this.schemes = this.schemes.map(s => s.id === row.id ? { ...s, status: updated.status } : s);
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.detail || 'Could not deactivate scheme');
+      },
+    });
+  }
 
   ngOnInit(): void {
     this.contribService.getSchemes().subscribe({

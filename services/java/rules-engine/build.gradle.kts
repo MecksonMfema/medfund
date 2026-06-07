@@ -18,4 +18,9 @@ dependencies {
     implementation("org.drools:drools-mvel:9.44.0.Final")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     runtimeOnly("org.springframework.boot:spring-boot-starter-actuator")
+
+    // Shared Testcontainers fixtures (this slice does not need Postgres/Kafka
+    // but the dep brings in JUnit Jupiter via the test base, kept consistent
+    // across services).
+    testImplementation(testFixtures(project(":shared")))
 }

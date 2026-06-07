@@ -1,7 +1,7 @@
 <div class="form-page">
   <header class="page-header">
     <div>
-      <h1>Add age group</h1>
+      <h1>{{ ageGroupId ? 'Edit age group' : 'Add age group' }}</h1>
       <p class="page-sub">Defines a per-age contribution tier within a scheme. Currency is locked to the parent scheme.</p>
     </div>
     <a class="btn btn-default" routerLink="/tenant/billing/age-groups">
@@ -50,8 +50,8 @@
 
     <div class="form-actions span-2">
       <a class="btn btn-default" routerLink="/tenant/billing/age-groups">Cancel</a>
-      <button type="submit" class="btn btn-primary" [disabled]="saving">
-        {{ saving ? 'Saving…' : 'Add age group' }}
+      <button type="submit" class="btn btn-primary" [disabled]="saving || loading || !isDirty">
+        {{ saving ? 'Saving…' : (ageGroupId ? 'Save changes' : 'Add age group') }}
       </button>
     </div>
   </form>

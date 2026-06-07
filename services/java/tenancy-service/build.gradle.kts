@@ -10,4 +10,7 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
     implementation("org.postgresql:postgresql")
     runtimeOnly("org.springframework.boot:spring-boot-starter-actuator")
+
+    // Shared Testcontainers fixtures
+    testImplementation(testFixtures(project(":shared")))
 }

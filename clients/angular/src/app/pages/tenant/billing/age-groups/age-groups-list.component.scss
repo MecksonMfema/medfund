@@ -77,3 +77,22 @@
   text-align: left;
   border-bottom: 1px solid var(--border, #e5e7eb);
 }
+
+.actions { white-space: nowrap; }
+.actions .link-btn {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  font-size: 0.85rem;
+  color: var(--color-primary, #0077b6);
+  cursor: pointer;
+  border-radius: 4px;
+}
+.actions .link-btn:hover { background: var(--color-bg, #f3f4f6); }
+.actions .link-btn.danger { color: var(--color-error, #e71d36); }
+
+.row-inactive {
+  opacity: 0.55;
+}
+.row-inactive strong { font-weight: 500; }
+

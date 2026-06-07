@@ -80,6 +80,12 @@ export const BILLING_ROUTES: Routes = [
     data: { title: 'Add Age Group', sidebar: 'operational' },
   },
   {
+    path: 'age-groups/:id/edit',
+    canActivate: [permissionGuard(['billing:manage_age_groups'])],
+    loadComponent: () => import('./age-groups/age-group-form.component').then(m => m.AgeGroupFormComponent),
+    data: { title: 'Edit Age Group', sidebar: 'operational' },
+  },
+  {
     path: 'waiting-periods',
     canActivate: [permissionGuard(['billing:view', 'billing:manage_waiting_periods'])],
     loadComponent: () => import('./waiting-periods/waiting-periods-list.component').then(m => m.WaitingPeriodsListComponent),

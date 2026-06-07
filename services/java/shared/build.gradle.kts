@@ -1,5 +1,6 @@
 plugins {
     `java-library`
+    `java-test-fixtures`
 }
 
 dependencies {
@@ -25,4 +26,19 @@ dependencies {
     // JavaMoney / Moneta — used by shared.currency.Money and CurrencyConverter.
     api("javax.money:money-api:1.1")
     api("org.javamoney:moneta:1.4.4")
+
+    // ── Test fixtures (java-test-fixtures plugin) ─────────────────────────
+    // Downstream services pull these via:
+    //   testImplementation(testFixtures(project(":shared")))
+    // Versions are managed by the testcontainers-bom imported in the root
+    // build.gradle.kts subprojects { } block.
+    testFixturesApi("org.testcontainers:junit-jupiter")
+    testFixturesApi("org.testcontainers:postgresql")
+    testFixturesApi("org.testcontainers:kafka")
+    testFixturesApi("org.springframework.boot:spring-boot-starter-test")
+    testFixturesApi("io.projectreactor:reactor-test")
+    testFixturesApi("org.springframework.boot:spring-boot-starter-data-r2dbc")
+    testFixturesApi("org.flywaydb:flyway-core")
+    testFixturesApi("org.postgresql:postgresql")
+    testFixturesApi("org.apache.kafka:kafka-clients")
 }

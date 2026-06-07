@@ -11,6 +11,7 @@ import { IconComponent } from '../../../../shared/components/icon/icon.component
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
 
 @Component({
   selector: 'app-benefits-list',
@@ -31,6 +32,7 @@ export class BenefitsListComponent implements OnInit {
     private contributions: ContributionsService,
     private route: ActivatedRoute,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -65,17 +67,18 @@ export class BenefitsListComponent implements OnInit {
     this.router.navigate(['/tenant/billing/schemes', this.schemeId, 'benefits', b.id, 'edit']);
   }
 
-  remove(b: SchemeBenefit): void {
-    if (!confirm(`Delete benefit "${b.name}"? Existing claims that referenced it keep their data — only future selections lose this option.`)) return;
+  deactivate(b: SchemeBenefit): void {
+    if (!confirm(`Deactivate benefit "${b.name}"? It will stay on file for historical claims but won't be picked up for new ones.`)) return;
     this.pendingId = b.id;
-    this.contributions.deleteBenefit(b.id).subscribe({
-      next: () => {
-        this.benefits = this.benefits.filter(x => x.id !== b.id);
+    this.contributions.deactivateBenefit(b.id).subscribe({
+      next: (updated) => {
+        this.benefits = this.benefits.map(x => x.id === b.id ? { ...x, status: updated.status } : x);
         this.pendingId = null;
+        this.toast.success(`"${b.name}" deactivated`);
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Delete failed';
         this.pendingId = null;
+        this.toast.error(err?.error?.detail || 'Could not deactivate benefit');
       },
     });
   }

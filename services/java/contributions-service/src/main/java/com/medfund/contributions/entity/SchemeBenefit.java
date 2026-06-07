@@ -41,6 +41,8 @@ public class SchemeBenefit {
 
     private String description;
 
+    private String status = "active";
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;
@@ -50,6 +52,9 @@ public class SchemeBenefit {
     private Instant updatedAt;
 
     // Getters and setters
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 

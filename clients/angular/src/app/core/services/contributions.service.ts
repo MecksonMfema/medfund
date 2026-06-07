@@ -21,6 +21,7 @@ export interface AgeGroup {
   maxAge: number;
   contributionAmount: string;
   currencyCode: string;
+  status?: string;
 }
 
 export interface GroupOption {
@@ -41,6 +42,7 @@ export interface SchemeBenefit {
   currencyCode: string;
   waitingPeriodDays?: number;
   description?: string;
+  status?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -196,6 +198,11 @@ export class ContributionsService {
     return this.api.put<Scheme>(`/schemes/${id}`, data);
   }
 
+  /** Soft-delete: flips the scheme's status to 'inactive'. */
+  deactivateScheme(id: string): Observable<Scheme> {
+    return this.api.post<Scheme>(`/schemes/${id}/deactivate`, {});
+  }
+
   // ── Groups (read-only autocomplete) ──
   searchGroups(q: string, limit = 20): Observable<GroupOption[]> {
     const params: Record<string, string> = { limit: String(limit) };
@@ -210,6 +217,19 @@ export class ContributionsService {
 
   createAgeGroup(data: UpsertAgeGroupPayload): Observable<AgeGroup> {
     return this.api.post<AgeGroup>('/schemes/age-groups', data);
+  }
+
+  getAgeGroupById(id: string): Observable<AgeGroup> {
+    return this.api.get<AgeGroup>(`/schemes/age-groups/${id}`);
+  }
+
+  updateAgeGroup(id: string, data: UpsertAgeGroupPayload): Observable<AgeGroup> {
+    return this.api.put<AgeGroup>(`/schemes/age-groups/${id}`, data);
+  }
+
+  /** Soft-delete: flips the age group's status to 'inactive'. */
+  deactivateAgeGroup(id: string): Observable<AgeGroup> {
+    return this.api.post<AgeGroup>(`/schemes/age-groups/${id}/deactivate`, {});
   }
 
   // ── Scheme benefits ──
@@ -229,8 +249,10 @@ export class ContributionsService {
     return this.api.put<SchemeBenefit>(`/schemes/benefits/${id}`, data);
   }
 
-  deleteBenefit(id: string): Observable<void> {
-    return this.api.delete<void>(`/schemes/benefits/${id}`);
+  /** Soft-delete: flips the benefit's status to 'inactive'. Hard-delete
+   *  is no longer supported — see the controller comment in SchemeController. */
+  deactivateBenefit(id: string): Observable<SchemeBenefit> {
+    return this.api.post<SchemeBenefit>(`/schemes/benefits/${id}/deactivate`, {});
   }
 
   // ── Contributions ──

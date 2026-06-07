@@ -1,6 +1,7 @@
 package com.medfund.contributions.service;
 
 import com.medfund.contributions.dto.CreateAgeGroupRequest;
+import com.medfund.contributions.dto.UpdateAgeGroupRequest;
 import com.medfund.contributions.dto.CreateSchemeBenefitRequest;
 import com.medfund.contributions.dto.CreateSchemeRequest;
 import com.medfund.contributions.dto.UpdateSchemeBenefitRequest;
@@ -237,19 +238,32 @@ public class SchemeService {
                 }));
     }
 
+    /** Soft-delete a benefit by flipping its status to "inactive". */
     @Transactional
-    public Mono<Void> deleteBenefit(UUID id, String actorId) {
+    public Mono<SchemeBenefit> deactivateBenefit(UUID id, String actorId) {
         return schemeBenefitRepository.findById(id)
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Scheme benefit not found: " + id)))
-            .flatMap(existing -> schemeBenefitRepository.delete(existing)
-                .then(Mono.deferContextual(ctx -> {
-                    String tenantId = TenantContext.get(ctx);
-                    return publishAudit(tenantId, "SchemeBenefit", existing.getId().toString(), "DELETE", actorId,
-                            Map.of("name", existing.getName(), "benefitType", existing.getBenefitType(),
-                                   "schemeId", existing.getSchemeId().toString()),
-                            null);
-                })));
+            .flatMap(existing -> {
+                String previousStatus = existing.getStatus();
+                existing.setStatus("inactive");
+                existing.setUpdatedAt(Instant.now());
+                return schemeBenefitRepository.save(existing)
+                    .flatMap(saved -> Mono.deferContextual(ctx -> {
+                        String tenantId = TenantContext.get(ctx);
+                        return publishAudit(tenantId, "SchemeBenefit", saved.getId().toString(), "UPDATE", actorId,
+                                Map.of("status", previousStatus),
+                                Map.of("status", saved.getStatus()))
+                            .thenReturn(saved);
+                    }));
+            });
     }
+
+    // deleteBenefit was removed deliberately. Hard-delete of a benefit can
+    // strand references in claims / invoices / tariffs; use deactivateBenefit
+    // instead. Schemes and age groups have always followed the same rule —
+    // soft-delete via the status column. If a one-off cleanup of an
+    // erroneously-created row is ever required, it should be done through
+    // a controlled migration, not an end-user API.
 
     public Flux<AgeGroup> findAgeGroupsBySchemeId(UUID schemeId) {
         return ageGroupRepository.findBySchemeId(schemeId);
@@ -284,6 +298,60 @@ public class SchemeService {
                                "schemeId", saved.getSchemeId().toString()))
                     .thenReturn(saved);
             }));
+    }
+
+    public Mono<AgeGroup> findAgeGroupById(UUID id) {
+        return ageGroupRepository.findById(id)
+            .switchIfEmpty(Mono.error(new IllegalArgumentException("Age group not found: " + id)));
+    }
+
+    @Transactional
+    public Mono<AgeGroup> updateAgeGroup(UUID id, UpdateAgeGroupRequest request, String actorId) {
+        return ageGroupRepository.findById(id)
+            .switchIfEmpty(Mono.error(new IllegalArgumentException("Age group not found: " + id)))
+            .flatMap(existing -> schemeRepository.findById(existing.getSchemeId())
+                .switchIfEmpty(Mono.error(new SchemeNotFoundException(existing.getSchemeId())))
+                .flatMap(scheme -> {
+                    String previousName = existing.getName();
+                    String resolvedCurrency = resolveChildCurrency(scheme, request.currencyCode());
+
+                    existing.setName(request.name());
+                    existing.setMinAge(request.minAge());
+                    existing.setMaxAge(request.maxAge());
+                    existing.setContributionAmount(request.contributionAmount());
+                    existing.setCurrencyCode(resolvedCurrency);
+
+                    return ageGroupRepository.save(existing)
+                        .flatMap(saved -> Mono.deferContextual(ctx -> {
+                            String tenantId = TenantContext.get(ctx);
+                            return publishAudit(tenantId, "AgeGroup", saved.getId().toString(), "UPDATE", actorId,
+                                    Map.of("name", previousName),
+                                    Map.of("name", saved.getName(),
+                                           "minAge", saved.getMinAge().toString(),
+                                           "maxAge", saved.getMaxAge().toString(),
+                                           "contributionAmount", saved.getContributionAmount().toString()))
+                                .thenReturn(saved);
+                        }));
+                }));
+    }
+
+    /** Soft-delete an age group by flipping its status to "inactive". */
+    @Transactional
+    public Mono<AgeGroup> deactivateAgeGroup(UUID id, String actorId) {
+        return ageGroupRepository.findById(id)
+            .switchIfEmpty(Mono.error(new IllegalArgumentException("Age group not found: " + id)))
+            .flatMap(existing -> {
+                String previousStatus = existing.getStatus();
+                existing.setStatus("inactive");
+                return ageGroupRepository.save(existing)
+                    .flatMap(saved -> Mono.deferContextual(ctx -> {
+                        String tenantId = TenantContext.get(ctx);
+                        return publishAudit(tenantId, "AgeGroup", saved.getId().toString(), "UPDATE", actorId,
+                                Map.of("status", previousStatus),
+                                Map.of("status", saved.getStatus()))
+                            .thenReturn(saved);
+                    }));
+            });
     }
 
     // ---- Private helpers ----

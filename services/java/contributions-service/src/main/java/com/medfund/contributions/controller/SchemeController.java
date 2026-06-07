@@ -122,12 +122,20 @@ public class SchemeController {
         return schemeService.updateBenefit(id, request, principal.getName()).map(SchemeBenefitResponse::from);
     }
 
-    @DeleteMapping("/benefits/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Operation(summary = "Delete a scheme benefit")
-    @ApiResponse(responseCode = "204", description = "Scheme benefit deleted")
-    public Mono<Void> deleteBenefit(@PathVariable UUID id, Principal principal) {
-        return schemeService.deleteBenefit(id, principal.getName());
+    // Hard-delete of benefits was intentionally removed: claims, invoices,
+    // and tariff lookups can reference a benefit historically, so wiping
+    // the row would dangle those references. Deactivate is the only
+    // supported workflow — schemes and age groups follow the same rule.
+
+    @PostMapping("/benefits/{id}/deactivate")
+    @Operation(summary = "Deactivate a scheme benefit",
+        description = "Soft-delete that flips the status to 'inactive' so historical references (claims, invoices) stay intact.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Scheme benefit deactivated"),
+        @ApiResponse(responseCode = "404", description = "Scheme benefit not found")
+    })
+    public Mono<SchemeBenefitResponse> deactivateBenefit(@PathVariable UUID id, Principal principal) {
+        return schemeService.deactivateBenefit(id, principal.getName()).map(SchemeBenefitResponse::from);
     }
 
     @GetMapping("/{schemeId}/age-groups")
@@ -146,5 +154,36 @@ public class SchemeController {
     public Mono<AgeGroupResponse> createAgeGroup(@Valid @RequestBody CreateAgeGroupRequest request,
                                                  Principal principal) {
         return schemeService.createAgeGroup(request, principal.getName()).map(AgeGroupResponse::from);
+    }
+
+    @GetMapping("/age-groups/{id}")
+    @Operation(summary = "Get an age group by id")
+    public Mono<AgeGroupResponse> findAgeGroupById(@PathVariable UUID id) {
+        return schemeService.findAgeGroupById(id).map(AgeGroupResponse::from);
+    }
+
+    @PutMapping("/age-groups/{id}")
+    @Operation(summary = "Update an existing age group",
+        description = "Currency stays inherited from the parent scheme — pass it explicitly only as a defensive check.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Age group updated"),
+        @ApiResponse(responseCode = "400", description = "Validation error or currency mismatch with parent scheme"),
+        @ApiResponse(responseCode = "404", description = "Age group not found")
+    })
+    public Mono<AgeGroupResponse> updateAgeGroup(@PathVariable UUID id,
+                                                 @Valid @RequestBody UpdateAgeGroupRequest request,
+                                                 Principal principal) {
+        return schemeService.updateAgeGroup(id, request, principal.getName()).map(AgeGroupResponse::from);
+    }
+
+    @PostMapping("/age-groups/{id}/deactivate")
+    @Operation(summary = "Deactivate an age group",
+        description = "Soft-delete that flips the status to 'inactive' so existing contributions tied to it stay intact.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Age group deactivated"),
+        @ApiResponse(responseCode = "404", description = "Age group not found")
+    })
+    public Mono<AgeGroupResponse> deactivateAgeGroup(@PathVariable UUID id, Principal principal) {
+        return schemeService.deactivateAgeGroup(id, principal.getName()).map(AgeGroupResponse::from);
     }
 }

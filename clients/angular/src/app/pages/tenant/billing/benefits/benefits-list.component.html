@@ -41,21 +41,27 @@
           <th class="right">Daily limit</th>
           <th class="right">Event limit</th>
           <th class="right">Waiting (days)</th>
+          <th>Status</th>
           <th></th>
         </tr>
       </thead>
       <tbody>
         @for (b of benefits; track b.id) {
-          <tr [class.pending]="pendingId === b.id">
+          <tr [class.pending]="pendingId === b.id" [class.row-inactive]="b.status === 'inactive'">
             <td><strong>{{ b.name }}</strong></td>
             <td>{{ b.benefitType | humanize }}</td>
             <td class="right">{{ b.annualLimit ? (b.annualLimit | currencyFormat:b.currencyCode) : '—' }}</td>
             <td class="right">{{ b.dailyLimit ? (b.dailyLimit | currencyFormat:b.currencyCode) : '—' }}</td>
             <td class="right">{{ b.eventLimit ? (b.eventLimit | currencyFormat:b.currencyCode) : '—' }}</td>
             <td class="right">{{ b.waitingPeriodDays ?? 0 }}</td>
+            <td>
+              <span class="badge" [class]="'badge-' + (b.status || 'active')">{{ b.status || 'active' }}</span>
+            </td>
             <td class="actions">
               <button class="link-btn" (click)="edit(b)">Edit</button>
-              <button class="link-btn danger" (click)="remove(b)">Delete</button>
+              @if (b.status !== 'inactive') {
+                <button class="link-btn danger" (click)="deactivate(b)">Deactivate</button>
+              }
             </td>
           </tr>
         }

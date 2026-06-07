@@ -7,7 +7,15 @@ defmodule Medfund.MixProject do
       version: "0.1.0",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      aliases: aliases()
+      aliases: aliases(),
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.html": :test,
+        "coveralls.json": :test,
+        "coveralls.github": :test
+      ]
     ]
   end
 
@@ -24,7 +32,10 @@ defmodule Medfund.MixProject do
       {:joken, "~> 2.6"},
       {:opentelemetry, "~> 1.4"},
       {:opentelemetry_api, "~> 1.3"},
-      {:open_api_spex, "~> 3.19"}
+      {:open_api_spex, "~> 3.19"},
+      # Test-only — coverage reporting + mocking
+      {:excoveralls, "~> 0.18", only: :test},
+      {:mox, "~> 1.1", only: :test}
     ]
   end
 
