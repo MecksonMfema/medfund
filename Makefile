@@ -139,10 +139,30 @@ test-python:
 test-angular:
 	cd clients/angular && npx ng test --watch=false
 
+test-flutter:
+	cd clients/flutter && flutter test --coverage
+
+# Java integration tests (Testcontainers slices, Phase 3 shared fixtures).
+# Filters to *IT — keeps `make test-java` fast (unit-only) and `make test-integration`
+# focused on the longer Postgres/Kafka container tests.
+test-integration:
+	cd services/java && ./gradlew test --tests '*IT'
+
+# Playwright E2E suite under clients/angular/e2e/.
+# First-time machine setup:
+#   cd clients/angular/e2e && npm install && npx playwright install --with-deps chromium
+test-e2e:
+	cd clients/angular/e2e && npm test
+
+# Per-language coverage summary.
+test-coverage:
+	bash scripts/coverage-summary.sh
+
 .PHONY: infra infra-down infra-reset infra-ps infra-logs keycloak-setup \
         tenancy user claims contributions finance java-all \
         gateway notification audit file-svc payment \
         live-dashboard chat elixir-setup \
         ai ai-setup \
         web web-setup \
-        test-java test-go test-elixir test-python test-angular
+        test-java test-go test-elixir test-python test-angular \
+        test-flutter test-integration test-e2e test-coverage
