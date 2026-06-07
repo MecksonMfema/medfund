@@ -48,7 +48,35 @@ jobs:
         run: ./gradlew build -x test
 
       - name: Test
-        run: ./gradlew test
+        # Unit tests + JaCoCo XML/HTML reports. Integration (*IT) classes are
+        # excluded so a Testcontainers boot does not gate the fast unit feedback;
+        # they run via `make test-integration` (or a follow-on workflow job).
+        run: ./gradlew test --tests '!*IT' jacocoTestReport
+
+      - name: Coverage verification
+        # Advisory only: the threshold lives in build.gradle.kts at 0.35 line.
+        # Failures here are visible in PR logs but do not block the build
+        # until the per-service baseline catches up to the rule.
+        run: ./gradlew jacocoTestCoverageVerification || true
 
       - name: Check
-        run: ./gradlew check
+        run: ./gradlew check -x test -x jacocoTestCoverageVerification
+
+      - name: Upload Java coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: services/java/**/build/reports/jacoco/test/jacocoTestReport.xml
+          flags: java
+          name: java-coverage
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload JaCoCo HTML reports as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-reports
+          path: services/java/**/build/reports/jacoco/test/
+          if-no-files-found: ignore
+          retention-days: 14

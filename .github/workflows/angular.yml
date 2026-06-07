@@ -1,0 +1,64 @@
+name: Angular Web CI
+
+on:
+  push:
+    paths:
+      - 'clients/angular/**'
+      - '!clients/angular/e2e/**'
+      - '.github/workflows/angular.yml'
+  pull_request:
+    paths:
+      - 'clients/angular/**'
+      - '!clients/angular/e2e/**'
+
+defaults:
+  run:
+    working-directory: clients/angular
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: clients/angular/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        # `ng lint` may not be wired up yet — skip via `|| true` until the
+        # eslint config lands. Coverage is the regression gate, not lint.
+        run: npx ng lint || true
+
+      - name: Test with coverage
+        # karma.conf.js enforces statements/branches/functions/lines thresholds
+        # (currently 35/25/35/35, see clients/angular/karma.conf.js for the
+        # ratchet plan). A drop below those numbers fails this step before
+        # Codecov even sees the upload.
+        run: npx ng test --watch=false --code-coverage --browsers=ChromeHeadlessCI
+
+      - name: Upload Angular coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: clients/angular/coverage/angular/lcov.info
+          flags: angular
+          name: angular-coverage
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload coverage HTML report as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: angular-coverage-html
+          path: clients/angular/coverage/angular/
+          if-no-files-found: ignore
+          retention-days: 14

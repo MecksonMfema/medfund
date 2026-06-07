@@ -29,18 +29,55 @@ jobs:
         run: |
           for dir in gateway notification-service audit-service file-service payment-gateway; do
             echo "Building $dir..."
-            cd $dir && go build ./... && cd ..
+            (cd $dir && go build ./...)
           done
 
-      - name: Test all services
+      - name: Test all services with coverage
+        # -race catches concurrency regressions in middleware / consumer code;
+        # -coverprofile emits a per-service profile uploaded to Codecov.
+        # No -tags=integration: those use dockertest and run under
+        # `make test-integration` instead.
         run: |
+          set -e
           for dir in gateway notification-service audit-service file-service payment-gateway; do
             echo "Testing $dir..."
-            cd $dir && go test ./... && cd ..
+            (cd $dir && go test -race -coverprofile=coverage.out -covermode=atomic ./...)
+          done
+
+      - name: Per-service coverage threshold check (advisory)
+        # The hard gate is codecov.yml's per-flag project status. This step
+        # surfaces drops in PR logs without blocking — fail-soft.
+        run: |
+          THRESHOLD=50
+          for dir in gateway notification-service audit-service file-service payment-gateway; do
+            PCT=$(go tool cover -func=$dir/coverage.out 2>/dev/null | awk '/total:/ {gsub("%",""); print $3}')
+            if [ -z "$PCT" ]; then
+              echo "::warning::$dir produced no coverage data"
+              continue
+            fi
+            echo "$dir coverage: ${PCT}% (advisory threshold: ${THRESHOLD}%)"
+            if awk "BEGIN {exit !($PCT < $THRESHOLD)}"; then
+              echo "::warning::$dir is below the ${THRESHOLD}% advisory threshold"
+            fi
           done
 
       - name: Vet
         run: |
           for dir in gateway notification-service audit-service file-service payment-gateway; do
-            cd $dir && go vet ./... && cd ..
+            (cd $dir && go vet ./...)
           done
+
+      - name: Upload Go coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: |
+            services/go/gateway/coverage.out
+            services/go/notification-service/coverage.out
+            services/go/audit-service/coverage.out
+            services/go/file-service/coverage.out
+            services/go/payment-gateway/coverage.out
+          flags: go
+          name: go-coverage
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

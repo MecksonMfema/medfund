@@ -47,7 +47,20 @@ jobs:
       - name: Compile
         run: mix compile --warnings-as-errors
 
-      - name: Test
-        run: mix test
+      - name: Test with ExCoveralls
+        # `mix coveralls.json` writes cover/excoveralls.json which the Codecov
+        # action picks up. We standardise on Codecov rather than coveralls.io
+        # so the per-flag dashboard stays unified across all five languages.
+        run: mix coveralls.json --umbrella
         env:
           MIX_ENV: test
+
+      - name: Upload Elixir coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: services/elixir/cover/excoveralls.json
+          flags: elixir
+          name: elixir-coverage
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

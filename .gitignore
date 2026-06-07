@@ -16,6 +16,15 @@ hs_err_pid*
 *.dylib
 vendor/
 services/go/*/tmp/
+coverage.out
+
+# ── Coverage artefacts (cross-language) ───────────────────────────
+*.lcov
+coverage/
+cover/
+htmlcov/
+.coverage
+coverage.xml
 
 # ── Elixir ────────────────────────────────────────────────────────
 _build/

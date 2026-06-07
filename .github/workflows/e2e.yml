@@ -1,0 +1,68 @@
+name: Playwright E2E (advisory)
+
+# Advisory check for the first two weeks — does NOT block merges while flake
+# rate is being measured. Promote to a required check (via GitHub branch
+# protection) once the suite passes 50 consecutive runs with <2% flake.
+
+on:
+  push:
+    paths:
+      - 'clients/angular/**'
+      - '.github/workflows/e2e.yml'
+  pull_request:
+    paths:
+      - 'clients/angular/**'
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            clients/angular/package-lock.json
+            clients/angular/e2e/package-lock.json
+
+      - name: Install Angular dependencies
+        working-directory: clients/angular
+        run: npm ci
+
+      - name: Install E2E dependencies
+        working-directory: clients/angular/e2e
+        run: npm install
+
+      - name: Install Playwright browsers
+        working-directory: clients/angular/e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright suite
+        # The webServer config in playwright.config.ts auto-starts `ng serve`
+        # in the parent directory. CI=true forces workers=4 and retries=1.
+        working-directory: clients/angular/e2e
+        env:
+          CI: 'true'
+        run: npx playwright test
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: clients/angular/e2e/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload traces (failed tests only)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: clients/angular/e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 14

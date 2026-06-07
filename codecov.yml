@@ -1,0 +1,105 @@
+# Codecov configuration for MedFund.
+#
+# Strategy: per-language flags so a regression in Angular doesn't gate Java
+# (and vice-versa). Overall thresholds start at the current measured baseline
+# minus a 2% margin so no PR can regress what's already there. New-code patches
+# are held to a stricter 80% bar regardless of legacy coverage — the project
+# ratchets up by raising the per-flag `target` over time, not by retrofitting.
+#
+# Ratchet plan (per the test-coverage roadmap): +5% per flag per month until
+# each hits its long-term target. Don't raise `patch.threshold` — 80% on new
+# code is permanent.
+
+codecov:
+  require_ci_to_pass: true
+  notify:
+    wait_for_ci: true
+
+coverage:
+  precision: 2
+  round: down
+  range: "55...85"
+
+  status:
+    project:
+      # Overall project coverage — informational, never blocks PRs. Per-flag
+      # gates below are the source of truth.
+      default:
+        target: auto
+        threshold: 1%
+        informational: true
+
+      java:
+        flags: [java]
+        target: 35%      # ratchet → 70% over 7 months
+        threshold: 2%
+
+      go:
+        flags: [go]
+        target: 50%      # ratchet → 65%
+        threshold: 2%
+
+      python:
+        flags: [python]
+        target: 65%      # ratchet → 75%
+        threshold: 2%
+
+      elixir:
+        flags: [elixir]
+        target: 30%      # ratchet → 50%
+        threshold: 2%
+
+      angular:
+        flags: [angular]
+        target: 50%      # ratchet → 60% (current baseline is ~54%)
+        threshold: 2%
+
+    patch:
+      # New-code bar — fail any PR whose touched lines fall below 80%.
+      # Independent of the project-level ratchet.
+      default:
+        target: 80%
+        threshold: 0%
+        only_pulls: true
+
+flags:
+  java:
+    paths:
+      - services/java/
+    carryforward: true
+  go:
+    paths:
+      - services/go/
+    carryforward: true
+  python:
+    paths:
+      - services/python/
+    carryforward: true
+  elixir:
+    paths:
+      - services/elixir/
+    carryforward: true
+  angular:
+    paths:
+      - clients/angular/src/
+    carryforward: true
+
+comment:
+  layout: "header, diff, flags, components, files"
+  behavior: default
+  require_changes: false
+  require_base: false
+  require_head: false
+  show_carryforward_flags: true
+
+ignore:
+  - "**/*.spec.ts"
+  - "**/*Test.java"
+  - "**/*IT.java"
+  - "**/*_test.go"
+  - "**/test/**"
+  - "**/tests/**"
+  - "**/build/**"
+  - "**/node_modules/**"
+  - "clients/angular/e2e/**"
+  - "services/java/keycloak-event-listener/**"
