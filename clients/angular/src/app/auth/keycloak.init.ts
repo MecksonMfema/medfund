@@ -7,6 +7,31 @@ import { bootstrapTenantFromJwt } from './tenant-bootstrap';
 
 const GATEWAY_URL = environment.apiBaseUrl.replace('/api/v1', '');
 
+/**
+ * E2E test escape hatch. When the Playwright fixture sets
+ * {@code window.__MEDFUND_E2E_TOKEN__} via {@code addInitScript}, we skip
+ * Keycloak's real init dance entirely and seed a stub authenticated state.
+ * Production builds never see this branch — the harness sets the flag
+ * before any app code runs.
+ */
+interface E2EWindow {
+  __MEDFUND_E2E_TOKEN__?: {
+    accessToken: string;
+    refreshToken: string;
+    realmRoles: string[];
+    sub: string;
+    tenantId: string;
+    email: string;
+    givenName: string;
+    familyName: string;
+  };
+}
+
+function getE2EOverride(): E2EWindow['__MEDFUND_E2E_TOKEN__'] | undefined {
+  if (typeof window === 'undefined') return undefined;
+  return (window as unknown as E2EWindow).__MEDFUND_E2E_TOKEN__;
+}
+
 // Refresh the token (and re-set the HTTP-only cookie) when less than this
 // many seconds remain. Must be greater than PROACTIVE_CHECK_INTERVAL_MS / 1000
 // so the interval always catches the window before the cookie expires.
@@ -21,8 +46,39 @@ export function initializeKeycloak(
   adminService: AdminService,
   brandingService: BrandingService,
 ): () => Promise<boolean> {
-  return () =>
-    keycloak
+  return async () => {
+    const e2e = getE2EOverride();
+    if (e2e) {
+      // Test harness path: bypass keycloak.init() and stub the KeycloakService
+      // surface that downstream code calls (getToken, getUserRoles, isLoggedIn,
+      // getKeycloakInstance, etc.). The stub returns deterministic data
+      // assembled by the Playwright fixture.
+      const stub = keycloak as unknown as Record<string, unknown>;
+      stub['isLoggedIn']    = () => true;
+      stub['getToken']      = () => Promise.resolve(e2e.accessToken);
+      stub['getUserRoles']  = () => [...e2e.realmRoles];
+      stub['updateToken']   = () => Promise.resolve(true);
+      stub['isTokenExpired'] = () => false;
+      stub['logout']        = () => Promise.resolve();
+      stub['login']         = () => Promise.resolve();
+      stub['getKeycloakInstance'] = () => ({
+        tokenParsed: {
+          sub: e2e.sub,
+          tenant_id: e2e.tenantId,
+          email: e2e.email,
+          given_name: e2e.givenName,
+          family_name: e2e.familyName,
+          preferred_username: e2e.email,
+          realm_access: { roles: [...e2e.realmRoles] },
+        },
+        token: e2e.accessToken,
+      });
+
+      await bootstrapTenantFromJwt(keycloak, tenantService, adminService, brandingService);
+      return true;
+    }
+
+    return keycloak
       .init({
         config: {
           url: environment.keycloak.url,
@@ -64,6 +120,7 @@ export function initializeKeycloak(
         }
         return authenticated;
       });
+  };
 }
 
 async function refreshSession(keycloak: KeycloakService): Promise<void> {
