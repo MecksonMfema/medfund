@@ -1,3 +1,10 @@
+/* Host fills its container vertically so siblings in a CSS grid line up
+   at the same height regardless of which has more inline content. */
+:host {
+  display: block;
+  height: 100%;
+}
+
 .stat-card {
   background: var(--color-surface);
   padding: var(--spacing-lg);
@@ -5,6 +12,10 @@
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--color-border-light);
   transition: box-shadow var(--transition-base), transform var(--transition-base);
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .stat-card:hover {
@@ -72,4 +83,23 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   margin-top: 2px;
+}
+
+.stat-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: var(--spacing-md);
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt, rgba(0, 0, 0, 0.04));
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+  transition: background var(--transition-base);
+}
+
+.stat-action:hover {
+  background: var(--color-border-light);
 }

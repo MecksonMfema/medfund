@@ -1,25 +1,45 @@
-<h1>Claims Management</h1>
-<div class="stats-grid">
-  <app-stat-card label="Submitted" [value]="submitted" color="blue"></app-stat-card>
-  <app-stat-card label="In Adjudication" [value]="inAdjudication" color="orange"></app-stat-card>
-  <app-stat-card label="Adjudicated" [value]="adjudicated" color="green"></app-stat-card>
-  <app-stat-card label="Rejected" [value]="rejected" color="red"></app-stat-card>
+<header class="page-header">
+  <h1>Claims Management</h1>
+</header>
+
+<div class="chart-card">
+  <div class="chart-header">
+    <h3>Total number of claims each month</h3>
+    <span class="chart-period">Last 12 months</span>
+  </div>
+  <div class="chart-body">
+    <app-area-chart
+      [data]="monthlyClaimsData"
+      xAxisLabel="Month"
+      yAxisLabel="Claims"
+      [yScaleMax]="monthlyClaimsMax"
+    ></app-area-chart>
+  </div>
 </div>
-<div class="filters">
-  <select [(ngModel)]="statusFilter" (change)="filterClaims()">
-    <option value="">All Statuses</option>
-    <option value="SUBMITTED">Submitted</option>
-    <option value="VERIFIED">Verified</option>
-    <option value="IN_ADJUDICATION">In Adjudication</option>
-    <option value="ADJUDICATED">Adjudicated</option>
-    <option value="REJECTED">Rejected</option>
-    <option value="COMMITTED">Committed</option>
-    <option value="PAID">Paid</option>
-  </select>
-</div>
-<app-data-table
-  title="Claims Queue"
-  [columns]="columns"
-  [data]="filteredClaims"
-  (rowClick)="onClaimClick($event)">
-</app-data-table>
+
+<section class="stats-grid">
+  <app-stat-card
+    label="Pending Review"
+    [value]="loading ? '—' : stats.claimsNewTasks"
+    color="red"
+    icon="file-medical"
+    actionLabel="View"
+    actionLink="/claims">
+  </app-stat-card>
+  <app-stat-card
+    label="This Month Claims"
+    [value]="loading ? '—' : stats.claimsThisMonth"
+    color="orange"
+    icon="calendar"
+    actionLabel="View"
+    actionLink="/claims">
+  </app-stat-card>
+  <app-stat-card
+    label="Claims Accepted"
+    [value]="loading ? '—' : stats.claimsAcceptedThisMonth"
+    color="cyan"
+    icon="check-circle"
+    actionLabel="View"
+    actionLink="/claims">
+  </app-stat-card>
+</section>

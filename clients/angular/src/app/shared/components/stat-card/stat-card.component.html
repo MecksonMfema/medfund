@@ -15,4 +15,10 @@
   @if (subtitle) {
     <div class="stat-subtitle">{{ subtitle }}</div>
   }
+  @if (actionLink && actionLabel) {
+    <a class="stat-action" [routerLink]="actionLink">
+      {{ actionLabel }}
+      <app-icon name="chevron-right" [size]="12"></app-icon>
+    </a>
+  }
 </div>

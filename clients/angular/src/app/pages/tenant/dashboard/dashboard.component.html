@@ -46,7 +46,7 @@
       </header>
       <div class="stat-row">
         <div class="stat-card">
-          <span class="stat-label">New Tasks</span>
+          <span class="stat-label">Pending Review</span>
           <span class="stat-value">{{ loading ? '—' : stats.claimsNewTasks }}</span>
         </div>
         <div class="stat-card">
@@ -62,15 +62,108 @@
           <span class="stat-value">{{ loading ? '—' : stats.claimsRejectedThisMonth }}</span>
         </div>
       </div>
-      <div class="chart-card">
-        <span class="chart-label">Total number of claims each month</span>
-        <app-grouped-bar-chart
-          [data]="claimsSeries"
-          [colorScheme]="mascaPalette"
-          [legendPosition]="legendBelow"
-          xAxisLabel="Month"
-          yAxisLabel="Claims">
-        </app-grouped-bar-chart>
+      <!-- Top row: claims volume (7) + pipeline status (3) side-by-side on
+           large screens; stacks on narrower viewports via .charts-row. -->
+      <div class="charts-row">
+        <div class="chart-card chart-wide">
+          <div class="chart-header">
+            <h3>Claims volume</h3>
+            <div class="chart-period-toggle" role="tablist" aria-label="Chart granularity">
+              @for (p of chartPeriods; track p) {
+                <button type="button" role="tab"
+                        class="period-btn"
+                        [class.active]="chartPeriod === p"
+                        [attr.aria-selected]="chartPeriod === p"
+                        (click)="setChartPeriod(p)">
+                  {{ p | titlecase }}
+                </button>
+              }
+            </div>
+          </div>
+          <div class="chart-body">
+            <app-area-chart
+              [data]="claimsSeries"
+              xAxisLabel="Period"
+              yAxisLabel="Claims"
+              [yScaleMax]="claimsMax"
+            ></app-area-chart>
+          </div>
+        </div>
+
+        <!-- Pipeline pie — mirrors /platform/dashboard's Claims Distribution
+             exactly so the empty state ("No claims yet" overlay) lines up. -->
+        <div class="chart-card chart-narrow">
+          <div class="chart-header">
+            <h3>Pipeline status</h3>
+            <span class="chart-period">By status</span>
+          </div>
+          <div class="chart-body-pie">
+            <div class="pie-wrap">
+              <app-pie-chart
+                [data]="statusPieData"
+                [doughnut]="true"
+                [arcWidth]="0.45"
+                [legend]="false"
+                [view]="[300, 260]"
+              ></app-pie-chart>
+              @if (!pipelineHasData) {
+                <div class="chart-no-data-overlay">No claims yet</div>
+              }
+            </div>
+          </div>
+          <div class="pie-legend">
+            @for (item of statusPieData; track item.name) {
+              <div class="pie-legend-item">
+                <span class="pie-legend-dot" [style.background]="pipelineColors[item.name]"></span>
+                <span class="pie-legend-label">{{ item.name }}</span>
+                @if (pipelineHasData) {
+                  <span class="pie-legend-value">{{ item.value }}</span>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom row: recent claims (75 %) + adjudicator workload (25 %)
+           side-by-side on large screens; stacks on narrower viewports. -->
+      <div class="charts-row split-75">
+        <!-- Recent claims — only visible to staff who can view claims. -->
+        <div *hasPermission="'claims:view'" class="chart-card">
+          <div class="chart-header">
+            <h3>Recent claims</h3>
+            <a routerLink="/tenant/claims" class="chart-period">Open queue</a>
+          </div>
+          <app-data-table
+            [columns]="recentClaimColumns"
+            [data]="recentClaims"
+            emptyMessage="No claims submitted yet."
+          ></app-data-table>
+        </div>
+
+        <!-- Adjudicator workload — manager-level view. -->
+        <div *hasPermission="'claims:assign'" class="chart-card">
+          <div class="chart-header">
+            <h3>Adjudicator workload</h3>
+            <span class="chart-period">{{ workload.unassigned }} unassigned</span>
+          </div>
+          <div class="workload-list">
+            @if (workload.adjudicators.length === 0) {
+              <div class="workload-empty">No claims currently in adjudication.</div>
+            }
+            @for (a of workload.adjudicators; track a.id) {
+              <div class="workload-row">
+                <div class="workload-name">
+                  <span class="workload-fullname">{{ a.name || a.email }}</span>
+                  <span class="workload-count">{{ a.count }}</span>
+                </div>
+                <div class="workload-bar">
+                  <div class="workload-bar-fill" [style.width.%]="workloadPercent(a.count)"></div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
       </div>
     </section>
   }
@@ -89,34 +182,183 @@
           <a routerLink="/tenant/billing/schemes" class="stat-link">Open <app-icon name="chevron-right" [size]="12"></app-icon></a>
         </div>
       </header>
-      <div class="stat-row">
-        <div class="stat-card">
-          <span class="stat-label">Active {{ schemeLabelPlural }}</span>
-          <span class="stat-value">{{ loading ? '—' : stats.schemesActive }}</span>
+      <!-- Top split: Total Revenue Overview card on the left, 2×2 stat-card
+           grid on the right. Mirrors the reference billing dashboard. -->
+      <div class="billing-overview">
+        <div class="chart-card overview-card">
+          <div class="chart-header">
+            <div class="overview-title">
+              <span class="overview-icon">$</span>
+              <h3>Total Revenue Overview</h3>
+            </div>
+            <div class="chart-period-toggle" role="tablist" aria-label="Chart granularity">
+              @for (p of chartPeriods; track p) {
+                <button type="button" role="tab"
+                        class="period-btn"
+                        [class.active]="chartPeriod === p"
+                        [attr.aria-selected]="chartPeriod === p"
+                        (click)="setChartPeriod(p)">
+                  {{ p | titlecase }}
+                </button>
+              }
+            </div>
+          </div>
+          <div class="overview-amount-block">
+            @if (contribAmountsThisMonth.length > 1) {
+              <div class="overview-amounts-stack">
+                @for (entry of contribAmountsThisMonth; track entry.currency) {
+                  <div class="overview-amount-line">
+                    {{ entry.amount | currency: entry.currency : 'symbol' : '1.2-2' }}
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="overview-amount">
+                {{ primaryContribThisMonth.amount | currency: primaryContribThisMonth.currency : 'symbol' : '1.2-2' }}
+              </div>
+            }
+            <div class="overview-subtitle">Total revenue this month</div>
+          </div>
+          <div class="chart-body">
+            <app-area-chart
+              [data]="contributionsSeries"
+              xAxisLabel="Period"
+              yAxisLabel="Amount"
+              [yScaleMax]="contributionsMax"
+              [legend]="contributionsSeries.length > 1"
+            ></app-area-chart>
+          </div>
         </div>
-        <div class="stat-card">
-          <span class="stat-label">Outstanding Contributions</span>
-          <span class="stat-value">{{ loading ? '—' : stats.contributionsPending }}</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">This Month Transactions</span>
-          <span class="stat-value">{{ loading ? '—' : (stats.contributionsAmountThisMonth | currency: 'USD' : 'symbol' : '1.0-0') }}</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">This Year Transactions</span>
-          <span class="stat-value">{{ loading ? '—' : (stats.contributionsAmountThisYear | currency: 'USD' : 'symbol' : '1.0-0') }}</span>
+
+        <div class="billing-stats-grid">
+          <!-- Payments Received — multi-currency aware. When the tenant has
+               more than one active currency, render a stacked list of amounts
+               instead of a single value. Visual order matches <app-stat-card>:
+               icon-top, value, label, subtitle. -->
+          <div class="multi-stat-card multi-stat-card-green">
+            <div class="multi-stat-top">
+              <div class="multi-stat-icon"><app-icon name="check-circle" [size]="22"></app-icon></div>
+            </div>
+            @if (contribAmountsThisMonth.length > 1) {
+              <div class="multi-stat-stack">
+                @for (entry of contribAmountsThisMonth; track entry.currency) {
+                  <div class="multi-stat-stack-line">
+                    {{ entry.amount | currency: entry.currency : 'symbol' : '1.0-0' }}
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="multi-stat-value">
+                {{ primaryContribThisMonth.amount | currency: primaryContribThisMonth.currency : 'symbol' : '1.0-0' }}
+              </div>
+            }
+            <div class="multi-stat-label">Payments Received</div>
+            <div class="multi-stat-subtitle">Total received this month</div>
+          </div>
+
+          <app-stat-card
+            label="Payments Requested"
+            [value]="loading ? '—' : stats.contributionsPending"
+            subtitle="Outstanding contributions"
+            color="orange"
+            icon="clock">
+          </app-stat-card>
+
+          <!-- Total this Year — same multi-currency treatment. -->
+          <div class="multi-stat-card multi-stat-card-cyan">
+            <div class="multi-stat-top">
+              <div class="multi-stat-icon"><app-icon name="chart" [size]="22"></app-icon></div>
+            </div>
+            @if (contribAmountsThisYear.length > 1) {
+              <div class="multi-stat-stack">
+                @for (entry of contribAmountsThisYear; track entry.currency) {
+                  <div class="multi-stat-stack-line">
+                    {{ entry.amount | currency: entry.currency : 'symbol' : '1.0-0' }}
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="multi-stat-value">
+                {{ primaryContribThisYear.amount | currency: primaryContribThisYear.currency : 'symbol' : '1.0-0' }}
+              </div>
+            }
+            <div class="multi-stat-label">Total this Year</div>
+            <div class="multi-stat-subtitle">Year-to-date contributions</div>
+          </div>
+
+          <app-stat-card
+            label="Active {{ schemeLabelPlural }}"
+            [value]="loading ? '—' : stats.schemesActive"
+            subtitle="Schemes currently active"
+            color="dark"
+            icon="briefcase">
+          </app-stat-card>
         </div>
       </div>
-      <div class="chart-card">
-        <span class="chart-label">Contributions paid — last 12 months</span>
-        <app-line-chart
-          [data]="contributionsSeries"
-          [colorScheme]="mascaPalette"
-          [legend]="true"
-          [legendPosition]="legendBelow"
-          xAxisLabel="Month"
-          yAxisLabel="Amount">
-        </app-line-chart>
+
+      <!-- Filter row + recent contributions table — mirrors the lower half
+           of the reference. Selects are visual-only placeholders; quick
+           filter chips are functional (client-side). -->
+      <div class="chart-card contributions-table-card">
+        <div class="contributions-filters">
+          <div class="filter-controls">
+            <div class="filter-group">
+              <label>Date range</label>
+              <select class="filter-select"
+                      [value]="dateRangeFilter"
+                      (change)="setDateRange($any($event.target).value)">
+                <option value="all">All Time</option>
+                <option value="thisMonth">This Month</option>
+                <option value="last30">Last 30 Days</option>
+                <option value="last90">Last 90 Days</option>
+                <option value="thisYear">This Year</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Recipient</label>
+              <select class="filter-select"
+                      [value]="recipientFilter ?? '__all__'"
+                      (change)="setRecipient($any($event.target).value)">
+                <option value="__all__">All Recipients</option>
+                @for (r of recipientOptions; track r) {
+                  <option [value]="r">{{ r }}</option>
+                }
+              </select>
+            </div>
+            <div class="filter-group">
+              <label>Status</label>
+              <select class="filter-select"
+                      [value]="contribStatusFilter ?? '__all__'"
+                      (change)="setStatusFromSelect($any($event.target).value)">
+                <option value="__all__">All Statuses</option>
+                <option value="paid">Paid</option>
+                <option value="pending">Pending</option>
+                <option value="overdue">Overdue</option>
+                <option value="failed">Failed</option>
+                <option value="refunded">Refunded</option>
+              </select>
+            </div>
+          </div>
+          <a routerLink="/tenant/billing/schemes" class="download-btn">Open billing →</a>
+        </div>
+
+        <div class="quick-filters">
+          <span class="quick-label">Quick filters:</span>
+          @for (f of contribStatusFilters; track f) {
+            <button type="button"
+                    class="filter-chip"
+                    [class.active]="contribStatusFilter === f"
+                    (click)="setContribStatusFilter(f)">
+              {{ f | titlecase }}
+            </button>
+          }
+        </div>
+
+        <app-data-table
+          [columns]="recentContributionColumns"
+          [data]="filteredContributions"
+          emptyMessage="No contributions captured yet."
+        ></app-data-table>
       </div>
     </section>
   }
@@ -137,34 +379,193 @@
           <a routerLink="/tenant/finance" class="stat-link">Open <app-icon name="chevron-right" [size]="12"></app-icon></a>
         </div>
       </header>
-      <div class="stat-row">
-        <div class="stat-card">
-          <span class="stat-label">Pending Payments</span>
-          <span class="stat-value">{{ loading ? '—' : stats.paymentsPending }}</span>
+      <!-- Top split: cash-flow chart on the left, 2×2 finance KPI grid on
+           the right. Mirrors the billing tab structure for consistency. -->
+      <div class="billing-overview">
+        <div class="chart-card overview-card">
+          <div class="chart-header">
+            <div class="overview-title">
+              <span class="overview-icon">⇅</span>
+              <h3>Cash Flow</h3>
+            </div>
+            <div class="chart-period-toggle" role="tablist" aria-label="Chart granularity">
+              @for (p of chartPeriods; track p) {
+                <button type="button" role="tab"
+                        class="period-btn"
+                        [class.active]="chartPeriod === p"
+                        [attr.aria-selected]="chartPeriod === p"
+                        (click)="setChartPeriod(p)">
+                  {{ p | titlecase }}
+                </button>
+              }
+            </div>
+          </div>
+          <div class="chart-body">
+            <app-area-chart
+              [data]="cashFlowSeries"
+              xAxisLabel="Period"
+              yAxisLabel="Amount"
+              [yScaleMax]="cashFlowMax"
+              [legend]="true"
+            ></app-area-chart>
+          </div>
         </div>
-        <div class="stat-card">
-          <span class="stat-label">Total Payments (this month)</span>
-          <span class="stat-value">{{ loading ? '—' : (stats.paymentsAmountThisMonth | currency: 'USD' : 'symbol' : '1.0-0') }}</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Total Payments (this year)</span>
-          <span class="stat-value">{{ loading ? '—' : (stats.paymentsAmountThisYear | currency: 'USD' : 'symbol' : '1.0-0') }}</span>
+
+        <div class="billing-stats-grid">
+          <!-- Payments Out — multi-currency aware like the billing card. -->
+          <div class="multi-stat-card multi-stat-card-cyan">
+            <div class="multi-stat-top">
+              <div class="multi-stat-icon"><app-icon name="banknote" [size]="22"></app-icon></div>
+            </div>
+            @if (paymentAmountsThisMonth.length > 1) {
+              <div class="multi-stat-stack">
+                @for (entry of paymentAmountsThisMonth; track entry.currency) {
+                  <div class="multi-stat-stack-line">
+                    {{ entry.amount | currency: entry.currency : 'symbol' : '1.0-0' }}
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="multi-stat-value">
+                {{ primaryPaymentsThisMonth.amount | currency: primaryPaymentsThisMonth.currency : 'symbol' : '1.0-0' }}
+              </div>
+            }
+            <div class="multi-stat-label">Payments Out</div>
+            <div class="multi-stat-subtitle">Total disbursed this month</div>
+          </div>
+
+          <app-stat-card
+            label="Pending Payments"
+            [value]="loading ? '—' : stats.paymentsPending"
+            subtitle="Awaiting processing"
+            color="orange"
+            icon="clock">
+          </app-stat-card>
+
+          <!-- Advance Payments — count + amount. Money paid before claims. -->
+          <app-stat-card
+            label="Advance Payments"
+            [value]="loading ? '—' : stats.paymentsAdvanceCount"
+            [subtitle]="(stats.paymentsAdvanceAmount | currency: tenantCurrency : 'symbol' : '1.0-0') + ' disbursed'"
+            color="dark"
+            icon="zap">
+          </app-stat-card>
+
+          <!-- Outstanding shortfall — adjudicated but not yet fully paid. -->
+          <app-stat-card
+            label="Shortfall"
+            [value]="loading ? '—' : ((stats.claimsShortfallAmount | currency: tenantCurrency : 'symbol' : '1.0-0') ?? '—')"
+            subtitle="Unpaid liability across adjudicated claims"
+            color="red"
+            icon="alert-triangle">
+          </app-stat-card>
         </div>
       </div>
-      <div class="finance-charts">
-        @for (chart of financeChartsByCurrency; track chart.code) {
-          <div class="chart-card">
-            <span class="chart-label">{{ chart.code }} Transactions vs Payments</span>
-            <app-line-chart
-              [data]="chart.data"
-              [colorScheme]="mascaTwinPalette"
-              [legend]="true"
-              [legendPosition]="legendBelow"
-              xAxisLabel="Month"
-              yAxisLabel="Amount">
-            </app-line-chart>
+
+      <!-- Payment status pipeline + Payment method breakdown side-by-side. -->
+      <div class="charts-row split-50">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Payments by status</h3>
+            <span class="chart-period">Pipeline</span>
           </div>
-        }
+          <div class="chart-body-pie">
+            <div class="pie-wrap">
+              <app-pie-chart
+                [data]="paymentsPieData"
+                [doughnut]="true"
+                [arcWidth]="0.45"
+                [legend]="false"
+                [view]="[300, 260]"
+              ></app-pie-chart>
+              @if (!paymentsHasData) {
+                <div class="chart-no-data-overlay">No payments yet</div>
+              }
+            </div>
+          </div>
+          <div class="pie-legend">
+            @for (item of paymentsPieData; track item.name) {
+              <div class="pie-legend-item">
+                <span class="pie-legend-dot" [style.background]="paymentsColors[item.name]"></span>
+                <span class="pie-legend-label">{{ item.name }}</span>
+                @if (paymentsHasData) {
+                  <span class="pie-legend-value">{{ item.value }}</span>
+                }
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Payment methods</h3>
+            <span class="chart-period">By amount</span>
+          </div>
+          <div class="chart-body-pie">
+            <div class="pie-wrap">
+              <app-pie-chart
+                [data]="methodChartData"
+                [doughnut]="true"
+                [arcWidth]="0.45"
+                [legend]="false"
+                [view]="[300, 260]"
+              ></app-pie-chart>
+              @if (!methodHasData) {
+                <div class="chart-no-data-overlay">No payments recorded</div>
+              }
+            </div>
+          </div>
+          <div class="pie-legend">
+            @for (item of methodChartData; track item.name) {
+              <div class="pie-legend-item">
+                <span class="pie-legend-dot" [style.background]="methodColors[item.name]"></span>
+                <span class="pie-legend-label">{{ item.name }}</span>
+                @if (methodHasData) {
+                  <span class="pie-legend-value">{{ item.value | currency: tenantCurrency : 'symbol' : '1.0-0' }}</span>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom row: recent payments (75 %) + top payees (25 %). -->
+      <div class="charts-row split-75">
+        <div class="chart-card">
+          <div class="chart-header">
+            <h3>Recent payments</h3>
+            <a routerLink="/tenant/finance" class="chart-period">Open finance</a>
+          </div>
+          <app-data-table
+            [columns]="recentPaymentColumns"
+            [data]="recentPayments"
+            emptyMessage="No payments captured yet."
+          ></app-data-table>
+        </div>
+
+        <!-- Top payees — finance-level visibility gate. -->
+        <div *hasPermission="'finance:view'" class="chart-card">
+          <div class="chart-header">
+            <h3>Top payees</h3>
+            <span class="chart-period">Most received</span>
+          </div>
+          <div class="workload-list">
+            @if (topPayees.length === 0) {
+              <div class="workload-empty">No payees yet.</div>
+            }
+            @for (p of topPayees; track p.id) {
+              <div class="workload-row">
+                <div class="workload-name">
+                  <span class="workload-fullname">{{ p.name }}</span>
+                  <span class="workload-count">{{ p.received | currency: tenantCurrency : 'symbol' : '1.0-0' }}</span>
+                </div>
+                <div class="workload-bar">
+                  <div class="workload-bar-fill" [style.width.%]="payeePercent(p.received)"></div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
       </div>
     </section>
   }

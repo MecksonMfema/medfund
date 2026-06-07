@@ -1,3 +1,60 @@
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 20px 0; }
-.filters { margin-bottom: 16px; }
-select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; }
+.page-header {
+  margin-bottom: var(--spacing-xl);
+
+  h1 {
+    margin: 0;
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+  }
+}
+
+/* Charts — exact match for the Tenant Growth pattern in platform-dashboard.scss */
+.chart-card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-light);
+  overflow: hidden;
+  margin-bottom: var(--spacing-xl);
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-base) var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.chart-header h3 {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+}
+
+.chart-period {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.chart-body {
+  padding: var(--spacing-base);
+  height: 280px;
+}
+
+/* Stats — 3-col responsive grid (Masca-Claims-Admin col-xl-4 col-lg-6 col-md-12). */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
+}
+
+@media (max-width: 1199px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 767px) {
+  .stats-grid { grid-template-columns: 1fr; }
+}

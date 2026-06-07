@@ -144,21 +144,484 @@
 
 /* ── Chart card ─────────────────────────────────────────────────────────── */
 
+/* Exact match for the Tenant Growth pattern in /platform/dashboard:
+   chart-card surfaces the card chrome, chart-header holds title + period,
+   chart-body holds the chart and grows to fill the remaining page height. */
 .chart-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-base) var(--spacing-md) var(--spacing-md);
   background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
-  /* ngx-charts sizes itself to its container — give it a definite height.
-     320 px (up from 240 px) lines up with the legacy MASCA chart aspect
-     ratios and leaves room for the legend below the plot. */
+  overflow: hidden;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-base) var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.chart-header h3 {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+}
+
+.chart-period {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.chart-body {
+  padding: var(--spacing-base);
+  height: 320px;
+
   app-area-chart,
   app-line-chart,
-  app-bar-chart,
-  app-grouped-bar-chart { display: block; height: 320px; }
+  app-pie-chart {
+    display: block;
+    height: 100%;
+  }
+}
+
+/* Top row: claims volume (70 %) + pipeline pie (30 %) side-by-side on large
+   screens. Stacks vertically on narrower viewports. */
+.charts-row {
+  display: grid;
+  grid-template-columns: 7fr 3fr;
+  gap: var(--spacing-lg);
+}
+
+/* Bottom row variant — 75 / 25 split for the recent-claims + workload pair. */
+.charts-row.split-75 {
+  grid-template-columns: 3fr 1fr;
+}
+
+/* 50 / 50 split for the finance tab's status pie + method breakdown row. */
+.charts-row.split-50 {
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 1199px) {
+  .charts-row,
+  .charts-row.split-75,
+  .charts-row.split-50 { grid-template-columns: 1fr; }
+}
+
+/* Absolute-positioned no-data label for charts that don't have their own
+   pie-wrap (e.g. the payment-method bar chart). */
+.chart-body { position: relative; }
+
+.chart-no-data-overlay-absolute {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  pointer-events: none;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* ── Pipeline pie card — exact match for /platform/dashboard's
+   Claims Distribution pattern (pie-wrap + no-data overlay + custom legend). */
+.chart-body-pie {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-base) 0 0;
+  overflow: hidden;
+}
+
+.pie-wrap {
+  position: relative;
+  width: 300px;
+  height: 260px;
+  flex-shrink: 0;
+}
+
+.chart-no-data-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  pointer-events: none;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  text-align: center;
+}
+
+.pie-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: var(--spacing-base) var(--spacing-lg) var(--spacing-lg);
+  border-top: 1px solid var(--color-border-light);
+  justify-content: center;
+}
+
+.pie-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pie-legend-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+
+.pie-legend-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.pie-legend-value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-left: 2px;
+}
+
+/* Granularity toggle (day / week / month) in the chart header. */
+.chart-period-toggle {
+  display: inline-flex;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  gap: 2px;
+}
+
+.period-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 12px;
+  border-radius: calc(var(--radius-md) - 2px);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.period-btn:hover { color: var(--color-text-primary); }
+
+.period-btn.active {
+  background: var(--color-surface);
+  color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Billing tab — matches the reference billing dashboard layout. ────── */
+.billing-overview {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: var(--spacing-lg);
+  /* Don't stretch the right column to the chart card's height — each
+     stat card sizes to its own content so they read as compact tiles
+     instead of tall placeholders. */
+  align-items: start;
+}
+
+@media (max-width: 1199px) {
+  .billing-overview { grid-template-columns: 1fr; }
+}
+
+.overview-card .chart-header {
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.overview-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.overview-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-sm);
+}
+
+.overview-amount-block {
+  padding: var(--spacing-lg) var(--spacing-lg) 0;
+}
+
+.overview-amount {
+  font-size: 2.25rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  line-height: 1.1;
+}
+
+.overview-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+/* Stacked per-currency amounts inside the big revenue overview card. */
+.overview-amounts-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.overview-amount-line {
+  font-size: 1.5rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Custom stat card that supports per-currency stacked amounts. Visually
+   identical to <app-stat-card>: same chrome, same .stat-top row with the
+   colored icon, same value→label→subtitle vertical order. The only
+   difference is the value slot can stack multiple per-currency lines. */
+.multi-stat-card {
+  background: var(--color-surface);
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-light);
+  transition: box-shadow var(--transition-base), transform var(--transition-base);
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.multi-stat-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.multi-stat-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+
+.multi-stat-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.multi-stat-card-green .multi-stat-icon { background: var(--color-success-light); color: var(--color-success); }
+.multi-stat-card-cyan  .multi-stat-icon { background: var(--color-info-light);    color: var(--color-info); }
+
+.multi-stat-value {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.multi-stat-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.multi-stat-stack-line {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.multi-stat-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-top: var(--spacing-xs);
+}
+
+.multi-stat-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+/* 2×2 grid on the right of the revenue overview. */
+.billing-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: var(--spacing-lg);
+}
+
+@media (max-width: 767px) {
+  .billing-stats-grid { grid-template-columns: 1fr; grid-template-rows: auto; }
+}
+
+/* Filter row + quick-filter chips above the contributions table. */
+.contributions-table-card {
+  padding: var(--spacing-lg);
+}
+
+.contributions-filters {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: var(--spacing-lg);
+  flex-wrap: wrap;
+  margin-bottom: var(--spacing-md);
+}
+
+.filter-controls {
+  display: flex;
+  gap: var(--spacing-lg);
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 160px;
+}
+
+.filter-group label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.filter-select {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.download-btn {
+  background: var(--color-primary);
+  color: white;
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: background var(--transition-base);
+}
+
+.download-btn:hover { background: var(--color-primary-hover); }
+
+.quick-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  margin-bottom: var(--spacing-md);
+}
+
+.quick-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+}
+
+.filter-chip {
+  border: 1px solid var(--color-border-light);
+  background: var(--color-surface);
+  padding: 4px 14px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base);
+}
+
+.filter-chip:hover { background: var(--color-bg); color: var(--color-text-primary); }
+
+.filter-chip.active {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+/* Adjudicator workload — list of rows with a progress bar per adjudicator. */
+.workload-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: var(--spacing-base) var(--spacing-lg) var(--spacing-lg);
+}
+
+.workload-empty {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: var(--spacing-lg);
+}
+
+.workload-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.workload-name {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: var(--font-size-sm);
+}
+
+.workload-fullname {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.workload-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
+
+.workload-bar {
+  height: 8px;
+  background: var(--color-border-light);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.workload-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-info));
+  border-radius: var(--radius-full);
+  transition: width var(--transition-base);
 }
 
 /* Finance tab renders one chart per active currency. The grid wraps so
@@ -171,12 +634,6 @@
   gap: var(--spacing-md);
 }
 
-.chart-label {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
 
 .dash-empty {
   display: flex;

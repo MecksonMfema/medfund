@@ -132,6 +132,21 @@ export interface TenantStats {
   paymentsPending: number;
   paymentsAmountThisMonth: number;
   paymentsAmountThisYear: number;
+  /** Advance payments — money disbursed to providers/members before a claim
+   *  is adjudicated; the eventual claim is expected to cover it. */
+  paymentsAdvanceCount: number;
+  paymentsAdvanceAmount: number;
+  paymentsFailedCount: number;
+  /** Sum of (claimed_amount − paid_amount) across adjudicated claims with an
+   *  outstanding gap — the insurer's unbooked liability. */
+  claimsShortfallAmount: number;
+  /** Per-currency breakdowns for multi-currency tenants. Keys are ISO codes
+   *  ("USD", "ZAR", "ZWL"); values are BigDecimal amounts. Empty {} for
+   *  tenants with no activity yet. */
+  contributionsAmountThisMonthByCurrency: Record<string, number>;
+  contributionsAmountThisYearByCurrency:  Record<string, number>;
+  paymentsAmountThisMonthByCurrency:      Record<string, number>;
+  paymentsAmountThisYearByCurrency:       Record<string, number>;
 }
 
 /**
@@ -141,6 +156,102 @@ export interface TenantStats {
  * envelope before passing to {@code <app-area-chart>}.
  */
 export interface TrendPoint { name: string; value: number; }
+
+/** Pipeline distribution — drives the operational-dashboard pie chart. */
+export interface ClaimsStatusBucket { status: string; count: number; }
+export interface ClaimsStatusDistribution {
+  total: number;
+  buckets: ClaimsStatusBucket[];
+}
+
+/** Row shape for the dashboard's "10 most recent claims" table. */
+export interface RecentClaim {
+  id: string;
+  claimNumber: string;
+  status: string;
+  claimedAmount: string;
+  currencyCode: string;
+  serviceDate: string;
+  createdAt: string;
+}
+
+/** Per-adjudicator in-progress workload + the unassigned tail. */
+export interface AdjudicatorRow {
+  id: string;
+  name: string;
+  email: string;
+  count: number;
+}
+export interface AdjudicatorWorkload {
+  unassigned: number;
+  adjudicators: AdjudicatorRow[];
+}
+
+/** Pipeline distribution for the Billing tab pie (paid/pending/...). Same shape as claims. */
+export type ContributionsStatusDistribution = ClaimsStatusDistribution;
+
+/** Row shape for the Billing tab "Recent contributions" table. */
+export interface RecentContribution {
+  id: string;
+  amount: string;
+  currencyCode: string;
+  status: string;
+  paymentMethod: string;
+  periodStart: string;
+  periodEnd: string;
+  createdAt: string;
+  memberNumber: string;
+  memberName: string;
+}
+
+/** Top debtor row — drives the "Outstanding by member" side card on Billing. */
+export interface TopDebtor {
+  id: string;
+  memberNumber: string;
+  name: string;
+  outstanding: string;
+  count: number;
+}
+
+// ── Finance tab ──────────────────────────────────────────────────────────
+
+/** Pipeline distribution of payments by status. Same shape as claims/contributions. */
+export type PaymentsStatusDistribution = ClaimsStatusDistribution;
+
+/** Row shape for the "Recent payments" table on the Finance tab. */
+export interface RecentPayment {
+  id: string;
+  paymentNumber: string;
+  amount: string;
+  currencyCode: string;
+  paymentType: string;
+  paymentMethod: string;
+  status: string;
+  reference: string;
+  paidAt: string;
+  createdAt: string;
+  providerName: string;
+}
+
+/** Top-payee row — providers ranked by total payments received. */
+export interface TopPayee {
+  id: string;
+  name: string;
+  received: string;
+  count: number;
+}
+
+/** Distribution of payments by method (EFT / mobile money / cash / ...). */
+export interface PaymentMethodBucket {
+  method: string;
+  count: number;
+  amount: string;
+}
+export interface PaymentMethodDistribution {
+  total: number;
+  buckets: PaymentMethodBucket[];
+}
+
 export interface TenantCharts {
   /** Blended-currency series (legacy single-line view, kept for back-compat). */
   claimsByMonth:              TrendPoint[];
@@ -537,8 +648,68 @@ export class AdminService {
     return this.api.getWithHeaders<TenantStats>('/tenant-stats', { 'X-Tenant-ID': tenantId });
   }
 
-  getTenantCharts(tenantId: string): Observable<TenantCharts> {
-    return this.api.getWithHeaders<TenantCharts>('/tenant-stats/charts', { 'X-Tenant-ID': tenantId });
+  getTenantCharts(tenantId: string, period: 'day' | 'week' | 'month' = 'month'): Observable<TenantCharts> {
+    return this.api.getWithHeaders<TenantCharts>('/tenant-stats/charts', { 'X-Tenant-ID': tenantId }, { period });
+  }
+
+  /** Claims grouped by status — drives the pipeline pie chart. */
+  getClaimsStatusDistribution(tenantId: string): Observable<ClaimsStatusDistribution> {
+    return this.api.getWithHeaders<ClaimsStatusDistribution>(
+      '/tenant-stats/claims-status-distribution', { 'X-Tenant-ID': tenantId });
+  }
+
+  /** 10 most recent claims for the dashboard table. */
+  getRecentClaims(tenantId: string): Observable<RecentClaim[]> {
+    return this.api.getWithHeaders<RecentClaim[]>(
+      '/tenant-stats/recent-claims', { 'X-Tenant-ID': tenantId });
+  }
+
+  /** Unassigned pending count + per-adjudicator in-progress counts. */
+  getAdjudicatorWorkload(tenantId: string): Observable<AdjudicatorWorkload> {
+    return this.api.getWithHeaders<AdjudicatorWorkload>(
+      '/tenant-stats/adjudicator-workload', { 'X-Tenant-ID': tenantId });
+  }
+
+  /** Contributions grouped by status — Billing tab pipeline pie. */
+  getContributionsStatusDistribution(tenantId: string): Observable<ContributionsStatusDistribution> {
+    return this.api.getWithHeaders<ContributionsStatusDistribution>(
+      '/tenant-stats/contributions-status-distribution', { 'X-Tenant-ID': tenantId });
+  }
+
+  /** 10 most recent contributions for the Billing tab table. */
+  getRecentContributions(tenantId: string): Observable<RecentContribution[]> {
+    return this.api.getWithHeaders<RecentContribution[]>(
+      '/tenant-stats/recent-contributions', { 'X-Tenant-ID': tenantId });
+  }
+
+  /** Top 10 members by outstanding contribution amount — Billing side card. */
+  getTopDebtors(tenantId: string): Observable<TopDebtor[]> {
+    return this.api.getWithHeaders<TopDebtor[]>(
+      '/tenant-stats/top-debtors', { 'X-Tenant-ID': tenantId });
+  }
+
+  /** Payments grouped by status — Finance pipeline pie. */
+  getPaymentsStatusDistribution(tenantId: string): Observable<PaymentsStatusDistribution> {
+    return this.api.getWithHeaders<PaymentsStatusDistribution>(
+      '/tenant-stats/payments-status-distribution', { 'X-Tenant-ID': tenantId });
+  }
+
+  /** 10 most recent payments — Finance table. */
+  getRecentPayments(tenantId: string): Observable<RecentPayment[]> {
+    return this.api.getWithHeaders<RecentPayment[]>(
+      '/tenant-stats/recent-payments', { 'X-Tenant-ID': tenantId });
+  }
+
+  /** Top 10 providers by total received — Finance side card. */
+  getTopPayees(tenantId: string): Observable<TopPayee[]> {
+    return this.api.getWithHeaders<TopPayee[]>(
+      '/tenant-stats/top-payees', { 'X-Tenant-ID': tenantId });
+  }
+
+  /** Payment volume per method — Finance breakdown card. */
+  getPaymentMethodDistribution(tenantId: string): Observable<PaymentMethodDistribution> {
+    return this.api.getWithHeaders<PaymentMethodDistribution>(
+      '/tenant-stats/payment-method-distribution', { 'X-Tenant-ID': tenantId });
   }
 
   /** Daily audit event counts. The tenant interceptor adds X-Tenant-ID automatically on /tenant/ routes. */
