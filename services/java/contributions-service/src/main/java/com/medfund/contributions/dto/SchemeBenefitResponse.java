@@ -17,6 +17,7 @@ public record SchemeBenefitResponse(
         String currencyCode,
         Integer waitingPeriodDays,
         String description,
+        String status,
         Instant createdAt,
         Instant updatedAt
 ) {
@@ -32,6 +33,7 @@ public record SchemeBenefitResponse(
                 benefit.getCurrencyCode(),
                 benefit.getWaitingPeriodDays(),
                 benefit.getDescription(),
+                benefit.getStatus(),
                 benefit.getCreatedAt(),
                 benefit.getUpdatedAt()
         );

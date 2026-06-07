@@ -9,14 +9,13 @@ import java.util.UUID;
 /**
  * Wizard step 1 input — selects the population to bill.
  *
- * <p>Each filter list is OR'd within itself and AND'd across lists. Empty /
- * null filters mean "no constraint on that dimension" (e.g. omit
- * {@code groupIds} to include every group).
+ * <p>Filters are AND'd together. Empty / null filters mean "no constraint on
+ * that dimension" (e.g. omit {@code groupIds} to include every group). Period
+ * alone bills every active scheme.
  */
 public record PreviewBillingRequest(
         @NotNull LocalDate periodStart,
         @NotNull LocalDate periodEnd,
-        List<UUID> schemeIds,
         List<UUID> groupIds,
         List<UUID> memberIds
 ) {}

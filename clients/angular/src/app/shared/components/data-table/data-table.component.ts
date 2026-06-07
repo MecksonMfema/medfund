@@ -20,6 +20,12 @@ export interface TableAction {
   color?: string;
   /** Optional predicate — hides the action when it returns false for a row */
   visible?: (row: any) => boolean;
+  /** Dynamic label override per row (e.g. toggle "Activate"/"Deactivate"). */
+  labelFor?: (row: any) => string;
+  /** Dynamic icon override per row. */
+  iconFor?: (row: any) => string;
+  /** Dynamic color override per row — same vocabulary as {@link color}. */
+  colorFor?: (row: any) => string;
   handler: (row: any) => void;
 }
 

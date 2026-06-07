@@ -15,7 +15,6 @@ import java.util.UUID;
 public record CommitBillingRequest(
         @NotNull LocalDate periodStart,
         @NotNull LocalDate periodEnd,
-        List<UUID> schemeIds,
         List<UUID> groupIds,
         List<UUID> memberIds
 ) {}

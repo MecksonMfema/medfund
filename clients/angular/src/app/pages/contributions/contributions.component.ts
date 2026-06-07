@@ -43,12 +43,15 @@ export class ContributionsComponent implements OnInit {
       handler: (row: Scheme) => this.router.navigate(['/tenant/billing/schemes', row.id, 'edit']),
     },
     {
-      label: 'Deactivate',
+      // Label, icon, and color flip per row based on current status — one
+      // action slot that always shows, never a row with no toggle option.
+      label: 'Toggle',
       icon: 'pause-circle',
-      color: 'danger',
-      // Hide once already inactive so the user can't keep clicking it.
-      visible: (row: Scheme) => row.status !== 'inactive',
-      handler: (row: Scheme) => this.deactivateScheme(row),
+      color: 'default',
+      labelFor: (row: Scheme) => row.status === 'inactive' ? 'Activate' : 'Deactivate',
+      iconFor:  (row: Scheme) => row.status === 'inactive' ? 'play-circle' : 'pause-circle',
+      colorFor: (row: Scheme) => row.status === 'inactive' ? 'success' : 'danger',
+      handler: (row: Scheme) => this.toggleSchemeStatus(row),
     },
   ];
 
@@ -58,15 +61,23 @@ export class ContributionsComponent implements OnInit {
     private toast: ToastService,
   ) {}
 
-  private deactivateScheme(row: Scheme): void {
-    if (!confirm(`Deactivate scheme "${row.name}"? Existing contributions, benefits, and claims stay on file but new ones won't be generated.`)) return;
-    this.contribService.deactivateScheme(row.id).subscribe({
+  private toggleSchemeStatus(row: Scheme): void {
+    const wantsActive = row.status === 'inactive';
+    const verb = wantsActive ? 'Activate' : 'Deactivate';
+    const note = wantsActive
+      ? `Activate scheme "${row.name}"? New contributions will start generating again.`
+      : `Deactivate scheme "${row.name}"? Existing contributions, benefits, and claims stay on file but new ones won't be generated.`;
+    if (!confirm(note)) return;
+    const stream = wantsActive
+      ? this.contribService.activateScheme(row.id)
+      : this.contribService.deactivateScheme(row.id);
+    stream.subscribe({
       next: (updated) => {
-        this.toast.success(`"${row.name}" deactivated`);
+        this.toast.success(`"${row.name}" ${updated.status === 'active' ? 'activated' : 'deactivated'}`);
         this.schemes = this.schemes.map(s => s.id === row.id ? { ...s, status: updated.status } : s);
       },
       error: (err) => {
-        this.toast.error(err?.error?.detail || 'Could not deactivate scheme');
+        this.toast.error(err?.error?.detail || `Could not ${verb.toLowerCase()} scheme`);
       },
     });
   }

@@ -47,7 +47,7 @@
       </thead>
       <tbody>
         @for (b of benefits; track b.id) {
-          <tr [class.pending]="pendingId === b.id" [class.row-inactive]="b.status === 'inactive'">
+          <tr [class.pending]="pendingId === b.id">
             <td><strong>{{ b.name }}</strong></td>
             <td>{{ b.benefitType | humanize }}</td>
             <td class="right">{{ b.annualLimit ? (b.annualLimit | currencyFormat:b.currencyCode) : '—' }}</td>
@@ -59,9 +59,13 @@
             </td>
             <td class="actions">
               <button class="link-btn" (click)="edit(b)">Edit</button>
-              @if (b.status !== 'inactive') {
-                <button class="link-btn danger" (click)="deactivate(b)">Deactivate</button>
-              }
+              <button
+                class="link-btn"
+                [class.danger]="b.status !== 'inactive'"
+                [class.success]="b.status === 'inactive'"
+                (click)="toggleStatus(b)">
+                {{ b.status === 'inactive' ? 'Activate' : 'Deactivate' }}
+              </button>
             </td>
           </tr>
         }

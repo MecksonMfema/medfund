@@ -117,7 +117,6 @@ export interface UpsertAgeGroupPayload {
 export interface BillingFilterPayload {
   periodStart: string;
   periodEnd: string;
-  schemeIds?: string[];
   groupIds?: string[];
   memberIds?: string[];
 }
@@ -138,12 +137,21 @@ export interface BillingPreviewResponse {
   sample: BillingPreviewSampleRow[];
   cooldownActive: boolean;
   cooldownRemainingMinutes: number | null;
+  /** Aggregate invoices the commit would create (one per group + currency). */
+  groupInvoicesProjected: number;
+  /** Per-member invoices the commit would create. */
+  individualInvoicesProjected: number;
+  /** Tenant's current membership model (INDIVIDUAL_ONLY / GROUP_ONLY / BOTH). */
+  membershipModel: string;
 }
 
 export interface BillingCommitResponse {
   contributionsCreated: number;
   totalsByCurrency: Record<string, string>;
   committedAt: string;
+  groupInvoicesCreated: number;
+  individualInvoicesCreated: number;
+  membershipModel: string;
 }
 
 export interface RecordTransactionPayload {
@@ -203,6 +211,11 @@ export class ContributionsService {
     return this.api.post<Scheme>(`/schemes/${id}/deactivate`, {});
   }
 
+  /** Re-enables a previously-deactivated scheme. */
+  activateScheme(id: string): Observable<Scheme> {
+    return this.api.post<Scheme>(`/schemes/${id}/activate`, {});
+  }
+
   // ── Groups (read-only autocomplete) ──
   searchGroups(q: string, limit = 20): Observable<GroupOption[]> {
     const params: Record<string, string> = { limit: String(limit) };
@@ -232,6 +245,11 @@ export class ContributionsService {
     return this.api.post<AgeGroup>(`/schemes/age-groups/${id}/deactivate`, {});
   }
 
+  /** Re-enables a previously-deactivated age group. */
+  activateAgeGroup(id: string): Observable<AgeGroup> {
+    return this.api.post<AgeGroup>(`/schemes/age-groups/${id}/activate`, {});
+  }
+
   // ── Scheme benefits ──
   getBenefitsByScheme(schemeId: string): Observable<SchemeBenefit[]> {
     return this.api.get<SchemeBenefit[]>(`/schemes/${schemeId}/benefits`);
@@ -253,6 +271,11 @@ export class ContributionsService {
    *  is no longer supported — see the controller comment in SchemeController. */
   deactivateBenefit(id: string): Observable<SchemeBenefit> {
     return this.api.post<SchemeBenefit>(`/schemes/benefits/${id}/deactivate`, {});
+  }
+
+  /** Re-enables a previously-deactivated benefit. */
+  activateBenefit(id: string): Observable<SchemeBenefit> {
+    return this.api.post<SchemeBenefit>(`/schemes/benefits/${id}/activate`, {});
   }
 
   // ── Contributions ──

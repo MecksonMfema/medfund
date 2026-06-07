@@ -62,7 +62,16 @@ public class Contribution {
     @Column("updated_by")
     private UUID updatedBy;
 
+    /** Back-link to the invoice that aggregated this contribution row.
+     *  NULL during the brief preview/commit window before invoices are
+     *  generated, or for legacy rows from before V020. */
+    @Column("invoice_id")
+    private UUID invoiceId;
+
     // Getters and setters
+    public UUID getInvoiceId() { return invoiceId; }
+    public void setInvoiceId(UUID invoiceId) { this.invoiceId = invoiceId; }
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 

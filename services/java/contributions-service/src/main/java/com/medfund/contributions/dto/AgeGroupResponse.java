@@ -14,6 +14,7 @@ public record AgeGroupResponse(
         Integer maxAge,
         BigDecimal contributionAmount,
         String currencyCode,
+        String status,
         Instant createdAt
 ) {
     public static AgeGroupResponse from(AgeGroup ageGroup) {
@@ -25,6 +26,7 @@ public record AgeGroupResponse(
                 ageGroup.getMaxAge(),
                 ageGroup.getContributionAmount(),
                 ageGroup.getCurrencyCode(),
+                ageGroup.getStatus(),
                 ageGroup.getCreatedAt()
         );
     }

@@ -293,12 +293,12 @@ public class BillingService {
      * tenant pricing rules, and returns counts/totals. No persistence.
      */
     public Mono<BillingPreviewResponse> previewBilling(PreviewBillingRequest req) {
-        return resolveCandidates(req.schemeIds(), req.groupIds(), req.memberIds())
+        return resolveCandidates(req.groupIds(), req.memberIds())
                 .flatMap(candidate -> applyPricing(candidate, req.periodStart(), req.periodEnd()))
                 .collectList()
                 .zipWith(billingCycleConfigRepository.findById(BillingCycleConfig.SINGLETON_ID)
                         .defaultIfEmpty(defaultCycleConfig()))
-                .map(tuple -> {
+                .flatMap(tuple -> {
                     List<PricedCandidate> rows = tuple.getT1();
                     BillingCycleConfig cfg = tuple.getT2();
                     Map<String, BigDecimal> totals = new LinkedHashMap<>();
@@ -313,10 +313,17 @@ public class BillingService {
                                 r.groupId(), r.amount(), r.currencyCode()));
                     }
                     int remainingMinutes = cooldownRemainingMinutes(cfg);
-                    return new BillingPreviewResponse(
-                            rows.size(), totals, sample,
-                            remainingMinutes > 0,
-                            remainingMinutes > 0 ? remainingMinutes : null);
+                    return Mono.deferContextual(ctx -> {
+                        String tenantId = TenantContext.get(ctx);
+                        return getMembershipModel(tenantId).map(model -> {
+                            InvoiceProjection proj = projectInvoices(rows, model);
+                            return new BillingPreviewResponse(
+                                    rows.size(), totals, sample,
+                                    remainingMinutes > 0,
+                                    remainingMinutes > 0 ? remainingMinutes : null,
+                                    proj.groupInvoices, proj.individualInvoices, model);
+                        });
+                    });
                 });
     }
 
@@ -342,7 +349,7 @@ public class BillingService {
         UUID actorUuid = parseUuid(actorId);
         Instant now = Instant.now();
 
-        return resolveCandidates(req.schemeIds(), req.groupIds(), req.memberIds())
+        return resolveCandidates(req.groupIds(), req.memberIds())
                 .flatMap(candidate -> applyPricing(candidate, req.periodStart(), req.periodEnd())
                         .flatMap(priced -> persistContribution(priced, req, actorUuid, now)))
                 .collectList()
@@ -357,8 +364,7 @@ public class BillingService {
                             .updateLastCommittedAt(cfg.getId() != null ? cfg.getId() : BillingCycleConfig.SINGLETON_ID, now)
                             .then();
                     Mono<Void> publish = eventPublisher.publishBillingGenerated(
-                            req.schemeIds() != null && !req.schemeIds().isEmpty()
-                                    ? req.schemeIds().get(0).toString() : "*",
+                            "*",
                             req.periodStart().toString(),
                             req.periodEnd().toString(),
                             saved.size()).then();
@@ -368,10 +374,150 @@ public class BillingService {
                             Map.of("rows", String.valueOf(saved.size()),
                                     "periodStart", req.periodStart().toString(),
                                     "periodEnd", req.periodEnd().toString())));
-                    return stamp.then(publish).then(audit)
-                            .thenReturn(new BillingCommitResponse((long) saved.size(), totals, now));
+
+                    // Roll the per-member contributions up into Invoice rows
+                    // according to the tenant's membership model. See
+                    // generateInvoicesFor for the routing rules.
+                    Mono<List<Invoice>> invoices = Mono.deferContextual(ctx -> {
+                        String tenantId = TenantContext.get(ctx);
+                        return getMembershipModel(tenantId).flatMap(model ->
+                                generateInvoicesFor(saved, model, actorUuid,
+                                        req.periodStart(), req.periodEnd()));
+                    });
+
+                    return stamp.then(publish).then(audit).then(invoices)
+                            .flatMap(generated -> Mono.deferContextual(ctx -> {
+                                String tenantId = TenantContext.get(ctx);
+                                return getMembershipModel(tenantId).map(model -> {
+                                    long groupCount = generated.stream()
+                                            .filter(i -> i.getGroupId() != null).count();
+                                    long memberCount = generated.stream()
+                                            .filter(i -> i.getGroupId() == null && i.getMemberId() != null).count();
+                                    return new BillingCommitResponse((long) saved.size(), totals, now,
+                                            groupCount, memberCount, model);
+                                });
+                            }));
                 });
     }
+
+    // ── Membership-model-aware invoice generation ──────────────────────────
+    // After per-member contributions are persisted, roll them up into
+    // Invoice rows. The routing depends on the tenant's membershipModel:
+    //
+    //   INDIVIDUAL_ONLY  → 1 invoice per (member, currency). Group_id ignored.
+    //   GROUP_ONLY       → 1 invoice per (group, currency). Members without a
+    //                      group fall back to per-member invoices (defensive —
+    //                      this is a data anomaly).
+    //   BOTH             → grouped members covered by a (group, currency)
+    //                      invoice; ungrouped members get a (member, currency)
+    //                      invoice each.
+    //
+    // Each generated invoice is consolidated across schemes (per the
+    // operator-chosen aggregation level — "One consolidated invoice per
+    // (group, period)") with the caveat that we still split by currency
+    // because the invoices table carries a single currency_code column.
+
+    private Mono<List<Invoice>> generateInvoicesFor(List<Contribution> contributions, String model,
+                                                    UUID actorUuid, LocalDate periodStart, LocalDate periodEnd) {
+        if (contributions.isEmpty()) return Mono.just(List.of());
+
+        Map<RoutingKey, List<Contribution>> buckets = new LinkedHashMap<>();
+        for (Contribution c : contributions) {
+            RoutingKey key = computeRoutingKey(c, model);
+            buckets.computeIfAbsent(key, k -> new ArrayList<>()).add(c);
+        }
+
+        return Flux.fromIterable(buckets.entrySet())
+                .concatMap(e -> persistInvoiceFor(e.getKey(), e.getValue(), actorUuid, periodStart, periodEnd))
+                .collectList();
+    }
+
+    private Mono<Invoice> persistInvoiceFor(RoutingKey key, List<Contribution> rows, UUID actorUuid,
+                                            LocalDate periodStart, LocalDate periodEnd) {
+        BigDecimal total = rows.stream()
+                .map(c -> c.getAmount() != null ? c.getAmount() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return generateInvoiceNumber().flatMap(number -> {
+            Invoice inv = new Invoice();
+            // @Id left null — DB default (DEFAULT gen_random_uuid()).
+            inv.setInvoiceNumber(number);
+            inv.setGroupId(key.groupId());
+            inv.setMemberId(key.memberId());
+            inv.setSchemeId(null); // consolidated across schemes
+            inv.setTotalAmount(total);
+            inv.setCurrencyCode(key.currencyCode());
+            inv.setStatus("issued");
+            inv.setPeriodStart(periodStart);
+            inv.setPeriodEnd(periodEnd);
+            inv.setIssuedAt(Instant.now());
+            inv.setDueDate(periodEnd.plusDays(30));
+            inv.setCreatedAt(Instant.now());
+            inv.setUpdatedAt(Instant.now());
+            inv.setCreatedBy(actorUuid);
+            return invoiceRepository.save(inv);
+        }).flatMap(saved -> {
+            // Back-link every contribution to its invoice so audit + payment
+            // allocation can trace the rollup later without a heuristic join.
+            return Flux.fromIterable(rows)
+                    .concatMap(c -> {
+                        c.setInvoiceId(saved.getId());
+                        return contributionRepository.save(c);
+                    })
+                    .then(Mono.just(saved));
+        });
+    }
+
+    private RoutingKey computeRoutingKey(Contribution c, String model) {
+        UUID groupId = c.getGroupId();
+        UUID memberId = c.getMemberId();
+        String currency = c.getCurrencyCode() != null ? c.getCurrencyCode() : "USD";
+        return switch (model == null ? "BOTH" : model) {
+            case "INDIVIDUAL_ONLY" -> new RoutingKey(null, memberId, currency);
+            case "GROUP_ONLY" -> groupId != null
+                    ? new RoutingKey(groupId, null, currency)
+                    : new RoutingKey(null, memberId, currency); // anomaly fallback
+            default /* BOTH */ -> groupId != null
+                    ? new RoutingKey(groupId, null, currency)
+                    : new RoutingKey(null, memberId, currency);
+        };
+    }
+
+    private InvoiceProjection projectInvoices(List<PricedCandidate> rows, String model) {
+        java.util.Set<RoutingKey> groupKeys = new java.util.HashSet<>();
+        java.util.Set<RoutingKey> memberKeys = new java.util.HashSet<>();
+        for (PricedCandidate r : rows) {
+            String currency = r.currencyCode() != null ? r.currencyCode() : "USD";
+            switch (model == null ? "BOTH" : model) {
+                case "INDIVIDUAL_ONLY" -> memberKeys.add(new RoutingKey(null, r.memberId(), currency));
+                case "GROUP_ONLY" -> {
+                    if (r.groupId() != null) groupKeys.add(new RoutingKey(r.groupId(), null, currency));
+                    else memberKeys.add(new RoutingKey(null, r.memberId(), currency));
+                }
+                default -> {
+                    if (r.groupId() != null) groupKeys.add(new RoutingKey(r.groupId(), null, currency));
+                    else memberKeys.add(new RoutingKey(null, r.memberId(), currency));
+                }
+            }
+        }
+        return new InvoiceProjection(groupKeys.size(), memberKeys.size());
+    }
+
+    private Mono<String> getMembershipModel(String tenantId) {
+        if (tenantId == null) return Mono.just("BOTH");
+        UUID tid;
+        try { tid = UUID.fromString(tenantId); }
+        catch (IllegalArgumentException e) { return Mono.just("BOTH"); }
+        return db.sql("SELECT membership_model FROM public.tenants WHERE id = :tenantId")
+                .bind("tenantId", tid)
+                .map(row -> row.get("membership_model", String.class))
+                .one()
+                .defaultIfEmpty("BOTH")
+                .onErrorReturn("BOTH");
+    }
+
+    private record RoutingKey(UUID groupId, UUID memberId, String currencyCode) {}
+    private record InvoiceProjection(long groupInvoices, long individualInvoices) {}
 
     private Mono<Contribution> persistContribution(PricedCandidate priced, CommitBillingRequest req,
                                                    UUID actorUuid, Instant now) {
@@ -395,10 +541,11 @@ public class BillingService {
 
     /**
      * Walks the {@code members} table joined to {@code schemes}, applying the
-     * three optional filters. Returned candidates carry just enough metadata
-     * for pricing + the wizard preview.
+     * optional group / member filters. Returned candidates carry just enough
+     * metadata for pricing + the wizard preview. Schemes are always included
+     * in full — billing covers every active scheme by design.
      */
-    private Flux<MemberCandidate> resolveCandidates(List<UUID> schemeIds, List<UUID> groupIds, List<UUID> memberIds) {
+    private Flux<MemberCandidate> resolveCandidates(List<UUID> groupIds, List<UUID> memberIds) {
         StringBuilder sql = new StringBuilder("""
                 SELECT m.id            AS member_id,
                        m.member_number AS member_number,
@@ -410,12 +557,10 @@ public class BillingService {
                   JOIN schemes s ON s.id = m.scheme_id
                  WHERE m.status = 'active'
                 """);
-        if (schemeIds != null && !schemeIds.isEmpty()) sql.append(" AND m.scheme_id = ANY(:schemeIds) ");
         if (groupIds  != null && !groupIds.isEmpty())  sql.append(" AND m.group_id  = ANY(:groupIds) ");
         if (memberIds != null && !memberIds.isEmpty()) sql.append(" AND m.id        = ANY(:memberIds) ");
 
         var spec = db.sql(sql.toString());
-        if (schemeIds != null && !schemeIds.isEmpty()) spec = spec.bind("schemeIds", schemeIds.toArray(UUID[]::new));
         if (groupIds  != null && !groupIds.isEmpty())  spec = spec.bind("groupIds",  groupIds.toArray(UUID[]::new));
         if (memberIds != null && !memberIds.isEmpty()) spec = spec.bind("memberIds", memberIds.toArray(UUID[]::new));
 

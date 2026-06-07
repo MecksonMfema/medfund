@@ -4,20 +4,18 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
   ContributionsService,
-  Scheme,
   BillingPreviewResponse,
   BillingFilterPayload,
 } from '../../../../core/services/contributions.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
-import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
 
 type WizardStep = 'filters' | 'preview' | 'committed';
 
 @Component({
   selector: 'app-generate-billing-wizard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, CurrencyFormatPipe, HumanizePipe],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, CurrencyFormatPipe],
   templateUrl: './generate-billing-wizard.component.html',
   styleUrl: './generate-billing-wizard.component.scss',
 })
@@ -27,9 +25,6 @@ export class GenerateBillingWizardComponent implements OnInit {
   loading = false;
   saving = false;
 
-  schemes: Scheme[] = [];
-  selectedSchemeIds: string[] = [];
-
   // Period defaults to current month.
   periodStart = '';
   periodEnd = '';
@@ -38,6 +33,9 @@ export class GenerateBillingWizardComponent implements OnInit {
   committedAt: string | null = null;
   committedCount = 0;
   committedTotals: Record<string, string> = {};
+  committedGroupInvoices = 0;
+  committedIndividualInvoices = 0;
+  committedMembershipModel = '';
 
   constructor(private contributions: ContributionsService) {}
 
@@ -47,21 +45,16 @@ export class GenerateBillingWizardComponent implements OnInit {
     const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     this.periodStart = start.toISOString().slice(0, 10);
     this.periodEnd = end.toISOString().slice(0, 10);
-
-    this.contributions.getSchemes().subscribe({
-      next: (s) => { this.schemes = s; },
-      error: (err) => { this.errorMessage = err?.error?.detail || 'Failed to load schemes'; },
-    });
   }
 
-  toggleScheme(id: string): void {
-    const idx = this.selectedSchemeIds.indexOf(id);
-    if (idx === -1) this.selectedSchemeIds = [...this.selectedSchemeIds, id];
-    else this.selectedSchemeIds = this.selectedSchemeIds.filter(x => x !== id);
-  }
-
-  isSchemeSelected(id: string): boolean {
-    return this.selectedSchemeIds.includes(id);
+  /** Friendly label for the tenant's membership model banner. */
+  membershipBanner(model: string | undefined): string {
+    switch (model) {
+      case 'GROUP_ONLY':      return 'Groups only — every member must belong to a group; invoices go to liaisons.';
+      case 'INDIVIDUAL_ONLY': return 'Individuals only — one invoice per member.';
+      case 'BOTH':            return 'Mixed — grouped members billed via their group liaison; ungrouped members billed individually.';
+      default:                return '';
+    }
   }
 
   totalsKeys(map: Record<string, string> | undefined): string[] {
@@ -78,7 +71,6 @@ export class GenerateBillingWizardComponent implements OnInit {
     const filters: BillingFilterPayload = {
       periodStart: this.periodStart,
       periodEnd: this.periodEnd,
-      schemeIds: this.selectedSchemeIds.length > 0 ? this.selectedSchemeIds : undefined,
     };
     this.contributions.previewBilling(filters).subscribe({
       next: (resp) => {
@@ -100,7 +92,6 @@ export class GenerateBillingWizardComponent implements OnInit {
     const filters: BillingFilterPayload = {
       periodStart: this.periodStart,
       periodEnd: this.periodEnd,
-      schemeIds: this.selectedSchemeIds.length > 0 ? this.selectedSchemeIds : undefined,
     };
     this.contributions.commitBilling(filters).subscribe({
       next: (resp) => {
@@ -108,6 +99,9 @@ export class GenerateBillingWizardComponent implements OnInit {
         this.committedCount = resp.contributionsCreated;
         this.committedTotals = resp.totalsByCurrency;
         this.committedAt = resp.committedAt;
+        this.committedGroupInvoices = resp.groupInvoicesCreated;
+        this.committedIndividualInvoices = resp.individualInvoicesCreated;
+        this.committedMembershipModel = resp.membershipModel;
         this.step = 'committed';
       },
       error: (err) => {
@@ -129,5 +123,8 @@ export class GenerateBillingWizardComponent implements OnInit {
     this.committedAt = null;
     this.committedCount = 0;
     this.committedTotals = {};
+    this.committedGroupInvoices = 0;
+    this.committedIndividualInvoices = 0;
+    this.committedMembershipModel = '';
   }
 }

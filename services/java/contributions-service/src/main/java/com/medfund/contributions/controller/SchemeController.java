@@ -84,6 +84,16 @@ public class SchemeController {
         return schemeService.deactivate(id, principal.getName()).map(SchemeResponse::from);
     }
 
+    @PostMapping("/{id}/activate")
+    @Operation(summary = "Reactivate a previously-deactivated scheme")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Scheme activated"),
+        @ApiResponse(responseCode = "404", description = "Scheme not found")
+    })
+    public Mono<SchemeResponse> activate(@PathVariable UUID id, Principal principal) {
+        return schemeService.activate(id, principal.getName()).map(SchemeResponse::from);
+    }
+
     @GetMapping("/{schemeId}/benefits")
     @Operation(summary = "List benefits for a scheme")
     public Flux<SchemeBenefitResponse> findBenefits(@PathVariable UUID schemeId) {
@@ -138,6 +148,16 @@ public class SchemeController {
         return schemeService.deactivateBenefit(id, principal.getName()).map(SchemeBenefitResponse::from);
     }
 
+    @PostMapping("/benefits/{id}/activate")
+    @Operation(summary = "Reactivate a previously-deactivated benefit")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Scheme benefit activated"),
+        @ApiResponse(responseCode = "404", description = "Scheme benefit not found")
+    })
+    public Mono<SchemeBenefitResponse> activateBenefit(@PathVariable UUID id, Principal principal) {
+        return schemeService.activateBenefit(id, principal.getName()).map(SchemeBenefitResponse::from);
+    }
+
     @GetMapping("/{schemeId}/age-groups")
     @Operation(summary = "List age groups for a scheme")
     public Flux<AgeGroupResponse> findAgeGroups(@PathVariable UUID schemeId) {
@@ -185,5 +205,15 @@ public class SchemeController {
     })
     public Mono<AgeGroupResponse> deactivateAgeGroup(@PathVariable UUID id, Principal principal) {
         return schemeService.deactivateAgeGroup(id, principal.getName()).map(AgeGroupResponse::from);
+    }
+
+    @PostMapping("/age-groups/{id}/activate")
+    @Operation(summary = "Reactivate a previously-deactivated age group")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Age group activated"),
+        @ApiResponse(responseCode = "404", description = "Age group not found")
+    })
+    public Mono<AgeGroupResponse> activateAgeGroup(@PathVariable UUID id, Principal principal) {
+        return schemeService.activateAgeGroup(id, principal.getName()).map(AgeGroupResponse::from);
     }
 }

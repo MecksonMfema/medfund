@@ -21,7 +21,13 @@ public record BillingPreviewResponse(
         Map<String, BigDecimal> totalsByCurrency,
         List<SampleRow> sample,
         boolean cooldownActive,
-        Integer cooldownRemainingMinutes
+        Integer cooldownRemainingMinutes,
+        /** Projected group invoices the commit would create. */
+        long groupInvoicesProjected,
+        /** Projected individual-member invoices the commit would create. */
+        long individualInvoicesProjected,
+        /** Tenant's current membership model (INDIVIDUAL_ONLY / GROUP_ONLY / BOTH). */
+        String membershipModel
 ) {
     public record SampleRow(
             UUID memberId,

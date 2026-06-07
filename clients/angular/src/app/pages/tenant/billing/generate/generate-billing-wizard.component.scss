@@ -118,33 +118,16 @@
   border-radius: 4px;
 }
 
-.scheme-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 0.5rem;
-}
-
-.scheme-tile {
-  display: flex;
-  flex-direction: column;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 4px;
-  cursor: pointer;
+/* Banner showing tenant's membership model in preview/committed steps. */
+.model-banner {
+  background: var(--info-bg, #eff6ff);
+  color: var(--info-fg, #1e40af);
+  padding: 0.6rem 0.9rem;
+  border-radius: 6px;
+  margin-bottom: 0.75rem;
   font-size: 0.875rem;
+  border-left: 3px solid var(--info-fg, #1e40af);
 }
-
-.scheme-tile.selected {
-  border-color: var(--primary, #2563eb);
-  background: var(--primary-bg, #eff6ff);
-}
-
-.scheme-tile input[type="checkbox"] {
-  margin-bottom: 0.4rem;
-}
-
-.scheme-name { font-weight: 500; }
-.scheme-meta { color: var(--text-muted, #6b7280); font-size: 0.8rem; margin-top: 0.2rem; }
 
 .preview-summary {
   display: flex;

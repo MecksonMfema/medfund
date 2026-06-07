@@ -89,10 +89,7 @@
   border-radius: 4px;
 }
 .actions .link-btn:hover { background: var(--color-bg, #f3f4f6); }
-.actions .link-btn.danger { color: var(--color-error, #e71d36); }
+.actions .link-btn.danger  { color: var(--danger-fg,  #b91c1c); }
+.actions .link-btn.success { color: var(--success-fg, #047857); }
 
-.row-inactive {
-  opacity: 0.55;
-}
-.row-inactive strong { font-weight: 500; }
 

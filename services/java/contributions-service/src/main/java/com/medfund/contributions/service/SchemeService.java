@@ -143,11 +143,21 @@ public class SchemeService {
 
     @Transactional
     public Mono<Scheme> deactivate(UUID id, String actorId) {
+        return setSchemeStatus(id, "inactive", actorId);
+    }
+
+    /** Re-enables a previously-deactivated scheme. Counterpart to {@link #deactivate}. */
+    @Transactional
+    public Mono<Scheme> activate(UUID id, String actorId) {
+        return setSchemeStatus(id, "active", actorId);
+    }
+
+    private Mono<Scheme> setSchemeStatus(UUID id, String status, String actorId) {
         return schemeRepository.findById(id)
             .switchIfEmpty(Mono.error(new SchemeNotFoundException(id)))
             .flatMap(scheme -> {
                 String previousStatus = scheme.getStatus();
-                scheme.setStatus("inactive");
+                scheme.setStatus(status);
                 scheme.setUpdatedAt(Instant.now());
                 scheme.setUpdatedBy(UUID.fromString(actorId));
 
@@ -241,11 +251,21 @@ public class SchemeService {
     /** Soft-delete a benefit by flipping its status to "inactive". */
     @Transactional
     public Mono<SchemeBenefit> deactivateBenefit(UUID id, String actorId) {
+        return setBenefitStatus(id, "inactive", actorId);
+    }
+
+    /** Re-enables a previously-deactivated benefit. Counterpart to {@link #deactivateBenefit}. */
+    @Transactional
+    public Mono<SchemeBenefit> activateBenefit(UUID id, String actorId) {
+        return setBenefitStatus(id, "active", actorId);
+    }
+
+    private Mono<SchemeBenefit> setBenefitStatus(UUID id, String status, String actorId) {
         return schemeBenefitRepository.findById(id)
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Scheme benefit not found: " + id)))
             .flatMap(existing -> {
                 String previousStatus = existing.getStatus();
-                existing.setStatus("inactive");
+                existing.setStatus(status);
                 existing.setUpdatedAt(Instant.now());
                 return schemeBenefitRepository.save(existing)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
@@ -338,11 +358,21 @@ public class SchemeService {
     /** Soft-delete an age group by flipping its status to "inactive". */
     @Transactional
     public Mono<AgeGroup> deactivateAgeGroup(UUID id, String actorId) {
+        return setAgeGroupStatus(id, "inactive", actorId);
+    }
+
+    /** Re-enables a previously-deactivated age group. Counterpart to {@link #deactivateAgeGroup}. */
+    @Transactional
+    public Mono<AgeGroup> activateAgeGroup(UUID id, String actorId) {
+        return setAgeGroupStatus(id, "active", actorId);
+    }
+
+    private Mono<AgeGroup> setAgeGroupStatus(UUID id, String status, String actorId) {
         return ageGroupRepository.findById(id)
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Age group not found: " + id)))
             .flatMap(existing -> {
                 String previousStatus = existing.getStatus();
-                existing.setStatus("inactive");
+                existing.setStatus(status);
                 return ageGroupRepository.save(existing)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);

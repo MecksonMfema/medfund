@@ -2,7 +2,7 @@
   <header class="page-header">
     <div>
       <h1>Generate billing</h1>
-      <p class="page-sub">Pick the period and (optionally) a scheme subset, preview the contributions that would be created, and commit when you're satisfied. The cooldown configured in Settings → Billing prevents accidental double commits.</p>
+      <p class="page-sub">Pick the period, preview the contributions that would be created, and commit when you're satisfied. Every active scheme is billed. The cooldown configured in Settings → Billing prevents accidental double commits.</p>
     </div>
     <a class="btn btn-default" routerLink="/tenant/billing/view">
       <app-icon name="list" [size]="14"></app-icon>
@@ -36,20 +36,6 @@
       </div>
     </section>
 
-    <section class="card">
-      <h2 class="card-title">Schemes</h2>
-      <p class="card-sub">Leave all unchecked to bill every active scheme.</p>
-      <div class="scheme-grid">
-        @for (s of schemes; track s.id) {
-          <label class="scheme-tile" [class.selected]="isSchemeSelected(s.id)">
-            <input type="checkbox" [checked]="isSchemeSelected(s.id)" (change)="toggleScheme(s.id)" />
-            <span class="scheme-name">{{ s.name }}</span>
-            <span class="scheme-meta">{{ s.currencyCode || '—' }} · {{ s.status | humanize }}</span>
-          </label>
-        }
-      </div>
-    </section>
-
     <div class="form-actions">
       <button class="btn btn-primary" (click)="runPreview()" [disabled]="loading">
         {{ loading ? 'Computing preview…' : 'Preview' }}
@@ -74,10 +60,22 @@
         </button>
       </header>
 
+      @if (membershipBanner(preview.membershipModel); as banner) {
+        <div class="model-banner">{{ banner }}</div>
+      }
+
       <div class="preview-summary">
         <div class="stat">
-          <span class="stat-label">Rows to create</span>
+          <span class="stat-label">Contribution rows</span>
           <span class="stat-value">{{ preview.totalRows }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Group invoices</span>
+          <span class="stat-value">{{ preview.groupInvoicesProjected }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Individual invoices</span>
+          <span class="stat-value">{{ preview.individualInvoicesProjected }}</span>
         </div>
         @for (code of totalsKeys(preview.totalsByCurrency); track code) {
           <div class="stat">
@@ -123,9 +121,21 @@
         <app-icon name="check-circle" [size]="20"></app-icon>
         Billing committed
       </h2>
-      <p class="card-sub">{{ committedCount }} contributions created at {{ committedAt | date:'medium' }}.</p>
+      <p class="card-sub">{{ committedCount }} contributions rolled up into {{ committedGroupInvoices + committedIndividualInvoices }} invoices at {{ committedAt | date:'medium' }}.</p>
+
+      @if (membershipBanner(committedMembershipModel); as banner) {
+        <div class="model-banner">{{ banner }}</div>
+      }
 
       <div class="preview-summary">
+        <div class="stat">
+          <span class="stat-label">Group invoices</span>
+          <span class="stat-value">{{ committedGroupInvoices }}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Individual invoices</span>
+          <span class="stat-value">{{ committedIndividualInvoices }}</span>
+        </div>
         @for (code of totalsKeys(committedTotals); track code) {
           <div class="stat">
             <span class="stat-label">Total ({{ code }})</span>

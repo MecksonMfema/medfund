@@ -86,13 +86,13 @@
                   @if (!action.visible || action.visible(row)) {
                     <button
                       class="action-btn"
-                      [class]="'action-btn action-btn--' + (action.color || 'default')"
+                      [class]="'action-btn action-btn--' + ((action.colorFor && action.colorFor(row)) || action.color || 'default')"
                       (click)="$event.stopPropagation(); action.handler(row)"
                     >
-                      @if (action.icon) {
-                        <app-icon [name]="action.icon" [size]="14"></app-icon>
+                      @if ((action.iconFor && action.iconFor(row)) || action.icon; as iconName) {
+                        <app-icon [name]="iconName" [size]="14"></app-icon>
                       }
-                      <span>{{ action.label }}</span>
+                      <span>{{ (action.labelFor && action.labelFor(row)) || action.label }}</span>
                     </button>
                   }
                 }

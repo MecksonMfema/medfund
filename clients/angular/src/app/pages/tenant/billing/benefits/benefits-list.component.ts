@@ -67,18 +67,25 @@ export class BenefitsListComponent implements OnInit {
     this.router.navigate(['/tenant/billing/schemes', this.schemeId, 'benefits', b.id, 'edit']);
   }
 
-  deactivate(b: SchemeBenefit): void {
-    if (!confirm(`Deactivate benefit "${b.name}"? It will stay on file for historical claims but won't be picked up for new ones.`)) return;
+  toggleStatus(b: SchemeBenefit): void {
+    const wantsActive = b.status === 'inactive';
+    const note = wantsActive
+      ? `Activate benefit "${b.name}"? It will be selectable for new claims again.`
+      : `Deactivate benefit "${b.name}"? It will stay on file for historical claims but won't be picked up for new ones.`;
+    if (!confirm(note)) return;
     this.pendingId = b.id;
-    this.contributions.deactivateBenefit(b.id).subscribe({
+    const stream = wantsActive
+      ? this.contributions.activateBenefit(b.id)
+      : this.contributions.deactivateBenefit(b.id);
+    stream.subscribe({
       next: (updated) => {
         this.benefits = this.benefits.map(x => x.id === b.id ? { ...x, status: updated.status } : x);
         this.pendingId = null;
-        this.toast.success(`"${b.name}" deactivated`);
+        this.toast.success(`"${b.name}" ${updated.status === 'active' ? 'activated' : 'deactivated'}`);
       },
       error: (err) => {
         this.pendingId = null;
-        this.toast.error(err?.error?.detail || 'Could not deactivate benefit');
+        this.toast.error(err?.error?.detail || `Could not ${wantsActive ? 'activate' : 'deactivate'} benefit`);
       },
     });
   }

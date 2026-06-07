@@ -43,7 +43,7 @@
       </thead>
       <tbody>
         @for (row of rows; track row.id) {
-          <tr [class.row-inactive]="row.status === 'inactive'">
+          <tr>
             <td><strong>{{ row.name }}</strong></td>
             <td>{{ row.minAge }}</td>
             <td>{{ row.maxAge }}</td>
@@ -53,9 +53,13 @@
             </td>
             <td class="actions">
               <button class="link-btn" (click)="edit(row)">Edit</button>
-              @if (row.status !== 'inactive') {
-                <button class="link-btn danger" (click)="deactivate(row)">Deactivate</button>
-              }
+              <button
+                class="link-btn"
+                [class.danger]="row.status !== 'inactive'"
+                [class.success]="row.status === 'inactive'"
+                (click)="toggleStatus(row)">
+                {{ row.status === 'inactive' ? 'Activate' : 'Deactivate' }}
+              </button>
             </td>
           </tr>
         }

@@ -36,17 +36,23 @@ export class AgeGroupsListComponent implements OnInit {
     this.router.navigate(['/tenant/billing/age-groups', row.id, 'edit']);
   }
 
-  deactivate(row: AgeGroupRow): void {
-    if (!confirm(`Deactivate age group "${row.name}"? It will stay on file but won't be used for new contributions.`)) return;
-    this.contributions.deactivateAgeGroup(row.id).subscribe({
+  toggleStatus(row: AgeGroupRow): void {
+    const wantsActive = row.status === 'inactive';
+    const note = wantsActive
+      ? `Activate age group "${row.name}"? It will be used for new contributions again.`
+      : `Deactivate age group "${row.name}"? It will stay on file but won't be used for new contributions.`;
+    if (!confirm(note)) return;
+    const stream = wantsActive
+      ? this.contributions.activateAgeGroup(row.id)
+      : this.contributions.deactivateAgeGroup(row.id);
+    stream.subscribe({
       next: (updated) => {
-        this.toast.success(`"${row.name}" deactivated`);
-        // Patch in place so the list reflects the new status without a refetch.
+        this.toast.success(`"${row.name}" ${updated.status === 'active' ? 'activated' : 'deactivated'}`);
         const idx = this.rows.findIndex(r => r.id === row.id);
         if (idx >= 0) this.rows[idx] = { ...this.rows[idx], status: updated.status };
       },
       error: (err) => {
-        this.toast.error(err?.error?.detail || 'Could not deactivate age group');
+        this.toast.error(err?.error?.detail || `Could not ${wantsActive ? 'activate' : 'deactivate'} age group`);
       },
     });
   }
