@@ -116,7 +116,7 @@ ai-setup:
 # ── Angular web app ───────────────────────────────────────────────────────────
 
 web:
-	cd clients/angular && ng serve
+	cd clients/angular && npm start
 
 # First-time Angular setup
 web-setup:
@@ -137,7 +137,7 @@ test-python:
 	cd services/python/ai-service && uv run pytest
 
 test-angular:
-	cd clients/angular && ng test --watch=false
+	cd clients/angular && npx ng test --watch=false
 
 .PHONY: infra infra-down infra-reset infra-ps infra-logs keycloak-setup \
         tenancy user claims contributions finance java-all \
