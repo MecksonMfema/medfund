@@ -5,11 +5,12 @@ import {
 import { FormsModule } from '@angular/forms';
 import { Observable, Subject, debounceTime, distinctUntilChanged, of, switchMap } from 'rxjs';
 import { AdminService, StaffUser } from '../../../core/services/admin.service';
+import { GroupLiaison, GroupLiaisonsService } from '../../../core/services/group-liaisons.service';
 import { Member, MembersService } from '../../../core/services/members.service';
 import { TenantService } from '../../../core/services/tenant.service';
 import { ToastService } from '../toast/toast.service';
 
-export type LiaisonKind = 'MEMBER' | 'STAFF';
+export type LiaisonKind = 'MEMBER' | 'STAFF' | 'LIAISON';
 
 export interface LiaisonSelection {
   kind: LiaisonKind;
@@ -40,8 +41,17 @@ interface NewStaffForm {
   realmRole: string;
 }
 
+interface NewLiaisonForm {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  address: string;
+}
+
 const EMPTY_MEMBER: NewMemberForm = { firstName: '', lastName: '', dateOfBirth: '', email: '', phone: '' };
 const EMPTY_STAFF: NewStaffForm = { firstName: '', lastName: '', email: '', phone: '', realmRole: 'operations' };
+const EMPTY_LIAISON: NewLiaisonForm = { firstName: '', lastName: '', email: '', phone: '', address: '' };
 
 /**
  * Group-liaison picker. The liaison can be (a) an existing member,
@@ -81,6 +91,7 @@ export class LiaisonPickerComponent implements OnInit, OnChanges {
   saving = false;
   newMember: NewMemberForm = { ...EMPTY_MEMBER };
   newStaff: NewStaffForm = { ...EMPTY_STAFF };
+  newLiaison: NewLiaisonForm = { ...EMPTY_LIAISON };
 
   /** Realm role options for new-staff creation. Mirrors RoleService seeds. */
   readonly STAFF_ROLES = [
@@ -95,6 +106,7 @@ export class LiaisonPickerComponent implements OnInit, OnChanges {
   constructor(
     private membersService: MembersService,
     private adminService: AdminService,
+    private liaisonsService: GroupLiaisonsService,
     private tenantService: TenantService,
     private toast: ToastService,
   ) {}
@@ -187,6 +199,7 @@ export class LiaisonPickerComponent implements OnInit, OnChanges {
     this.showAddNew = true;
     this.newMember = { ...EMPTY_MEMBER };
     this.newStaff = { ...EMPTY_STAFF };
+    this.newLiaison = { ...EMPTY_LIAISON };
   }
 
   cancelAddNew(): void {
@@ -224,33 +237,64 @@ export class LiaisonPickerComponent implements OnInit, OnChanges {
       return;
     }
 
-    // STAFF
-    if (!this.newStaff.firstName.trim() || !this.newStaff.lastName.trim() || !this.newStaff.email.trim()) {
+    if (this.activeKind === 'STAFF') {
+      if (!this.newStaff.firstName.trim() || !this.newStaff.lastName.trim() || !this.newStaff.email.trim()) {
+        this.toast.error('First name, last name and email are required.');
+        return;
+      }
+      this.saving = true;
+      const tenantId = this.tenantService.getTenantId() || null;
+      this.adminService.createStaffUser({
+        firstName: this.newStaff.firstName.trim(),
+        lastName:  this.newStaff.lastName.trim(),
+        email:     this.newStaff.email.trim(),
+        jobTitle:  'Group Liaison',
+        realmRole: this.newStaff.realmRole,
+        tenantId,
+      }).subscribe({
+        next: (s: StaffUser) => {
+          this.saving = false;
+          this.showAddNew = false;
+          this.pick({
+            id: s.id,
+            label: `${s.firstName} ${s.lastName}`.trim(),
+            sublabel: s.email,
+          });
+        },
+        error: (err) => {
+          this.saving = false;
+          this.toast.error(err?.error?.detail || 'Failed to create staff user');
+        },
+      });
+      return;
+    }
+
+    // LIAISON — a pure liaison (Keycloak account in the tenant realm,
+    // group_liaison realm role, invite email sent by the backend).
+    if (!this.newLiaison.firstName.trim() || !this.newLiaison.lastName.trim() || !this.newLiaison.email.trim()) {
       this.toast.error('First name, last name and email are required.');
       return;
     }
     this.saving = true;
-    const tenantId = this.tenantService.getTenantId() || null;
-    this.adminService.createStaffUser({
-      firstName: this.newStaff.firstName.trim(),
-      lastName:  this.newStaff.lastName.trim(),
-      email:     this.newStaff.email.trim(),
-      jobTitle:  'Group Liaison',
-      realmRole: this.newStaff.realmRole,
-      tenantId,
+    this.liaisonsService.create({
+      firstName: this.newLiaison.firstName.trim(),
+      lastName:  this.newLiaison.lastName.trim(),
+      email:     this.newLiaison.email.trim(),
+      phone:     this.newLiaison.phone.trim() || undefined,
+      address:   this.newLiaison.address.trim() || undefined,
     }).subscribe({
-      next: (s: StaffUser) => {
+      next: (l: GroupLiaison) => {
         this.saving = false;
         this.showAddNew = false;
         this.pick({
-          id: s.id,
-          label: `${s.firstName} ${s.lastName}`.trim(),
-          sublabel: s.email,
+          id: l.id,
+          label: `${l.firstName} ${l.lastName}`.trim(),
+          sublabel: l.email,
         });
       },
       error: (err) => {
         this.saving = false;
-        this.toast.error(err?.error?.detail || 'Failed to create staff user');
+        this.toast.error(err?.error?.detail || 'Failed to create liaison');
       },
     });
   }
@@ -269,13 +313,24 @@ export class LiaisonPickerComponent implements OnInit, OnChanges {
         )),
       );
     }
-    const tenantId = this.tenantService.getTenantId() || undefined;
-    return this.adminService.searchStaffUsers(term, tenantId).pipe(
+    if (this.activeKind === 'STAFF') {
+      const tenantId = this.tenantService.getTenantId() || undefined;
+      return this.adminService.searchStaffUsers(term, tenantId).pipe(
+        switchMap(rows => of<Suggestion[]>(
+          rows.map((s: StaffUser) => ({
+            id: s.id,
+            label: `${s.firstName} ${s.lastName}`.trim(),
+            sublabel: s.email,
+          })),
+        )),
+      );
+    }
+    return this.liaisonsService.search(term).pipe(
       switchMap(rows => of<Suggestion[]>(
-        rows.map((s: StaffUser) => ({
-          id: s.id,
-          label: `${s.firstName} ${s.lastName}`.trim(),
-          sublabel: s.email,
+        rows.map((l: GroupLiaison) => ({
+          id: l.id,
+          label: `${l.firstName} ${l.lastName}`.trim(),
+          sublabel: l.email,
         })),
       )),
     );

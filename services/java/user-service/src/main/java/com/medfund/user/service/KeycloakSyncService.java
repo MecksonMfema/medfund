@@ -59,6 +59,33 @@ public class KeycloakSyncService {
             .onErrorResume(e -> Mono.empty());
     }
 
+    /**
+     * Ensure a realm role exists. Idempotent — a 409 from Keycloak (role
+     * already exists) resolves cleanly. Mirrors
+     * {@code KeycloakRealmService.createRealmRole} in tenancy-service so
+     * services in user-service can self-bootstrap roles they depend on
+     * (e.g. {@code group_liaison} on the platform realm).
+     */
+    public Mono<Void> ensureRealmRole(String realm, String roleName, String description) {
+        return getAdminToken()
+            .flatMap(token -> webClient.post()
+                .uri(keycloakUrl + "/admin/realms/{realm}/roles", realm)
+                .header("Authorization", "Bearer " + token)
+                .bodyValue(Map.of("name", roleName,
+                    "description", description != null ? description : ""))
+                .retrieve()
+                .toBodilessEntity()
+                .then())
+            .onErrorResume(org.springframework.web.reactive.function.client.WebClientResponseException.class, e ->
+                e.getStatusCode() == org.springframework.http.HttpStatus.CONFLICT
+                    ? Mono.empty()
+                    : Mono.error(e))
+            .onErrorResume(e -> {
+                log.warn("ensureRealmRole({}, {}) failed: {}", realm, roleName, e.getMessage());
+                return Mono.empty();
+            });
+    }
+
     public Mono<Void> removeRealmRole(String realm, String keycloakUserId, String roleName) {
         return getAdminToken()
             .flatMap(token -> webClient.get()

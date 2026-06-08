@@ -7,6 +7,9 @@
     <button type="button" class="tab" role="tab"
             [class.active]="activeKind === 'STAFF'"
             (click)="setKind('STAFF')">Staff user</button>
+    <button type="button" class="tab" role="tab"
+            [class.active]="activeKind === 'LIAISON'"
+            (click)="setKind('LIAISON')">Liaison only</button>
   </div>
 
   <!-- Selected chip + change action -->
@@ -27,7 +30,7 @@
         [(ngModel)]="query"
         (ngModelChange)="onQueryChange()"
         (blur)="onBlur()"
-        [placeholder]="activeKind === 'MEMBER' ? 'Search by member name…' : 'Search by staff name or email…'" />
+        [placeholder]="activeKind === 'MEMBER' ? 'Search by member name…' : activeKind === 'STAFF' ? 'Search by staff name or email…' : 'Search by liaison name or email…'" />
       @if (showMatches && (searching || matches.length > 0)) {
         <ul class="matches">
           @if (searching) { <li class="match-state">Searching…</li> }
@@ -43,7 +46,7 @@
 
     @if (!showAddNew) {
       <button type="button" class="add-new" (click)="openAddNew()">
-        + Add new {{ activeKind === 'MEMBER' ? 'member' : 'staff user' }}
+        + Add new {{ activeKind === 'MEMBER' ? 'member' : activeKind === 'STAFF' ? 'staff user' : 'liaison' }}
       </button>
     }
 
@@ -76,6 +79,45 @@
           <button type="button" class="btn" (click)="cancelAddNew()" [disabled]="saving">Cancel</button>
           <button type="button" class="btn primary" (click)="submitNew()" [disabled]="saving">
             {{ saving ? 'Saving…' : 'Enrol & select' }}
+          </button>
+        </div>
+      </div>
+    }
+
+    <!-- Inline add-new mini-form — Pure liaison kind -->
+    @if (showAddNew && activeKind === 'LIAISON') {
+      <div class="add-form">
+        <p class="add-form-hint">
+          Creates a Keycloak account in this tenant's realm with the
+          <code>group_liaison</code> role and sends an invite email so the
+          person can set their password.
+        </p>
+        <div class="add-form-grid">
+          <label class="field">
+            <span class="field-label">First name *</span>
+            <input type="text" [(ngModel)]="newLiaison.firstName" />
+          </label>
+          <label class="field">
+            <span class="field-label">Last name *</span>
+            <input type="text" [(ngModel)]="newLiaison.lastName" />
+          </label>
+          <label class="field">
+            <span class="field-label">Email *</span>
+            <input type="email" [(ngModel)]="newLiaison.email" />
+          </label>
+          <label class="field">
+            <span class="field-label">Phone</span>
+            <input type="tel" [(ngModel)]="newLiaison.phone" />
+          </label>
+          <label class="field span-2">
+            <span class="field-label">Address</span>
+            <input type="text" [(ngModel)]="newLiaison.address" />
+          </label>
+        </div>
+        <div class="add-form-actions">
+          <button type="button" class="btn" (click)="cancelAddNew()" [disabled]="saving">Cancel</button>
+          <button type="button" class="btn primary" (click)="submitNew()" [disabled]="saving">
+            {{ saving ? 'Saving…' : 'Invite & select' }}
           </button>
         </div>
       </div>

@@ -5,6 +5,10 @@ import com.medfund.user.dto.CreateGroupRequest;
 import com.medfund.user.dto.UpdateGroupRequest;
 import com.medfund.user.entity.Group;
 import com.medfund.user.exception.GroupNotFoundException;
+import com.medfund.user.entity.GroupLiaison;
+import com.medfund.user.entity.Member;
+import com.medfund.user.entity.StaffUser;
+import com.medfund.user.repository.GroupLiaisonRepository;
 import com.medfund.user.repository.GroupRepository;
 import com.medfund.user.repository.MemberRepository;
 import com.medfund.user.repository.StaffUserRepository;
@@ -25,7 +29,10 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -42,10 +49,16 @@ class GroupServiceTest {
     private StaffUserRepository staffUserRepository;
 
     @Mock
+    private GroupLiaisonRepository groupLiaisonRepository;
+
+    @Mock
     private AuditPublisher auditPublisher;
 
     @Mock
     private R2dbcEntityTemplate r2dbcTemplate;
+
+    @Mock
+    private KeycloakSyncService keycloakSyncService;
 
     @InjectMocks
     private GroupService groupService;
@@ -61,6 +74,12 @@ class GroupServiceTest {
             if (g.getId() == null) g.setId(UUID.randomUUID());
             return Mono.just(g);
         });
+        // Keycloak sync side effects all log-and-swallow; for tests we just
+        // assert they were called (or not) — stub them as no-ops.
+        lenient().when(keycloakSyncService.ensureRealmRole(anyString(), anyString(), anyString()))
+            .thenReturn(Mono.empty());
+        lenient().when(keycloakSyncService.assignRealmRoles(anyString(), anyString(), any()))
+            .thenReturn(Mono.empty());
     }
 
     @Test
@@ -189,6 +208,10 @@ class GroupServiceTest {
             "MEMBER", liaisonId
         );
         when(memberRepository.existsById(liaisonId)).thenReturn(Mono.just(true));
+        var memberStub = new Member();
+        memberStub.setId(liaisonId);
+        memberStub.setKeycloakUserId("kc-mem-1");
+        when(memberRepository.findById(liaisonId)).thenReturn(Mono.just(memberStub));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -200,6 +223,11 @@ class GroupServiceTest {
                 assertThat(g.getLiaisonUserId()).isEqualTo(liaisonId);
             })
             .verifyComplete();
+
+        // The group_liaison realm role is ensured on the tenant realm and
+        // assigned to the member's Keycloak account.
+        verify(keycloakSyncService).ensureRealmRole(eq("tenant-t1"), eq("group_liaison"), anyString());
+        verify(keycloakSyncService).assignRealmRoles(eq("tenant-t1"), eq("kc-mem-1"), any());
     }
 
     @Test
@@ -211,6 +239,10 @@ class GroupServiceTest {
             "STAFF", liaisonId
         );
         when(staffUserRepository.existsById(liaisonId)).thenReturn(Mono.just(true));
+        var staffStub = new StaffUser();
+        staffStub.setId(liaisonId);
+        staffStub.setKeycloakUserId("kc-staff-1");
+        when(staffUserRepository.findById(liaisonId)).thenReturn(Mono.just(staffStub));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -222,6 +254,63 @@ class GroupServiceTest {
                 assertThat(g.getLiaisonUserId()).isEqualTo(liaisonId);
             })
             .verifyComplete();
+
+        // Staff users live in the platform realm.
+        verify(keycloakSyncService).ensureRealmRole(eq("medfund-platform"), eq("group_liaison"), anyString());
+        verify(keycloakSyncService).assignRealmRoles(eq("medfund-platform"), eq("kc-staff-1"), any());
+    }
+
+    @Test
+    void create_withPureLiaison_validatesAndAssignsTenantRealmRole() {
+        var actorId = UUID.randomUUID().toString();
+        var liaisonId = UUID.randomUUID();
+        var request = new CreateGroupRequest(
+            "Acme", null, null, null, null, null,
+            "LIAISON", liaisonId
+        );
+        when(groupLiaisonRepository.existsById(liaisonId)).thenReturn(Mono.just(true));
+        var liaisonStub = new GroupLiaison();
+        liaisonStub.setId(liaisonId);
+        liaisonStub.setKeycloakUserId("kc-liaison-1");
+        when(groupLiaisonRepository.findById(liaisonId)).thenReturn(Mono.just(liaisonStub));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            groupService.create(request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "t1"))
+        )
+            .assertNext(g -> {
+                assertThat(g.getLiaisonKind()).isEqualTo("LIAISON");
+                assertThat(g.getLiaisonUserId()).isEqualTo(liaisonId);
+            })
+            .verifyComplete();
+
+        verify(keycloakSyncService).ensureRealmRole(eq("tenant-t1"), eq("group_liaison"), anyString());
+        verify(keycloakSyncService).assignRealmRoles(eq("tenant-t1"), eq("kc-liaison-1"), any());
+    }
+
+    @Test
+    void create_pureLiaisonNotFound_returns422() {
+        var actorId = UUID.randomUUID().toString();
+        var liaisonId = UUID.randomUUID();
+        var request = new CreateGroupRequest(
+            "Acme", null, null, null, null, null,
+            "LIAISON", liaisonId
+        );
+        when(groupLiaisonRepository.existsById(liaisonId)).thenReturn(Mono.just(false));
+
+        StepVerifier.create(
+            groupService.create(request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "t1"))
+        )
+            .expectErrorSatisfies(err -> {
+                assertThat(err).isInstanceOf(ResponseStatusException.class);
+                assertThat(((ResponseStatusException) err).getStatusCode().value()).isEqualTo(422);
+                assertThat(err.getMessage()).contains("No group liaison");
+            })
+            .verify();
+
+        verify(keycloakSyncService, never()).assignRealmRoles(anyString(), anyString(), any());
     }
 
     @Test
@@ -306,6 +395,10 @@ class GroupServiceTest {
 
         when(groupRepository.findById(group.getId())).thenReturn(Mono.just(group));
         when(staffUserRepository.existsById(newStaffId)).thenReturn(Mono.just(true));
+        var newStaff = new StaffUser();
+        newStaff.setId(newStaffId);
+        newStaff.setKeycloakUserId("kc-new-staff");
+        when(staffUserRepository.findById(newStaffId)).thenReturn(Mono.just(newStaff));
         when(groupRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 

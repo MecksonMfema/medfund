@@ -3,6 +3,7 @@ import { GroupDetailComponent } from './group-detail.component';
 import { Group, GroupsService } from '../../../../../core/services/groups.service';
 import { Member, MembersService } from '../../../../../core/services/members.service';
 import { AdminService } from '../../../../../core/services/admin.service';
+import { GroupLiaisonsService } from '../../../../../core/services/group-liaisons.service';
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { ToastService } from '../../../../../shared/components/toast/toast.service';
 
@@ -54,15 +55,17 @@ class StubToast {
   error   = (m: string) => this.errors.push(m);
 }
 
-class StubRouter { navigated: any[] = []; navigate = (cmds: any[]) => this.navigated.push(cmds); }
-class StubAdmin  { getStaffUserById = (_id: string) => of({ id: _id, firstName: 'A', lastName: 'B', email: 'a@b' } as any); }
-class StubTenant { getTenantId = () => 't-1'; }
+class StubRouter   { navigated: any[] = []; navigate = (cmds: any[]) => this.navigated.push(cmds); }
+class StubAdmin    { getStaffUserById = (_id: string) => of({ id: _id, firstName: 'A', lastName: 'B', email: 'a@b' } as any); }
+class StubLiaisons { getById = (_id: string) => of({ id: _id, firstName: 'P', lastName: 'L', email: 'p@l', status: 'invited' } as any); }
+class StubTenant   { getTenantId = () => 't-1'; }
 
 function instantiate(id: string | null = 'g-1') {
   const route = { snapshot: { paramMap: { get: (_k: string) => id } } } as any;
   const groups = new StubGroups();
   const members = new StubMembers();
   const admin = new StubAdmin();
+  const liaisons = new StubLiaisons();
   const tenant = new StubTenant();
   const toast = new StubToast();
   const router = new StubRouter();
@@ -70,6 +73,7 @@ function instantiate(id: string | null = 'g-1') {
     groups as unknown as GroupsService,
     members as unknown as MembersService,
     admin as unknown as AdminService,
+    liaisons as unknown as GroupLiaisonsService,
     tenant as unknown as TenantService,
     route,
     router as any,

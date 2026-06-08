@@ -76,12 +76,17 @@ public class KeycloakRealmService {
         realmConfig.put("quickLoginCheckMilliSeconds", 1000);
         realmConfig.put("maxDeltaTimeSeconds", 43200);
         realmConfig.put("failureFactor", 5);
-        // Seed only `tenant_admin` — every other role is tenant-defined via the
-        // Roles & Permissions UI, which calls createRealmRole() to mirror new
-        // roles into Keycloak. Pre-seeding extra realm roles would create dead
-        // roles that no DB row references.
+        // Seed `tenant_admin` and `group_liaison`. tenant_admin is the only
+        // operational role pre-seeded; everything else is tenant-defined via
+        // the Roles & Permissions UI (createRealmRole() mirrors them). The
+        // group_liaison role is platform-defined (not tenant-customisable):
+        // it backs the group-portal login flow for liaisons who manage their
+        // group's invoices. Members and pure-liaison Keycloak users receive
+        // this role via GroupService.grantLiaisonRole when assigned to a
+        // group — the role needs to exist in the realm first.
         realmConfig.put("roles", Map.of("realm", List.of(
-                Map.of("name", "tenant_admin", "description", "Tenant administrator")
+                Map.of("name", "tenant_admin", "description", "Tenant administrator"),
+                Map.of("name", "group_liaison", "description", "Manages their group's invoices via the group portal")
         )));
 
         return webClient.post()

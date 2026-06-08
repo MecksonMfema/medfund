@@ -1,6 +1,7 @@
 import { of, throwError } from 'rxjs';
 import { LiaisonPickerComponent } from './liaison-picker.component';
 import { AdminService, StaffUser } from '../../../core/services/admin.service';
+import { GroupLiaison, GroupLiaisonsService } from '../../../core/services/group-liaisons.service';
 import { Member, MembersService } from '../../../core/services/members.service';
 import { TenantService } from '../../../core/services/tenant.service';
 import { ToastService } from '../toast/toast.service';
@@ -50,22 +51,34 @@ class StubAdmin {
   createStaffUser = (data: any) => { this.createCalls.push(data); return of({ ...this.createResult, ...data }); };
 }
 
+class StubLiaisons {
+  searchCalls: string[] = [];
+  createCalls: any[] = [];
+  searchResult: GroupLiaison[] = [];
+  createResult: GroupLiaison = { id: 'lia-new', firstName: 'New', lastName: 'Liaison', email: 'n@l', status: 'invited' };
+  search = (q: string) => { this.searchCalls.push(q); return of(this.searchResult); };
+  create = (data: any) => { this.createCalls.push(data); return of({ ...this.createResult, ...data }); };
+  getById = (_id: string) => of(this.createResult);
+}
+
 class StubTenant { getTenantId = () => 't-1'; }
 class StubToast  { errors: string[] = []; success = (_: string) => {}; error = (m: string) => this.errors.push(m); }
 
 function instantiate() {
   const members = new StubMembers();
   const admin = new StubAdmin();
+  const liaisons = new StubLiaisons();
   const tenant = new StubTenant();
   const toast = new StubToast();
   const comp = new LiaisonPickerComponent(
     members as unknown as MembersService,
     admin as unknown as AdminService,
+    liaisons as unknown as GroupLiaisonsService,
     tenant as unknown as TenantService,
     toast as unknown as ToastService,
   );
   comp.ngOnInit();
-  return { comp, members, admin, tenant, toast };
+  return { comp, members, admin, liaisons, tenant, toast };
 }
 
 describe('LiaisonPickerComponent', () => {
@@ -146,6 +159,28 @@ describe('LiaisonPickerComponent', () => {
     comp.newMember = { firstName: '', lastName: 'Doe', dateOfBirth: '2000-01-01', email: '', phone: '' };
     comp.submitNew();
     expect(members.enrollCalls.length).toBe(0);
+    expect(toast.errors[0]).toContain('required');
+  });
+
+  it('creates a new pure liaison inline and auto-selects', () => {
+    const { comp, liaisons } = instantiate();
+    comp.setKind('LIAISON');
+    comp.openAddNew();
+    comp.newLiaison = { firstName: 'P', lastName: 'L', email: 'p@l', phone: '', address: '' };
+    let emitted: any = null;
+    comp.selected.subscribe(s => emitted = s);
+    comp.submitNew();
+    expect(liaisons.createCalls[0].email).toBe('p@l');
+    expect(emitted.kind).toBe('LIAISON');
+  });
+
+  it('blocks new-liaison submit when required fields missing', () => {
+    const { comp, liaisons, toast } = instantiate();
+    comp.setKind('LIAISON');
+    comp.openAddNew();
+    comp.newLiaison = { firstName: 'A', lastName: 'B', email: '', phone: '', address: '' };
+    comp.submitNew();
+    expect(liaisons.createCalls.length).toBe(0);
     expect(toast.errors[0]).toContain('required');
   });
 

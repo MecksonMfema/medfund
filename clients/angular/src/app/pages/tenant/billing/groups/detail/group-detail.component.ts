@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Group, GroupsService, LiaisonKind, UpsertGroupPayload } from '../../../../../core/services/groups.service';
 import { Member, MembersService } from '../../../../../core/services/members.service';
 import { AdminService } from '../../../../../core/services/admin.service';
+import { GroupLiaisonsService } from '../../../../../core/services/group-liaisons.service';
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { LiaisonPickerComponent, LiaisonSelection } from '../../../../../shared/components/liaison-picker/liaison-picker.component';
@@ -45,6 +46,7 @@ export class GroupDetailComponent implements OnInit {
     private groups: GroupsService,
     private memberService: MembersService,
     private adminService: AdminService,
+    private liaisonsService: GroupLiaisonsService,
     private tenantService: TenantService,
     private route: ActivatedRoute,
     private router: Router,
@@ -180,6 +182,14 @@ export class GroupDetailComponent implements OnInit {
         next: (s) => {
           this.liaisonLabel = `${s.firstName} ${s.lastName}`.trim();
           this.liaisonSublabel = s.email ?? null;
+        },
+        error: () => { this.liaisonLabel = null; this.liaisonSublabel = null; },
+      });
+    } else if (g.liaisonKind === 'LIAISON') {
+      this.liaisonsService.getById(g.liaisonUserId).subscribe({
+        next: (l) => {
+          this.liaisonLabel = `${l.firstName} ${l.lastName}`.trim();
+          this.liaisonSublabel = l.email ?? null;
         },
         error: () => { this.liaisonLabel = null; this.liaisonSublabel = null; },
       });

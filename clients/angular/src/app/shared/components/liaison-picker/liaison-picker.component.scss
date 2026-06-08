@@ -70,6 +70,10 @@
   border-radius: 4px; padding: 12px;
   background: var(--surface-alt, #fafafa);
 }
+.add-form-hint {
+  margin: 0 0 10px; font-size: 0.78rem; color: var(--text-muted, #6b7280);
+  code { font-family: ui-monospace, monospace; background: rgba(0,0,0,0.05); padding: 1px 4px; border-radius: 3px; }
+}
 .add-form-grid {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
 }
