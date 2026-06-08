@@ -4,6 +4,7 @@ import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import com.medfund.user.dto.CreateDependantRequest;
+import com.medfund.user.dto.UpdateDependantRequest;
 import com.medfund.user.entity.Dependant;
 import com.medfund.user.exception.DependantNotFoundException;
 import com.medfund.user.repository.DependantRepository;
@@ -68,6 +69,43 @@ public class DependantService {
                 );
                 return auditPublisher.publish(event).thenReturn(saved);
             }));
+    }
+
+    @Transactional
+    public Mono<Dependant> update(UUID id, UpdateDependantRequest request, String actorId) {
+        return dependantRepository.findById(id)
+            .switchIfEmpty(Mono.error(new DependantNotFoundException(id)))
+            .flatMap(existing -> {
+                Map<String, Object> oldValue = Map.of(
+                    "firstName", existing.getFirstName() != null ? existing.getFirstName() : "",
+                    "lastName",  existing.getLastName()  != null ? existing.getLastName()  : "",
+                    "relationship", existing.getRelationship() != null ? existing.getRelationship() : ""
+                );
+
+                if (request.firstName()    != null) existing.setFirstName(request.firstName());
+                if (request.lastName()     != null) existing.setLastName(request.lastName());
+                if (request.dateOfBirth()  != null) existing.setDateOfBirth(request.dateOfBirth());
+                if (request.gender()       != null) existing.setGender(request.gender());
+                if (request.relationship() != null) existing.setRelationship(request.relationship());
+                if (request.nationalId()   != null) existing.setNationalId(request.nationalId());
+                existing.setUpdatedAt(Instant.now());
+                existing.setUpdatedBy(UUID.fromString(actorId));
+
+                return dependantRepository.save(existing)
+                    .flatMap(saved -> Mono.deferContextual(ctx -> {
+                        String tenantId = TenantContext.get(ctx);
+                        var event = AuditEvent.create(
+                            tenantId != null ? tenantId : "unknown", "Dependant", saved.getId().toString(),
+                            saved.getFirstName() + " " + saved.getLastName(),
+                            "UPDATE", actorId, null, oldValue,
+                            Map.of("firstName", saved.getFirstName(), "lastName", saved.getLastName(),
+                                "relationship", saved.getRelationship()),
+                            new String[]{"firstName", "lastName", "relationship"},
+                            UUID.randomUUID().toString()
+                        );
+                        return auditPublisher.publish(event).thenReturn(saved);
+                    }));
+            });
     }
 
     @Transactional

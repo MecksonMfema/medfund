@@ -3,17 +3,20 @@ import {
   Component,
   EventEmitter,
   Input,
+  OnChanges,
   OnInit,
   Output,
+  SimpleChanges,
   forwardRef,
 } from '@angular/core';
 import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { Observable, Subject, debounceTime, distinctUntilChanged, of, switchMap } from 'rxjs';
+import { ContributionsService, Scheme } from '../../../core/services/contributions.service';
 import { GroupsService, Group } from '../../../core/services/groups.service';
 import { MembersService, Member } from '../../../core/services/members.service';
 import { ProvidersService, Provider } from '../../../core/services/providers.service';
 
-export type EntityKind = 'provider' | 'member' | 'group';
+export type EntityKind = 'provider' | 'member' | 'group' | 'scheme';
 
 export interface EntityPickerSelection {
   id: string;
@@ -51,11 +54,19 @@ interface Suggestion {
     { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => EntityPickerComponent), multi: true },
   ],
 })
-export class EntityPickerComponent implements OnInit, ControlValueAccessor {
+export class EntityPickerComponent implements OnInit, OnChanges, ControlValueAccessor {
   @Input() kind: EntityKind = 'provider';
   @Input() placeholder = '';
   @Input() disabled = false;
   @Input() value: string | null = null;
+  /**
+   * Human-readable label for the currently-selected ID. Lets edit forms
+   * render the chip on first paint instead of an empty input — the parent
+   * passes the entity name it already loaded (e.g. group.name) alongside
+   * the id, so the picker doesn't have to lookup-by-id itself.
+   */
+  @Input() prefillLabel: string | null = null;
+  @Input() prefillSublabel: string | null = null;
   @Output() valueChange = new EventEmitter<string | null>();
   @Output() selected = new EventEmitter<EntityPickerSelection | null>();
 
@@ -73,7 +84,21 @@ export class EntityPickerComponent implements OnInit, ControlValueAccessor {
     private providersService: ProvidersService,
     private membersService: MembersService,
     private groupsService: GroupsService,
+    private contributionsService: ContributionsService,
   ) {}
+
+  ngOnChanges(changes: SimpleChanges): void {
+    // Whenever the parent supplies a value + prefillLabel pair (typical for
+    // edit forms loading an existing entity), reflect it in the picker UI.
+    if (('value' in changes || 'prefillLabel' in changes) && this.value && this.prefillLabel) {
+      this.picked = { id: this.value, label: this.prefillLabel, sublabel: this.prefillSublabel ?? undefined };
+      this.query = this.prefillLabel;
+    }
+    if ('value' in changes && !this.value) {
+      this.picked = null;
+      this.query = '';
+    }
+  }
 
   ngOnInit(): void {
     if (!this.placeholder) {
@@ -183,6 +208,16 @@ export class EntityPickerComponent implements OnInit, ControlValueAccessor {
             })),
           )),
         );
+      case 'scheme':
+        return this.contributionsService.searchSchemes(term).pipe(
+          switchMap(rows => of<Suggestion[]>(
+            rows.map((s: Scheme) => ({
+              id: s.id,
+              label: s.name,
+              sublabel: s.schemeType || undefined,
+            })),
+          )),
+        );
     }
   }
 
@@ -191,6 +226,7 @@ export class EntityPickerComponent implements OnInit, ControlValueAccessor {
       case 'provider': return 'Search by provider name…';
       case 'member': return 'Search by member name…';
       case 'group': return 'Search by group name…';
+      case 'scheme': return 'Search by scheme name…';
     }
   }
 }

@@ -205,6 +205,11 @@ export class ContributionsService {
     return this.api.get<Scheme>(`/schemes/${id}`);
   }
 
+  /** Free-text scheme search — feeds the operational scheme picker. */
+  searchSchemes(q: string, limit = 10): Observable<Scheme[]> {
+    return this.api.get<Scheme[]>('/schemes/search', { q, limit: String(limit) });
+  }
+
   createScheme(data: UpsertSchemePayload): Observable<Scheme> {
     return this.api.post<Scheme>('/schemes', data);
   }

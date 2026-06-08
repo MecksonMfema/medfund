@@ -1,17 +1,15 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
 import { Group, GroupsService } from '../../../../core/services/groups.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
-import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
-import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
+import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 
 @Component({
   selector: 'app-groups-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SkeletonComponent, HumanizePipe],
+  imports: [CommonModule, RouterLink, IconComponent, DataTableComponent],
   templateUrl: './groups-list.component.html',
   styleUrl: './groups-list.component.scss',
 })
@@ -21,6 +19,24 @@ export class GroupsListComponent implements OnInit {
   errorMessage: string | null = null;
   pendingId: string | null = null;
   query = '';
+
+  columns: TableColumn[] = [
+    { key: 'name',               label: 'Name' },
+    { key: 'registrationNumber', label: 'Registration #' },
+    { key: 'contactPerson',      label: 'Contact person' },
+    { key: 'contactEmail',       label: 'Email' },
+    { key: 'contactPhone',       label: 'Phone' },
+    { key: 'status',             label: 'Status', type: 'status' },
+  ];
+
+  actions: TableAction[] = [
+    {
+      label: 'Suspend',
+      color: 'danger',
+      visible: (row: Group) => row.status !== 'SUSPENDED',
+      handler: (row: Group) => this.suspend(row),
+    },
+  ];
 
   private query$ = new Subject<string>();
 
@@ -43,14 +59,15 @@ export class GroupsListComponent implements OnInit {
       });
   }
 
-  onQueryChange(): void {
+  onSearchChange(term: string): void {
+    this.query = term;
     this.loading = true;
     this.errorMessage = null;
-    this.query$.next(this.query);
+    this.query$.next(term);
   }
 
-  edit(g: Group): void {
-    this.router.navigate(['/tenant/billing/groups', g.id, 'edit']);
+  open(g: Group): void {
+    if (g?.id) this.router.navigate(['/tenant/billing/groups', g.id]);
   }
 
   suspend(g: Group): void {

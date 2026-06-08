@@ -2,6 +2,7 @@ package com.medfund.user.service;
 
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.user.dto.CreateDependantRequest;
+import com.medfund.user.dto.UpdateDependantRequest;
 import com.medfund.user.entity.Dependant;
 import com.medfund.user.exception.DependantNotFoundException;
 import com.medfund.user.repository.DependantRepository;
@@ -119,6 +120,47 @@ class DependantServiceTest {
 
         verify(r2dbcTemplate).insert(any(Dependant.class));
         verify(auditPublisher).publish(any());
+    }
+
+    @Test
+    void update_changesOnlyProvidedFields_andEmitsAudit() {
+        var dependant = createTestDependant(UUID.randomUUID());
+        var id = dependant.getId();
+        var actorId = UUID.randomUUID().toString();
+        var request = new UpdateDependantRequest("Janet", null, null, null, "spouse", null);
+
+        when(dependantRepository.findById(id)).thenReturn(Mono.just(dependant));
+        when(dependantRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            dependantService.update(id, request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .assertNext(result -> {
+                assertThat(result.getFirstName()).isEqualTo("Janet");
+                assertThat(result.getRelationship()).isEqualTo("spouse");
+                // Unchanged fields preserved.
+                assertThat(result.getLastName()).isEqualTo("Doe");
+                assertThat(result.getStatus()).isEqualTo("active");
+            })
+            .verifyComplete();
+
+        verify(auditPublisher).publish(any());
+    }
+
+    @Test
+    void update_nonExisting_throwsNotFound() {
+        var id = UUID.randomUUID();
+        var request = new UpdateDependantRequest("X", null, null, null, null, null);
+        when(dependantRepository.findById(id)).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            dependantService.update(id, request, UUID.randomUUID().toString())
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .expectError(DependantNotFoundException.class)
+            .verify();
     }
 
     @Test

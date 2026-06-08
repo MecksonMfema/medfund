@@ -369,6 +369,27 @@ export class AdminService {
     return this.api.get<CursorPage<StaffUser>>('/staff-users', params);
   }
 
+  /** Fetch a single staff user by UUID. Used by the liaison picker to
+   *  resolve a saved staff liaisonUserId to a display chip. */
+  getStaffUserById(id: string, tenantId?: string): Observable<StaffUser> {
+    if (tenantId) {
+      return this.api.getWithHeaders<StaffUser>(`/staff-users/${id}`, { 'X-Tenant-ID': tenantId });
+    }
+    return this.api.get<StaffUser>(`/staff-users/${id}`);
+  }
+
+  /**
+   * Flat staff-user search for typeahead pickers. Pulls the first page of the
+   * cursor-paginated list endpoint, scoped to {@code tenantId} if provided.
+   * Returns the bare {@code StaffUser[]} content array so callers don't have
+   * to unpack {@link CursorPage}.
+   */
+  searchStaffUsers(q: string, tenantId?: string, limit = 10): Observable<StaffUser[]> {
+    return this.getStaffPage({ q, limit }, tenantId).pipe(
+      map(page => page.content || []),
+    );
+  }
+
   /** @deprecated use getStaffPage */
   getStaffUsers(params?: Record<string, string>, tenantId?: string): Observable<StaffUser[]> {
     if (tenantId) {

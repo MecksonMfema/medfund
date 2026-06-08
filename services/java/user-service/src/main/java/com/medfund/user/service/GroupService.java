@@ -8,11 +8,15 @@ import com.medfund.user.dto.UpdateGroupRequest;
 import com.medfund.user.entity.Group;
 import com.medfund.user.exception.GroupNotFoundException;
 import com.medfund.user.repository.GroupRepository;
+import com.medfund.user.repository.MemberRepository;
+import com.medfund.user.repository.StaffUserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -26,6 +30,8 @@ import java.util.UUID;
 public class GroupService {
 
     private final GroupRepository groupRepository;
+    private final MemberRepository memberRepository;
+    private final StaffUserRepository staffUserRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
 
@@ -48,21 +54,26 @@ public class GroupService {
 
     @Transactional
     public Mono<Group> create(CreateGroupRequest request, String actorId) {
-        var group = new Group();
-        // id NOT set — let PostgreSQL generate via DEFAULT gen_random_uuid()
-        group.setName(request.name());
-        group.setRegistrationNumber(request.registrationNumber());
-        group.setContactPerson(request.contactPerson());
-        group.setContactEmail(request.contactEmail());
-        group.setContactPhone(request.contactPhone());
-        group.setAddress(request.address());
-        group.setStatus("active");
-        group.setCreatedAt(Instant.now());
-        group.setUpdatedAt(Instant.now());
-        group.setCreatedBy(UUID.fromString(actorId));
-        group.setUpdatedBy(UUID.fromString(actorId));
+        return validateLiaison(request.liaisonKind(), request.liaisonUserId())
+            .then(Mono.defer(() -> {
+                var group = new Group();
+                // id NOT set — let PostgreSQL generate via DEFAULT gen_random_uuid()
+                group.setName(request.name());
+                group.setRegistrationNumber(request.registrationNumber());
+                group.setContactPerson(request.contactPerson());
+                group.setContactEmail(request.contactEmail());
+                group.setContactPhone(request.contactPhone());
+                group.setAddress(request.address());
+                group.setLiaisonKind(request.liaisonKind());
+                group.setLiaisonUserId(request.liaisonUserId());
+                group.setStatus("active");
+                group.setCreatedAt(Instant.now());
+                group.setUpdatedAt(Instant.now());
+                group.setCreatedBy(UUID.fromString(actorId));
+                group.setUpdatedBy(UUID.fromString(actorId));
 
-        return r2dbcTemplate.insert(group)
+                return r2dbcTemplate.insert(group);
+            }))
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
                 var event = AuditEvent.create(
@@ -81,6 +92,7 @@ public class GroupService {
     public Mono<Group> update(UUID id, UpdateGroupRequest request, String actorId) {
         return groupRepository.findById(id)
             .switchIfEmpty(Mono.error(new GroupNotFoundException(id)))
+            .flatMap(existing -> applyLiaisonUpdate(existing, request).thenReturn(existing))
             .flatMap(existing -> {
                 if (request.name() != null) existing.setName(request.name());
                 if (request.registrationNumber() != null) existing.setRegistrationNumber(request.registrationNumber());
@@ -105,6 +117,61 @@ public class GroupService {
                         return auditPublisher.publish(event).thenReturn(saved);
                     }));
             });
+    }
+
+    /**
+     * Resolve the liaison fields on an update request against the existing
+     * group, validating any change. The three legal shapes are:
+     *   - null kind + null id  → no liaison change
+     *   - "CLEAR"               → drop the liaison (set both fields to null)
+     *   - "MEMBER"/"STAFF" + id → assign; verify FK target exists
+     * Anything else (e.g. kind without id) is rejected with 422.
+     */
+    private Mono<Void> applyLiaisonUpdate(Group existing, UpdateGroupRequest request) {
+        String kind = request.liaisonKind();
+        UUID id = request.liaisonUserId();
+        if (kind == null && id == null) return Mono.empty();
+        if ("CLEAR".equals(kind)) {
+            if (id != null) {
+                return Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "liaisonKind=CLEAR must not be accompanied by a liaisonUserId"));
+            }
+            existing.setLiaisonKind(null);
+            existing.setLiaisonUserId(null);
+            return Mono.empty();
+        }
+        return validateLiaison(kind, id).then(Mono.fromRunnable(() -> {
+            existing.setLiaisonKind(kind);
+            existing.setLiaisonUserId(id);
+        }));
+    }
+
+    /**
+     * Validate a (kind, id) pair: both supplied, kind is MEMBER or STAFF,
+     * and the FK target exists in the corresponding table. Pair-consistency
+     * is also enforced at the schema level via CHECK constraints (V023);
+     * doing it here surfaces a friendlier 422 response with a message.
+     */
+    private Mono<Void> validateLiaison(String kind, UUID id) {
+        if (kind == null && id == null) return Mono.empty();
+        if (kind == null || id == null) {
+            return Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "liaisonKind and liaisonUserId must be supplied together"));
+        }
+        return switch (kind) {
+            case "MEMBER" -> memberRepository.existsById(id)
+                .flatMap(exists -> Boolean.TRUE.equals(exists)
+                    ? Mono.<Void>empty()
+                    : Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                        "No member found for liaisonUserId " + id)));
+            case "STAFF" -> staffUserRepository.existsById(id)
+                .flatMap(exists -> Boolean.TRUE.equals(exists)
+                    ? Mono.<Void>empty()
+                    : Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                        "No staff user found for liaisonUserId " + id)));
+            default -> Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Unknown liaisonKind '" + kind + "' (must be MEMBER or STAFF)"));
+        };
     }
 
     @Transactional

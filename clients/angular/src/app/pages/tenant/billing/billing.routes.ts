@@ -1,7 +1,7 @@
 import { Routes } from '@angular/router';
 import { permissionGuard } from '../../../auth/auth.guard';
 import { PermissionKey } from '../../../core/security/permissions';
-import { schemePersonCentricGuard, tenantPersonCentricGuard } from './guards/person-centric.guard';
+import { schemePersonCentricGuard, tenantGroupsEnabledGuard, tenantPersonCentricGuard } from './guards/person-centric.guard';
 
 const loadComingSoon = () =>
   import('../../../shared/components/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent);
@@ -280,20 +280,22 @@ export const BILLING_ROUTES: Routes = [
   // ── Group / member admin helpers ──────────────────────────────────────────
   {
     path: 'groups',
-    canActivate: [permissionGuard(['billing:view', 'billing:manage_groups'])],
+    canActivate: [permissionGuard(['billing:view', 'billing:manage_groups']), tenantGroupsEnabledGuard],
     loadComponent: () => import('./groups/groups-list.component').then(m => m.GroupsListComponent),
     data: { title: 'Groups', sidebar: 'operational' },
   },
   {
     path: 'groups/add',
-    canActivate: [permissionGuard(['billing:manage_groups'])],
+    canActivate: [permissionGuard(['billing:manage_groups']), tenantGroupsEnabledGuard],
     loadComponent: () => import('./groups/group-form.component').then(m => m.GroupFormComponent),
     data: { title: 'Add Group', sidebar: 'operational' },
   },
+  // Legacy edit URL — the unified detail page handles editing in place.
+  { path: 'groups/:id/edit', redirectTo: 'groups/:id', pathMatch: 'full' },
   {
-    path: 'groups/:id/edit',
-    canActivate: [permissionGuard(['billing:manage_groups'])],
-    loadComponent: () => import('./groups/group-form.component').then(m => m.GroupFormComponent),
-    data: { title: 'Edit Group', sidebar: 'operational' },
+    path: 'groups/:id',
+    canActivate: [permissionGuard(['billing:view', 'billing:manage_groups']), tenantGroupsEnabledGuard],
+    loadComponent: () => import('./groups/detail/group-detail.component').then(m => m.GroupDetailComponent),
+    data: { title: 'Group Detail', sidebar: 'operational' },
   },
 ];

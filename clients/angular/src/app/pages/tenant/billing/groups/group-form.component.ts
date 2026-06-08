@@ -5,14 +5,16 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   Group,
   GroupsService,
+  LiaisonKind,
   UpsertGroupPayload,
 } from '../../../../core/services/groups.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { LiaisonPickerComponent, LiaisonSelection } from '../../../../shared/components/liaison-picker/liaison-picker.component';
 
 @Component({
   selector: 'app-group-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, LiaisonPickerComponent],
   templateUrl: './group-form.component.html',
   styleUrl: './group-form.component.scss',
 })
@@ -29,7 +31,28 @@ export class GroupFormComponent implements OnInit {
     contactEmail: '',
     contactPhone: '',
     address: '',
+    liaisonKind: null,
+    liaisonUserId: null,
   };
+
+  /** Set when the user picks (or creates) a liaison via the picker; lets the
+   *  picker re-render with the chip on subsequent change-detection cycles. */
+  liaisonLabel: string | null = null;
+  liaisonSublabel: string | null = null;
+
+  onLiaisonSelected(s: LiaisonSelection | null): void {
+    if (s) {
+      this.form.liaisonKind = s.kind as LiaisonKind;
+      this.form.liaisonUserId = s.id;
+      this.liaisonLabel = s.label;
+      this.liaisonSublabel = s.sublabel ?? null;
+    } else {
+      this.form.liaisonKind = null;
+      this.form.liaisonUserId = null;
+      this.liaisonLabel = null;
+      this.liaisonSublabel = null;
+    }
+  }
 
   constructor(
     private groups: GroupsService,
@@ -50,6 +73,8 @@ export class GroupFormComponent implements OnInit {
           contactEmail: g.contactEmail ?? '',
           contactPhone: g.contactPhone ?? '',
           address: g.address ?? '',
+          liaisonKind: g.liaisonKind ?? null,
+          liaisonUserId: g.liaisonUserId ?? null,
         };
         this.loading = false;
       },
@@ -72,6 +97,8 @@ export class GroupFormComponent implements OnInit {
       contactEmail: this.form.contactEmail?.trim() || undefined,
       contactPhone: this.form.contactPhone?.trim() || undefined,
       address: this.form.address?.trim() || undefined,
+      liaisonKind:   this.form.liaisonKind   ?? undefined,
+      liaisonUserId: this.form.liaisonUserId ?? undefined,
     };
     this.saving = true;
     this.errorMessage = null;

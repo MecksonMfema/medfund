@@ -100,6 +100,10 @@ export class OperationalSidebarComponent implements OnInit, OnDestroy {
         return tenant?.drugClaimsEnabled !== false;
       case 'ageGroupsAvailable':
         return (tenant?.insuranceLines ?? []).some(isPersonCentricLine);
+      case 'groupsAvailable':
+        // Missing membershipModel is treated as BOTH for back-compat with
+        // older cached tenant snapshots that predate the field.
+        return (tenant?.membershipModel ?? 'BOTH') !== 'INDIVIDUAL_ONLY';
       default:
         return false;
     }

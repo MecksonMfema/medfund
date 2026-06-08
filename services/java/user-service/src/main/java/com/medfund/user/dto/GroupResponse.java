@@ -13,6 +13,8 @@ public record GroupResponse(
     String contactEmail,
     String contactPhone,
     String address,
+    String liaisonKind,
+    UUID liaisonUserId,
     String status,
     Instant createdAt,
     Instant updatedAt
@@ -21,7 +23,8 @@ public record GroupResponse(
         return new GroupResponse(
             g.getId(), g.getName(), g.getRegistrationNumber(),
             g.getContactPerson(), g.getContactEmail(), g.getContactPhone(),
-            g.getAddress(), g.getStatus(), g.getCreatedAt(), g.getUpdatedAt()
+            g.getAddress(), g.getLiaisonKind(), g.getLiaisonUserId(),
+            g.getStatus(), g.getCreatedAt(), g.getUpdatedAt()
         );
     }
 }

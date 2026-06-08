@@ -21,4 +21,13 @@ public interface SchemeRepository extends R2dbcRepository<Scheme, UUID> {
 
     @Query("SELECT EXISTS(SELECT 1 FROM schemes WHERE name = :name)")
     Mono<Boolean> existsByName(String name);
+
+    @Query("""
+        SELECT * FROM schemes
+        WHERE LOWER(name) LIKE LOWER(CONCAT('%', :q, '%'))
+           OR LOWER(scheme_type) LIKE LOWER(CONCAT('%', :q, '%'))
+        ORDER BY name
+        LIMIT :limit
+        """)
+    Flux<Scheme> search(String q, int limit);
 }

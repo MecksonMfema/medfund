@@ -1,0 +1,88 @@
+<div class="form-page">
+  <header class="page-header">
+    <div>
+      <h1>Enrol a new member</h1>
+      <p class="page-sub">Creates the member record, generates a member number, and syncs the account to Keycloak. Fields marked * are required.</p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/members">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form (ngSubmit)="submit()" class="form-grid">
+    <label class="field">
+      <span class="field-label">First name *</span>
+      <input type="text" [(ngModel)]="form.firstName" name="firstName" required maxlength="100" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Last name *</span>
+      <input type="text" [(ngModel)]="form.lastName" name="lastName" required maxlength="100" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Date of birth *</span>
+      <input type="date" [(ngModel)]="form.dateOfBirth" name="dateOfBirth" required />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Gender</span>
+      <input type="text" [(ngModel)]="form.gender" name="gender" placeholder="male / female / …" maxlength="10" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">National ID</span>
+      <input type="text" [(ngModel)]="form.nationalId" name="nationalId" maxlength="50" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Email</span>
+      <input type="email" [(ngModel)]="form.email" name="email" maxlength="255" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Phone</span>
+      <input type="tel" [(ngModel)]="form.phone" name="phone" maxlength="50" />
+    </label>
+
+    <label class="field">
+      <span class="field-label">Enrolment date</span>
+      <input type="date" [(ngModel)]="form.enrollmentDate" name="enrollmentDate" />
+    </label>
+
+    <div class="field">
+      <span class="field-label">Group</span>
+      <app-entity-picker
+        kind="group"
+        [(value)]="form.groupId"
+        placeholder="Search by group name…">
+      </app-entity-picker>
+    </div>
+
+    <div class="field">
+      <span class="field-label">Scheme</span>
+      <app-entity-picker
+        kind="scheme"
+        [(value)]="form.schemeId"
+        placeholder="Search by scheme name…">
+      </app-entity-picker>
+    </div>
+
+    <label class="field span-2">
+      <span class="field-label">Address</span>
+      <textarea [(ngModel)]="form.address" name="address" rows="3"></textarea>
+    </label>
+
+    <div class="form-actions span-2">
+      <a class="btn btn-default" routerLink="/tenant/members">Cancel</a>
+      <button type="submit" class="btn btn-primary" [disabled]="saving">
+        {{ saving ? 'Enrolling…' : 'Enrol member' }}
+      </button>
+    </div>
+  </form>
+</div>

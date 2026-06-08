@@ -15,12 +15,14 @@ function instantiate(opts: {
   superAdmin?: boolean,
   schemeLabelPlural?: string,
   insuranceLines?: string[],
+  membershipModel?: 'INDIVIDUAL_ONLY' | 'GROUP_ONLY' | 'BOTH',
 } = {}) {
   const nav = new MockNavigationService();
   const tenant = new MockTenantService(buildTenant({
     name: 'Acme',
     schemeLabelPlural: opts.schemeLabelPlural,
     ...(opts.insuranceLines !== undefined ? { insuranceLines: opts.insuranceLines } : {}),
+    ...(opts.membershipModel !== undefined ? { membershipModel: opts.membershipModel } : {}),
   }));
   const permissions = new MockPermissionService(opts.initialPerms ?? [], { superAdmin: opts.superAdmin });
   const keycloak = new MockKeycloakService({ roles: opts.superAdmin ? ['super_admin'] : ['operator'] });
@@ -156,6 +158,56 @@ describe('OperationalSidebarComponent', () => {
 
     const items = comp.visibleGroups.flatMap(g => g.items);
     expect(items.some(i => i.label === 'Age Groups')).toBe(true);
+    comp.ngOnDestroy();
+  });
+
+  it('declares Members with exactMatch so the parent stops highlighting on child routes', () => {
+    // Sidebar template binds routerLinkActiveOptions to { exact: !!item.exactMatch }.
+    // This guards against a regression of the sidebar template losing that binding —
+    // we assert the canonical OPERATIONAL_NAV still flags the Members entry.
+    const { comp } = instantiate({ initialPerms: ['members:view'] });
+    comp.ngOnInit();
+    const membersItem = comp.visibleGroups
+      .flatMap(g => g.items)
+      .find(i => i.route === '/tenant/members');
+    expect(membersItem?.exactMatch).toBe(true);
+    comp.ngOnDestroy();
+  });
+
+  it('hides Groups for an INDIVIDUAL_ONLY tenant', () => {
+    const { comp } = instantiate({
+      initialPerms: ['members:view', 'billing:manage_groups'],
+      membershipModel: 'INDIVIDUAL_ONLY',
+    });
+    comp.ngOnInit();
+
+    const items = comp.visibleGroups.flatMap(g => g.items);
+    expect(items.some(i => i.label === 'Groups')).toBe(false);
+    // Members itself still renders.
+    expect(items.some(i => i.label === 'Members')).toBe(true);
+    comp.ngOnDestroy();
+  });
+
+  it('shows Groups for a GROUP_ONLY tenant', () => {
+    const { comp } = instantiate({
+      initialPerms: ['members:view', 'billing:manage_groups'],
+      membershipModel: 'GROUP_ONLY',
+    });
+    comp.ngOnInit();
+
+    const items = comp.visibleGroups.flatMap(g => g.items);
+    expect(items.some(i => i.label === 'Groups')).toBe(true);
+    comp.ngOnDestroy();
+  });
+
+  it('shows Groups when membershipModel is missing (back-compat default = BOTH)', () => {
+    const { comp } = instantiate({
+      initialPerms: ['members:view', 'billing:manage_groups'],
+    });
+    comp.ngOnInit();
+
+    const items = comp.visibleGroups.flatMap(g => g.items);
+    expect(items.some(i => i.label === 'Groups')).toBe(true);
     comp.ngOnDestroy();
   });
 

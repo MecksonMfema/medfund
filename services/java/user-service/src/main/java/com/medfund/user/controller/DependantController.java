@@ -2,6 +2,7 @@ package com.medfund.user.controller;
 
 import com.medfund.user.dto.CreateDependantRequest;
 import com.medfund.user.dto.DependantResponse;
+import com.medfund.user.dto.UpdateDependantRequest;
 import com.medfund.user.service.DependantService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -54,6 +55,19 @@ public class DependantController {
     })
     public Mono<DependantResponse> create(@Valid @RequestBody CreateDependantRequest request, Principal principal) {
         return dependantService.create(request, principal.getName()).map(DependantResponse::from);
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Update an existing dependant",
+               description = "Partial update — null fields are left unchanged.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Dependant updated"),
+        @ApiResponse(responseCode = "404", description = "Dependant not found")
+    })
+    public Mono<DependantResponse> update(@PathVariable UUID id,
+                                          @Valid @RequestBody UpdateDependantRequest request,
+                                          Principal principal) {
+        return dependantService.update(id, request, principal.getName()).map(DependantResponse::from);
     }
 
     @PostMapping("/{id}/remove")

@@ -34,6 +34,14 @@ public class SchemeController {
         return schemeService.findAll().map(SchemeResponse::from);
     }
 
+    @GetMapping("/search")
+    @Operation(summary = "Search schemes by name or scheme type",
+               description = "Used by the operational portal's debounced scheme picker.")
+    public Flux<SchemeResponse> search(@RequestParam String q,
+                                       @RequestParam(defaultValue = "10") int limit) {
+        return schemeService.search(q, limit).map(SchemeResponse::from);
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Get scheme by ID")
     @ApiResponses({

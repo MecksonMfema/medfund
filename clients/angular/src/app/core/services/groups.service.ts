@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
 
+export type LiaisonKind = 'MEMBER' | 'STAFF';
+
 export interface Group {
   id: string;
   name: string;
@@ -10,6 +12,10 @@ export interface Group {
   contactEmail?: string;
   contactPhone?: string;
   address?: string;
+  /** Discriminator for liaisonUserId. Null when no liaison is assigned. */
+  liaisonKind?: LiaisonKind | null;
+  /** ID in members or staff_users, per liaisonKind. */
+  liaisonUserId?: string | null;
   status: string;
   createdAt?: string;
   updatedAt?: string;
@@ -22,6 +28,13 @@ export interface UpsertGroupPayload {
   contactEmail?: string;
   contactPhone?: string;
   address?: string;
+  /**
+   * On create: 'MEMBER' | 'STAFF' (or null/undefined for no liaison).
+   * On update: 'CLEAR' to drop the existing liaison; null/undefined for
+   * "no change"; otherwise 'MEMBER' or 'STAFF' paired with liaisonUserId.
+   */
+  liaisonKind?: LiaisonKind | 'CLEAR' | null;
+  liaisonUserId?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })

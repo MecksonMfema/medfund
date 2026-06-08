@@ -31,6 +31,18 @@ public class Group {
 
     private String address;
 
+    /**
+     * Discriminator for the liaison_user_id FK target. NULL when no liaison
+     * is assigned; otherwise one of 'MEMBER' (FK to {@code members.id}) or
+     * 'STAFF' (FK to {@code staff_users.id}). Pair-consistency is enforced
+     * by a CHECK constraint at the schema level (V023).
+     */
+    @Column("liaison_kind")
+    private String liaisonKind;
+
+    @Column("liaison_user_id")
+    private UUID liaisonUserId;
+
     private String status;
 
     @CreatedDate
@@ -67,6 +79,12 @@ public class Group {
 
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
+
+    public String getLiaisonKind() { return liaisonKind; }
+    public void setLiaisonKind(String liaisonKind) { this.liaisonKind = liaisonKind; }
+
+    public UUID getLiaisonUserId() { return liaisonUserId; }
+    public void setLiaisonUserId(UUID liaisonUserId) { this.liaisonUserId = liaisonUserId; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }

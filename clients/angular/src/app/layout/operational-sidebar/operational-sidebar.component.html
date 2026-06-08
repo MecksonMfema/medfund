@@ -39,7 +39,7 @@
             <a
               [routerLink]="item.route"
               routerLinkActive="active"
-              [routerLinkActiveOptions]="{ exact: false }"
+              [routerLinkActiveOptions]="{ exact: !!item.exactMatch }"
               class="op-nav-item"
               [title]="collapsed ? item.label : ''">
               <span class="op-nav-icon">

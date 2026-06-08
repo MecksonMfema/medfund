@@ -19,6 +19,9 @@ import { PermissionKey } from '../../core/security/permissions';
  *   <li>{@code 'ageGroupsAvailable'} — tenant has at least one person-centric
  *       insurance line (HEALTH/LIFE/FUNERAL/GROUP/TRAVEL/DISABILITY).
  *       Hides Age Groups for asset-only tenants (VEHICLE/PROPERTY).</li>
+ *   <li>{@code 'groupsAvailable'} — tenant's membership model is not
+ *       {@code INDIVIDUAL_ONLY}. Hides Groups for individual-only tenants
+ *       that have no employer-group entities.</li>
  * </ul>
  */
 export interface OperationalNavItem {
@@ -27,7 +30,7 @@ export interface OperationalNavItem {
   route: string;
   permissions?: PermissionKey[];
   exactMatch?: boolean;
-  featureFlag?: 'drugClaims' | 'ageGroupsAvailable';
+  featureFlag?: 'drugClaims' | 'ageGroupsAvailable' | 'groupsAvailable';
 }
 
 /**
@@ -72,9 +75,16 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
   {
     title: 'Members',
     items: [
-      { label: 'Members',     icon: 'users',     route: '/tenant/members',          permissions: ['members:view'] },
-      { label: 'Dependants',  icon: 'user-plus', route: '/tenant/members/dependants', permissions: ['members:view_dependants'] },
-      { label: 'Groups',      icon: 'building',  route: '/tenant/members/groups',   permissions: ['billing:manage_groups'] },
+      // exactMatch on the parent so the per-member detail route
+      // (/tenant/members/:id) doesn't keep this row highlighted alongside
+      // the detail page. Dependants are edited inside Member Detail —
+      // no separate sidebar entry.
+      { label: 'Members',     icon: 'users',     route: '/tenant/members',          permissions: ['members:view'], exactMatch: true },
+      // Real Groups CRUD lives under the billing tree (GroupsListComponent +
+      // GroupDetailComponent). Surface it under Members for navigation, and
+      // gate it on membershipModel — INDIVIDUAL_ONLY tenants have no group
+      // entities.
+      { label: 'Groups',      icon: 'building',  route: '/tenant/billing/groups',   permissions: ['billing:manage_groups'], featureFlag: 'groupsAvailable' },
     ],
   },
   {

@@ -23,8 +23,13 @@ export interface Dependant {
   memberId: string;
   firstName: string;
   lastName: string;
+  dateOfBirth?: string;
+  gender?: string;
   relationship: string;
+  nationalId?: string;
   status: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -68,11 +73,25 @@ export class MembersService {
     return this.api.post<Member>(`/members/${id}/terminate`, {});
   }
 
+  /** All members belonging to a group — used by GroupDetailComponent. */
+  getByGroupId(groupId: string): Observable<Member[]> {
+    return this.api.get<Member[]>(`/members/group/${groupId}`);
+  }
+
   getDependants(memberId: string): Observable<Dependant[]> {
     return this.api.get<Dependant[]>(`/dependants/member/${memberId}`);
   }
 
   addDependant(data: any): Observable<Dependant> {
     return this.api.post<Dependant>('/dependants', data);
+  }
+
+  updateDependant(id: string, data: any): Observable<Dependant> {
+    return this.api.put<Dependant>(`/dependants/${id}`, data);
+  }
+
+  /** Soft-remove a dependant. Backend flips status to 'removed'. */
+  removeDependant(id: string): Observable<Dependant> {
+    return this.api.post<Dependant>(`/dependants/${id}/remove`, {});
   }
 }

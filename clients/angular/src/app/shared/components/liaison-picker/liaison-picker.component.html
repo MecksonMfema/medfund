@@ -1,0 +1,122 @@
+<div class="liaison-picker">
+  <!-- Kind toggle -->
+  <div class="tabs" role="tablist">
+    <button type="button" class="tab" role="tab"
+            [class.active]="activeKind === 'MEMBER'"
+            (click)="setKind('MEMBER')">Member</button>
+    <button type="button" class="tab" role="tab"
+            [class.active]="activeKind === 'STAFF'"
+            (click)="setKind('STAFF')">Staff user</button>
+  </div>
+
+  <!-- Selected chip + change action -->
+  @if (picked) {
+    <div class="picked">
+      <span class="picked-label">{{ picked.label }}</span>
+      @if (picked.sublabel) { <span class="picked-sublabel">{{ picked.sublabel }}</span> }
+      <button type="button" class="picked-clear" (click)="clear()">Change</button>
+    </div>
+  }
+
+  <!-- Search input -->
+  @if (!picked) {
+    <div class="search-wrap">
+      <input
+        type="text"
+        class="search"
+        [(ngModel)]="query"
+        (ngModelChange)="onQueryChange()"
+        (blur)="onBlur()"
+        [placeholder]="activeKind === 'MEMBER' ? 'Search by member name…' : 'Search by staff name or email…'" />
+      @if (showMatches && (searching || matches.length > 0)) {
+        <ul class="matches">
+          @if (searching) { <li class="match-state">Searching…</li> }
+          @for (m of matches; track m.id) {
+            <li class="match" (mousedown)="pick(m)">
+              <span class="match-label">{{ m.label }}</span>
+              @if (m.sublabel) { <span class="match-sublabel">{{ m.sublabel }}</span> }
+            </li>
+          }
+        </ul>
+      }
+    </div>
+
+    @if (!showAddNew) {
+      <button type="button" class="add-new" (click)="openAddNew()">
+        + Add new {{ activeKind === 'MEMBER' ? 'member' : 'staff user' }}
+      </button>
+    }
+
+    <!-- Inline add-new mini-form — Member kind -->
+    @if (showAddNew && activeKind === 'MEMBER') {
+      <div class="add-form">
+        <div class="add-form-grid">
+          <label class="field">
+            <span class="field-label">First name *</span>
+            <input type="text" [(ngModel)]="newMember.firstName" />
+          </label>
+          <label class="field">
+            <span class="field-label">Last name *</span>
+            <input type="text" [(ngModel)]="newMember.lastName" />
+          </label>
+          <label class="field">
+            <span class="field-label">Date of birth *</span>
+            <input type="date" [(ngModel)]="newMember.dateOfBirth" />
+          </label>
+          <label class="field">
+            <span class="field-label">Email</span>
+            <input type="email" [(ngModel)]="newMember.email" />
+          </label>
+          <label class="field span-2">
+            <span class="field-label">Phone</span>
+            <input type="tel" [(ngModel)]="newMember.phone" />
+          </label>
+        </div>
+        <div class="add-form-actions">
+          <button type="button" class="btn" (click)="cancelAddNew()" [disabled]="saving">Cancel</button>
+          <button type="button" class="btn primary" (click)="submitNew()" [disabled]="saving">
+            {{ saving ? 'Saving…' : 'Enrol & select' }}
+          </button>
+        </div>
+      </div>
+    }
+
+    <!-- Inline add-new mini-form — Staff kind -->
+    @if (showAddNew && activeKind === 'STAFF') {
+      <div class="add-form">
+        <div class="add-form-grid">
+          <label class="field">
+            <span class="field-label">First name *</span>
+            <input type="text" [(ngModel)]="newStaff.firstName" />
+          </label>
+          <label class="field">
+            <span class="field-label">Last name *</span>
+            <input type="text" [(ngModel)]="newStaff.lastName" />
+          </label>
+          <label class="field">
+            <span class="field-label">Email *</span>
+            <input type="email" [(ngModel)]="newStaff.email" />
+          </label>
+          <label class="field">
+            <span class="field-label">Phone</span>
+            <input type="tel" [(ngModel)]="newStaff.phone" />
+          </label>
+          <label class="field span-2">
+            <span class="field-label">Role</span>
+            <select [(ngModel)]="newStaff.realmRole">
+              @for (r of STAFF_ROLES; track r.value) {
+                <option [value]="r.value">{{ r.label }}</option>
+              }
+            </select>
+          </label>
+        </div>
+        <div class="add-form-actions">
+          <button type="button" class="btn" (click)="cancelAddNew()" [disabled]="saving">Cancel</button>
+          <button type="button" class="btn primary" (click)="submitNew()" [disabled]="saving">
+            {{ saving ? 'Saving…' : 'Create & select' }}
+          </button>
+        </div>
+      </div>
+    }
+  }
+</div>

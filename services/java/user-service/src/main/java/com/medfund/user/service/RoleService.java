@@ -176,13 +176,16 @@ public class RoleService {
     public Mono<Void> seedDefaultRoles(String tenantId) {
         log.info("Seeding default roles for tenant: {}", tenantId);
 
+        // Lowercase role names — kept consistent with V006 ('tenant_admin')
+        // and the tenant-scoped Flyway permission-seed migrations, and matches
+        // how Keycloak realm roles are mirrored. Display names stay human-cased.
         var defaultRoles = java.util.List.of(
-            Map.entry("TENANT_ADMIN",    "Tenant Administrator"),
-            Map.entry("OPERATIONS",      "Operations Staff"),
-            Map.entry("CLAIMS_OFFICER",  "Claims Officer"),
-            Map.entry("FINANCE_OFFICER", "Finance Officer"),
-            Map.entry("PROVIDER",        "Service Provider"),
-            Map.entry("MEMBER",          "Scheme Member")
+            Map.entry("tenant_admin",    "Tenant Administrator"),
+            Map.entry("operations",      "Operations Staff"),
+            Map.entry("claims_officer",  "Claims Officer"),
+            Map.entry("finance_officer", "Finance Officer"),
+            Map.entry("provider",        "Service Provider"),
+            Map.entry("member",          "Scheme Member")
         );
 
         return Flux.fromIterable(defaultRoles)

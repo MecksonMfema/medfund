@@ -55,3 +55,21 @@ export const schemePersonCentricGuard: CanActivateFn = (route) => {
     catchError(() => of(router.createUrlTree(['/tenant/billing/schemes']))),
   );
 };
+
+/**
+ * Allows navigation only when the active tenant supports group-based
+ * membership. INDIVIDUAL_ONLY tenants have no employer-group entities so
+ * the Groups screens make no sense for them. Missing membershipModel is
+ * treated as BOTH for backwards compatibility with older cached tenants.
+ */
+export const tenantGroupsEnabledGuard: CanActivateFn = () => {
+  const tenantService = inject(TenantService);
+  const toast = inject(ToastService);
+  const router = inject(Router);
+
+  const model = tenantService.getTenant()?.membershipModel ?? 'BOTH';
+  if (model !== 'INDIVIDUAL_ONLY') return true;
+
+  toast.error('Groups are not available for individual-only tenants. Switch the membership model in tenant settings to enable group management.');
+  return router.createUrlTree(['/tenant/dashboard']);
+};

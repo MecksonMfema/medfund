@@ -69,6 +69,17 @@
         rows="3"></textarea>
     </label>
 
+    <div class="field span-2">
+      <span class="field-label">Liaison</span>
+      <app-liaison-picker
+        [value]="form.liaisonUserId ?? null"
+        [kind]="form.liaisonKind === 'CLEAR' ? null : (form.liaisonKind ?? null)"
+        [prefillLabel]="liaisonLabel"
+        [prefillSublabel]="liaisonSublabel"
+        (selected)="onLiaisonSelected($event)">
+      </app-liaison-picker>
+    </div>
+
     <div class="form-actions span-2">
       <a class="btn btn-default" routerLink="/tenant/billing/groups">Cancel</a>
       <button type="submit" class="btn btn-primary" [disabled]="saving || loading">

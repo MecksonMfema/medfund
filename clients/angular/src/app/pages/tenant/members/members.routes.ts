@@ -6,9 +6,13 @@ const loadComingSoon = () =>
   import('../../../shared/components/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent);
 
 /**
- * Members domain — standalone fourth section per the operational-portal
- * plan. The list view is the existing functional shell; everything else
- * scaffolds to ComingSoon for now.
+ * Members domain. The list and the per-member detail (which also handles
+ * inline dependants) are real shells; remaining utilities (waivers, history,
+ * bulk dependant tools) scaffold to ComingSoon for now.
+ *
+ * Dependants are administered exclusively inside Member Detail — there is
+ * no tenant-wide dependants list page. Groups CRUD lives under billing —
+ * see billing.routes.ts and the Members → Groups sidebar entry.
  */
 const cs = (
   path: string,
@@ -32,17 +36,25 @@ export const MEMBERS_ROUTES: Routes = [
     data: { title: 'Members', sidebar: 'operational' },
   },
 
-  cs('add',                   'Add Member',           '/additions/add-member',                 'Register a new member.',                                  ['members:create']),
-  cs(':id',                   'Member Detail',        '/lookup/view-member',                   'Member profile, dependants, history.',                    ['members:view']),
-  cs(':id/edit',              'Edit Member',          '/edit-member',                          'Update profile and enrolment.',                           ['members:update']),
-  cs(':id/dependants',        'Member Dependants',    '/lookup/view-dependant',                'Dependants linked to this member.',                       ['members:view_dependants']),
-  cs(':id/dependants/add',    'Add Dependant',        '/additions/add-dependant',              'Register a new dependant.',                               ['billing:manage_dependants']),
-  cs(':id/history',           'Member History',       '/member-history',                       'Claim, payment, contribution history.',                   ['members:view_history']),
-  cs(':id/waivers',           'Member Waivers',       '/special-waivers',                      'Override benefit limits for this member.',                ['members:manage_waivers']),
+  // Enrolment form — real component, gated by members:create.
+  {
+    path: 'add',
+    canActivate: [permissionGuard(['members:create'])],
+    loadComponent: () => import('./add/member-form.component').then(m => m.MemberFormComponent),
+    data: { title: 'Add Member', sidebar: 'operational' },
+  },
 
-  cs('dependants',            'Dependants',           '/lookup/view-dependant',                'All dependants across members.',                          ['members:view_dependants']),
+  // Member detail — view + in-place edit + inline dependants editor.
+  {
+    path: ':id',
+    canActivate: [permissionGuard(['members:view'])],
+    loadComponent: () => import('./detail/member-detail.component').then(m => m.MemberDetailComponent),
+    data: { title: 'Member Detail', sidebar: 'operational' },
+  },
 
-  cs('groups',                'Groups',               '/lookup/view-group',                    'Employer groups participating in tenant schemes.',        ['billing:manage_groups']),
-  cs('groups/add',            'Add Group',            '/additions/add-group',                  'Register a new employer group.',                          ['billing:manage_groups']),
-  cs('groups/:id',            'Group Detail',         '/lookup/view-group-detail',             'Single employer group.',                                  ['billing:manage_groups']),
+  // Legacy edit URL — redirects to the unified detail page.
+  { path: ':id/edit', redirectTo: ':id', pathMatch: 'full' },
+
+  cs(':id/history', 'Member History', '/member-history', 'Claim, payment, contribution history.', ['members:view_history']),
+  cs(':id/waivers', 'Member Waivers', '/special-waivers', 'Override benefit limits for this member.', ['members:manage_waivers']),
 ];

@@ -1,0 +1,111 @@
+<div class="group-detail">
+  <header class="page-head">
+    <a class="back-link" routerLink="/tenant/billing/groups">
+      <app-icon name="chevron-left" [size]="16"></app-icon> Back to Groups
+    </a>
+
+    @if (group) {
+      <div class="title-block">
+        <h1>{{ group.name }}</h1>
+        <div class="meta">
+          @if (group.registrationNumber) { <span class="chip">{{ group.registrationNumber }}</span> }
+          <span class="chip status" [attr.data-status]="group.status">{{ group.status }}</span>
+        </div>
+      </div>
+      <div class="actions">
+        @if (group.status !== 'SUSPENDED') {
+          <button type="button" class="btn small warn" (click)="suspend()">Suspend</button>
+        }
+      </div>
+    }
+  </header>
+
+  @if (errorMessage) {
+    <div class="error-banner" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+    <p class="muted">Loading…</p>
+  } @else if (group) {
+    <!-- ── Group info ─────────────────────────────────────────── -->
+    <section class="card">
+      <h2>Group info</h2>
+      <div class="form-grid">
+        <div class="field span-2">
+          <label>Name</label>
+          <input type="text" [(ngModel)]="form.name" />
+        </div>
+        <div class="field">
+          <label>Registration #</label>
+          <input type="text" [(ngModel)]="form.registrationNumber" />
+        </div>
+        <div class="field">
+          <label>Contact person</label>
+          <input type="text" [(ngModel)]="form.contactPerson" />
+        </div>
+        <div class="field">
+          <label>Contact email</label>
+          <input type="email" [(ngModel)]="form.contactEmail" />
+        </div>
+        <div class="field">
+          <label>Contact phone</label>
+          <input type="tel" [(ngModel)]="form.contactPhone" />
+        </div>
+        <div class="field span-2">
+          <label>Address</label>
+          <input type="text" [(ngModel)]="form.address" />
+        </div>
+
+        <div class="field span-2">
+          <label>Liaison</label>
+          <app-liaison-picker
+            [value]="form.liaisonUserId ?? null"
+            [kind]="form.liaisonKind === 'CLEAR' ? null : (form.liaisonKind ?? null)"
+            [prefillLabel]="liaisonLabel"
+            [prefillSublabel]="liaisonSublabel"
+            (selected)="onLiaisonSelected($event)">
+          </app-liaison-picker>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="btn" (click)="back()" [disabled]="saving">Cancel</button>
+        <button type="button" class="btn primary" (click)="save()" [disabled]="saving">
+          {{ saving ? 'Saving…' : 'Save changes' }}
+        </button>
+      </div>
+    </section>
+
+    <!-- ── Members ────────────────────────────────────────────── -->
+    <section class="card">
+      <h2>Members in this group</h2>
+
+      @if (membersLoading) {
+        <p class="muted">Loading…</p>
+      } @else if (members.length === 0) {
+        <p class="muted">No members enrolled in this group yet.</p>
+      } @else {
+        <table class="members-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Member #</th>
+              <th>Email</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (m of members; track m.id) {
+              <tr class="clickable" (click)="openMember(m)">
+                <td><strong>{{ m.firstName }} {{ m.lastName }}</strong></td>
+                <td>{{ m.memberNumber }}</td>
+                <td class="muted">{{ m.email || '—' }}</td>
+                <td><span class="chip status" [attr.data-status]="m.status">{{ m.status }}</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </section>
+  }
+</div>

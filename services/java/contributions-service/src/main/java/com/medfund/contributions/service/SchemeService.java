@@ -64,6 +64,12 @@ public class SchemeService {
         return schemeRepository.findByStatus(status);
     }
 
+    /** Free-text search over name + scheme_type — feeds the operational EntityPicker. */
+    public Flux<Scheme> search(String q, int limit) {
+        if (q == null || q.isBlank()) return Flux.empty();
+        return schemeRepository.search(q.trim(), Math.min(Math.max(limit, 1), 50));
+    }
+
     @Transactional
     public Mono<Scheme> create(CreateSchemeRequest request, String actorId) {
         return schemeRepository.existsByName(request.name())

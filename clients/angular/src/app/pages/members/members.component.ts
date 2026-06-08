@@ -1,16 +1,17 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 import { DataTableComponent } from '../../shared/components/data-table/data-table.component';
-import { StatCardComponent } from '../../shared/components/stat-card/stat-card.component';
+import { IconComponent } from '../../shared/components/icon/icon.component';
 import { MembersService, Member } from '../../core/services/members.service';
 
 @Component({
   selector: 'app-members',
   standalone: true,
-  imports: [CommonModule, FormsModule, DataTableComponent, StatCardComponent],
+  imports: [CommonModule, FormsModule, RouterLink, DataTableComponent, IconComponent],
   templateUrl: './members.component.html',
   styleUrl: './members.component.scss',
 })
@@ -18,7 +19,6 @@ export class MembersComponent implements OnInit, OnDestroy {
   members: Member[] = [];
   loading = false;
   searchQuery = '';
-  activeCount = 0; enrolledCount = 0; suspendedCount = 0; terminatedCount = 0;
 
   cursors: string[] = [];
   nextCursor: string | null = null;
@@ -37,7 +37,7 @@ export class MembersComponent implements OnInit, OnDestroy {
   private search$ = new Subject<string>();
   private destroy$ = new Subject<void>();
 
-  constructor(private membersService: MembersService) {}
+  constructor(private membersService: MembersService, private router: Router) {}
 
   ngOnInit(): void {
     this.search$.pipe(debounceTime(400), distinctUntilChanged(), takeUntil(this.destroy$))
@@ -54,10 +54,6 @@ export class MembersComponent implements OnInit, OnDestroy {
         const content: Member[] = Array.isArray(raw) ? raw : (raw?.content ?? []);
         this.members    = content;
         this.nextCursor = Array.isArray(raw) ? null : (raw?.nextCursor ?? null);
-        this.activeCount     = content.filter(m => m.status === 'active').length;
-        this.enrolledCount   = content.filter(m => m.status === 'enrolled').length;
-        this.suspendedCount  = content.filter(m => m.status === 'suspended').length;
-        this.terminatedCount = content.filter(m => m.status === 'terminated').length;
         this.loading = false;
       },
       error: () => { this.loading = false; },
@@ -65,6 +61,10 @@ export class MembersComponent implements OnInit, OnDestroy {
   }
 
   onSearch(): void { this.search$.next(this.searchQuery); }
+
+  onRowClick(row: Member): void {
+    if (row?.id) this.router.navigate(['/tenant/members', row.id]);
+  }
 
   nextPage(): void {
     if (!this.nextCursor) return;
