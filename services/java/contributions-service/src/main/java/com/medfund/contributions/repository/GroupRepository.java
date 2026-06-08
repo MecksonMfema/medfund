@@ -13,8 +13,7 @@ public interface GroupRepository extends R2dbcRepository<Group, UUID> {
         SELECT * FROM groups
          WHERE status = 'active'
            AND (LOWER(name) LIKE :q
-                OR LOWER(COALESCE(registration_number, '')) LIKE :q
-                OR LOWER(COALESCE(contact_email, '')) LIKE :q)
+                OR LOWER(COALESCE(registration_number, '')) LIKE :q)
          ORDER BY name
          LIMIT :limit
         """)

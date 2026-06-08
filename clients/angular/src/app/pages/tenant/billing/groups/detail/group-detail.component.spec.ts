@@ -10,8 +10,7 @@ import { ToastService } from '../../../../../shared/components/toast/toast.servi
 function makeGroup(overrides: Partial<Group> = {}): Group {
   return {
     id: 'g-1', name: 'Acme Corp',
-    registrationNumber: 'REG-1', contactPerson: 'Jane',
-    contactEmail: 'hr@acme.com', contactPhone: '+263',
+    registrationNumber: 'REG-1',
     address: '1 Main St', status: 'ACTIVE',
     ...overrides,
   };
@@ -89,16 +88,16 @@ describe('GroupDetailComponent', () => {
     const { comp } = instantiate();
     comp.ngOnInit();
     expect(comp.group?.name).toBe('Acme Corp');
-    expect(comp.form.contactPerson).toBe('Jane');
+    expect(comp.form.registrationNumber).toBe('REG-1');
     expect(comp.members.length).toBe(1);
   });
 
   it('updates the group and surfaces a success toast', () => {
     const { comp, groups, toast } = instantiate();
     comp.ngOnInit();
-    comp.form.contactPerson = 'Bob';
+    comp.form.address = '5 Park Lane';
     comp.save();
-    expect(groups.updateCalls[0].data.contactPerson).toBe('Bob');
+    expect(groups.updateCalls[0].data.address).toBe('5 Park Lane');
     expect(toast.successes[0]).toBe('Group updated');
   });
 

@@ -1,6 +1,5 @@
 package com.medfund.user.dto;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -14,22 +13,13 @@ public record CreateGroupRequest(
     @Size(max = 100)
     String registrationNumber,
 
-    @Size(max = 200)
-    String contactPerson,
-
-    @Email @Size(max = 255)
-    String contactEmail,
-
-    @Size(max = 50)
-    String contactPhone,
-
     String address,
 
-    /** Discriminator for {@link #liaisonUserId}: 'MEMBER' or 'STAFF'. */
-    @Pattern(regexp = "^(MEMBER|STAFF)$",
-        message = "liaisonKind must be either MEMBER or STAFF")
+    /** Discriminator for {@link #liaisonUserId}: 'MEMBER', 'STAFF', or 'LIAISON'. */
+    @Pattern(regexp = "^(MEMBER|STAFF|LIAISON)$",
+        message = "liaisonKind must be MEMBER, STAFF, or LIAISON")
     String liaisonKind,
 
-    /** FK target — id in members or staff_users, per {@link #liaisonKind}. */
+    /** FK target — id in members, staff_users, or group_liaisons per {@link #liaisonKind}. */
     UUID liaisonUserId
 ) {}

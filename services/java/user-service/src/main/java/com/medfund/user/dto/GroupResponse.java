@@ -9,9 +9,6 @@ public record GroupResponse(
     UUID id,
     String name,
     String registrationNumber,
-    String contactPerson,
-    String contactEmail,
-    String contactPhone,
     String address,
     String liaisonKind,
     UUID liaisonUserId,
@@ -22,7 +19,6 @@ public record GroupResponse(
     public static GroupResponse from(Group g) {
         return new GroupResponse(
             g.getId(), g.getName(), g.getRegistrationNumber(),
-            g.getContactPerson(), g.getContactEmail(), g.getContactPhone(),
             g.getAddress(), g.getLiaisonKind(), g.getLiaisonUserId(),
             g.getStatus(), g.getCreatedAt(), g.getUpdatedAt()
         );

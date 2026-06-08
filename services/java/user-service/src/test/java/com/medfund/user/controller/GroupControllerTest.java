@@ -63,7 +63,7 @@ class GroupControllerTest {
         webTestClient.mutateWith(mockJwt())
                 .post().uri("/api/v1/groups")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"name\":\"Acme Corp\",\"registrationNumber\":\"REG-001\",\"contactEmail\":\"admin@acme.com\"}")
+                .bodyValue("{\"name\":\"Acme Corp\",\"registrationNumber\":\"REG-001\"}")
                 .header("X-Tenant-ID", "test-tenant")
                 .exchange()
                 .expectStatus().isCreated();

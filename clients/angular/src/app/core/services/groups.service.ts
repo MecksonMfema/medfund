@@ -2,19 +2,16 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
 
-export type LiaisonKind = 'MEMBER' | 'STAFF';
+export type LiaisonKind = 'MEMBER' | 'STAFF' | 'LIAISON';
 
 export interface Group {
   id: string;
   name: string;
   registrationNumber?: string;
-  contactPerson?: string;
-  contactEmail?: string;
-  contactPhone?: string;
   address?: string;
   /** Discriminator for liaisonUserId. Null when no liaison is assigned. */
   liaisonKind?: LiaisonKind | null;
-  /** ID in members or staff_users, per liaisonKind. */
+  /** ID in members, staff_users, or group_liaisons per liaisonKind. */
   liaisonUserId?: string | null;
   status: string;
   createdAt?: string;
@@ -24,14 +21,11 @@ export interface Group {
 export interface UpsertGroupPayload {
   name: string;
   registrationNumber?: string;
-  contactPerson?: string;
-  contactEmail?: string;
-  contactPhone?: string;
   address?: string;
   /**
-   * On create: 'MEMBER' | 'STAFF' (or null/undefined for no liaison).
+   * On create: 'MEMBER' | 'STAFF' | 'LIAISON' (or null for no liaison).
    * On update: 'CLEAR' to drop the existing liaison; null/undefined for
-   * "no change"; otherwise 'MEMBER' or 'STAFF' paired with liaisonUserId.
+   * "no change"; otherwise the kind paired with liaisonUserId.
    */
   liaisonKind?: LiaisonKind | 'CLEAR' | null;
   liaisonUserId?: string | null;

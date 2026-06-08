@@ -32,7 +32,6 @@ export interface GroupOption {
   id: string;
   name: string;
   registrationNumber?: string;
-  contactEmail?: string;
 }
 
 export interface SchemeBenefit {

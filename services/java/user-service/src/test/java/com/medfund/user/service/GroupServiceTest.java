@@ -128,8 +128,7 @@ class GroupServiceTest {
     void create_validRequest_createsGroup() {
         var actorId = UUID.randomUUID().toString();
         var request = new CreateGroupRequest(
-            "Acme Corp", "REG-001", "Jane Smith", "jane@acme.com", null, null,
-            null, null
+            "Acme Corp", "REG-001", null, null, null
         );
 
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
@@ -142,7 +141,6 @@ class GroupServiceTest {
                 assertThat(group.getStatus()).isEqualTo("active");
                 assertThat(group.getName()).isEqualTo("Acme Corp");
                 assertThat(group.getRegistrationNumber()).isEqualTo("REG-001");
-                assertThat(group.getContactPerson()).isEqualTo("Jane Smith");
             })
             .verifyComplete();
 
@@ -156,8 +154,7 @@ class GroupServiceTest {
         var id = group.getId();
         var actorId = UUID.randomUUID().toString();
         var request = new UpdateGroupRequest(
-            "Updated Corp", null, "John Smith", "john@acme.com", null, null,
-            null, null
+            "Updated Corp", null, null, null, null
         );
 
         when(groupRepository.findById(id)).thenReturn(Mono.just(group));
@@ -170,8 +167,6 @@ class GroupServiceTest {
         )
             .assertNext(result -> {
                 assertThat(result.getName()).isEqualTo("Updated Corp");
-                assertThat(result.getContactPerson()).isEqualTo("John Smith");
-                assertThat(result.getContactEmail()).isEqualTo("john@acme.com");
                 assertThat(result.getRegistrationNumber()).isEqualTo("REG-001");
             })
             .verifyComplete();
@@ -204,7 +199,7 @@ class GroupServiceTest {
         var actorId = UUID.randomUUID().toString();
         var liaisonId = UUID.randomUUID();
         var request = new CreateGroupRequest(
-            "Acme", null, null, null, null, null,
+            "Acme", null, null,
             "MEMBER", liaisonId
         );
         when(memberRepository.existsById(liaisonId)).thenReturn(Mono.just(true));
@@ -235,7 +230,7 @@ class GroupServiceTest {
         var actorId = UUID.randomUUID().toString();
         var liaisonId = UUID.randomUUID();
         var request = new CreateGroupRequest(
-            "Acme", null, null, null, null, null,
+            "Acme", null, null,
             "STAFF", liaisonId
         );
         when(staffUserRepository.existsById(liaisonId)).thenReturn(Mono.just(true));
@@ -265,7 +260,7 @@ class GroupServiceTest {
         var actorId = UUID.randomUUID().toString();
         var liaisonId = UUID.randomUUID();
         var request = new CreateGroupRequest(
-            "Acme", null, null, null, null, null,
+            "Acme", null, null,
             "LIAISON", liaisonId
         );
         when(groupLiaisonRepository.existsById(liaisonId)).thenReturn(Mono.just(true));
@@ -294,7 +289,7 @@ class GroupServiceTest {
         var actorId = UUID.randomUUID().toString();
         var liaisonId = UUID.randomUUID();
         var request = new CreateGroupRequest(
-            "Acme", null, null, null, null, null,
+            "Acme", null, null,
             "LIAISON", liaisonId
         );
         when(groupLiaisonRepository.existsById(liaisonId)).thenReturn(Mono.just(false));
@@ -317,7 +312,7 @@ class GroupServiceTest {
     void create_kindWithoutId_returns422() {
         var actorId = UUID.randomUUID().toString();
         var request = new CreateGroupRequest(
-            "Acme", null, null, null, null, null,
+            "Acme", null, null,
             "MEMBER", null
         );
 
@@ -338,7 +333,7 @@ class GroupServiceTest {
         var actorId = UUID.randomUUID().toString();
         var liaisonId = UUID.randomUUID();
         var request = new CreateGroupRequest(
-            "Acme", null, null, null, null, null,
+            "Acme", null, null,
             "MEMBER", liaisonId
         );
         when(memberRepository.existsById(liaisonId)).thenReturn(Mono.just(false));
@@ -362,7 +357,7 @@ class GroupServiceTest {
         group.setLiaisonUserId(UUID.randomUUID());
         var actorId = UUID.randomUUID().toString();
         var request = new UpdateGroupRequest(
-            null, null, null, null, null, null,
+            null, null, null,
             "CLEAR", null
         );
 
@@ -389,7 +384,7 @@ class GroupServiceTest {
         var actorId = UUID.randomUUID().toString();
         var newStaffId = UUID.randomUUID();
         var request = new UpdateGroupRequest(
-            null, null, null, null, null, null,
+            null, null, null,
             "STAFF", newStaffId
         );
 
@@ -418,8 +413,6 @@ class GroupServiceTest {
         group.setId(UUID.randomUUID());
         group.setName("Acme Corp");
         group.setRegistrationNumber("REG-001");
-        group.setContactPerson("Jane Smith");
-        group.setContactEmail("jane@acme.com");
         group.setStatus("active");
         group.setCreatedAt(Instant.now());
         group.setUpdatedAt(Instant.now());

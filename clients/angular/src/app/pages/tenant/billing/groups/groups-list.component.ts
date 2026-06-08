@@ -23,9 +23,7 @@ export class GroupsListComponent implements OnInit {
   columns: TableColumn[] = [
     { key: 'name',               label: 'Name' },
     { key: 'registrationNumber', label: 'Registration #' },
-    { key: 'contactPerson',      label: 'Contact person' },
-    { key: 'contactEmail',       label: 'Email' },
-    { key: 'contactPhone',       label: 'Phone' },
+    { key: 'address',            label: 'Address' },
     { key: 'status',             label: 'Status', type: 'status' },
   ];
 

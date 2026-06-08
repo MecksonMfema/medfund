@@ -29,15 +29,6 @@ public class Group {
     @Column("registration_number")
     private String registrationNumber;
 
-    @Column("contact_person")
-    private String contactPerson;
-
-    @Column("contact_email")
-    private String contactEmail;
-
-    @Column("contact_phone")
-    private String contactPhone;
-
     private String status;
 
     @Column("created_at")

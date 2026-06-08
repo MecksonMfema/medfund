@@ -67,9 +67,6 @@ public class GroupService {
                 // id NOT set — let PostgreSQL generate via DEFAULT gen_random_uuid()
                 group.setName(request.name());
                 group.setRegistrationNumber(request.registrationNumber());
-                group.setContactPerson(request.contactPerson());
-                group.setContactEmail(request.contactEmail());
-                group.setContactPhone(request.contactPhone());
                 group.setAddress(request.address());
                 group.setLiaisonKind(request.liaisonKind());
                 group.setLiaisonUserId(request.liaisonUserId());
@@ -104,9 +101,6 @@ public class GroupService {
             .flatMap(existing -> {
                 if (request.name() != null) existing.setName(request.name());
                 if (request.registrationNumber() != null) existing.setRegistrationNumber(request.registrationNumber());
-                if (request.contactPerson() != null) existing.setContactPerson(request.contactPerson());
-                if (request.contactEmail() != null) existing.setContactEmail(request.contactEmail());
-                if (request.contactPhone() != null) existing.setContactPhone(request.contactPhone());
                 if (request.address() != null) existing.setAddress(request.address());
                 existing.setUpdatedAt(Instant.now());
                 existing.setUpdatedBy(UUID.fromString(actorId));
@@ -119,7 +113,7 @@ public class GroupService {
                             saved.getName(),
                             "UPDATE", actorId, null, null,
                             Map.of("name", saved.getName()),
-                            new String[]{"name", "contactPerson", "contactEmail"},
+                            new String[]{"name", "registrationNumber", "address"},
                             UUID.randomUUID().toString()
                         );
                         return auditPublisher.publish(event).thenReturn(saved);
@@ -129,10 +123,10 @@ public class GroupService {
 
     /**
      * Resolve the liaison fields on an update request against the existing
-     * group, validating any change. The three legal shapes are:
-     *   - null kind + null id  → no liaison change
-     *   - "CLEAR"               → drop the liaison (set both fields to null)
-     *   - "MEMBER"/"STAFF" + id → assign; verify FK target exists
+     * group, validating any change. The legal shapes are:
+     *   - null kind + null id                  → no liaison change
+     *   - "CLEAR"                              → drop the liaison
+     *   - "MEMBER"/"STAFF"/"LIAISON" + id      → assign; verify FK target exists
      * Anything else (e.g. kind without id) is rejected with 422.
      */
     private Mono<Void> applyLiaisonUpdate(Group existing, UpdateGroupRequest request) {

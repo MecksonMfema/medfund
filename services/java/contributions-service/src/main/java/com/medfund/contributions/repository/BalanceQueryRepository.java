@@ -81,7 +81,7 @@ public class BalanceQueryRepository {
                 ? " AND (LOWER(m.first_name || ' ' || m.last_name) LIKE :search OR LOWER(COALESCE(m.email, '')) LIKE :search OR LOWER(COALESCE(m.member_number, '')) LIKE :search) "
                 : "";
         String groupSearch = hasSearch
-                ? " AND (LOWER(g.name) LIKE :search OR LOWER(COALESCE(g.contact_email, '')) LIKE :search OR LOWER(COALESCE(g.registration_number, '')) LIKE :search) "
+                ? " AND (LOWER(g.name) LIKE :search OR LOWER(COALESCE(g.registration_number, '')) LIKE :search) "
                 : "";
         return """
                 SELECT 'MEMBER' AS subject_type, m.id AS subject_id,
@@ -94,15 +94,7 @@ public class BalanceQueryRepository {
                  WHERE mrb.currency_code = :currency AND mrb.balance > 0
                 """ + memberSearch + """
                 UNION ALL
-                SELECT 'GROUP' AS subject_type, g.id AS subject_id,
-                       g.registration_number AS subject_code,
-                       g.name AS subject_name,
-                       g.contact_email AS subject_email,
-                       grb.currency_code, grb.balance,
-                       grb.last_charge_at, grb.last_payment_at
-                  FROM group_running_balance grb JOIN groups g ON g.id = grb.group_id
-                 WHERE grb.currency_code = :currency AND grb.balance > 0
-                """ + groupSearch;
+                """ + groupBlock("AND grb.balance > 0") + groupSearch;
     }
 
     private String agedBaseQuery(boolean hasSearch) {
@@ -110,7 +102,7 @@ public class BalanceQueryRepository {
                 ? " AND (LOWER(m.first_name || ' ' || m.last_name) LIKE :search OR LOWER(COALESCE(m.email, '')) LIKE :search OR LOWER(COALESCE(m.member_number, '')) LIKE :search) "
                 : "";
         String groupSearch = hasSearch
-                ? " AND (LOWER(g.name) LIKE :search OR LOWER(COALESCE(g.contact_email, '')) LIKE :search OR LOWER(COALESCE(g.registration_number, '')) LIKE :search) "
+                ? " AND (LOWER(g.name) LIKE :search OR LOWER(COALESCE(g.registration_number, '')) LIKE :search) "
                 : "";
         return """
                 SELECT 'MEMBER' AS subject_type, m.id AS subject_id,
@@ -124,16 +116,35 @@ public class BalanceQueryRepository {
                    AND COALESCE(mrb.last_payment_at, mrb.last_charge_at, NOW()) < NOW() - (:minAge || ' days')::interval
                 """ + memberSearch + """
                 UNION ALL
+                """ + groupBlock(
+                "AND grb.balance > 0 "
+                + "AND COALESCE(grb.last_payment_at, grb.last_charge_at, NOW()) < NOW() - (:minAge || ' days')::interval"
+              ) + groupSearch;
+    }
+
+    /**
+     * Common GROUP-half of the union. The subject_email is the liaison's
+     * email, COALESCEd across the three possible liaison sources (member,
+     * staff user, pure liaison). Staff users live in the platform-wide
+     * {@code public.staff_users} table; both other sources live in the
+     * tenant schema. The {@code extraWhere} expression is appended into the
+     * group block's WHERE clause so callers can layer balance/aging filters.
+     */
+    private String groupBlock(String extraWhere) {
+        return """
                 SELECT 'GROUP' AS subject_type, g.id AS subject_id,
                        g.registration_number AS subject_code,
                        g.name AS subject_name,
-                       g.contact_email AS subject_email,
+                       COALESCE(m_lia.email, su_lia.email, gl_lia.email) AS subject_email,
                        grb.currency_code, grb.balance,
                        grb.last_charge_at, grb.last_payment_at
-                  FROM group_running_balance grb JOIN groups g ON g.id = grb.group_id
-                 WHERE grb.currency_code = :currency AND grb.balance > 0
-                   AND COALESCE(grb.last_payment_at, grb.last_charge_at, NOW()) < NOW() - (:minAge || ' days')::interval
-                """ + groupSearch;
+                  FROM group_running_balance grb
+                  JOIN groups g                   ON g.id = grb.group_id
+                  LEFT JOIN members m_lia         ON g.liaison_kind = 'MEMBER'  AND m_lia.id = g.liaison_user_id
+                  LEFT JOIN public.staff_users su_lia ON g.liaison_kind = 'STAFF' AND su_lia.id = g.liaison_user_id
+                  LEFT JOIN group_liaisons gl_lia ON g.liaison_kind = 'LIAISON' AND gl_lia.id = g.liaison_user_id
+                 WHERE grb.currency_code = :currency
+                """ + " " + extraWhere + " ";
     }
 
     private BalanceRow toRow(io.r2dbc.spi.Readable row) {

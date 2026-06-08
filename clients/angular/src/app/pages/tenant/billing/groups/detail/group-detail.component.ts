@@ -28,9 +28,6 @@ export class GroupDetailComponent implements OnInit {
   form: UpsertGroupPayload = {
     name: '',
     registrationNumber: '',
-    contactPerson: '',
-    contactEmail: '',
-    contactPhone: '',
     address: '',
     liaisonKind: null,
     liaisonUserId: null,
@@ -71,9 +68,6 @@ export class GroupDetailComponent implements OnInit {
         this.form = {
           name: g.name,
           registrationNumber: g.registrationNumber ?? '',
-          contactPerson: g.contactPerson ?? '',
-          contactEmail: g.contactEmail ?? '',
-          contactPhone: g.contactPhone ?? '',
           address: g.address ?? '',
           liaisonKind: g.liaisonKind ?? null,
           liaisonUserId: g.liaisonUserId ?? null,
@@ -109,9 +103,6 @@ export class GroupDetailComponent implements OnInit {
     const payload: UpsertGroupPayload = {
       name: this.form.name.trim(),
       registrationNumber: this.form.registrationNumber?.trim() || undefined,
-      contactPerson:      this.form.contactPerson?.trim()      || undefined,
-      contactEmail:       this.form.contactEmail?.trim()       || undefined,
-      contactPhone:       this.form.contactPhone?.trim()       || undefined,
       address:            this.form.address?.trim()            || undefined,
       liaisonKind:        this.form.liaisonKind                ?? undefined,
       liaisonUserId:      this.form.liaisonUserId              ?? undefined,
