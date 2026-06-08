@@ -9,6 +9,8 @@ import { PermissionService } from '../../core/security/permission.service';
 import { OPERATIONAL_NAV, OperationalNavGroup, OperationalNavItem } from './operational-nav';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { clearSession } from '../../auth/keycloak.init';
+import { isPersonCentricLine } from '../../core/models/insurance-lines';
+import { Tenant } from '../../core/services/tenant.service';
 
 /**
  * Sidebar for the operational portal — claims, billing, finance, members.
@@ -78,11 +80,29 @@ export class OperationalSidebarComponent implements OnInit, OnDestroy {
         ...group,
         items: group.items
           .filter(item => this.allowed(item, set))
+          .filter(item => this.featureFlagPasses(item, tenant))
           // Substitute the tenant's plural for "Schemes" wherever the label
           // appears verbatim. Keeps the canonical nav config tenant-agnostic.
           .map(item => item.label === 'Schemes' ? { ...item, label: schemePlural } : item),
       }))
       .filter(group => group.items.length > 0);
+  }
+
+  /**
+   * Resolves the optional {@code featureFlag} on a nav item against the
+   * tenant snapshot. Items without a flag pass unconditionally; unknown
+   * flags fail closed so a typo hides the item until fixed.
+   */
+  private featureFlagPasses(item: OperationalNavItem, tenant: Tenant | null): boolean {
+    if (!item.featureFlag) return true;
+    switch (item.featureFlag) {
+      case 'drugClaims':
+        return tenant?.drugClaimsEnabled !== false;
+      case 'ageGroupsAvailable':
+        return (tenant?.insuranceLines ?? []).some(isPersonCentricLine);
+      default:
+        return false;
+    }
   }
 
   ngOnDestroy(): void {

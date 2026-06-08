@@ -20,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -100,7 +101,7 @@ class SchemeServiceTest {
 
     @Test
     void create_validRequest_createsScheme() {
-        var request = new CreateSchemeRequest("Gold Plan", "Premium plan", null, LocalDate.now(), null, null);
+        var request = new CreateSchemeRequest("Gold Plan", "Premium plan", null, null, LocalDate.now(), null, null);
 
         when(schemeRepository.existsByName("Gold Plan")).thenReturn(Mono.just(false));
         when(schemeRepository.save(any(Scheme.class))).thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
@@ -126,7 +127,7 @@ class SchemeServiceTest {
 
     @Test
     void create_duplicateName_throwsConflict() {
-        var request = new CreateSchemeRequest("Gold Plan", "Premium plan", null, LocalDate.now(), null, null);
+        var request = new CreateSchemeRequest("Gold Plan", "Premium plan", null, null, LocalDate.now(), null, null);
 
         when(schemeRepository.existsByName("Gold Plan")).thenReturn(Mono.just(true));
 
@@ -233,7 +234,7 @@ class SchemeServiceTest {
 
     @Test
     void create_leavesIdNullSoSaveTakesInsertPath() {
-        var request = new CreateSchemeRequest("Bronze Plan", null, null, LocalDate.now(), null, null);
+        var request = new CreateSchemeRequest("Bronze Plan", null, null, null, LocalDate.now(), null, null);
 
         when(schemeRepository.existsByName("Bronze Plan")).thenReturn(Mono.just(false));
         var captor = ArgumentCaptor.forClass(Scheme.class);
@@ -257,7 +258,7 @@ class SchemeServiceTest {
 
     @Test
     void create_blankCurrency_defaultsToUSD() {
-        var request = new CreateSchemeRequest("Plan A", null, null, LocalDate.now(), null, null);
+        var request = new CreateSchemeRequest("Plan A", null, null, null, LocalDate.now(), null, null);
 
         when(schemeRepository.existsByName("Plan A")).thenReturn(Mono.just(false));
         var captor = ArgumentCaptor.forClass(Scheme.class);
@@ -284,7 +285,7 @@ class SchemeServiceTest {
             .thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
-        var request = new UpdateSchemeRequest(null, null, null, null, "EUR");
+        var request = new UpdateSchemeRequest(null, null, null, null, null, "EUR");
 
         StepVerifier.create(schemeService.update(existing.getId(), request, actorId)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
@@ -377,7 +378,7 @@ class SchemeServiceTest {
 
     @Test
     void create_publishesAuditEventWithCorrectShape() {
-        var request = new CreateSchemeRequest("Audit Plan", "desc", "hmo", LocalDate.now(), null, "usd");
+        var request = new CreateSchemeRequest("Audit Plan", "desc", "hmo", null, LocalDate.now(), null, "usd");
 
         when(schemeRepository.existsByName("Audit Plan")).thenReturn(Mono.just(false));
         when(schemeRepository.save(any(Scheme.class)))
@@ -431,7 +432,7 @@ class SchemeServiceTest {
         // If a downstream caller forgets to set TENANT_ID on the context, the
         // audit envelope still emits with a sentinel tenant so the audit
         // trail is never silently dropped.
-        var request = new CreateSchemeRequest("Headless", null, null, LocalDate.now(), null, null);
+        var request = new CreateSchemeRequest("Headless", null, null, null, LocalDate.now(), null, null);
 
         when(schemeRepository.existsByName("Headless")).thenReturn(Mono.just(false));
         when(schemeRepository.save(any(Scheme.class)))
@@ -444,6 +445,152 @@ class SchemeServiceTest {
             .verifyComplete();
 
         assertThat(auditCaptor.getValue().tenantId()).isEqualTo("unknown");
+    }
+
+    // ---- Insurance-line gating ----
+
+    @Test
+    void create_persistsInsuranceLine_whenProvided() {
+        var request = new CreateSchemeRequest("Life Plan", null, "term_life", "LIFE",
+                LocalDate.now(), null, null);
+
+        when(schemeRepository.existsByName("Life Plan")).thenReturn(Mono.just(false));
+        var captor = ArgumentCaptor.forClass(Scheme.class);
+        when(schemeRepository.save(captor.capture()))
+            .thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(schemeService.create(request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .expectNextCount(1)
+            .verifyComplete();
+
+        assertThat(captor.getValue().getInsuranceLine()).isEqualTo("LIFE");
+    }
+
+    @Test
+    void create_defaultsToHEALTH_whenLineOmitted() {
+        var request = new CreateSchemeRequest("Default Plan", null, null, null,
+                LocalDate.now(), null, null);
+
+        when(schemeRepository.existsByName("Default Plan")).thenReturn(Mono.just(false));
+        var captor = ArgumentCaptor.forClass(Scheme.class);
+        when(schemeRepository.save(captor.capture()))
+            .thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(schemeService.create(request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .expectNextCount(1)
+            .verifyComplete();
+
+        assertThat(captor.getValue().getInsuranceLine()).isEqualTo("HEALTH");
+    }
+
+    @Test
+    void create_unknownInsuranceLine_returns422() {
+        var request = new CreateSchemeRequest("Bad Plan", null, null, "BANANA",
+                LocalDate.now(), null, null);
+
+        when(schemeRepository.existsByName("Bad Plan")).thenReturn(Mono.just(false));
+
+        StepVerifier.create(schemeService.create(request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .expectErrorSatisfies(err -> {
+                assertThat(err).isInstanceOf(ResponseStatusException.class);
+                assertThat(((ResponseStatusException) err).getStatusCode().value()).isEqualTo(422);
+                assertThat(err.getMessage()).contains("BANANA");
+            })
+            .verify();
+
+        verify(schemeRepository, never()).save(any());
+    }
+
+    @Test
+    void createBenefit_assetCentricScheme_returns422() {
+        var schemeId = UUID.randomUUID();
+        var vehicleScheme = new Scheme();
+        vehicleScheme.setId(schemeId);
+        vehicleScheme.setName("Fleet Comp");
+        vehicleScheme.setCurrencyCode("USD");
+        vehicleScheme.setInsuranceLine("VEHICLE");
+
+        when(schemeRepository.findById(schemeId)).thenReturn(Mono.just(vehicleScheme));
+
+        var request = new CreateSchemeBenefitRequest(
+            schemeId, "Anything", "x",
+            new BigDecimal("1000.00"), null, null,
+            "USD", 0, null
+        );
+
+        StepVerifier.create(schemeService.createBenefit(request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .expectErrorSatisfies(err -> {
+                assertThat(err).isInstanceOf(ResponseStatusException.class);
+                assertThat(((ResponseStatusException) err).getStatusCode().value()).isEqualTo(422);
+                assertThat(err.getMessage()).contains("VEHICLE");
+            })
+            .verify();
+
+        verify(schemeBenefitRepository, never()).save(any());
+        verify(auditPublisher, never()).publish(any());
+    }
+
+    @Test
+    void createAgeGroup_assetCentricScheme_returns422() {
+        var schemeId = UUID.randomUUID();
+        var propertyScheme = new Scheme();
+        propertyScheme.setId(schemeId);
+        propertyScheme.setName("Home Buildings");
+        propertyScheme.setCurrencyCode("USD");
+        propertyScheme.setInsuranceLine("PROPERTY");
+
+        when(schemeRepository.findById(schemeId)).thenReturn(Mono.just(propertyScheme));
+
+        var request = new CreateAgeGroupRequest(
+            schemeId, "Adult", 18, 65,
+            new BigDecimal("200.00"), "USD"
+        );
+
+        StepVerifier.create(schemeService.createAgeGroup(request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .expectErrorSatisfies(err -> {
+                assertThat(err).isInstanceOf(ResponseStatusException.class);
+                assertThat(((ResponseStatusException) err).getStatusCode().value()).isEqualTo(422);
+                assertThat(err.getMessage()).contains("PROPERTY");
+            })
+            .verify();
+
+        verify(ageGroupRepository, never()).save(any());
+        verify(auditPublisher, never()).publish(any());
+    }
+
+    @Test
+    void createBenefit_personCentricLifeScheme_succeeds() {
+        var schemeId = UUID.randomUUID();
+        var lifeScheme = new Scheme();
+        lifeScheme.setId(schemeId);
+        lifeScheme.setName("Term Life");
+        lifeScheme.setCurrencyCode("USD");
+        lifeScheme.setInsuranceLine("LIFE");
+
+        when(schemeRepository.findById(schemeId)).thenReturn(Mono.just(lifeScheme));
+        when(schemeBenefitRepository.save(any(SchemeBenefit.class)))
+            .thenAnswer(inv -> Mono.just(assignBenefitIdIfMissing(inv.getArgument(0))));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        var request = new CreateSchemeBenefitRequest(
+            schemeId, "Sum Assured", "lump_sum",
+            new BigDecimal("100000.00"), null, null,
+            "USD", 90, null
+        );
+
+        StepVerifier.create(schemeService.createBenefit(request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .expectNextCount(1)
+            .verifyComplete();
+
+        verify(schemeBenefitRepository).save(any(SchemeBenefit.class));
     }
 
     // ---- Helpers ----

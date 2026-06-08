@@ -11,6 +11,11 @@ public record CreateSchemeRequest(
         @NotBlank @Size(max = 200) String name,
         String description,
         String schemeType,
+        // TODO: cross-check against the tenant's configured insuranceLines once
+        //  the contributions-service has a TenantClient. Today the API accepts
+        //  any of the 8 known lines and trusts that the Angular form has
+        //  restricted the dropdown to the tenant's enabled lines.
+        String insuranceLine,
         @NotNull LocalDate effectiveDate,
         LocalDate endDate,
 

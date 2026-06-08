@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { permissionGuard } from '../../../auth/auth.guard';
 import { PermissionKey } from '../../../core/security/permissions';
+import { schemePersonCentricGuard, tenantPersonCentricGuard } from './guards/person-centric.guard';
 
 const loadComingSoon = () =>
   import('../../../shared/components/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent);
@@ -51,37 +52,37 @@ export const BILLING_ROUTES: Routes = [
   },
   {
     path: 'schemes/:schemeId/benefits',
-    canActivate: [permissionGuard(['billing:view', 'billing:manage_schemes'])],
+    canActivate: [permissionGuard(['billing:view', 'billing:manage_schemes']), schemePersonCentricGuard],
     loadComponent: () => import('./benefits/benefits-list.component').then(m => m.BenefitsListComponent),
     data: { title: 'Scheme Benefits', sidebar: 'operational' },
   },
   {
     path: 'schemes/:schemeId/benefits/add',
-    canActivate: [permissionGuard(['billing:manage_schemes'])],
+    canActivate: [permissionGuard(['billing:manage_schemes']), schemePersonCentricGuard],
     loadComponent: () => import('./benefits/benefit-form.component').then(m => m.BenefitFormComponent),
     data: { title: 'Add Benefit', sidebar: 'operational' },
   },
   {
     path: 'schemes/:schemeId/benefits/:id/edit',
-    canActivate: [permissionGuard(['billing:manage_schemes'])],
+    canActivate: [permissionGuard(['billing:manage_schemes']), schemePersonCentricGuard],
     loadComponent: () => import('./benefits/benefit-form.component').then(m => m.BenefitFormComponent),
     data: { title: 'Edit Benefit', sidebar: 'operational' },
   },
   {
     path: 'age-groups',
-    canActivate: [permissionGuard(['billing:view', 'billing:manage_age_groups'])],
+    canActivate: [permissionGuard(['billing:view', 'billing:manage_age_groups']), tenantPersonCentricGuard],
     loadComponent: () => import('./age-groups/age-groups-list.component').then(m => m.AgeGroupsListComponent),
     data: { title: 'Age Groups', sidebar: 'operational' },
   },
   {
     path: 'age-groups/add',
-    canActivate: [permissionGuard(['billing:manage_age_groups'])],
+    canActivate: [permissionGuard(['billing:manage_age_groups']), tenantPersonCentricGuard],
     loadComponent: () => import('./age-groups/age-group-form.component').then(m => m.AgeGroupFormComponent),
     data: { title: 'Add Age Group', sidebar: 'operational' },
   },
   {
     path: 'age-groups/:id/edit',
-    canActivate: [permissionGuard(['billing:manage_age_groups'])],
+    canActivate: [permissionGuard(['billing:manage_age_groups']), tenantPersonCentricGuard],
     loadComponent: () => import('./age-groups/age-group-form.component').then(m => m.AgeGroupFormComponent),
     data: { title: 'Edit Age Group', sidebar: 'operational' },
   },

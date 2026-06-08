@@ -14,10 +14,13 @@ function instantiate(opts: {
   initialPerms?: ReadonlyArray<string>,
   superAdmin?: boolean,
   schemeLabelPlural?: string,
+  insuranceLines?: string[],
 } = {}) {
   const nav = new MockNavigationService();
   const tenant = new MockTenantService(buildTenant({
-    name: 'Acme', schemeLabelPlural: opts.schemeLabelPlural,
+    name: 'Acme',
+    schemeLabelPlural: opts.schemeLabelPlural,
+    ...(opts.insuranceLines !== undefined ? { insuranceLines: opts.insuranceLines } : {}),
   }));
   const permissions = new MockPermissionService(opts.initialPerms ?? [], { superAdmin: opts.superAdmin });
   const keycloak = new MockKeycloakService({ roles: opts.superAdmin ? ['super_admin'] : ['operator'] });
@@ -128,6 +131,32 @@ describe('OperationalSidebarComponent', () => {
     const { comp, nav } = instantiate();
     comp.toggleSidebar();
     expect(nav.toggleCalls).toBe(1);
+  });
+
+  it('hides Age Groups when the tenant has only asset-centric insurance lines', () => {
+    const { comp } = instantiate({
+      initialPerms: ['billing:view', 'billing:manage_age_groups'],
+      insuranceLines: ['VEHICLE'],
+    });
+    comp.ngOnInit();
+
+    const items = comp.visibleGroups.flatMap(g => g.items);
+    expect(items.some(i => i.label === 'Age Groups')).toBe(false);
+    // Other Billing items still surface — gating is per-item, not group-wide.
+    expect(items.some(i => i.icon === 'briefcase')).toBe(true);
+    comp.ngOnDestroy();
+  });
+
+  it('shows Age Groups when the tenant has at least one person-centric line', () => {
+    const { comp } = instantiate({
+      initialPerms: ['billing:view', 'billing:manage_age_groups'],
+      insuranceLines: ['VEHICLE', 'HEALTH'],
+    });
+    comp.ngOnInit();
+
+    const items = comp.visibleGroups.flatMap(g => g.items);
+    expect(items.some(i => i.label === 'Age Groups')).toBe(true);
+    comp.ngOnDestroy();
   });
 
   it('unsubscribes from all observables on destroy', () => {

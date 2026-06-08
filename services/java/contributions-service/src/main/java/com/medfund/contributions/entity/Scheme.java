@@ -23,6 +23,9 @@ public class Scheme {
     @Column("scheme_type")
     private String schemeType = "medical_aid";
 
+    @Column("insurance_line")
+    private String insuranceLine = "HEALTH";
+
     private String status = "active";
 
     @Column("effective_date")
@@ -60,6 +63,9 @@ public class Scheme {
 
     public String getSchemeType() { return schemeType; }
     public void setSchemeType(String schemeType) { this.schemeType = schemeType; }
+
+    public String getInsuranceLine() { return insuranceLine; }
+    public void setInsuranceLine(String insuranceLine) { this.insuranceLine = insuranceLine; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }

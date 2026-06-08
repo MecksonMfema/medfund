@@ -14,13 +14,16 @@ import com.medfund.contributions.exception.SchemeNotFoundException;
 import com.medfund.contributions.repository.AgeGroupRepository;
 import com.medfund.contributions.repository.SchemeBenefitRepository;
 import com.medfund.contributions.repository.SchemeRepository;
+import com.medfund.contributions.util.PersonCentricLines;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -78,6 +81,7 @@ public class SchemeService {
                 scheme.setName(request.name());
                 scheme.setDescription(request.description());
                 scheme.setSchemeType(request.schemeTypeOrDefault());
+                scheme.setInsuranceLine(resolveInsuranceLine(request.insuranceLine()));
                 scheme.setStatus("active");
                 scheme.setEffectiveDate(request.effectiveDate());
                 scheme.setEndDate(request.endDate());
@@ -118,6 +122,9 @@ public class SchemeService {
                 }
                 if (request.schemeType() != null) {
                     scheme.setSchemeType(request.schemeType());
+                }
+                if (request.insuranceLine() != null) {
+                    scheme.setInsuranceLine(resolveInsuranceLine(request.insuranceLine()));
                 }
                 if (request.endDate() != null) {
                     scheme.setEndDate(request.endDate());
@@ -181,6 +188,12 @@ public class SchemeService {
         return schemeRepository.findById(request.schemeId())
             .switchIfEmpty(Mono.error(new SchemeNotFoundException(request.schemeId())))
             .flatMap(scheme -> {
+                if (!PersonCentricLines.isPersonCentric(scheme.getInsuranceLine())) {
+                    return Mono.<SchemeBenefit>error(new ResponseStatusException(
+                        HttpStatus.UNPROCESSABLE_ENTITY,
+                        "Scheme benefits do not apply to " + scheme.getInsuranceLine()
+                            + " schemes — they are asset-centric and have no member-level benefit limits."));
+                }
                 String resolvedCurrency = resolveChildCurrency(scheme, request.currencyCode());
 
                 var benefit = new SchemeBenefit();
@@ -294,6 +307,12 @@ public class SchemeService {
         return schemeRepository.findById(request.schemeId())
             .switchIfEmpty(Mono.error(new SchemeNotFoundException(request.schemeId())))
             .flatMap(scheme -> {
+                if (!PersonCentricLines.isPersonCentric(scheme.getInsuranceLine())) {
+                    return Mono.<AgeGroup>error(new ResponseStatusException(
+                        HttpStatus.UNPROCESSABLE_ENTITY,
+                        "Age groups do not apply to " + scheme.getInsuranceLine()
+                            + " schemes — they are asset-centric and have no member-age dimension."));
+                }
                 String resolvedCurrency = resolveChildCurrency(scheme, request.currencyCode());
 
                 var ageGroup = new AgeGroup();
@@ -391,6 +410,25 @@ public class SchemeService {
             return "USD";
         }
         return code.toUpperCase();
+    }
+
+    /**
+     * Normalizes an incoming insurance line to upper-case and validates it is
+     * one of the eight known catalogue values. A blank/null value falls back
+     * to HEALTH — matching the V021 backfill default and the existing
+     * `medical_aid` scheme_type default.
+     */
+    private static String resolveInsuranceLine(String line) {
+        if (line == null || line.isBlank()) {
+            return "HEALTH";
+        }
+        String normalized = line.toUpperCase();
+        if (!PersonCentricLines.isKnown(normalized)) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "Unknown insurance line '" + line + "'. Must be one of "
+                    + PersonCentricLines.ALL_LINES + ".");
+        }
+        return normalized;
     }
 
     /**

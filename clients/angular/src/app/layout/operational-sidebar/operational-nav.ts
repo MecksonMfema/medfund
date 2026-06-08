@@ -12,8 +12,14 @@ import { PermissionKey } from '../../core/security/permissions';
  * item; without exact, both stay highlighted when on the drug subpath.
  *
  * <p>{@code featureFlag} ties an item's visibility to a tenant feature
- * toggle from {@code TenantService.tenant$} (e.g. "drugClaims"). The
- * sidebar resolves the flag at render time.
+ * toggle from {@code TenantService.tenant$}. The sidebar resolves the flag
+ * at render time:
+ * <ul>
+ *   <li>{@code 'drugClaims'} — tenant has {@code drugClaimsEnabled !== false}.</li>
+ *   <li>{@code 'ageGroupsAvailable'} — tenant has at least one person-centric
+ *       insurance line (HEALTH/LIFE/FUNERAL/GROUP/TRAVEL/DISABILITY).
+ *       Hides Age Groups for asset-only tenants (VEHICLE/PROPERTY).</li>
+ * </ul>
  */
 export interface OperationalNavItem {
   label: string;
@@ -21,7 +27,7 @@ export interface OperationalNavItem {
   route: string;
   permissions?: PermissionKey[];
   exactMatch?: boolean;
-  featureFlag?: 'drugClaims';
+  featureFlag?: 'drugClaims' | 'ageGroupsAvailable';
 }
 
 /**
@@ -53,7 +59,7 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
     title: 'Billing',
     items: [
       { label: 'Schemes',        icon: 'briefcase',      route: '/tenant/billing/schemes',      permissions: ['billing:view', 'billing:manage_schemes'], exactMatch: true },
-      { label: 'Age Groups',     icon: 'users',          route: '/tenant/billing/age-groups',   permissions: ['billing:view', 'billing:manage_age_groups'] },
+      { label: 'Age Groups',     icon: 'users',          route: '/tenant/billing/age-groups',   permissions: ['billing:view', 'billing:manage_age_groups'], featureFlag: 'ageGroupsAvailable' },
       { label: 'Generate',       icon: 'play-circle',    route: '/tenant/billing/generate',     permissions: ['billing:generate_billing'] },
       { label: 'Contributions',  icon: 'list',           route: '/tenant/billing/view',         permissions: ['billing:view'] },
       { label: 'Statements',     icon: 'file-text',      route: '/tenant/billing/statements',   permissions: ['billing:view_statements'] },

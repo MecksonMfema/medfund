@@ -8,6 +8,11 @@ import {
   insuranceLineLabel,
   schemeTypesForLines,
   INSURANCE_LINES,
+  PERSON_CENTRIC_LINES,
+  isPersonCentricLine,
+  LINE_FOR_SCHEME_TYPE,
+  lineForSchemeType,
+  SCHEME_TYPES_BY_LINE,
 } from './insurance-lines';
 
 describe('insurance-lines parsers', () => {
@@ -156,6 +161,59 @@ describe('insurance-lines parsers', () => {
       for (const line of INSURANCE_LINES) {
         expect(schemeTypesForLines([line.value]).length).toBeGreaterThan(0);
       }
+    });
+  });
+
+  describe('isPersonCentricLine', () => {
+    it('returns true for person-centric lines', () => {
+      for (const line of ['HEALTH', 'LIFE', 'FUNERAL', 'GROUP', 'TRAVEL', 'DISABILITY']) {
+        expect(isPersonCentricLine(line)).toBe(true);
+      }
+    });
+
+    it('returns false for asset-centric lines', () => {
+      expect(isPersonCentricLine('VEHICLE')).toBe(false);
+      expect(isPersonCentricLine('PROPERTY')).toBe(false);
+    });
+
+    it('returns false for unknown / null / undefined inputs', () => {
+      expect(isPersonCentricLine(null)).toBe(false);
+      expect(isPersonCentricLine(undefined)).toBe(false);
+      expect(isPersonCentricLine('')).toBe(false);
+      expect(isPersonCentricLine('NOPE')).toBe(false);
+    });
+
+    it('PERSON_CENTRIC_LINES covers every non-asset catalogue entry', () => {
+      const assetLines = new Set(['VEHICLE', 'PROPERTY']);
+      for (const line of INSURANCE_LINES) {
+        const expected = !assetLines.has(line.value);
+        expect(PERSON_CENTRIC_LINES.has(line.value)).toBe(expected);
+      }
+    });
+  });
+
+  describe('LINE_FOR_SCHEME_TYPE / lineForSchemeType', () => {
+    it('maps every code in SCHEME_TYPES_BY_LINE to its declaring line', () => {
+      for (const [line, bucket] of Object.entries(SCHEME_TYPES_BY_LINE)) {
+        for (const t of bucket) {
+          expect(LINE_FOR_SCHEME_TYPE[t.code]).toBe(line);
+        }
+      }
+    });
+
+    it('falls back to HEALTH for unknown / blank / null inputs', () => {
+      expect(lineForSchemeType(null)).toBe('HEALTH');
+      expect(lineForSchemeType(undefined)).toBe('HEALTH');
+      expect(lineForSchemeType('')).toBe('HEALTH');
+      expect(lineForSchemeType('__nope__')).toBe('HEALTH');
+    });
+
+    it('returns the correct line for sample known codes', () => {
+      expect(lineForSchemeType('medical_aid')).toBe('HEALTH');
+      expect(lineForSchemeType('comprehensive')).toBe('VEHICLE');
+      expect(lineForSchemeType('term_life')).toBe('LIFE');
+      expect(lineForSchemeType('group_disability')).toBe('GROUP');
+      expect(lineForSchemeType('buildings')).toBe('PROPERTY');
     });
   });
 });

@@ -53,7 +53,7 @@ class SchemeServiceIT extends AbstractIntegrationTest {
     @WithTenant(TENANT_ID)
     void create_persistsRowAndEmitsAuditEventToKafka() {
         String uniqueName = "Gold IT " + UUID.randomUUID();
-        var request = new CreateSchemeRequest(uniqueName, "desc", "hmo",
+        var request = new CreateSchemeRequest(uniqueName, "desc", "hmo", "HEALTH",
             LocalDate.now(), null, "USD");
 
         // Capture the persisted ID so we can re-read and assert end-to-end.

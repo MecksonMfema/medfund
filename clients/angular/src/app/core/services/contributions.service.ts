@@ -7,6 +7,10 @@ export interface Scheme {
   name: string;
   description?: string;
   schemeType?: string;
+  /** Insurance product line this scheme belongs to (HEALTH, LIFE, VEHICLE, …).
+   *  Drives whether Age Groups / Scheme Benefits screens apply. Backed by the
+   *  schemes.insurance_line column (NOT NULL, default HEALTH). */
+  insuranceLine?: string;
   status: string;
   effectiveDate: string;
   endDate?: string;
@@ -100,6 +104,9 @@ export interface UpsertSchemePayload {
   name: string;
   description?: string;
   schemeType?: string;
+  /** Derived from schemeType via LINE_FOR_SCHEME_TYPE on the form. The form
+   *  always sets this; the backend defaults to HEALTH if omitted. */
+  insuranceLine?: string;
   effectiveDate: string;
   endDate?: string;
   currencyCode?: string;

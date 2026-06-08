@@ -240,3 +240,43 @@ export function schemeTypesForLines(lines: string[]): SchemeTypeOption[] {
   }
   return out;
 }
+
+/**
+ * Lines that are person-centric — i.e. priced and covered around an
+ * individual member. These support age-banded contributions and benefit
+ * caps (annual/event limits). Asset-centric lines (VEHICLE, PROPERTY) are
+ * priced from the insured asset's value, not the policyholder's age, so
+ * the Age Groups and Scheme Benefits screens are hidden for them.
+ */
+export const PERSON_CENTRIC_LINES: ReadonlySet<string> = new Set([
+  'HEALTH', 'LIFE', 'FUNERAL', 'GROUP', 'TRAVEL', 'DISABILITY',
+]);
+
+export function isPersonCentricLine(line: string | null | undefined): boolean {
+  return !!line && PERSON_CENTRIC_LINES.has(line);
+}
+
+/**
+ * Reverse lookup: scheme_type code → insurance line. Built at module load
+ * by flattening SCHEME_TYPES_BY_LINE so the form can derive a scheme's
+ * line from the dropdown selection without an extra UI control. The same
+ * mapping is mirrored in the V021 Flyway migration; keep the two in sync
+ * when adding new scheme types.
+ */
+export const LINE_FOR_SCHEME_TYPE: Readonly<Record<string, string>> = (() => {
+  const map: Record<string, string> = {};
+  for (const [line, bucket] of Object.entries(SCHEME_TYPES_BY_LINE)) {
+    for (const t of bucket) map[t.code] = line;
+  }
+  return map;
+})();
+
+/**
+ * Returns the insurance line for a given scheme type code, falling back
+ * to HEALTH for unknown / blank codes — matches the V021 migration's
+ * backfill default and the existing `medical_aid` column default.
+ */
+export function lineForSchemeType(schemeType: string | null | undefined): string {
+  if (!schemeType) return 'HEALTH';
+  return LINE_FOR_SCHEME_TYPE[schemeType] ?? 'HEALTH';
+}

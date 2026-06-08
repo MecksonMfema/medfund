@@ -5,7 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ContributionsService, Scheme, UpsertSchemePayload } from '../../../../core/services/contributions.service';
 import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
 import { TenantService } from '../../../../core/services/tenant.service';
-import { SchemeTypeOption, schemeTypesForLines, insuranceLineLabel } from '../../../../core/models/insurance-lines';
+import { SchemeTypeOption, schemeTypesForLines, insuranceLineLabel, lineForSchemeType } from '../../../../core/models/insurance-lines';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
 
@@ -159,6 +159,10 @@ export class SchemeFormComponent implements OnInit {
       name: this.form.name.trim(),
       description: this.form.description.trim() || undefined,
       schemeType: this.form.schemeType,
+      // The user picks a scheme_type (Medical aid, Comprehensive, ...); we
+      // derive the insurance line from that pick so Age Groups / Benefits
+      // gating downstream knows whether they apply to this scheme.
+      insuranceLine: lineForSchemeType(this.form.schemeType),
       effectiveDate: this.form.effectiveDate,
       endDate: this.form.endDate || undefined,
       currencyCode: this.form.currencyCode,
