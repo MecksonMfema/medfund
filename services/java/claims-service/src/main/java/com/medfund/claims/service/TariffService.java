@@ -56,7 +56,8 @@ public class TariffService {
     }
 
     @Transactional
-    public Mono<TariffSchedule> createSchedule(CreateTariffScheduleRequest request, String actorId) {
+    public Mono<TariffSchedule> createSchedule(CreateTariffScheduleRequest request,
+                                                 String actorId, String actorEmail) {
         var schedule = new TariffSchedule();
         schedule.setId(UUID.randomUUID());
         schedule.setName(request.name());
@@ -69,7 +70,8 @@ public class TariffService {
         return tariffScheduleRepository.save(schedule)
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "TariffSchedule", saved.getId().toString(), "CREATE", actorId,
+                return publishAudit(tenantId, "TariffSchedule", saved.getId().toString(), "CREATE",
+                        actorId, actorEmail,
                         null,
                         Map.of("name", saved.getName(), "status", saved.getStatus()))
                     .thenReturn(saved);
@@ -90,7 +92,8 @@ public class TariffService {
     }
 
     @Transactional
-    public Mono<TariffCode> createCode(CreateTariffCodeRequest request, String actorId) {
+    public Mono<TariffCode> createCode(CreateTariffCodeRequest request,
+                                         String actorId, String actorEmail) {
         var tariffCode = new TariffCode();
         tariffCode.setId(UUID.randomUUID());
         tariffCode.setScheduleId(request.scheduleId());
@@ -105,7 +108,8 @@ public class TariffService {
         return tariffCodeRepository.save(tariffCode)
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "TariffCode", saved.getId().toString(), "CREATE", actorId,
+                return publishAudit(tenantId, "TariffCode", saved.getId().toString(), "CREATE",
+                        actorId, actorEmail,
                         null,
                         Map.of("code", saved.getCode(), "description", saved.getDescription(),
                                "unitPrice", saved.getUnitPrice().toString()))
@@ -155,7 +159,7 @@ public class TariffService {
     // ---- Private helpers ----
 
     private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
-                                     String action, String actorId,
+                                     String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
@@ -163,7 +167,7 @@ public class TariffService {
             entityId,
             action,
             actorId,
-            null,
+            actorEmail,
             oldValue,
             newValue,
             new String[]{"name", "status", "code", "unitPrice"},

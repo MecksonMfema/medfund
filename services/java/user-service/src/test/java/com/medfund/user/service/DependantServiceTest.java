@@ -106,7 +106,7 @@ class DependantServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            dependantService.create(request, actorId)
+            dependantService.create(request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(dependant -> {
@@ -134,7 +134,7 @@ class DependantServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            dependantService.update(id, request, actorId)
+            dependantService.update(id, request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(result -> {
@@ -156,7 +156,7 @@ class DependantServiceTest {
         when(dependantRepository.findById(id)).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            dependantService.update(id, request, UUID.randomUUID().toString())
+            dependantService.update(id, request, UUID.randomUUID().toString(), "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .expectError(DependantNotFoundException.class)
@@ -174,7 +174,7 @@ class DependantServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            dependantService.remove(id, actorId)
+            dependantService.remove(id, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(result -> assertThat(result.getStatus()).isEqualTo("removed"))

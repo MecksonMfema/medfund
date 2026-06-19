@@ -6,6 +6,7 @@ import com.medfund.finance.entity.CreditNote;
 import com.medfund.finance.entity.DebitNote;
 import com.medfund.finance.repository.CreditNoteRepository;
 import com.medfund.finance.repository.DebitNoteRepository;
+import com.medfund.shared.audit.AuditActor;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
@@ -16,11 +17,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -45,7 +47,7 @@ public class NotesController {
     @PostMapping("/api/v1/debit-notes")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create a debit note")
-    public Mono<NoteResponse> createDebit(@Valid @RequestBody CreateNoteRequest request, Principal principal) {
+    public Mono<NoteResponse> createDebit(@Valid @RequestBody CreateNoteRequest request, @AuthenticationPrincipal Jwt jwt) {
         var entity = new DebitNote();
         entity.setId(UUID.randomUUID());
         entity.setAmount(request.amount());
@@ -54,7 +56,7 @@ public class NotesController {
         entity.setTaskId(request.taskId());
         entity.setNotes(request.notes());
         return debitRepo.save(entity)
-            .flatMap(saved -> publishAudit("DebitNote", saved.getId(), snapshot(saved.getAmount(), saved.getCurrencyCode(), saved.getReference()), principal)
+            .flatMap(saved -> publishAudit("DebitNote", saved.getId(), snapshot(saved.getAmount(), saved.getCurrencyCode(), saved.getReference()), jwt)
                 .thenReturn(saved))
             .map(NoteResponse::from);
     }
@@ -68,7 +70,7 @@ public class NotesController {
     @PostMapping("/api/v1/credit-notes")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create a credit note")
-    public Mono<NoteResponse> createCredit(@Valid @RequestBody CreateNoteRequest request, Principal principal) {
+    public Mono<NoteResponse> createCredit(@Valid @RequestBody CreateNoteRequest request, @AuthenticationPrincipal Jwt jwt) {
         var entity = new CreditNote();
         entity.setId(UUID.randomUUID());
         entity.setAmount(request.amount());
@@ -77,7 +79,7 @@ public class NotesController {
         entity.setTaskId(request.taskId());
         entity.setNotes(request.notes());
         return creditRepo.save(entity)
-            .flatMap(saved -> publishAudit("CreditNote", saved.getId(), snapshot(saved.getAmount(), saved.getCurrencyCode(), saved.getReference()), principal)
+            .flatMap(saved -> publishAudit("CreditNote", saved.getId(), snapshot(saved.getAmount(), saved.getCurrencyCode(), saved.getReference()), jwt)
                 .thenReturn(saved))
             .map(NoteResponse::from);
     }
@@ -90,8 +92,9 @@ public class NotesController {
         return snap;
     }
 
-    private Mono<Void> publishAudit(String entityType, UUID id, Map<String, Object> after, Principal principal) {
-        String actor = principal != null ? principal.getName() : "system";
+    private Mono<Void> publishAudit(String entityType, UUID id, Map<String, Object> after, Jwt jwt) {
+        String actorId = AuditActor.id(jwt);
+        String actorEmail = AuditActor.email(jwt);
         return Mono.deferContextual(ctx -> {
             String tenantId = TenantContext.get(ctx);
             var event = AuditEvent.create(
@@ -99,8 +102,8 @@ public class NotesController {
                 entityType,
                 id.toString(),
                 "CREATE",
-                actor,
-                null,
+                actorId,
+                actorEmail,
                 null,
                 after,
                 new String[]{},

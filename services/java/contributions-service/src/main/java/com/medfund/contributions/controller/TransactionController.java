@@ -5,6 +5,7 @@ import com.medfund.contributions.dto.RecordTransactionRequest;
 import com.medfund.contributions.dto.TransactionFilterParams;
 import com.medfund.contributions.dto.TransactionResponse;
 import com.medfund.contributions.service.TransactionService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -14,11 +15,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -80,7 +82,8 @@ public class TransactionController {
         @ApiResponse(responseCode = "400", description = "Validation error")
     })
     public Mono<TransactionResponse> record(@Valid @RequestBody RecordTransactionRequest request,
-                                            Principal principal) {
-        return transactionService.record(request, principal.getName()).map(TransactionResponse::from);
+                                            @AuthenticationPrincipal Jwt jwt) {
+        return transactionService.record(request, AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(TransactionResponse::from);
     }
 }

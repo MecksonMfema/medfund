@@ -43,7 +43,7 @@ public class DrugService {
     }
 
     @Transactional
-    public Mono<Drug> create(UpsertDrugRequest request, String actorId) {
+    public Mono<Drug> create(UpsertDrugRequest request, String actorId, String actorEmail) {
         var drug = new Drug();
         drug.setDrugName(request.drugName());
         drug.setDrugType(request.drugType() != null ? request.drugType() : "ACUTE");
@@ -56,12 +56,12 @@ public class DrugService {
         drug.setDoNotPay(Boolean.TRUE.equals(request.doNotPay()));
         drug.setIsActive(request.isActive() != null ? request.isActive() : true);
         return r2dbcTemplate.insert(drug)
-                .flatMap(saved -> audit(saved, "CREATE", actorId, null,
+                .flatMap(saved -> audit(saved, "CREATE", actorId, actorEmail, null,
                         Map.of("drugName", saved.getDrugName(), "drugType", saved.getDrugType())));
     }
 
     @Transactional
-    public Mono<Drug> update(UUID id, UpsertDrugRequest request, String actorId) {
+    public Mono<Drug> update(UUID id, UpsertDrugRequest request, String actorId, String actorEmail) {
         return findById(id).flatMap(existing -> {
             if (request.drugName() != null) existing.setDrugName(request.drugName());
             if (request.drugType() != null) existing.setDrugType(request.drugType());
@@ -73,27 +73,27 @@ public class DrugService {
             if (request.doNotPay() != null) existing.setDoNotPay(request.doNotPay());
             if (request.isActive() != null) existing.setIsActive(request.isActive());
             return repo.save(existing)
-                    .flatMap(saved -> audit(saved, "UPDATE", actorId,
+                    .flatMap(saved -> audit(saved, "UPDATE", actorId, actorEmail,
                             Map.of("drugName", saved.getDrugName()),
                             Map.of("drugName", saved.getDrugName(), "drugType", saved.getDrugType())));
         });
     }
 
     @Transactional
-    public Mono<Void> delete(UUID id, String actorId) {
+    public Mono<Void> delete(UUID id, String actorId, String actorEmail) {
         return findById(id).flatMap(existing -> repo.deleteById(id)
-                .then(audit(existing, "DELETE", actorId,
+                .then(audit(existing, "DELETE", actorId, actorEmail,
                         Map.of("drugName", existing.getDrugName()), null)).then());
     }
 
-    private Mono<Drug> audit(Drug d, String action, String actorId,
+    private Mono<Drug> audit(Drug d, String action, String actorId, String actorEmail,
                               Map<String, Object> oldVal, Map<String, Object> newVal) {
         return Mono.deferContextual(ctx -> {
             String tenantId = TenantContext.get(ctx);
             var event = AuditEvent.create(
                     tenantId != null ? tenantId : "unknown",
                     "Drug", d.getId().toString(), d.getDrugName(),
-                    action, actorId, null,
+                    action, actorId, actorEmail,
                     oldVal, newVal,
                     new String[]{"drugName", "drugType", "isActive"},
                     UUID.randomUUID().toString());

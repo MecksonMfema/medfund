@@ -4,6 +4,7 @@ import com.medfund.finance.dto.CreatePaymentRunRequest;
 import com.medfund.finance.dto.PaymentRunItemResponse;
 import com.medfund.finance.dto.PaymentRunResponse;
 import com.medfund.finance.service.PaymentRunService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -11,11 +12,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -60,15 +62,15 @@ public class PaymentRunController {
         @ApiResponse(responseCode = "201", description = "Payment run created"),
         @ApiResponse(responseCode = "400", description = "Validation error")
     })
-    public Mono<PaymentRunResponse> create(@Valid @RequestBody CreatePaymentRunRequest request, Principal principal) {
-        return paymentRunService.create(request, principal.getName()).map(PaymentRunResponse::from);
+    public Mono<PaymentRunResponse> create(@Valid @RequestBody CreatePaymentRunRequest request, @AuthenticationPrincipal Jwt jwt) {
+        return paymentRunService.create(request, AuditActor.id(jwt), AuditActor.email(jwt)).map(PaymentRunResponse::from);
     }
 
     @PostMapping("/{id}/approve")
     @Operation(summary = "Approve a draft payment run",
         description = "Approval gate before execute. Optional — execute also accepts draft runs.")
-    public Mono<PaymentRunResponse> approve(@PathVariable UUID id, Principal principal) {
-        return paymentRunService.approve(id, principal.getName()).map(PaymentRunResponse::from);
+    public Mono<PaymentRunResponse> approve(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return paymentRunService.approve(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(PaymentRunResponse::from);
     }
 
     @PostMapping("/{id}/execute")
@@ -78,14 +80,14 @@ public class PaymentRunController {
         @ApiResponse(responseCode = "200", description = "Payment run executed"),
         @ApiResponse(responseCode = "404", description = "Payment run not found")
     })
-    public Mono<PaymentRunResponse> execute(@PathVariable UUID id, Principal principal) {
-        return paymentRunService.execute(id, principal.getName()).map(PaymentRunResponse::from);
+    public Mono<PaymentRunResponse> execute(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return paymentRunService.execute(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(PaymentRunResponse::from);
     }
 
     @PostMapping("/{id}/cancel")
     @Operation(summary = "Cancel a payment run",
         description = "Allowed in draft, approved, or executing states. Once executed, posting a reversing run is the path.")
-    public Mono<PaymentRunResponse> cancel(@PathVariable UUID id, Principal principal) {
-        return paymentRunService.cancel(id, principal.getName()).map(PaymentRunResponse::from);
+    public Mono<PaymentRunResponse> cancel(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return paymentRunService.cancel(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(PaymentRunResponse::from);
     }
 }

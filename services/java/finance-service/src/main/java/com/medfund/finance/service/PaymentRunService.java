@@ -11,6 +11,7 @@ import com.medfund.finance.repository.ProviderBalanceRepository;
 import com.medfund.finance.util.Actors;
 
 import java.math.BigDecimal;
+import com.medfund.shared.audit.AuditActor;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
@@ -69,7 +70,7 @@ public class PaymentRunService {
     }
 
     @Transactional
-    public Mono<PaymentRun> create(CreatePaymentRunRequest request, String actorId) {
+    public Mono<PaymentRun> create(CreatePaymentRunRequest request, String actorId, String actorEmail) {
         return generateRunNumber()
             .flatMap(runNumber -> {
                 var run = new PaymentRun();
@@ -87,7 +88,7 @@ public class PaymentRunService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "PaymentRun", saved.getId().toString(), "CREATE", actorId,
+                return publishAudit(tenantId, "PaymentRun", saved.getId().toString(), "CREATE", actorId, actorEmail,
                         null,
                         Map.of("runNumber", saved.getRunNumber(), "status", saved.getStatus()))
                     .then(eventPublisher.publishPaymentRunCreated(
@@ -101,7 +102,7 @@ public class PaymentRunService {
     }
 
     @Transactional
-    public Mono<PaymentRun> execute(UUID runId, String actorId) {
+    public Mono<PaymentRun> execute(UUID runId, String actorId, String actorEmail) {
         return paymentRunRepository.findById(runId)
             .switchIfEmpty(Mono.error(new PaymentNotFoundException(runId)))
             .flatMap(run -> {
@@ -129,7 +130,7 @@ public class PaymentRunService {
                     })
                     .flatMap(completed -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "PaymentRun", completed.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "PaymentRun", completed.getId().toString(), "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", completed.getStatus()))
                             .then(eventPublisher.publishPaymentRunExecuted(
@@ -142,7 +143,7 @@ public class PaymentRunService {
     }
 
     @Transactional
-    public Mono<PaymentRun> approve(UUID runId, String actorId) {
+    public Mono<PaymentRun> approve(UUID runId, String actorId, String actorEmail) {
         return paymentRunRepository.findById(runId)
             .switchIfEmpty(Mono.error(new PaymentNotFoundException(runId)))
             .flatMap(run -> {
@@ -156,7 +157,7 @@ public class PaymentRunService {
                 return paymentRunRepository.save(run)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "PaymentRun", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "PaymentRun", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .then(eventPublisher.publishPaymentRunApproved(
@@ -169,7 +170,7 @@ public class PaymentRunService {
     }
 
     @Transactional
-    public Mono<PaymentRun> cancel(UUID runId, String actorId) {
+    public Mono<PaymentRun> cancel(UUID runId, String actorId, String actorEmail) {
         return paymentRunRepository.findById(runId)
             .switchIfEmpty(Mono.error(new PaymentNotFoundException(runId)))
             .flatMap(run -> {
@@ -184,7 +185,7 @@ public class PaymentRunService {
                 return paymentRunRepository.save(run)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "PaymentRun", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "PaymentRun", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .then(eventPublisher.publishPaymentRunCancelled(
@@ -241,7 +242,7 @@ public class PaymentRunService {
     }
 
     private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
-                                     String action, String actorId,
+                                     String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
@@ -249,7 +250,7 @@ public class PaymentRunService {
             entityId,
             action,
             actorId,
-            null,
+            actorEmail,
             oldValue,
             newValue,
             new String[]{"status"},
@@ -262,7 +263,7 @@ public class PaymentRunService {
         java.time.Instant cutoff = java.time.Instant.now().minus(java.time.Duration.ofHours(24));
         return paymentRunRepository.findByStatus("draft")
             .filter(run -> run.getCreatedAt() != null && run.getCreatedAt().isBefore(cutoff))
-            .flatMap(run -> execute(run.getId(), "system"))
+            .flatMap(run -> execute(run.getId(), AuditActor.SYSTEM_ID, AuditActor.SYSTEM_EMAIL))
             .then();
     }
 }

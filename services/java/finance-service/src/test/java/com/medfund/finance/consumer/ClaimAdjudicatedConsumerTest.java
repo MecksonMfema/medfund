@@ -37,7 +37,7 @@ class ClaimAdjudicatedConsumerTest {
         String json = """
             {"event":"CLAIM_ADJUDICATED","decision":"APPROVED","providerId":"%s","approvedAmount":"1500.00","currencyCode":"USD"}
             """.formatted(providerId);
-        when(providerBalanceService.updateBalance(any(), any(), any(), any(), any(), any()))
+        when(providerBalanceService.updateBalance(any(), any(), any(), any(), any(), any(), any()))
             .thenReturn(Mono.just(new ProviderBalance()));
 
         StepVerifier.create(consumer.processEvent(json))
@@ -49,7 +49,8 @@ class ClaimAdjudicatedConsumerTest {
             null,
             new BigDecimal("1500.00"),
             null,
-            "system"
+            "system",
+            "system@medfund"
         );
     }
 
@@ -59,7 +60,7 @@ class ClaimAdjudicatedConsumerTest {
         String json = """
             {"event":"CLAIM_ADJUDICATED","decision":"PARTIAL_APPROVED","providerId":"%s","approvedAmount":"950.00","currencyCode":"USD"}
             """.formatted(providerId);
-        when(providerBalanceService.updateBalance(any(), any(), any(), any(), any(), any()))
+        when(providerBalanceService.updateBalance(any(), any(), any(), any(), any(), any(), any()))
             .thenReturn(Mono.just(new ProviderBalance()));
 
         StepVerifier.create(consumer.processEvent(json))
@@ -71,7 +72,8 @@ class ClaimAdjudicatedConsumerTest {
             null,
             new BigDecimal("950.00"),
             null,
-            "system"
+            "system",
+            "system@medfund"
         );
     }
 
@@ -85,7 +87,7 @@ class ClaimAdjudicatedConsumerTest {
         String json = """
             {"event":"CLAIM_ADJUDICATED","decision":"REJECTED","providerId":"%s","claimedAmount":"500.00","approvedAmount":"0","currencyCode":"USD"}
             """.formatted(providerId);
-        when(providerBalanceService.updateBalance(any(), any(), any(), any(), any(), any()))
+        when(providerBalanceService.updateBalance(any(), any(), any(), any(), any(), any(), any()))
             .thenReturn(Mono.just(new ProviderBalance()));
 
         StepVerifier.create(consumer.processEvent(json))
@@ -97,7 +99,8 @@ class ClaimAdjudicatedConsumerTest {
             new BigDecimal("500.00"),
             null,
             null,
-            "system"
+            "system",
+            "system@medfund"
         );
     }
 
@@ -107,7 +110,7 @@ class ClaimAdjudicatedConsumerTest {
         String json = """
             {"event":"CLAIM_ADJUDICATED","decision":"PAID","providerId":"%s","approvedAmount":"750.00","currencyCode":"USD"}
             """.formatted(providerId);
-        when(providerBalanceService.updateBalance(any(), any(), any(), any(), any(), any()))
+        when(providerBalanceService.updateBalance(any(), any(), any(), any(), any(), any(), any()))
             .thenReturn(Mono.just(new ProviderBalance()));
 
         StepVerifier.create(consumer.processEvent(json))
@@ -119,7 +122,8 @@ class ClaimAdjudicatedConsumerTest {
             null,
             null,
             new BigDecimal("750.00"),
-            "system"
+            "system",
+            "system@medfund"
         );
     }
 

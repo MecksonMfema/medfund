@@ -3,6 +3,7 @@ package com.medfund.claims.controller;
 import com.medfund.claims.dto.RejectionReasonResponse;
 import com.medfund.claims.dto.UpsertRejectionReasonRequest;
 import com.medfund.claims.service.RejectionReasonService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -10,11 +11,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -51,8 +53,8 @@ public class RejectionReasonController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create a new rejection reason")
     public Mono<RejectionReasonResponse> create(@Valid @RequestBody UpsertRejectionReasonRequest request,
-                                                  Principal principal) {
-        return service.create(request, principal != null ? principal.getName() : null)
+                                                  @AuthenticationPrincipal Jwt jwt) {
+        return service.create(request, AuditActor.id(jwt), AuditActor.email(jwt))
                 .map(RejectionReasonResponse::from);
     }
 
@@ -60,15 +62,15 @@ public class RejectionReasonController {
     @Operation(summary = "Update an existing rejection reason (description / category / active flag)")
     public Mono<RejectionReasonResponse> update(@PathVariable UUID id,
                                                   @Valid @RequestBody UpsertRejectionReasonRequest request,
-                                                  Principal principal) {
-        return service.update(id, request, principal != null ? principal.getName() : null)
+                                                  @AuthenticationPrincipal Jwt jwt) {
+        return service.update(id, request, AuditActor.id(jwt), AuditActor.email(jwt))
                 .map(RejectionReasonResponse::from);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Delete a rejection reason (use isActive=false instead unless certain)")
-    public Mono<Void> delete(@PathVariable UUID id, Principal principal) {
-        return service.delete(id, principal != null ? principal.getName() : null);
+    public Mono<Void> delete(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return service.delete(id, AuditActor.id(jwt), AuditActor.email(jwt));
     }
 }

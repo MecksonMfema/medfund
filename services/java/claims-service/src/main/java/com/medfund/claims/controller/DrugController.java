@@ -3,16 +3,18 @@ package com.medfund.claims.controller;
 import com.medfund.claims.dto.DrugResponse;
 import com.medfund.claims.dto.UpsertDrugRequest;
 import com.medfund.claims.service.DrugService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -48,8 +50,9 @@ public class DrugController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Add a drug to the formulary")
-    public Mono<DrugResponse> create(@Valid @RequestBody UpsertDrugRequest request, Principal principal) {
-        return service.create(request, principal != null ? principal.getName() : null)
+    public Mono<DrugResponse> create(@Valid @RequestBody UpsertDrugRequest request,
+                                      @AuthenticationPrincipal Jwt jwt) {
+        return service.create(request, AuditActor.id(jwt), AuditActor.email(jwt))
                 .map(DrugResponse::from);
     }
 
@@ -57,15 +60,15 @@ public class DrugController {
     @Operation(summary = "Update a drug")
     public Mono<DrugResponse> update(@PathVariable UUID id,
                                        @Valid @RequestBody UpsertDrugRequest request,
-                                       Principal principal) {
-        return service.update(id, request, principal != null ? principal.getName() : null)
+                                       @AuthenticationPrincipal Jwt jwt) {
+        return service.update(id, request, AuditActor.id(jwt), AuditActor.email(jwt))
                 .map(DrugResponse::from);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Remove a drug from the formulary")
-    public Mono<Void> delete(@PathVariable UUID id, Principal principal) {
-        return service.delete(id, principal != null ? principal.getName() : null);
+    public Mono<Void> delete(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return service.delete(id, AuditActor.id(jwt), AuditActor.email(jwt));
     }
 }

@@ -69,7 +69,7 @@ class ReconciliationServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                reconciliationService.create(request, actorId)
+                reconciliationService.create(request, actorId, "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -105,7 +105,7 @@ class ReconciliationServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                reconciliationService.create(request, actorId)
+                reconciliationService.create(request, actorId, "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -131,7 +131,7 @@ class ReconciliationServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                reconciliationService.markMatched(recon.getId(), actorId)
+                reconciliationService.markMatched(recon.getId(), actorId, "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -162,7 +162,7 @@ class ReconciliationServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                reconciliationService.create(request, UUID.randomUUID().toString())
+                reconciliationService.create(request, UUID.randomUUID().toString(), "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -189,7 +189,7 @@ class ReconciliationServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                reconciliationService.create(request, UUID.randomUUID().toString())
+                reconciliationService.create(request, UUID.randomUUID().toString(), "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -214,7 +214,7 @@ class ReconciliationServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                reconciliationService.create(request, UUID.randomUUID().toString())
+                reconciliationService.create(request, UUID.randomUUID().toString(), "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("matched"))
@@ -233,7 +233,7 @@ class ReconciliationServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                reconciliationService.markInvestigating(recon.getId(), UUID.randomUUID().toString())
+                reconciliationService.markInvestigating(recon.getId(), UUID.randomUUID().toString(), "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("investigating"))
@@ -250,7 +250,7 @@ class ReconciliationServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                reconciliationService.markResolved(recon.getId(), UUID.randomUUID().toString())
+                reconciliationService.markResolved(recon.getId(), UUID.randomUUID().toString(), "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -269,7 +269,7 @@ class ReconciliationServiceTest {
         when(bankReconciliationRepository.findById(recon.getId())).thenReturn(Mono.just(recon));
 
         StepVerifier.create(
-                reconciliationService.markResolved(recon.getId(), UUID.randomUUID().toString())
+                reconciliationService.markResolved(recon.getId(), UUID.randomUUID().toString(), "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("resolved"))

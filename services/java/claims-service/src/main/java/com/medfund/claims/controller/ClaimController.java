@@ -5,6 +5,7 @@ import com.medfund.claims.dto.ClaimResponse;
 import com.medfund.claims.dto.SubmitClaimRequest;
 import com.medfund.claims.repository.ClaimLineRepository;
 import com.medfund.claims.service.ClaimService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -12,11 +13,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -81,31 +83,34 @@ public class ClaimController {
         @ApiResponse(responseCode = "201", description = "Claim submitted"),
         @ApiResponse(responseCode = "400", description = "Validation error")
     })
-    public Mono<ClaimResponse> submit(@Valid @RequestBody SubmitClaimRequest request, Principal principal) {
-        return claimService.submit(request, principal.getName()).map(ClaimResponse::from);
+    public Mono<ClaimResponse> submit(@Valid @RequestBody SubmitClaimRequest request,
+                                       @AuthenticationPrincipal Jwt jwt) {
+        return claimService.submit(request, AuditActor.id(jwt), AuditActor.email(jwt)).map(ClaimResponse::from);
     }
 
     @PostMapping("/{id}/verify")
     @Operation(summary = "Verify a submitted claim")
     public Mono<ClaimResponse> verify(@PathVariable UUID id,
                                        @RequestParam String verificationCode,
-                                       Principal principal) {
-        return claimService.verify(id, verificationCode, principal.getName()).map(ClaimResponse::from);
+                                       @AuthenticationPrincipal Jwt jwt) {
+        return claimService.verify(id, verificationCode, AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(ClaimResponse::from);
     }
 
     @PostMapping("/{id}/adjudicate")
     @Operation(summary = "Run 6-stage adjudication pipeline",
         description = "Eligibility → Waiting periods → Benefit limits → Pre-auth → Tariff/pricing → Clinical validation")
-    public Mono<ClaimResponse> adjudicate(@PathVariable UUID id, Principal principal) {
-        return claimService.adjudicate(id, principal.getName()).map(ClaimResponse::from);
+    public Mono<ClaimResponse> adjudicate(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return claimService.adjudicate(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(ClaimResponse::from);
     }
 
     @PostMapping("/{id}/status")
     @Operation(summary = "Update claim status (commit, pay)")
     public Mono<ClaimResponse> updateStatus(@PathVariable UUID id,
                                              @RequestParam String status,
-                                             Principal principal) {
-        return claimService.updateStatus(id, status, principal.getName()).map(ClaimResponse::from);
+                                             @AuthenticationPrincipal Jwt jwt) {
+        return claimService.updateStatus(id, status, AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(ClaimResponse::from);
     }
 
     @GetMapping("/{claimId}/lines")

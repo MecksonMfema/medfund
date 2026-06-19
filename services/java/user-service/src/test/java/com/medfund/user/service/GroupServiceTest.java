@@ -140,7 +140,7 @@ class GroupServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            groupService.create(request, actorId)
+            groupService.create(request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(group -> {
@@ -168,7 +168,7 @@ class GroupServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            groupService.update(id, request, actorId)
+            groupService.update(id, request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(result -> {
@@ -189,7 +189,7 @@ class GroupServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            groupService.suspend(id, actorId)
+            groupService.suspend(id, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(result -> assertThat(result.getStatus()).isEqualTo("suspended"))
@@ -216,7 +216,7 @@ class GroupServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            groupService.create(request, actorId)
+            groupService.create(request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "t1"))
         )
             .assertNext(g -> {
@@ -247,7 +247,7 @@ class GroupServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            groupService.create(request, actorId)
+            groupService.create(request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "t1"))
         )
             .assertNext(g -> {
@@ -277,7 +277,7 @@ class GroupServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            groupService.create(request, actorId)
+            groupService.create(request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "t1"))
         )
             .assertNext(g -> {
@@ -301,7 +301,7 @@ class GroupServiceTest {
         when(groupLiaisonRepository.existsById(liaisonId)).thenReturn(Mono.just(false));
 
         StepVerifier.create(
-            groupService.create(request, actorId)
+            groupService.create(request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "t1"))
         )
             .expectErrorSatisfies(err -> {
@@ -323,7 +323,7 @@ class GroupServiceTest {
         );
 
         StepVerifier.create(
-            groupService.create(request, actorId)
+            groupService.create(request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "t1"))
         )
             .expectErrorSatisfies(err -> {
@@ -343,7 +343,7 @@ class GroupServiceTest {
         );
 
         StepVerifier.create(
-            groupService.create(request, actorId)
+            groupService.create(request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "t1"))
         )
             .expectErrorSatisfies(err -> {
@@ -365,7 +365,7 @@ class GroupServiceTest {
         when(memberRepository.existsById(liaisonId)).thenReturn(Mono.just(false));
 
         StepVerifier.create(
-            groupService.create(request, actorId)
+            groupService.create(request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "t1"))
         )
             .expectErrorSatisfies(err -> {
@@ -392,7 +392,7 @@ class GroupServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            groupService.update(group.getId(), request, actorId)
+            groupService.update(group.getId(), request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "t1"))
         )
             .assertNext(g -> {
@@ -424,7 +424,7 @@ class GroupServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            groupService.update(group.getId(), request, actorId)
+            groupService.update(group.getId(), request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "t1"))
         )
             .assertNext(g -> {

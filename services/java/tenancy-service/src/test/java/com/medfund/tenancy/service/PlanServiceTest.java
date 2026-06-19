@@ -75,7 +75,7 @@ class PlanServiceTest {
         when(planRepository.save(any(Plan.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any(AuditEvent.class))).thenReturn(Mono.empty());
 
-        StepVerifier.create(planService.create(request, "actor-123"))
+        StepVerifier.create(planService.create(request, "actor-123", "actor@test.example"))
                 .assertNext(plan -> {
                     assertThat(plan.getName()).isEqualTo("Basic");
                     assertThat(plan.getMaxMembers()).isEqualTo(100);
@@ -99,7 +99,7 @@ class PlanServiceTest {
         when(planRepository.save(any(Plan.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any(AuditEvent.class))).thenReturn(Mono.empty());
 
-        StepVerifier.create(planService.deactivate(plan.getId(), "actor-123"))
+        StepVerifier.create(planService.deactivate(plan.getId(), "actor-123", "actor@test.example"))
                 .assertNext(result -> {
                     assertThat(result.getIsActive()).isFalse();
                     assertThat(result.getName()).isEqualTo("Basic");

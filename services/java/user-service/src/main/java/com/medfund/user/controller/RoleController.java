@@ -1,5 +1,6 @@
 package com.medfund.user.controller;
 
+import com.medfund.shared.audit.AuditActor;
 import com.medfund.shared.security.Permissions;
 import com.medfund.user.dto.AssignRoleRequest;
 import com.medfund.user.dto.CreateRoleRequest;
@@ -63,8 +64,8 @@ public class RoleController {
         @ApiResponse(responseCode = "400", description = "Validation error"),
         @ApiResponse(responseCode = "409", description = "Role name already exists")
     })
-    public Mono<Role> create(@Valid @RequestBody CreateRoleRequest request, Principal principal) {
-        return roleService.create(request, principal.getName());
+    public Mono<Role> create(@Valid @RequestBody CreateRoleRequest request, @AuthenticationPrincipal Jwt jwt) {
+        return roleService.create(request, AuditActor.id(jwt), AuditActor.email(jwt));
     }
 
     @GetMapping("/user/{userId}")
@@ -88,15 +89,15 @@ public class RoleController {
         @ApiResponse(responseCode = "201", description = "Role assigned"),
         @ApiResponse(responseCode = "400", description = "Validation error")
     })
-    public Mono<UserRole> assignRole(@Valid @RequestBody AssignRoleRequest request, Principal principal) {
-        return roleService.assignRole(request, principal.getName());
+    public Mono<UserRole> assignRole(@Valid @RequestBody AssignRoleRequest request, @AuthenticationPrincipal Jwt jwt) {
+        return roleService.assignRole(request, AuditActor.id(jwt), AuditActor.email(jwt));
     }
 
     @DeleteMapping("/user/{userId}/role/{roleId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Revoke a role from a user")
-    public Mono<Void> revokeRole(@PathVariable UUID userId, @PathVariable UUID roleId, Principal principal) {
-        return roleService.revokeRole(userId, roleId, principal.getName());
+    public Mono<Void> revokeRole(@PathVariable UUID userId, @PathVariable UUID roleId, @AuthenticationPrincipal Jwt jwt) {
+        return roleService.revokeRole(userId, roleId, AuditActor.id(jwt), AuditActor.email(jwt));
     }
 
     @PutMapping("/{id}")

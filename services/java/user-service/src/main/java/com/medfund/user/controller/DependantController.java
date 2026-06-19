@@ -1,5 +1,6 @@
 package com.medfund.user.controller;
 
+import com.medfund.shared.audit.AuditActor;
 import com.medfund.user.dto.CreateDependantRequest;
 import com.medfund.user.dto.DependantResponse;
 import com.medfund.user.dto.UpdateDependantRequest;
@@ -11,11 +12,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -53,8 +55,8 @@ public class DependantController {
         @ApiResponse(responseCode = "201", description = "Dependant created"),
         @ApiResponse(responseCode = "400", description = "Validation error")
     })
-    public Mono<DependantResponse> create(@Valid @RequestBody CreateDependantRequest request, Principal principal) {
-        return dependantService.create(request, principal.getName()).map(DependantResponse::from);
+    public Mono<DependantResponse> create(@Valid @RequestBody CreateDependantRequest request, @AuthenticationPrincipal Jwt jwt) {
+        return dependantService.create(request, AuditActor.id(jwt), AuditActor.email(jwt)).map(DependantResponse::from);
     }
 
     @PutMapping("/{id}")
@@ -66,13 +68,13 @@ public class DependantController {
     })
     public Mono<DependantResponse> update(@PathVariable UUID id,
                                           @Valid @RequestBody UpdateDependantRequest request,
-                                          Principal principal) {
-        return dependantService.update(id, request, principal.getName()).map(DependantResponse::from);
+                                          @AuthenticationPrincipal Jwt jwt) {
+        return dependantService.update(id, request, AuditActor.id(jwt), AuditActor.email(jwt)).map(DependantResponse::from);
     }
 
     @PostMapping("/{id}/remove")
     @Operation(summary = "Remove a dependant", description = "Soft-removes dependant by setting status to 'removed'")
-    public Mono<DependantResponse> remove(@PathVariable UUID id, Principal principal) {
-        return dependantService.remove(id, principal.getName()).map(DependantResponse::from);
+    public Mono<DependantResponse> remove(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return dependantService.remove(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(DependantResponse::from);
     }
 }

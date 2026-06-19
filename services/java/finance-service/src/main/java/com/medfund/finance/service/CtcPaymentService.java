@@ -37,7 +37,7 @@ public class CtcPaymentService {
             .switchIfEmpty(Mono.error(new IllegalArgumentException("CTC payment not found: " + id)));
     }
 
-    public Mono<CtcPayment> create(CreateCtcPaymentRequest request, String actor) {
+    public Mono<CtcPayment> create(CreateCtcPaymentRequest request, String actor, String actorEmail) {
         if (request.groupId() == null && request.memberId() == null) {
             return Mono.error(new IllegalArgumentException("Either groupId or memberId is required"));
         }
@@ -50,10 +50,10 @@ public class CtcPaymentService {
         entity.setContributionId(request.contributionId());
         entity.setCommitted(false);
         return repository.save(entity)
-            .flatMap(saved -> publishAudit("CREATE", saved, null, snapshot(saved), actor).thenReturn(saved));
+            .flatMap(saved -> publishAudit("CREATE", saved, null, snapshot(saved), actor, actorEmail).thenReturn(saved));
     }
 
-    public Mono<CtcPayment> commit(UUID id, String actor) {
+    public Mono<CtcPayment> commit(UUID id, String actor, String actorEmail) {
         return repository.findById(id)
             .switchIfEmpty(Mono.error(new IllegalArgumentException("CTC payment not found: " + id)))
             .flatMap(existing -> {
@@ -61,7 +61,7 @@ public class CtcPaymentService {
                 Map<String, Object> before = snapshot(existing);
                 existing.setCommitted(true);
                 return repository.save(existing)
-                    .flatMap(saved -> publishAudit("UPDATE", saved, before, snapshot(saved), actor).thenReturn(saved));
+                    .flatMap(saved -> publishAudit("UPDATE", saved, before, snapshot(saved), actor, actorEmail).thenReturn(saved));
             });
     }
 
@@ -75,7 +75,7 @@ public class CtcPaymentService {
         return snap;
     }
 
-    private Mono<Void> publishAudit(String action, CtcPayment c, Map<String, Object> before, Map<String, Object> after, String actor) {
+    private Mono<Void> publishAudit(String action, CtcPayment c, Map<String, Object> before, Map<String, Object> after, String actor, String actorEmail) {
         return Mono.deferContextual(ctx -> {
             String tenantId = TenantContext.get(ctx);
             var event = AuditEvent.create(
@@ -84,7 +84,7 @@ public class CtcPaymentService {
                 c.getId().toString(),
                 action,
                 actor != null ? actor : "system",
-                null,
+                actorEmail,
                 before,
                 after,
                 new String[]{},

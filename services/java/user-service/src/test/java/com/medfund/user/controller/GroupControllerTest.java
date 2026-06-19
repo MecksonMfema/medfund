@@ -58,7 +58,7 @@ class GroupControllerTest {
 
     @Test
     void create_returns201() {
-        when(groupService.create(any(), anyString())).thenReturn(Mono.just(createTestGroup()));
+        when(groupService.create(any(), any(), any())).thenReturn(Mono.just(createTestGroup()));
 
         webTestClient.mutateWith(mockJwt())
                 .post().uri("/api/v1/groups")

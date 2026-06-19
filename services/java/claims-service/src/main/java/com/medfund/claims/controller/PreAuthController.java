@@ -3,6 +3,7 @@ package com.medfund.claims.controller;
 import com.medfund.claims.dto.PreAuthRequest;
 import com.medfund.claims.dto.PreAuthResponse;
 import com.medfund.claims.service.PreAuthService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -11,12 +12,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
-import java.security.Principal;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -67,8 +69,10 @@ public class PreAuthController {
         @ApiResponse(responseCode = "201", description = "Pre-authorization requested"),
         @ApiResponse(responseCode = "400", description = "Validation error")
     })
-    public Mono<PreAuthResponse> request(@Valid @RequestBody PreAuthRequest request, Principal principal) {
-        return preAuthService.request(request, principal.getName()).map(PreAuthResponse::from);
+    public Mono<PreAuthResponse> request(@Valid @RequestBody PreAuthRequest request,
+                                          @AuthenticationPrincipal Jwt jwt) {
+        return preAuthService.request(request, AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(PreAuthResponse::from);
     }
 
     @PostMapping("/{id}/approve")
@@ -76,15 +80,17 @@ public class PreAuthController {
     public Mono<PreAuthResponse> approve(@PathVariable UUID id,
                                           @RequestParam BigDecimal approvedAmount,
                                           @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate expiryDate,
-                                          Principal principal) {
-        return preAuthService.approve(id, approvedAmount, expiryDate, principal.getName()).map(PreAuthResponse::from);
+                                          @AuthenticationPrincipal Jwt jwt) {
+        return preAuthService.approve(id, approvedAmount, expiryDate, AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(PreAuthResponse::from);
     }
 
     @PostMapping("/{id}/reject")
     @Operation(summary = "Reject pre-authorization")
     public Mono<PreAuthResponse> reject(@PathVariable UUID id,
                                          @RequestParam String reason,
-                                         Principal principal) {
-        return preAuthService.reject(id, reason, principal.getName()).map(PreAuthResponse::from);
+                                         @AuthenticationPrincipal Jwt jwt) {
+        return preAuthService.reject(id, reason, AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(PreAuthResponse::from);
     }
 }

@@ -3,6 +3,7 @@ package com.medfund.finance.controller;
 import com.medfund.finance.dto.CreatePaymentRequest;
 import com.medfund.finance.dto.PaymentResponse;
 import com.medfund.finance.service.PaymentService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -10,11 +11,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -65,8 +67,8 @@ public class PaymentController {
         @ApiResponse(responseCode = "201", description = "Payment created"),
         @ApiResponse(responseCode = "400", description = "Validation error")
     })
-    public Mono<PaymentResponse> create(@Valid @RequestBody CreatePaymentRequest request, Principal principal) {
-        return paymentService.create(request, principal.getName()).map(PaymentResponse::from);
+    public Mono<PaymentResponse> create(@Valid @RequestBody CreatePaymentRequest request, @AuthenticationPrincipal Jwt jwt) {
+        return paymentService.create(request, AuditActor.id(jwt), AuditActor.email(jwt)).map(PaymentResponse::from);
     }
 
     @PostMapping("/{id}/pay")
@@ -75,8 +77,8 @@ public class PaymentController {
         @ApiResponse(responseCode = "200", description = "Payment marked as paid"),
         @ApiResponse(responseCode = "404", description = "Payment not found")
     })
-    public Mono<PaymentResponse> markPaid(@PathVariable UUID id, Principal principal) {
-        return paymentService.markPaid(id, principal.getName()).map(PaymentResponse::from);
+    public Mono<PaymentResponse> markPaid(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return paymentService.markPaid(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(PaymentResponse::from);
     }
 
     @PostMapping("/{id}/cancel")
@@ -87,7 +89,7 @@ public class PaymentController {
         @ApiResponse(responseCode = "400", description = "Cannot cancel a paid payment"),
         @ApiResponse(responseCode = "404", description = "Payment not found")
     })
-    public Mono<PaymentResponse> cancel(@PathVariable UUID id, Principal principal) {
-        return paymentService.cancel(id, principal.getName()).map(PaymentResponse::from);
+    public Mono<PaymentResponse> cancel(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return paymentService.cancel(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(PaymentResponse::from);
     }
 }

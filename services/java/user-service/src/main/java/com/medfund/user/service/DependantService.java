@@ -39,7 +39,7 @@ public class DependantService {
     }
 
     @Transactional
-    public Mono<Dependant> create(CreateDependantRequest request, String actorId) {
+    public Mono<Dependant> create(CreateDependantRequest request, String actorId, String actorEmail) {
         var dependant = new Dependant();
         // id NOT set — let PostgreSQL generate via DEFAULT gen_random_uuid()
         dependant.setMemberId(request.memberId());
@@ -61,7 +61,7 @@ public class DependantService {
                 var event = AuditEvent.create(
                     tenantId != null ? tenantId : "unknown", "Dependant", saved.getId().toString(),
                     saved.getFirstName() + " " + saved.getLastName(),
-                    "CREATE", actorId, null, null,
+                    "CREATE", actorId, actorEmail, null,
                     Map.of("firstName", saved.getFirstName(), "lastName", saved.getLastName(),
                         "relationship", saved.getRelationship(), "memberId", saved.getMemberId().toString()),
                     new String[]{"firstName", "lastName", "relationship"},
@@ -72,7 +72,7 @@ public class DependantService {
     }
 
     @Transactional
-    public Mono<Dependant> update(UUID id, UpdateDependantRequest request, String actorId) {
+    public Mono<Dependant> update(UUID id, UpdateDependantRequest request, String actorId, String actorEmail) {
         return dependantRepository.findById(id)
             .switchIfEmpty(Mono.error(new DependantNotFoundException(id)))
             .flatMap(existing -> {
@@ -97,7 +97,7 @@ public class DependantService {
                         var event = AuditEvent.create(
                             tenantId != null ? tenantId : "unknown", "Dependant", saved.getId().toString(),
                             saved.getFirstName() + " " + saved.getLastName(),
-                            "UPDATE", actorId, null, oldValue,
+                            "UPDATE", actorId, actorEmail, oldValue,
                             Map.of("firstName", saved.getFirstName(), "lastName", saved.getLastName(),
                                 "relationship", saved.getRelationship()),
                             new String[]{"firstName", "lastName", "relationship"},
@@ -109,7 +109,7 @@ public class DependantService {
     }
 
     @Transactional
-    public Mono<Dependant> remove(UUID id, String actorId) {
+    public Mono<Dependant> remove(UUID id, String actorId, String actorEmail) {
         return dependantRepository.findById(id)
             .switchIfEmpty(Mono.error(new DependantNotFoundException(id)))
             .flatMap(existing -> {
@@ -123,7 +123,7 @@ public class DependantService {
                 var event = AuditEvent.create(
                     tenantId != null ? tenantId : "unknown", "Dependant", saved.getId().toString(),
                     saved.getFirstName() + " " + saved.getLastName(),
-                    "UPDATE", actorId, null,
+                    "UPDATE", actorId, actorEmail,
                     Map.of("status", "active"),
                     Map.of("status", "removed"),
                     new String[]{"status"},

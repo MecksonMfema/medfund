@@ -1,5 +1,6 @@
 package com.medfund.user.controller;
 
+import com.medfund.shared.audit.AuditActor;
 import com.medfund.user.dto.EmailSenderResponse;
 import com.medfund.user.dto.UpsertEmailSenderRequest;
 import com.medfund.user.service.EmailSenderService;
@@ -11,11 +12,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -50,8 +52,8 @@ public class EmailSenderController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Register a new sender (status defaults to pending)")
     public Mono<EmailSenderResponse> create(@Valid @RequestBody UpsertEmailSenderRequest request,
-                                             Principal principal) {
-        return service.create(request, principal != null ? principal.getName() : null)
+                                             @AuthenticationPrincipal Jwt jwt) {
+        return service.create(request, AuditActor.id(jwt), AuditActor.email(jwt))
                 .map(EmailSenderResponse::from);
     }
 
@@ -59,29 +61,29 @@ public class EmailSenderController {
     @Operation(summary = "Update sender display name / notes")
     public Mono<EmailSenderResponse> update(@PathVariable UUID id,
                                              @Valid @RequestBody UpsertEmailSenderRequest request,
-                                             Principal principal) {
-        return service.update(id, request, principal != null ? principal.getName() : null)
+                                             @AuthenticationPrincipal Jwt jwt) {
+        return service.update(id, request, AuditActor.id(jwt), AuditActor.email(jwt))
                 .map(EmailSenderResponse::from);
     }
 
     @PostMapping("/{id}/verify")
     @Operation(summary = "Mark a sender as verified")
-    public Mono<EmailSenderResponse> verify(@PathVariable UUID id, Principal principal) {
-        return service.verify(id, principal != null ? principal.getName() : null)
+    public Mono<EmailSenderResponse> verify(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return service.verify(id, AuditActor.id(jwt), AuditActor.email(jwt))
                 .map(EmailSenderResponse::from);
     }
 
     @PostMapping("/{id}/revoke")
     @Operation(summary = "Revoke a sender (cannot be used by future campaigns)")
-    public Mono<EmailSenderResponse> revoke(@PathVariable UUID id, Principal principal) {
-        return service.revoke(id, principal != null ? principal.getName() : null)
+    public Mono<EmailSenderResponse> revoke(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return service.revoke(id, AuditActor.id(jwt), AuditActor.email(jwt))
                 .map(EmailSenderResponse::from);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Delete a sender record")
-    public Mono<Void> delete(@PathVariable UUID id, Principal principal) {
-        return service.delete(id, principal != null ? principal.getName() : null);
+    public Mono<Void> delete(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return service.delete(id, AuditActor.id(jwt), AuditActor.email(jwt));
     }
 }

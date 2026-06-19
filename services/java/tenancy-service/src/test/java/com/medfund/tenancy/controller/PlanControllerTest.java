@@ -59,7 +59,7 @@ class PlanControllerTest {
 
     @Test
     void create_returns201() {
-        when(planService.create(any(), anyString())).thenReturn(Mono.just(createTestPlan()));
+        when(planService.create(any(), any(), any())).thenReturn(Mono.just(createTestPlan()));
 
         webTestClient.mutateWith(mockJwt())
                 .post().uri("/api/v1/plans")

@@ -1,5 +1,6 @@
 package com.medfund.user.controller;
 
+import com.medfund.shared.audit.AuditActor;
 import com.medfund.user.dto.CreateMemberRequest;
 import com.medfund.user.dto.CursorPage;
 import com.medfund.user.dto.MemberResponse;
@@ -12,12 +13,13 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -86,8 +88,8 @@ public class MemberController {
         @ApiResponse(responseCode = "201", description = "Member enrolled"),
         @ApiResponse(responseCode = "400", description = "Validation error")
     })
-    public Mono<MemberResponse> enroll(@Valid @RequestBody CreateMemberRequest request, Principal principal) {
-        return memberService.enroll(request, principal.getName()).map(MemberResponse::from);
+    public Mono<MemberResponse> enroll(@Valid @RequestBody CreateMemberRequest request, @AuthenticationPrincipal Jwt jwt) {
+        return memberService.enroll(request, AuditActor.id(jwt), AuditActor.email(jwt)).map(MemberResponse::from);
     }
 
     @PutMapping("/{id}")
@@ -98,25 +100,25 @@ public class MemberController {
     })
     public Mono<MemberResponse> update(@PathVariable UUID id,
                                         @Valid @RequestBody UpdateMemberRequest request,
-                                        Principal principal) {
-        return memberService.update(id, request, principal.getName()).map(MemberResponse::from);
+                                        @AuthenticationPrincipal Jwt jwt) {
+        return memberService.update(id, request, AuditActor.id(jwt), AuditActor.email(jwt)).map(MemberResponse::from);
     }
 
     @PostMapping("/{id}/activate")
     @Operation(summary = "Activate member")
-    public Mono<MemberResponse> activate(@PathVariable UUID id, Principal principal) {
-        return memberService.activate(id, principal.getName()).map(MemberResponse::from);
+    public Mono<MemberResponse> activate(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return memberService.activate(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(MemberResponse::from);
     }
 
     @PostMapping("/{id}/suspend")
     @Operation(summary = "Suspend member", description = "Suspends member and disables Keycloak account")
-    public Mono<MemberResponse> suspend(@PathVariable UUID id, Principal principal) {
-        return memberService.suspend(id, principal.getName()).map(MemberResponse::from);
+    public Mono<MemberResponse> suspend(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return memberService.suspend(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(MemberResponse::from);
     }
 
     @PostMapping("/{id}/terminate")
     @Operation(summary = "Terminate member", description = "Terminates member, sets termination date, disables Keycloak account")
-    public Mono<MemberResponse> terminate(@PathVariable UUID id, Principal principal) {
-        return memberService.terminate(id, principal.getName()).map(MemberResponse::from);
+    public Mono<MemberResponse> terminate(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return memberService.terminate(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(MemberResponse::from);
     }
 }

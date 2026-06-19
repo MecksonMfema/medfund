@@ -46,7 +46,7 @@ class TransactionControllerTest {
 
     @Test
     void record_returns201() {
-        when(transactionService.record(any(), any())).thenReturn(Mono.just(createTestTransaction()));
+        when(transactionService.record(any(), any(), any())).thenReturn(Mono.just(createTestTransaction()));
 
         String body = """
                 {

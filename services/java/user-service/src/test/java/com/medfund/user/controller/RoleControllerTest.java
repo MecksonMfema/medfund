@@ -62,7 +62,7 @@ class RoleControllerTest {
 
     @Test
     void create_returns201() {
-        when(roleService.create(any(), anyString())).thenReturn(Mono.just(createTestRole()));
+        when(roleService.create(any(), any(), any())).thenReturn(Mono.just(createTestRole()));
 
         webTestClient.mutateWith(mockJwt())
                 .post().uri("/api/v1/roles")

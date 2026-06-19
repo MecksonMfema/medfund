@@ -58,7 +58,7 @@ public class EmailCampaignService {
     }
 
     @Transactional
-    public Mono<EmailCampaign> create(UpsertEmailCampaignRequest request, String actorId) {
+    public Mono<EmailCampaign> create(UpsertEmailCampaignRequest request, String actorId, String actorEmail) {
         var campaign = new EmailCampaign();
         campaign.setSenderId(request.senderId());
         campaign.setSubject(request.subject());
@@ -72,12 +72,12 @@ public class EmailCampaignService {
         campaign.setCreatedBy(actorId != null ? UUID.fromString(actorId) : null);
         campaign.setUpdatedBy(actorId != null ? UUID.fromString(actorId) : null);
         return r2dbcTemplate.insert(campaign)
-                .flatMap(saved -> audit(saved, "CREATE", actorId, null,
+                .flatMap(saved -> audit(saved, "CREATE", actorId, actorEmail, null,
                         Map.of("subject", saved.getSubject(), "status", saved.getStatus())));
     }
 
     @Transactional
-    public Mono<EmailCampaign> update(UUID id, UpsertEmailCampaignRequest request, String actorId) {
+    public Mono<EmailCampaign> update(UUID id, UpsertEmailCampaignRequest request, String actorId, String actorEmail) {
         return findById(id).flatMap(existing -> {
             if (!"draft".equalsIgnoreCase(existing.getStatus())) {
                 return Mono.error(new IllegalStateException(
@@ -91,21 +91,21 @@ public class EmailCampaignService {
             existing.setUpdatedAt(Instant.now());
             existing.setUpdatedBy(actorId != null ? UUID.fromString(actorId) : null);
             return repo.save(existing)
-                    .flatMap(saved -> audit(saved, "UPDATE", actorId,
+                    .flatMap(saved -> audit(saved, "UPDATE", actorId, actorEmail,
                             Map.of("subject", saved.getSubject()),
                             Map.of("subject", saved.getSubject())));
         });
     }
 
     @Transactional
-    public Mono<Void> delete(UUID id, String actorId) {
+    public Mono<Void> delete(UUID id, String actorId, String actorEmail) {
         return findById(id).flatMap(existing ->
-                repo.deleteById(id).then(audit(existing, "DELETE", actorId,
+                repo.deleteById(id).then(audit(existing, "DELETE", actorId, actorEmail,
                         Map.of("subject", existing.getSubject()), null)).then());
     }
 
     @Transactional
-    public Mono<EmailCampaign> send(UUID id, String actorId) {
+    public Mono<EmailCampaign> send(UUID id, String actorId, String actorEmail) {
         return findById(id).flatMap(existing -> {
             if (!"draft".equalsIgnoreCase(existing.getStatus())) {
                 return Mono.error(new IllegalStateException(
@@ -120,7 +120,7 @@ public class EmailCampaignService {
                 existing.setUpdatedAt(Instant.now());
                 existing.setUpdatedBy(actorId != null ? UUID.fromString(actorId) : null);
                 return repo.save(existing)
-                        .flatMap(saved -> audit(saved, "UPDATE", actorId,
+                        .flatMap(saved -> audit(saved, "UPDATE", actorId, actorEmail,
                                 Map.of("status", "draft"),
                                 Map.of("status", "sent",
                                        "recipientCount", String.valueOf(count),
@@ -219,7 +219,7 @@ public class EmailCampaignService {
         }
     }
 
-    private Mono<EmailCampaign> audit(EmailCampaign campaign, String action, String actorId,
+    private Mono<EmailCampaign> audit(EmailCampaign campaign, String action, String actorId, String actorEmail,
                                        Map<String, Object> oldVal, Map<String, Object> newVal) {
         return Mono.deferContextual(ctx -> {
             String tenantId = TenantContext.get(ctx);
@@ -227,7 +227,7 @@ public class EmailCampaignService {
                     tenantId != null ? tenantId : "unknown",
                     "EmailCampaign", campaign.getId().toString(),
                     campaign.getSubject(),
-                    action, actorId, null,
+                    action, actorId, actorEmail,
                     oldVal, newVal,
                     new String[]{"subject", "status", "sentAt"},
                     UUID.randomUUID().toString());

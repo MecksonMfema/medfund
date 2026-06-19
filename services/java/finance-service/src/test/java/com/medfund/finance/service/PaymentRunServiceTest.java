@@ -77,7 +77,7 @@ class PaymentRunServiceTest {
             .thenReturn(Mono.empty());
 
         StepVerifier.create(
-                paymentRunService.create(request, actorId)
+                paymentRunService.create(request, actorId, "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -112,7 +112,7 @@ class PaymentRunServiceTest {
         when(eventPublisher.publishPaymentRunExecuted(any(), any(), anyInt())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                paymentRunService.execute(run.getId(), actorId)
+                paymentRunService.execute(run.getId(), actorId, "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -139,7 +139,7 @@ class PaymentRunServiceTest {
         when(eventPublisher.publishPaymentRunApproved(any(), any(), any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                paymentRunService.approve(run.getId(), UUID.randomUUID().toString())
+                paymentRunService.approve(run.getId(), UUID.randomUUID().toString(), "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("approved"))
@@ -155,7 +155,7 @@ class PaymentRunServiceTest {
         when(paymentRunRepository.findById(run.getId())).thenReturn(Mono.just(run));
 
         StepVerifier.create(
-                paymentRunService.approve(run.getId(), UUID.randomUUID().toString())
+                paymentRunService.approve(run.getId(), UUID.randomUUID().toString(), "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .expectError(IllegalStateException.class)
@@ -173,7 +173,7 @@ class PaymentRunServiceTest {
         when(eventPublisher.publishPaymentRunCancelled(any(), any(), any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                paymentRunService.cancel(run.getId(), UUID.randomUUID().toString())
+                paymentRunService.cancel(run.getId(), UUID.randomUUID().toString(), "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("cancelled"))
@@ -187,7 +187,7 @@ class PaymentRunServiceTest {
         when(paymentRunRepository.findById(run.getId())).thenReturn(Mono.just(run));
 
         StepVerifier.create(
-                paymentRunService.cancel(run.getId(), UUID.randomUUID().toString())
+                paymentRunService.cancel(run.getId(), UUID.randomUUID().toString(), "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .expectError(IllegalStateException.class)
@@ -203,7 +203,7 @@ class PaymentRunServiceTest {
         when(paymentRunRepository.findById(run.getId())).thenReturn(Mono.just(run));
 
         StepVerifier.create(
-                paymentRunService.cancel(run.getId(), UUID.randomUUID().toString())
+                paymentRunService.cancel(run.getId(), UUID.randomUUID().toString(), "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("cancelled"))

@@ -57,7 +57,7 @@ class TariffControllerTest {
 
     @Test
     void createSchedule_returns201() {
-        when(tariffService.createSchedule(any(), any())).thenReturn(Mono.just(createTestSchedule()));
+        when(tariffService.createSchedule(any(), any(), any())).thenReturn(Mono.just(createTestSchedule()));
 
         String body = """
                 {

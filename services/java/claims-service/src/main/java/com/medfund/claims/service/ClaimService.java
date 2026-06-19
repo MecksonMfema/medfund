@@ -79,7 +79,7 @@ public class ClaimService {
     }
 
     @Transactional
-    public Mono<Claim> submit(SubmitClaimRequest request, String actorId) {
+    public Mono<Claim> submit(SubmitClaimRequest request, String actorId, String actorEmail) {
         return generateClaimNumber()
             .flatMap(claimNumber -> {
                 var claim = new Claim();
@@ -133,7 +133,8 @@ public class ClaimService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "Claim", saved.getId().toString(), "CREATE", actorId,
+                return publishAudit(tenantId, "Claim", saved.getId().toString(), "CREATE",
+                        actorId, actorEmail,
                         null,
                         Map.of("claimNumber", saved.getClaimNumber(), "status", saved.getStatus(),
                                "claimedAmount", saved.getClaimedAmount().toString()))
@@ -146,7 +147,7 @@ public class ClaimService {
     }
 
     @Transactional
-    public Mono<Claim> verify(UUID claimId, String verificationCode, String actorId) {
+    public Mono<Claim> verify(UUID claimId, String verificationCode, String actorId, String actorEmail) {
         return claimRepository.findById(claimId)
             .switchIfEmpty(Mono.error(new ClaimNotFoundException(claimId)))
             .flatMap(claim -> {
@@ -166,7 +167,8 @@ public class ClaimService {
                 return claimRepository.save(claim)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "Claim", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "Claim", saved.getId().toString(), "UPDATE",
+                                actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .then(eventPublisher.publishClaimStatusChanged(
@@ -177,7 +179,7 @@ public class ClaimService {
     }
 
     @Transactional
-    public Mono<Claim> adjudicate(UUID claimId, String actorId) {
+    public Mono<Claim> adjudicate(UUID claimId, String actorId, String actorEmail) {
         return claimRepository.findById(claimId)
             .switchIfEmpty(Mono.error(new ClaimNotFoundException(claimId)))
             .flatMap(claim -> {
@@ -194,11 +196,11 @@ public class ClaimService {
             .flatMap(claim -> claimLineRepository.findByClaimId(claim.getId())
                 .collectList()
                 .flatMap(lines -> adjudicationPipeline.execute(claim, lines)
-                    .flatMap(result -> applyAdjudicationResult(claim, result, actorId))));
+                    .flatMap(result -> applyAdjudicationResult(claim, result, actorId, actorEmail))));
     }
 
     @Transactional
-    public Mono<Claim> updateStatus(UUID claimId, String newStatus, String actorId) {
+    public Mono<Claim> updateStatus(UUID claimId, String newStatus, String actorId, String actorEmail) {
         return claimRepository.findById(claimId)
             .switchIfEmpty(Mono.error(new ClaimNotFoundException(claimId)))
             .flatMap(claim -> {
@@ -214,7 +216,8 @@ public class ClaimService {
                 return claimRepository.save(claim)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "Claim", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "Claim", saved.getId().toString(), "UPDATE",
+                                actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .then(eventPublisher.publishClaimStatusChanged(
@@ -226,7 +229,8 @@ public class ClaimService {
 
     // ---- Private helpers ----
 
-    private Mono<Claim> applyAdjudicationResult(Claim claim, AdjudicationResult result, String actorId) {
+    private Mono<Claim> applyAdjudicationResult(Claim claim, AdjudicationResult result,
+                                                  String actorId, String actorEmail) {
         String previousStatus = claim.getStatus();
 
         switch (result.decision()) {
@@ -255,7 +259,8 @@ public class ClaimService {
         return claimRepository.save(claim)
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "Claim", saved.getId().toString(), "UPDATE", actorId,
+                return publishAudit(tenantId, "Claim", saved.getId().toString(), "UPDATE",
+                        actorId, actorEmail,
                         Map.of("status", previousStatus),
                         Map.of("status", saved.getStatus(), "decision", result.decision()))
                     .then(eventPublisher.publishClaimAdjudicated(
@@ -274,7 +279,8 @@ public class ClaimService {
     }
 
     @Transactional
-    public Mono<Claim> submitDrugClaim(com.medfund.claims.dto.SubmitDrugClaimRequest request, String actorId) {
+    public Mono<Claim> submitDrugClaim(com.medfund.claims.dto.SubmitDrugClaimRequest request,
+                                        String actorId, String actorEmail) {
         return generateClaimNumber()
             .flatMap(claimNumber -> {
                 var claim = new Claim();
@@ -324,7 +330,8 @@ public class ClaimService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = com.medfund.shared.tenant.TenantContext.get(ctx);
-                return publishAudit(tenantId, "Claim", saved.getId().toString(), "CREATE", actorId,
+                return publishAudit(tenantId, "Claim", saved.getId().toString(), "CREATE",
+                    actorId, actorEmail,
                     null, Map.of("claimType", "drug", "claimNumber", saved.getClaimNumber()))
                     .then(eventPublisher.publishClaimSubmitted(
                         saved.getId().toString(), saved.getClaimNumber(),
@@ -340,7 +347,7 @@ public class ClaimService {
     }
 
     private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
-                                     String action, String actorId,
+                                     String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
@@ -348,7 +355,7 @@ public class ClaimService {
             entityId,
             action,
             actorId,
-            null,
+            actorEmail,
             oldValue,
             newValue,
             new String[]{"status"},

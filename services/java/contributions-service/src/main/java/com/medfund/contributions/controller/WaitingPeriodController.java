@@ -5,6 +5,7 @@ import com.medfund.contributions.dto.UpsertSchemeChangeWaitingPeriodRequest;
 import com.medfund.contributions.dto.UpsertWaitingPeriodRequest;
 import com.medfund.contributions.dto.WaitingPeriodResponse;
 import com.medfund.contributions.service.WaitingPeriodService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -66,7 +67,7 @@ public class WaitingPeriodController {
     @ApiResponse(responseCode = "201", description = "Rule created")
     public Mono<WaitingPeriodResponse> create(@Valid @RequestBody UpsertWaitingPeriodRequest body,
                                               @AuthenticationPrincipal Jwt jwt) {
-        return service.create(body, actorId(jwt), actorEmail(jwt)).map(WaitingPeriodResponse::from);
+        return service.create(body, AuditActor.id(jwt), AuditActor.email(jwt)).map(WaitingPeriodResponse::from);
     }
 
     @PutMapping("/waiting-periods/{id}")
@@ -74,13 +75,13 @@ public class WaitingPeriodController {
     public Mono<WaitingPeriodResponse> update(@PathVariable UUID id,
                                               @Valid @RequestBody UpsertWaitingPeriodRequest body,
                                               @AuthenticationPrincipal Jwt jwt) {
-        return service.update(id, body, actorId(jwt), actorEmail(jwt)).map(WaitingPeriodResponse::from);
+        return service.update(id, body, AuditActor.id(jwt), AuditActor.email(jwt)).map(WaitingPeriodResponse::from);
     }
 
     @DeleteMapping("/waiting-periods/{id}")
     @Operation(summary = "Delete a waiting period rule")
     public Mono<ResponseEntity<Void>> delete(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-        return service.delete(id, actorId(jwt), actorEmail(jwt))
+        return service.delete(id, AuditActor.id(jwt), AuditActor.email(jwt))
                 .thenReturn(ResponseEntity.noContent().<Void>build());
     }
 
@@ -98,7 +99,7 @@ public class WaitingPeriodController {
     public Mono<SchemeChangeWaitingPeriodResponse> createSchemeChange(
             @Valid @RequestBody UpsertSchemeChangeWaitingPeriodRequest body,
             @AuthenticationPrincipal Jwt jwt) {
-        return service.createSchemeChange(body, actorId(jwt), actorEmail(jwt))
+        return service.createSchemeChange(body, AuditActor.id(jwt), AuditActor.email(jwt))
                 .map(SchemeChangeWaitingPeriodResponse::from);
     }
 
@@ -108,7 +109,7 @@ public class WaitingPeriodController {
             @PathVariable UUID id,
             @Valid @RequestBody UpsertSchemeChangeWaitingPeriodRequest body,
             @AuthenticationPrincipal Jwt jwt) {
-        return service.updateSchemeChange(id, body, actorId(jwt), actorEmail(jwt))
+        return service.updateSchemeChange(id, body, AuditActor.id(jwt), AuditActor.email(jwt))
                 .map(SchemeChangeWaitingPeriodResponse::from);
     }
 
@@ -116,19 +117,8 @@ public class WaitingPeriodController {
     @Operation(summary = "Delete a scheme-change waiting period rule")
     public Mono<ResponseEntity<Void>> deleteSchemeChange(@PathVariable UUID id,
                                                           @AuthenticationPrincipal Jwt jwt) {
-        return service.deleteSchemeChange(id, actorId(jwt), actorEmail(jwt))
+        return service.deleteSchemeChange(id, AuditActor.id(jwt), AuditActor.email(jwt))
                 .thenReturn(ResponseEntity.noContent().<Void>build());
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
-
-    private static String actorId(Jwt jwt) {
-        return jwt != null ? jwt.getSubject() : "system";
-    }
-
-    private static String actorEmail(Jwt jwt) {
-        if (jwt == null) return null;
-        String email = jwt.getClaimAsString("email");
-        return email != null ? email : jwt.getClaimAsString("preferred_username");
-    }
 }

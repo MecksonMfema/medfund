@@ -1,14 +1,16 @@
 package com.medfund.shared.scheduler;
 
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -63,8 +65,9 @@ public class ScheduledJobController {
             @RequestParam(name = "name") String name,
             @RequestParam(name = "cronExpression") String cronExpression,
             @RequestParam(name = "settings", required = false) String settings,
-            Principal principal) {
-        return scheduledJobService.create(tenantId, jobType, name, cronExpression, settings, principal.getName());
+            @AuthenticationPrincipal Jwt jwt) {
+        return scheduledJobService.create(tenantId, jobType, name, cronExpression, settings,
+                AuditActor.id(jwt), AuditActor.email(jwt));
     }
 
     @PutMapping("/{id}")
@@ -74,28 +77,30 @@ public class ScheduledJobController {
             @RequestParam(name = "cronExpression", required = false) String cronExpression,
             @RequestParam(name = "settings", required = false) String settings,
             @RequestParam(name = "isEnabled", required = false) Boolean isEnabled,
-            Principal principal) {
-        return scheduledJobService.update(id, cronExpression, settings, isEnabled, principal.getName());
+            @AuthenticationPrincipal Jwt jwt) {
+        return scheduledJobService.update(id, cronExpression, settings, isEnabled,
+                AuditActor.id(jwt), AuditActor.email(jwt));
     }
 
     @PostMapping("/{id}/enable")
     @Operation(summary = "Enable a scheduled job")
-    public Mono<ScheduledJobConfig> enable(@PathVariable("id") UUID id, Principal principal) {
-        return scheduledJobService.enable(id, principal.getName());
+    public Mono<ScheduledJobConfig> enable(@PathVariable("id") UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return scheduledJobService.enable(id, AuditActor.id(jwt), AuditActor.email(jwt));
     }
 
     @PostMapping("/{id}/disable")
     @Operation(summary = "Disable a scheduled job")
-    public Mono<ScheduledJobConfig> disable(@PathVariable("id") UUID id, Principal principal) {
-        return scheduledJobService.disable(id, principal.getName());
+    public Mono<ScheduledJobConfig> disable(@PathVariable("id") UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return scheduledJobService.disable(id, AuditActor.id(jwt), AuditActor.email(jwt));
     }
 
     @PostMapping("/seed-defaults")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Seed default job configs for a tenant",
         description = "Pass tenantId to seed for that tenant; if omitted, the seeded jobs are platform-global.")
-    public Mono<Void> seedDefaults(@RequestParam(name = "tenantId", required = false) UUID tenantId, Principal principal) {
-        return scheduledJobService.seedDefaults(tenantId, principal.getName());
+    public Mono<Void> seedDefaults(@RequestParam(name = "tenantId", required = false) UUID tenantId,
+                                    @AuthenticationPrincipal Jwt jwt) {
+        return scheduledJobService.seedDefaults(tenantId, AuditActor.id(jwt));
     }
 
     @GetMapping("/{id}/runs")
@@ -114,16 +119,21 @@ public class ScheduledJobController {
     @PostMapping("/{id}/run-now")
     @Operation(summary = "Manually trigger a scheduled job",
         description = "Bypasses the cron schedule and runs the job immediately. Records a run row with trigger_kind='manual'. Errors if no executor in this service handles the job's type.")
-    public Mono<ScheduledJobRun> runNow(@PathVariable("id") UUID id, Principal principal) {
-        UUID actorId = parseActor(principal);
+    public Mono<ScheduledJobRun> runNow(@PathVariable("id") UUID id, @AuthenticationPrincipal Jwt jwt) {
+        UUID actorId = parseActorUuid(jwt);
         return scheduledJobService.findById(id)
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Scheduled job not found: " + id)))
             .flatMap(config -> jobDispatcher.runNow(config, actorId));
     }
 
-    private static UUID parseActor(Principal principal) {
-        if (principal == null || principal.getName() == null) return null;
-        try { return UUID.fromString(principal.getName()); }
+    /**
+     * {@code triggered_by} on the run row is a UUID column, so we parse the
+     * JWT subject claim (Keycloak user id) into a UUID. Falls back to null
+     * for the system-actor placeholder or any non-UUID subject.
+     */
+    private static UUID parseActorUuid(Jwt jwt) {
+        if (jwt == null || jwt.getSubject() == null) return null;
+        try { return UUID.fromString(jwt.getSubject()); }
         catch (IllegalArgumentException e) { return null; }
     }
 

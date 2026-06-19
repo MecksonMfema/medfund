@@ -3,6 +3,7 @@ package com.medfund.finance.controller;
 import com.medfund.finance.dto.AdjustmentResponse;
 import com.medfund.finance.dto.CreateAdjustmentRequest;
 import com.medfund.finance.service.AdjustmentService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -10,11 +11,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -59,8 +61,8 @@ public class AdjustmentController {
         @ApiResponse(responseCode = "201", description = "Adjustment created"),
         @ApiResponse(responseCode = "400", description = "Validation error")
     })
-    public Mono<AdjustmentResponse> create(@Valid @RequestBody CreateAdjustmentRequest request, Principal principal) {
-        return adjustmentService.create(request, principal.getName()).map(AdjustmentResponse::from);
+    public Mono<AdjustmentResponse> create(@Valid @RequestBody CreateAdjustmentRequest request, @AuthenticationPrincipal Jwt jwt) {
+        return adjustmentService.create(request, AuditActor.id(jwt), AuditActor.email(jwt)).map(AdjustmentResponse::from);
     }
 
     @PostMapping("/{id}/approve")
@@ -69,8 +71,8 @@ public class AdjustmentController {
         @ApiResponse(responseCode = "200", description = "Adjustment approved"),
         @ApiResponse(responseCode = "404", description = "Adjustment not found")
     })
-    public Mono<AdjustmentResponse> approve(@PathVariable UUID id, Principal principal) {
-        return adjustmentService.approve(id, principal.getName()).map(AdjustmentResponse::from);
+    public Mono<AdjustmentResponse> approve(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return adjustmentService.approve(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(AdjustmentResponse::from);
     }
 
     @PostMapping("/{id}/apply")
@@ -79,8 +81,8 @@ public class AdjustmentController {
         @ApiResponse(responseCode = "200", description = "Adjustment applied"),
         @ApiResponse(responseCode = "404", description = "Adjustment not found")
     })
-    public Mono<AdjustmentResponse> apply(@PathVariable UUID id, Principal principal) {
-        return adjustmentService.apply(id, principal.getName()).map(AdjustmentResponse::from);
+    public Mono<AdjustmentResponse> apply(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return adjustmentService.apply(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(AdjustmentResponse::from);
     }
 
     @PostMapping("/{id}/cancel")
@@ -91,7 +93,7 @@ public class AdjustmentController {
         @ApiResponse(responseCode = "400", description = "Cannot cancel an applied adjustment"),
         @ApiResponse(responseCode = "404", description = "Adjustment not found")
     })
-    public Mono<AdjustmentResponse> cancel(@PathVariable UUID id, Principal principal) {
-        return adjustmentService.cancel(id, principal.getName()).map(AdjustmentResponse::from);
+    public Mono<AdjustmentResponse> cancel(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return adjustmentService.cancel(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(AdjustmentResponse::from);
     }
 }

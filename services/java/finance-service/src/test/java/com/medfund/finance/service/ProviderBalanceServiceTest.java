@@ -96,7 +96,7 @@ class ProviderBalanceServiceTest {
                 providerBalanceService.updateBalance(
                         providerId, "USD",
                         new BigDecimal("200.00"), new BigDecimal("100.00"), new BigDecimal("50.00"),
-                        actorId
+                        actorId, "actor@test.example"
                 ).contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -125,7 +125,7 @@ class ProviderBalanceServiceTest {
                 providerBalanceService.updateBalance(
                         providerId, "USD",
                         new BigDecimal("500.00"), new BigDecimal("400.00"), new BigDecimal("100.00"),
-                        actorId
+                        actorId, "actor@test.example"
                 ).contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {

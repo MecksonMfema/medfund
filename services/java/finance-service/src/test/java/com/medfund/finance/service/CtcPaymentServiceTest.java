@@ -47,7 +47,7 @@ class CtcPaymentServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                service.create(request, "system")
+                service.create(request, "system", "actor@test.example")
                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -70,7 +70,7 @@ class CtcPaymentServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                service.create(request, "system")
+                service.create(request, "system", "actor@test.example")
                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -85,7 +85,7 @@ class CtcPaymentServiceTest {
         var request = new CreateCtcPaymentRequest(null, null, new BigDecimal("10"), "USD", null);
 
         StepVerifier.create(
-                service.create(request, "system")
+                service.create(request, "system", "actor@test.example")
                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .expectError(IllegalArgumentException.class)
@@ -102,7 +102,7 @@ class CtcPaymentServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                service.commit(existing.getId(), "system")
+                service.commit(existing.getId(), "system", "actor@test.example")
                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> assertThat(saved.getCommitted()).isTrue())
@@ -118,7 +118,7 @@ class CtcPaymentServiceTest {
         when(repository.findById(existing.getId())).thenReturn(Mono.just(existing));
 
         StepVerifier.create(
-                service.commit(existing.getId(), "system")
+                service.commit(existing.getId(), "system", "actor@test.example")
                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> assertThat(saved.getCommitted()).isTrue())

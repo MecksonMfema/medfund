@@ -47,7 +47,7 @@ public class ProviderBalanceService {
     @Transactional
     public Mono<ProviderBalance> updateBalance(UUID providerId, String currencyCode,
                                                 BigDecimal claimedDelta, BigDecimal approvedDelta,
-                                                BigDecimal paidDelta, String actorId) {
+                                                BigDecimal paidDelta, String actorId, String actorEmail) {
         return providerBalanceRepository.findByProviderIdAndCurrencyCode(providerId, currencyCode)
             .switchIfEmpty(Mono.defer(() -> {
                 var balance = new ProviderBalance();
@@ -93,7 +93,7 @@ public class ProviderBalanceService {
                 return providerBalanceRepository.save(balance)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "ProviderBalance", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "ProviderBalance", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                 oldValue, newValue)
                             .thenReturn(saved);
                     }));
@@ -113,7 +113,7 @@ public class ProviderBalanceService {
     }
 
     private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
-                                     String action, String actorId,
+                                     String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
@@ -121,7 +121,7 @@ public class ProviderBalanceService {
             entityId,
             action,
             actorId,
-            null,
+            actorEmail,
             oldValue,
             newValue,
             new String[]{"totalClaimed", "totalApproved", "totalPaid", "outstandingBalance"},

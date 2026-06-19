@@ -134,7 +134,7 @@ class MemberServiceTest {
         when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
 
         StepVerifier.create(
-            memberService.enroll(request, actorId)
+            memberService.enroll(request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(member -> {
@@ -170,7 +170,7 @@ class MemberServiceTest {
         when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
 
         StepVerifier.create(
-            memberService.enroll(request, legacyActorId)
+            memberService.enroll(request, legacyActorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(member -> {
@@ -202,7 +202,7 @@ class MemberServiceTest {
             .thenReturn(Mono.error(new RuntimeException("KieBase missing")));
 
         StepVerifier.create(
-            memberService.enroll(request, actorId)
+            memberService.enroll(request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(member -> assertThat(member.getStatus()).isEqualTo("enrolled"))
@@ -232,7 +232,7 @@ class MemberServiceTest {
         when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
 
         StepVerifier.create(
-            memberService.enroll(request, actorId)
+            memberService.enroll(request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(member -> assertThat(member.getStatus()).isEqualTo("enrolled"))
@@ -257,7 +257,7 @@ class MemberServiceTest {
         when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
 
         StepVerifier.create(
-            memberService.enroll(request, actorId)
+            memberService.enroll(request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(member -> assertThat(member.getEnrollmentDate())
@@ -277,7 +277,7 @@ class MemberServiceTest {
         when(eventPublisher.publishMemberLifecycle(any(), any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            memberService.activate(id, actorId)
+            memberService.activate(id, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(result -> assertThat(result.getStatus()).isEqualTo("active"))
@@ -298,7 +298,7 @@ class MemberServiceTest {
         when(eventPublisher.publishMemberLifecycle(any(), any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            memberService.suspend(id, actorId)
+            memberService.suspend(id, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(result -> assertThat(result.getStatus()).isEqualTo("suspended"))
@@ -320,7 +320,7 @@ class MemberServiceTest {
         when(eventPublisher.publishMemberLifecycle(any(), any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            memberService.terminate(id, actorId)
+            memberService.terminate(id, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(result -> {

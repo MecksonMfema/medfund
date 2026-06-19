@@ -48,6 +48,7 @@ class TariffServiceTest {
     private TariffService tariffService;
 
     private String actorId;
+    private static final String ACTOR_EMAIL = "actor@test.example";
 
     @BeforeEach
     void setUp() {
@@ -80,7 +81,7 @@ class TariffServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                tariffService.createSchedule(request, actorId)
+                tariffService.createSchedule(request, actorId, ACTOR_EMAIL)
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(schedule -> {
@@ -125,7 +126,7 @@ class TariffServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                tariffService.createCode(request, actorId)
+                tariffService.createCode(request, actorId, ACTOR_EMAIL)
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(code -> {

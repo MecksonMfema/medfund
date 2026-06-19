@@ -1,5 +1,6 @@
 package com.medfund.user.controller;
 
+import com.medfund.shared.audit.AuditActor;
 import com.medfund.user.dto.CreateStaffUserRequest;
 import com.medfund.user.dto.CursorPage;
 import com.medfund.user.dto.StaffUserResponse;
@@ -95,9 +96,7 @@ public class StaffUserController {
     public Mono<StaffUserResponse> create(
             @Valid @RequestBody CreateStaffUserRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        String actorId    = jwt != null ? jwt.getSubject()          : null;
-        String actorEmail = jwt != null ? resolveActorEmail(jwt)     : null;
-        return service.create(request, actorId, actorEmail).map(StaffUserResponse::from);
+        return service.create(request, AuditActor.id(jwt), AuditActor.email(jwt)).map(StaffUserResponse::from);
     }
 
     @PutMapping("/{id:[0-9a-fA-F-]+}")
@@ -106,9 +105,7 @@ public class StaffUserController {
             @PathVariable UUID id,
             @Valid @RequestBody UpdateStaffUserRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        String actorId    = jwt != null ? jwt.getSubject()      : null;
-        String actorEmail = jwt != null ? resolveActorEmail(jwt) : null;
-        return service.update(id, request, actorId, actorEmail).map(StaffUserResponse::from);
+        return service.update(id, request, AuditActor.id(jwt), AuditActor.email(jwt)).map(StaffUserResponse::from);
     }
 
     @PostMapping("/{id:[0-9a-fA-F-]+}/suspend")
@@ -116,9 +113,7 @@ public class StaffUserController {
     public Mono<StaffUserResponse> suspend(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
-        String actorId    = jwt != null ? jwt.getSubject()      : null;
-        String actorEmail = jwt != null ? resolveActorEmail(jwt) : null;
-        return service.suspend(id, actorId, actorEmail).map(StaffUserResponse::from);
+        return service.suspend(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(StaffUserResponse::from);
     }
 
     @PostMapping("/{id:[0-9a-fA-F-]+}/activate")
@@ -126,9 +121,7 @@ public class StaffUserController {
     public Mono<StaffUserResponse> activate(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
-        String actorId    = jwt != null ? jwt.getSubject()      : null;
-        String actorEmail = jwt != null ? resolveActorEmail(jwt) : null;
-        return service.activate(id, actorId, actorEmail).map(StaffUserResponse::from);
+        return service.activate(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(StaffUserResponse::from);
     }
 
     @PostMapping("/{id:[0-9a-fA-F-]+}/resend-invite")
@@ -165,14 +158,6 @@ public class StaffUserController {
     public Mono<Void> delete(
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
-        String actorId    = jwt != null ? jwt.getSubject()      : null;
-        String actorEmail = jwt != null ? resolveActorEmail(jwt) : null;
-        return service.delete(id, actorId, actorEmail);
-    }
-
-    /** Reads email from the JWT, falling back to preferred_username. */
-    private static String resolveActorEmail(Jwt jwt) {
-        String email = jwt.getClaimAsString("email");
-        return email != null ? email : jwt.getClaimAsString("preferred_username");
+        return service.delete(id, AuditActor.id(jwt), AuditActor.email(jwt));
     }
 }

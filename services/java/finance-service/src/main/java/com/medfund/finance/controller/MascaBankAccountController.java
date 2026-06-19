@@ -3,17 +3,19 @@ package com.medfund.finance.controller;
 import com.medfund.finance.dto.MascaBankAccountResponse;
 import com.medfund.finance.dto.UpsertMascaBankAccountRequest;
 import com.medfund.finance.service.MascaBankAccountService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -42,8 +44,8 @@ public class MascaBankAccountController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Add a new platform bank account")
     public Mono<MascaBankAccountResponse> create(@Valid @RequestBody UpsertMascaBankAccountRequest request,
-                                                  Principal principal) {
-        return service.create(request, principal != null ? principal.getName() : null)
+                                                  @AuthenticationPrincipal Jwt jwt) {
+        return service.create(request, AuditActor.id(jwt), AuditActor.email(jwt))
             .map(MascaBankAccountResponse::from);
     }
 
@@ -51,15 +53,15 @@ public class MascaBankAccountController {
     @Operation(summary = "Update a platform bank account")
     public Mono<MascaBankAccountResponse> update(@PathVariable UUID id,
                                                   @Valid @RequestBody UpsertMascaBankAccountRequest request,
-                                                  Principal principal) {
-        return service.update(id, request, principal != null ? principal.getName() : null)
+                                                  @AuthenticationPrincipal Jwt jwt) {
+        return service.update(id, request, AuditActor.id(jwt), AuditActor.email(jwt))
             .map(MascaBankAccountResponse::from);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Remove a platform bank account")
-    public Mono<Void> delete(@PathVariable UUID id, Principal principal) {
-        return service.delete(id, principal != null ? principal.getName() : null);
+    public Mono<Void> delete(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return service.delete(id, AuditActor.id(jwt), AuditActor.email(jwt));
     }
 }

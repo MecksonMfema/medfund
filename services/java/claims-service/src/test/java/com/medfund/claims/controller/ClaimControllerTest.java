@@ -73,7 +73,7 @@ class ClaimControllerTest {
 
     @Test
     void submit_returns201() {
-        when(claimService.submit(any(), any())).thenReturn(Mono.just(createTestClaim()));
+        when(claimService.submit(any(), any(), any())).thenReturn(Mono.just(createTestClaim()));
 
         String body = """
                 {

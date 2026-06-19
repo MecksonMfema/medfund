@@ -41,7 +41,7 @@ public class AdvancePaymentService {
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Advance payment not found: " + id)));
     }
 
-    public Mono<AdvancePayment> create(CreateAdvancePaymentRequest request, String actor) {
+    public Mono<AdvancePayment> create(CreateAdvancePaymentRequest request, String actor, String actorEmail) {
         if (request.providerId() == null && request.memberId() == null) {
             return Mono.error(new IllegalArgumentException("Either providerId or memberId is required"));
         }
@@ -55,10 +55,10 @@ public class AdvancePaymentService {
         entity.setReference(request.reference());
         entity.setComment(request.comment());
         return repository.save(entity)
-            .flatMap(saved -> publishAudit(saved, actor).thenReturn(saved));
+            .flatMap(saved -> publishAudit(saved, actor, actorEmail).thenReturn(saved));
     }
 
-    private Mono<Void> publishAudit(AdvancePayment a, String actor) {
+    private Mono<Void> publishAudit(AdvancePayment a, String actor, String actorEmail) {
         Map<String, Object> after = new HashMap<>();
         after.put("amount", a.getAmount().toPlainString());
         after.put("currencyCode", a.getCurrencyCode());
@@ -73,7 +73,7 @@ public class AdvancePaymentService {
                 a.getId().toString(),
                 "CREATE",
                 actor != null ? actor : "system",
-                null,
+                actorEmail,
                 null,
                 after,
                 new String[]{},

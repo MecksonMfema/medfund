@@ -60,7 +60,7 @@ class DependantControllerTest {
 
     @Test
     void create_returns201() {
-        when(dependantService.create(any(), anyString())).thenReturn(Mono.just(createTestDependant()));
+        when(dependantService.create(any(), any(), any())).thenReturn(Mono.just(createTestDependant()));
 
         webTestClient.mutateWith(mockJwt())
                 .post().uri("/api/v1/dependants")
@@ -117,7 +117,7 @@ class DependantControllerTest {
         UUID id = UUID.randomUUID();
         Dependant updated = createTestDependant();
         updated.setId(id);
-        when(dependantService.update(any(), any(), anyString())).thenReturn(Mono.just(updated));
+        when(dependantService.update(any(), any(), any(), any())).thenReturn(Mono.just(updated));
 
         webTestClient.mutateWith(mockJwt())
                 .put().uri("/api/v1/dependants/{id}", id)

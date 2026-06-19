@@ -7,6 +7,7 @@ import com.medfund.contributions.dto.ContributionResponse;
 import com.medfund.contributions.dto.GenerateBillingRequest;
 import com.medfund.contributions.dto.PreviewBillingRequest;
 import com.medfund.contributions.service.BillingService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -14,11 +15,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -81,8 +83,8 @@ public class ContributionController {
         @ApiResponse(responseCode = "409", description = "Cooldown active")
     })
     public Mono<BillingCommitResponse> commitBilling(@Valid @RequestBody CommitBillingRequest request,
-                                                     Principal principal) {
-        return billingService.commitBilling(request, principal.getName());
+                                                     @AuthenticationPrincipal Jwt jwt) {
+        return billingService.commitBilling(request, AuditActor.id(jwt), AuditActor.email(jwt));
     }
 
     @PostMapping("/generate-billing")
@@ -90,8 +92,9 @@ public class ContributionController {
     @Operation(summary = "[Deprecated] Generate a single contribution row",
         description = "Legacy single-row endpoint. Prefer /preview + /commit which iterates the chosen members.",
         deprecated = true)
-    public Mono<Long> generateBilling(@Valid @RequestBody GenerateBillingRequest request, Principal principal) {
-        return billingService.generateBilling(request, principal.getName());
+    public Mono<Long> generateBilling(@Valid @RequestBody GenerateBillingRequest request,
+                                      @AuthenticationPrincipal Jwt jwt) {
+        return billingService.generateBilling(request, AuditActor.id(jwt), AuditActor.email(jwt));
     }
 
     @PostMapping("/{id}/pay")
@@ -103,8 +106,9 @@ public class ContributionController {
     public Mono<ContributionResponse> recordPayment(@PathVariable UUID id,
                                                     @RequestParam String paymentMethod,
                                                     @RequestParam(required = false) String paymentReference,
-                                                    Principal principal) {
-        return billingService.recordPayment(id, paymentMethod, paymentReference, principal.getName())
+                                                    @AuthenticationPrincipal Jwt jwt) {
+        return billingService.recordPayment(id, paymentMethod, paymentReference,
+                        AuditActor.id(jwt), AuditActor.email(jwt))
                 .map(ContributionResponse::from);
     }
 }

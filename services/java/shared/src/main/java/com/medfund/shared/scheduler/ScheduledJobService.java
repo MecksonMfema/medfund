@@ -55,7 +55,7 @@ public class ScheduledJobService {
      */
     @Transactional
     public Mono<ScheduledJobConfig> create(UUID tenantId, String jobType, String name, String cronExpression,
-                                            String settings, String actorId) {
+                                            String settings, String actorId, String actorEmail) {
         var config = new ScheduledJobConfig();
         // id deliberately not set — Spring Data R2DBC's save() takes the
         // UPDATE branch when @Id is non-null, which fails for a new row.
@@ -81,7 +81,7 @@ public class ScheduledJobService {
                 var event = AuditEvent.create(
                     auditTenant,
                     "ScheduledJobConfig", saved.getId().toString(), saved.getName(),
-                    "CREATE", actorId, null,
+                    "CREATE", actorId, actorEmail,
                     null,
                     Map.<String, Object>of("jobType", saved.getJobType(), "cronExpression", saved.getCronExpression()),
                     new String[]{"jobType", "cronExpression", "settings"},
@@ -98,7 +98,7 @@ public class ScheduledJobService {
 
     @Transactional
     public Mono<ScheduledJobConfig> update(UUID id, String cronExpression, String settings,
-                                            Boolean isEnabled, String actorId) {
+                                            Boolean isEnabled, String actorId, String actorEmail) {
         return jobRepository.findById(id)
             .flatMap(existing -> {
                 if (cronExpression != null) {
@@ -115,7 +115,7 @@ public class ScheduledJobService {
                         var event = AuditEvent.create(
                             tenantId != null ? tenantId : "unknown",
                             "ScheduledJobConfig", saved.getId().toString(), saved.getName(),
-                            "UPDATE", actorId, null,
+                            "UPDATE", actorId, actorEmail,
                             null,
                             Map.<String, Object>of("cronExpression", saved.getCronExpression(),
                                    "isEnabled", String.valueOf(saved.getIsEnabled())),
@@ -128,19 +128,23 @@ public class ScheduledJobService {
     }
 
     @Transactional
-    public Mono<ScheduledJobConfig> enable(UUID id, String actorId) {
-        return update(id, null, null, true, actorId);
+    public Mono<ScheduledJobConfig> enable(UUID id, String actorId, String actorEmail) {
+        return update(id, null, null, true, actorId, actorEmail);
     }
 
     @Transactional
-    public Mono<ScheduledJobConfig> disable(UUID id, String actorId) {
-        return update(id, null, null, false, actorId);
+    public Mono<ScheduledJobConfig> disable(UUID id, String actorId, String actorEmail) {
+        return update(id, null, null, false, actorId, actorEmail);
     }
 
     /**
      * Seed default job configs for a new tenant. Called during tenant
      * provisioning. The {@code tenantId} is stamped on every row so the
      * configs are owned by that tenant in the public-schema table.
+     *
+     * <p>No audit event is emitted here — bulk seeding writes directly
+     * via the repository — so {@code actorId} is accepted for future use
+     * but not consumed.
      */
     @Transactional
     public Mono<Void> seedDefaults(UUID tenantId, String actorId) {

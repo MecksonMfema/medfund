@@ -53,6 +53,7 @@ class SchemeServiceTest {
     private SchemeService schemeService;
 
     private final String actorId = UUID.randomUUID().toString();
+    private final String actorEmail = "actor@test.example";
 
     @Test
     void findAll_returnsSchemes() {
@@ -107,7 +108,7 @@ class SchemeServiceTest {
         when(schemeRepository.save(any(Scheme.class))).thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
-        StepVerifier.create(schemeService.create(request, actorId)
+        StepVerifier.create(schemeService.create(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .assertNext(saved -> {
                 assertThat(saved.getName()).isEqualTo("Gold Plan");
@@ -131,7 +132,7 @@ class SchemeServiceTest {
 
         when(schemeRepository.existsByName("Gold Plan")).thenReturn(Mono.just(true));
 
-        StepVerifier.create(schemeService.create(request, actorId)
+        StepVerifier.create(schemeService.create(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .expectError(DuplicateSchemeException.class)
             .verify();
@@ -148,7 +149,7 @@ class SchemeServiceTest {
         when(schemeRepository.save(any(Scheme.class))).thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
-        StepVerifier.create(schemeService.deactivate(scheme.getId(), actorId)
+        StepVerifier.create(schemeService.deactivate(scheme.getId(), actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .assertNext(deactivated -> {
                 assertThat(deactivated.getStatus()).isEqualTo("inactive");
@@ -180,7 +181,7 @@ class SchemeServiceTest {
             .thenAnswer(inv -> Mono.just(assignBenefitIdIfMissing(inv.getArgument(0))));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
-        StepVerifier.create(schemeService.createBenefit(request, actorId)
+        StepVerifier.create(schemeService.createBenefit(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .assertNext(saved -> {
                 assertThat(saved.getName()).isEqualTo("Outpatient");
@@ -214,7 +215,7 @@ class SchemeServiceTest {
             .thenAnswer(inv -> Mono.just(assignAgeGroupIdIfMissing(inv.getArgument(0))));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
-        StepVerifier.create(schemeService.createAgeGroup(request, actorId)
+        StepVerifier.create(schemeService.createAgeGroup(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .assertNext(saved -> {
                 assertThat(saved.getName()).isEqualTo("Adult");
@@ -250,7 +251,7 @@ class SchemeServiceTest {
             });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
-        StepVerifier.create(schemeService.create(request, actorId)
+        StepVerifier.create(schemeService.create(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .expectNextCount(1)
             .verifyComplete();
@@ -274,7 +275,7 @@ class SchemeServiceTest {
             .thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
-        StepVerifier.create(schemeService.create(request, actorId)
+        StepVerifier.create(schemeService.create(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .expectNextCount(1)
             .verifyComplete();
@@ -295,7 +296,7 @@ class SchemeServiceTest {
 
         var request = new UpdateSchemeRequest(null, null, null, null, null, "EUR");
 
-        StepVerifier.create(schemeService.update(existing.getId(), request, actorId)
+        StepVerifier.create(schemeService.update(existing.getId(), request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .expectNextCount(1)
             .verifyComplete();
@@ -320,7 +321,7 @@ class SchemeServiceTest {
             "EUR", 30, null
         );
 
-        StepVerifier.create(schemeService.createBenefit(request, actorId)
+        StepVerifier.create(schemeService.createBenefit(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .expectErrorSatisfies(err -> {
                 assertThat(err).isInstanceOf(IllegalArgumentException.class);
@@ -353,7 +354,7 @@ class SchemeServiceTest {
             null, 30, null
         );
 
-        StepVerifier.create(schemeService.createBenefit(request, actorId)
+        StepVerifier.create(schemeService.createBenefit(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .expectNextCount(1)
             .verifyComplete();
@@ -374,7 +375,7 @@ class SchemeServiceTest {
             new BigDecimal("200.00"), "ZWL"
         );
 
-        StepVerifier.create(schemeService.createAgeGroup(request, actorId)
+        StepVerifier.create(schemeService.createAgeGroup(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .expectError(IllegalArgumentException.class)
             .verify();
@@ -394,7 +395,7 @@ class SchemeServiceTest {
         var auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
         when(auditPublisher.publish(auditCaptor.capture())).thenReturn(Mono.empty());
 
-        StepVerifier.create(schemeService.create(request, actorId)
+        StepVerifier.create(schemeService.create(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "tenant-7")))
             .expectNextCount(1)
             .verifyComplete();
@@ -424,7 +425,7 @@ class SchemeServiceTest {
         var auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
         when(auditPublisher.publish(auditCaptor.capture())).thenReturn(Mono.empty());
 
-        StepVerifier.create(schemeService.deactivate(scheme.getId(), actorId)
+        StepVerifier.create(schemeService.deactivate(scheme.getId(), actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "tenant-7")))
             .expectNextCount(1)
             .verifyComplete();
@@ -448,7 +449,7 @@ class SchemeServiceTest {
         var auditCaptor = ArgumentCaptor.forClass(AuditEvent.class);
         when(auditPublisher.publish(auditCaptor.capture())).thenReturn(Mono.empty());
 
-        StepVerifier.create(schemeService.create(request, actorId))
+        StepVerifier.create(schemeService.create(request, actorId, actorEmail))
             .expectNextCount(1)
             .verifyComplete();
 
@@ -468,7 +469,7 @@ class SchemeServiceTest {
             .thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
-        StepVerifier.create(schemeService.create(request, actorId)
+        StepVerifier.create(schemeService.create(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .expectNextCount(1)
             .verifyComplete();
@@ -487,7 +488,7 @@ class SchemeServiceTest {
             .thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
-        StepVerifier.create(schemeService.create(request, actorId)
+        StepVerifier.create(schemeService.create(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .expectNextCount(1)
             .verifyComplete();
@@ -502,7 +503,7 @@ class SchemeServiceTest {
 
         when(schemeRepository.existsByName("Bad Plan")).thenReturn(Mono.just(false));
 
-        StepVerifier.create(schemeService.create(request, actorId)
+        StepVerifier.create(schemeService.create(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .expectErrorSatisfies(err -> {
                 assertThat(err).isInstanceOf(ResponseStatusException.class);
@@ -531,7 +532,7 @@ class SchemeServiceTest {
             "USD", 0, null
         );
 
-        StepVerifier.create(schemeService.createBenefit(request, actorId)
+        StepVerifier.create(schemeService.createBenefit(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .expectErrorSatisfies(err -> {
                 assertThat(err).isInstanceOf(ResponseStatusException.class);
@@ -560,7 +561,7 @@ class SchemeServiceTest {
             new BigDecimal("200.00"), "USD"
         );
 
-        StepVerifier.create(schemeService.createAgeGroup(request, actorId)
+        StepVerifier.create(schemeService.createAgeGroup(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .expectErrorSatisfies(err -> {
                 assertThat(err).isInstanceOf(ResponseStatusException.class);
@@ -593,7 +594,7 @@ class SchemeServiceTest {
             "USD", 90, null
         );
 
-        StepVerifier.create(schemeService.createBenefit(request, actorId)
+        StepVerifier.create(schemeService.createBenefit(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .expectNextCount(1)
             .verifyComplete();

@@ -48,7 +48,7 @@ public class BadDebtService {
     }
 
     @Transactional
-    public Mono<BadDebt> flagAsOverdue(UUID contributionId, String reason, String actorId) {
+    public Mono<BadDebt> flagAsOverdue(UUID contributionId, String reason, String actorId, String actorEmail) {
         return contributionRepository.findById(contributionId)
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Contribution not found: " + contributionId)))
             .flatMap(contribution -> {
@@ -69,7 +69,7 @@ public class BadDebtService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "BadDebt", saved.getId().toString(), "CREATE", actorId,
+                return publishAudit(tenantId, "BadDebt", saved.getId().toString(), "CREATE", actorId, actorEmail,
                         null,
                         Map.of("contributionId", saved.getContributionId().toString(),
                                "amount", saved.getAmount().toPlainString(),
@@ -80,7 +80,7 @@ public class BadDebtService {
     }
 
     @Transactional
-    public Mono<BadDebt> writeOff(UUID id, String actorId) {
+    public Mono<BadDebt> writeOff(UUID id, String actorId, String actorEmail) {
         return badDebtRepository.findById(id)
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Bad debt not found: " + id)))
             .flatMap(bd -> {
@@ -98,7 +98,7 @@ public class BadDebtService {
                 return badDebtRepository.save(bd)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "BadDebt", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "BadDebt", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus(),
                                        "writtenOffBy", actorId,
@@ -109,7 +109,7 @@ public class BadDebtService {
     }
 
     @Transactional
-    public Mono<BadDebt> markRecovered(UUID id, String actorId) {
+    public Mono<BadDebt> markRecovered(UUID id, String actorId, String actorEmail) {
         return badDebtRepository.findById(id)
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Bad debt not found: " + id)))
             .flatMap(bd -> {
@@ -120,7 +120,7 @@ public class BadDebtService {
                 return badDebtRepository.save(bd)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "BadDebt", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "BadDebt", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .thenReturn(saved);
@@ -131,7 +131,7 @@ public class BadDebtService {
     // ---- Private helpers ----
 
     private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
-                                     String action, String actorId,
+                                     String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
@@ -139,7 +139,7 @@ public class BadDebtService {
             entityId,
             action,
             actorId,
-            null,
+            actorEmail,
             oldValue,
             newValue,
             new String[]{"status"},

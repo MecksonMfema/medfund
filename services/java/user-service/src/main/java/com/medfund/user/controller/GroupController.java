@@ -1,5 +1,6 @@
 package com.medfund.user.controller;
 
+import com.medfund.shared.audit.AuditActor;
 import com.medfund.user.dto.CreateGroupRequest;
 import com.medfund.user.dto.GroupResponse;
 import com.medfund.user.dto.UpdateGroupRequest;
@@ -11,11 +12,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -65,21 +67,21 @@ public class GroupController {
         @ApiResponse(responseCode = "201", description = "Group created"),
         @ApiResponse(responseCode = "400", description = "Validation error")
     })
-    public Mono<GroupResponse> create(@Valid @RequestBody CreateGroupRequest request, Principal principal) {
-        return groupService.create(request, principal.getName()).map(GroupResponse::from);
+    public Mono<GroupResponse> create(@Valid @RequestBody CreateGroupRequest request, @AuthenticationPrincipal Jwt jwt) {
+        return groupService.create(request, AuditActor.id(jwt), AuditActor.email(jwt)).map(GroupResponse::from);
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Update group details")
     public Mono<GroupResponse> update(@PathVariable UUID id,
                                        @Valid @RequestBody UpdateGroupRequest request,
-                                       Principal principal) {
-        return groupService.update(id, request, principal.getName()).map(GroupResponse::from);
+                                       @AuthenticationPrincipal Jwt jwt) {
+        return groupService.update(id, request, AuditActor.id(jwt), AuditActor.email(jwt)).map(GroupResponse::from);
     }
 
     @PostMapping("/{id}/suspend")
     @Operation(summary = "Suspend group")
-    public Mono<GroupResponse> suspend(@PathVariable UUID id, Principal principal) {
-        return groupService.suspend(id, principal.getName()).map(GroupResponse::from);
+    public Mono<GroupResponse> suspend(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return groupService.suspend(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(GroupResponse::from);
     }
 }

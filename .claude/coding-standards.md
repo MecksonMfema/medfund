@@ -561,6 +561,40 @@ Every audit event published to Kafka (`medfund.audit.*` topics) and stored in th
 }
 ```
 
+### Actor identity — REQUIRED on every audit event
+
+Every audit event must carry **both** `actorId` (UUID for the join back to the users table) **and** `actorEmail` (human-readable identifier — email, falling back to `preferred_username`). Audit emissions that ship only the UUID force every viewer to run a DB join to see who did what; that defeats the point of an audit feed.
+
+**Java services** — use the shared `AuditActor` helper, never extract claims inline:
+
+```java
+// Controller
+@PostMapping
+public Mono<MemberResponse> enroll(@Valid @RequestBody CreateMemberRequest req,
+                                   @AuthenticationPrincipal Jwt jwt) {
+    return memberService
+        .enroll(req, AuditActor.id(jwt), AuditActor.email(jwt))
+        .map(MemberResponse::from);
+}
+
+// Service signature
+public Mono<Member> enroll(CreateMemberRequest req, String actorId, String actorEmail) { ... }
+
+// AuditEvent emission
+var event = AuditEvent.create(
+    tenantId, "Member", saved.getId().toString(), saved.getMemberNumber(),
+    "CREATE", actorId, actorEmail,   // <-- both, never null
+    null, newValue, changedFields, correlationId);
+```
+
+**System-initiated audit events** (scheduled jobs, Kafka consumers, internal flows with no JWT) must use `AuditActor.SYSTEM_ID` + `AuditActor.SYSTEM_EMAIL` so the source is still distinguishable. Never pass `null` for actorEmail — it's a non-null contract.
+
+**What NOT to do:**
+- ❌ `@AuthenticationPrincipal Principal principal` + `principal.getName()` only — that's the UUID alone.
+- ❌ Inline `jwt.getClaimAsString("email")` per controller — duplicates the fallback logic and drifts.
+- ❌ `AuditEvent.create(..., actorId, null, ...)` — passes null email, defeats human readability.
+- ❌ A separate `*ActorEmail` field on the entity — the audit_event stores it, not the row.
+
 ### Required Audit Fields Per Entity
 
 Every database table that holds business data must include these columns:

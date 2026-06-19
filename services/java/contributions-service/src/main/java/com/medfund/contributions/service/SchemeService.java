@@ -71,7 +71,7 @@ public class SchemeService {
     }
 
     @Transactional
-    public Mono<Scheme> create(CreateSchemeRequest request, String actorId) {
+    public Mono<Scheme> create(CreateSchemeRequest request, String actorId, String actorEmail) {
         return schemeRepository.existsByName(request.name())
             .flatMap(exists -> {
                 if (Boolean.TRUE.equals(exists)) {
@@ -101,7 +101,7 @@ public class SchemeService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "Scheme", saved.getId().toString(), "CREATE", actorId,
+                return publishAudit(tenantId, "Scheme", saved.getId().toString(), "CREATE", actorId, actorEmail,
                         null,
                         Map.of("name", saved.getName(), "status", saved.getStatus(),
                                "schemeType", saved.getSchemeType()))
@@ -110,7 +110,7 @@ public class SchemeService {
     }
 
     @Transactional
-    public Mono<Scheme> update(UUID id, UpdateSchemeRequest request, String actorId) {
+    public Mono<Scheme> update(UUID id, UpdateSchemeRequest request, String actorId, String actorEmail) {
         return schemeRepository.findById(id)
             .switchIfEmpty(Mono.error(new SchemeNotFoundException(id)))
             .flatMap(scheme -> {
@@ -144,7 +144,7 @@ public class SchemeService {
                 return schemeRepository.save(scheme)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "Scheme", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "Scheme", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                 oldValue,
                                 Map.of("name", saved.getName(), "description",
                                        saved.getDescription() != null ? saved.getDescription() : "",
@@ -155,17 +155,17 @@ public class SchemeService {
     }
 
     @Transactional
-    public Mono<Scheme> deactivate(UUID id, String actorId) {
-        return setSchemeStatus(id, "inactive", actorId);
+    public Mono<Scheme> deactivate(UUID id, String actorId, String actorEmail) {
+        return setSchemeStatus(id, "inactive", actorId, actorEmail);
     }
 
     /** Re-enables a previously-deactivated scheme. Counterpart to {@link #deactivate}. */
     @Transactional
-    public Mono<Scheme> activate(UUID id, String actorId) {
-        return setSchemeStatus(id, "active", actorId);
+    public Mono<Scheme> activate(UUID id, String actorId, String actorEmail) {
+        return setSchemeStatus(id, "active", actorId, actorEmail);
     }
 
-    private Mono<Scheme> setSchemeStatus(UUID id, String status, String actorId) {
+    private Mono<Scheme> setSchemeStatus(UUID id, String status, String actorId, String actorEmail) {
         return schemeRepository.findById(id)
             .switchIfEmpty(Mono.error(new SchemeNotFoundException(id)))
             .flatMap(scheme -> {
@@ -177,7 +177,7 @@ public class SchemeService {
                 return schemeRepository.save(scheme)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "Scheme", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "Scheme", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .thenReturn(saved);
@@ -190,7 +190,7 @@ public class SchemeService {
     }
 
     @Transactional
-    public Mono<SchemeBenefit> createBenefit(CreateSchemeBenefitRequest request, String actorId) {
+    public Mono<SchemeBenefit> createBenefit(CreateSchemeBenefitRequest request, String actorId, String actorEmail) {
         return schemeRepository.findById(request.schemeId())
             .switchIfEmpty(Mono.error(new SchemeNotFoundException(request.schemeId())))
             .flatMap(scheme -> {
@@ -221,7 +221,7 @@ public class SchemeService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "SchemeBenefit", saved.getId().toString(), "CREATE", actorId,
+                return publishAudit(tenantId, "SchemeBenefit", saved.getId().toString(), "CREATE", actorId, actorEmail,
                         null,
                         Map.of("name", saved.getName(), "benefitType", saved.getBenefitType(),
                                "schemeId", saved.getSchemeId().toString()))
@@ -235,7 +235,7 @@ public class SchemeService {
     }
 
     @Transactional
-    public Mono<SchemeBenefit> updateBenefit(UUID id, UpdateSchemeBenefitRequest request, String actorId) {
+    public Mono<SchemeBenefit> updateBenefit(UUID id, UpdateSchemeBenefitRequest request, String actorId, String actorEmail) {
         return schemeBenefitRepository.findById(id)
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Scheme benefit not found: " + id)))
             .flatMap(existing -> schemeRepository.findById(existing.getSchemeId())
@@ -258,7 +258,7 @@ public class SchemeService {
                     return schemeBenefitRepository.save(existing)
                         .flatMap(saved -> Mono.deferContextual(ctx -> {
                             String tenantId = TenantContext.get(ctx);
-                            return publishAudit(tenantId, "SchemeBenefit", saved.getId().toString(), "UPDATE", actorId,
+                            return publishAudit(tenantId, "SchemeBenefit", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                     Map.of("name", previousName, "benefitType", previousType),
                                     Map.of("name", saved.getName(), "benefitType", saved.getBenefitType(),
                                            "annualLimit", saved.getAnnualLimit() != null ? saved.getAnnualLimit().toString() : ""))
@@ -269,17 +269,17 @@ public class SchemeService {
 
     /** Soft-delete a benefit by flipping its status to "inactive". */
     @Transactional
-    public Mono<SchemeBenefit> deactivateBenefit(UUID id, String actorId) {
-        return setBenefitStatus(id, "inactive", actorId);
+    public Mono<SchemeBenefit> deactivateBenefit(UUID id, String actorId, String actorEmail) {
+        return setBenefitStatus(id, "inactive", actorId, actorEmail);
     }
 
     /** Re-enables a previously-deactivated benefit. Counterpart to {@link #deactivateBenefit}. */
     @Transactional
-    public Mono<SchemeBenefit> activateBenefit(UUID id, String actorId) {
-        return setBenefitStatus(id, "active", actorId);
+    public Mono<SchemeBenefit> activateBenefit(UUID id, String actorId, String actorEmail) {
+        return setBenefitStatus(id, "active", actorId, actorEmail);
     }
 
-    private Mono<SchemeBenefit> setBenefitStatus(UUID id, String status, String actorId) {
+    private Mono<SchemeBenefit> setBenefitStatus(UUID id, String status, String actorId, String actorEmail) {
         return schemeBenefitRepository.findById(id)
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Scheme benefit not found: " + id)))
             .flatMap(existing -> {
@@ -289,7 +289,7 @@ public class SchemeService {
                 return schemeBenefitRepository.save(existing)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "SchemeBenefit", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "SchemeBenefit", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .thenReturn(saved);
@@ -309,7 +309,7 @@ public class SchemeService {
     }
 
     @Transactional
-    public Mono<AgeGroup> createAgeGroup(CreateAgeGroupRequest request, String actorId) {
+    public Mono<AgeGroup> createAgeGroup(CreateAgeGroupRequest request, String actorId, String actorEmail) {
         return schemeRepository.findById(request.schemeId())
             .switchIfEmpty(Mono.error(new SchemeNotFoundException(request.schemeId())))
             .flatMap(scheme -> {
@@ -336,7 +336,7 @@ public class SchemeService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "AgeGroup", saved.getId().toString(), "CREATE", actorId,
+                return publishAudit(tenantId, "AgeGroup", saved.getId().toString(), "CREATE", actorId, actorEmail,
                         null,
                         Map.of("name", saved.getName(), "minAge", saved.getMinAge().toString(),
                                "maxAge", saved.getMaxAge().toString(),
@@ -351,7 +351,7 @@ public class SchemeService {
     }
 
     @Transactional
-    public Mono<AgeGroup> updateAgeGroup(UUID id, UpdateAgeGroupRequest request, String actorId) {
+    public Mono<AgeGroup> updateAgeGroup(UUID id, UpdateAgeGroupRequest request, String actorId, String actorEmail) {
         return ageGroupRepository.findById(id)
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Age group not found: " + id)))
             .flatMap(existing -> schemeRepository.findById(existing.getSchemeId())
@@ -369,7 +369,7 @@ public class SchemeService {
                     return ageGroupRepository.save(existing)
                         .flatMap(saved -> Mono.deferContextual(ctx -> {
                             String tenantId = TenantContext.get(ctx);
-                            return publishAudit(tenantId, "AgeGroup", saved.getId().toString(), "UPDATE", actorId,
+                            return publishAudit(tenantId, "AgeGroup", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                     Map.of("name", previousName),
                                     Map.of("name", saved.getName(),
                                            "minAge", saved.getMinAge().toString(),
@@ -382,17 +382,17 @@ public class SchemeService {
 
     /** Soft-delete an age group by flipping its status to "inactive". */
     @Transactional
-    public Mono<AgeGroup> deactivateAgeGroup(UUID id, String actorId) {
-        return setAgeGroupStatus(id, "inactive", actorId);
+    public Mono<AgeGroup> deactivateAgeGroup(UUID id, String actorId, String actorEmail) {
+        return setAgeGroupStatus(id, "inactive", actorId, actorEmail);
     }
 
     /** Re-enables a previously-deactivated age group. Counterpart to {@link #deactivateAgeGroup}. */
     @Transactional
-    public Mono<AgeGroup> activateAgeGroup(UUID id, String actorId) {
-        return setAgeGroupStatus(id, "active", actorId);
+    public Mono<AgeGroup> activateAgeGroup(UUID id, String actorId, String actorEmail) {
+        return setAgeGroupStatus(id, "active", actorId, actorEmail);
     }
 
-    private Mono<AgeGroup> setAgeGroupStatus(UUID id, String status, String actorId) {
+    private Mono<AgeGroup> setAgeGroupStatus(UUID id, String status, String actorId, String actorEmail) {
         return ageGroupRepository.findById(id)
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Age group not found: " + id)))
             .flatMap(existing -> {
@@ -401,7 +401,7 @@ public class SchemeService {
                 return ageGroupRepository.save(existing)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "AgeGroup", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "AgeGroup", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .thenReturn(saved);
@@ -460,7 +460,7 @@ public class SchemeService {
     }
 
     private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
-                                     String action, String actorId,
+                                     String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
@@ -468,7 +468,7 @@ public class SchemeService {
             entityId,
             action,
             actorId,
-            null,
+            actorEmail,
             oldValue,
             newValue,
             new String[]{},

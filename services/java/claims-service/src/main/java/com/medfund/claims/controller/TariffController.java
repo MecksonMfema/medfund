@@ -6,6 +6,7 @@ import com.medfund.claims.dto.TariffCodeResponse;
 import com.medfund.claims.dto.TariffScheduleResponse;
 import com.medfund.claims.entity.TariffModifier;
 import com.medfund.claims.service.TariffService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -13,11 +14,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -56,8 +58,9 @@ public class TariffController {
         @ApiResponse(responseCode = "400", description = "Validation error")
     })
     public Mono<TariffScheduleResponse> createSchedule(@Valid @RequestBody CreateTariffScheduleRequest request,
-                                                         Principal principal) {
-        return tariffService.createSchedule(request, principal.getName()).map(TariffScheduleResponse::from);
+                                                         @AuthenticationPrincipal Jwt jwt) {
+        return tariffService.createSchedule(request, AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(TariffScheduleResponse::from);
     }
 
     @GetMapping("/codes/schedule/{scheduleId}")
@@ -86,8 +89,9 @@ public class TariffController {
         @ApiResponse(responseCode = "400", description = "Validation error")
     })
     public Mono<TariffCodeResponse> createCode(@Valid @RequestBody CreateTariffCodeRequest request,
-                                                Principal principal) {
-        return tariffService.createCode(request, principal.getName()).map(TariffCodeResponse::from);
+                                                @AuthenticationPrincipal Jwt jwt) {
+        return tariffService.createCode(request, AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(TariffCodeResponse::from);
     }
 
     @GetMapping("/modifiers")

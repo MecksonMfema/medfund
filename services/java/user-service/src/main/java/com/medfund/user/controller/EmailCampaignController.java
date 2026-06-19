@@ -1,5 +1,6 @@
 package com.medfund.user.controller;
 
+import com.medfund.shared.audit.AuditActor;
 import com.medfund.user.dto.AudiencePreviewResponse;
 import com.medfund.user.dto.EmailCampaignResponse;
 import com.medfund.user.dto.UpsertEmailCampaignRequest;
@@ -12,11 +13,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -51,8 +53,8 @@ public class EmailCampaignController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create a draft campaign")
     public Mono<EmailCampaignResponse> create(@Valid @RequestBody UpsertEmailCampaignRequest request,
-                                               Principal principal) {
-        return service.create(request, principal != null ? principal.getName() : null)
+                                               @AuthenticationPrincipal Jwt jwt) {
+        return service.create(request, AuditActor.id(jwt), AuditActor.email(jwt))
                 .map(EmailCampaignResponse::from);
     }
 
@@ -60,16 +62,16 @@ public class EmailCampaignController {
     @Operation(summary = "Update a draft campaign (rejected once sent)")
     public Mono<EmailCampaignResponse> update(@PathVariable UUID id,
                                                @Valid @RequestBody UpsertEmailCampaignRequest request,
-                                               Principal principal) {
-        return service.update(id, request, principal != null ? principal.getName() : null)
+                                               @AuthenticationPrincipal Jwt jwt) {
+        return service.update(id, request, AuditActor.id(jwt), AuditActor.email(jwt))
                 .map(EmailCampaignResponse::from);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Delete a campaign")
-    public Mono<Void> delete(@PathVariable UUID id, Principal principal) {
-        return service.delete(id, principal != null ? principal.getName() : null);
+    public Mono<Void> delete(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return service.delete(id, AuditActor.id(jwt), AuditActor.email(jwt));
     }
 
     @PostMapping("/{id}/send")
@@ -77,8 +79,8 @@ public class EmailCampaignController {
             description = "Computes recipient count from the audience filter and stamps sent_at. " +
                     "Actual SMTP dispatch happens out-of-band — this endpoint records that the " +
                     "tenant intends to send. Idempotent only for drafts.")
-    public Mono<EmailCampaignResponse> send(@PathVariable UUID id, Principal principal) {
-        return service.send(id, principal != null ? principal.getName() : null)
+    public Mono<EmailCampaignResponse> send(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return service.send(id, AuditActor.id(jwt), AuditActor.email(jwt))
                 .map(EmailCampaignResponse::from);
     }
 

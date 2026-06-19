@@ -81,7 +81,7 @@ class AdjustmentServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                adjustmentService.create(request, actorId)
+                adjustmentService.create(request, actorId, "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -112,7 +112,7 @@ class AdjustmentServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                adjustmentService.approve(adjustment.getId(), actorId)
+                adjustmentService.approve(adjustment.getId(), actorId, "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -140,7 +140,7 @@ class AdjustmentServiceTest {
         when(eventPublisher.publishAdjustmentApplied(any(), any(), any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                adjustmentService.apply(adjustment.getId(), actorId)
+                adjustmentService.apply(adjustment.getId(), actorId, "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -164,7 +164,7 @@ class AdjustmentServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                adjustmentService.cancel(adjustment.getId(), UUID.randomUUID().toString())
+                adjustmentService.cancel(adjustment.getId(), UUID.randomUUID().toString(), "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("cancelled"))
@@ -180,7 +180,7 @@ class AdjustmentServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                adjustmentService.cancel(adjustment.getId(), UUID.randomUUID().toString())
+                adjustmentService.cancel(adjustment.getId(), UUID.randomUUID().toString(), "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("cancelled"))
@@ -194,7 +194,7 @@ class AdjustmentServiceTest {
         when(adjustmentRepository.findById(adjustment.getId())).thenReturn(Mono.just(adjustment));
 
         StepVerifier.create(
-                adjustmentService.cancel(adjustment.getId(), UUID.randomUUID().toString())
+                adjustmentService.cancel(adjustment.getId(), UUID.randomUUID().toString(), "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .expectError(IllegalStateException.class)
@@ -210,7 +210,7 @@ class AdjustmentServiceTest {
         when(adjustmentRepository.findById(adjustment.getId())).thenReturn(Mono.just(adjustment));
 
         StepVerifier.create(
-                adjustmentService.cancel(adjustment.getId(), UUID.randomUUID().toString())
+                adjustmentService.cancel(adjustment.getId(), UUID.randomUUID().toString(), "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("cancelled"))

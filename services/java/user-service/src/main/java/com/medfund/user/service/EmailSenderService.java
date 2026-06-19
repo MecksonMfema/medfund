@@ -37,7 +37,7 @@ public class EmailSenderService {
     }
 
     @Transactional
-    public Mono<EmailSender> create(UpsertEmailSenderRequest request, String actorId) {
+    public Mono<EmailSender> create(UpsertEmailSenderRequest request, String actorId, String actorEmail) {
         var sender = new EmailSender();
         sender.setAddress(request.address());
         sender.setDisplayName(request.displayName());
@@ -50,12 +50,12 @@ public class EmailSenderService {
         sender.setUpdatedBy(actorId != null ? UUID.fromString(actorId) : null);
 
         return r2dbcTemplate.insert(sender)
-                .flatMap(saved -> audit(saved, "CREATE", actorId, null,
+                .flatMap(saved -> audit(saved, "CREATE", actorId, actorEmail, null,
                         Map.of("address", saved.getAddress(), "status", saved.getStatus())));
     }
 
     @Transactional
-    public Mono<EmailSender> update(UUID id, UpsertEmailSenderRequest request, String actorId) {
+    public Mono<EmailSender> update(UUID id, UpsertEmailSenderRequest request, String actorId, String actorEmail) {
         return findById(id)
                 .flatMap(existing -> {
                     String prevAddress = existing.getAddress();
@@ -65,47 +65,47 @@ public class EmailSenderService {
                     existing.setUpdatedAt(Instant.now());
                     existing.setUpdatedBy(actorId != null ? UUID.fromString(actorId) : null);
                     return repo.save(existing)
-                            .flatMap(saved -> audit(saved, "UPDATE", actorId,
+                            .flatMap(saved -> audit(saved, "UPDATE", actorId, actorEmail,
                                     Map.of("address", prevAddress),
                                     Map.of("address", saved.getAddress())));
                 });
     }
 
     @Transactional
-    public Mono<EmailSender> verify(UUID id, String actorId) {
+    public Mono<EmailSender> verify(UUID id, String actorId, String actorEmail) {
         return findById(id).flatMap(existing -> {
             existing.setStatus("verified");
             existing.setVerifiedAt(Instant.now());
             existing.setUpdatedAt(Instant.now());
             existing.setUpdatedBy(actorId != null ? UUID.fromString(actorId) : null);
             return repo.save(existing)
-                    .flatMap(saved -> audit(saved, "UPDATE", actorId,
+                    .flatMap(saved -> audit(saved, "UPDATE", actorId, actorEmail,
                             Map.of("status", "pending"),
                             Map.of("status", "verified", "verifiedAt", saved.getVerifiedAt().toString())));
         });
     }
 
     @Transactional
-    public Mono<EmailSender> revoke(UUID id, String actorId) {
+    public Mono<EmailSender> revoke(UUID id, String actorId, String actorEmail) {
         return findById(id).flatMap(existing -> {
             existing.setStatus("revoked");
             existing.setUpdatedAt(Instant.now());
             existing.setUpdatedBy(actorId != null ? UUID.fromString(actorId) : null);
             return repo.save(existing)
-                    .flatMap(saved -> audit(saved, "UPDATE", actorId,
+                    .flatMap(saved -> audit(saved, "UPDATE", actorId, actorEmail,
                             Map.of("status", existing.getStatus()),
                             Map.of("status", "revoked")));
         });
     }
 
     @Transactional
-    public Mono<Void> delete(UUID id, String actorId) {
+    public Mono<Void> delete(UUID id, String actorId, String actorEmail) {
         return findById(id).flatMap(existing ->
-                repo.deleteById(id).then(audit(existing, "DELETE", actorId,
+                repo.deleteById(id).then(audit(existing, "DELETE", actorId, actorEmail,
                         Map.of("address", existing.getAddress()), null)).then());
     }
 
-    private Mono<EmailSender> audit(EmailSender sender, String action, String actorId,
+    private Mono<EmailSender> audit(EmailSender sender, String action, String actorId, String actorEmail,
                                      Map<String, Object> oldVal, Map<String, Object> newVal) {
         return Mono.deferContextual(ctx -> {
             String tenantId = TenantContext.get(ctx);
@@ -113,7 +113,7 @@ public class EmailSenderService {
                     tenantId != null ? tenantId : "unknown",
                     "EmailSender", sender.getId().toString(),
                     sender.getAddress(),
-                    action, actorId, null,
+                    action, actorId, actorEmail,
                     oldVal, newVal,
                     new String[]{"address", "status", "verifiedAt"},
                     UUID.randomUUID().toString());

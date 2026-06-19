@@ -46,7 +46,7 @@ class AuditPublisherTest {
     void publish_sendsToAuditTopic() {
         var event = AuditEvent.create(
                 "test-tenant", "Member", "mbr-123", "CREATE", "actor-1",
-                null, null, Map.of("name", "John"),
+                "actor@test.example", null, Map.of("name", "John"),
                 new String[]{"name"}, "corr-1"
         );
 
@@ -70,7 +70,7 @@ class AuditPublisherTest {
     void publish_includesAllEventFields() {
         var event = AuditEvent.create(
                 "test-tenant", "Member", "mbr-123", "CREATE", "actor-1",
-                null, null, Map.of("name", "John"),
+                "actor@test.example", null, Map.of("name", "John"),
                 new String[]{"name"}, "corr-1"
         );
 

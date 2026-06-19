@@ -108,7 +108,7 @@ class RoleServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            roleService.create(request, actorId)
+            roleService.create(request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(role -> {
@@ -133,7 +133,7 @@ class RoleServiceTest {
         when(roleRepository.existsByName("test_role")).thenReturn(Mono.just(true));
 
         StepVerifier.create(
-            roleService.create(request, actorId)
+            roleService.create(request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .expectError(DuplicateRoleException.class)
@@ -156,7 +156,7 @@ class RoleServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            roleService.assignRole(request, actorId)
+            roleService.assignRole(request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(userRole -> {

@@ -78,7 +78,7 @@ public class TransactionService {
     }
 
     @Transactional
-    public Mono<Transaction> record(RecordTransactionRequest request, String actorId) {
+    public Mono<Transaction> record(RecordTransactionRequest request, String actorId, String actorEmail) {
         String transactionNumber = "TXN-" + String.format("%08d", ThreadLocalRandom.current().nextInt(0, 99999999));
 
         var transaction = new Transaction();
@@ -100,7 +100,7 @@ public class TransactionService {
             .flatMap(this::applyBalanceUpdate)
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "Transaction", saved.getId().toString(), "CREATE", actorId,
+                return publishAudit(tenantId, "Transaction", saved.getId().toString(), "CREATE", actorId, actorEmail,
                         null,
                         Map.of("transactionNumber", saved.getTransactionNumber(),
                                "status", saved.getStatus(),
@@ -147,7 +147,7 @@ public class TransactionService {
     // ---- Private helpers ----
 
     private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
-                                     String action, String actorId,
+                                     String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
@@ -155,7 +155,7 @@ public class TransactionService {
             entityId,
             action,
             actorId,
-            null,
+            actorEmail,
             oldValue,
             newValue,
             new String[]{},

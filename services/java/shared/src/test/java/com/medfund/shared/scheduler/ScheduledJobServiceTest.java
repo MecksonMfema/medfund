@@ -48,6 +48,26 @@ class ScheduledJobServiceTest {
     }
 
     @Test
+    void create_publishesAuditWithActorEmail() {
+        when(jobRepository.save(any())).thenAnswer(inv -> {
+            ScheduledJobConfig cfg = inv.getArgument(0);
+            cfg.setId(UUID.randomUUID());
+            return Mono.just(cfg);
+        });
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(scheduledJobService.create(UUID.randomUUID(), "BILLING_CYCLE",
+                "Monthly Billing", "0 0 10 15 * *", "{}",
+                UUID.randomUUID().toString(), "actor@test.example"))
+            .assertNext(saved -> assertThat(saved.getJobType()).isEqualTo("BILLING_CYCLE"))
+            .verifyComplete();
+
+        var captor = org.mockito.ArgumentCaptor.forClass(com.medfund.shared.audit.AuditEvent.class);
+        verify(auditPublisher).publish(captor.capture());
+        assertThat(captor.getValue().actorEmail()).isEqualTo("actor@test.example");
+    }
+
+    @Test
     void findByJobType_delegates() {
         var config = new ScheduledJobConfig();
         config.setJobType("BILLING_CYCLE");

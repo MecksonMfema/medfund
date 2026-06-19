@@ -9,6 +9,7 @@ import com.medfund.finance.repository.PaymentRepository;
 import com.medfund.finance.repository.PaymentRunItemRepository;
 import com.medfund.finance.repository.PaymentRunRepository;
 import reactor.core.publisher.Flux;
+import com.medfund.shared.audit.AuditActor;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
@@ -94,7 +95,8 @@ public class PaymentAdviceService {
             .flatMap(advice -> persistAdvice(paymentRunId, advice).thenReturn(advice))
             .flatMap(advice -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "PaymentAdvice", advice.adviceNumber(), "CREATE", "system",
+                return publishAudit(tenantId, "PaymentAdvice", advice.adviceNumber(), "CREATE",
+                        AuditActor.SYSTEM_ID, AuditActor.SYSTEM_EMAIL,
                         null,
                         Map.of("adviceNumber", advice.adviceNumber(),
                                "paymentRunId", paymentRunId.toString(),
@@ -120,7 +122,7 @@ public class PaymentAdviceService {
     // ---- Private helpers ----
 
     private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
-                                     String action, String actorId,
+                                     String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
@@ -128,7 +130,7 @@ public class PaymentAdviceService {
             entityId,
             action,
             actorId,
-            null,
+            actorEmail,
             oldValue,
             newValue,
             new String[]{},

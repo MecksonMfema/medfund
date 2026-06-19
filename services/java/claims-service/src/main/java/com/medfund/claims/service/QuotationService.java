@@ -58,7 +58,7 @@ public class QuotationService {
     }
 
     @Transactional
-    public Mono<Quotation> submit(QuotationRequest request, String actorId) {
+    public Mono<Quotation> submit(QuotationRequest request, String actorId, String actorEmail) {
         return generateQuotationNumber()
             .flatMap(number -> {
                 var q = new Quotation();
@@ -86,7 +86,7 @@ public class QuotationService {
                 var event = AuditEvent.create(
                     tenantId != null ? tenantId : "unknown",
                     "Quotation", saved.getId().toString(),
-                    "CREATE", actorId, null, null,
+                    "CREATE", actorId, actorEmail, null,
                     Map.of("quotationNumber", saved.getQuotationNumber(),
                            "estimatedAmount", saved.getEstimatedAmount().toPlainString()),
                     new String[]{"quotationNumber", "estimatedAmount", "status"},
@@ -98,7 +98,7 @@ public class QuotationService {
 
     @Transactional
     public Mono<Quotation> review(UUID id, BigDecimal coveredAmount, BigDecimal coPaymentAmount,
-                                   String notes, String actorId) {
+                                   String notes, String actorId, String actorEmail) {
         return quotationRepository.findById(id)
             .flatMap(q -> {
                 q.setStatus("REVIEWED");
@@ -116,7 +116,7 @@ public class QuotationService {
                 var event = AuditEvent.create(
                     tenantId != null ? tenantId : "unknown",
                     "Quotation", saved.getId().toString(),
-                    "UPDATE", actorId, null,
+                    "UPDATE", actorId, actorEmail,
                     Map.of("status", "PENDING"),
                     Map.of("status", "REVIEWED", "coveredAmount", saved.getCoveredAmount().toPlainString()),
                     new String[]{"status", "coveredAmount", "coPaymentAmount"},

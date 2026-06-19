@@ -88,7 +88,8 @@ class SchemeServiceIT extends AbstractIntegrationTest {
 
         // Capture the persisted ID so we can re-read and assert end-to-end.
         var actorId = UUID.randomUUID().toString();
-        var savedId = schemeService.create(request, actorId)
+        var actorEmail = "actor@test.example";
+        var savedId = schemeService.create(request, actorId, actorEmail)
             .contextWrite(TenantTestContext.put())
             .map(s -> s.getId())
             .block(Duration.ofSeconds(10));
@@ -115,6 +116,12 @@ class SchemeServiceIT extends AbstractIntegrationTest {
         assertThat(event.path("action").asText()).isEqualTo("CREATE");
         assertThat(event.path("tenantId").asText()).isEqualTo(TENANT_ID);
         assertThat(event.path("actorId").asText()).isEqualTo(actorId);
+        // The actorEmail slot must be populated end-to-end — UUID-only audit logs
+        // force a DB join on every viewer. See AuditActor + coding-standards.md
+        // "Actor identity — REQUIRED on every audit event".
+        assertThat(event.path("actorEmail").asText())
+            .as("actorEmail must reach Kafka so audit listings are human-scannable")
+            .isEqualTo(actorEmail);
         assertThat(event.path("newValue").path("name").asText()).isEqualTo(uniqueName);
     }
 }

@@ -3,17 +3,19 @@ package com.medfund.finance.controller;
 import com.medfund.finance.dto.AdvancePaymentDtos.AdvancePaymentResponse;
 import com.medfund.finance.dto.AdvancePaymentDtos.CreateAdvancePaymentRequest;
 import com.medfund.finance.service.AdvancePaymentService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -44,8 +46,8 @@ public class AdvancePaymentController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Record a new advance payment")
     public Mono<AdvancePaymentResponse> create(@Valid @RequestBody CreateAdvancePaymentRequest request,
-                                                Principal principal) {
-        return service.create(request, principal != null ? principal.getName() : null)
+                                                @AuthenticationPrincipal Jwt jwt) {
+        return service.create(request, AuditActor.id(jwt), AuditActor.email(jwt))
             .map(AdvancePaymentResponse::from);
     }
 }

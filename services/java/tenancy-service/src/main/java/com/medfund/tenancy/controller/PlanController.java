@@ -1,5 +1,6 @@
 package com.medfund.tenancy.controller;
 
+import com.medfund.shared.audit.AuditActor;
 import com.medfund.tenancy.dto.CreatePlanRequest;
 import com.medfund.tenancy.dto.PlanResponse;
 import com.medfund.tenancy.service.PlanService;
@@ -11,11 +12,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -54,9 +56,9 @@ public class PlanController {
     @ApiResponse(responseCode = "201", description = "Plan created")
     public Mono<PlanResponse> create(
             @Valid @RequestBody CreatePlanRequest request,
-            Principal principal) {
-        String actorId = principal != null ? principal.getName() : "system";
-        return planService.create(request, actorId).map(PlanResponse::from);
+            @AuthenticationPrincipal Jwt jwt) {
+        return planService.create(request, AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(PlanResponse::from);
     }
 
     @PostMapping("/{id}/deactivate")
@@ -64,8 +66,8 @@ public class PlanController {
     @ApiResponse(responseCode = "200", description = "Plan deactivated")
     public Mono<PlanResponse> deactivate(
             @Parameter(description = "Plan UUID") @PathVariable UUID id,
-            Principal principal) {
-        String actorId = principal != null ? principal.getName() : "system";
-        return planService.deactivate(id, actorId).map(PlanResponse::from);
+            @AuthenticationPrincipal Jwt jwt) {
+        return planService.deactivate(id, AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(PlanResponse::from);
     }
 }

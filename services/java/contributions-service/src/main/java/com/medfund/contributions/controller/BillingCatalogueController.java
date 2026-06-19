@@ -11,6 +11,7 @@ import com.medfund.contributions.dto.UpsertDunningConfigRequest;
 import com.medfund.contributions.dto.UpsertPaymentMethodRequest;
 import com.medfund.contributions.dto.UpsertTransactionTypeRequest;
 import com.medfund.contributions.service.BillingCatalogueService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -67,7 +68,7 @@ public class BillingCatalogueController {
     @ApiResponse(responseCode = "201", description = "Benefit type created")
     public Mono<BenefitTypeResponse> createBenefitType(@Valid @RequestBody UpsertBenefitTypeRequest body,
                                                        @AuthenticationPrincipal Jwt jwt) {
-        return service.createBenefitType(body, actorId(jwt), actorEmail(jwt)).map(BenefitTypeResponse::from);
+        return service.createBenefitType(body, AuditActor.id(jwt), AuditActor.email(jwt)).map(BenefitTypeResponse::from);
     }
 
     @PutMapping("/benefit-types/{id}")
@@ -75,14 +76,14 @@ public class BillingCatalogueController {
     public Mono<BenefitTypeResponse> updateBenefitType(@PathVariable UUID id,
                                                        @Valid @RequestBody UpsertBenefitTypeRequest body,
                                                        @AuthenticationPrincipal Jwt jwt) {
-        return service.updateBenefitType(id, body, actorId(jwt), actorEmail(jwt)).map(BenefitTypeResponse::from);
+        return service.updateBenefitType(id, body, AuditActor.id(jwt), AuditActor.email(jwt)).map(BenefitTypeResponse::from);
     }
 
     @DeleteMapping("/benefit-types/{id}")
     @Operation(summary = "Delete benefit type",
             description = "Hard-deletes the catalogue row. Existing scheme_benefits keep their snapshot label.")
     public Mono<ResponseEntity<Void>> deleteBenefitType(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-        return service.deleteBenefitType(id, actorId(jwt), actorEmail(jwt))
+        return service.deleteBenefitType(id, AuditActor.id(jwt), AuditActor.email(jwt))
                 .thenReturn(ResponseEntity.noContent().<Void>build());
     }
 
@@ -100,7 +101,7 @@ public class BillingCatalogueController {
     @Operation(summary = "Create payment method")
     public Mono<PaymentMethodResponse> createPaymentMethod(@Valid @RequestBody UpsertPaymentMethodRequest body,
                                                            @AuthenticationPrincipal Jwt jwt) {
-        return service.createPaymentMethod(body, actorId(jwt), actorEmail(jwt)).map(PaymentMethodResponse::from);
+        return service.createPaymentMethod(body, AuditActor.id(jwt), AuditActor.email(jwt)).map(PaymentMethodResponse::from);
     }
 
     @PutMapping("/payment-methods/{id}")
@@ -108,13 +109,13 @@ public class BillingCatalogueController {
     public Mono<PaymentMethodResponse> updatePaymentMethod(@PathVariable UUID id,
                                                            @Valid @RequestBody UpsertPaymentMethodRequest body,
                                                            @AuthenticationPrincipal Jwt jwt) {
-        return service.updatePaymentMethod(id, body, actorId(jwt), actorEmail(jwt)).map(PaymentMethodResponse::from);
+        return service.updatePaymentMethod(id, body, AuditActor.id(jwt), AuditActor.email(jwt)).map(PaymentMethodResponse::from);
     }
 
     @DeleteMapping("/payment-methods/{id}")
     @Operation(summary = "Delete payment method")
     public Mono<ResponseEntity<Void>> deletePaymentMethod(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-        return service.deletePaymentMethod(id, actorId(jwt), actorEmail(jwt))
+        return service.deletePaymentMethod(id, AuditActor.id(jwt), AuditActor.email(jwt))
                 .thenReturn(ResponseEntity.noContent().<Void>build());
     }
 
@@ -132,7 +133,7 @@ public class BillingCatalogueController {
     @Operation(summary = "Create transaction type")
     public Mono<TransactionTypeResponse> createTransactionType(@Valid @RequestBody UpsertTransactionTypeRequest body,
                                                                @AuthenticationPrincipal Jwt jwt) {
-        return service.createTransactionType(body, actorId(jwt), actorEmail(jwt)).map(TransactionTypeResponse::from);
+        return service.createTransactionType(body, AuditActor.id(jwt), AuditActor.email(jwt)).map(TransactionTypeResponse::from);
     }
 
     @PutMapping("/transaction-types/{id}")
@@ -140,13 +141,13 @@ public class BillingCatalogueController {
     public Mono<TransactionTypeResponse> updateTransactionType(@PathVariable UUID id,
                                                                @Valid @RequestBody UpsertTransactionTypeRequest body,
                                                                @AuthenticationPrincipal Jwt jwt) {
-        return service.updateTransactionType(id, body, actorId(jwt), actorEmail(jwt)).map(TransactionTypeResponse::from);
+        return service.updateTransactionType(id, body, AuditActor.id(jwt), AuditActor.email(jwt)).map(TransactionTypeResponse::from);
     }
 
     @DeleteMapping("/transaction-types/{id}")
     @Operation(summary = "Delete transaction type")
     public Mono<ResponseEntity<Void>> deleteTransactionType(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-        return service.deleteTransactionType(id, actorId(jwt), actorEmail(jwt))
+        return service.deleteTransactionType(id, AuditActor.id(jwt), AuditActor.email(jwt))
                 .thenReturn(ResponseEntity.noContent().<Void>build());
     }
 
@@ -162,7 +163,7 @@ public class BillingCatalogueController {
     @Operation(summary = "Update dunning rules")
     public Mono<DunningConfigResponse> upsertDunning(@Valid @RequestBody UpsertDunningConfigRequest body,
                                                      @AuthenticationPrincipal Jwt jwt) {
-        return service.upsertDunningConfig(body, actorId(jwt), actorEmail(jwt)).map(DunningConfigResponse::from);
+        return service.upsertDunningConfig(body, AuditActor.id(jwt), AuditActor.email(jwt)).map(DunningConfigResponse::from);
     }
 
     // ── Billing cycle config ──────────────────────────────────────────────────
@@ -177,18 +178,7 @@ public class BillingCatalogueController {
     @Operation(summary = "Update billing cycle config")
     public Mono<BillingCycleConfigResponse> upsertCycle(@Valid @RequestBody UpsertBillingCycleConfigRequest body,
                                                         @AuthenticationPrincipal Jwt jwt) {
-        return service.upsertBillingCycleConfig(body, actorId(jwt), actorEmail(jwt)).map(BillingCycleConfigResponse::from);
+        return service.upsertBillingCycleConfig(body, AuditActor.id(jwt), AuditActor.email(jwt)).map(BillingCycleConfigResponse::from);
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private static String actorId(Jwt jwt) {
-        return jwt != null ? jwt.getSubject() : "system";
-    }
-
-    private static String actorEmail(Jwt jwt) {
-        if (jwt == null) return null;
-        String email = jwt.getClaimAsString("email");
-        return email != null ? email : jwt.getClaimAsString("preferred_username");
-    }
 }

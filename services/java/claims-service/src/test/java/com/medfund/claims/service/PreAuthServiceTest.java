@@ -40,6 +40,7 @@ class PreAuthServiceTest {
     private PreAuthService preAuthService;
 
     private String actorId;
+    private static final String ACTOR_EMAIL = "actor@test.example";
 
     @BeforeEach
     void setUp() {
@@ -82,7 +83,7 @@ class PreAuthServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                preAuthService.request(request, actorId)
+                preAuthService.request(request, actorId, ACTOR_EMAIL)
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(preAuth -> {
@@ -115,7 +116,7 @@ class PreAuthServiceTest {
         when(eventPublisher.publishPreAuthDecision(any(), any(), any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                preAuthService.approve(preAuth.getId(), approvedAmount, expiryDate, actorId)
+                preAuthService.approve(preAuth.getId(), approvedAmount, expiryDate, actorId, ACTOR_EMAIL)
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(approved -> {
@@ -142,7 +143,7 @@ class PreAuthServiceTest {
         when(eventPublisher.publishPreAuthDecision(any(), any(), any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                preAuthService.reject(preAuth.getId(), rejectionReason, actorId)
+                preAuthService.reject(preAuth.getId(), rejectionReason, actorId, ACTOR_EMAIL)
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(rejected -> {

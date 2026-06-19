@@ -41,7 +41,7 @@ public class SchemeChangeService {
     }
 
     @Transactional
-    public Mono<SchemeChange> request(SchemeChangeRequest request, String actorId) {
+    public Mono<SchemeChange> request(SchemeChangeRequest request, String actorId, String actorEmail) {
         var schemeChange = new SchemeChange();
         schemeChange.setId(UUID.randomUUID());
         schemeChange.setMemberId(request.memberId());
@@ -58,7 +58,7 @@ public class SchemeChangeService {
         return schemeChangeRepository.save(schemeChange)
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "SchemeChange", saved.getId().toString(), "CREATE", actorId,
+                return publishAudit(tenantId, "SchemeChange", saved.getId().toString(), "CREATE", actorId, actorEmail,
                         null,
                         Map.of("memberId", saved.getMemberId().toString(),
                                "fromSchemeId", saved.getFromSchemeId().toString(),
@@ -70,7 +70,7 @@ public class SchemeChangeService {
     }
 
     @Transactional
-    public Mono<SchemeChange> approve(UUID id, String actorId) {
+    public Mono<SchemeChange> approve(UUID id, String actorId, String actorEmail) {
         return schemeChangeRepository.findById(id)
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Scheme change not found: " + id)))
             .flatMap(sc -> {
@@ -88,7 +88,7 @@ public class SchemeChangeService {
                 return schemeChangeRepository.save(sc)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "SchemeChange", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "SchemeChange", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus(),
                                        "approvedBy", actorId))
@@ -98,7 +98,7 @@ public class SchemeChangeService {
     }
 
     @Transactional
-    public Mono<SchemeChange> reject(UUID id, String reason, String actorId) {
+    public Mono<SchemeChange> reject(UUID id, String reason, String actorId, String actorEmail) {
         return schemeChangeRepository.findById(id)
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Scheme change not found: " + id)))
             .flatMap(sc -> {
@@ -115,7 +115,7 @@ public class SchemeChangeService {
                 return schemeChangeRepository.save(sc)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "SchemeChange", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "SchemeChange", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus(),
                                        "rejectionReason", reason))
@@ -125,7 +125,7 @@ public class SchemeChangeService {
     }
 
     @Transactional
-    public Mono<SchemeChange> makeEffective(UUID id, String actorId) {
+    public Mono<SchemeChange> makeEffective(UUID id, String actorId, String actorEmail) {
         return schemeChangeRepository.findById(id)
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Scheme change not found: " + id)))
             .flatMap(sc -> {
@@ -141,7 +141,7 @@ public class SchemeChangeService {
                 return schemeChangeRepository.save(sc)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "SchemeChange", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "SchemeChange", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .thenReturn(saved);
@@ -152,7 +152,7 @@ public class SchemeChangeService {
     // ---- Private helpers ----
 
     private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
-                                     String action, String actorId,
+                                     String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
@@ -160,7 +160,7 @@ public class SchemeChangeService {
             entityId,
             action,
             actorId,
-            null,
+            actorEmail,
             oldValue,
             newValue,
             new String[]{"status"},

@@ -56,7 +56,7 @@ class PaymentControllerTest {
 
     @Test
     void create_returns201() {
-        when(paymentService.create(any(), any())).thenReturn(Mono.just(createTestPayment()));
+        when(paymentService.create(any(), any(), any())).thenReturn(Mono.just(createTestPayment()));
 
         String body = """
                 {

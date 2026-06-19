@@ -48,7 +48,7 @@ class MascaBankAccountServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                service.create(request, "system")
+                service.create(request, "system", "actor@test.example")
                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -70,7 +70,7 @@ class MascaBankAccountServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                service.create(request, "system")
+                service.create(request, "system", "actor@test.example")
                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> assertThat(saved.getNominated()).isFalse())
@@ -91,7 +91,7 @@ class MascaBankAccountServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                service.update(existing.getId(), request, "system")
+                service.update(existing.getId(), request, "system", "actor@test.example")
                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> assertThat(saved.getNominated()).isTrue())
@@ -109,7 +109,7 @@ class MascaBankAccountServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                service.delete(existing.getId(), "system")
+                service.delete(existing.getId(), "system", "actor@test.example")
                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .verifyComplete();
@@ -124,7 +124,7 @@ class MascaBankAccountServiceTest {
         when(repository.findById(missingId)).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                service.delete(missingId, "system")
+                service.delete(missingId, "system", "actor@test.example")
                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .expectError(IllegalArgumentException.class)

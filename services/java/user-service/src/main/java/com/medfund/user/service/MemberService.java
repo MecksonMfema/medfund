@@ -114,7 +114,7 @@ public class MemberService {
     }
 
     @Transactional
-    public Mono<Member> enroll(CreateMemberRequest request, String actorId) {
+    public Mono<Member> enroll(CreateMemberRequest request, String actorId, String actorEmail) {
         return generateMemberNumber()
             .flatMap(memberNumber -> {
                 var member = new Member();
@@ -186,7 +186,7 @@ public class MemberService {
                 // Audit + Kafka publish are also best-effort from the caller's
                 // perspective — if they fail, the member is still enrolled and
                 // we surface a 200 with a warning in the server log.
-                Mono<Void> auditAndEvents = publishAudit(tenantId, saved, null, actorId, "CREATE")
+                Mono<Void> auditAndEvents = publishAudit(tenantId, saved, null, actorId, actorEmail, "CREATE")
                         .then(eventPublisher.publishMemberEnrolled(
                             saved.getId().toString(),
                             saved.getMemberNumber(),
@@ -202,7 +202,7 @@ public class MemberService {
     }
 
     @Transactional
-    public Mono<Member> update(UUID id, UpdateMemberRequest request, String actorId) {
+    public Mono<Member> update(UUID id, UpdateMemberRequest request, String actorId, String actorEmail) {
         return memberRepository.findById(id)
             .switchIfEmpty(Mono.error(new MemberNotFoundException(id)))
             .flatMap(existing -> {
@@ -223,20 +223,20 @@ public class MemberService {
                 return memberRepository.save(existing)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, saved, previous, actorId, "UPDATE")
+                        return publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE")
                             .thenReturn(saved);
                     }));
             });
     }
 
     @Transactional
-    public Mono<Member> activate(UUID id, String actorId) {
-        return transitionStatus(id, "active", actorId);
+    public Mono<Member> activate(UUID id, String actorId, String actorEmail) {
+        return transitionStatus(id, "active", actorId, actorEmail);
     }
 
     @Transactional
-    public Mono<Member> suspend(UUID id, String actorId) {
-        return transitionStatus(id, "suspended", actorId)
+    public Mono<Member> suspend(UUID id, String actorId, String actorEmail) {
+        return transitionStatus(id, "suspended", actorId, actorEmail)
             .flatMap(member -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
                 if (member.getKeycloakUserId() != null) {
@@ -248,7 +248,7 @@ public class MemberService {
     }
 
     @Transactional
-    public Mono<Member> terminate(UUID id, String actorId) {
+    public Mono<Member> terminate(UUID id, String actorId, String actorEmail) {
         return memberRepository.findById(id)
             .switchIfEmpty(Mono.error(new MemberNotFoundException(id)))
             .flatMap(existing -> {
@@ -267,14 +267,14 @@ public class MemberService {
                                 "tenant-" + tenantId, saved.getKeycloakUserId());
                         }
                         return keycloakDisable
-                            .then(publishAudit(tenantId, saved, previous, actorId, "UPDATE"))
+                            .then(publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE"))
                             .then(eventPublisher.publishMemberLifecycle(saved.getId().toString(), "terminated"))
                             .thenReturn(saved);
                     }));
             });
     }
 
-    private Mono<Member> transitionStatus(UUID id, String newStatus, String actorId) {
+    private Mono<Member> transitionStatus(UUID id, String newStatus, String actorId, String actorEmail) {
         return memberRepository.findById(id)
             .switchIfEmpty(Mono.error(new MemberNotFoundException(id)))
             .flatMap(existing -> {
@@ -286,7 +286,7 @@ public class MemberService {
                 return memberRepository.save(existing)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, saved, previous, actorId, "UPDATE")
+                        return publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE")
                             .then(eventPublisher.publishMemberLifecycle(saved.getId().toString(), newStatus))
                             .thenReturn(saved);
                     }));
@@ -310,7 +310,7 @@ public class MemberService {
             .flatMap(exists -> exists ? generateMemberNumber() : Mono.just(number));
     }
 
-    private Mono<Void> publishAudit(String tenantId, Member current, Member previous, String actorId, String action) {
+    private Mono<Void> publishAudit(String tenantId, Member current, Member previous, String actorId, String actorEmail, String action) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
             "Member",
@@ -318,7 +318,7 @@ public class MemberService {
             current.getMemberNumber(),
             action,
             actorId,
-            null,
+            actorEmail,
             previous != null ? Map.of("status", previous.getStatus(), "firstName", previous.getFirstName(), "lastName", previous.getLastName()) : null,
             Map.of("status", current.getStatus(), "firstName", current.getFirstName(), "lastName", current.getLastName(), "memberNumber", current.getMemberNumber()),
             new String[]{"status", "firstName", "lastName", "email", "phone"},

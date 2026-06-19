@@ -3,6 +3,7 @@ package com.medfund.finance.controller;
 import com.medfund.finance.dto.BankReconciliationResponse;
 import com.medfund.finance.dto.CreateReconciliationRequest;
 import com.medfund.finance.service.ReconciliationService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -10,11 +11,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -50,8 +52,8 @@ public class ReconciliationController {
         @ApiResponse(responseCode = "400", description = "Validation error")
     })
     public Mono<BankReconciliationResponse> create(@Valid @RequestBody CreateReconciliationRequest request,
-                                                    Principal principal) {
-        return reconciliationService.create(request, principal.getName()).map(BankReconciliationResponse::from);
+                                                    @AuthenticationPrincipal Jwt jwt) {
+        return reconciliationService.create(request, AuditActor.id(jwt), AuditActor.email(jwt)).map(BankReconciliationResponse::from);
     }
 
     @PostMapping("/{id}/match")
@@ -60,19 +62,19 @@ public class ReconciliationController {
         @ApiResponse(responseCode = "200", description = "Reconciliation marked as matched"),
         @ApiResponse(responseCode = "404", description = "Reconciliation not found")
     })
-    public Mono<BankReconciliationResponse> markMatched(@PathVariable UUID id, Principal principal) {
-        return reconciliationService.markMatched(id, principal.getName()).map(BankReconciliationResponse::from);
+    public Mono<BankReconciliationResponse> markMatched(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return reconciliationService.markMatched(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(BankReconciliationResponse::from);
     }
 
     @PostMapping("/{id}/investigate")
     @Operation(summary = "Flag a reconciliation as under investigation")
-    public Mono<BankReconciliationResponse> markInvestigating(@PathVariable UUID id, Principal principal) {
-        return reconciliationService.markInvestigating(id, principal.getName()).map(BankReconciliationResponse::from);
+    public Mono<BankReconciliationResponse> markInvestigating(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return reconciliationService.markInvestigating(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(BankReconciliationResponse::from);
     }
 
     @PostMapping("/{id}/resolve")
     @Operation(summary = "Mark a previously-investigating reconciliation as resolved")
-    public Mono<BankReconciliationResponse> markResolved(@PathVariable UUID id, Principal principal) {
-        return reconciliationService.markResolved(id, principal.getName()).map(BankReconciliationResponse::from);
+    public Mono<BankReconciliationResponse> markResolved(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return reconciliationService.markResolved(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(BankReconciliationResponse::from);
     }
 }

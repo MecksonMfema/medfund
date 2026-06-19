@@ -53,20 +53,22 @@ public class RejectionReasonService {
     }
 
     @Transactional
-    public Mono<RejectionReason> create(UpsertRejectionReasonRequest request, String actorId) {
+    public Mono<RejectionReason> create(UpsertRejectionReasonRequest request,
+                                         String actorId, String actorEmail) {
         var reason = new RejectionReason();
         reason.setCode(request.code());
         reason.setDescription(request.description());
         reason.setCategory(request.category());
         reason.setIsActive(request.isActive() != null ? request.isActive() : true);
         return r2dbcTemplate.insert(reason)
-                .flatMap(saved -> audit(saved, "CREATE", actorId, null,
+                .flatMap(saved -> audit(saved, "CREATE", actorId, actorEmail, null,
                         Map.of("code", saved.getCode(), "category",
                                 saved.getCategory() != null ? saved.getCategory() : "")));
     }
 
     @Transactional
-    public Mono<RejectionReason> update(UUID id, UpsertRejectionReasonRequest request, String actorId) {
+    public Mono<RejectionReason> update(UUID id, UpsertRejectionReasonRequest request,
+                                         String actorId, String actorEmail) {
         return repo.findById(id)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Rejection reason not found: " + id)))
                 .flatMap(existing -> {
@@ -76,7 +78,7 @@ public class RejectionReasonService {
                     // The code is a stable identifier — once issued it doesn't change,
                     // so we don't honour code edits even if the request includes one.
                     return repo.save(existing)
-                            .flatMap(saved -> audit(saved, "UPDATE", actorId,
+                            .flatMap(saved -> audit(saved, "UPDATE", actorId, actorEmail,
                                     Map.of("code", saved.getCode()),
                                     Map.of("description", saved.getDescription(),
                                            "isActive", String.valueOf(saved.getIsActive()))));
@@ -84,16 +86,17 @@ public class RejectionReasonService {
     }
 
     @Transactional
-    public Mono<Void> delete(UUID id, String actorId) {
+    public Mono<Void> delete(UUID id, String actorId, String actorEmail) {
         return repo.findById(id)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Rejection reason not found: " + id)))
                 .flatMap(existing -> repo.deleteById(id)
-                        .then(audit(existing, "DELETE", actorId,
+                        .then(audit(existing, "DELETE", actorId, actorEmail,
                                 Map.of("code", existing.getCode()), null))
                         .then());
     }
 
-    private Mono<RejectionReason> audit(RejectionReason r, String action, String actorId,
+    private Mono<RejectionReason> audit(RejectionReason r, String action,
+                                          String actorId, String actorEmail,
                                           Map<String, Object> oldVal, Map<String, Object> newVal) {
         return Mono.deferContextual(ctx -> {
             String tenantId = TenantContext.get(ctx);
@@ -101,7 +104,7 @@ public class RejectionReasonService {
                     tenantId != null ? tenantId : "unknown",
                     "RejectionReason", r.getId().toString(),
                     r.getCode(),
-                    action, actorId, null,
+                    action, actorId, actorEmail,
                     oldVal, newVal,
                     new String[]{"code", "description", "isActive"},
                     UUID.randomUUID().toString());

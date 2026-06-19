@@ -56,7 +56,7 @@ class SchemeControllerTest {
 
     @Test
     void create_returns201() {
-        when(schemeService.create(any(), any())).thenReturn(Mono.just(createTestScheme()));
+        when(schemeService.create(any(), any(), any())).thenReturn(Mono.just(createTestScheme()));
 
         String body = """
                 {

@@ -58,7 +58,7 @@ class ContributionControllerTest {
 
     @Test
     void generateBilling_returns201() {
-        when(billingService.generateBilling(any(), any())).thenReturn(Mono.just(1L));
+        when(billingService.generateBilling(any(), any(), any())).thenReturn(Mono.just(1L));
 
         String body = """
                 {

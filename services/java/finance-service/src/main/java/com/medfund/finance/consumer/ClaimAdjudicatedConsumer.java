@@ -3,6 +3,7 @@ package com.medfund.finance.consumer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.finance.service.ProviderBalanceService;
+import com.medfund.shared.audit.AuditActor;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -113,7 +114,8 @@ public class ClaimAdjudicatedConsumer {
                 claimedDelta,
                 approvedDelta,
                 paidDelta,
-                "system"
+                AuditActor.SYSTEM_ID,
+                AuditActor.SYSTEM_EMAIL
             ).then();
         } catch (Exception e) {
             log.error("Failed to parse claim adjudicated event: {}", e.getMessage());

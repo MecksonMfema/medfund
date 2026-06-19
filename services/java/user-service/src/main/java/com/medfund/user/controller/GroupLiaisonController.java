@@ -1,5 +1,6 @@
 package com.medfund.user.controller;
 
+import com.medfund.shared.audit.AuditActor;
 import com.medfund.user.dto.CreateGroupLiaisonRequest;
 import com.medfund.user.dto.GroupLiaisonResponse;
 import com.medfund.user.service.GroupLiaisonService;
@@ -10,11 +11,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -57,7 +59,7 @@ public class GroupLiaisonController {
         @ApiResponse(responseCode = "400", description = "Validation error"),
         @ApiResponse(responseCode = "409", description = "A liaison with this email already exists")
     })
-    public Mono<GroupLiaisonResponse> create(@Valid @RequestBody CreateGroupLiaisonRequest request, Principal principal) {
-        return service.create(request, principal.getName()).map(GroupLiaisonResponse::from);
+    public Mono<GroupLiaisonResponse> create(@Valid @RequestBody CreateGroupLiaisonRequest request, @AuthenticationPrincipal Jwt jwt) {
+        return service.create(request, AuditActor.id(jwt), AuditActor.email(jwt)).map(GroupLiaisonResponse::from);
     }
 }

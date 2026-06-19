@@ -49,7 +49,7 @@ public class ReconciliationService {
     }
 
     @Transactional
-    public Mono<BankReconciliation> create(CreateReconciliationRequest request, String actorId) {
+    public Mono<BankReconciliation> create(CreateReconciliationRequest request, String actorId, String actorEmail) {
         // Resolve system amount: explicit override wins; otherwise sum the
         // paid payments in the same currency on/before the statement date.
         Mono<BigDecimal> systemAmountMono = request.systemAmount() != null
@@ -78,7 +78,7 @@ public class ReconciliationService {
             return bankReconciliationRepository.save(recon)
                 .flatMap(saved -> Mono.deferContextual(ctx -> {
                     String tenantId = TenantContext.get(ctx);
-                    return publishAudit(tenantId, "BankReconciliation", saved.getId().toString(), "CREATE", actorId,
+                    return publishAudit(tenantId, "BankReconciliation", saved.getId().toString(), "CREATE", actorId, actorEmail,
                             null,
                             Map.of("referenceNumber", saved.getReferenceNumber(), "status", saved.getStatus(),
                                    "difference", saved.getDifference().toString()))
@@ -88,7 +88,7 @@ public class ReconciliationService {
     }
 
     @Transactional
-    public Mono<BankReconciliation> markMatched(UUID id, String actorId) {
+    public Mono<BankReconciliation> markMatched(UUID id, String actorId, String actorEmail) {
         return bankReconciliationRepository.findById(id)
             .switchIfEmpty(Mono.error(new RuntimeException("Bank reconciliation not found: " + id)))
             .flatMap(recon -> {
@@ -100,7 +100,7 @@ public class ReconciliationService {
                 return bankReconciliationRepository.save(recon)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "BankReconciliation", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "BankReconciliation", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .thenReturn(saved);
@@ -109,16 +109,16 @@ public class ReconciliationService {
     }
 
     @Transactional
-    public Mono<BankReconciliation> markInvestigating(UUID id, String actorId) {
-        return transitionStatus(id, "investigating", false, actorId);
+    public Mono<BankReconciliation> markInvestigating(UUID id, String actorId, String actorEmail) {
+        return transitionStatus(id, "investigating", false, actorId, actorEmail);
     }
 
     @Transactional
-    public Mono<BankReconciliation> markResolved(UUID id, String actorId) {
-        return transitionStatus(id, "resolved", true, actorId);
+    public Mono<BankReconciliation> markResolved(UUID id, String actorId, String actorEmail) {
+        return transitionStatus(id, "resolved", true, actorId, actorEmail);
     }
 
-    private Mono<BankReconciliation> transitionStatus(UUID id, String newStatus, boolean stamp, String actorId) {
+    private Mono<BankReconciliation> transitionStatus(UUID id, String newStatus, boolean stamp, String actorId, String actorEmail) {
         return bankReconciliationRepository.findById(id)
             .switchIfEmpty(Mono.error(new RuntimeException("Bank reconciliation not found: " + id)))
             .flatMap(recon -> {
@@ -132,7 +132,7 @@ public class ReconciliationService {
                 return bankReconciliationRepository.save(recon)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "BankReconciliation", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "BankReconciliation", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .thenReturn(saved);
@@ -143,7 +143,7 @@ public class ReconciliationService {
     // ---- Private helpers ----
 
     private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
-                                     String action, String actorId,
+                                     String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
@@ -151,7 +151,7 @@ public class ReconciliationService {
             entityId,
             action,
             actorId,
-            null,
+            actorEmail,
             oldValue,
             newValue,
             new String[]{"status"},

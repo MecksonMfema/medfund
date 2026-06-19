@@ -56,7 +56,7 @@ public class PreAuthService {
     }
 
     @Transactional
-    public Mono<PreAuthorization> request(PreAuthRequest request, String actorId) {
+    public Mono<PreAuthorization> request(PreAuthRequest request, String actorId, String actorEmail) {
         return generateAuthNumber()
             .flatMap(authNumber -> {
                 var preAuth = new PreAuthorization();
@@ -80,7 +80,8 @@ public class PreAuthService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "PreAuthorization", saved.getId().toString(), "CREATE", actorId,
+                return publishAudit(tenantId, "PreAuthorization", saved.getId().toString(), "CREATE",
+                        actorId, actorEmail,
                         null,
                         Map.of("authNumber", saved.getAuthNumber(), "status", saved.getStatus(),
                                "requestedAmount", saved.getRequestedAmount().toString()))
@@ -89,7 +90,8 @@ public class PreAuthService {
     }
 
     @Transactional
-    public Mono<PreAuthorization> approve(UUID id, BigDecimal approvedAmount, LocalDate expiryDate, String actorId) {
+    public Mono<PreAuthorization> approve(UUID id, BigDecimal approvedAmount, LocalDate expiryDate,
+                                           String actorId, String actorEmail) {
         return preAuthorizationRepository.findById(id)
             .switchIfEmpty(Mono.error(new PreAuthNotFoundException(id)))
             .flatMap(preAuth -> {
@@ -104,7 +106,8 @@ public class PreAuthService {
                 return preAuthorizationRepository.save(preAuth)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "PreAuthorization", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "PreAuthorization", saved.getId().toString(), "UPDATE",
+                                actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus(), "approvedAmount", approvedAmount.toString()))
                             .then(eventPublisher.publishPreAuthDecision(
@@ -117,7 +120,7 @@ public class PreAuthService {
     }
 
     @Transactional
-    public Mono<PreAuthorization> reject(UUID id, String reason, String actorId) {
+    public Mono<PreAuthorization> reject(UUID id, String reason, String actorId, String actorEmail) {
         return preAuthorizationRepository.findById(id)
             .switchIfEmpty(Mono.error(new PreAuthNotFoundException(id)))
             .flatMap(preAuth -> {
@@ -131,7 +134,8 @@ public class PreAuthService {
                 return preAuthorizationRepository.save(preAuth)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "PreAuthorization", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "PreAuthorization", saved.getId().toString(), "UPDATE",
+                                actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus(), "rejectionReason", reason))
                             .then(eventPublisher.publishPreAuthDecision(
@@ -162,7 +166,7 @@ public class PreAuthService {
     }
 
     private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
-                                     String action, String actorId,
+                                     String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
@@ -170,7 +174,7 @@ public class PreAuthService {
             entityId,
             action,
             actorId,
-            null,
+            actorEmail,
             oldValue,
             newValue,
             new String[]{"status", "approvedAmount", "rejectionReason"},

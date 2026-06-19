@@ -97,7 +97,7 @@ class PaymentServiceTest {
         when(eventPublisher.publishPaymentCreated(any(), any(), any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                paymentService.create(request, actorId)
+                paymentService.create(request, actorId, "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -131,7 +131,7 @@ class PaymentServiceTest {
             .thenReturn(Mono.empty());
 
         StepVerifier.create(
-                paymentService.markPaid(payment.getId(), actorId)
+                paymentService.markPaid(payment.getId(), actorId, "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -156,7 +156,7 @@ class PaymentServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                paymentService.cancel(payment.getId(), UUID.randomUUID().toString())
+                paymentService.cancel(payment.getId(), UUID.randomUUID().toString(), "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("cancelled"))
@@ -170,7 +170,7 @@ class PaymentServiceTest {
         when(paymentRepository.findById(payment.getId())).thenReturn(Mono.just(payment));
 
         StepVerifier.create(
-                paymentService.cancel(payment.getId(), UUID.randomUUID().toString())
+                paymentService.cancel(payment.getId(), UUID.randomUUID().toString(), "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .expectError(IllegalStateException.class)
@@ -186,7 +186,7 @@ class PaymentServiceTest {
         when(paymentRepository.findById(payment.getId())).thenReturn(Mono.just(payment));
 
         StepVerifier.create(
-                paymentService.cancel(payment.getId(), UUID.randomUUID().toString())
+                paymentService.cancel(payment.getId(), UUID.randomUUID().toString(), "actor@test.example")
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("cancelled"))

@@ -1,5 +1,6 @@
 package com.medfund.tenancy.service;
 
+import com.medfund.shared.audit.AuditActor;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.tenancy.dto.CreatePlanRequest;
@@ -32,7 +33,7 @@ public class PlanService {
         return planRepository.findById(id);
     }
 
-    public Mono<Plan> create(CreatePlanRequest request, String actorId) {
+    public Mono<Plan> create(CreatePlanRequest request, String actorId, String actorEmail) {
         Plan plan = new Plan();
         plan.setId(UUID.randomUUID());
         plan.setName(request.name());
@@ -50,7 +51,7 @@ public class PlanService {
                 .flatMap(saved -> {
                     var event = AuditEvent.create(
                             "platform", "Plan", saved.getId().toString(), saved.getName(),
-                            "CREATE", actorId, null,
+                            "CREATE", actorId, actorEmail,
                             null,
                             Map.<String, Object>of("name", saved.getName()),
                             new String[]{"name", "price", "features"},
@@ -60,7 +61,7 @@ public class PlanService {
                 });
     }
 
-    public Mono<Plan> deactivate(UUID id, String actorId) {
+    public Mono<Plan> deactivate(UUID id, String actorId, String actorEmail) {
         return planRepository.findById(id)
                 .flatMap(plan -> {
                     plan.setIsActive(false);
@@ -68,7 +69,7 @@ public class PlanService {
                             .flatMap(saved -> {
                                 var event = AuditEvent.create(
                                         "platform", "Plan", saved.getId().toString(), saved.getName(),
-                                        "UPDATE", actorId, null,
+                                        "UPDATE", actorId, actorEmail,
                                         Map.<String, Object>of("is_active", true),
                                         Map.<String, Object>of("is_active", false),
                                         new String[]{"is_active"},

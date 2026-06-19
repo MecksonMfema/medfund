@@ -56,6 +56,7 @@ class ClaimServiceTest {
     private ClaimService claimService;
 
     private String actorId;
+    private static final String ACTOR_EMAIL = "actor@test.example";
 
     @BeforeEach
     void setUp() {
@@ -123,7 +124,7 @@ class ClaimServiceTest {
         when(eventPublisher.publishClaimSubmitted(any(), any(), any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                claimService.submit(request, actorId)
+                claimService.submit(request, actorId, ACTOR_EMAIL)
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(claim -> {
@@ -156,7 +157,7 @@ class ClaimServiceTest {
         when(eventPublisher.publishClaimStatusChanged(any(), any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                claimService.verify(claim.getId(), "123456", actorId)
+                claimService.verify(claim.getId(), "123456", actorId, ACTOR_EMAIL)
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(verified -> {
@@ -175,7 +176,7 @@ class ClaimServiceTest {
         when(claimRepository.findById(claim.getId())).thenReturn(Mono.just(claim));
 
         StepVerifier.create(
-                claimService.verify(claim.getId(), "999999", actorId)
+                claimService.verify(claim.getId(), "999999", actorId, ACTOR_EMAIL)
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .expectError(InvalidClaimStateException.class)
@@ -217,7 +218,7 @@ class ClaimServiceTest {
         when(eventPublisher.publishClaimAdjudicated(any(), any(), any(), any(), any(), any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                claimService.adjudicate(claim.getId(), actorId)
+                claimService.adjudicate(claim.getId(), actorId, ACTOR_EMAIL)
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(adjudicated -> {

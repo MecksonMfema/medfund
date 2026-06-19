@@ -55,6 +55,7 @@ class TransactionServiceTest {
     private TransactionService transactionService;
 
     private final String actorId = UUID.randomUUID().toString();
+    private final String actorEmail = "actor@test.example";
 
     @BeforeEach
     void setupBalanceMocks() {
@@ -111,7 +112,7 @@ class TransactionServiceTest {
             .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
-        StepVerifier.create(transactionService.record(request, actorId)
+        StepVerifier.create(transactionService.record(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .assertNext(saved -> {
                 assertThat(saved.getTransactionNumber()).startsWith("TXN-");

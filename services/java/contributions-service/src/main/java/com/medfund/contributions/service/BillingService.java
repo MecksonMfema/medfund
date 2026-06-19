@@ -16,6 +16,7 @@ import com.medfund.contributions.repository.BillingCycleConfigRepository;
 import com.medfund.contributions.repository.ContributionRepository;
 import com.medfund.contributions.repository.InvoiceRepository;
 import com.medfund.contributions.repository.SchemeRepository;
+import com.medfund.shared.audit.AuditActor;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
@@ -96,7 +97,7 @@ public class BillingService {
     }
 
     @Transactional
-    public Mono<Long> generateBilling(GenerateBillingRequest request, String actorId) {
+    public Mono<Long> generateBilling(GenerateBillingRequest request, String actorId, String actorEmail) {
         return schemeRepository.findById(request.schemeId())
             .switchIfEmpty(Mono.error(new IllegalArgumentException(
                 "Scheme not found: " + request.schemeId())))
@@ -132,7 +133,7 @@ public class BillingService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "Contribution", saved.getId().toString(), "CREATE", actorId,
+                return publishAudit(tenantId, "Contribution", saved.getId().toString(), "CREATE", actorId, actorEmail,
                         null,
                         Map.of("status", saved.getStatus(),
                                "schemeId", saved.getSchemeId().toString(),
@@ -149,7 +150,7 @@ public class BillingService {
 
     @Transactional
     public Mono<Contribution> recordPayment(UUID contributionId, String paymentMethod,
-                                             String paymentReference, String actorId) {
+                                             String paymentReference, String actorId, String actorEmail) {
         return contributionRepository.findById(contributionId)
             .switchIfEmpty(Mono.error(new ContributionNotFoundException(contributionId)))
             .flatMap(contribution -> {
@@ -165,7 +166,7 @@ public class BillingService {
                     .flatMap(saved -> balanceService.applyContributionPaid(saved).thenReturn(saved))
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "Contribution", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "Contribution", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus(),
                                        "paymentMethod", saved.getPaymentMethod(),
@@ -195,7 +196,7 @@ public class BillingService {
     @Transactional
     public Mono<Invoice> generateInvoice(UUID groupId, UUID schemeId, LocalDate periodStart,
                                           LocalDate periodEnd, BigDecimal totalAmount,
-                                          String currencyCode, String actorId) {
+                                          String currencyCode, String actorId, String actorEmail) {
         return generateInvoiceNumber()
             .flatMap(invoiceNumber -> {
                 var invoice = new Invoice();
@@ -218,7 +219,7 @@ public class BillingService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "Invoice", saved.getId().toString(), "CREATE", actorId,
+                return publishAudit(tenantId, "Invoice", saved.getId().toString(), "CREATE", actorId, actorEmail,
                         null,
                         Map.of("invoiceNumber", saved.getInvoiceNumber(),
                                "status", saved.getStatus(),
@@ -247,7 +248,8 @@ public class BillingService {
         return contributionRepository.save(contribution)
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "Contribution", saved.getId().toString(), "CREATE", "system",
+                return publishAudit(tenantId, "Contribution", saved.getId().toString(), "CREATE",
+                        AuditActor.SYSTEM_ID, AuditActor.SYSTEM_EMAIL,
                         null,
                         Map.of("memberId", memberId.toString(),
                                "groupId", groupId != null ? groupId.toString() : "",
@@ -269,7 +271,7 @@ public class BillingService {
     }
 
     private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
-                                     String action, String actorId,
+                                     String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
@@ -277,7 +279,7 @@ public class BillingService {
             entityId,
             action,
             actorId,
-            null,
+            actorEmail,
             oldValue,
             newValue,
             new String[]{},
@@ -333,7 +335,7 @@ public class BillingService {
      * inside that window throw {@link BillingCooldownException}.
      */
     @Transactional
-    public Mono<BillingCommitResponse> commitBilling(CommitBillingRequest req, String actorId) {
+    public Mono<BillingCommitResponse> commitBilling(CommitBillingRequest req, String actorId, String actorEmail) {
         return billingCycleConfigRepository.findById(BillingCycleConfig.SINGLETON_ID)
                 .defaultIfEmpty(defaultCycleConfig())
                 .flatMap(cfg -> {
@@ -341,11 +343,12 @@ public class BillingService {
                     if (remaining > 0) {
                         return Mono.<BillingCommitResponse>error(new BillingCooldownException(remaining));
                     }
-                    return doCommit(req, actorId, cfg);
+                    return doCommit(req, actorId, actorEmail, cfg);
                 });
     }
 
-    private Mono<BillingCommitResponse> doCommit(CommitBillingRequest req, String actorId, BillingCycleConfig cfg) {
+    private Mono<BillingCommitResponse> doCommit(CommitBillingRequest req, String actorId, String actorEmail,
+                                                  BillingCycleConfig cfg) {
         UUID actorUuid = parseUuid(actorId);
         Instant now = Instant.now();
 
@@ -369,7 +372,7 @@ public class BillingService {
                             req.periodEnd().toString(),
                             saved.size()).then();
                     Mono<Void> audit = Mono.deferContextual(ctx -> publishAudit(
-                            TenantContext.get(ctx), "BillingCycle", "commit", "CREATE", actorId,
+                            TenantContext.get(ctx), "BillingCycle", "commit", "CREATE", actorId, actorEmail,
                             null,
                             Map.of("rows", String.valueOf(saved.size()),
                                     "periodStart", req.periodStart().toString(),

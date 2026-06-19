@@ -1,5 +1,6 @@
 package com.medfund.user.controller;
 
+import com.medfund.shared.audit.AuditActor;
 import com.medfund.user.dto.CreateProviderRequest;
 import com.medfund.user.dto.ProviderPage;
 import com.medfund.user.dto.ProviderResponse;
@@ -90,7 +91,7 @@ public class ProviderController {
     })
     public Mono<ProviderResponse> onboard(@Valid @RequestBody CreateProviderRequest request,
                                            @AuthenticationPrincipal Jwt jwt) {
-        return providerService.onboard(request, actorId(jwt), actorEmail(jwt))
+        return providerService.onboard(request, AuditActor.id(jwt), AuditActor.email(jwt))
                               .map(ProviderResponse::from);
     }
 
@@ -99,38 +100,29 @@ public class ProviderController {
     public Mono<ProviderResponse> update(@PathVariable UUID id,
                                           @Valid @RequestBody UpdateProviderRequest request,
                                           @AuthenticationPrincipal Jwt jwt) {
-        return providerService.update(id, request, actorId(jwt), actorEmail(jwt))
+        return providerService.update(id, request, AuditActor.id(jwt), AuditActor.email(jwt))
                               .map(ProviderResponse::from);
     }
 
     @PostMapping("/{id}/verify")
     @Operation(summary = "Verify and activate provider")
     public Mono<ProviderResponse> verifyAhfoz(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-        return providerService.verifyAhfoz(id, actorId(jwt), actorEmail(jwt))
+        return providerService.verifyAhfoz(id, AuditActor.id(jwt), AuditActor.email(jwt))
                               .map(ProviderResponse::from);
     }
 
     @PostMapping("/{id}/suspend")
     @Operation(summary = "Suspend provider")
     public Mono<ProviderResponse> suspend(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-        return providerService.suspend(id, actorId(jwt), actorEmail(jwt))
+        return providerService.suspend(id, AuditActor.id(jwt), AuditActor.email(jwt))
                               .map(ProviderResponse::from);
     }
 
     @PostMapping("/{id}/activate")
     @Operation(summary = "Re-activate a suspended provider")
     public Mono<ProviderResponse> activate(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-        return providerService.activate(id, actorId(jwt), actorEmail(jwt))
+        return providerService.activate(id, AuditActor.id(jwt), AuditActor.email(jwt))
                               .map(ProviderResponse::from);
     }
 
-    private static String actorId(Jwt jwt) {
-        return jwt != null ? jwt.getSubject() : "system";
-    }
-
-    private static String actorEmail(Jwt jwt) {
-        if (jwt == null) return null;
-        String email = jwt.getClaimAsString("email");
-        return email != null ? email : jwt.getClaimAsString("preferred_username");
-    }
 }

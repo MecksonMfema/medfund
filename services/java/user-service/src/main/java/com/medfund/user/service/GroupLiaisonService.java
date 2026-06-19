@@ -55,7 +55,7 @@ public class GroupLiaisonService {
     }
 
     @Transactional
-    public Mono<GroupLiaison> create(CreateGroupLiaisonRequest request, String actorId) {
+    public Mono<GroupLiaison> create(CreateGroupLiaisonRequest request, String actorId, String actorEmail) {
         return repository.existsByEmailIgnoreCase(request.email())
             .flatMap(exists -> {
                 if (Boolean.TRUE.equals(exists)) {
@@ -92,15 +92,15 @@ public class GroupLiaisonService {
                                 .thenReturn(s));
                     })
                     .defaultIfEmpty(saved)
-                    .flatMap(s -> publishCreateAudit(s, tenantId, actorId).thenReturn(s));
+                    .flatMap(s -> publishCreateAudit(s, tenantId, actorId, actorEmail).thenReturn(s));
             }));
     }
 
-    private Mono<Void> publishCreateAudit(GroupLiaison saved, String tenantId, String actorId) {
+    private Mono<Void> publishCreateAudit(GroupLiaison saved, String tenantId, String actorId, String actorEmail) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown", "GroupLiaison", saved.getId().toString(),
             saved.getFirstName() + " " + saved.getLastName(),
-            "CREATE", actorId, null, null,
+            "CREATE", actorId, actorEmail, null,
             Map.of(
                 "firstName", saved.getFirstName(),
                 "lastName",  saved.getLastName(),

@@ -59,7 +59,7 @@ public class GroupService {
     }
 
     @Transactional
-    public Mono<Group> create(CreateGroupRequest request, String actorId) {
+    public Mono<Group> create(CreateGroupRequest request, String actorId, String actorEmail) {
         // A group must always have a liaison — the canonical contact path
         // for invoices, dunning, and the group-portal login. Controller-level
         // @NotBlank/@NotNull on CreateGroupRequest already enforces this for
@@ -96,7 +96,7 @@ public class GroupService {
                 var event = AuditEvent.create(
                     tenantId != null ? tenantId : "unknown", "Group", saved.getId().toString(),
                     saved.getName(),
-                    "CREATE", actorId, null, null,
+                    "CREATE", actorId, actorEmail, null,
                     Map.of("name", saved.getName(), "status", saved.getStatus()),
                     new String[]{"name", "status"},
                     UUID.randomUUID().toString()
@@ -106,7 +106,7 @@ public class GroupService {
     }
 
     @Transactional
-    public Mono<Group> update(UUID id, UpdateGroupRequest request, String actorId) {
+    public Mono<Group> update(UUID id, UpdateGroupRequest request, String actorId, String actorEmail) {
         return groupRepository.findById(id)
             .switchIfEmpty(Mono.error(new GroupNotFoundException(id)))
             .flatMap(existing -> applyLiaisonUpdate(existing, request).thenReturn(existing))
@@ -124,7 +124,7 @@ public class GroupService {
                         var event = AuditEvent.create(
                             tenantId != null ? tenantId : "unknown", "Group", saved.getId().toString(),
                             saved.getName(),
-                            "UPDATE", actorId, null, null,
+                            "UPDATE", actorId, actorEmail, null,
                             Map.of("name", saved.getName()),
                             new String[]{"name", "registrationNumber", "address"},
                             UUID.randomUUID().toString()
@@ -245,7 +245,7 @@ public class GroupService {
     }
 
     @Transactional
-    public Mono<Group> suspend(UUID id, String actorId) {
+    public Mono<Group> suspend(UUID id, String actorId, String actorEmail) {
         return groupRepository.findById(id)
             .switchIfEmpty(Mono.error(new GroupNotFoundException(id)))
             .flatMap(existing -> {
@@ -258,7 +258,7 @@ public class GroupService {
                         var event = AuditEvent.create(
                             tenantId != null ? tenantId : "unknown", "Group", saved.getId().toString(),
                             saved.getName(),
-                            "UPDATE", actorId, null,
+                            "UPDATE", actorId, actorEmail,
                             Map.of("status", "active"),
                             Map.of("status", "suspended"),
                             new String[]{"status"},

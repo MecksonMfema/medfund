@@ -7,6 +7,7 @@ import com.medfund.rules.dto.TenantRuleResponse;
 import com.medfund.rules.dto.UpdateRuleRequest;
 import com.medfund.rules.entity.TenantRule;
 import com.medfund.rules.service.TenantRuleService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -76,8 +77,7 @@ public class TenantRuleController {
             @RequestHeader("X-Tenant-ID") UUID tenantId,
             @Valid @RequestBody CreateRuleRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        UUID actorId = actorId(jwt);
-        return service.create(tenantId, request, actorId).map(this::toResponse);
+        return service.create(tenantId, request, toUuid(AuditActor.id(jwt))).map(this::toResponse);
     }
 
     @PutMapping("/{id:[0-9a-fA-F-]+}")
@@ -88,8 +88,7 @@ public class TenantRuleController {
             @PathVariable UUID id,
             @Valid @RequestBody UpdateRuleRequest request,
             @AuthenticationPrincipal Jwt jwt) {
-        UUID actorId = actorId(jwt);
-        return service.update(id, tenantId, request, actorId).map(this::toResponse);
+        return service.update(id, tenantId, request, toUuid(AuditActor.id(jwt))).map(this::toResponse);
     }
 
     @DeleteMapping("/{id:[0-9a-fA-F-]+}")
@@ -107,7 +106,7 @@ public class TenantRuleController {
             @RequestHeader("X-Tenant-ID") UUID tenantId,
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
-        return service.setEnabled(id, tenantId, true, actorId(jwt)).map(this::toResponse);
+        return service.setEnabled(id, tenantId, true, toUuid(AuditActor.id(jwt))).map(this::toResponse);
     }
 
     @PostMapping("/{id:[0-9a-fA-F-]+}/disable")
@@ -116,7 +115,7 @@ public class TenantRuleController {
             @RequestHeader("X-Tenant-ID") UUID tenantId,
             @PathVariable UUID id,
             @AuthenticationPrincipal Jwt jwt) {
-        return service.setEnabled(id, tenantId, false, actorId(jwt)).map(this::toResponse);
+        return service.setEnabled(id, tenantId, false, toUuid(AuditActor.id(jwt))).map(this::toResponse);
     }
 
     @PostMapping("/{id:[0-9a-fA-F-]+}/dry-run")
@@ -151,12 +150,15 @@ public class TenantRuleController {
         );
     }
 
-    private static UUID actorId(Jwt jwt) {
-        if (jwt == null) return null;
-        try {
-            return UUID.fromString(jwt.getSubject());
-        } catch (IllegalArgumentException ignored) {
-            return null;
-        }
+    /**
+     * The {@code created_by} / {@code updated_by} columns on {@code tenant_rules}
+     * are UUID, so the {@link AuditActor#id(Jwt) shared helper}'s String result
+     * is parsed into a UUID. Non-UUID values (the {@code "system"} placeholder
+     * or any malformed subject) collapse to null, matching the legacy behaviour.
+     */
+    private static UUID toUuid(String maybeUuid) {
+        if (maybeUuid == null) return null;
+        try { return UUID.fromString(maybeUuid); }
+        catch (IllegalArgumentException ignored) { return null; }
     }
 }

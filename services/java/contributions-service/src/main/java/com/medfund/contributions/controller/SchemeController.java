@@ -2,6 +2,7 @@ package com.medfund.contributions.controller;
 
 import com.medfund.contributions.dto.*;
 import com.medfund.contributions.service.SchemeService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -9,11 +10,12 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -66,8 +68,9 @@ public class SchemeController {
         @ApiResponse(responseCode = "400", description = "Validation error"),
         @ApiResponse(responseCode = "409", description = "Scheme with this name already exists")
     })
-    public Mono<SchemeResponse> create(@Valid @RequestBody CreateSchemeRequest request, Principal principal) {
-        return schemeService.create(request, principal.getName()).map(SchemeResponse::from);
+    public Mono<SchemeResponse> create(@Valid @RequestBody CreateSchemeRequest request,
+                                       @AuthenticationPrincipal Jwt jwt) {
+        return schemeService.create(request, AuditActor.id(jwt), AuditActor.email(jwt)).map(SchemeResponse::from);
     }
 
     @PutMapping("/{id}")
@@ -78,8 +81,8 @@ public class SchemeController {
     })
     public Mono<SchemeResponse> update(@PathVariable UUID id,
                                        @Valid @RequestBody UpdateSchemeRequest request,
-                                       Principal principal) {
-        return schemeService.update(id, request, principal.getName()).map(SchemeResponse::from);
+                                       @AuthenticationPrincipal Jwt jwt) {
+        return schemeService.update(id, request, AuditActor.id(jwt), AuditActor.email(jwt)).map(SchemeResponse::from);
     }
 
     @PostMapping("/{id}/deactivate")
@@ -88,8 +91,8 @@ public class SchemeController {
         @ApiResponse(responseCode = "200", description = "Scheme deactivated"),
         @ApiResponse(responseCode = "404", description = "Scheme not found")
     })
-    public Mono<SchemeResponse> deactivate(@PathVariable UUID id, Principal principal) {
-        return schemeService.deactivate(id, principal.getName()).map(SchemeResponse::from);
+    public Mono<SchemeResponse> deactivate(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return schemeService.deactivate(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(SchemeResponse::from);
     }
 
     @PostMapping("/{id}/activate")
@@ -98,8 +101,8 @@ public class SchemeController {
         @ApiResponse(responseCode = "200", description = "Scheme activated"),
         @ApiResponse(responseCode = "404", description = "Scheme not found")
     })
-    public Mono<SchemeResponse> activate(@PathVariable UUID id, Principal principal) {
-        return schemeService.activate(id, principal.getName()).map(SchemeResponse::from);
+    public Mono<SchemeResponse> activate(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return schemeService.activate(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(SchemeResponse::from);
     }
 
     @GetMapping("/{schemeId}/benefits")
@@ -116,8 +119,8 @@ public class SchemeController {
         @ApiResponse(responseCode = "400", description = "Validation error")
     })
     public Mono<SchemeBenefitResponse> createBenefit(@Valid @RequestBody CreateSchemeBenefitRequest request,
-                                                     Principal principal) {
-        return schemeService.createBenefit(request, principal.getName()).map(SchemeBenefitResponse::from);
+                                                     @AuthenticationPrincipal Jwt jwt) {
+        return schemeService.createBenefit(request, AuditActor.id(jwt), AuditActor.email(jwt)).map(SchemeBenefitResponse::from);
     }
 
     @GetMapping("/benefits/{id}")
@@ -136,8 +139,8 @@ public class SchemeController {
     })
     public Mono<SchemeBenefitResponse> updateBenefit(@PathVariable UUID id,
                                                      @Valid @RequestBody UpdateSchemeBenefitRequest request,
-                                                     Principal principal) {
-        return schemeService.updateBenefit(id, request, principal.getName()).map(SchemeBenefitResponse::from);
+                                                     @AuthenticationPrincipal Jwt jwt) {
+        return schemeService.updateBenefit(id, request, AuditActor.id(jwt), AuditActor.email(jwt)).map(SchemeBenefitResponse::from);
     }
 
     // Hard-delete of benefits was intentionally removed: claims, invoices,
@@ -152,8 +155,8 @@ public class SchemeController {
         @ApiResponse(responseCode = "200", description = "Scheme benefit deactivated"),
         @ApiResponse(responseCode = "404", description = "Scheme benefit not found")
     })
-    public Mono<SchemeBenefitResponse> deactivateBenefit(@PathVariable UUID id, Principal principal) {
-        return schemeService.deactivateBenefit(id, principal.getName()).map(SchemeBenefitResponse::from);
+    public Mono<SchemeBenefitResponse> deactivateBenefit(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return schemeService.deactivateBenefit(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(SchemeBenefitResponse::from);
     }
 
     @PostMapping("/benefits/{id}/activate")
@@ -162,8 +165,8 @@ public class SchemeController {
         @ApiResponse(responseCode = "200", description = "Scheme benefit activated"),
         @ApiResponse(responseCode = "404", description = "Scheme benefit not found")
     })
-    public Mono<SchemeBenefitResponse> activateBenefit(@PathVariable UUID id, Principal principal) {
-        return schemeService.activateBenefit(id, principal.getName()).map(SchemeBenefitResponse::from);
+    public Mono<SchemeBenefitResponse> activateBenefit(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return schemeService.activateBenefit(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(SchemeBenefitResponse::from);
     }
 
     @GetMapping("/{schemeId}/age-groups")
@@ -180,8 +183,8 @@ public class SchemeController {
         @ApiResponse(responseCode = "400", description = "Validation error")
     })
     public Mono<AgeGroupResponse> createAgeGroup(@Valid @RequestBody CreateAgeGroupRequest request,
-                                                 Principal principal) {
-        return schemeService.createAgeGroup(request, principal.getName()).map(AgeGroupResponse::from);
+                                                 @AuthenticationPrincipal Jwt jwt) {
+        return schemeService.createAgeGroup(request, AuditActor.id(jwt), AuditActor.email(jwt)).map(AgeGroupResponse::from);
     }
 
     @GetMapping("/age-groups/{id}")
@@ -200,8 +203,8 @@ public class SchemeController {
     })
     public Mono<AgeGroupResponse> updateAgeGroup(@PathVariable UUID id,
                                                  @Valid @RequestBody UpdateAgeGroupRequest request,
-                                                 Principal principal) {
-        return schemeService.updateAgeGroup(id, request, principal.getName()).map(AgeGroupResponse::from);
+                                                 @AuthenticationPrincipal Jwt jwt) {
+        return schemeService.updateAgeGroup(id, request, AuditActor.id(jwt), AuditActor.email(jwt)).map(AgeGroupResponse::from);
     }
 
     @PostMapping("/age-groups/{id}/deactivate")
@@ -211,8 +214,8 @@ public class SchemeController {
         @ApiResponse(responseCode = "200", description = "Age group deactivated"),
         @ApiResponse(responseCode = "404", description = "Age group not found")
     })
-    public Mono<AgeGroupResponse> deactivateAgeGroup(@PathVariable UUID id, Principal principal) {
-        return schemeService.deactivateAgeGroup(id, principal.getName()).map(AgeGroupResponse::from);
+    public Mono<AgeGroupResponse> deactivateAgeGroup(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return schemeService.deactivateAgeGroup(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(AgeGroupResponse::from);
     }
 
     @PostMapping("/age-groups/{id}/activate")
@@ -221,7 +224,7 @@ public class SchemeController {
         @ApiResponse(responseCode = "200", description = "Age group activated"),
         @ApiResponse(responseCode = "404", description = "Age group not found")
     })
-    public Mono<AgeGroupResponse> activateAgeGroup(@PathVariable UUID id, Principal principal) {
-        return schemeService.activateAgeGroup(id, principal.getName()).map(AgeGroupResponse::from);
+    public Mono<AgeGroupResponse> activateAgeGroup(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return schemeService.activateAgeGroup(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(AgeGroupResponse::from);
     }
 }

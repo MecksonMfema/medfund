@@ -3,6 +3,7 @@ package com.medfund.claims.controller;
 import com.medfund.claims.dto.QuotationRequest;
 import com.medfund.claims.dto.QuotationResponse;
 import com.medfund.claims.service.QuotationService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -10,12 +11,13 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
-import java.security.Principal;
 import java.util.UUID;
 
 @RestController
@@ -68,8 +70,10 @@ public class QuotationController {
         @ApiResponse(responseCode = "201", description = "Quotation submitted"),
         @ApiResponse(responseCode = "400", description = "Validation error")
     })
-    public Mono<QuotationResponse> submit(@Valid @RequestBody QuotationRequest request, Principal principal) {
-        return quotationService.submit(request, principal.getName()).map(QuotationResponse::from);
+    public Mono<QuotationResponse> submit(@Valid @RequestBody QuotationRequest request,
+                                           @AuthenticationPrincipal Jwt jwt) {
+        return quotationService.submit(request, AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(QuotationResponse::from);
     }
 
     @PostMapping("/{id}/review")
@@ -80,20 +84,23 @@ public class QuotationController {
             @RequestParam BigDecimal coveredAmount,
             @RequestParam BigDecimal coPaymentAmount,
             @RequestParam(required = false) String notes,
-            Principal principal) {
-        return quotationService.review(id, coveredAmount, coPaymentAmount, notes, principal.getName())
+            @AuthenticationPrincipal Jwt jwt) {
+        return quotationService.review(id, coveredAmount, coPaymentAmount, notes,
+                AuditActor.id(jwt), AuditActor.email(jwt))
             .map(QuotationResponse::from);
     }
 
     @PostMapping("/{id}/approve")
     @Operation(summary = "Approve a reviewed quotation")
-    public Mono<QuotationResponse> approve(@PathVariable UUID id, Principal principal) {
-        return quotationService.approve(id, principal.getName()).map(QuotationResponse::from);
+    public Mono<QuotationResponse> approve(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return quotationService.approve(id, AuditActor.id(jwt)).map(QuotationResponse::from);
     }
 
     @PostMapping("/{id}/reject")
     @Operation(summary = "Reject a quotation")
-    public Mono<QuotationResponse> reject(@PathVariable UUID id, @RequestParam String reason, Principal principal) {
-        return quotationService.reject(id, reason, principal.getName()).map(QuotationResponse::from);
+    public Mono<QuotationResponse> reject(@PathVariable UUID id,
+                                           @RequestParam String reason,
+                                           @AuthenticationPrincipal Jwt jwt) {
+        return quotationService.reject(id, reason, AuditActor.id(jwt)).map(QuotationResponse::from);
     }
 }

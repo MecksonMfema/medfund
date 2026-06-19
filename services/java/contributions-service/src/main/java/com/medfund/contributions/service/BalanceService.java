@@ -13,6 +13,7 @@ import com.medfund.contributions.repository.BalanceQueryRepository;
 import com.medfund.contributions.repository.DunningConfigRepository;
 import com.medfund.contributions.repository.GroupRunningBalanceRepository;
 import com.medfund.contributions.repository.MemberRunningBalanceRepository;
+import com.medfund.shared.audit.AuditActor;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
@@ -250,8 +251,8 @@ public class BalanceService {
                     entityId.toString(),
                     "balance",
                     "UPDATE",
-                    null,
-                    null,
+                    AuditActor.SYSTEM_ID,
+                    AuditActor.SYSTEM_EMAIL,
                     null,
                     newMap,
                     null,

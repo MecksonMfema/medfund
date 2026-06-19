@@ -49,7 +49,7 @@ class AdvancePaymentServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                service.create(request, UUID.randomUUID().toString())
+                service.create(request, UUID.randomUUID().toString(), "actor@test.example")
                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -73,7 +73,7 @@ class AdvancePaymentServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-                service.create(request, "system")
+                service.create(request, "system", "actor@test.example")
                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .assertNext(saved -> {
@@ -89,7 +89,7 @@ class AdvancePaymentServiceTest {
             null, null, new BigDecimal("100"), "USD", null, null, null);
 
         StepVerifier.create(
-                service.create(request, "system")
+                service.create(request, "system", "actor@test.example")
                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
                 .expectError(IllegalArgumentException.class)

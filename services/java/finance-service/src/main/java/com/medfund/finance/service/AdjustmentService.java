@@ -51,7 +51,7 @@ public class AdjustmentService {
     }
 
     @Transactional
-    public Mono<Adjustment> create(CreateAdjustmentRequest request, String actorId) {
+    public Mono<Adjustment> create(CreateAdjustmentRequest request, String actorId, String actorEmail) {
         return generateAdjustmentNumber()
             .flatMap(adjustmentNumber -> {
                 var adjustment = new Adjustment();
@@ -72,7 +72,7 @@ public class AdjustmentService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "Adjustment", saved.getId().toString(), "CREATE", actorId,
+                return publishAudit(tenantId, "Adjustment", saved.getId().toString(), "CREATE", actorId, actorEmail,
                         null,
                         Map.of("adjustmentNumber", saved.getAdjustmentNumber(), "status", saved.getStatus(),
                                "amount", saved.getAmount().toString(), "type", saved.getAdjustmentType()))
@@ -81,7 +81,7 @@ public class AdjustmentService {
     }
 
     @Transactional
-    public Mono<Adjustment> approve(UUID id, String actorId) {
+    public Mono<Adjustment> approve(UUID id, String actorId, String actorEmail) {
         return adjustmentRepository.findById(id)
             .switchIfEmpty(Mono.error(new AdjustmentNotFoundException(id)))
             .flatMap(adjustment -> {
@@ -94,7 +94,7 @@ public class AdjustmentService {
                 return adjustmentRepository.save(adjustment)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "Adjustment", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "Adjustment", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .thenReturn(saved);
@@ -103,7 +103,7 @@ public class AdjustmentService {
     }
 
     @Transactional
-    public Mono<Adjustment> apply(UUID id, String actorId) {
+    public Mono<Adjustment> apply(UUID id, String actorId, String actorEmail) {
         return adjustmentRepository.findById(id)
             .switchIfEmpty(Mono.error(new AdjustmentNotFoundException(id)))
             .flatMap(adjustment -> {
@@ -114,7 +114,7 @@ public class AdjustmentService {
                 return adjustmentRepository.save(adjustment)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "Adjustment", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "Adjustment", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .then(eventPublisher.publishAdjustmentApplied(
@@ -127,7 +127,7 @@ public class AdjustmentService {
     }
 
     @Transactional
-    public Mono<Adjustment> cancel(UUID id, String actorId) {
+    public Mono<Adjustment> cancel(UUID id, String actorId, String actorEmail) {
         return adjustmentRepository.findById(id)
             .switchIfEmpty(Mono.error(new AdjustmentNotFoundException(id)))
             .flatMap(adjustment -> {
@@ -142,7 +142,7 @@ public class AdjustmentService {
                 return adjustmentRepository.save(adjustment)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "Adjustment", saved.getId().toString(), "UPDATE", actorId,
+                        return publishAudit(tenantId, "Adjustment", saved.getId().toString(), "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .thenReturn(saved);
@@ -159,7 +159,7 @@ public class AdjustmentService {
     }
 
     private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
-                                     String action, String actorId,
+                                     String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
@@ -167,7 +167,7 @@ public class AdjustmentService {
             entityId,
             action,
             actorId,
-            null,
+            actorEmail,
             oldValue,
             newValue,
             new String[]{"status"},

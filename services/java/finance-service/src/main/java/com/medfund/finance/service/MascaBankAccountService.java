@@ -39,7 +39,7 @@ public class MascaBankAccountService {
     }
 
     @Transactional
-    public Mono<MascaBankAccount> create(UpsertMascaBankAccountRequest request, String actor) {
+    public Mono<MascaBankAccount> create(UpsertMascaBankAccountRequest request, String actor, String actorEmail) {
         var account = new MascaBankAccount();
         account.setId(UUID.randomUUID());
         applyFields(account, request);
@@ -50,12 +50,12 @@ public class MascaBankAccountService {
                 ? repository.clearNominationsForCurrencyExcept(saved.getCurrencyCode(), saved.getId())
                     .thenReturn(saved)
                 : Mono.just(saved))
-            .flatMap(saved -> publishAudit("CREATE", saved.getId(), null, snapshot(saved), actor)
+            .flatMap(saved -> publishAudit("CREATE", saved.getId(), null, snapshot(saved), actor, actorEmail)
                 .thenReturn(saved));
     }
 
     @Transactional
-    public Mono<MascaBankAccount> update(UUID id, UpsertMascaBankAccountRequest request, String actor) {
+    public Mono<MascaBankAccount> update(UUID id, UpsertMascaBankAccountRequest request, String actor, String actorEmail) {
         return repository.findById(id)
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Bank account not found: " + id)))
             .flatMap(existing -> {
@@ -67,17 +67,17 @@ public class MascaBankAccountService {
                     ? repository.clearNominationsForCurrencyExcept(existing.getCurrencyCode(), existing.getId())
                         .then(repository.save(existing))
                     : repository.save(existing))
-                    .flatMap(saved -> publishAudit("UPDATE", saved.getId(), before, snapshot(saved), actor)
+                    .flatMap(saved -> publishAudit("UPDATE", saved.getId(), before, snapshot(saved), actor, actorEmail)
                         .thenReturn(saved));
             });
     }
 
     @Transactional
-    public Mono<Void> delete(UUID id, String actor) {
+    public Mono<Void> delete(UUID id, String actor, String actorEmail) {
         return repository.findById(id)
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Bank account not found: " + id)))
             .flatMap(existing -> repository.deleteById(id)
-                .then(publishAudit("DELETE", id, snapshot(existing), null, actor)));
+                .then(publishAudit("DELETE", id, snapshot(existing), null, actor, actorEmail)));
     }
 
     private void applyFields(MascaBankAccount account, UpsertMascaBankAccountRequest request) {
@@ -100,7 +100,7 @@ public class MascaBankAccountService {
         return snap;
     }
 
-    private Mono<Void> publishAudit(String action, UUID id, Map<String, Object> before, Map<String, Object> after, String actor) {
+    private Mono<Void> publishAudit(String action, UUID id, Map<String, Object> before, Map<String, Object> after, String actor, String actorEmail) {
         return Mono.deferContextual(ctx -> {
             String tenantId = TenantContext.get(ctx);
             var event = AuditEvent.create(
@@ -109,7 +109,7 @@ public class MascaBankAccountService {
                 id.toString(),
                 action,
                 actor != null ? actor : "system",
-                null,
+                actorEmail,
                 before,
                 after,
                 new String[]{},

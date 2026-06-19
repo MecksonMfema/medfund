@@ -9,6 +9,7 @@ import com.medfund.contributions.dto.MemberBalanceResponse;
 import com.medfund.contributions.dto.PageResponse;
 import com.medfund.contributions.service.BadDebtService;
 import com.medfund.contributions.service.BalanceService;
+import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -92,8 +93,8 @@ public class BalanceController {
     @ApiResponse(responseCode = "201", description = "Bad debt flagged")
     public Mono<BadDebtResponse> flag(@Valid @RequestBody FlagBadDebtRequest body,
                                       @AuthenticationPrincipal Jwt jwt) {
-        String actorId = jwt != null ? jwt.getSubject() : "system";
-        return badDebtService.flagAsOverdue(body.contributionId(), body.reason(), actorId)
+        return badDebtService.flagAsOverdue(body.contributionId(), body.reason(),
+                        AuditActor.id(jwt), AuditActor.email(jwt))
                 .map(BadDebtResponse::from);
     }
 }

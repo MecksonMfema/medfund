@@ -72,7 +72,7 @@ class MemberControllerTest {
 
     @Test
     void enroll_returns201() {
-        when(memberService.enroll(any(), anyString())).thenReturn(Mono.just(createTestMember()));
+        when(memberService.enroll(any(), any(), any())).thenReturn(Mono.just(createTestMember()));
 
         webTestClient.mutateWith(mockJwt())
                 .post().uri("/api/v1/members")

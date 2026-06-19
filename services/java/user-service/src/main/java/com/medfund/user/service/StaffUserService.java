@@ -3,6 +3,7 @@ package com.medfund.user.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.medfund.shared.audit.AuditActor;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
@@ -198,7 +199,8 @@ public class StaffUserService {
                     Map<String, Object> before = toMap(u);
                     u.setStatus("active");
                     return repository.save(u)
-                            .flatMap(saved -> audit(saved, "INVITE_ACCEPTED", null, null,
+                            .flatMap(saved -> audit(saved, "INVITE_ACCEPTED",
+                                    AuditActor.SYSTEM_ID, AuditActor.SYSTEM_EMAIL,
                                     before, toMap(saved), new String[]{"status"}))
                             .flatMap(saved -> evict().thenReturn(saved));
                 })

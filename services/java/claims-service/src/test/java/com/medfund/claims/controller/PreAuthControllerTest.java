@@ -57,7 +57,7 @@ class PreAuthControllerTest {
 
     @Test
     void request_returns201() {
-        when(preAuthService.request(any(), any())).thenReturn(Mono.just(createTestPreAuth()));
+        when(preAuthService.request(any(), any(), any())).thenReturn(Mono.just(createTestPreAuth()));
 
         String body = """
                 {

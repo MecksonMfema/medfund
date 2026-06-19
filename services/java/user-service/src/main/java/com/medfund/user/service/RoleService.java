@@ -72,7 +72,7 @@ public class RoleService {
     }
 
     @Transactional
-    public Mono<Role> create(CreateRoleRequest request, String actorId) {
+    public Mono<Role> create(CreateRoleRequest request, String actorId, String actorEmail) {
         // Block unknown permission keys at the door — privilege-escalation guard.
         if (request.permissions() != null) {
             for (var pe : request.permissions()) {
@@ -115,7 +115,7 @@ public class RoleService {
                         var event = AuditEvent.create(
                             tenantId != null ? tenantId : "unknown", "Role", savedRole.getId().toString(),
                             savedRole.getName(),
-                            "CREATE", actorId, null, null,
+                            "CREATE", actorId, actorEmail, null,
                             Map.of("name", savedRole.getName(), "displayName", savedRole.getDisplayName()),
                             new String[]{"name", "displayName", "permissions"},
                             UUID.randomUUID().toString()
@@ -131,7 +131,7 @@ public class RoleService {
     }
 
     @Transactional
-    public Mono<UserRole> assignRole(AssignRoleRequest request, String actorId) {
+    public Mono<UserRole> assignRole(AssignRoleRequest request, String actorId, String actorEmail) {
         return userRoleRepository.existsByUserIdAndRoleId(request.userId(), request.roleId())
             .flatMap(exists -> {
                 if (exists) return userRoleRepository.findByUserId(request.userId())
@@ -161,7 +161,7 @@ public class RoleService {
                                 var event = AuditEvent.create(
                                     tenantId != null ? tenantId : "unknown", "UserRole", saved.getId().toString(),
                                     role.getName(),
-                                    "CREATE", actorId, null, null,
+                                    "CREATE", actorId, actorEmail, null,
                                     Map.of("userId", request.userId().toString(), "roleName", role.getName()),
                                     new String[]{"userId", "roleId"},
                                     UUID.randomUUID().toString()
@@ -370,7 +370,7 @@ public class RoleService {
     }
 
     @Transactional
-    public Mono<Void> revokeRole(UUID userId, UUID roleId, String actorId) {
+    public Mono<Void> revokeRole(UUID userId, UUID roleId, String actorId, String actorEmail) {
         return userRoleRepository.deleteByUserIdAndRoleId(userId, roleId)
             .then(Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
@@ -378,7 +378,7 @@ public class RoleService {
                     tenantId != null ? tenantId : "unknown", "UserRole",
                     userId.toString() + ":" + roleId.toString(),
                     roleId.toString(),
-                    "DELETE", actorId, null,
+                    "DELETE", actorId, actorEmail,
                     Map.of("userId", userId.toString(), "roleId", roleId.toString()),
                     null,
                     new String[]{"userId", "roleId"},

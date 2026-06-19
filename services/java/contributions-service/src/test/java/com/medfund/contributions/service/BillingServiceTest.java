@@ -77,6 +77,7 @@ class BillingServiceTest {
     }
 
     private final String actorId = UUID.randomUUID().toString();
+    private final String actorEmail = "actor@test.example";
 
     @Test
     void findContributionsByMemberId_returnsContributions() {
@@ -151,7 +152,7 @@ class BillingServiceTest {
         when(pricingService.price(any(Contribution.class)))
             .thenReturn(Mono.just(new com.medfund.rules.fact.ContributionFact()));
 
-        StepVerifier.create(billingService.generateBilling(request, actorId)
+        StepVerifier.create(billingService.generateBilling(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .assertNext(count -> assertThat(count).isEqualTo(1L))
             .verifyComplete();
@@ -181,7 +182,7 @@ class BillingServiceTest {
             .thenReturn(Mono.empty());
 
         StepVerifier.create(billingService.recordPayment(
-                    contribution.getId(), "bank_transfer", "PAY-REF-001", actorId)
+                    contribution.getId(), "bank_transfer", "PAY-REF-001", actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .assertNext(saved -> {
                 assertThat(saved.getStatus()).isEqualTo("paid");
@@ -214,7 +215,7 @@ class BillingServiceTest {
             .thenReturn(Mono.empty());
 
         StepVerifier.create(billingService.generateInvoice(
-                    groupId, schemeId, periodStart, periodEnd, totalAmount, "USD", actorId)
+                    groupId, schemeId, periodStart, periodEnd, totalAmount, "USD", actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .assertNext(saved -> {
                 assertThat(saved.getInvoiceNumber()).startsWith("INV-");
