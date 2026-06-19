@@ -249,7 +249,10 @@ class TenantRuleEngineConcurrencyIT {
         rule.setConditions(group);
 
         var action = new RuleAction();
-        action.setType("FLAG");
+        // FLAG_FOR_REVIEW is the action-type string the DRL compiler's
+        // emitter registry knows; the emitter writes $claim.addFlag(...),
+        // which produces a RuleResult of type "FLAG".
+        action.setType("FLAG_FOR_REVIEW");
         action.setRejectionCode(code);
         action.setMessage(message);
         rule.setAction(action);

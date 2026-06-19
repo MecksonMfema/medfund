@@ -30,9 +30,18 @@ public final class ActionEmitters {
     public static class FlagEmitter implements ActionEmitter {
         public String type() { return "FLAG_FOR_REVIEW"; }
         public void emit(StringBuilder drl, RuleAction action) {
-            drl.append("    $claim.addFlag(")
-               .append(quoted(action.getMessage() != null ? action.getMessage() : ""))
-               .append(");\n");
+            String code = action.getRejectionCode();
+            String message = action.getMessage() != null ? action.getMessage() : "";
+            if (code != null && !code.isBlank()) {
+                drl.append("    $claim.addFlag(")
+                   .append(quoted(code)).append(", ")
+                   .append(quoted(message))
+                   .append(");\n");
+            } else {
+                drl.append("    $claim.addFlag(")
+                   .append(quoted(message))
+                   .append(");\n");
+            }
         }
     }
 
@@ -40,9 +49,18 @@ public final class ActionEmitters {
     public static class WarnEmitter implements ActionEmitter {
         public String type() { return "WARN"; }
         public void emit(StringBuilder drl, RuleAction action) {
-            drl.append("    $claim.addWarning(")
-               .append(quoted(action.getMessage() != null ? action.getMessage() : ""))
-               .append(");\n");
+            String code = action.getRejectionCode();
+            String message = action.getMessage() != null ? action.getMessage() : "";
+            if (code != null && !code.isBlank()) {
+                drl.append("    $claim.addWarning(")
+                   .append(quoted(code)).append(", ")
+                   .append(quoted(message))
+                   .append(");\n");
+            } else {
+                drl.append("    $claim.addWarning(")
+                   .append(quoted(message))
+                   .append(");\n");
+            }
         }
     }
 

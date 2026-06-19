@@ -237,9 +237,17 @@ class SchemeServiceTest {
         var request = new CreateSchemeRequest("Bronze Plan", null, null, null, LocalDate.now(), null, null);
 
         when(schemeRepository.existsByName("Bronze Plan")).thenReturn(Mono.just(false));
-        var captor = ArgumentCaptor.forClass(Scheme.class);
-        when(schemeRepository.save(captor.capture()))
-            .thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
+        // Snapshot the @Id at the moment save() is invoked. We can't use
+        // ArgumentCaptor here because assignIdIfMissing mutates the same
+        // entity reference in-place to simulate a DB-assigned UUID, so by
+        // the time the captor is read the id is no longer null.
+        var idAtSave = new java.util.concurrent.atomic.AtomicReference<UUID>();
+        when(schemeRepository.save(any(Scheme.class)))
+            .thenAnswer(inv -> {
+                Scheme s = inv.getArgument(0);
+                idAtSave.set(s.getId());
+                return Mono.just(assignIdIfMissing(s));
+            });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(schemeService.create(request, actorId)
@@ -251,7 +259,7 @@ class SchemeServiceTest {
         // Pre-setting the ID makes save() take the UPDATE path and fail with
         // "Row does not exist." The Scheme passed to save() must arrive with
         // id == null — this regression test locks the bugfix in place.
-        assertThat(captor.getValue().getId()).isNull();
+        assertThat(idAtSave.get()).isNull();
     }
 
     // ---- Regression: currency normalization (USD default, upper-casing) ----

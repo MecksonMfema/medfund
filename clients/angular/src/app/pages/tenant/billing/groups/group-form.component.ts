@@ -84,6 +84,12 @@ export class GroupFormComponent implements OnInit {
       this.errorMessage = 'Name is required';
       return;
     }
+    // Only enforce on create — edit is allowed to keep the existing liaison
+    // unchanged (the form may not re-pick it on every save).
+    if (!this.groupId && (!this.form.liaisonKind || !this.form.liaisonUserId)) {
+      this.errorMessage = 'A liaison is required — pick a member, staff user, or add a new liaison.';
+      return;
+    }
     const payload: UpsertGroupPayload = {
       name: this.form.name.trim(),
       registrationNumber: this.form.registrationNumber?.trim() || undefined,

@@ -134,8 +134,14 @@ public class MemberService {
                 member.setEnrollmentDate(request.enrollmentDateOrDefault());
                 member.setCreatedAt(Instant.now());
                 member.setUpdatedAt(Instant.now());
-                member.setCreatedBy(UUID.fromString(actorId));
-                member.setUpdatedBy(UUID.fromString(actorId));
+                // actorId comes from the JWT subject — usually the Keycloak
+                // user UUID, but not guaranteed to be parseable as a UUID
+                // (sub can be a username on legacy realms). Leave null if it
+                // can't be parsed; the audit pipeline keeps the original
+                // actorId string for traceability.
+                UUID actorUuid = safeParseUuid(actorId);
+                member.setCreatedBy(actorUuid);
+                member.setUpdatedBy(actorUuid);
 
                 return r2dbcTemplate.insert(member);
             })
@@ -161,7 +167,9 @@ public class MemberService {
                 // Run AGE_GROUP / UNDERWRITING / MEMBER_LIFECYCLE rules so the
                 // tenant's enrollment policy fires (loaded premiums, manual-review
                 // flags, etc.). Outcomes land in the audit trail; tenants without
-                // lifecycle rules see no behaviour change.
+                // lifecycle rules see no behaviour change. Failures here MUST
+                // NOT bomb the enrollment — the member is already inserted, and
+                // a missing/broken Drools KieBase shouldn't roll that back.
                 Mono<Void> lifecycleEval = lifecycleService.evaluateOnEnrollment(saved)
                         .doOnNext(fact -> {
                             if (fact.getResults() != null && !fact.getResults().isEmpty()) {
@@ -169,16 +177,27 @@ public class MemberService {
                                         saved.getMemberNumber(), fact.getResults().size());
                             }
                         })
-                        .then();
+                        .then()
+                        .onErrorResume(e -> {
+                            log.warn("Lifecycle rules failed for member {}: {}", saved.getMemberNumber(), e.getMessage());
+                            return Mono.empty();
+                        });
 
-                return keycloakSync.then(lifecycleEval)
-                    .then(publishAudit(tenantId, saved, null, actorId, "CREATE"))
-                    .then(eventPublisher.publishMemberEnrolled(
-                        saved.getId().toString(),
-                        saved.getMemberNumber(),
-                        saved.getGroupId() != null ? saved.getGroupId().toString() : null
-                    ))
-                    .thenReturn(saved);
+                // Audit + Kafka publish are also best-effort from the caller's
+                // perspective — if they fail, the member is still enrolled and
+                // we surface a 200 with a warning in the server log.
+                Mono<Void> auditAndEvents = publishAudit(tenantId, saved, null, actorId, "CREATE")
+                        .then(eventPublisher.publishMemberEnrolled(
+                            saved.getId().toString(),
+                            saved.getMemberNumber(),
+                            saved.getGroupId() != null ? saved.getGroupId().toString() : null
+                        ))
+                        .onErrorResume(e -> {
+                            log.warn("Audit/event publish failed for member {}: {}", saved.getMemberNumber(), e.getMessage());
+                            return Mono.empty();
+                        });
+
+                return keycloakSync.then(lifecycleEval).then(auditAndEvents).thenReturn(saved);
             }));
     }
 
@@ -199,7 +218,7 @@ public class MemberService {
                 if (request.groupId() != null) existing.setGroupId(request.groupId());
                 if (request.schemeId() != null) existing.setSchemeId(request.schemeId());
                 existing.setUpdatedAt(Instant.now());
-                existing.setUpdatedBy(UUID.fromString(actorId));
+                existing.setUpdatedBy(safeParseUuid(actorId));
 
                 return memberRepository.save(existing)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
@@ -237,7 +256,7 @@ public class MemberService {
                 existing.setStatus("terminated");
                 existing.setTerminationDate(LocalDate.now());
                 existing.setUpdatedAt(Instant.now());
-                existing.setUpdatedBy(UUID.fromString(actorId));
+                existing.setUpdatedBy(safeParseUuid(actorId));
 
                 return memberRepository.save(existing)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
@@ -262,7 +281,7 @@ public class MemberService {
                 var previous = copyMember(existing);
                 existing.setStatus(newStatus);
                 existing.setUpdatedAt(Instant.now());
-                existing.setUpdatedBy(UUID.fromString(actorId));
+                existing.setUpdatedBy(safeParseUuid(actorId));
 
                 return memberRepository.save(existing)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
@@ -272,6 +291,17 @@ public class MemberService {
                             .thenReturn(saved);
                     }));
             });
+    }
+
+    /**
+     * UUID.fromString throws on null / blank / non-UUID inputs. We use this
+     * helper anywhere actorId hits a UUID column so a non-Keycloak JWT
+     * doesn't bring down the request.
+     */
+    private static UUID safeParseUuid(String s) {
+        if (s == null || s.isBlank()) return null;
+        try { return UUID.fromString(s); }
+        catch (IllegalArgumentException e) { return null; }
     }
 
     private Mono<String> generateMemberNumber() {

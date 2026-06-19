@@ -2,6 +2,7 @@ package com.medfund.user.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
@@ -20,12 +21,15 @@ public record CreateDependantRequest(
     @NotNull
     LocalDate dateOfBirth,
 
+    @NotBlank
+    @Pattern(regexp = "^(male|female|other)$",
+        message = "gender must be male, female, or other")
     @Size(max = 10)
     String gender,
 
     @NotBlank @Size(max = 50)
     String relationship,
 
-    @Size(max = 50)
+    @NotBlank @Size(max = 50)
     String nationalId
 ) {}

@@ -53,14 +53,17 @@ jobs:
         # they run via `make test-integration` (or a follow-on workflow job).
         run: ./gradlew test --tests '!*IT' jacocoTestReport
 
-      - name: Coverage verification
-        # Advisory only: the threshold lives in build.gradle.kts at 0.35 line.
-        # Failures here are visible in PR logs but do not block the build
-        # until the per-service baseline catches up to the rule.
-        run: ./gradlew jacocoTestCoverageVerification || true
+      - name: Coverage verification (enforced)
+        # Gate is wired into build.gradle.kts at 0.70 LINE per service. A drop
+        # below that fails this step and blocks merge. Failing modules listed
+        # in .claude/coverage-backlog.md must close their gap before any
+        # net-new feature work lands on them.
+        run: ./gradlew jacocoTestCoverageVerification
 
       - name: Check
-        run: ./gradlew check -x test -x jacocoTestCoverageVerification
+        # The gate is now part of `check` via build.gradle.kts wiring, so no
+        # need for explicit -x flags beyond skipping the duplicate test run.
+        run: ./gradlew check -x test
 
       - name: Upload Java coverage to Codecov
         uses: codecov/codecov-action@v4

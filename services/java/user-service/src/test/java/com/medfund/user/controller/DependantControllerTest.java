@@ -65,10 +65,67 @@ class DependantControllerTest {
         webTestClient.mutateWith(mockJwt())
                 .post().uri("/api/v1/dependants")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"memberId\":\"" + UUID.randomUUID() + "\",\"firstName\":\"Jane\",\"lastName\":\"Doe\",\"dateOfBirth\":\"2015-06-01\",\"relationship\":\"child\"}")
+                .bodyValue("{\"memberId\":\"" + UUID.randomUUID() + "\",\"firstName\":\"Jane\",\"lastName\":\"Doe\","
+                        + "\"dateOfBirth\":\"2015-06-01\",\"relationship\":\"child\","
+                        + "\"gender\":\"female\",\"nationalId\":\"63-1234567\"}")
                 .header("X-Tenant-ID", "test-tenant")
                 .exchange()
                 .expectStatus().isCreated();
+    }
+
+    @Test
+    void create_invalidGender_returns400() {
+        webTestClient.mutateWith(mockJwt())
+                .post().uri("/api/v1/dependants")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"memberId\":\"" + UUID.randomUUID() + "\",\"firstName\":\"Jane\",\"lastName\":\"Doe\","
+                        + "\"dateOfBirth\":\"2015-06-01\",\"relationship\":\"child\","
+                        + "\"gender\":\"unknown\",\"nationalId\":\"63-1234567\"}")
+                .header("X-Tenant-ID", "test-tenant")
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void create_blankNationalId_returns400() {
+        webTestClient.mutateWith(mockJwt())
+                .post().uri("/api/v1/dependants")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"memberId\":\"" + UUID.randomUUID() + "\",\"firstName\":\"Jane\",\"lastName\":\"Doe\","
+                        + "\"dateOfBirth\":\"2015-06-01\",\"relationship\":\"child\","
+                        + "\"gender\":\"female\",\"nationalId\":\"\"}")
+                .header("X-Tenant-ID", "test-tenant")
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void update_invalidGender_returns400() {
+        UUID id = UUID.randomUUID();
+
+        webTestClient.mutateWith(mockJwt())
+                .put().uri("/api/v1/dependants/{id}", id)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"gender\":\"nonbinary\"}")
+                .header("X-Tenant-ID", "test-tenant")
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void update_nullGender_returns200() {
+        UUID id = UUID.randomUUID();
+        Dependant updated = createTestDependant();
+        updated.setId(id);
+        when(dependantService.update(any(), any(), anyString())).thenReturn(Mono.just(updated));
+
+        webTestClient.mutateWith(mockJwt())
+                .put().uri("/api/v1/dependants/{id}", id)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"firstName\":\"Janet\"}")
+                .header("X-Tenant-ID", "test-tenant")
+                .exchange()
+                .expectStatus().isOk();
     }
 
     private Dependant createTestDependant() {

@@ -127,10 +127,16 @@ class GroupServiceTest {
     @Test
     void create_validRequest_createsGroup() {
         var actorId = UUID.randomUUID().toString();
+        var liaisonId = UUID.randomUUID();
         var request = new CreateGroupRequest(
-            "Acme Corp", "REG-001", null, null, null
+            "Acme Corp", "REG-001", null, "MEMBER", liaisonId
         );
 
+        when(memberRepository.existsById(liaisonId)).thenReturn(Mono.just(true));
+        var memberStub = new Member();
+        memberStub.setId(liaisonId);
+        memberStub.setKeycloakUserId("kc-mem-x");
+        when(memberRepository.findById(liaisonId)).thenReturn(Mono.just(memberStub));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -306,6 +312,26 @@ class GroupServiceTest {
             .verify();
 
         verify(keycloakSyncService, never()).assignRealmRoles(anyString(), anyString(), any());
+    }
+
+    @Test
+    void create_withoutLiaison_returns422() {
+        var actorId = UUID.randomUUID().toString();
+        var request = new CreateGroupRequest(
+            "Acme", null, null,
+            null, null
+        );
+
+        StepVerifier.create(
+            groupService.create(request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "t1"))
+        )
+            .expectErrorSatisfies(err -> {
+                assertThat(err).isInstanceOf(ResponseStatusException.class);
+                assertThat(((ResponseStatusException) err).getStatusCode().value()).isEqualTo(422);
+                assertThat(err.getMessage()).contains("required");
+            })
+            .verify();
     }
 
     @Test

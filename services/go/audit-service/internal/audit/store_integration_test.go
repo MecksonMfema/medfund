@@ -186,7 +186,10 @@ func TestStoreAppend_fillsTimestampWhenMissing(t *testing.T) {
 	resetTable(t)
 	store := NewStore(integrationPool)
 
-	before := time.Now()
+	// Postgres TIMESTAMPTZ has microsecond precision, so truncate the Go
+	// nanosecond bounds before comparing — otherwise the stored value can
+	// round down to *just* before `before` and fail spuriously.
+	before := time.Now().Truncate(time.Microsecond)
 	store.Append(Event{ID: "evt-ts", Action: "CREATE"})
 	after := time.Now()
 

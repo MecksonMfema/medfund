@@ -130,7 +130,7 @@ class MascaBankAccountServiceTest {
                 .expectError(IllegalArgumentException.class)
                 .verify();
 
-        verify(repository, never()).deleteById(any());
+        verify(repository, never()).deleteById(any(UUID.class));
     }
 
     // ---- Helpers ----

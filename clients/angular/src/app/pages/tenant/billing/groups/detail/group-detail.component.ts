@@ -98,6 +98,12 @@ export class GroupDetailComponent implements OnInit {
       this.errorMessage = 'Name is required';
       return;
     }
+    // A group must always have a liaison — clearing it without picking a
+    // replacement is not allowed.
+    if (this.form.liaisonKind === 'CLEAR' || !this.form.liaisonUserId) {
+      this.errorMessage = 'A liaison is required — pick a member, staff user, or add a new liaison before saving.';
+      return;
+    }
     this.saving = true;
     this.errorMessage = null;
     const payload: UpsertGroupPayload = {

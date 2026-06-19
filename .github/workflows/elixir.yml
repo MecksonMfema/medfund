@@ -47,10 +47,13 @@ jobs:
       - name: Compile
         run: mix compile --warnings-as-errors
 
-      - name: Test with ExCoveralls
+      - name: Test with ExCoveralls (gate enforced at 70%)
         # `mix coveralls.json` writes cover/excoveralls.json which the Codecov
         # action picks up. We standardise on Codecov rather than coveralls.io
         # so the per-flag dashboard stays unified across all five languages.
+        # services/elixir/coveralls.json sets `minimum_coverage: 70`; mix exits
+        # non-zero per-app when below — failing apps listed in
+        # .claude/coverage-backlog.md must close their gap before merge.
         run: mix coveralls.json --umbrella
         env:
           MIX_ENV: test

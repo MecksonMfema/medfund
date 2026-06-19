@@ -41,7 +41,12 @@
         </div>
         <div class="field">
           <label>Gender</label>
-          <input type="text" [(ngModel)]="form.gender" />
+          <select [(ngModel)]="form.gender">
+            <option value="">Not specified</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </select>
         </div>
         <div class="field">
           <label>National ID</label>
@@ -124,6 +129,7 @@
               <th>Name</th>
               <th>Relationship</th>
               <th>Date of birth</th>
+              <th>Gender</th>
               <th>National ID</th>
               <th>Status</th>
               <th></th>
@@ -133,12 +139,20 @@
             @if (editingDependantId === '__new__') {
               <tr class="edit-row">
                 <td>
-                  <input type="text" [(ngModel)]="dependantForm.firstName" placeholder="First name" />
-                  <input type="text" [(ngModel)]="dependantForm.lastName"  placeholder="Last name" />
+                  <input type="text" [(ngModel)]="dependantForm.firstName" placeholder="First name *" />
+                  <input type="text" [(ngModel)]="dependantForm.lastName"  placeholder="Last name *" />
                 </td>
-                <td><input type="text" [(ngModel)]="dependantForm.relationship" placeholder="e.g. child, spouse" /></td>
+                <td><input type="text" [(ngModel)]="dependantForm.relationship" placeholder="e.g. child, spouse *" /></td>
                 <td><input type="date" [(ngModel)]="dependantForm.dateOfBirth" /></td>
-                <td><input type="text" [(ngModel)]="dependantForm.nationalId" /></td>
+                <td>
+                  <select [(ngModel)]="dependantForm.gender">
+                    <option value="">Select… *</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </td>
+                <td><input type="text" [(ngModel)]="dependantForm.nationalId" placeholder="*" /></td>
                 <td>—</td>
                 <td class="row-actions">
                   <button type="button" class="btn small primary" (click)="saveDependant()" [disabled]="dependantSaving">Save</button>
@@ -156,6 +170,14 @@
                   </td>
                   <td><input type="text" [(ngModel)]="dependantForm.relationship" /></td>
                   <td><input type="date" [(ngModel)]="dependantForm.dateOfBirth" /></td>
+                  <td>
+                    <select [(ngModel)]="dependantForm.gender">
+                      <option value="">Select…</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </td>
                   <td><input type="text" [(ngModel)]="dependantForm.nationalId" /></td>
                   <td><span class="chip status" [attr.data-status]="d.status">{{ d.status }}</span></td>
                   <td class="row-actions">
@@ -168,6 +190,7 @@
                   <td>{{ d.firstName }} {{ d.lastName }}</td>
                   <td>{{ d.relationship }}</td>
                   <td>{{ d.dateOfBirth || '—' }}</td>
+                  <td>{{ d.gender || '—' }}</td>
                   <td>{{ d.nationalId || '—' }}</td>
                   <td><span class="chip status" [attr.data-status]="d.status">{{ d.status }}</span></td>
                   <td class="row-actions">

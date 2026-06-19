@@ -33,9 +33,16 @@ subprojects {
     }
 
     the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().apply {
+        // Spring Boot 3.3.5 pins testcontainers to 1.19.8, which ships with
+        // docker-java 3.3.6. That client negotiates Docker API 1.32 which is
+        // below the minimum (1.44) required by current Docker Engine builds —
+        // Testcontainers fails to start with "client version 1.32 is too old".
+        // Overriding the BOM-managed property forces 1.21.4 (docker-java 3.5.x)
+        // which negotiates the newer Engine API.
+        extensions.extraProperties["testcontainers.version"] = "1.21.4"
         imports {
             mavenBom("org.springframework.boot:spring-boot-dependencies:3.3.5")
-            mavenBom("org.testcontainers:testcontainers-bom:1.20.4")
+            mavenBom("org.testcontainers:testcontainers-bom:1.21.4")
         }
     }
 
@@ -60,10 +67,9 @@ subprojects {
     }
 
     // JaCoCo: emit both HTML (humans, opened locally) and XML (Codecov upload).
-    // Thresholds are deliberately low initially so existing PRs don't break the
-    // build; ratchet upward (+5% per month) toward 70% line coverage per
-    // service. Verification is currently advisory — uncomment the dependsOn
-    // on `check` once baseline measurements land in CI.
+    // Gate is wired into `check` and enforced at 70% line coverage per service.
+    // Several modules sit below that today (see .claude/coverage-backlog.md);
+    // closing those gaps is gated work before any new feature on the module.
     extensions.configure<org.gradle.testing.jacoco.plugins.JacocoPluginExtension> {
         toolVersion = "0.8.12"
     }
@@ -78,14 +84,19 @@ subprojects {
     }
 
     tasks.named<org.gradle.testing.jacoco.tasks.JacocoCoverageVerification>("jacocoTestCoverageVerification") {
+        dependsOn(tasks.named("jacocoTestReport"))
         violationRules {
             rule {
                 limit {
                     counter = "LINE"
-                    minimum = "0.35".toBigDecimal()
+                    minimum = "0.70".toBigDecimal()
                 }
             }
         }
+    }
+
+    tasks.named("check") {
+        dependsOn(tasks.named("jacocoTestCoverageVerification"))
     }
 
     // Spring Boot DevTools: only on subprojects that apply the Spring Boot plugin

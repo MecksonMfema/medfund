@@ -3,6 +3,7 @@ package com.medfund.tenancy.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
+import com.medfund.shared.scheduler.ScheduledJobService;
 import com.medfund.tenancy.dto.CreateTenantRequest;
 import com.medfund.tenancy.dto.UpdateTenantRequest;
 import com.medfund.tenancy.entity.Tenant;
@@ -70,6 +71,9 @@ class TenantServiceTest {
 
     @Mock
     private R2dbcEntityTemplate r2dbcTemplate;
+
+    @Mock
+    private ScheduledJobService scheduledJobService;
 
     @InjectMocks
     private TenantService tenantService;
@@ -165,6 +169,7 @@ class TenantServiceTest {
                 });
         when(schemaProvisioning.provisionSchema(anyString())).thenReturn(Mono.empty());
         when(keycloakRealmService.createRealm(anyString(), any(Tenant.class))).thenReturn(Mono.empty());
+        when(scheduledJobService.seedDefaults(any(UUID.class), anyString())).thenReturn(Mono.empty());
         when(auditPublisher.publish(any(AuditEvent.class))).thenReturn(Mono.empty());
         when(eventPublisher.publishTenantProvisioned(any(Tenant.class))).thenReturn(Mono.empty());
         when(redis.keys(anyString())).thenReturn(Flux.empty());

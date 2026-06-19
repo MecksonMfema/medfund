@@ -10,11 +10,19 @@ import com.medfund.shared.testfixtures.WithTenant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.test.context.TestPropertySource;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,7 +50,29 @@ import static org.assertj.core.api.Assertions.assertThat;
     "spring.flyway.locations=classpath:db/test-migration",
     "spring.flyway.baseline-on-migrate=true"
 })
+@Import(SchemeServiceIT.SecurityStub.class)
 class SchemeServiceIT extends AbstractIntegrationTest {
+
+    /**
+     * SecurityConfig requires a {@link ReactiveJwtDecoder}, normally provided by
+     * the OAuth2 resource-server autoconfig fetching JWKS from Keycloak. The
+     * IT doesn't run Keycloak, so we provide a no-op decoder that yields a
+     * synthetic anonymous JWT. The test doesn't hit any authenticated
+     * endpoints — the decoder only needs to exist so the SecurityWebFilterChain
+     * bean can be wired.
+     */
+    @TestConfiguration
+    static class SecurityStub {
+        @Bean
+        ReactiveJwtDecoder reactiveJwtDecoder() {
+            return token -> Mono.just(new Jwt(
+                token, Instant.now(), Instant.now().plusSeconds(300),
+                Map.of("alg", "none"),
+                Map.of("sub", "test", "iss", "test")
+            ));
+        }
+    }
+
 
     private static final String TENANT_ID = "00000000-0000-4000-8000-000000000001";
 

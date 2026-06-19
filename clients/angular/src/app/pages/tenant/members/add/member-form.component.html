@@ -31,18 +31,23 @@
     </label>
 
     <label class="field">
-      <span class="field-label">Gender</span>
-      <input type="text" [(ngModel)]="form.gender" name="gender" placeholder="male / female / …" maxlength="10" />
+      <span class="field-label">Gender *</span>
+      <select [(ngModel)]="form.gender" name="gender" required>
+        <option value="">Select…</option>
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+        <option value="other">Other</option>
+      </select>
     </label>
 
     <label class="field">
-      <span class="field-label">National ID</span>
-      <input type="text" [(ngModel)]="form.nationalId" name="nationalId" maxlength="50" />
+      <span class="field-label">National ID *</span>
+      <input type="text" [(ngModel)]="form.nationalId" name="nationalId" required maxlength="50" />
     </label>
 
     <label class="field">
-      <span class="field-label">Email</span>
-      <input type="email" [(ngModel)]="form.email" name="email" maxlength="255" />
+      <span class="field-label">Email *</span>
+      <input type="email" [(ngModel)]="form.email" name="email" required maxlength="255" />
     </label>
 
     <label class="field">
@@ -52,7 +57,9 @@
 
     <label class="field">
       <span class="field-label">Enrolment date</span>
-      <input type="date" [(ngModel)]="form.enrollmentDate" name="enrollmentDate" />
+      <input type="date" [(ngModel)]="form.enrollmentDate" name="enrollmentDate"
+             (ngModelChange)="onEnrollmentDateChange()" />
+      <span class="field-hint">Always anchored to the 1st of the chosen month.</span>
     </label>
 
     <div class="field">
@@ -65,7 +72,7 @@
     </div>
 
     <div class="field">
-      <span class="field-label">Scheme</span>
+      <span class="field-label">Scheme *</span>
       <app-entity-picker
         kind="scheme"
         [(value)]="form.schemeId"

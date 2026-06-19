@@ -60,6 +60,19 @@ public class GroupService {
 
     @Transactional
     public Mono<Group> create(CreateGroupRequest request, String actorId) {
+        // A group must always have a liaison — the canonical contact path
+        // for invoices, dunning, and the group-portal login. Controller-level
+        // @NotBlank/@NotNull on CreateGroupRequest already enforces this for
+        // HTTP callers; this defensive check covers internal call sites that
+        // bypass DTO validation. The mismatched-pair case (one set, the
+        // other null) falls through to validateLiaison which produces a more
+        // specific "supplied together" error.
+        boolean kindMissing = request.liaisonKind() == null || request.liaisonKind().isBlank();
+        boolean idMissing = request.liaisonUserId() == null;
+        if (kindMissing && idMissing) {
+            return Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "liaisonKind and liaisonUserId are required when creating a group"));
+        }
         return validateLiaison(request.liaisonKind(), request.liaisonUserId())
             .then(grantLiaisonRole(request.liaisonKind(), request.liaisonUserId()))
             .then(Mono.defer(() -> {

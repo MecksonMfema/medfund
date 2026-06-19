@@ -3,8 +3,9 @@ package com.medfund.tenancy.integration;
 import com.medfund.shared.tenant.TenantContext;
 import com.medfund.shared.tenant.TenantWebFilter;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.SpringBootConfiguration;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -32,9 +33,10 @@ import static org.springframework.web.reactive.function.server.RequestPredicates
  * concerns that only show up once Spring boots the WebFilterChain end-to-end.
  */
 @SpringBootTest(
-    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     classes = {TenantWebFilterIT.ProbeConfig.class, TenantWebFilter.class}
 )
+@org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient
 @Import(TenantWebFilterIT.ProbeConfig.class)
 @TestPropertySource(properties = {
     "spring.flyway.enabled=false",
@@ -44,11 +46,13 @@ import static org.springframework.web.reactive.function.server.RequestPredicates
         "org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration," +
         "org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration," +
         "org.springframework.boot.autoconfigure.security.reactive.ReactiveSecurityAutoConfiguration," +
-        "org.springframework.boot.autoconfigure.security.oauth2.resource.reactive.ReactiveOAuth2ResourceServerAutoConfiguration"
+        "org.springframework.boot.autoconfigure.security.oauth2.resource.reactive.ReactiveOAuth2ResourceServerAutoConfiguration," +
+        "org.springframework.boot.actuate.autoconfigure.security.reactive.ReactiveManagementWebSecurityAutoConfiguration"
 })
 class TenantWebFilterIT {
 
-    @TestConfiguration
+    @SpringBootConfiguration
+    @EnableAutoConfiguration
     static class ProbeConfig {
         /**
          * Single GET endpoint that reads the tenant from the Reactor context

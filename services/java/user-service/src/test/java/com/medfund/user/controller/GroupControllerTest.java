@@ -63,10 +63,47 @@ class GroupControllerTest {
         webTestClient.mutateWith(mockJwt())
                 .post().uri("/api/v1/groups")
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"name\":\"Acme Corp\",\"registrationNumber\":\"REG-001\"}")
+                .bodyValue("{\"name\":\"Acme Corp\",\"registrationNumber\":\"REG-001\","
+                        + "\"liaisonKind\":\"MEMBER\",\"liaisonUserId\":\"11111111-1111-1111-1111-111111111111\"}")
                 .header("X-Tenant-ID", "test-tenant")
                 .exchange()
                 .expectStatus().isCreated();
+    }
+
+    @Test
+    void create_missingLiaisonKind_returns400() {
+        webTestClient.mutateWith(mockJwt())
+                .post().uri("/api/v1/groups")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"name\":\"Acme Corp\",\"registrationNumber\":\"REG-001\","
+                        + "\"liaisonUserId\":\"11111111-1111-1111-1111-111111111111\"}")
+                .header("X-Tenant-ID", "test-tenant")
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void create_invalidLiaisonKind_returns400() {
+        webTestClient.mutateWith(mockJwt())
+                .post().uri("/api/v1/groups")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"name\":\"Acme Corp\",\"registrationNumber\":\"REG-001\","
+                        + "\"liaisonKind\":\"OWNER\",\"liaisonUserId\":\"11111111-1111-1111-1111-111111111111\"}")
+                .header("X-Tenant-ID", "test-tenant")
+                .exchange()
+                .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void create_missingLiaisonUserId_returns400() {
+        webTestClient.mutateWith(mockJwt())
+                .post().uri("/api/v1/groups")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"name\":\"Acme Corp\",\"registrationNumber\":\"REG-001\","
+                        + "\"liaisonKind\":\"MEMBER\"}")
+                .header("X-Tenant-ID", "test-tenant")
+                .exchange()
+                .expectStatus().isBadRequest();
     }
 
     private Group createTestGroup() {

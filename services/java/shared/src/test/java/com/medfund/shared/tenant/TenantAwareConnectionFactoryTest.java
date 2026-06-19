@@ -44,13 +44,21 @@ class TenantAwareConnectionFactoryTest {
 
     @Test
     void create_withoutTenant_returnsConnectionUnchanged() {
+        // When no tenant is bound, the factory resets search_path to public
+        // (instead of leaving stale tenant search_path on a pooled connection).
+        // The connection itself is otherwise returned unchanged.
         doReturn(Mono.just(connection)).when(delegate).create();
+        when(connection.createStatement(anyString())).thenReturn(statement);
+        when(statement.execute()).thenReturn(Flux.empty());
 
         TenantAwareConnectionFactory factory = new TenantAwareConnectionFactory(delegate);
 
         Mono.from(factory.create())
                 .block();
 
-        verify(connection, never()).createStatement(anyString());
+        // Exactly one statement — the public-schema reset — and never a
+        // tenant_* schema switch.
+        verify(connection).createStatement("SET search_path TO public");
+        verify(connection, never()).createStatement(contains("tenant_"));
     }
 }

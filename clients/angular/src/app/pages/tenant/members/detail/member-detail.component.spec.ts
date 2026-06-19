@@ -136,18 +136,39 @@ describe('MemberDetailComponent', () => {
     const { comp, members } = instantiate();
     comp.ngOnInit();
     comp.startAddDependant();
-    comp.dependantForm = { firstName: 'Joe', lastName: 'Doe', dateOfBirth: '2020-05-01', gender: 'male', relationship: 'child', nationalId: '' };
+    comp.dependantForm = {
+      firstName: 'Joe', lastName: 'Doe', dateOfBirth: '2020-05-01',
+      gender: 'male', relationship: 'child', nationalId: '63-1234567',
+    };
     comp.saveDependant();
     expect(members.addDependantCalls[0].memberId).toBe('m-1');
     expect(comp.dependants.length).toBe(2);
     expect(comp.editingDependantId).toBeNull();
   });
 
+  it('rejects new-dependant save when national ID is missing', () => {
+    const { comp, members, toast } = instantiate();
+    comp.ngOnInit();
+    comp.startAddDependant();
+    comp.dependantForm = {
+      firstName: 'A', lastName: 'B', dateOfBirth: '2020-01-01',
+      gender: 'male', relationship: 'child', nationalId: '',
+    };
+    comp.saveDependant();
+    expect(members.addDependantCalls.length).toBe(0);
+    expect(toast.errors[0]).toContain('national ID');
+  });
+
   it('updates an existing dependant via updateDependant', () => {
     const { comp, members } = instantiate();
     comp.ngOnInit();
     comp.editDependant(comp.dependants[0]);
-    comp.dependantForm.relationship = 'spouse';
+    comp.dependantForm = {
+      ...comp.dependantForm,
+      gender: 'female',
+      nationalId: '63-7654321',
+      relationship: 'spouse',
+    };
     comp.saveDependant();
     expect(members.updateDependantCalls[0].id).toBe('d-1');
     expect(members.updateDependantCalls[0].data.relationship).toBe('spouse');
@@ -168,7 +189,54 @@ describe('MemberDetailComponent', () => {
     comp.dependantForm = { ...comp.dependantForm, firstName: '' };
     comp.saveDependant();
     expect(members.addDependantCalls.length).toBe(0);
-    expect(toast.errors[0]).toContain('required');
+    expect(toast.errors[0]).toContain('missing');
+  });
+
+  it('rejects new-dependant save when gender is blank', () => {
+    const { comp, members, toast } = instantiate();
+    comp.ngOnInit();
+    comp.startAddDependant();
+    comp.dependantForm = {
+      firstName: 'A', lastName: 'B', dateOfBirth: '2020-01-01',
+      gender: '', relationship: 'child', nationalId: '63-1234567',
+    };
+    comp.saveDependant();
+    expect(members.addDependantCalls.length).toBe(0);
+    expect(toast.errors[0]).toContain('gender');
+  });
+
+  it('rejects dependant edit when gender is cleared', () => {
+    const { comp, members, toast } = instantiate();
+    comp.ngOnInit();
+    comp.editDependant(comp.dependants[0]);
+    comp.dependantForm = { ...comp.dependantForm, gender: '', nationalId: '63-1234567' };
+    comp.saveDependant();
+    expect(members.updateDependantCalls.length).toBe(0);
+    expect(toast.errors[0]).toContain('gender');
+  });
+
+  it('rejects dependant edit when national ID is cleared', () => {
+    const { comp, members, toast } = instantiate();
+    comp.ngOnInit();
+    comp.editDependant(comp.dependants[0]);
+    comp.dependantForm = { ...comp.dependantForm, gender: 'female', nationalId: '' };
+    comp.saveDependant();
+    expect(members.updateDependantCalls.length).toBe(0);
+    expect(toast.errors[0]).toContain('national ID');
+  });
+
+  it('pluralises the missing-fields message when more than one is blank', () => {
+    const { comp, toast } = instantiate();
+    comp.ngOnInit();
+    comp.startAddDependant();
+    comp.dependantForm = {
+      firstName: 'A', lastName: 'B', dateOfBirth: '2020-01-01',
+      gender: '', relationship: 'child', nationalId: '',
+    };
+    comp.saveDependant();
+    expect(toast.errors[0]).toContain('Required fields missing');
+    expect(toast.errors[0]).toContain('gender');
+    expect(toast.errors[0]).toContain('national ID');
   });
 
   it('only shows status-actions for the current legal transitions', () => {

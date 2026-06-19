@@ -44,22 +44,32 @@ jobs:
             (cd $dir && go test -race -coverprofile=coverage.out -covermode=atomic ./...)
           done
 
-      - name: Per-service coverage threshold check (advisory)
-        # The hard gate is codecov.yml's per-flag project status. This step
-        # surfaces drops in PR logs without blocking — fail-soft.
+      - name: Per-service coverage threshold check (enforced)
+        # Hard gate at 70% line coverage per service. `go test` has no native
+        # threshold flag, so we parse `go tool cover -func` totals. Any service
+        # below the bar fails the job. Failing services listed in
+        # .claude/coverage-backlog.md must close their gap before merge.
         run: |
-          THRESHOLD=50
+          THRESHOLD=70
+          FAILED=()
           for dir in gateway notification-service audit-service file-service payment-gateway; do
             PCT=$(go tool cover -func=$dir/coverage.out 2>/dev/null | awk '/total:/ {gsub("%",""); print $3}')
             if [ -z "$PCT" ]; then
-              echo "::warning::$dir produced no coverage data"
+              echo "::error::$dir produced no coverage data"
+              FAILED+=("$dir (no data)")
               continue
             fi
-            echo "$dir coverage: ${PCT}% (advisory threshold: ${THRESHOLD}%)"
+            echo "$dir coverage: ${PCT}% (threshold: ${THRESHOLD}%)"
             if awk "BEGIN {exit !($PCT < $THRESHOLD)}"; then
-              echo "::warning::$dir is below the ${THRESHOLD}% advisory threshold"
+              echo "::error::$dir is ${PCT}% — below the ${THRESHOLD}% gate"
+              FAILED+=("$dir (${PCT}%)")
             fi
           done
+          if [ ${#FAILED[@]} -gt 0 ]; then
+            echo ""
+            echo "Coverage gate failed for: ${FAILED[*]}"
+            exit 1
+          fi
 
       - name: Vet
         run: |

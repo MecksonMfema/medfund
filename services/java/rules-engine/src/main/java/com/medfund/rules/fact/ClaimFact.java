@@ -47,8 +47,16 @@ public class ClaimFact {
         results.add(new RuleResult("WARN", null, message));
     }
 
+    public void addWarning(String code, String message) {
+        results.add(new RuleResult("WARN", code, message));
+    }
+
     public void addFlag(String message) {
         results.add(new RuleResult("FLAG", null, message));
+    }
+
+    public void addFlag(String code, String message) {
+        results.add(new RuleResult("FLAG", code, message));
     }
 
     /**

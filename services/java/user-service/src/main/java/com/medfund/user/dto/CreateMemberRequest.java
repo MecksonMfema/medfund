@@ -3,6 +3,7 @@ package com.medfund.user.dto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
@@ -18,13 +19,15 @@ public record CreateMemberRequest(
     @NotNull
     LocalDate dateOfBirth,
 
+    @NotBlank @Pattern(regexp = "^(male|female|other)$",
+        message = "gender must be male, female, or other")
     @Size(max = 10)
     String gender,
 
-    @Size(max = 50)
+    @NotBlank @Size(max = 50)
     String nationalId,
 
-    @Email @Size(max = 255)
+    @NotBlank @Email @Size(max = 255)
     String email,
 
     @Size(max = 50)
@@ -34,11 +37,24 @@ public record CreateMemberRequest(
 
     UUID groupId,
 
+    /** Scheme assignment is mandatory at enrolment — every member must be on a scheme. */
+    @NotNull
     UUID schemeId,
 
     LocalDate enrollmentDate
 ) {
+    /**
+     * Enrolment dates are always the first of a month. Callers may pass any
+     * date within the target month; we normalise to the 1st here so billing
+     * cycles and pro-rata calculations have a stable anchor.
+     *
+     * <p>Operators are allowed to back-date — the form may submit a date
+     * in the past, in which case the contribution side must post the
+     * arrears adjustment. That financial flow is a follow-up; this method
+     * is concerned only with the day-of-month normalisation.
+     */
     public LocalDate enrollmentDateOrDefault() {
-        return enrollmentDate != null ? enrollmentDate : LocalDate.now();
+        LocalDate raw = enrollmentDate != null ? enrollmentDate : LocalDate.now();
+        return raw.withDayOfMonth(1);
     }
 }

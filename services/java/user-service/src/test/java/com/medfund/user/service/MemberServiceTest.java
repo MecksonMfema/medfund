@@ -153,6 +153,119 @@ class MemberServiceTest {
     }
 
     @Test
+    void enroll_nonUuidActorId_persistsNullActor() {
+        // Legacy JWT subs (e.g. usernames) are not parseable as UUIDs. The
+        // safeParseUuid helper must leave createdBy/updatedBy as null instead
+        // of throwing — otherwise a malformed sub claim blocks enrolment.
+        var legacyActorId = "legacy-username";
+        var request = new CreateMemberRequest(
+            "John", "Doe", LocalDate.of(1990, 1, 15), "male",
+            "63-1234567", "john@example.com", null, null, null, UUID.randomUUID(), null
+        );
+
+        when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
+        when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishMemberEnrolled(any(), any(), any())).thenReturn(Mono.empty());
+        when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
+
+        StepVerifier.create(
+            memberService.enroll(request, legacyActorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .assertNext(member -> {
+                assertThat(member.getCreatedBy()).isNull();
+                assertThat(member.getUpdatedBy()).isNull();
+                assertThat(member.getStatus()).isEqualTo("enrolled");
+            })
+            .verifyComplete();
+    }
+
+    @Test
+    void enroll_lifecycleEvaluationFails_doesNotRollBack() {
+        // A broken Drools KieBase (or any failure inside the lifecycle hook)
+        // MUST NOT bomb the enrolment — the member row is already inserted
+        // and the rule outcome is best-effort.
+        var actorId = UUID.randomUUID().toString();
+        var request = new CreateMemberRequest(
+            "John", "Doe", LocalDate.of(1990, 1, 15), "male",
+            "63-1234567", "john@example.com", null, null, null, UUID.randomUUID(), null
+        );
+
+        when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
+        when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishMemberEnrolled(any(), any(), any())).thenReturn(Mono.empty());
+        when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
+        // Override the lenient no-op from @BeforeEach
+        when(lifecycleService.evaluateOnEnrollment(any()))
+            .thenReturn(Mono.error(new RuntimeException("KieBase missing")));
+
+        StepVerifier.create(
+            memberService.enroll(request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .assertNext(member -> assertThat(member.getStatus()).isEqualTo("enrolled"))
+            .verifyComplete();
+
+        verify(auditPublisher).publish(any());
+        verify(eventPublisher).publishMemberEnrolled(any(), any(), any());
+    }
+
+    @Test
+    void enroll_auditPublishFails_doesNotRollBack() {
+        // Audit + event publish are best-effort from the caller's perspective.
+        // A Kafka outage must not surface as a 5xx — the member is enrolled
+        // and the failure is logged server-side.
+        var actorId = UUID.randomUUID().toString();
+        var request = new CreateMemberRequest(
+            "John", "Doe", LocalDate.of(1990, 1, 15), "male",
+            "63-1234567", "john@example.com", null, null, null, UUID.randomUUID(), null
+        );
+
+        when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
+        when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.error(new RuntimeException("Kafka down")));
+        // The .then() arg is evaluated eagerly even though it's never subscribed
+        // once audit errors — stub it to keep Mockito from returning null.
+        when(eventPublisher.publishMemberEnrolled(any(), any(), any())).thenReturn(Mono.empty());
+        when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
+
+        StepVerifier.create(
+            memberService.enroll(request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .assertNext(member -> assertThat(member.getStatus()).isEqualTo("enrolled"))
+            .verifyComplete();
+    }
+
+    @Test
+    void enroll_normalisesEnrollmentDateToFirstOfMonth() {
+        // Operators may submit any day within the target month — the DTO
+        // must snap to day-1 so contribution cycles have a stable anchor.
+        var actorId = UUID.randomUUID().toString();
+        var midMonth = LocalDate.of(2026, 6, 19);
+        var request = new CreateMemberRequest(
+            "John", "Doe", LocalDate.of(1990, 1, 15), "male",
+            "63-1234567", "john@example.com", null, null, null, UUID.randomUUID(), midMonth
+        );
+
+        when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
+        when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishMemberEnrolled(any(), any(), any())).thenReturn(Mono.empty());
+        when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
+
+        StepVerifier.create(
+            memberService.enroll(request, actorId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .assertNext(member -> assertThat(member.getEnrollmentDate())
+                .isEqualTo(LocalDate.of(2026, 6, 1)))
+            .verifyComplete();
+    }
+
+    @Test
     void activate_existingMember_setsStatusActive() {
         var member = createTestMember();
         var id = member.getId();

@@ -36,7 +36,9 @@ export class MemberFormComponent {
     firstName: '', lastName: '', dateOfBirth: '',
     gender: '', nationalId: '', email: '', phone: '', address: '',
     groupId: '', schemeId: '',
-    enrollmentDate: new Date().toISOString().slice(0, 10),
+    // Default to the 1st of the current month — enrollment dates are
+    // always month-anchored.
+    enrollmentDate: new Date().toISOString().slice(0, 8) + '01',
   };
 
   constructor(
@@ -45,9 +47,29 @@ export class MemberFormComponent {
     private toast: ToastService,
   ) {}
 
+  /** Normalise an ISO YYYY-MM-DD date to the 1st of its month. */
+  private firstOfMonth(iso: string): string {
+    if (!iso || iso.length < 7) return iso;
+    return iso.slice(0, 8) + '01';
+  }
+
+  /** Bound to (ngModelChange) on the enrollment-date input so any operator
+   *  pick snaps to the 1st of the chosen month before it sits in form state. */
+  onEnrollmentDateChange(): void {
+    this.form.enrollmentDate = this.firstOfMonth(this.form.enrollmentDate);
+  }
+
   submit(): void {
-    if (!this.form.firstName.trim() || !this.form.lastName.trim() || !this.form.dateOfBirth) {
-      this.errorMessage = 'First name, last name and date of birth are required.';
+    const missing: string[] = [];
+    if (!this.form.firstName.trim())  missing.push('first name');
+    if (!this.form.lastName.trim())   missing.push('last name');
+    if (!this.form.dateOfBirth)       missing.push('date of birth');
+    if (!this.form.gender.trim())     missing.push('gender');
+    if (!this.form.nationalId.trim()) missing.push('national ID');
+    if (!this.form.email.trim())      missing.push('email');
+    if (!this.form.schemeId)          missing.push('scheme');
+    if (missing.length > 0) {
+      this.errorMessage = `Required field${missing.length > 1 ? 's' : ''} missing: ${missing.join(', ')}.`;
       return;
     }
     this.saving = true;
@@ -56,14 +78,17 @@ export class MemberFormComponent {
       firstName:      this.form.firstName.trim(),
       lastName:       this.form.lastName.trim(),
       dateOfBirth:    this.form.dateOfBirth,
-      gender:         this.form.gender.trim()     || undefined,
-      nationalId:     this.form.nationalId.trim() || undefined,
-      email:          this.form.email.trim()      || undefined,
+      gender:         this.form.gender.trim(),
+      nationalId:     this.form.nationalId.trim(),
+      email:          this.form.email.trim(),
       phone:          this.form.phone.trim()      || undefined,
       address:        this.form.address.trim()    || undefined,
       groupId:        this.form.groupId           || undefined,
-      schemeId:       this.form.schemeId          || undefined,
-      enrollmentDate: this.form.enrollmentDate    || undefined,
+      schemeId:       this.form.schemeId,
+      // Always the 1st of the chosen month. Back-dating is allowed — the
+      // contributions side will post the arrears adjustment when the
+      // enrolment date is in a past period (deferred to a follow-up).
+      enrollmentDate: this.firstOfMonth(this.form.enrollmentDate),
     };
     this.members.enroll(payload).subscribe({
       next: (saved) => {

@@ -11,7 +11,9 @@ function makeGroup(overrides: Partial<Group> = {}): Group {
   return {
     id: 'g-1', name: 'Acme Corp',
     registrationNumber: 'REG-1',
-    address: '1 Main St', status: 'ACTIVE',
+    address: '1 Main St',
+    liaisonKind: 'MEMBER', liaisonUserId: 'm-1',
+    status: 'ACTIVE',
     ...overrides,
   };
 }
@@ -99,6 +101,16 @@ describe('GroupDetailComponent', () => {
     comp.save();
     expect(groups.updateCalls[0].data.address).toBe('5 Park Lane');
     expect(toast.successes[0]).toBe('Group updated');
+  });
+
+  it('blocks save when the liaison has been cleared', () => {
+    const { comp, groups } = instantiate();
+    comp.ngOnInit();
+    comp.form.liaisonKind = 'CLEAR';
+    comp.form.liaisonUserId = null;
+    comp.save();
+    expect(groups.updateCalls.length).toBe(0);
+    expect(comp.errorMessage).toContain('liaison is required');
   });
 
   it('blocks save when name is empty', () => {

@@ -8,6 +8,7 @@ import org.kie.api.KieServices;
 import org.kie.api.builder.KieBuilder;
 import org.kie.api.builder.KieFileSystem;
 import org.kie.api.builder.Message;
+import org.kie.api.builder.ReleaseId;
 import org.kie.api.builder.Results;
 import org.kie.api.runtime.KieContainer;
 import org.kie.api.runtime.KieSession;
@@ -56,7 +57,19 @@ public class TenantRuleEngine {
         log.debug("Compiled DRL for tenant {}:\n{}", tenantId, drl);
 
         KieServices kieServices = KieServices.Factory.get();
+        // Each tenant gets a unique ReleaseId so its KieModule lives at its own
+        // coordinates in the shared KieRepository. Without this every tenant's
+        // build would overwrite the same default release ID, and later tenants
+        // would silently shadow earlier ones — fatal for multi-tenant isolation.
+        // The version is bumped per call so reloadRules also gets a fresh module
+        // (replacing the previous version for this tenant cleanly).
+        ReleaseId releaseId = kieServices.newReleaseId(
+                "com.medfund.rules.tenant",
+                "tenant-" + tenantId,
+                System.currentTimeMillis() + "-" + Integer.toHexString(System.identityHashCode(rules)));
+
         KieFileSystem kfs = kieServices.newKieFileSystem();
+        kfs.generateAndWritePomXML(releaseId);
         kfs.write("src/main/resources/rules/tenant_" + tenantId + ".drl", drl);
 
         KieBuilder kieBuilder = kieServices.newKieBuilder(kfs).buildAll();
@@ -74,8 +87,14 @@ public class TenantRuleEngine {
                     tenantId, results.getMessages(Message.Level.WARNING));
         }
 
-        KieContainer container = kieServices.newKieContainer(
-                kieServices.getRepository().getDefaultReleaseId());
+        KieContainer container = kieServices.newKieContainer(releaseId);
+        // Atomic swap: any concurrent evaluate() either sees the previous
+        // container (and runs to completion against it, since the KieModule
+        // captured inside is immutable) or the new one — never a half-built
+        // state. We deliberately do NOT dispose the previous container here:
+        // an in-flight evaluate() may still be opening a KieSession on it,
+        // and Drools' KieContainer GC will reclaim it once no thread holds
+        // a reference.
         tenantContainers.put(tenantId, container);
 
         log.info("Rules loaded successfully for tenant {}", tenantId);

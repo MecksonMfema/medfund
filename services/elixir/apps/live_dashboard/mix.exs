@@ -12,6 +12,8 @@ defmodule LiveDashboard.MixProject do
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
+      test_coverage: [tool: ExCoveralls, summary: [threshold: 70]],
+      preferred_cli_env: [coveralls: :test, "coveralls.json": :test],
       deps: deps()
     ]
   end

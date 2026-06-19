@@ -12,6 +12,7 @@ CREATE TABLE schemes (
     name            VARCHAR(200) NOT NULL UNIQUE,
     description     TEXT,
     scheme_type     VARCHAR(50)  NOT NULL DEFAULT 'medical_aid',
+    insurance_line  VARCHAR(32)  NOT NULL DEFAULT 'HEALTH',
     status          VARCHAR(20)  NOT NULL DEFAULT 'active',
     effective_date  DATE,
     end_date        DATE,

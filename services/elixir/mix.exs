@@ -8,7 +8,14 @@ defmodule Medfund.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
-      test_coverage: [tool: ExCoveralls],
+      # Two-layer coverage gate:
+      #  * `tool: ExCoveralls` — formal CI gate, threshold in coveralls.json
+      #    (`coverage_options.minimum_coverage`) per app. Failing apps listed
+      #    in .claude/coverage-backlog.md must close their gap before merge.
+      #  * `summary: [threshold: 70]` — Mix's built-in `mix test --cover`
+      #    summary uses the same bar so local runs surface the gate too,
+      #    rather than only failing in CI under `mix coveralls`.
+      test_coverage: [tool: ExCoveralls, summary: [threshold: 70]],
       preferred_cli_env: [
         coveralls: :test,
         "coveralls.detail": :test,

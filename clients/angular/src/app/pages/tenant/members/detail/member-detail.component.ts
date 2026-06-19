@@ -235,20 +235,29 @@ export class MemberDetailComponent implements OnInit {
 
   saveDependant(): void {
     if (!this.editingDependantId) return;
-    if (!this.dependantForm.firstName.trim() || !this.dependantForm.lastName.trim()
-        || !this.dependantForm.relationship.trim()) {
-      this.toast.error('First name, last name and relationship are required');
+    const isNew = this.editingDependantId === '__new__';
+    // Add-flow requires the full required set. Edits are partial — null
+    // fields just mean "no change" — but if the operator clears gender or
+    // national ID on an edit row we still reject to keep the row valid.
+    const missing: string[] = [];
+    if (!this.dependantForm.firstName.trim())   missing.push('first name');
+    if (!this.dependantForm.lastName.trim())    missing.push('last name');
+    if (!this.dependantForm.relationship.trim()) missing.push('relationship');
+    if (!this.dependantForm.gender.trim())       missing.push('gender');
+    if (!this.dependantForm.nationalId.trim())   missing.push('national ID');
+    if (isNew && !this.dependantForm.dateOfBirth) missing.push('date of birth');
+    if (missing.length > 0) {
+      this.toast.error(`Required field${missing.length > 1 ? 's' : ''} missing: ${missing.join(', ')}.`);
       return;
     }
     this.dependantSaving = true;
-    const isNew = this.editingDependantId === '__new__';
     const base = {
-      firstName:   this.dependantForm.firstName.trim(),
-      lastName:    this.dependantForm.lastName.trim(),
-      dateOfBirth: this.dependantForm.dateOfBirth || undefined,
-      gender:      this.dependantForm.gender.trim() || undefined,
+      firstName:    this.dependantForm.firstName.trim(),
+      lastName:     this.dependantForm.lastName.trim(),
+      dateOfBirth:  this.dependantForm.dateOfBirth || undefined,
+      gender:       this.dependantForm.gender.trim(),
       relationship: this.dependantForm.relationship.trim(),
-      nationalId:  this.dependantForm.nationalId.trim() || undefined,
+      nationalId:   this.dependantForm.nationalId.trim(),
     };
     const stream = isNew
       ? this.members.addDependant({ memberId: this.memberId, ...base })

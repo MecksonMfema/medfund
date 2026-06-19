@@ -1,26 +1,113 @@
+//go:build integration
+
+// Run with:  go test -tags=integration ./internal/handler/...
+//
+// Requires a working local Docker daemon — the test boots a postgres:17-alpine
+// container via ory/dockertest, applies the schema, then exercises Handler end
+// to end against a real *audit.Store backed by Postgres. Skipped by default
+// `go test` runs so unit-CI stays fast and the developer machine does not need
+// Docker. Cache is wired as nil — *cache.Cache methods all no-op on nil, which
+// keeps the test focused on store/handler behaviour without needing Redis.
+
 package handler
 
 import (
+	"context"
+	"fmt"
 	"io"
+	"log"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/medfund/audit-service/internal/audit"
+	"github.com/medfund/audit-service/internal/db"
+	"github.com/ory/dockertest/v3"
+	"github.com/ory/dockertest/v3/docker"
 )
 
-func setupApp() *fiber.App {
+var integrationPool *pgxpool.Pool
+
+func TestMain(m *testing.M) {
+	dockerPool, err := dockertest.NewPool("")
+	if err != nil {
+		log.Fatalf("dockertest pool: %v", err)
+	}
+	if err := dockerPool.Client.Ping(); err != nil {
+		log.Printf("Docker not reachable, skipping integration tests: %v", err)
+		os.Exit(0)
+	}
+
+	resource, err := dockerPool.RunWithOptions(&dockertest.RunOptions{
+		Repository: "postgres",
+		Tag:        "17-alpine",
+		Env: []string{
+			"POSTGRES_USER=medfund",
+			"POSTGRES_PASSWORD=medfund",
+			"POSTGRES_DB=audit_test",
+		},
+	}, func(config *docker.HostConfig) {
+		config.AutoRemove = true
+		config.RestartPolicy = docker.RestartPolicy{Name: "no"}
+	})
+	if err != nil {
+		log.Fatalf("start postgres: %v", err)
+	}
+	// 90 s safety net — CI cold-start can be slow on small runners.
+	if err := resource.Expire(90); err != nil {
+		log.Printf("expire: %v", err)
+	}
+
+	dsn := fmt.Sprintf("postgres://medfund:medfund@localhost:%s/audit_test?sslmode=disable",
+		resource.GetPort("5432/tcp"))
+
+	dockerPool.MaxWait = 30 * time.Second
+	if err := dockerPool.Retry(func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		p, err := db.Connect(ctx, dsn)
+		if err != nil {
+			return err
+		}
+		integrationPool = p
+		return db.Migrate(context.Background(), integrationPool)
+	}); err != nil {
+		log.Fatalf("postgres never became reachable: %v", err)
+	}
+
+	code := m.Run()
+
+	if integrationPool != nil {
+		integrationPool.Close()
+	}
+	if err := dockerPool.Purge(resource); err != nil {
+		log.Printf("purge: %v", err)
+	}
+	os.Exit(code)
+}
+
+// newHandler resets the audit_events table and returns a fresh Handler wired
+// to the shared integration pool. Cache is nil — *cache.Cache methods all
+// no-op on a nil receiver, which keeps these tests focused on store + handler
+// behaviour without standing up Redis.
+func newHandler(t *testing.T) (*fiber.App, *audit.Store) {
+	t.Helper()
+	if _, err := integrationPool.Exec(context.Background(), "TRUNCATE audit_events"); err != nil {
+		t.Fatalf("truncate: %v", err)
+	}
+	store := audit.NewStore(integrationPool)
+	h := New(store, nil)
 	app := fiber.New()
-	return app
+	h.RegisterRoutes(app)
+	return app, store
 }
 
 func TestQueryEvents_EmptyStore_ReturnsOK(t *testing.T) {
-	app := setupApp()
-	store := audit.NewStore()
-	h := New(store)
-	h.RegisterRoutes(app)
+	app, _ := newHandler(t)
 
 	req := httptest.NewRequest("GET", "/api/v1/audit/events", nil)
 	req.Header.Set("X-Tenant-ID", "test-tenant")
@@ -34,12 +121,9 @@ func TestQueryEvents_EmptyStore_ReturnsOK(t *testing.T) {
 }
 
 func TestQueryEvents_WithEntityTypeFilter(t *testing.T) {
-	app := setupApp()
-	store := audit.NewStore()
+	app, store := newHandler(t)
 	store.Append(audit.Event{ID: "1", TenantID: "t1", EntityType: "Member", Action: "CREATE", Timestamp: time.Now()})
 	store.Append(audit.Event{ID: "2", TenantID: "t1", EntityType: "Claim", Action: "CREATE", Timestamp: time.Now()})
-	h := New(store)
-	h.RegisterRoutes(app)
 
 	req := httptest.NewRequest("GET", "/api/v1/audit/events?entityType=Member", nil)
 	req.Header.Set("X-Tenant-ID", "t1")
@@ -61,12 +145,9 @@ func TestQueryEvents_WithEntityTypeFilter(t *testing.T) {
 }
 
 func TestQueryEvents_WithActionFilter(t *testing.T) {
-	app := setupApp()
-	store := audit.NewStore()
+	app, store := newHandler(t)
 	store.Append(audit.Event{ID: "1", TenantID: "t1", EntityType: "Member", Action: "CREATE", Timestamp: time.Now()})
 	store.Append(audit.Event{ID: "2", TenantID: "t1", EntityType: "Member", Action: "UPDATE", Timestamp: time.Now()})
-	h := New(store)
-	h.RegisterRoutes(app)
 
 	req := httptest.NewRequest("GET", "/api/v1/audit/events?action=UPDATE", nil)
 	req.Header.Set("X-Tenant-ID", "t1")
@@ -85,15 +166,17 @@ func TestQueryEvents_WithActionFilter(t *testing.T) {
 }
 
 func TestQueryEvents_TenantIsolation(t *testing.T) {
-	app := setupApp()
-	store := audit.NewStore()
-	store.Append(audit.Event{ID: "1", TenantID: "tenant-a", EntityType: "Member", Action: "CREATE", Timestamp: time.Now()})
-	store.Append(audit.Event{ID: "2", TenantID: "tenant-b", EntityType: "Claim", Action: "CREATE", Timestamp: time.Now()})
-	h := New(store)
-	h.RegisterRoutes(app)
+	app, store := newHandler(t)
+	// Handler only applies a tenant filter when X-Tenant-ID is a valid UUID,
+	// so the two tenants must be UUIDs here. Non-UUIDs trigger the platform
+	// admin view (no tenant filter at all) which would surface both rows.
+	tenantA := "11111111-1111-1111-1111-111111111111"
+	tenantB := "22222222-2222-2222-2222-222222222222"
+	store.Append(audit.Event{ID: "1", TenantID: tenantA, EntityType: "Member", Action: "CREATE", Timestamp: time.Now()})
+	store.Append(audit.Event{ID: "2", TenantID: tenantB, EntityType: "Claim", Action: "CREATE", Timestamp: time.Now()})
 
 	req := httptest.NewRequest("GET", "/api/v1/audit/events", nil)
-	req.Header.Set("X-Tenant-ID", "tenant-a")
+	req.Header.Set("X-Tenant-ID", tenantA)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatal(err)
@@ -103,17 +186,16 @@ func TestQueryEvents_TenantIsolation(t *testing.T) {
 	}
 
 	body, _ := io.ReadAll(resp.Body)
-	if !strings.Contains(string(body), "tenant-a") {
-		t.Fatal("expected response to contain tenant-a events")
+	if !strings.Contains(string(body), tenantA) {
+		t.Fatalf("expected response to contain tenant-a events, got %s", string(body))
 	}
-	if strings.Contains(string(body), "tenant-b") {
-		t.Fatal("expected response NOT to contain tenant-b events")
+	if strings.Contains(string(body), tenantB) {
+		t.Fatalf("expected response NOT to contain tenant-b events, got %s", string(body))
 	}
 }
 
 func TestQueryEvents_WithPagination(t *testing.T) {
-	app := setupApp()
-	store := audit.NewStore()
+	app, store := newHandler(t)
 	for i := 0; i < 5; i++ {
 		store.Append(audit.Event{
 			ID:         string(rune('A' + i)),
@@ -123,8 +205,6 @@ func TestQueryEvents_WithPagination(t *testing.T) {
 			Timestamp:  time.Now().Add(time.Duration(i) * time.Second),
 		})
 	}
-	h := New(store)
-	h.RegisterRoutes(app)
 
 	req := httptest.NewRequest("GET", "/api/v1/audit/events?page=1&pageSize=2", nil)
 	req.Header.Set("X-Tenant-ID", "t1")
@@ -138,10 +218,7 @@ func TestQueryEvents_WithPagination(t *testing.T) {
 }
 
 func TestGetStats_EmptyStore_ReturnsZero(t *testing.T) {
-	app := setupApp()
-	store := audit.NewStore()
-	h := New(store)
-	h.RegisterRoutes(app)
+	app, _ := newHandler(t)
 
 	req := httptest.NewRequest("GET", "/api/v1/audit/stats", nil)
 	resp, err := app.Test(req)
@@ -159,13 +236,10 @@ func TestGetStats_EmptyStore_ReturnsZero(t *testing.T) {
 }
 
 func TestGetStats_WithData_ReturnsCount(t *testing.T) {
-	app := setupApp()
-	store := audit.NewStore()
+	app, store := newHandler(t)
 	store.Append(audit.Event{ID: "1", TenantID: "t1", Timestamp: time.Now()})
 	store.Append(audit.Event{ID: "2", TenantID: "t1", Timestamp: time.Now()})
 	store.Append(audit.Event{ID: "3", TenantID: "t1", Timestamp: time.Now()})
-	h := New(store)
-	h.RegisterRoutes(app)
 
 	req := httptest.NewRequest("GET", "/api/v1/audit/stats", nil)
 	resp, err := app.Test(req)

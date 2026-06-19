@@ -1,8 +1,9 @@
 // Karma configuration for Angular tests.
 //
-// Coverage thresholds start at the current baseline minus a small margin so a
-// PR cannot regress coverage from where we are today. Ratchet these upward
-// (+5% per month) toward the long-term target: 60% lines / 50% branches.
+// Coverage gate is enforced at 70% lines/statements/functions and 60% branches
+// (see `check.global` below). Karma exits non-zero when below — `ng test`
+// will fail locally and in CI alike. Uncovered pages are listed in
+// .claude/coverage-backlog.md and must close their gap before merge.
 //
 // CI runs with --browsers=ChromeHeadlessCI; local `ng test` keeps the
 // watch-mode default for fast feedback.
@@ -35,10 +36,13 @@ module.exports = function (config) {
       ],
       check: {
         global: {
-          statements: 35,
-          branches: 25,
-          functions: 35,
-          lines: 35,
+          // Hard gate: 70% lines/statements/functions, 60% branches. Karma
+          // exits non-zero when below — failing pages listed in
+          // .claude/coverage-backlog.md must close their gap before merge.
+          statements: 70,
+          branches: 60,
+          functions: 70,
+          lines: 70,
         },
       },
     },

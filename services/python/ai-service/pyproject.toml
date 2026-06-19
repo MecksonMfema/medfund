@@ -33,6 +33,8 @@ dev = [
     "pytest-cov>=6.0.0",
     "httpx>=0.28.0",
     "ruff>=0.8.0",
+    "anthropic>=0.40.0",
+    "aiosqlite>=0.20.0",
 ]
 
 [tool.ruff]
@@ -46,8 +48,9 @@ select = ["E", "F", "I", "N", "W", "UP"]
 asyncio_mode = "auto"
 testpaths = ["tests"]
 # Coverage reporting is on by default so CI uploads XML to Codecov.
-# `--cov-fail-under` is deliberately omitted — Phase 5 will introduce a gate.
-addopts = "--cov=app --cov-report=xml --cov-report=term-missing"
+# Gate: pytest fails when total coverage drops below 70%. Uncovered modules
+# listed in .claude/coverage-backlog.md must close their gap before merge.
+addopts = "--cov=app --cov-report=xml --cov-report=term-missing --cov-fail-under=70"
 
 [tool.coverage.run]
 source = ["app"]

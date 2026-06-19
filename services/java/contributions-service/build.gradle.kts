@@ -12,4 +12,9 @@ dependencies {
 
     // Shared Testcontainers fixtures (Postgres + Kafka bases, @WithTenant)
     testImplementation(testFixtures(project(":shared")))
+    // Flyway 10 split Postgres support out of flyway-core. SchemeServiceIT enables
+    // Flyway via test-migration/V001__schemes.sql; without this module the IT fails
+    // with "Unsupported Database: PostgreSQL 17" on the Testcontainers Postgres.
+    testRuntimeOnly("org.flywaydb:flyway-database-postgresql")
+    testRuntimeOnly("org.postgresql:postgresql")
 }
