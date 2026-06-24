@@ -17,6 +17,14 @@ export interface Scheme {
   currencyCode?: string;
 }
 
+export interface SchemesPage {
+  content: Scheme[];
+  total: number;
+  page: number;
+  size: number;
+  totalPages: number;
+}
+
 export interface AgeGroup {
   id: string;
   schemeId: string;
@@ -160,6 +168,34 @@ export interface BillingCommitResponse {
   membershipModel: string;
 }
 
+export interface EnqueueBillingPayload extends BillingFilterPayload {
+  kind: 'preview' | 'commit';
+}
+
+export interface EnqueueBillingResponse {
+  configId: string;
+  runId: string;
+  status: 'RUNNING' | 'SUCCESS' | 'FAILED';
+  startedAt: string;
+}
+
+/** Shape of /api/v1/scheduled-jobs/{configId}/runs rows that the wizard polls. */
+export interface ScheduledJobRun {
+  id: string;
+  configId: string;
+  tenantId: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  durationMs: number | null;
+  status: 'RUNNING' | 'SUCCESS' | 'FAILED';
+  triggerKind: 'schedule' | 'manual';
+  errorMessage: string | null;
+  triggeredBy: string | null;
+  /** JSON string returned by ResultfulJobExecutor — parse to read the
+   *  preview/commit response. {@code null} until the run finishes. */
+  resultPayload: string | null;
+}
+
 export interface RecordTransactionPayload {
   contributionId?: string;
   invoiceId?: string;
@@ -198,6 +234,35 @@ export class ContributionsService {
   // ── Schemes ──
   getSchemes(): Observable<Scheme[]> {
     return this.api.get<Scheme[]>('/schemes');
+  }
+
+  /**
+   * Server-side paginated + sortable scheme list. Sort key must be one of the
+   * backend-whitelisted camelCase keys (name, schemeType, currencyCode, status,
+   * effectiveDate, createdAt) — anything else falls back to name ASC on the
+   * server.
+   */
+  getSchemesPaged(opts: {
+    page: number;            // 0-indexed
+    size: number;
+    sortKey?: string;
+    sortDirection?: 'asc' | 'desc';
+    q?: string;
+    status?: string;
+    insuranceLine?: string;
+    schemeType?: string;
+  }): Observable<SchemesPage> {
+    const params: Record<string, string> = {
+      page: String(opts.page),
+      size: String(opts.size),
+    };
+    if (opts.sortKey)       params['sortKey']       = opts.sortKey;
+    if (opts.sortDirection) params['sortDirection'] = opts.sortDirection;
+    if (opts.q)             params['q']             = opts.q;
+    if (opts.status)        params['status']        = opts.status;
+    if (opts.insuranceLine) params['insuranceLine'] = opts.insuranceLine;
+    if (opts.schemeType)    params['schemeType']    = opts.schemeType;
+    return this.api.get<SchemesPage>('/schemes/page', params);
   }
 
   getSchemeById(id: string): Observable<Scheme> {
@@ -308,6 +373,26 @@ export class ContributionsService {
 
   commitBilling(filters: BillingFilterPayload): Observable<BillingCommitResponse> {
     return this.api.post<BillingCommitResponse>('/contributions/commit', filters);
+  }
+
+  /**
+   * Enqueue a billing preview or commit as a background job. Returns
+   * configId + runId so the caller can short-poll the runs endpoint.
+   */
+  enqueueBilling(payload: EnqueueBillingPayload): Observable<EnqueueBillingResponse> {
+    return this.api.post<EnqueueBillingResponse>('/contributions/billing/enqueue', payload);
+  }
+
+  /**
+   * Fetch the latest N runs for a scheduled-job config. The wizard polls
+   * this with limit=1 to track the running/success/failed state of an
+   * enqueued billing job.
+   */
+  listJobRuns(configId: string, limit = 1): Observable<ScheduledJobRun[]> {
+    return this.api.get<ScheduledJobRun[]>(
+      `/scheduled-jobs/${configId}/runs`,
+      { limit: String(limit) },
+    );
   }
 
   // ── Transactions ──

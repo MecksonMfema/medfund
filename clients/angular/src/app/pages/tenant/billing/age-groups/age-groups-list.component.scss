@@ -58,8 +58,10 @@
   border-radius: 4px;
 }
 
-.empty-state {
+.empty-row {
+  text-align: center;
   color: var(--text-muted, #6b7280);
+  padding: 2rem 0.75rem;
   font-style: italic;
 }
 

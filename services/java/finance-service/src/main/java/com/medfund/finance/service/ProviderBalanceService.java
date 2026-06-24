@@ -51,7 +51,6 @@ public class ProviderBalanceService {
         return providerBalanceRepository.findByProviderIdAndCurrencyCode(providerId, currencyCode)
             .switchIfEmpty(Mono.defer(() -> {
                 var balance = new ProviderBalance();
-                balance.setId(UUID.randomUUID());
                 balance.setProviderId(providerId);
                 balance.setCurrencyCode(currencyCode);
                 balance.setTotalClaimed(BigDecimal.ZERO);
@@ -93,7 +92,9 @@ public class ProviderBalanceService {
                 return providerBalanceRepository.save(balance)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "ProviderBalance", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "ProviderBalance", saved.getId().toString(),
+                                "balance for provider " + saved.getProviderId(),
+                                "UPDATE", actorId, actorEmail,
                                 oldValue, newValue)
                             .thenReturn(saved);
                     }));
@@ -112,13 +113,14 @@ public class ProviderBalanceService {
         return balance;
     }
 
-    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
+    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId, String entityName,
                                      String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
             entityType,
             entityId,
+            entityName,
             action,
             actorId,
             actorEmail,

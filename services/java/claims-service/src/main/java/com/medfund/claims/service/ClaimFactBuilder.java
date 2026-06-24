@@ -19,7 +19,7 @@ import java.time.temporal.ChronoUnit;
  *
  * <p>Kept deliberately narrow: the {@code AdjudicationPipeline} already runs
  * its own queries for the six hardcoded stages; this builder issues one
- * additional lightweight read against {@code public.members} (and an
+ * additional lightweight read against the tenant {@code members} table (and an
  * optional one against {@code public.providers}) to populate the
  * member-and-provider context the engine needs. We can fold these reads
  * into the upstream stages later if profiling shows it's worth it.
@@ -73,8 +73,8 @@ public class ClaimFactBuilder {
     // ── MemberFact ───────────────────────────────────────────────────────────
 
     private Mono<MemberFact> fetchMember(String memberId) {
-        return db.sql("SELECT status, enrollment_date, date_of_birth, gender FROM public.members WHERE id = :id")
-                .bind("id", memberId)
+        return db.sql("SELECT status, enrollment_date, date_of_birth, gender FROM members WHERE id = :id")
+                .bind("id", java.util.UUID.fromString(memberId))
                 .fetch().one()
                 .map(row -> {
                     MemberFact m = new MemberFact();
@@ -110,7 +110,7 @@ public class ClaimFactBuilder {
 
     private Mono<ProviderFact> fetchProvider(String providerId) {
         return db.sql("SELECT id, status, provider_type FROM public.providers WHERE id = :id")
-                .bind("id", providerId)
+                .bind("id", java.util.UUID.fromString(providerId))
                 .fetch().one()
                 .map(row -> {
                     ProviderFact p = new ProviderFact();

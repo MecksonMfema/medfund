@@ -92,23 +92,23 @@ public class PaymentAdviceService {
                     );
                 })
             )
-            .flatMap(advice -> persistAdvice(paymentRunId, advice).thenReturn(advice))
-            .flatMap(advice -> Mono.deferContextual(ctx -> {
-                String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "PaymentAdvice", advice.adviceNumber(), "CREATE",
-                        AuditActor.SYSTEM_ID, AuditActor.SYSTEM_EMAIL,
-                        null,
-                        Map.of("adviceNumber", advice.adviceNumber(),
-                               "paymentRunId", paymentRunId.toString(),
-                               "totalAmount", advice.totalAmount().toPlainString(),
-                               "lineCount", String.valueOf(advice.lines().size())))
-                    .thenReturn(advice);
-            }));
+            .flatMap(advice -> persistAdvice(paymentRunId, advice)
+                .flatMap(record -> Mono.deferContextual(ctx -> {
+                    String tenantId = TenantContext.get(ctx);
+                    return publishAudit(tenantId, "PaymentAdvice", record.getId().toString(), advice.adviceNumber(),
+                            "CREATE",
+                            AuditActor.SYSTEM_ID, AuditActor.SYSTEM_EMAIL,
+                            null,
+                            Map.of("adviceNumber", advice.adviceNumber(),
+                                   "paymentRunId", paymentRunId.toString(),
+                                   "totalAmount", advice.totalAmount().toPlainString(),
+                                   "lineCount", String.valueOf(advice.lines().size())))
+                        .thenReturn(advice);
+                })));
     }
 
     private Mono<PaymentAdviceRecord> persistAdvice(UUID paymentRunId, PaymentAdvice advice) {
         var record = new PaymentAdviceRecord();
-        record.setId(UUID.randomUUID());
         record.setPaymentRunId(paymentRunId);
         record.setProviderId(advice.providerId());
         record.setCurrencyCode(advice.currencyCode());
@@ -121,13 +121,14 @@ public class PaymentAdviceService {
 
     // ---- Private helpers ----
 
-    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
+    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId, String entityName,
                                      String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
             entityType,
             entityId,
+            entityName,
             action,
             actorId,
             actorEmail,

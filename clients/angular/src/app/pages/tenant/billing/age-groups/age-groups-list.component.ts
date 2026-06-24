@@ -1,12 +1,16 @@
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { ContributionsService, AgeGroup, Scheme } from '../../../../core/services/contributions.service';
+import { ContributionsService, AgeGroup } from '../../../../core/services/contributions.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import {
+  EntityPickerComponent,
+  EntityPickerSelection,
+} from '../../../../shared/components/entity-picker/entity-picker.component';
 
 interface AgeGroupRow extends AgeGroup {
   schemeName?: string;
@@ -15,13 +19,21 @@ interface AgeGroupRow extends AgeGroup {
 @Component({
   selector: 'app-age-groups-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SkeletonComponent, CurrencyFormatPipe],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    IconComponent,
+    SkeletonComponent,
+    CurrencyFormatPipe,
+    EntityPickerComponent,
+  ],
   templateUrl: './age-groups-list.component.html',
   styleUrl: './age-groups-list.component.scss',
 })
-export class AgeGroupsListComponent implements OnInit {
-  schemes: Scheme[] = [];
+export class AgeGroupsListComponent {
   selectedSchemeId: string | null = null;
+  selectedSchemeName: string | null = null;
   rows: AgeGroupRow[] = [];
   loading = false;
   errorMessage: string | null = null;
@@ -57,31 +69,19 @@ export class AgeGroupsListComponent implements OnInit {
     });
   }
 
-  ngOnInit(): void {
-    this.loading = true;
-    this.contributions.getSchemes().subscribe({
-      next: (schemes) => {
-        this.schemes = schemes;
-        if (schemes.length > 0) {
-          this.selectedSchemeId = schemes[0].id;
-          this.loadAgeGroups(schemes[0].id);
-        } else {
-          this.loading = false;
-        }
-      },
-      error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load schemes';
-        this.loading = false;
-      },
-    });
+  onSchemePicked(selection: EntityPickerSelection | null): void {
+    this.selectedSchemeId = selection?.id ?? null;
+    this.selectedSchemeName = selection?.label ?? null;
+    this.rows = [];
+    if (selection?.id) {
+      this.loadAgeGroups(selection.id, selection.label);
+    }
   }
 
-  loadAgeGroups(schemeId: string): void {
-    if (!schemeId) return;
+  private loadAgeGroups(schemeId: string, schemeName: string): void {
     this.loading = true;
     this.contributions.getAgeGroupsByScheme(schemeId).subscribe({
       next: (rows) => {
-        const schemeName = this.schemes.find(s => s.id === schemeId)?.name;
         this.rows = rows.map(r => ({ ...r, schemeName }));
         this.loading = false;
       },
@@ -90,13 +90,5 @@ export class AgeGroupsListComponent implements OnInit {
         this.loading = false;
       },
     });
-  }
-
-  onSchemeChange(): void {
-    if (this.selectedSchemeId) this.loadAgeGroups(this.selectedSchemeId);
-  }
-
-  selectedScheme(): Scheme | undefined {
-    return this.schemes.find(s => s.id === this.selectedSchemeId);
   }
 }

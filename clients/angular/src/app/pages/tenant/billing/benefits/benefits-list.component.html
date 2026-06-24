@@ -1,75 +1,40 @@
-<div class="benefits-page">
-  <header class="page-header">
-    <div>
-      <h1>Benefits</h1>
-      @if (scheme) {
-        <p class="page-sub">
-          Benefit lines for scheme <strong>{{ scheme.name }}</strong> ({{ scheme.currencyCode || '—' }}).
-          Limits inherit the scheme's currency.
-        </p>
-      } @else {
-        <p class="page-sub">Loading scheme…</p>
-      }
-    </div>
-    <div class="header-actions">
-      <a class="btn btn-default" routerLink="/tenant/billing/schemes">
-        <app-icon name="arrow-left" [size]="14"></app-icon>
-        Back to schemes
-      </a>
-      <a class="btn btn-primary" [routerLink]="['/tenant/billing/schemes', schemeId, 'benefits', 'add']">
-        <app-icon name="plus" [size]="14"></app-icon>
-        Add benefit
-      </a>
-    </div>
-  </header>
+<header class="page-header">
+  <div>
+    <h1>Benefits</h1>
+    @if (scheme) {
+      <p class="page-sub">
+        Benefit lines for scheme <strong>{{ scheme.name }}</strong> ({{ scheme.currencyCode || '—' }}). Limits inherit the scheme's currency.
+      </p>
+    } @else {
+      <p class="page-sub">Loading scheme…</p>
+    }
+  </div>
+  <div class="header-actions">
+    <a class="btn btn-default" routerLink="/tenant/billing/schemes">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back to schemes
+    </a>
+    <a
+      *hasPermission="'billing:manage_schemes'"
+      class="btn btn-primary"
+      [routerLink]="['/tenant/billing/schemes', schemeId, 'benefits', 'add']"
+    >
+      <app-icon name="plus" [size]="14"></app-icon>
+      Add benefit
+    </a>
+  </div>
+</header>
 
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
 
-  @if (loading) {
-    <app-skeleton></app-skeleton>
-  } @else if (benefits.length === 0) {
-    <p class="empty-state">No benefits configured on this scheme yet.</p>
-  } @else {
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th class="right">Annual limit</th>
-          <th class="right">Daily limit</th>
-          <th class="right">Event limit</th>
-          <th class="right">Waiting (days)</th>
-          <th>Status</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (b of benefits; track b.id) {
-          <tr [class.pending]="pendingId === b.id">
-            <td><strong>{{ b.name }}</strong></td>
-            <td>{{ b.benefitType | humanize }}</td>
-            <td class="right">{{ b.annualLimit ? (b.annualLimit | currencyFormat:b.currencyCode) : '—' }}</td>
-            <td class="right">{{ b.dailyLimit ? (b.dailyLimit | currencyFormat:b.currencyCode) : '—' }}</td>
-            <td class="right">{{ b.eventLimit ? (b.eventLimit | currencyFormat:b.currencyCode) : '—' }}</td>
-            <td class="right">{{ b.waitingPeriodDays ?? 0 }}</td>
-            <td>
-              <span class="badge" [class]="'badge-' + (b.status || 'active')">{{ b.status || 'active' }}</span>
-            </td>
-            <td class="actions">
-              <button class="link-btn" (click)="edit(b)">Edit</button>
-              <button
-                class="link-btn"
-                [class.danger]="b.status !== 'inactive'"
-                [class.success]="b.status === 'inactive'"
-                (click)="toggleStatus(b)">
-                {{ b.status === 'inactive' ? 'Activate' : 'Deactivate' }}
-              </button>
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  }
-</div>
+<app-data-table
+  [columns]="benefitColumns"
+  [data]="benefits"
+  [actions]="benefitActions"
+  [showActions]="true"
+  [loading]="loading"
+  emptyMessage="No benefits configured on this scheme yet"
+  emptyDescription="Add a benefit to start defining what this scheme covers and its limits.">
+</app-data-table>

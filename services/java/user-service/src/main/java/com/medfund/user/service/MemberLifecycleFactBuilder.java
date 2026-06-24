@@ -15,9 +15,9 @@ import java.time.temporal.ChronoUnit;
  * Translates a {@link Member} entity into a {@link MemberLifecycleFact}
  * (and a companion {@link TimeFact}) for rules-engine evaluation.
  *
- * <p>One DB lookup against {@code public.dependants} populates the
+ * <p>One DB lookup against the tenant {@code dependants} table populates the
  * dependant-count column, and an optional second one against
- * {@code public.contributions} computes how many months the member is in
+ * the tenant {@code contributions} table computes how many months the member is in
  * arrears. Both are defensive: any failure or empty result yields a
  * default-valued fact so the rules see "not applicable" rather than crash.
  */
@@ -65,8 +65,8 @@ public class MemberLifecycleFactBuilder {
     }
 
     private Mono<MemberLifecycleFact> enrichWithDependantCount(MemberLifecycleFact f, String memberId) {
-        return db.sql("SELECT COUNT(*) AS cnt FROM public.dependants WHERE member_id = :id AND status = 'active'")
-                .bind("id", memberId)
+        return db.sql("SELECT COUNT(*) AS cnt FROM dependants WHERE member_id = :id AND status = 'active'")
+                .bind("id", java.util.UUID.fromString(memberId))
                 .fetch().one()
                 .map(row -> {
                     if (row.get("cnt") instanceof Number n) f.setDependantCount(n.intValue());
@@ -84,12 +84,12 @@ public class MemberLifecycleFactBuilder {
         // ended before today. A coarse but useful default for "arrears months".
         return db.sql("""
                 SELECT COUNT(DISTINCT DATE_TRUNC('month', period_end)) AS arrears_months
-                FROM public.contributions
+                FROM contributions
                 WHERE member_id = :id
                   AND status <> 'paid'
                   AND period_end < CURRENT_DATE
                 """)
-                .bind("id", memberId)
+                .bind("id", java.util.UUID.fromString(memberId))
                 .fetch().one()
                 .map(row -> {
                     if (row.get("arrears_months") instanceof Number n) {

@@ -46,7 +46,6 @@ public class AdvancePaymentService {
             return Mono.error(new IllegalArgumentException("Either providerId or memberId is required"));
         }
         var entity = new AdvancePayment();
-        entity.setId(UUID.randomUUID());
         entity.setProviderId(request.providerId());
         entity.setMemberId(request.memberId());
         entity.setAmount(request.amount());
@@ -71,6 +70,7 @@ public class AdvancePaymentService {
                 tenantId != null ? tenantId : "unknown",
                 "AdvancePayment",
                 a.getId().toString(),
+                a.getReference(),
                 "CREATE",
                 actor != null ? actor : "system",
                 actorEmail,

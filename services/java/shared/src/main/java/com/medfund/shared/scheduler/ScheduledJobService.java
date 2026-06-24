@@ -96,6 +96,42 @@ public class ScheduledJobService {
         try { return UUID.fromString(actorId); } catch (IllegalArgumentException e) { return null; }
     }
 
+    /**
+     * Persists a one-off, disabled config row for an ad-hoc job execution
+     * (e.g. the billing wizard kicking a BILLING_PREVIEW / BILLING_COMMIT).
+     * The cron expression is a never-match sentinel so the dispatcher never
+     * picks it up on its own, and {@code is_enabled = false} doubles as a
+     * second guard. The caller hands the saved config straight to
+     * {@link JobDispatcher#runNow(ScheduledJobConfig, UUID)}.
+     *
+     * <p>No audit event is emitted — ad-hoc configs are an internal
+     * scheduler artefact; the meaningful audit lives on the run row + the
+     * domain mutations the executor performs. A row remains in
+     * {@code scheduled_job_configs} after the run; a background cleanup
+     * task can later sweep configs older than N days that have no
+     * subsequent runs.
+     */
+    @Transactional
+    public Mono<ScheduledJobConfig> createAdHocConfig(UUID tenantId, String jobType, String name,
+                                                       String settings, String actorId) {
+        var config = new ScheduledJobConfig();
+        config.setTenantId(tenantId);
+        config.setJobType(jobType);
+        config.setName(name);
+        // Sentinel cron — only the manual run-now path ever drives ad-hoc
+        // configs, and the row is disabled below so JobDispatcher.findDueJobs
+        // (which filters on is_enabled = TRUE) can't pick it up anyway.
+        // Annual midnight Jan 1 keeps Spring's CronExpression parser happy.
+        config.setCronExpression("0 0 0 1 1 *");
+        config.setIsEnabled(false);
+        config.setSettings(settings != null ? settings : "{}");
+        config.setNextExecutionAt(null);
+        config.setCreatedAt(Instant.now());
+        config.setUpdatedAt(Instant.now());
+        config.setCreatedBy(parseActor(actorId));
+        return jobRepository.save(config);
+    }
+
     @Transactional
     public Mono<ScheduledJobConfig> update(UUID id, String cronExpression, String settings,
                                             Boolean isEnabled, String actorId, String actorEmail) {

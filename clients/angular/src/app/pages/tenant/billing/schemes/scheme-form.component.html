@@ -17,65 +17,119 @@
     <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
   }
 
-  <form (submit)="$event.preventDefault(); submit()" class="form-grid">
-    <label class="field">
-      <span class="field-label">Name</span>
-      <input [(ngModel)]="form.name" name="name" maxlength="200" required />
-    </label>
+  <form (submit)="$event.preventDefault(); submit()" class="form-card">
+    <div class="form-card__heading">
+      <h2 class="form-card__title">Scheme details</h2>
+      <span class="form-card__hint">All fields with required values are marked.</span>
+    </div>
 
-    <label class="field">
-      <span class="field-label">Type</span>
-      <select [(ngModel)]="form.schemeType" name="schemeType">
-        @if (schemeTypes.length === 0) {
-          <option value="" disabled>Configure insurance lines first</option>
-        }
-        @if (schemeTypeGroups.length <= 1) {
-          @for (t of schemeTypes; track t.code) {
-            <option [value]="t.code">{{ t.label }}</option>
-          }
-        } @else {
-          @for (line of schemeTypeGroups; track line) {
-            <optgroup [label]="lineLabel(line)">
-              @for (t of schemeTypesForLine(line); track t.code) {
+    <div class="form-sections">
+      <!-- ── Identity ──────────────────────────────────────────────────── -->
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="clipboard-list" [size]="18"></app-icon></span>
+          <h3 class="section-title">Identity</h3>
+        </header>
+
+        <label class="field">
+          <span class="field-label">Scheme name <span class="req">*</span></span>
+          <input
+            class="field-control"
+            [(ngModel)]="form.name"
+            name="name"
+            maxlength="200"
+            placeholder="e.g. Gold Medical 2026"
+            required
+          />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Scheme type</span>
+          <select class="field-control" [(ngModel)]="form.schemeType" name="schemeType">
+            @if (schemeTypes.length === 0) {
+              <option value="" disabled>Configure insurance lines first</option>
+            }
+            @if (schemeTypeGroups.length <= 1) {
+              @for (t of schemeTypes; track t.code) {
                 <option [value]="t.code">{{ t.label }}</option>
               }
-            </optgroup>
-          }
-        }
-      </select>
-    </label>
+            } @else {
+              @for (line of schemeTypeGroups; track line) {
+                <optgroup [label]="lineLabel(line)">
+                  @for (t of schemeTypesForLine(line); track t.code) {
+                    <option [value]="t.code">{{ t.label }}</option>
+                  }
+                </optgroup>
+              }
+            }
+          </select>
+          <small class="field-help">The product type drives which benefits, age groups, and rules apply.</small>
+        </label>
+      </section>
 
-    <label class="field span-2">
-      <span class="field-label">Description</span>
-      <textarea [(ngModel)]="form.description" name="description" rows="3"></textarea>
-    </label>
+      <!-- ── Validity ──────────────────────────────────────────────────── -->
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="calendar" [size]="18"></app-icon></span>
+          <h3 class="section-title">Validity</h3>
+        </header>
 
-    <label class="field">
-      <span class="field-label">Effective from</span>
-      <input type="date" [(ngModel)]="form.effectiveDate" name="effectiveDate" required />
-    </label>
+        <label class="field">
+          <span class="field-label">Effective from <span class="req">*</span></span>
+          <input class="field-control" type="date" [(ngModel)]="form.effectiveDate" name="effectiveDate" required />
+        </label>
 
-    <label class="field">
-      <span class="field-label">Effective until (optional)</span>
-      <input type="date" [(ngModel)]="form.endDate" name="endDate" />
-    </label>
+        <label class="field">
+          <span class="field-label">Effective until <span class="optional">(optional)</span></span>
+          <input class="field-control" type="date" [(ngModel)]="form.endDate" name="endDate" />
+          <small class="field-help">Leave blank for an open-ended scheme.</small>
+        </label>
+      </section>
 
-    <label class="field">
-      <span class="field-label">Currency</span>
-      <select [(ngModel)]="form.currencyCode" name="currencyCode" required>
-        <option [value]="''" disabled>Pick a currency</option>
-        @for (c of allowedCurrencies; track c.id) {
-          <option [value]="c.currencyCode">{{ c.currencyCode }}{{ c.isDefault ? ' (default)' : '' }}</option>
-        }
-      </select>
-      <small class="muted">Only currencies marked as billing currencies in Settings → Currencies are listed.</small>
-    </label>
+      <!-- ── Pricing ───────────────────────────────────────────────────── -->
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="dollar-sign" [size]="18"></app-icon></span>
+          <h3 class="section-title">Pricing</h3>
+        </header>
 
-    <div class="form-actions span-2">
+        <label class="field">
+          <span class="field-label">Billing currency <span class="req">*</span></span>
+          <select class="field-control" [(ngModel)]="form.currencyCode" name="currencyCode" required>
+            <option [value]="''" disabled>Pick a currency</option>
+            @for (c of allowedCurrencies; track c.id) {
+              <option [value]="c.currencyCode">{{ c.currencyCode }}{{ c.isDefault ? ' (default)' : '' }}</option>
+            }
+          </select>
+          <small class="field-help">Only billing-enabled currencies from Settings → Currencies are listed.</small>
+        </label>
+      </section>
+
+      <!-- ── Description (full width) ──────────────────────────────────── -->
+      <section class="form-section form-section--full">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="file-text" [size]="18"></app-icon></span>
+          <h3 class="section-title">Description</h3>
+        </header>
+
+        <label class="field">
+          <span class="field-label">Notes for staff and members <span class="optional">(optional)</span></span>
+          <textarea
+            class="field-control"
+            [(ngModel)]="form.description"
+            name="description"
+            rows="3"
+            placeholder="What this scheme covers, who it suits, anything operations should know…"
+          ></textarea>
+        </label>
+      </section>
+    </div>
+
+    <footer class="form-actions">
       <a class="btn btn-default" routerLink="/tenant/billing/schemes">Cancel</a>
       <button type="submit" class="btn btn-primary" [disabled]="saving || loading || !isDirty">
         {{ saving ? 'Saving…' : (schemeId ? 'Save changes' : 'Create scheme') }}
       </button>
-    </div>
+    </footer>
   </form>
 </div>

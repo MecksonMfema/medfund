@@ -36,6 +36,28 @@ public class SchemeController {
         return schemeService.findAll().map(SchemeResponse::from);
     }
 
+    @GetMapping("/page")
+    @Operation(summary = "Server-side paginated, sortable, filterable scheme list",
+        description = "Feeds the operational schemes list table. Sortable keys: " +
+                "name, schemeType, currencyCode, status, effectiveDate, createdAt. " +
+                "Anything else falls back to name ASC.")
+    @ApiResponse(responseCode = "200", description = "Page of schemes")
+    public Mono<PageResponse<SchemeResponse>> searchPaged(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String insuranceLine,
+            @RequestParam(required = false) String schemeType,
+            @RequestParam(required = false, defaultValue = "name") String sortKey,
+            @RequestParam(required = false, defaultValue = "asc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "20") int size) {
+        SchemeFilterParams params = new SchemeFilterParams(q, status, insuranceLine, schemeType, sortKey, sortDirection, page, size);
+        return schemeService.searchPaged(params)
+                .map(p -> PageResponse.of(
+                        p.content().stream().map(SchemeResponse::from).toList(),
+                        p.total(), p.page(), p.size()));
+    }
+
     @GetMapping("/search")
     @Operation(summary = "Search schemes by name or scheme type",
                description = "Used by the operational portal's debounced scheme picker.")

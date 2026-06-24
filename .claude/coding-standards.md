@@ -561,6 +561,38 @@ Every audit event published to Kafka (`medfund.audit.*` topics) and stored in th
 }
 ```
 
+### Entity identity on audit events — `entityName` must be a friendly string
+
+The `AuditEvent.create(...)` factory takes both `entityId` (UUID for the join back to the source table) AND `entityName` (the human-readable identifier the audit list will actually display: scheme name, claim number, payment reference, etc.). Both are required — never pass the UUID at the entityName slot.
+
+**Why:** Audit listings live in the operational UI and are read by tenant admins and operations staff who don't have the source tables open. An audit log that shows "Scheme — `a7f3…d419` — CREATE" forces every viewer to run a DB lookup just to know what was created. The earlier 10-arg `AuditEvent.create(...)` overload silently defaulted `entityName = entityId`, which meant every caller stored the UUID twice — the bug was caught and the overload removed in a 2026-06 sweep.
+
+**Per-entity friendly name conventions (extend as new entities land):**
+
+| Entity              | entityName field used                  |
+|---------------------|----------------------------------------|
+| Member              | `getMemberNumber()`                     |
+| Group               | `getName()`                             |
+| Dependant           | `getFirstName() + " " + getLastName()`  |
+| Scheme              | `getName()`                             |
+| SchemeBenefit       | `getName()`                             |
+| AgeGroup            | `getName()`                             |
+| Contribution        | composed: `"member <id> <periodStart>..<periodEnd>"` (no number field on entity yet) |
+| Invoice             | `getInvoiceNumber()`                    |
+| Claim               | `getClaimNumber()`                      |
+| Adjustment          | `getAdjustmentNumber()`                 |
+| Payment             | `getPaymentNumber()`                    |
+| PaymentRun          | `getRunNumber()`                        |
+| PaymentAdvice       | `adviceNumber()`                        |
+| BankReconciliation  | `getReferenceNumber()`                  |
+| AdvancePayment      | `getReference()` (user-supplied)        |
+| CtcPayment          | composed: `"CTC <amount> <currency>"` (no number field on entity yet) |
+| MascaBankAccount    | `getAccountName()`                      |
+| DebitNote/CreditNote| `getReference()`                        |
+| Transaction         | `getTransactionNumber()`                |
+
+When you add a new audit-emitting entity, give it a stable human-readable identifier (number, reference, or name) and reference that field from `publishAudit`. If the entity genuinely has no such field, compose one from descriptive columns (see Contribution/CtcPayment) — never fall back to a UUID.
+
 ### Actor identity — REQUIRED on every audit event
 
 Every audit event must carry **both** `actorId` (UUID for the join back to the users table) **and** `actorEmail` (human-readable identifier — email, falling back to `preferred_username`). Audit emissions that ship only the UUID force every viewer to run a DB join to see who did what; that defeats the point of an audit feed.

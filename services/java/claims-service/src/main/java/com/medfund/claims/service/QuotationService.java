@@ -62,7 +62,6 @@ public class QuotationService {
         return generateQuotationNumber()
             .flatMap(number -> {
                 var q = new Quotation();
-                q.setId(UUID.randomUUID());
                 q.setQuotationNumber(number);
                 q.setMemberId(request.memberId());
                 q.setProviderId(request.providerId());
@@ -85,7 +84,7 @@ public class QuotationService {
                 String tenantId = TenantContext.get(ctx);
                 var event = AuditEvent.create(
                     tenantId != null ? tenantId : "unknown",
-                    "Quotation", saved.getId().toString(),
+                    "Quotation", saved.getId().toString(), saved.getQuotationNumber(),
                     "CREATE", actorId, actorEmail, null,
                     Map.of("quotationNumber", saved.getQuotationNumber(),
                            "estimatedAmount", saved.getEstimatedAmount().toPlainString()),
@@ -115,7 +114,7 @@ public class QuotationService {
                 String tenantId = TenantContext.get(ctx);
                 var event = AuditEvent.create(
                     tenantId != null ? tenantId : "unknown",
-                    "Quotation", saved.getId().toString(),
+                    "Quotation", saved.getId().toString(), saved.getQuotationNumber(),
                     "UPDATE", actorId, actorEmail,
                     Map.of("status", "PENDING"),
                     Map.of("status", "REVIEWED", "coveredAmount", saved.getCoveredAmount().toPlainString()),

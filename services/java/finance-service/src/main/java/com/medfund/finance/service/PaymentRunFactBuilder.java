@@ -61,7 +61,7 @@ public class PaymentRunFactBuilder {
 
     private Mono<PaymentRunFact> enrichVerificationStatus(PaymentRunFact f, String providerId) {
         return db.sql("SELECT status FROM public.providers WHERE id = :id")
-                .bind("id", providerId)
+                .bind("id", java.util.UUID.fromString(providerId))
                 .fetch().one()
                 .map(row -> {
                     String status = row.get("status") == null ? "" : row.get("status").toString();
@@ -78,11 +78,11 @@ public class PaymentRunFactBuilder {
     private Mono<PaymentRunFact> enrichPreviousRunDate(PaymentRunFact f, String providerId) {
         return db.sql("""
                 SELECT MAX(pr.executed_at) AS last_run
-                FROM public.payment_runs pr
-                JOIN public.payment_run_items pri ON pri.payment_run_id = pr.id
+                FROM payment_runs pr
+                JOIN payment_run_items pri ON pri.payment_run_id = pr.id
                 WHERE pri.provider_id = :id AND pri.status = 'paid'
                 """)
-                .bind("id", providerId)
+                .bind("id", java.util.UUID.fromString(providerId))
                 .fetch().one()
                 .map(row -> {
                     Object lastRun = row.get("last_run");
@@ -103,11 +103,11 @@ public class PaymentRunFactBuilder {
     private Mono<PaymentRunFact> enrichOutstandingClaims(PaymentRunFact f, String providerId) {
         return db.sql("""
                 SELECT COUNT(*) AS cnt
-                FROM public.claims
+                FROM claims
                 WHERE provider_id = :id
                   AND status IN ('ADJUDICATED', 'COMMITTED')
                 """)
-                .bind("id", providerId)
+                .bind("id", java.util.UUID.fromString(providerId))
                 .fetch().one()
                 .map(row -> {
                     if (row.get("cnt") instanceof Number n) f.setOutstandingClaimsCount(n.intValue());

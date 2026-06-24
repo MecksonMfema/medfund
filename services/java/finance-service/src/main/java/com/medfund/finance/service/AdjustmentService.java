@@ -55,7 +55,6 @@ public class AdjustmentService {
         return generateAdjustmentNumber()
             .flatMap(adjustmentNumber -> {
                 var adjustment = new Adjustment();
-                adjustment.setId(UUID.randomUUID());
                 adjustment.setAdjustmentNumber(adjustmentNumber);
                 adjustment.setProviderId(request.providerId());
                 adjustment.setMemberId(request.memberId());
@@ -72,7 +71,8 @@ public class AdjustmentService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "Adjustment", saved.getId().toString(), "CREATE", actorId, actorEmail,
+                return publishAudit(tenantId, "Adjustment", saved.getId().toString(), saved.getAdjustmentNumber(),
+                        "CREATE", actorId, actorEmail,
                         null,
                         Map.of("adjustmentNumber", saved.getAdjustmentNumber(), "status", saved.getStatus(),
                                "amount", saved.getAmount().toString(), "type", saved.getAdjustmentType()))
@@ -94,7 +94,8 @@ public class AdjustmentService {
                 return adjustmentRepository.save(adjustment)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "Adjustment", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "Adjustment", saved.getId().toString(), saved.getAdjustmentNumber(),
+                                "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .thenReturn(saved);
@@ -114,7 +115,8 @@ public class AdjustmentService {
                 return adjustmentRepository.save(adjustment)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "Adjustment", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "Adjustment", saved.getId().toString(), saved.getAdjustmentNumber(),
+                                "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .then(eventPublisher.publishAdjustmentApplied(
@@ -142,7 +144,8 @@ public class AdjustmentService {
                 return adjustmentRepository.save(adjustment)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "Adjustment", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "Adjustment", saved.getId().toString(), saved.getAdjustmentNumber(),
+                                "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .thenReturn(saved);
@@ -158,13 +161,14 @@ public class AdjustmentService {
             .flatMap(exists -> exists ? generateAdjustmentNumber() : Mono.just(number));
     }
 
-    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
+    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId, String entityName,
                                      String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
             entityType,
             entityId,
+            entityName,
             action,
             actorId,
             actorEmail,

@@ -112,7 +112,6 @@ public class BillingService {
                             + "' does not match scheme currency '" + scheme.getCurrencyCode() + "'"));
                 }
                 var contribution = new Contribution();
-                contribution.setId(UUID.randomUUID());
                 contribution.setSchemeId(request.schemeId());
                 contribution.setGroupId(request.groupId());
                 contribution.setCurrencyCode(currency);
@@ -133,7 +132,9 @@ public class BillingService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "Contribution", saved.getId().toString(), "CREATE", actorId, actorEmail,
+                return publishAudit(tenantId, "Contribution", saved.getId().toString(),
+                        contributionName(saved),
+                        "CREATE", actorId, actorEmail,
                         null,
                         Map.of("status", saved.getStatus(),
                                "schemeId", saved.getSchemeId().toString(),
@@ -166,7 +167,9 @@ public class BillingService {
                     .flatMap(saved -> balanceService.applyContributionPaid(saved).thenReturn(saved))
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "Contribution", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "Contribution", saved.getId().toString(),
+                                contributionName(saved),
+                                "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus(),
                                        "paymentMethod", saved.getPaymentMethod(),
@@ -200,7 +203,6 @@ public class BillingService {
         return generateInvoiceNumber()
             .flatMap(invoiceNumber -> {
                 var invoice = new Invoice();
-                invoice.setId(UUID.randomUUID());
                 invoice.setInvoiceNumber(invoiceNumber);
                 invoice.setGroupId(groupId);
                 invoice.setSchemeId(schemeId);
@@ -219,7 +221,8 @@ public class BillingService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "Invoice", saved.getId().toString(), "CREATE", actorId, actorEmail,
+                return publishAudit(tenantId, "Invoice", saved.getId().toString(), saved.getInvoiceNumber(),
+                        "CREATE", actorId, actorEmail,
                         null,
                         Map.of("invoiceNumber", saved.getInvoiceNumber(),
                                "status", saved.getStatus(),
@@ -229,31 +232,6 @@ public class BillingService {
                         saved.getId().toString(),
                         saved.getInvoiceNumber(),
                         saved.getGroupId().toString()))
-                    .thenReturn(saved);
-            }));
-    }
-
-    @Transactional
-    public Mono<Contribution> createInitialContribution(UUID memberId, UUID groupId) {
-        log.info("Creating initial contribution for member: {}, group: {}", memberId, groupId);
-
-        var contribution = new Contribution();
-        contribution.setId(UUID.randomUUID());
-        contribution.setMemberId(memberId);
-        contribution.setGroupId(groupId);
-        contribution.setStatus("pending");
-        contribution.setCreatedAt(Instant.now());
-        contribution.setUpdatedAt(Instant.now());
-
-        return contributionRepository.save(contribution)
-            .flatMap(saved -> Mono.deferContextual(ctx -> {
-                String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "Contribution", saved.getId().toString(), "CREATE",
-                        AuditActor.SYSTEM_ID, AuditActor.SYSTEM_EMAIL,
-                        null,
-                        Map.of("memberId", memberId.toString(),
-                               "groupId", groupId != null ? groupId.toString() : "",
-                               "status", saved.getStatus()))
                     .thenReturn(saved);
             }));
     }
@@ -270,13 +248,14 @@ public class BillingService {
             .flatMap(exists -> exists ? generateInvoiceNumber() : Mono.just(number));
     }
 
-    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
+    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId, String entityName,
                                      String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
             entityType,
             entityId,
+            entityName,
             action,
             actorId,
             actorEmail,
@@ -286,6 +265,19 @@ public class BillingService {
             UUID.randomUUID().toString()
         );
         return auditPublisher.publish(event);
+    }
+
+    /**
+     * Build a human-readable label for a contribution row — contributions have
+     * no number/code field of their own, so we synthesize one from the member
+     * and billing period (e.g. "member 7f4a... 2026-01-01..2026-01-31").
+     */
+    private static String contributionName(Contribution c) {
+        String member = c.getMemberId() != null ? c.getMemberId().toString() : "?";
+        String period = c.getPeriodStart() != null
+                ? c.getPeriodStart() + ".." + (c.getPeriodEnd() != null ? c.getPeriodEnd() : "?")
+                : "no-period";
+        return "member " + member + " " + period;
     }
 
     // ── Wizard: preview / commit ──────────────────────────────────────────────
@@ -372,7 +364,9 @@ public class BillingService {
                             req.periodEnd().toString(),
                             saved.size()).then();
                     Mono<Void> audit = Mono.deferContextual(ctx -> publishAudit(
-                            TenantContext.get(ctx), "BillingCycle", "commit", "CREATE", actorId, actorEmail,
+                            TenantContext.get(ctx), "BillingCycle", "commit",
+                            req.periodStart() + " to " + req.periodEnd(),
+                            "CREATE", actorId, actorEmail,
                             null,
                             Map.of("rows", String.valueOf(saved.size()),
                                     "periodStart", req.periodStart().toString(),
@@ -525,7 +519,6 @@ public class BillingService {
     private Mono<Contribution> persistContribution(PricedCandidate priced, CommitBillingRequest req,
                                                    UUID actorUuid, Instant now) {
         Contribution c = new Contribution();
-        c.setId(UUID.randomUUID());
         c.setMemberId(priced.memberId());
         c.setSchemeId(priced.schemeId());
         c.setGroupId(priced.groupId());
@@ -639,8 +632,27 @@ public class BillingService {
             .then();
     }
 
+    /**
+     * Scheduled auto-billing entry point. Invoked by
+     * {@link com.medfund.contributions.job.BillingCycleExecutor} under the
+     * tenant's reactor context (set by the dispatcher from the config row's
+     * tenant_id). Bills every active member in the tenant for the current
+     * month, with the SYSTEM actor recorded on the audit trail.
+     *
+     * <p>Cooldown still applies — if {@link #commitBilling} throws
+     * {@link BillingCooldownException} the scheduled run is marked FAILED
+     * with the cooldown message, which is exactly the behaviour we want
+     * (prevents the cron from doubling-up on a manual commit).
+     */
     public Mono<Void> runAutoBilling() {
-        log.info("Auto billing cycle triggered — stub implementation");
-        return Mono.empty();
+        LocalDate today = LocalDate.now();
+        LocalDate periodStart = today.withDayOfMonth(1);
+        LocalDate periodEnd = today.withDayOfMonth(today.lengthOfMonth());
+        log.info("Auto billing for period {} to {}", periodStart, periodEnd);
+        CommitBillingRequest req = new CommitBillingRequest(periodStart, periodEnd, null, null);
+        return commitBilling(req, AuditActor.SYSTEM_ID, AuditActor.SYSTEM_EMAIL)
+            .doOnNext(resp -> log.info("Auto billing committed {} contributions across {} group + {} member invoices",
+                resp.contributionsCreated(), resp.groupInvoicesCreated(), resp.individualInvoicesCreated()))
+            .then();
     }
 }

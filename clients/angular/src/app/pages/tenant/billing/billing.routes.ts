@@ -36,7 +36,7 @@ export const BILLING_ROUTES: Routes = [
     path: 'schemes',
     canActivate: [permissionGuard(['billing:view', 'billing:manage_schemes'])],
     loadComponent: () => import('../../contributions/contributions.component').then(m => m.ContributionsComponent),
-    data: { title: 'Schemes', sidebar: 'operational' },
+    data: { title: 'Schemes', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'schemes/add',
@@ -54,7 +54,7 @@ export const BILLING_ROUTES: Routes = [
     path: 'schemes/:schemeId/benefits',
     canActivate: [permissionGuard(['billing:view', 'billing:manage_schemes']), schemePersonCentricGuard],
     loadComponent: () => import('./benefits/benefits-list.component').then(m => m.BenefitsListComponent),
-    data: { title: 'Scheme Benefits', sidebar: 'operational' },
+    data: { title: 'Scheme Benefits', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'schemes/:schemeId/benefits/add',

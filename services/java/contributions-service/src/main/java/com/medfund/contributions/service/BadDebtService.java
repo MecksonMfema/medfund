@@ -53,7 +53,6 @@ public class BadDebtService {
             .switchIfEmpty(Mono.error(new IllegalArgumentException("Contribution not found: " + contributionId)))
             .flatMap(contribution -> {
                 var badDebt = new BadDebt();
-                badDebt.setId(UUID.randomUUID());
                 badDebt.setContributionId(contributionId);
                 badDebt.setMemberId(contribution.getMemberId());
                 badDebt.setGroupId(contribution.getGroupId());
@@ -69,7 +68,8 @@ public class BadDebtService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "BadDebt", saved.getId().toString(), "CREATE", actorId, actorEmail,
+                return publishAudit(tenantId, "BadDebt", saved.getId().toString(), badDebtName(saved),
+                        "CREATE", actorId, actorEmail,
                         null,
                         Map.of("contributionId", saved.getContributionId().toString(),
                                "amount", saved.getAmount().toPlainString(),
@@ -98,7 +98,8 @@ public class BadDebtService {
                 return badDebtRepository.save(bd)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "BadDebt", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "BadDebt", saved.getId().toString(), badDebtName(saved),
+                                "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus(),
                                        "writtenOffBy", actorId,
@@ -120,7 +121,8 @@ public class BadDebtService {
                 return badDebtRepository.save(bd)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "BadDebt", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "BadDebt", saved.getId().toString(), badDebtName(saved),
+                                "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .thenReturn(saved);
@@ -130,13 +132,14 @@ public class BadDebtService {
 
     // ---- Private helpers ----
 
-    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
+    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId, String entityName,
                                      String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
             entityType,
             entityId,
+            entityName,
             action,
             actorId,
             actorEmail,
@@ -146,5 +149,17 @@ public class BadDebtService {
             UUID.randomUUID().toString()
         );
         return auditPublisher.publish(event);
+    }
+
+    /**
+     * Bad-debt rows have no number/code — synthesize a label from the linked
+     * contribution and amount so the audit trail shows something more useful
+     * than the row's UUID.
+     */
+    private static String badDebtName(BadDebt bd) {
+        String contrib = bd.getContributionId() != null ? bd.getContributionId().toString() : "?";
+        String amount = bd.getAmount() != null ? bd.getAmount().toPlainString() : "0";
+        String currency = bd.getCurrencyCode() != null ? bd.getCurrencyCode() : "";
+        return "contribution " + contrib + " " + amount + " " + currency;
     }
 }

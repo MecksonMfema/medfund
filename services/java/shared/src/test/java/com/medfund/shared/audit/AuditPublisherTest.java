@@ -45,8 +45,9 @@ class AuditPublisherTest {
     @SuppressWarnings("unchecked")
     void publish_sendsToAuditTopic() {
         var event = AuditEvent.create(
-                "test-tenant", "Member", "mbr-123", "CREATE", "actor-1",
-                "actor@test.example", null, Map.of("name", "John"),
+                "test-tenant", "Member", "mbr-123", "MBR-123",
+                "CREATE", "actor-1", "actor@test.example",
+                null, Map.of("name", "John"),
                 new String[]{"name"}, "corr-1"
         );
 
@@ -69,8 +70,9 @@ class AuditPublisherTest {
     @SuppressWarnings("unchecked")
     void publish_includesAllEventFields() {
         var event = AuditEvent.create(
-                "test-tenant", "Member", "mbr-123", "CREATE", "actor-1",
-                "actor@test.example", null, Map.of("name", "John"),
+                "test-tenant", "Member", "mbr-123", "MBR-123",
+                "CREATE", "actor-1", "actor@test.example",
+                null, Map.of("name", "John"),
                 new String[]{"name"}, "corr-1"
         );
 

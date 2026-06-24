@@ -2,6 +2,8 @@ package com.medfund.shared.scheduler;
 
 public enum JobType {
     BILLING_CYCLE("Billing Cycle", "Generate contribution bills for members"),
+    BILLING_PREVIEW("Billing Preview", "Ad-hoc background preview of a billing cycle (no persistence)"),
+    BILLING_COMMIT("Billing Commit", "Ad-hoc background commit of a billing cycle (persists contributions + invoices)"),
     OVERDUE_CHECK("Overdue Check", "Mark unpaid contributions as overdue"),
     PAYMENT_RUN("Payment Run", "Auto-execute approved payment runs"),
     AGE_PROCESSING("Age Processing", "Check dependant age limits and update status"),

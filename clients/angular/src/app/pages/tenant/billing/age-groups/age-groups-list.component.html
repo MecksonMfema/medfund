@@ -15,20 +15,20 @@
   }
 
   <div class="filters">
-    <label class="field">
+    <div class="field">
       <span class="field-label">Scheme</span>
-      <select [(ngModel)]="selectedSchemeId" (change)="onSchemeChange()" name="scheme">
-        @for (s of schemes; track s.id) {
-          <option [value]="s.id">{{ s.name }} ({{ s.currencyCode || '—' }})</option>
-        }
-      </select>
-    </label>
+      <app-entity-picker
+        kind="scheme"
+        placeholder="Search schemes by name…"
+        [value]="selectedSchemeId"
+        [prefillLabel]="selectedSchemeName"
+        (selected)="onSchemePicked($event)">
+      </app-entity-picker>
+    </div>
   </div>
 
   @if (loading) {
     <app-skeleton></app-skeleton>
-  } @else if (rows.length === 0) {
-    <p class="empty-state">No age groups configured for this scheme yet.</p>
   } @else {
     <table class="data-table">
       <thead>
@@ -60,6 +60,17 @@
                 (click)="toggleStatus(row)">
                 {{ row.status === 'inactive' ? 'Activate' : 'Deactivate' }}
               </button>
+            </td>
+          </tr>
+        }
+        @if (rows.length === 0) {
+          <tr>
+            <td colspan="6" class="empty-row">
+              @if (selectedSchemeId) {
+                No age groups configured for this scheme yet.
+              } @else {
+                Search and pick a scheme above to see its age groups.
+              }
             </td>
           </tr>
         }

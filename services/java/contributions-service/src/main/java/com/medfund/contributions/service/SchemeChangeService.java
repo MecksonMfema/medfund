@@ -43,7 +43,6 @@ public class SchemeChangeService {
     @Transactional
     public Mono<SchemeChange> request(SchemeChangeRequest request, String actorId, String actorEmail) {
         var schemeChange = new SchemeChange();
-        schemeChange.setId(UUID.randomUUID());
         schemeChange.setMemberId(request.memberId());
         schemeChange.setFromSchemeId(request.fromSchemeId());
         schemeChange.setToSchemeId(request.toSchemeId());
@@ -58,7 +57,8 @@ public class SchemeChangeService {
         return schemeChangeRepository.save(schemeChange)
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "SchemeChange", saved.getId().toString(), "CREATE", actorId, actorEmail,
+                return publishAudit(tenantId, "SchemeChange", saved.getId().toString(), schemeChangeName(saved),
+                        "CREATE", actorId, actorEmail,
                         null,
                         Map.of("memberId", saved.getMemberId().toString(),
                                "fromSchemeId", saved.getFromSchemeId().toString(),
@@ -88,7 +88,8 @@ public class SchemeChangeService {
                 return schemeChangeRepository.save(sc)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "SchemeChange", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "SchemeChange", saved.getId().toString(), schemeChangeName(saved),
+                                "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus(),
                                        "approvedBy", actorId))
@@ -115,7 +116,8 @@ public class SchemeChangeService {
                 return schemeChangeRepository.save(sc)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "SchemeChange", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "SchemeChange", saved.getId().toString(), schemeChangeName(saved),
+                                "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus(),
                                        "rejectionReason", reason))
@@ -141,7 +143,8 @@ public class SchemeChangeService {
                 return schemeChangeRepository.save(sc)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "SchemeChange", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "SchemeChange", saved.getId().toString(), schemeChangeName(saved),
+                                "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .thenReturn(saved);
@@ -151,13 +154,14 @@ public class SchemeChangeService {
 
     // ---- Private helpers ----
 
-    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
+    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId, String entityName,
                                      String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
             entityType,
             entityId,
+            entityName,
             action,
             actorId,
             actorEmail,
@@ -167,5 +171,17 @@ public class SchemeChangeService {
             UUID.randomUUID().toString()
         );
         return auditPublisher.publish(event);
+    }
+
+    /**
+     * SchemeChange has no business identifier of its own — synthesize a label
+     * from the member and from→to scheme IDs so the audit_events row carries
+     * something meaningful instead of duplicating the UUID.
+     */
+    private static String schemeChangeName(SchemeChange sc) {
+        String member = sc.getMemberId() != null ? sc.getMemberId().toString() : "?";
+        String from = sc.getFromSchemeId() != null ? sc.getFromSchemeId().toString() : "?";
+        String to = sc.getToSchemeId() != null ? sc.getToSchemeId().toString() : "?";
+        return "member " + member + " " + from + " -> " + to;
     }
 }

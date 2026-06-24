@@ -377,36 +377,45 @@ public class TenantStatsController {
 
         // Per-currency variants drive the legacy MASCA dashboards' grouped-bar
         // and multi-line charts. We CROSS JOIN tenant_currency_config so every
-        // active currency contributes one full 12-month series — including
-        // months that had no activity, which surface as zero. The number of
+        // active currency contributes one full 12-bucket series — including
+        // buckets that had no activity, which surface as zero. The number of
         // series scales with what the tenant admin has configured: a default
         // tenant (USD only) gets one series, multi-currency tenants get one
         // per code. is_default DESC orders the primary currency first, so the
         // first colour in the legacy palette always lands on the tenant's
         // chosen primary.
-        String monthsAndCodesCte =
-                "WITH months AS (" +
+        //
+        // Bucket cadence follows ?period=day|week|month so the dashboard's
+        // chart-period toggle controls the per-currency series the same way
+        // it controls the blended trends above. (Earlier this CTE was
+        // hard-coded to monthly, which left the Billing tab's chart frozen
+        // on the month view while the Claims and Finance tabs honoured the
+        // toggle.) The Map key on the response stays
+        // `contributionsAmountByMonthByCurrency` for backwards-compat with
+        // existing Angular clients — the *cadence* changes, not the field.
+        String bucketsAndCodesCte =
+                "WITH buckets AS (" +
                 "  SELECT generate_series(" +
-                "    date_trunc('month', NOW()) - INTERVAL '11 months', " +
-                "    date_trunc('month', NOW()), " +
-                "    INTERVAL '1 month') AS bucket" +
+                "    date_trunc('" + period + "', NOW()) - INTERVAL '11 " + period + "s', " +
+                "    date_trunc('" + period + "', NOW()), " +
+                "    INTERVAL '1 " + period + "') AS bucket" +
                 "), codes AS (" +
                 "  SELECT currency_code, is_default " +
                 "  FROM public.tenant_currency_config " +
                 "  WHERE tenant_id = :tenantId AND is_active = TRUE" +
                 ") ";
 
-        Mono<Map<String, List<Map<String, Object>>>> claimsByCurrency = db.sql(monthsAndCodesCte +
-                "SELECT to_char(m.bucket, 'FMMon') AS bucket_label, " +
+        Mono<Map<String, List<Map<String, Object>>>> claimsByCurrency = db.sql(bucketsAndCodesCte +
+                "SELECT to_char(b.bucket, '" + claimsLabel + "') AS bucket_label, " +
                 "       cc.currency_code            AS code, " +
                 "       COALESCE(COUNT(c.id), 0)    AS value " +
-                "FROM months m " +
+                "FROM buckets b " +
                 "CROSS JOIN codes cc " +
                 "LEFT JOIN \"" + schema + "\".claims c " +
-                "  ON date_trunc('month', c.created_at) = m.bucket " +
+                "  ON date_trunc('" + period + "', c.created_at) = b.bucket " +
                 "  AND c.currency_code = cc.currency_code " +
-                "GROUP BY m.bucket, cc.currency_code, cc.is_default " +
-                "ORDER BY cc.is_default DESC, cc.currency_code, m.bucket")
+                "GROUP BY b.bucket, cc.currency_code, cc.is_default " +
+                "ORDER BY cc.is_default DESC, cc.currency_code, b.bucket")
                 .bind("tenantId", tenantId)
                 .map(row -> currencyPoint(row.get("code", String.class),
                                            row.get("bucket_label", String.class),
@@ -415,18 +424,18 @@ public class TenantStatsController {
                 .map(TenantStatsController::groupByCurrency)
                 .onErrorReturn(Map.of());
 
-        Mono<Map<String, List<Map<String, Object>>>> contributionsByCurrency = db.sql(monthsAndCodesCte +
-                "SELECT to_char(m.bucket, 'FMMon') AS bucket_label, " +
+        Mono<Map<String, List<Map<String, Object>>>> contributionsByCurrency = db.sql(bucketsAndCodesCte +
+                "SELECT to_char(b.bucket, '" + claimsLabel + "') AS bucket_label, " +
                 "       cc.currency_code            AS code, " +
                 "       COALESCE(SUM(c.amount), 0)  AS value " +
-                "FROM months m " +
+                "FROM buckets b " +
                 "CROSS JOIN codes cc " +
                 "LEFT JOIN \"" + schema + "\".contributions c " +
-                "  ON date_trunc('month', c.created_at) = m.bucket " +
+                "  ON date_trunc('" + period + "', c.created_at) = b.bucket " +
                 "  AND c.status = 'paid' " +
                 "  AND c.currency_code = cc.currency_code " +
-                "GROUP BY m.bucket, cc.currency_code, cc.is_default " +
-                "ORDER BY cc.is_default DESC, cc.currency_code, m.bucket")
+                "GROUP BY b.bucket, cc.currency_code, cc.is_default " +
+                "ORDER BY cc.is_default DESC, cc.currency_code, b.bucket")
                 .bind("tenantId", tenantId)
                 .map(row -> currencyPoint(row.get("code", String.class),
                                            row.get("bucket_label", String.class),
@@ -435,18 +444,18 @@ public class TenantStatsController {
                 .map(TenantStatsController::groupByCurrency)
                 .onErrorReturn(Map.of());
 
-        Mono<Map<String, List<Map<String, Object>>>> paymentsByCurrency = db.sql(monthsAndCodesCte +
-                "SELECT to_char(m.bucket, 'FMMon') AS bucket_label, " +
+        Mono<Map<String, List<Map<String, Object>>>> paymentsByCurrency = db.sql(bucketsAndCodesCte +
+                "SELECT to_char(b.bucket, '" + claimsLabel + "') AS bucket_label, " +
                 "       cc.currency_code            AS code, " +
                 "       COALESCE(SUM(p.amount), 0)  AS value " +
-                "FROM months m " +
+                "FROM buckets b " +
                 "CROSS JOIN codes cc " +
                 "LEFT JOIN \"" + schema + "\".payments p " +
-                "  ON date_trunc('month', p.created_at) = m.bucket " +
+                "  ON date_trunc('" + period + "', p.created_at) = b.bucket " +
                 "  AND p.status = 'completed' " +
                 "  AND p.currency_code = cc.currency_code " +
-                "GROUP BY m.bucket, cc.currency_code, cc.is_default " +
-                "ORDER BY cc.is_default DESC, cc.currency_code, m.bucket")
+                "GROUP BY b.bucket, cc.currency_code, cc.is_default " +
+                "ORDER BY cc.is_default DESC, cc.currency_code, b.bucket")
                 .bind("tenantId", tenantId)
                 .map(row -> currencyPoint(row.get("code", String.class),
                                            row.get("bucket_label", String.class),

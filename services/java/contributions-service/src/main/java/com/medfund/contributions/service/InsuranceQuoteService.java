@@ -19,7 +19,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.ArrayList;
-import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -122,7 +121,6 @@ public class InsuranceQuoteService {
 
                         // Persist the quote
                         var quote = new InsuranceQuote();
-                        quote.setId(UUID.randomUUID());
                         quote.setQuoteNumber(quoteNumber);
                         quote.setSchemeId(scheme.getId());
                         quote.setFirstName(request.firstName());

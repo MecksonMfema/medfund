@@ -35,7 +35,6 @@ public class PlanService {
 
     public Mono<Plan> create(CreatePlanRequest request, String actorId, String actorEmail) {
         Plan plan = new Plan();
-        plan.setId(UUID.randomUUID());
         plan.setName(request.name());
         plan.setMaxMembers(request.maxMembers());
         plan.setMaxProviders(request.maxProviders());

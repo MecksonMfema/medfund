@@ -38,7 +38,7 @@
 
     <div class="form-actions">
       <button class="btn btn-primary" (click)="runPreview()" [disabled]="loading">
-        {{ loading ? 'Computing preview…' : 'Preview' }}
+        {{ loading ? 'Computing preview… (' + elapsedSeconds + 's)' : 'Preview' }}
       </button>
     </div>
   }
@@ -109,7 +109,7 @@
     <div class="form-actions">
       <button class="btn btn-primary" (click)="commit()"
               [disabled]="saving || preview.totalRows === 0 || preview.cooldownActive">
-        {{ saving ? 'Committing…' : 'Commit ' + preview.totalRows + ' contributions' }}
+        {{ saving ? 'Committing… (' + elapsedSeconds + 's)' : 'Commit ' + preview.totalRows + ' contributions' }}
       </button>
     </div>
   }

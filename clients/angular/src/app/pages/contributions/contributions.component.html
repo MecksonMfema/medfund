@@ -1,25 +1,45 @@
 <header class="page-header">
   <div>
     <h1>Schemes</h1>
-    <p class="page-sub">Benefit schemes available in this tenant. Currency is locked at the scheme level — every contribution and benefit on a scheme inherits it.</p>
+    <p class="page-sub">Benefit schemes available in this tenant. Currency is locked at the scheme level, every contribution and benefit on a scheme inherits it.</p>
   </div>
-  <a class="btn btn-primary" routerLink="/tenant/billing/schemes/add">
+  <a *hasPermission="'billing:manage_schemes'" class="btn btn-primary" routerLink="/tenant/billing/schemes/add">
     <app-icon name="plus" [size]="14"></app-icon>
     Add scheme
   </a>
 </header>
 
-<div class="stats-grid">
-  <app-stat-card label="Active Schemes" [value]="schemeCount" color="blue"></app-stat-card>
-  <app-stat-card label="Pending Contributions" [value]="pendingCount" color="orange"></app-stat-card>
-  <app-stat-card label="Paid" [value]="paidCount" color="green"></app-stat-card>
-  <app-stat-card label="Overdue" [value]="overdueCount" color="red"></app-stat-card>
-</div>
+@if (showTabs) {
+  <nav class="scheme-tabs" role="tablist" aria-label="Filter schemes by insurance line">
+    @for (tab of tabs; track tab.value) {
+      <button
+        type="button"
+        role="tab"
+        class="scheme-tab"
+        [class.is-active]="activeTab === tab.value"
+        [attr.aria-selected]="activeTab === tab.value"
+        (click)="selectTab(tab.value)"
+      >
+        {{ tab.label }}
+      </button>
+    }
+  </nav>
+}
 
 <app-data-table
-  title="Schemes"
   [columns]="schemeColumns"
   [data]="schemes"
   [actions]="schemeActions"
-  [showActions]="true">
+  [showActions]="true"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  [initialSortKey]="sortKey"
+  [initialSortDirection]="sortDirection"
+  (sortChange)="onSort($event)"
+  (searchChange)="onSearch($event)"
+  (pageChange)="onPageChange($event)">
 </app-data-table>

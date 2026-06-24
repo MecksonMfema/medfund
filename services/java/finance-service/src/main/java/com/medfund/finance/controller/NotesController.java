@@ -49,14 +49,13 @@ public class NotesController {
     @Operation(summary = "Create a debit note")
     public Mono<NoteResponse> createDebit(@Valid @RequestBody CreateNoteRequest request, @AuthenticationPrincipal Jwt jwt) {
         var entity = new DebitNote();
-        entity.setId(UUID.randomUUID());
         entity.setAmount(request.amount());
         entity.setCurrencyCode(request.currencyCode());
         entity.setReference(request.reference());
         entity.setTaskId(request.taskId());
         entity.setNotes(request.notes());
         return debitRepo.save(entity)
-            .flatMap(saved -> publishAudit("DebitNote", saved.getId(), snapshot(saved.getAmount(), saved.getCurrencyCode(), saved.getReference()), jwt)
+            .flatMap(saved -> publishAudit("DebitNote", saved.getId(), saved.getReference(), snapshot(saved.getAmount(), saved.getCurrencyCode(), saved.getReference()), jwt)
                 .thenReturn(saved))
             .map(NoteResponse::from);
     }
@@ -72,14 +71,13 @@ public class NotesController {
     @Operation(summary = "Create a credit note")
     public Mono<NoteResponse> createCredit(@Valid @RequestBody CreateNoteRequest request, @AuthenticationPrincipal Jwt jwt) {
         var entity = new CreditNote();
-        entity.setId(UUID.randomUUID());
         entity.setAmount(request.amount());
         entity.setCurrencyCode(request.currencyCode());
         entity.setReference(request.reference());
         entity.setTaskId(request.taskId());
         entity.setNotes(request.notes());
         return creditRepo.save(entity)
-            .flatMap(saved -> publishAudit("CreditNote", saved.getId(), snapshot(saved.getAmount(), saved.getCurrencyCode(), saved.getReference()), jwt)
+            .flatMap(saved -> publishAudit("CreditNote", saved.getId(), saved.getReference(), snapshot(saved.getAmount(), saved.getCurrencyCode(), saved.getReference()), jwt)
                 .thenReturn(saved))
             .map(NoteResponse::from);
     }
@@ -92,7 +90,7 @@ public class NotesController {
         return snap;
     }
 
-    private Mono<Void> publishAudit(String entityType, UUID id, Map<String, Object> after, Jwt jwt) {
+    private Mono<Void> publishAudit(String entityType, UUID id, String entityName, Map<String, Object> after, Jwt jwt) {
         String actorId = AuditActor.id(jwt);
         String actorEmail = AuditActor.email(jwt);
         return Mono.deferContextual(ctx -> {
@@ -101,6 +99,7 @@ public class NotesController {
                 tenantId != null ? tenantId : "unknown",
                 entityType,
                 id.toString(),
+                entityName,
                 "CREATE",
                 actorId,
                 actorEmail,

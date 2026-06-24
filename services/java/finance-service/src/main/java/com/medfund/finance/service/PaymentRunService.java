@@ -74,7 +74,6 @@ public class PaymentRunService {
         return generateRunNumber()
             .flatMap(runNumber -> {
                 var run = new PaymentRun();
-                run.setId(UUID.randomUUID());
                 run.setRunNumber(runNumber);
                 run.setStatus("draft");
                 run.setCurrencyCode(request.currencyCode());
@@ -88,7 +87,8 @@ public class PaymentRunService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "PaymentRun", saved.getId().toString(), "CREATE", actorId, actorEmail,
+                return publishAudit(tenantId, "PaymentRun", saved.getId().toString(), saved.getRunNumber(),
+                        "CREATE", actorId, actorEmail,
                         null,
                         Map.of("runNumber", saved.getRunNumber(), "status", saved.getStatus()))
                     .then(eventPublisher.publishPaymentRunCreated(
@@ -130,7 +130,8 @@ public class PaymentRunService {
                     })
                     .flatMap(completed -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "PaymentRun", completed.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "PaymentRun", completed.getId().toString(), completed.getRunNumber(),
+                                "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", completed.getStatus()))
                             .then(eventPublisher.publishPaymentRunExecuted(
@@ -157,7 +158,8 @@ public class PaymentRunService {
                 return paymentRunRepository.save(run)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "PaymentRun", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "PaymentRun", saved.getId().toString(), saved.getRunNumber(),
+                                "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .then(eventPublisher.publishPaymentRunApproved(
@@ -185,7 +187,8 @@ public class PaymentRunService {
                 return paymentRunRepository.save(run)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "PaymentRun", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "PaymentRun", saved.getId().toString(), saved.getRunNumber(),
+                                "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .then(eventPublisher.publishPaymentRunCancelled(
@@ -241,13 +244,14 @@ public class PaymentRunService {
             .flatMap(exists -> exists ? generateRunNumber() : Mono.just(number));
     }
 
-    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
+    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId, String entityName,
                                      String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
             entityType,
             entityId,
+            entityName,
             action,
             actorId,
             actorEmail,

@@ -16,7 +16,7 @@ import java.time.temporal.ChronoUnit;
  * Translates a {@link Contribution} entity into a {@link ContributionFact}
  * (and a companion {@link TimeFact}) for rules-engine evaluation.
  *
- * <p>Issues a single member lookup against {@code public.members} to
+ * <p>Issues a single member lookup against the tenant {@code members} table to
  * populate age / gender / region / dependant-count / chronic-conditions
  * columns. Defaults are non-failing: a missing member produces an empty
  * fact rather than crashing the pricing flow — pricing rules typically
@@ -70,12 +70,12 @@ public class ContributionFactBuilder {
     private Mono<ContributionFact> enrichWithMember(ContributionFact f, String memberId) {
         return db.sql("""
                 SELECT date_of_birth, gender, region,
-                       (SELECT COUNT(*) FROM public.dependants d
+                       (SELECT COUNT(*) FROM dependants d
                         WHERE d.member_id = :id AND d.status = 'active') AS dependant_count
-                FROM public.members
+                FROM members
                 WHERE id = :id
                 """)
-                .bind("id", memberId)
+                .bind("id", java.util.UUID.fromString(memberId))
                 .fetch().one()
                 .map(row -> {
                     if (row.get("date_of_birth") instanceof LocalDate dob) {

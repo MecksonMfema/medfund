@@ -1,13 +1,21 @@
 package com.medfund.contributions.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.contributions.dto.BillingCommitResponse;
 import com.medfund.contributions.dto.BillingPreviewResponse;
 import com.medfund.contributions.dto.CommitBillingRequest;
 import com.medfund.contributions.dto.ContributionResponse;
+import com.medfund.contributions.dto.EnqueueBillingRequest;
+import com.medfund.contributions.dto.EnqueueBillingResponse;
 import com.medfund.contributions.dto.GenerateBillingRequest;
 import com.medfund.contributions.dto.PreviewBillingRequest;
 import com.medfund.contributions.service.BillingService;
 import com.medfund.shared.audit.AuditActor;
+import com.medfund.shared.scheduler.JobDispatcher;
+import com.medfund.shared.scheduler.JobType;
+import com.medfund.shared.scheduler.ScheduledJobService;
+import com.medfund.shared.tenant.TenantContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -21,6 +29,8 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -30,9 +40,18 @@ import java.util.UUID;
 public class ContributionController {
 
     private final BillingService billingService;
+    private final ScheduledJobService scheduledJobService;
+    private final JobDispatcher jobDispatcher;
+    private final ObjectMapper objectMapper;
 
-    public ContributionController(BillingService billingService) {
+    public ContributionController(BillingService billingService,
+                                  ScheduledJobService scheduledJobService,
+                                  JobDispatcher jobDispatcher,
+                                  ObjectMapper objectMapper) {
         this.billingService = billingService;
+        this.scheduledJobService = scheduledJobService;
+        this.jobDispatcher = jobDispatcher;
+        this.objectMapper = objectMapper;
     }
 
     @GetMapping("/member/{memberId}")
@@ -85,6 +104,62 @@ public class ContributionController {
     public Mono<BillingCommitResponse> commitBilling(@Valid @RequestBody CommitBillingRequest request,
                                                      @AuthenticationPrincipal Jwt jwt) {
         return billingService.commitBilling(request, AuditActor.id(jwt), AuditActor.email(jwt));
+    }
+
+    @PostMapping("/billing/enqueue")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    @Operation(summary = "Enqueue a billing preview or commit as a background job",
+        description = "Creates an ad-hoc scheduled-job config bound to the current tenant, kicks it via the " +
+                "JobDispatcher, and returns the runId immediately. The UI short-polls " +
+                "GET /api/v1/scheduled-jobs/{configId}/runs?limit=1 to surface progress and the result_payload. " +
+                "Use this in place of the synchronous /preview and /commit endpoints when the tenant's member " +
+                "population is large enough for the request to time out.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "202", description = "Job enqueued and running"),
+        @ApiResponse(responseCode = "400", description = "Invalid request body")
+    })
+    public Mono<EnqueueBillingResponse> enqueueBilling(@Valid @RequestBody EnqueueBillingRequest request,
+                                                       @AuthenticationPrincipal Jwt jwt) {
+        JobType jobType = "preview".equals(request.kind()) ? JobType.BILLING_PREVIEW : JobType.BILLING_COMMIT;
+        String actorId = AuditActor.id(jwt);
+        String actorEmail = AuditActor.email(jwt);
+        String settings;
+        try {
+            settings = buildSettings(request, actorId, actorEmail);
+        } catch (JsonProcessingException e) {
+            return Mono.error(new IllegalArgumentException("Could not serialise billing job settings", e));
+        }
+        String name = "Billing " + request.kind() + " " + request.periodStart() + "..." + request.periodEnd();
+
+        return Mono.deferContextual(ctx -> {
+            UUID tenantUuid = parseUuidOrNull(TenantContext.get(ctx));
+            return scheduledJobService.createAdHocConfig(tenantUuid, jobType.name(), name, settings, actorId)
+                .flatMap(config -> jobDispatcher.runNowAsync(config, parseUuidOrNull(actorId))
+                    .map(run -> new EnqueueBillingResponse(
+                        run.getConfigId(),
+                        run.getId(),
+                        run.getStatus(),
+                        run.getStartedAt())));
+        });
+    }
+
+    private String buildSettings(EnqueueBillingRequest req, String actorId, String actorEmail)
+            throws JsonProcessingException {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("periodStart", req.periodStart().toString());
+        map.put("periodEnd", req.periodEnd().toString());
+        if (req.groupIds() != null && !req.groupIds().isEmpty()) map.put("groupIds", req.groupIds());
+        if (req.memberIds() != null && !req.memberIds().isEmpty()) map.put("memberIds", req.memberIds());
+        if ("commit".equals(req.kind())) {
+            map.put("actorId", actorId);
+            map.put("actorEmail", actorEmail);
+        }
+        return objectMapper.writeValueAsString(map);
+    }
+
+    private static UUID parseUuidOrNull(String value) {
+        if (value == null || value.isBlank()) return null;
+        try { return UUID.fromString(value); } catch (IllegalArgumentException e) { return null; }
     }
 
     @PostMapping("/generate-billing")

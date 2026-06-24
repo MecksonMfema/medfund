@@ -4,6 +4,8 @@ import com.medfund.contributions.dto.CreateAgeGroupRequest;
 import com.medfund.contributions.dto.UpdateAgeGroupRequest;
 import com.medfund.contributions.dto.CreateSchemeBenefitRequest;
 import com.medfund.contributions.dto.CreateSchemeRequest;
+import com.medfund.contributions.dto.PageResponse;
+import com.medfund.contributions.dto.SchemeFilterParams;
 import com.medfund.contributions.dto.UpdateSchemeBenefitRequest;
 import com.medfund.contributions.dto.UpdateSchemeRequest;
 import com.medfund.contributions.entity.AgeGroup;
@@ -13,6 +15,7 @@ import com.medfund.contributions.exception.DuplicateSchemeException;
 import com.medfund.contributions.exception.SchemeNotFoundException;
 import com.medfund.contributions.repository.AgeGroupRepository;
 import com.medfund.contributions.repository.SchemeBenefitRepository;
+import com.medfund.contributions.repository.SchemeQueryRepository;
 import com.medfund.contributions.repository.SchemeRepository;
 import com.medfund.contributions.util.PersonCentricLines;
 import com.medfund.shared.audit.AuditEvent;
@@ -39,20 +42,33 @@ public class SchemeService {
     private final SchemeRepository schemeRepository;
     private final SchemeBenefitRepository schemeBenefitRepository;
     private final AgeGroupRepository ageGroupRepository;
+    private final SchemeQueryRepository schemeQueryRepository;
     private final AuditPublisher auditPublisher;
 
     public SchemeService(SchemeRepository schemeRepository,
                          SchemeBenefitRepository schemeBenefitRepository,
                          AgeGroupRepository ageGroupRepository,
+                         SchemeQueryRepository schemeQueryRepository,
                          AuditPublisher auditPublisher) {
         this.schemeRepository = schemeRepository;
         this.schemeBenefitRepository = schemeBenefitRepository;
         this.ageGroupRepository = ageGroupRepository;
+        this.schemeQueryRepository = schemeQueryRepository;
         this.auditPublisher = auditPublisher;
     }
 
     public Flux<Scheme> findAll() {
         return schemeRepository.findAllOrderByName();
+    }
+
+    public Mono<PageResponse<Scheme>> searchPaged(SchemeFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 100);
+        int offset = page * size;
+        return schemeQueryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(schemeQueryRepository.count(params))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 
     public Mono<Scheme> findById(UUID id) {
@@ -101,7 +117,8 @@ public class SchemeService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "Scheme", saved.getId().toString(), "CREATE", actorId, actorEmail,
+                return publishAudit(tenantId, "Scheme", saved.getId().toString(), saved.getName(),
+                        "CREATE", actorId, actorEmail,
                         null,
                         Map.of("name", saved.getName(), "status", saved.getStatus(),
                                "schemeType", saved.getSchemeType()))
@@ -144,7 +161,8 @@ public class SchemeService {
                 return schemeRepository.save(scheme)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "Scheme", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "Scheme", saved.getId().toString(), saved.getName(),
+                                "UPDATE", actorId, actorEmail,
                                 oldValue,
                                 Map.of("name", saved.getName(), "description",
                                        saved.getDescription() != null ? saved.getDescription() : "",
@@ -177,7 +195,8 @@ public class SchemeService {
                 return schemeRepository.save(scheme)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "Scheme", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "Scheme", saved.getId().toString(), saved.getName(),
+                                "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .thenReturn(saved);
@@ -221,7 +240,8 @@ public class SchemeService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "SchemeBenefit", saved.getId().toString(), "CREATE", actorId, actorEmail,
+                return publishAudit(tenantId, "SchemeBenefit", saved.getId().toString(), saved.getName(),
+                        "CREATE", actorId, actorEmail,
                         null,
                         Map.of("name", saved.getName(), "benefitType", saved.getBenefitType(),
                                "schemeId", saved.getSchemeId().toString()))
@@ -258,7 +278,8 @@ public class SchemeService {
                     return schemeBenefitRepository.save(existing)
                         .flatMap(saved -> Mono.deferContextual(ctx -> {
                             String tenantId = TenantContext.get(ctx);
-                            return publishAudit(tenantId, "SchemeBenefit", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                            return publishAudit(tenantId, "SchemeBenefit", saved.getId().toString(), saved.getName(),
+                                    "UPDATE", actorId, actorEmail,
                                     Map.of("name", previousName, "benefitType", previousType),
                                     Map.of("name", saved.getName(), "benefitType", saved.getBenefitType(),
                                            "annualLimit", saved.getAnnualLimit() != null ? saved.getAnnualLimit().toString() : ""))
@@ -289,7 +310,8 @@ public class SchemeService {
                 return schemeBenefitRepository.save(existing)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "SchemeBenefit", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "SchemeBenefit", saved.getId().toString(), saved.getName(),
+                                "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .thenReturn(saved);
@@ -336,7 +358,8 @@ public class SchemeService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "AgeGroup", saved.getId().toString(), "CREATE", actorId, actorEmail,
+                return publishAudit(tenantId, "AgeGroup", saved.getId().toString(), saved.getName(),
+                        "CREATE", actorId, actorEmail,
                         null,
                         Map.of("name", saved.getName(), "minAge", saved.getMinAge().toString(),
                                "maxAge", saved.getMaxAge().toString(),
@@ -369,7 +392,8 @@ public class SchemeService {
                     return ageGroupRepository.save(existing)
                         .flatMap(saved -> Mono.deferContextual(ctx -> {
                             String tenantId = TenantContext.get(ctx);
-                            return publishAudit(tenantId, "AgeGroup", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                            return publishAudit(tenantId, "AgeGroup", saved.getId().toString(), saved.getName(),
+                                    "UPDATE", actorId, actorEmail,
                                     Map.of("name", previousName),
                                     Map.of("name", saved.getName(),
                                            "minAge", saved.getMinAge().toString(),
@@ -401,7 +425,8 @@ public class SchemeService {
                 return ageGroupRepository.save(existing)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "AgeGroup", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "AgeGroup", saved.getId().toString(), saved.getName(),
+                                "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .thenReturn(saved);
@@ -459,13 +484,14 @@ public class SchemeService {
         return schemeCurrency;
     }
 
-    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
+    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId, String entityName,
                                      String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
             entityType,
             entityId,
+            entityName,
             action,
             actorId,
             actorEmail,

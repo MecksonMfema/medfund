@@ -42,7 +42,6 @@ public class CtcPaymentService {
             return Mono.error(new IllegalArgumentException("Either groupId or memberId is required"));
         }
         var entity = new CtcPayment();
-        entity.setId(UUID.randomUUID());
         entity.setGroupId(request.groupId());
         entity.setMemberId(request.memberId());
         entity.setAmount(request.amount());
@@ -78,10 +77,12 @@ public class CtcPaymentService {
     private Mono<Void> publishAudit(String action, CtcPayment c, Map<String, Object> before, Map<String, Object> after, String actor, String actorEmail) {
         return Mono.deferContextual(ctx -> {
             String tenantId = TenantContext.get(ctx);
+            String entityName = "CTC " + c.getAmount().toPlainString() + " " + c.getCurrencyCode();
             var event = AuditEvent.create(
                 tenantId != null ? tenantId : "unknown",
                 "CtcPayment",
                 c.getId().toString(),
+                entityName,
                 action,
                 actor != null ? actor : "system",
                 actorEmail,

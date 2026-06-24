@@ -1,28 +1,31 @@
 <div class="table-container" [class.is-loading]="loading">
-  <div class="table-header">
-    <div class="table-title-section">
-      @if (title) {
-        <h3>{{ title }}</h3>
-      }
-      @if (subtitle) {
-        <span class="table-subtitle">{{ subtitle }}</span>
-      }
+  @if (title || subtitle) {
+    <div class="table-title-strip">
+      <div class="table-title-section">
+        @if (title) { <h3>{{ title }}</h3> }
+        @if (subtitle) { <span class="table-subtitle">{{ subtitle }}</span> }
+      </div>
     </div>
-    <div class="table-toolbar">
-      @if (searchable) {
-        <div class="table-search">
-          <app-icon name="search" [size]="16"></app-icon>
-          <input
-            type="text"
-            [placeholder]="searchPlaceholder"
-            [(ngModel)]="searchTerm"
-            (ngModelChange)="onSearch()"
-            class="search-input"
-          />
-        </div>
-      }
-      <ng-content select="[table-actions]"></ng-content>
-    </div>
+  }
+
+  <div class="table-toolbar">
+    @if (searchable) {
+      <div class="table-search">
+        <app-icon name="search" [size]="16"></app-icon>
+        <input
+          type="text"
+          [placeholder]="searchPlaceholder"
+          [(ngModel)]="searchTerm"
+          (ngModelChange)="onSearch()"
+          class="search-input"
+        />
+      </div>
+    }
+
+    <div class="toolbar-spacer"></div>
+
+    <ng-content select="[table-filters]"></ng-content>
+    <ng-content select="[table-actions]"></ng-content>
   </div>
 
   <div class="table-scroll">
@@ -32,16 +35,25 @@
           @for (col of columns; track col.key) {
             <th
               [class.sortable]="col.sortable !== false"
+              [class.is-sorted]="sortKey === col.key"
               (click)="col.sortable !== false ? sort(col.key) : null"
             >
-              {{ col.label }}
-              @if (col.sortable !== false && sortKey === col.key) {
-                <app-icon
-                  [name]="sortDirection === 'asc' ? 'chevron-down' : 'chevron-down'"
-                  [size]="14"
-                  [class.sort-desc]="sortDirection === 'desc'"
-                ></app-icon>
-              }
+              <span class="th-content">
+                <span class="th-label">{{ col.label }}</span>
+                @if (col.sortable !== false) {
+                  <span
+                    class="sort-arrows"
+                    [class.is-asc]="sortKey === col.key && sortDirection === 'asc'"
+                    [class.is-desc]="sortKey === col.key && sortDirection === 'desc'"
+                    [attr.aria-label]="sortKey === col.key
+                      ? 'Sorted ' + sortDirection + 'ending — click to ' + (sortDirection === 'asc' ? 'sort descending' : 'sort ascending')
+                      : 'Click to sort'"
+                  >
+                    <app-icon name="chevron-up"   [size]="14" class="sort-arrow sort-arrow--asc"></app-icon>
+                    <app-icon name="chevron-down" [size]="14" class="sort-arrow sort-arrow--desc"></app-icon>
+                  </span>
+                }
+              </span>
             </th>
           }
           @if (actions.length > 0) {
@@ -111,7 +123,15 @@
                   Loading…
                 </span>
               } @else {
-                {{ emptyMessage }}
+                <div class="empty-state">
+                  <div class="empty-state__icon">
+                    <app-icon [name]="isSearchActive ? 'search' : emptyIcon" [size]="48"></app-icon>
+                  </div>
+                  <div class="empty-state__title">{{ effectiveEmptyMessage }}</div>
+                  @if (effectiveEmptyDescription) {
+                    <div class="empty-state__description">{{ effectiveEmptyDescription }}</div>
+                  }
+                </div>
               }
             </td>
           </tr>

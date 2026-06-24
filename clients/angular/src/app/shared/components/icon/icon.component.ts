@@ -52,6 +52,24 @@ const ICONS: Record<string, string> = {
     '<path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>',
   'chevron-down':
     '<path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"/>',
+  'chevron-up':
+    '<path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/>',
+  maximize:
+    '<path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>',
+  inbox:
+    '<path d="M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 12h-4c0 1.66-1.35 3-3 3s-3-1.34-3-3H4.99V5H19v10z"/>',
+  /**
+   * Folder with a magnifying glass — empty-state default. A folder body
+   * (with the classic tab) on the left, and a hollow-ringed magnifier with
+   * a diagonal handle extending past the bottom-right of the folder.
+   */
+  'folder-search':
+    // Folder body, notched on the bottom-right so the magnifier reads as
+    // sitting on top of the folder rather than colliding with its edge.
+    '<path d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h7.1A6.5 6.5 0 0 1 20 11.1V8a2 2 0 0 0-2-2h-6l-2-2z"/>' +
+    // Magnifier: outer ring + inner reverse-wound circle (donut via non-zero
+    // fill rule) + a fat diagonal handle that pokes out past the folder.
+    '<path d="M16.5 12a4.5 4.5 0 1 0 2.74 8.07l2.6 2.6 1.41-1.41-2.6-2.6A4.5 4.5 0 0 0 16.5 12zm0 2a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"/>',
   menu:
     '<path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>',
   plus:

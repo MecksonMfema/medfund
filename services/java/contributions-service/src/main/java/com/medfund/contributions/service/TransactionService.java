@@ -82,7 +82,6 @@ public class TransactionService {
         String transactionNumber = "TXN-" + String.format("%08d", ThreadLocalRandom.current().nextInt(0, 99999999));
 
         var transaction = new Transaction();
-        transaction.setId(UUID.randomUUID());
         transaction.setTransactionNumber(transactionNumber);
         transaction.setContributionId(request.contributionId());
         transaction.setInvoiceId(request.invoiceId());
@@ -100,7 +99,8 @@ public class TransactionService {
             .flatMap(this::applyBalanceUpdate)
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "Transaction", saved.getId().toString(), "CREATE", actorId, actorEmail,
+                return publishAudit(tenantId, "Transaction", saved.getId().toString(), saved.getTransactionNumber(),
+                        "CREATE", actorId, actorEmail,
                         null,
                         Map.of("transactionNumber", saved.getTransactionNumber(),
                                "status", saved.getStatus(),
@@ -146,13 +146,14 @@ public class TransactionService {
 
     // ---- Private helpers ----
 
-    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
+    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId, String entityName,
                                      String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
             entityType,
             entityId,
+            entityName,
             action,
             actorId,
             actorEmail,

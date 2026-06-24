@@ -56,6 +56,16 @@ public class ScheduledJobRun {
     @Column("triggered_by")
     private UUID triggeredBy;
 
+    /**
+     * Optional JSON payload an executor hands back on success — e.g. billing
+     * preview totals, commit counts. Stored as TEXT with a CHECK(IS JSON);
+     * see V116 for the storage rationale. {@code null} for jobs that don't
+     * produce a payload (the existing 6 default executors). Polled by the UI
+     * after triggering an ad-hoc job to surface the result.
+     */
+    @Column("result_payload")
+    private String resultPayload;
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;

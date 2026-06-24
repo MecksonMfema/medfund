@@ -2,7 +2,6 @@ package com.medfund.contributions.consumer;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.medfund.contributions.service.BillingService;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,8 +11,16 @@ import reactor.kafka.receiver.KafkaReceiver;
 import reactor.kafka.receiver.ReceiverOptions;
 
 import java.util.Collections;
-import java.util.UUID;
 
+/**
+ * Listens for member-enrolled events. The historical handler tried to
+ * insert a placeholder {@code contributions} row immediately on enrollment,
+ * but the table requires {@code scheme_id}, {@code amount},
+ * {@code period_start}, and {@code period_end} (all NOT NULL) — none of
+ * which the event carries. The {@code BILLING_CYCLE} scheduled job creates
+ * the real row on the next billing date, so the consumer just logs the
+ * enrolment and acks the offset.
+ */
 @Component
 public class MemberEnrolledConsumer {
 
@@ -21,13 +28,11 @@ public class MemberEnrolledConsumer {
     private static final String TOPIC = "medfund.users.member-enrolled";
 
     private final ReceiverOptions<String, String> receiverOptions;
-    private final BillingService billingService;
     private final ObjectMapper objectMapper;
 
     public MemberEnrolledConsumer(ReceiverOptions<String, String> receiverOptions,
-                                  BillingService billingService, ObjectMapper objectMapper) {
+                                  ObjectMapper objectMapper) {
         this.receiverOptions = receiverOptions;
-        this.billingService = billingService;
         this.objectMapper = objectMapper;
     }
 
@@ -36,17 +41,8 @@ public class MemberEnrolledConsumer {
         var options = receiverOptions.subscription(Collections.singleton(TOPIC));
         KafkaReceiver.create(options)
             .receive()
-            .flatMap(record -> {
-                try {
-                    return processEvent(record.value())
-                        .doOnSuccess(v -> record.receiverOffset().acknowledge())
-                        .doOnError(e -> log.error("Failed to process member enrolled event: {}", e.getMessage()));
-                } catch (Exception e) {
-                    log.error("Error deserializing member enrolled event: {}", e.getMessage());
-                    record.receiverOffset().acknowledge();
-                    return Mono.empty();
-                }
-            })
+            .flatMap(record -> processEvent(record.value())
+                .doOnTerminate(() -> record.receiverOffset().acknowledge()))
             .doOnError(e -> log.error("Member enrolled consumer error: {}", e.getMessage()))
             .retry()
             .subscribe();
@@ -58,12 +54,9 @@ public class MemberEnrolledConsumer {
             String memberId = node.get("memberId").asText();
             String memberNumber = node.get("memberNumber").asText();
             String groupId = node.has("groupId") ? node.get("groupId").asText() : null;
-            log.info("Processing member enrolled event: memberId={}, memberNumber={}, groupId={}",
-                     memberId, memberNumber, groupId);
-            return billingService.createInitialContribution(
-                UUID.fromString(memberId),
-                groupId != null && !groupId.isEmpty() ? UUID.fromString(groupId) : null
-            ).then();
+            log.info("Member enrolled — billing cycle will pick up at next scheduled run: memberId={}, memberNumber={}, groupId={}",
+                memberId, memberNumber, groupId);
+            return Mono.empty();
         } catch (Exception e) {
             log.error("Failed to parse member enrolled event: {}", e.getMessage());
             return Mono.error(e);

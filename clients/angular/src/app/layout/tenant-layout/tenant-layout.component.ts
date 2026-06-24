@@ -46,6 +46,14 @@ export class TenantLayoutComponent implements OnInit, OnDestroy {
    */
   sidebarVariant: 'admin' | 'operational' = 'admin';
 
+  /**
+   * Routes can opt the main content area out of its standard page padding
+   * by setting {@code data: { fullbleed: true }}. Used by list pages where
+   * the data-table fills the area edge-to-edge. Defaults to {@code false}
+   * so dashboards, forms, and detail views keep their padding.
+   */
+  fullbleed = false;
+
   private subs: Subscription[] = [];
 
   constructor(
@@ -134,10 +142,12 @@ export class TenantLayoutComponent implements OnInit, OnDestroy {
       ).subscribe(() => {
         this.pageTitle      = this.resolveTitle();
         this.sidebarVariant = this.resolveSidebar();
+        this.fullbleed      = this.resolveFullbleed();
       })
     );
     this.pageTitle      = this.resolveTitle();
     this.sidebarVariant = this.resolveSidebar();
+    this.fullbleed      = this.resolveFullbleed();
 
     // User info from Keycloak token
     const token = this.keycloak.getKeycloakInstance()?.idTokenParsed as Record<string, any> | undefined;
@@ -205,6 +215,22 @@ export class TenantLayoutComponent implements OnInit, OnDestroy {
       r = r.firstChild;
       const v = r.snapshot.data['sidebar'];
       if (v === 'admin' || v === 'operational') pick = v;
+    }
+    return pick;
+  }
+
+  /**
+   * Walks the activated route tree and returns the deepest
+   * {@code fullbleed} route-data flag, defaulting to {@code false} so
+   * standard padded layouts still apply when nothing is declared.
+   */
+  private resolveFullbleed(): boolean {
+    let r = this.route;
+    let pick = false;
+    while (r.firstChild) {
+      r = r.firstChild;
+      const v = r.snapshot.data['fullbleed'];
+      if (typeof v === 'boolean') pick = v;
     }
     return pick;
   }

@@ -154,7 +154,6 @@ public class TenantEmailTemplateService {
                 })
                 .switchIfEmpty(Mono.defer(() -> {
                     TenantEmailTemplate fresh = new TenantEmailTemplate();
-                    fresh.setId(UUID.randomUUID());
                     fresh.setTenantId(tenantId);
                     fresh.setTemplateKey(key);
                     fresh.setSubject(req.subject());

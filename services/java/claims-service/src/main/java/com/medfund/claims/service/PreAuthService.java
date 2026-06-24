@@ -60,7 +60,6 @@ public class PreAuthService {
         return generateAuthNumber()
             .flatMap(authNumber -> {
                 var preAuth = new PreAuthorization();
-                preAuth.setId(UUID.randomUUID());
                 preAuth.setAuthNumber(authNumber);
                 preAuth.setMemberId(request.memberId());
                 preAuth.setProviderId(request.providerId());
@@ -80,7 +79,8 @@ public class PreAuthService {
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "PreAuthorization", saved.getId().toString(), "CREATE",
+                return publishAudit(tenantId, "PreAuthorization", saved.getId().toString(),
+                        saved.getAuthNumber(), "CREATE",
                         actorId, actorEmail,
                         null,
                         Map.of("authNumber", saved.getAuthNumber(), "status", saved.getStatus(),
@@ -106,7 +106,8 @@ public class PreAuthService {
                 return preAuthorizationRepository.save(preAuth)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "PreAuthorization", saved.getId().toString(), "UPDATE",
+                        return publishAudit(tenantId, "PreAuthorization", saved.getId().toString(),
+                                saved.getAuthNumber(), "UPDATE",
                                 actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus(), "approvedAmount", approvedAmount.toString()))
@@ -134,7 +135,8 @@ public class PreAuthService {
                 return preAuthorizationRepository.save(preAuth)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "PreAuthorization", saved.getId().toString(), "UPDATE",
+                        return publishAudit(tenantId, "PreAuthorization", saved.getId().toString(),
+                                saved.getAuthNumber(), "UPDATE",
                                 actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus(), "rejectionReason", reason))
@@ -165,13 +167,14 @@ public class PreAuthService {
             .flatMap(exists -> exists ? generateAuthNumber() : Mono.just(number));
     }
 
-    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
+    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId, String entityName,
                                      String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
             entityType,
             entityId,
+            entityName,
             action,
             actorId,
             actorEmail,

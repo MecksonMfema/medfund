@@ -26,6 +26,12 @@ export interface TableAction {
   iconFor?: (row: any) => string;
   /** Dynamic color override per row — same vocabulary as {@link color}. */
   colorFor?: (row: any) => string;
+  /**
+   * Optional permission gate. When set, the host page is expected to filter
+   * the action out of the list before passing it in. Declarative metadata
+   * only — the data-table itself does not consult PermissionService.
+   */
+  requiresPermission?: string;
   handler: (row: any) => void;
 }
 
@@ -43,9 +49,11 @@ export class DataTableComponent implements OnInit, OnDestroy {
   @Input() data: any[] = [];
   @Input() actions: TableAction[] = [];
   @Input() showActions = false;
-  @Input() emptyMessage = 'No data found';
+  @Input() emptyMessage = 'Nothing here yet';
+  @Input() emptyDescription = '';
+  @Input() emptyIcon = 'folder-search';
   @Input() searchable = true;
-  @Input() searchPlaceholder = 'Search...';
+  @Input() searchPlaceholder = 'Search';
   @Input() pageSize = 10;
   // Server-side mode
   @Input() serverSide = false;
@@ -56,11 +64,20 @@ export class DataTableComponent implements OnInit, OnDestroy {
   // Cursor pagination (used instead of page numbers when set)
   @Input() hasPrev = false;
   @Input() hasNext = false;
+  @Input() initialSortKey = '';
+  @Input() initialSortDirection: 'asc' | 'desc' = 'asc';
   @Output() rowClick = new EventEmitter<any>();
   @Output() searchChange = new EventEmitter<string>();
   @Output() pageChange = new EventEmitter<number>();
   @Output() prevPage = new EventEmitter<void>();
   @Output() nextPage = new EventEmitter<void>();
+  /**
+   * Fires whenever the user clicks a sortable column header. In server-side
+   * mode the host must re-fetch using these values; in client-side mode the
+   * component still sorts the loaded array but emits the event so consumers
+   * can sync URL state or other listeners.
+   */
+  @Output() sortChange = new EventEmitter<{ key: string; direction: 'asc' | 'desc' }>();
 
   searchTerm = '';
   sortKey = '';
@@ -73,6 +90,10 @@ export class DataTableComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   ngOnInit(): void {
+    if (this.initialSortKey) {
+      this.sortKey = this.initialSortKey;
+      this.sortDirection = this.initialSortDirection;
+    }
     this.searchSubject.pipe(
       debounceTime(400),
       distinctUntilChanged(),
@@ -170,12 +191,47 @@ export class DataTableComponent implements OnInit, OnDestroy {
       this.sortKey = key;
       this.sortDirection = 'asc';
     }
+    this.sortChange.emit({ key: this.sortKey, direction: this.sortDirection });
   }
 
   goToPage(page: number): void {
     if (page >= 1 && page <= this.clientTotalPages) {
       this.currentPage = page;
     }
+  }
+
+  /**
+   * Whether the user is currently filtering with a search term — drives the
+   * search-aware empty-state copy. Kept as a getter so the template can
+   * reference it directly without a separate change-detection trigger.
+   */
+  get isSearchActive(): boolean {
+    return !!this.searchTerm;
+  }
+
+  /**
+   * The title shown above the empty-state icon. A search-aware override
+   * takes precedence over the host's {@code emptyMessage} so "No benefits
+   * configured…" never appears when the user just typed a query that
+   * happened to match nothing.
+   */
+  get effectiveEmptyMessage(): string {
+    if (this.isSearchActive) return 'No matching results';
+    return this.emptyMessage;
+  }
+
+  /**
+   * The description below the title. When a search is active, always use the
+   * search-aware copy regardless of {@code emptyDescription} — the host's
+   * description is written for the truly-empty case and would mislead a
+   * user who's just looking at a no-results-for-this-query view.
+   */
+  get effectiveEmptyDescription(): string {
+    if (this.isSearchActive) {
+      return `No results match "${this.searchTerm}". Try a different search or clear the filter.`;
+    }
+    if (this.emptyDescription) return this.emptyDescription;
+    return 'New entries will appear here once they are added.';
   }
 
   /** Converts snake_case or SCREAMING_SNAKE to Title Case. e.g. super_admin → Super Admin */

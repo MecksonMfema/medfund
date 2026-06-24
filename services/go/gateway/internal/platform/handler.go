@@ -143,6 +143,10 @@ func (h *Handler) getHealth(c *fiber.Ctx) error {
 			"Finance", "Processes payments, payment runs, provider balances and reconciliations", "core",
 		},
 		{
+			"rules-engine", h.cfg.RulesServiceURL + "/actuator/health",
+			"Rules Engine", "Per-tenant Drools rules powering the six-stage claim adjudication pipeline", "core",
+		},
+		{
 			"notification-service", h.cfg.NotifServiceURL + "/health",
 			"Notifications", "Delivers email, SMS and in-app notifications via Kafka events", "support",
 		},
@@ -153,6 +157,10 @@ func (h *Handler) getHealth(c *fiber.Ctx) error {
 		{
 			"file-service", h.cfg.FileServiceURL + "/health",
 			"File Storage", "Generates pre-signed S3 upload/download URLs and handles document exports", "support",
+		},
+		{
+			"payment-gateway", h.cfg.PaymentServiceURL + "/health",
+			"Payment Gateway", "Abstracts payment providers (Paynow, Stripe, Paystack, EcoCash, DPO) for inbound and outbound payments", "support",
 		},
 		{
 			"ai-service", "http://localhost:8000/health",

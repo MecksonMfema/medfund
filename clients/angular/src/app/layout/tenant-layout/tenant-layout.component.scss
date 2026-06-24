@@ -229,4 +229,13 @@
   flex: 1;
   overflow-y: auto;
   padding: var(--spacing-xl);
+
+  // Routes can opt out of the standard page padding by declaring
+  // `data: { fullbleed: true }` — used by list pages where the data-table
+  // is itself the page card and any outer padding would leave a
+  // double-padded look against the sidebar / header. Default stays padded
+  // so dashboard, forms, and detail views keep their breathing room.
+  &.is-fullbleed {
+    padding: 0;
+  }
 }

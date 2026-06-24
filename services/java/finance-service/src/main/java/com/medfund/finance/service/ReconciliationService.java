@@ -61,7 +61,6 @@ public class ReconciliationService {
 
         return systemAmountMono.flatMap(systemAmount -> {
             var recon = new BankReconciliation();
-            recon.setId(UUID.randomUUID());
             recon.setReferenceNumber(request.referenceNumber());
             recon.setStatementAmount(request.statementAmount());
             recon.setSystemAmount(systemAmount);
@@ -78,7 +77,8 @@ public class ReconciliationService {
             return bankReconciliationRepository.save(recon)
                 .flatMap(saved -> Mono.deferContextual(ctx -> {
                     String tenantId = TenantContext.get(ctx);
-                    return publishAudit(tenantId, "BankReconciliation", saved.getId().toString(), "CREATE", actorId, actorEmail,
+                    return publishAudit(tenantId, "BankReconciliation", saved.getId().toString(), saved.getReferenceNumber(),
+                            "CREATE", actorId, actorEmail,
                             null,
                             Map.of("referenceNumber", saved.getReferenceNumber(), "status", saved.getStatus(),
                                    "difference", saved.getDifference().toString()))
@@ -100,7 +100,8 @@ public class ReconciliationService {
                 return bankReconciliationRepository.save(recon)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "BankReconciliation", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "BankReconciliation", saved.getId().toString(), saved.getReferenceNumber(),
+                                "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .thenReturn(saved);
@@ -132,7 +133,8 @@ public class ReconciliationService {
                 return bankReconciliationRepository.save(recon)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "BankReconciliation", saved.getId().toString(), "UPDATE", actorId, actorEmail,
+                        return publishAudit(tenantId, "BankReconciliation", saved.getId().toString(), saved.getReferenceNumber(),
+                                "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
                             .thenReturn(saved);
@@ -142,13 +144,14 @@ public class ReconciliationService {
 
     // ---- Private helpers ----
 
-    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId,
+    private Mono<Void> publishAudit(String tenantId, String entityType, String entityId, String entityName,
                                      String action, String actorId, String actorEmail,
                                      Map<String, Object> oldValue, Map<String, Object> newValue) {
         var event = AuditEvent.create(
             tenantId != null ? tenantId : "unknown",
             entityType,
             entityId,
+            entityName,
             action,
             actorId,
             actorEmail,
