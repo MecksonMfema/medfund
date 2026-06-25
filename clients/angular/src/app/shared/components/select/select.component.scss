@@ -1,0 +1,242 @@
+// ── Wrapper / focus management ───────────────────────────────────────────
+:host {
+  display: block;
+  width: 100%;
+}
+
+.select-wrapper {
+  position: relative;
+  width: 100%;
+  outline: none;
+}
+
+// ── Trigger button ───────────────────────────────────────────────────────
+// Matches the .field-control style used across forms so a SelectComponent
+// reads as a sibling of inputs and textareas. Border-radius is the pillier
+// --radius-lg, and the chevron is part of the trigger (not painted on as
+// a background image), so we can animate its rotation when the panel opens.
+.select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-family: var(--font-family);
+  font-size: 0.875rem;
+  cursor: pointer;
+  text-align: left;
+  outline: none;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background var(--transition-fast);
+
+  &:hover:not(:disabled) {
+    border-color: var(--color-secondary);
+  }
+
+  &:focus-visible {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-light);
+  }
+
+  &:disabled {
+    background: var(--color-bg);
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+  }
+}
+
+.select-wrapper.is-open .select-trigger {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+// Small variant — toolbar-density, used by data-table or inline filter chips
+.select-wrapper.size-sm .select-trigger {
+  padding: 6px 10px;
+  font-size: 0.8125rem;
+  border-radius: var(--radius-md);
+}
+
+.select-value {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  &.is-placeholder {
+    color: var(--color-text-muted);
+  }
+}
+
+.select-chevron {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  transition: transform 0.18s ease, color var(--transition-fast);
+}
+
+.select-trigger:hover .select-chevron { color: var(--color-secondary); }
+
+.is-open .select-chevron {
+  color: var(--color-primary);
+  transform: rotate(180deg);
+}
+
+// ── Dropdown panel ───────────────────────────────────────────────────────
+// A floating card with the same radius family as the trigger, lifted with a
+// soft shadow, and a brief slide+fade entrance so the panel reads as a
+// dropdown rather than a paint job. z-index sits above page chrome.
+.select-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 14px 32px rgba(27, 42, 74, 0.12),
+    0 4px 12px  rgba(27, 42, 74, 0.06);
+  overflow: hidden;
+  animation: select-panel-in 0.16s ease-out;
+}
+
+@keyframes select-panel-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+// ── In-popup search ──────────────────────────────────────────────────────
+.select-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border-light);
+  color: var(--color-text-muted);
+}
+
+.select-search-input {
+  flex: 1;
+  border: none;
+  background: none;
+  outline: none;
+  font-family: var(--font-family);
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  min-width: 0;
+
+  &::placeholder { color: var(--color-text-muted); }
+}
+
+// ── Options list ─────────────────────────────────────────────────────────
+.select-options {
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 4px;
+
+  // Subtle inner-margin scrollbar so the rail doesn't squish the rounded
+  // corners of the panel.
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 999px;
+  }
+}
+
+.select-group-label {
+  padding: 10px 12px 4px;
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px 12px;
+  margin: 1px 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-text-primary);
+  font-family: var(--font-family);
+  font-size: 0.875rem;
+  cursor: pointer;
+  text-align: left;
+  gap: 12px;
+  transition: background var(--transition-fast), color var(--transition-fast);
+
+  &:hover:not(:disabled) {
+    background: var(--color-bg);
+  }
+
+  &.is-highlighted:not(:disabled) {
+    background: var(--color-bg);
+  }
+
+  &.is-selected {
+    background: var(--color-primary-light);
+    color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  &.is-selected:hover,
+  &.is-selected.is-highlighted {
+    background: var(--color-primary-light);
+  }
+
+  &.is-disabled,
+  &:disabled {
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+  }
+}
+
+.option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.option-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.option-description {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.option-check {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.select-empty {
+  padding: 18px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}

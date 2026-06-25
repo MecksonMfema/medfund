@@ -7,6 +7,7 @@ import { GroupsService } from '../../../../core/services/groups.service';
 import { Dependant, Member, MembersService } from '../../../../core/services/members.service';
 import { EntityPickerComponent } from '../../../../shared/components/entity-picker/entity-picker.component';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
 
 interface MemberForm {
@@ -37,7 +38,7 @@ const EMPTY_DEPENDANT: DependantForm = {
 @Component({
   selector: 'app-member-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, EntityPickerComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, EntityPickerComponent, SelectComponent],
   templateUrl: './member-detail.component.html',
   styleUrl: './member-detail.component.scss',
 })
@@ -71,6 +72,19 @@ export class MemberDetailComponent implements OnInit {
 
   /** Per-row pending flag — gates Remove buttons during the soft-delete call. */
   removingId: string | null = null;
+
+  readonly genderOptions: SelectOption[] = [
+    { value: '', label: 'Not specified' },
+    { value: 'male', label: 'Male' },
+    { value: 'female', label: 'Female' },
+    { value: 'other', label: 'Other' },
+  ];
+
+  readonly dependantGenderOptions: SelectOption[] = [
+    { value: 'male', label: 'Male' },
+    { value: 'female', label: 'Female' },
+    { value: 'other', label: 'Other' },
+  ];
 
   constructor(
     private members: MembersService,

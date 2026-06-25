@@ -5,11 +5,12 @@ import { Router } from '@angular/router';
 import { CurrencyService, Currency } from '../../../../core/services/currency.service';
 import { FinanceService } from '../../../../core/services/finance.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 @Component({
   selector: 'app-payment-run-generate',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
   templateUrl: './payment-run-generate.component.html',
   styleUrl: './payment-run-generate.component.scss',
 })
@@ -25,6 +26,10 @@ export class PaymentRunGenerateComponent implements OnInit {
     private finance: FinanceService,
     private router: Router,
   ) {}
+
+  get currencyOptions(): SelectOption[] {
+    return this.currencies.map(c => ({ value: c.code, label: `${c.code} — ${c.name}` }));
+  }
 
   ngOnInit(): void {
     this.currencyService.listMaster(true).subscribe({

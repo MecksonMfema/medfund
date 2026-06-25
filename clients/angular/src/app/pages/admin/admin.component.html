@@ -236,12 +236,12 @@
         </div>
         <div class="form-field" [class.has-error]="createErrors['realmRole']">
           <label>Role *</label>
-          <select [(ngModel)]="createForm.realmRole">
-            <option value="">Select a role…</option>
-            @for (r of availableRoles; track r.value) {
-              <option [value]="r.value">{{ r.label }}</option>
-            }
-          </select>
+          <app-select
+            [(ngModel)]="createForm.realmRole"
+            name="createRealmRole"
+            [options]="availableRoleOptions"
+            placeholder="Select a role…"
+          ></app-select>
           @if (createErrors['realmRole']) { <span class="field-error">{{ createErrors['realmRole'] }}</span> }
         </div>
       </div>

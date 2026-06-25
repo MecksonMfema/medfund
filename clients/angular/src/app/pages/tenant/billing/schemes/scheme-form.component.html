@@ -45,24 +45,13 @@
 
         <label class="field">
           <span class="field-label">Scheme type</span>
-          <select class="field-control" [(ngModel)]="form.schemeType" name="schemeType">
-            @if (schemeTypes.length === 0) {
-              <option value="" disabled>Configure insurance lines first</option>
-            }
-            @if (schemeTypeGroups.length <= 1) {
-              @for (t of schemeTypes; track t.code) {
-                <option [value]="t.code">{{ t.label }}</option>
-              }
-            } @else {
-              @for (line of schemeTypeGroups; track line) {
-                <optgroup [label]="lineLabel(line)">
-                  @for (t of schemeTypesForLine(line); track t.code) {
-                    <option [value]="t.code">{{ t.label }}</option>
-                  }
-                </optgroup>
-              }
-            }
-          </select>
+          <app-select
+            [(ngModel)]="form.schemeType"
+            name="schemeType"
+            [options]="schemeTypeSelectOptions"
+            placeholder="Pick a scheme type"
+            emptyText="Configure insurance lines first"
+          ></app-select>
           <small class="field-help">The product type drives which benefits, age groups, and rules apply.</small>
         </label>
       </section>
@@ -95,12 +84,12 @@
 
         <label class="field">
           <span class="field-label">Billing currency <span class="req">*</span></span>
-          <select class="field-control" [(ngModel)]="form.currencyCode" name="currencyCode" required>
-            <option [value]="''" disabled>Pick a currency</option>
-            @for (c of allowedCurrencies; track c.id) {
-              <option [value]="c.currencyCode">{{ c.currencyCode }}{{ c.isDefault ? ' (default)' : '' }}</option>
-            }
-          </select>
+          <app-select
+            [(ngModel)]="form.currencyCode"
+            name="currencyCode"
+            [options]="currencySelectOptions"
+            placeholder="Pick a currency"
+          ></app-select>
           <small class="field-help">Only billing-enabled currencies from Settings → Currencies are listed.</small>
         </label>
       </section>

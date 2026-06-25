@@ -126,12 +126,14 @@
         Approve
       </button>
       <div class="reject-group">
-        <select [(ngModel)]="rejectingCode" name="rejectionCode" [disabled]="busy || !canAct('reject')">
-          <option [value]="''" disabled>Pick reason…</option>
-          @for (r of rejectionReasons; track r.id) {
-            <option [value]="r.code">{{ r.code }} — {{ r.description }}</option>
-          }
-        </select>
+        <app-select
+          [(ngModel)]="rejectingCode"
+          name="rejectionCode"
+          [disabled]="busy || !canAct('reject')"
+          [options]="rejectionReasonOptions"
+          placeholder="Pick reason…"
+          size="sm"
+        ></app-select>
         <button type="button" class="btn btn-default reject" [disabled]="busy || !canAct('reject')"
                 (click)="reject()">
           Reject

@@ -18,24 +18,24 @@
     @if (!presetStatus) {
       <label class="field">
         <span class="field-label">Status</span>
-        <select [(ngModel)]="statusFilter" (change)="onFilterChange()" name="status">
-          <option [value]="''">All</option>
-          <option value="draft">Draft</option>
-          <option value="approved">Approved</option>
-          <option value="executing">Executing</option>
-          <option value="executed">Executed</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
+        <app-select
+          [(ngModel)]="statusFilter"
+          (ngModelChange)="onFilterChange()"
+          name="status"
+          [options]="statusOptions"
+          size="sm"
+        ></app-select>
       </label>
     }
     <label class="field">
       <span class="field-label">Currency</span>
-      <select [(ngModel)]="currencyFilter" (change)="onFilterChange()" name="currency">
-        <option [value]="''">All</option>
-        @for (c of uniqueCurrencies(); track c) {
-          <option [value]="c">{{ c }}</option>
-        }
-      </select>
+      <app-select
+        [(ngModel)]="currencyFilter"
+        (ngModelChange)="onFilterChange()"
+        name="currency"
+        [options]="currencyOptions"
+        size="sm"
+      ></app-select>
     </label>
     <label class="field grow">
       <span class="field-label">Search</span>

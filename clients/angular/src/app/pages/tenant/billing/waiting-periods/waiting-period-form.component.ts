@@ -17,11 +17,12 @@ import {
   BenefitType,
 } from '../../../../core/services/billing-catalogue.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 @Component({
   selector: 'app-waiting-period-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent],
   templateUrl: './waiting-period-form.component.html',
   styleUrl: './waiting-period-form.component.scss',
 })
@@ -39,6 +40,10 @@ export class WaitingPeriodFormComponent implements OnInit {
     waitingDays: 30,
     description: '',
   };
+
+  get schemeOptions(): SelectOption[] {
+    return this.schemes.map(s => ({ value: s.id, label: s.name }));
+  }
 
   constructor(
     private waitingService: WaitingPeriodService,

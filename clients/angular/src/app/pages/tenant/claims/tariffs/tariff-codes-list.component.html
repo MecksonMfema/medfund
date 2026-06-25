@@ -47,11 +47,12 @@
       </label>
       <label class="field">
         <span class="field-label">Currency</span>
-        <select [(ngModel)]="draft.currencyCode" name="currencyCode">
-          <option value="USD">USD</option>
-          <option value="ZWL">ZWL</option>
-          <option value="ZAR">ZAR</option>
-        </select>
+        <app-select
+          [(ngModel)]="draft.currencyCode"
+          name="currencyCode"
+          [options]="currencyOptions"
+          placeholder="Pick a currency"
+        ></app-select>
       </label>
       <label class="field span-2 checkbox">
         <input type="checkbox" [(ngModel)]="draft.requiresPreAuth" name="requiresPreAuth" />

@@ -21,6 +21,13 @@ type Config struct {
 	PaymentServiceURL string
 	KafkaBrokers      string
 	RateLimitPerMin   int
+	/**
+	 * Comma-separated list of CORS-allowed origins for the browser-facing
+	 * web app. Defaults to the Angular dev server on :5100 and the previous
+	 * :4200 (so a half-migrated environment doesn't break overnight). Set
+	 * WEB_ORIGINS at deploy time to lock the production allowlist down.
+	 */
+	WebOrigins string
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -41,6 +48,7 @@ func Load() *Config {
 		PaymentServiceURL: getEnv("PAYMENT_SERVICE_URL", "http://localhost:3004"),
 		KafkaBrokers:      getEnv("KAFKA_BROKERS", "localhost:9092"),
 		RateLimitPerMin:   120,
+		WebOrigins:        getEnv("WEB_ORIGINS", "http://localhost:5100,http://localhost:4200"),
 	}
 }
 

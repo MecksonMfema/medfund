@@ -13,6 +13,7 @@ import {
   RejectionReason,
 } from '../../../../core/services/claims-config.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
@@ -22,7 +23,7 @@ type Tab = 'services' | 'header' | 'audit';
 @Component({
   selector: 'app-claim-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
   templateUrl: './claim-detail.component.html',
   styleUrl: './claim-detail.component.scss',
 })
@@ -67,6 +68,14 @@ export class ClaimDetailComponent implements OnInit {
   }
 
   setTab(t: Tab): void { this.activeTab = t; }
+
+  get rejectionReasonOptions(): SelectOption[] {
+    return this.rejectionReasons.map(r => ({
+      value: r.code,
+      label: r.code,
+      description: r.description,
+    }));
+  }
 
   // ── Lifecycle actions ────────────────────────────────────────────────
 

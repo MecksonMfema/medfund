@@ -11,6 +11,7 @@ import {
 import { TenantService } from '../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 interface CurrencyRow extends TenantCurrencyConfig {
   name?: string;
@@ -29,7 +30,7 @@ interface CurrencyRow extends TenantCurrencyConfig {
 @Component({
   selector: 'app-tenant-currencies-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, SelectComponent],
   templateUrl: './currencies-tab.component.html',
   styleUrl: './currencies-tab.component.scss',
 })
@@ -61,6 +62,20 @@ export class TenantCurrenciesTabComponent implements OnInit {
   rateSaving = false;
 
   private masterByCode: Record<string, Currency> = {};
+
+  // ── SelectComponent options ─────────────────────────────────────────────
+  /** Master ISO 4217 catalogue, minus codes already configured for this tenant. */
+  get availableCurrencyOptions(): SelectOption[] {
+    return this.available.map(c => ({
+      value: c.code,
+      label: `${c.code} — ${c.name}`,
+      description: c.symbol || undefined,
+    }));
+  }
+  /** Configured tenant currencies — used as both base and quote for rate entry. */
+  get configuredCurrencyOptions(): SelectOption[] {
+    return this.rows.map(c => ({ value: c.currencyCode, label: c.currencyCode }));
+  }
 
   constructor(
     private currencyService: CurrencyService,

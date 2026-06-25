@@ -17,13 +17,14 @@
   <div class="filters">
     <label class="field">
       <span class="field-label">Status</span>
-      <select [(ngModel)]="statusFilter" (change)="onStatusChange()" name="status">
-        <option [value]="''">All</option>
-        <option value="pending">Pending</option>
-        <option value="approved">Approved</option>
-        <option value="rejected">Rejected</option>
-        <option value="expired">Expired</option>
-      </select>
+      <app-select
+        [(ngModel)]="statusFilter"
+        (selectionChange)="onStatusChange()"
+        name="status"
+        [options]="statusFilterOptions"
+        size="sm"
+        placeholder="All"
+      ></app-select>
     </label>
   </div>
 

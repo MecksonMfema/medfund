@@ -44,23 +44,23 @@
     <div class="row-2">
       <label class="field">
         <span class="field-label">Type *</span>
-        <select [(ngModel)]="adjustmentType" name="adjustmentType" required>
-          <option value="IN_PAYMENT">In payment</option>
-          <option value="PAYOUT">Payout</option>
-          <option value="NON_CASH_IN">Non-cash in</option>
-          <option value="NON_CASH_OUT">Non-cash out</option>
-          <option value="TAX_WITHHELD">Tax withheld</option>
-        </select>
+        <app-select
+          [(ngModel)]="adjustmentType"
+          name="adjustmentType"
+          [options]="adjustmentTypeOptions"
+          required
+        ></app-select>
       </label>
 
       <label class="field">
         <span class="field-label">Currency *</span>
-        <select [(ngModel)]="currencyCode" name="currencyCode" required>
-          <option [value]="''" disabled>Select currency…</option>
-          @for (c of currencies; track c.code) {
-            <option [value]="c.code">{{ c.code }} — {{ c.name }}</option>
-          }
-        </select>
+        <app-select
+          [(ngModel)]="currencyCode"
+          name="currencyCode"
+          [options]="currencyOptions"
+          placeholder="Select currency…"
+          required
+        ></app-select>
       </label>
     </div>
 

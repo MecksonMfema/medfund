@@ -7,6 +7,7 @@ import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 import { StatCardComponent } from '../../../shared/components/stat-card/stat-card.component';
 import { DataTableComponent, TableAction } from '../../../shared/components/data-table/data-table.component';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
 import { AdminService, Tenant } from '../../../core/services/admin.service';
 import { TenantService } from '../../../core/services/tenant.service';
 import { BrandingService } from '../../../core/services/branding.service';
@@ -15,7 +16,7 @@ import { INSURANCE_LINES, InsuranceLine, parseInsuranceLines, parseProviderRegLa
 @Component({
   selector: 'app-tenants',
   standalone: true,
-  imports: [CommonModule, FormsModule, StatCardComponent, DataTableComponent, IconComponent],
+  imports: [CommonModule, FormsModule, StatCardComponent, DataTableComponent, IconComponent, SelectComponent],
   templateUrl: './tenants.component.html',
   styleUrl: './tenants.component.scss',
 })
@@ -91,6 +92,31 @@ export class TenantsComponent implements OnInit, OnDestroy {
       visible: (row: Tenant) => row.status?.toLowerCase() === 'suspended',
       handler: (row: Tenant) => this.activateTenant(row),
     },
+  ];
+
+  // ── SelectComponent options ─────────────────────────────────────────────
+  readonly statusFilterOptions: SelectOption[] = [
+    { value: '',          label: 'All statuses' },
+    { value: 'active',    label: 'Active' },
+    { value: 'suspended', label: 'Suspended' },
+  ];
+  readonly modelFilterOptions: SelectOption[] = [
+    { value: '',           label: 'All models' },
+    { value: 'individual', label: 'Individual' },
+    { value: 'group',      label: 'Group' },
+    { value: 'hybrid',     label: 'Hybrid' },
+  ];
+  get lineFilterOptions(): SelectOption[] {
+    return [
+      { value: '', label: 'All insurance lines' },
+      ...this.insuranceLineOptions.map(l => ({ value: l.value, label: l.label })),
+    ];
+  }
+  /** Membership model picker — shared by the create + edit modals. */
+  readonly membershipModelOptions: SelectOption[] = [
+    { value: 'INDIVIDUAL_ONLY', label: 'Individual only' },
+    { value: 'GROUP_ONLY',      label: 'Group only' },
+    { value: 'BOTH',            label: 'Both (individual & group)' },
   ];
 
   private searchSubject = new Subject<string>();

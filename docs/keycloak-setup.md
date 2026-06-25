@@ -6,7 +6,7 @@ This error occurs when your Angular app tries to embed Keycloak's login page in 
 
 ### Root Cause
 
-Keycloak 26 defaults `frame-ancestors` to `'self'`, which blocks iframes from `http://localhost:4200` (your Angular app) trying to load `http://localhost:9080` (Keycloak). Different origins = blocked.
+Keycloak 26 defaults `frame-ancestors` to `'self'`, which blocks iframes from `http://localhost:5100` (your Angular app) trying to load `http://localhost:9080` (Keycloak). Different origins = blocked.
 
 ### Solution
 
@@ -18,7 +18,7 @@ Keycloak 26 defaults `frame-ancestors` to `'self'`, which blocks iframes from `h
 3. Go to **Realm Settings → Security Defenses** tab
 4. Set **Content-Security-Policy** to:
    ```
-   frame-src 'self'; frame-ancestors 'self' http://localhost:4200 http://localhost:3000; object-src 'none';
+   frame-src 'self'; frame-ancestors 'self' http://localhost:5100 http://localhost:3000; object-src 'none';
    ```
 5. Save
 
@@ -34,20 +34,20 @@ Keycloak 26 defaults `frame-ancestors` to `'self'`, which blocks iframes from `h
 4. In the client settings:
    - **Valid Redirect URIs:**
      ```
-     http://localhost:4200/*
+     http://localhost:5100/*
      http://localhost:3000/*
      ```
    - **Valid Post Logout Redirect URIs:**
      ```
-     http://localhost:4200/*
+     http://localhost:5100/*
      ```
    - **Web Origins:**
      ```
-     http://localhost:4200
+     http://localhost:5100
      http://localhost:3000
      +
      ```
-   - **Admin URL:** `http://localhost:4200`
+   - **Admin URL:** `http://localhost:5100`
 5. Save
 
 #### Step 3: Update Angular Keycloak Init (disable 3rd-party cookie check)
@@ -93,7 +93,7 @@ The key change is `checkLoginIframe: false` — this disables the iframe-based s
 
 #### Step 5: Verify
 
-1. Start Angular: `ng serve` (http://localhost:4200)
+1. Start Angular: `ng serve` (http://localhost:5100)
 2. App redirects to Keycloak login
 3. Login with test user
 4. Redirects back to app with JWT token

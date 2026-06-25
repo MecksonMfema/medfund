@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import {
   AdminService,
   PermissionCatalogue,
@@ -41,7 +42,7 @@ interface RoleRow extends Role {
 @Component({
   selector: 'app-tenant-roles-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, SelectComponent],
   templateUrl: './roles-tab.component.html',
   styleUrl: './roles-tab.component.scss',
 })
@@ -71,6 +72,15 @@ export class TenantRolesTabComponent implements OnInit {
   membersLoading = false;
   membersSaving = false;
   selectedCandidateId = '';
+
+  /** Eligible staff users not already in the role — used by the add-member picker. */
+  get candidateUserOptions(): SelectOption[] {
+    return this.candidateUsers.map(u => ({
+      value: u.id,
+      label: `${u.firstName} ${u.lastName}`.trim(),
+      description: u.email,
+    }));
+  }
 
   constructor(
     private admin: AdminService,

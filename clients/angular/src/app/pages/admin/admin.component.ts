@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { DataTableComponent, TableAction } from '../../shared/components/data-table/data-table.component';
 import { StatCardComponent } from '../../shared/components/stat-card/stat-card.component';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../shared/components/select/select.component';
 import { AdminService, StaffUser } from '../../core/services/admin.service';
 import { TenantService } from '../../core/services/tenant.service';
 import { BrandingService, TenantBranding, TenantTemplate, TENANT_TEMPLATES } from '../../core/services/branding.service';
@@ -12,7 +13,7 @@ import { BrandingService, TenantBranding, TenantTemplate, TENANT_TEMPLATES } fro
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, DataTableComponent, StatCardComponent, IconComponent],
+  imports: [CommonModule, FormsModule, RouterLink, DataTableComponent, StatCardComponent, IconComponent, SelectComponent],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss',
 })
@@ -93,6 +94,11 @@ export class AdminComponent implements OnInit {
   branding: TenantBranding = { templateId: 'platform' };
   brandingSaving = false;
   brandingSaved = false;
+
+  /** Realm role picker — used by the legacy Add user modal. */
+  get availableRoleOptions(): SelectOption[] {
+    return this.availableRoles.map(r => ({ value: r.value, label: r.label }));
+  }
 
   constructor(
     private adminService: AdminService,

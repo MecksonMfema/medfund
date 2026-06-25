@@ -1,17 +1,18 @@
-<div class="form-page">
+<div class="benefit-form-page">
   <header class="page-header">
     <div>
       <h1>{{ benefitId ? 'Edit benefit' : 'Add benefit' }}</h1>
       @if (scheme) {
         <p class="page-sub">
-          Scheme <strong>{{ scheme.name }}</strong> · currency {{ scheme.currencyCode || '—' }}.
-          Limits are recorded in the scheme's currency.
+          Scheme <strong>{{ scheme.name }}</strong> · currency {{ scheme.currencyCode || '—' }}. Limits are recorded in the scheme's currency.
         </p>
+      } @else {
+        <p class="page-sub">Loading scheme…</p>
       }
     </div>
     <a class="btn btn-default" [routerLink]="['/tenant/billing/schemes', schemeId, 'benefits']">
       <app-icon name="arrow-left" [size]="14"></app-icon>
-      Back
+      Back to benefits
     </a>
   </header>
 
@@ -19,53 +20,138 @@
     <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
   }
 
-  <form (submit)="$event.preventDefault(); submit()" class="form-grid">
-    <label class="field span-2">
-      <span class="field-label">Benefit type</span>
-      <select [ngModel]="form.benefitType" (ngModelChange)="onTypeChange($event)" name="benefitType" required>
-        <option [value]="''" disabled>Choose a type from the catalogue</option>
-        @for (t of benefitTypes; track t.id) {
-          <option [value]="t.label">{{ t.label }}</option>
-        }
-      </select>
-      <small class="muted">Manage the catalogue under Settings → Billing → Benefit Types.</small>
-    </label>
+  <form (submit)="$event.preventDefault(); submit()" class="form-card">
+    <div class="form-card__heading">
+      <h2 class="form-card__title">Benefit details</h2>
+      <span class="form-card__hint">All fields with required values are marked.</span>
+    </div>
 
-    <label class="field span-2">
-      <span class="field-label">Name</span>
-      <input [(ngModel)]="form.name" name="name" maxlength="200" required />
-    </label>
+    <div class="form-sections">
+      <!-- ── Identity ──────────────────────────────────────────────────── -->
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="clipboard-list" [size]="18"></app-icon></span>
+          <h3 class="section-title">Identity</h3>
+        </header>
 
-    <label class="field">
-      <span class="field-label">Annual limit ({{ scheme?.currencyCode || '—' }})</span>
-      <input type="number" step="any" min="0" [(ngModel)]="form.annualLimit" name="annualLimit" placeholder="Leave blank for none" />
-    </label>
+        <label class="field">
+          <span class="field-label">Benefit type <span class="req">*</span></span>
+          <app-select
+            [ngModel]="form.benefitType"
+            (ngModelChange)="onTypeChange($event)"
+            name="benefitType"
+            [options]="benefitTypeSelectOptions"
+            placeholder="Choose a type from the catalogue"
+            emptyText="No benefit types configured yet"
+          ></app-select>
+          <small class="field-help">Manage the catalogue under Settings → Billing → Benefit Types.</small>
+        </label>
 
-    <label class="field">
-      <span class="field-label">Daily limit ({{ scheme?.currencyCode || '—' }})</span>
-      <input type="number" step="any" min="0" [(ngModel)]="form.dailyLimit" name="dailyLimit" placeholder="Leave blank for none" />
-    </label>
+        <label class="field">
+          <span class="field-label">Benefit name <span class="req">*</span></span>
+          <input
+            class="field-control"
+            [(ngModel)]="form.name"
+            name="name"
+            maxlength="200"
+            placeholder="e.g. Out-patient consultation"
+            required
+          />
+        </label>
+      </section>
 
-    <label class="field">
-      <span class="field-label">Per-event limit ({{ scheme?.currencyCode || '—' }})</span>
-      <input type="number" step="any" min="0" [(ngModel)]="form.eventLimit" name="eventLimit" placeholder="Leave blank for none" />
-    </label>
+      <!-- ── Limits ────────────────────────────────────────────────────── -->
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="dollar-sign" [size]="18"></app-icon></span>
+          <h3 class="section-title">Limits</h3>
+        </header>
 
-    <label class="field">
-      <span class="field-label">Waiting period (days)</span>
-      <input type="number" min="0" [(ngModel)]="form.waitingPeriodDays" name="waitingDays" />
-    </label>
+        <label class="field">
+          <span class="field-label">Annual limit <span class="optional">({{ scheme?.currencyCode || '—' }})</span></span>
+          <input
+            class="field-control"
+            type="number"
+            step="any"
+            min="0"
+            [(ngModel)]="form.annualLimit"
+            name="annualLimit"
+            placeholder="Leave blank for none"
+          />
+        </label>
 
-    <label class="field span-2">
-      <span class="field-label">Description (optional)</span>
-      <textarea rows="3" [(ngModel)]="form.description" name="description"></textarea>
-    </label>
+        <label class="field">
+          <span class="field-label">Daily limit <span class="optional">({{ scheme?.currencyCode || '—' }})</span></span>
+          <input
+            class="field-control"
+            type="number"
+            step="any"
+            min="0"
+            [(ngModel)]="form.dailyLimit"
+            name="dailyLimit"
+            placeholder="Leave blank for none"
+          />
+        </label>
 
-    <div class="form-actions span-2">
+        <label class="field">
+          <span class="field-label">Per-event limit <span class="optional">({{ scheme?.currencyCode || '—' }})</span></span>
+          <input
+            class="field-control"
+            type="number"
+            step="any"
+            min="0"
+            [(ngModel)]="form.eventLimit"
+            name="eventLimit"
+            placeholder="Leave blank for none"
+          />
+        </label>
+      </section>
+
+      <!-- ── Waiting period ────────────────────────────────────────────── -->
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="calendar" [size]="18"></app-icon></span>
+          <h3 class="section-title">Waiting period</h3>
+        </header>
+
+        <label class="field">
+          <span class="field-label">Waiting days</span>
+          <input
+            class="field-control"
+            type="number"
+            min="0"
+            [(ngModel)]="form.waitingPeriodDays"
+            name="waitingDays"
+          />
+          <small class="field-help">Number of days a member must wait after joining before this benefit becomes claimable.</small>
+        </label>
+      </section>
+
+      <!-- ── Description (full width) ──────────────────────────────────── -->
+      <section class="form-section form-section--full">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="file-text" [size]="18"></app-icon></span>
+          <h3 class="section-title">Description</h3>
+        </header>
+
+        <label class="field">
+          <span class="field-label">Notes for staff and members <span class="optional">(optional)</span></span>
+          <textarea
+            class="field-control"
+            [(ngModel)]="form.description"
+            name="description"
+            rows="3"
+            placeholder="What this benefit covers, exclusions, anything operations should know…"
+          ></textarea>
+        </label>
+      </section>
+    </div>
+
+    <footer class="form-actions">
       <a class="btn btn-default" [routerLink]="['/tenant/billing/schemes', schemeId, 'benefits']">Cancel</a>
       <button type="submit" class="btn btn-primary" [disabled]="saving || loading">
         {{ saving ? 'Saving…' : (benefitId ? 'Save changes' : 'Add benefit') }}
       </button>
-    </div>
+    </footer>
   </form>
 </div>

@@ -9,6 +9,7 @@ import {
   FinanceService,
 } from '../../../../core/services/finance.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
@@ -16,7 +17,7 @@ import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
 @Component({
   selector: 'app-adjustments-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
   templateUrl: './adjustments-list.component.html',
   styleUrl: './adjustments-list.component.scss',
 })
@@ -39,6 +40,22 @@ export class AdjustmentsListComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
   ) {}
+
+  readonly statusOptions: SelectOption[] = [
+    { value: 'pending', label: 'Pending' },
+    { value: 'approved', label: 'Approved' },
+    { value: 'applied', label: 'Applied' },
+    { value: 'cancelled', label: 'Cancelled' },
+  ];
+
+  readonly typeOptions: SelectOption[] = [
+    { value: '', label: 'All' },
+    { value: 'IN_PAYMENT', label: 'In payment' },
+    { value: 'PAYOUT', label: 'Payout' },
+    { value: 'NON_CASH_IN', label: 'Non-cash in' },
+    { value: 'NON_CASH_OUT', label: 'Non-cash out' },
+    { value: 'TAX_WITHHELD', label: 'Tax withheld' },
+  ];
 
   ngOnInit(): void {
     const data = this.route.snapshot.data;

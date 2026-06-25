@@ -1,0 +1,74 @@
+<div
+  class="select-wrapper"
+  [class.is-open]="open"
+  [class.is-disabled]="disabled"
+  [class.size-sm]="size === 'sm'"
+  tabindex="0"
+>
+  <button
+    type="button"
+    class="select-trigger"
+    [disabled]="disabled"
+    (click)="toggle()"
+    role="combobox"
+    [attr.aria-expanded]="open"
+    [attr.aria-haspopup]="'listbox'"
+  >
+    <span class="select-value" [class.is-placeholder]="!selectedLabel">
+      {{ selectedLabel || placeholder }}
+    </span>
+    <app-icon name="chevron-down" [size]="16" class="select-chevron"></app-icon>
+  </button>
+
+  @if (open) {
+    <div class="select-panel" role="listbox">
+      @if (searchable) {
+        <div class="select-search">
+          <app-icon name="search" [size]="14"></app-icon>
+          <input
+            #searchInput
+            type="text"
+            class="select-search-input"
+            [placeholder]="searchPlaceholder"
+            [(ngModel)]="searchTerm"
+            (click)="$event.stopPropagation()"
+          />
+        </div>
+      }
+
+      <div class="select-options" role="presentation">
+        @for (group of groupedOptions; track group.group) {
+          @if (group.group) {
+            <div class="select-group-label">{{ group.group }}</div>
+          }
+          @for (opt of group.items; track opt.value) {
+            <button
+              type="button"
+              class="select-option"
+              role="option"
+              [attr.aria-selected]="opt.value === value"
+              [class.is-selected]="opt.value === value"
+              [class.is-highlighted]="flatIndex(opt) === highlightedIndex"
+              [class.is-disabled]="opt.disabled"
+              [disabled]="opt.disabled"
+              (click)="select(opt)"
+            >
+              <div class="option-body">
+                <span class="option-label">{{ opt.label }}</span>
+                @if (opt.description) {
+                  <span class="option-description">{{ opt.description }}</span>
+                }
+              </div>
+              @if (opt.value === value) {
+                <app-icon name="check-circle" [size]="14" class="option-check"></app-icon>
+              }
+            </button>
+          }
+        }
+        @if (filteredOptions.length === 0) {
+          <div class="select-empty">{{ emptyText }}</div>
+        }
+      </div>
+    </div>
+  }
+</div>

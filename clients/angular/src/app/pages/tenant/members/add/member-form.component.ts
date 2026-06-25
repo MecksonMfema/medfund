@@ -5,6 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { MembersService } from '../../../../core/services/members.service';
 import { EntityPickerComponent } from '../../../../shared/components/entity-picker/entity-picker.component';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
 
 interface AddMemberForm {
@@ -24,13 +25,19 @@ interface AddMemberForm {
 @Component({
   selector: 'app-member-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, EntityPickerComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, EntityPickerComponent, SelectComponent],
   templateUrl: './member-form.component.html',
   styleUrl: './member-form.component.scss',
 })
 export class MemberFormComponent {
   saving = false;
   errorMessage: string | null = null;
+
+  readonly genderOptions: SelectOption[] = [
+    { value: 'male', label: 'Male' },
+    { value: 'female', label: 'Female' },
+    { value: 'other', label: 'Other' },
+  ];
 
   form: AddMemberForm = {
     firstName: '', lastName: '', dateOfBirth: '',

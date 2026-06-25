@@ -10,13 +10,14 @@ import {
   TariffSchedule,
 } from '../../../../core/services/claims-config.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 
 @Component({
   selector: 'app-tariff-codes-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SkeletonComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe],
   templateUrl: './tariff-codes-list.component.html',
   styleUrl: './tariff-codes-list.component.scss',
 })
@@ -40,6 +41,12 @@ export class TariffCodesListComponent implements OnInit {
     currencyCode: 'USD',
     requiresPreAuth: false,
   };
+
+  readonly currencyOptions: SelectOption[] = [
+    { value: 'USD', label: 'USD' },
+    { value: 'ZWL', label: 'ZWL' },
+    { value: 'ZAR', label: 'ZAR' },
+  ];
 
   constructor(private config: ClaimsConfigService, private route: ActivatedRoute) {}
 

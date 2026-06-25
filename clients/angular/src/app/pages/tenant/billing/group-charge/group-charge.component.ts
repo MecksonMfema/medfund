@@ -8,12 +8,13 @@ import { ContributionsService, GroupOption } from '../../../../core/services/con
 import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
 import { TenantService } from '../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 
 @Component({
   selector: 'app-group-charge',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, CurrencyFormatPipe],
   templateUrl: './group-charge.component.html',
   styleUrl: './group-charge.component.scss',
 })
@@ -34,6 +35,13 @@ export class GroupChargeComponent implements OnInit {
   errorMessage: string | null = null;
 
   private query$ = new Subject<string>();
+
+  get currencyOptions(): SelectOption[] {
+    return this.currencies.map(c => ({
+      value: c.currencyCode,
+      label: `${c.currencyCode}${c.isDefault ? ' (default)' : ''}`,
+    }));
+  }
 
   constructor(
     private balanceService: BalanceService,

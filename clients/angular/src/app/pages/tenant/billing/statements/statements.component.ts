@@ -12,6 +12,7 @@ import {
 import { TenantService } from '../../../../core/services/tenant.service';
 import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
@@ -27,7 +28,7 @@ interface TargetOption {
   standalone: true,
   imports: [
     CommonModule, FormsModule,
-    IconComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe,
+    IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe,
   ],
   templateUrl: './statements.component.html',
   styleUrl: './statements.component.scss',
@@ -53,6 +54,16 @@ export class StatementsComponent implements OnInit {
   errorMessage: string | null = null;
 
   private query$ = new Subject<string>();
+
+  get currencyOptions(): SelectOption[] {
+    return [
+      { value: '', label: 'Auto-detect from contributions' },
+      ...this.currencies.map(c => ({
+        value: c.currencyCode,
+        label: `${c.currencyCode}${c.isDefault ? ' (default)' : ''}`,
+      })),
+    ];
+  }
 
   constructor(
     private tenantService: TenantService,

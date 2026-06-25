@@ -346,7 +346,7 @@ services:
       context: ./clients/angular
     container_name: medfund-web
     ports:
-      - "4200:80"
+      - "5100:80"
     depends_on:
       - gateway
 

@@ -107,12 +107,12 @@
           </label>
           <label class="field span-2">
             <span class="field-label">Currency <span class="muted">(optional)</span></span>
-            <select [(ngModel)]="currencyCode" name="currency">
-              <option [value]="''">Auto-detect from contributions</option>
-              @for (c of currencies; track c.id) {
-                <option [value]="c.currencyCode">{{ c.currencyCode }}{{ c.isDefault ? ' (default)' : '' }}</option>
-              }
-            </select>
+            <app-select
+              [(ngModel)]="currencyCode"
+              name="currency"
+              [options]="currencyOptions"
+              placeholder="Auto-detect from contributions"
+            ></app-select>
           </label>
         </div>
       </section>

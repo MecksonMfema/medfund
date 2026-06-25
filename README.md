@@ -131,7 +131,7 @@ flutter pub get && flutter run
 | Live Dashboard | 4000 |
 | Chat Service | 4001 |
 | AI Service | 8000 |
-| Angular App | 4200 |
+| Angular App | 5100 |
 
 ## Documentation
 

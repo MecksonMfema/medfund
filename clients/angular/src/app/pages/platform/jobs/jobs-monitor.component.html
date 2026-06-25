@@ -41,12 +41,13 @@
       <div class="row-2">
         <label class="field">
           <span class="field-label">Job type *</span>
-          <select [(ngModel)]="newJob.jobType" name="jobType" required>
-            <option [value]="''" disabled>Select type…</option>
-            @for (jt of jobTypes; track jt.type) {
-              <option [value]="jt.type">{{ jt.displayName }}</option>
-            }
-          </select>
+          <app-select
+            [(ngModel)]="newJob.jobType"
+            name="jobType"
+            [options]="jobTypeOptions"
+            placeholder="Select type…"
+            required
+          ></app-select>
         </label>
         <label class="field">
           <span class="field-label">Cron expression *</span>

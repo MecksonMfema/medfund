@@ -13,38 +13,21 @@
 <div class="filter-bar">
   <div class="filter-group">
     <label>Entity Type</label>
-    <select class="input" [(ngModel)]="entityFilter" (ngModelChange)="applyFilters()">
-      <option value="">All Entities</option>
-      <option value="AUTH">Auth / Security</option>
-      <option value="TENANT">Tenant</option>
-      <option value="USER">User</option>
-      <option value="CLAIM">Claim</option>
-      <option value="PAYMENT">Payment</option>
-      <option value="ROLE">Role</option>
-      <option value="SCHEME">Scheme</option>
-    </select>
+    <app-select
+      [(ngModel)]="entityFilter"
+      name="entityFilter"
+      [options]="entityFilterOptions"
+      (ngModelChange)="applyFilters()"
+    ></app-select>
   </div>
   <div class="filter-group">
     <label>Action</label>
-    <select class="input" [(ngModel)]="actionFilter" (ngModelChange)="applyFilters()">
-      <option value="">All Actions</option>
-      <option value="CREATE">Create</option>
-      <option value="UPDATE">Update</option>
-      <option value="DELETE">Delete</option>
-      <optgroup label="Auth Events">
-        <option value="LOGIN">Login</option>
-        <option value="LOGIN_ERROR">Login Failed</option>
-        <option value="LOGOUT">Logout</option>
-        <option value="REGISTER">Register</option>
-        <option value="RESET_PASSWORD">Reset Password</option>
-        <option value="SEND_RESET_PASSWORD">Password Reset Email Sent</option>
-        <option value="UPDATE_PASSWORD">Password Changed</option>
-        <option value="VERIFY_EMAIL">Email Verified</option>
-        <option value="SEND_VERIFY_EMAIL">Verification Email Sent</option>
-        <option value="UPDATE_EMAIL">Email Updated</option>
-        <option value="UPDATE_PROFILE">Profile Updated</option>
-      </optgroup>
-    </select>
+    <app-select
+      [(ngModel)]="actionFilter"
+      name="actionFilter"
+      [options]="actionFilterOptions"
+      (ngModelChange)="applyFilters()"
+    ></app-select>
   </div>
   <div class="filter-group">
     <label>Date From</label>

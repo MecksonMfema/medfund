@@ -18,6 +18,7 @@ import { TenantService } from '../../../../core/services/tenant.service';
 import { GroupsService, Group } from '../../../../core/services/groups.service';
 import { MembersService, Member } from '../../../../core/services/members.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
 
 type TargetType = 'GROUP' | 'INDIVIDUAL';
@@ -31,7 +32,7 @@ interface TargetOption {
 @Component({
   selector: 'app-transaction-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, HumanizePipe],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, HumanizePipe],
   templateUrl: './transaction-form.component.html',
   styleUrl: './transaction-form.component.scss',
 })
@@ -67,6 +68,29 @@ export class TransactionFormComponent implements OnInit {
   };
 
   private query$ = new Subject<string>();
+  private humanize = new HumanizePipe();
+
+  get contributionOptions(): SelectOption[] {
+    return this.contributions.map(c => ({
+      value: c.id,
+      label: `${c.periodStart} → ${c.periodEnd} · ${c.amount} ${c.currencyCode} · ${this.humanize.transform(c.status)}`,
+    }));
+  }
+
+  get currencyOptions(): SelectOption[] {
+    return this.currencies.map(c => ({ value: c.currencyCode, label: c.currencyCode }));
+  }
+
+  get transactionTypeOptions(): SelectOption[] {
+    return this.transactionTypes.map(t => ({ value: t.code, label: `${t.label} (${t.sign})` }));
+  }
+
+  get paymentMethodOptions(): SelectOption[] {
+    return this.paymentMethods.map(p => ({
+      value: p.code,
+      label: `${p.label}${p.requiresReference ? ' (requires reference)' : ''}`,
+    }));
+  }
 
   constructor(
     private catalogue: BillingCatalogueService,

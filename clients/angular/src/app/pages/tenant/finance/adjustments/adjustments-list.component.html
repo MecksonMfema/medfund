@@ -17,24 +17,24 @@
   <div class="filters">
     <label class="field">
       <span class="field-label">Status</span>
-      <select [(ngModel)]="statusFilter" (change)="onStatusChange()" name="status">
-        <option value="pending">Pending</option>
-        <option value="approved">Approved</option>
-        <option value="applied">Applied</option>
-        <option value="cancelled">Cancelled</option>
-      </select>
+      <app-select
+        [(ngModel)]="statusFilter"
+        (ngModelChange)="onStatusChange()"
+        name="status"
+        [options]="statusOptions"
+        size="sm"
+      ></app-select>
     </label>
     @if (!presetType) {
       <label class="field">
         <span class="field-label">Type</span>
-        <select [(ngModel)]="typeFilter" (change)="onFilterChange()" name="type">
-          <option [value]="''">All</option>
-          <option value="IN_PAYMENT">In payment</option>
-          <option value="PAYOUT">Payout</option>
-          <option value="NON_CASH_IN">Non-cash in</option>
-          <option value="NON_CASH_OUT">Non-cash out</option>
-          <option value="TAX_WITHHELD">Tax withheld</option>
-        </select>
+        <app-select
+          [(ngModel)]="typeFilter"
+          (ngModelChange)="onFilterChange()"
+          name="type"
+          [options]="typeOptions"
+          size="sm"
+        ></app-select>
       </label>
     }
     <label class="field grow">

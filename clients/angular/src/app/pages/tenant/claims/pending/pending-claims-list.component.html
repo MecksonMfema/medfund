@@ -18,18 +18,14 @@
     @if (!presetStatus) {
       <label class="field">
         <span class="field-label">Status</span>
-        <select [(ngModel)]="statusFilter" (change)="onStatusChange()" name="status">
-          <option [value]="''">All</option>
-          <option value="SUBMITTED">Submitted</option>
-          <option value="VERIFIED">Verified (ready)</option>
-          <option value="IN_ADJUDICATION">In adjudication</option>
-          <option value="ADJUDICATED">Adjudicated</option>
-          <option value="REJECTED">Rejected</option>
-          <option value="PENDING_INFO">Pending info</option>
-          <option value="COMMITTED">Committed</option>
-          <option value="PAID">Paid</option>
-          <option value="CANCELLED">Cancelled</option>
-        </select>
+        <app-select
+          [(ngModel)]="statusFilter"
+          (selectionChange)="onStatusChange()"
+          name="status"
+          [options]="statusFilterOptions"
+          size="sm"
+          placeholder="All"
+        ></app-select>
       </label>
     }
     <label class="field grow">

@@ -99,20 +99,23 @@
         <div class="form-grid">
           <label class="field">
             <span class="field-label">Scheme *</span>
-            <select [(ngModel)]="form.schemeId" name="schemeId" required>
-              <option [value]="''" disabled>Pick a scheme</option>
-              @for (s of schemes; track s.id) {
-                <option [value]="s.id">{{ s.name }}</option>
-              }
-            </select>
+            <app-select
+              [(ngModel)]="form.schemeId"
+              name="schemeId"
+              required
+              [options]="schemeOptions"
+              placeholder="Pick a scheme"
+            ></app-select>
           </label>
           <label class="field">
             <span class="field-label">Currency *</span>
-            <select [(ngModel)]="form.currencyCode" name="currencyCode" required>
-              @for (c of currencies; track c.id) {
-                <option [value]="c.currencyCode">{{ c.currencyCode }}{{ c.isDefault ? ' (default)' : '' }}</option>
-              }
-            </select>
+            <app-select
+              [(ngModel)]="form.currencyCode"
+              name="currencyCode"
+              required
+              [options]="currencyOptions"
+              placeholder="Pick a currency"
+            ></app-select>
           </label>
           <label class="field">
             <span class="field-label">Service date *</span>

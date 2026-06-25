@@ -7,13 +7,14 @@ import {
   FinanceService,
 } from '../../../../core/services/finance.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 
 @Component({
   selector: 'app-ctc-payments-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SkeletonComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe],
   templateUrl: './ctc-payments-list.component.html',
   styleUrl: './ctc-payments-list.component.scss',
 })
@@ -25,6 +26,12 @@ export class CtcPaymentsListComponent implements OnInit {
   committedFilter: '' | 'true' | 'false' = '';
 
   constructor(private finance: FinanceService, private router: Router) {}
+
+  readonly committedOptions: SelectOption[] = [
+    { value: '', label: 'All' },
+    { value: 'false', label: 'Pending' },
+    { value: 'true', label: 'Committed' },
+  ];
 
   ngOnInit(): void { this.refresh(); }
 

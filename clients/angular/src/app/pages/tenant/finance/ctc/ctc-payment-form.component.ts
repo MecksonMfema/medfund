@@ -9,13 +9,14 @@ import {
 } from '../../../../core/services/finance.service';
 import { EntityPickerComponent } from '../../../../shared/components/entity-picker/entity-picker.component';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 type Target = 'group' | 'member';
 
 @Component({
   selector: 'app-ctc-payment-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, EntityPickerComponent, IconComponent],
+  imports: [CommonModule, FormsModule, EntityPickerComponent, IconComponent, SelectComponent],
   templateUrl: './ctc-payment-form.component.html',
   styleUrl: './ctc-payment-form.component.scss',
 })
@@ -36,6 +37,10 @@ export class CtcPaymentFormComponent implements OnInit {
     private finance: FinanceService,
     private router: Router,
   ) {}
+
+  get currencyOptions(): SelectOption[] {
+    return this.currencies.map(c => ({ value: c.code, label: `${c.code} — ${c.name}` }));
+  }
 
   ngOnInit(): void {
     this.currencyService.listMaster(true).subscribe({

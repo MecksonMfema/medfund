@@ -23,12 +23,13 @@
 
       <label class="field">
         <span class="field-label">Sender</span>
-        <select [(ngModel)]="form.senderId" name="senderId" [disabled]="readOnly">
-          <option [value]="''">— Pick a verified sender —</option>
-          @for (s of senders; track s.id) {
-            <option [value]="s.id">{{ s.address }}{{ s.displayName ? ' (' + s.displayName + ')' : '' }}</option>
-          }
-        </select>
+        <app-select
+          [(ngModel)]="form.senderId"
+          name="senderId"
+          [disabled]="readOnly"
+          [options]="senderOptions"
+          placeholder="— Pick a verified sender —"
+        ></app-select>
         @if (senders.length === 0) {
           <small class="muted">
             No verified senders yet — <a routerLink="/tenant/billing/emails/senders/add">add one</a>.

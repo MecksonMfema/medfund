@@ -25,20 +25,23 @@
   <div class="filters">
     <label class="field">
       <span class="field-label">Currency</span>
-      <select [(ngModel)]="currencyFilter" (change)="onFilterChange()" name="currency">
-        <option [value]="''">All</option>
-        @for (c of uniqueCurrencies(); track c) {
-          <option [value]="c">{{ c }}</option>
-        }
-      </select>
+      <app-select
+        [(ngModel)]="currencyFilter"
+        (ngModelChange)="onFilterChange()"
+        name="currency"
+        [options]="currencyOptions"
+        size="sm"
+      ></app-select>
     </label>
     <label class="field">
       <span class="field-label">Sort by</span>
-      <select [(ngModel)]="sortBy" (change)="onFilterChange()" name="sortBy">
-        <option value="outstanding">Outstanding</option>
-        <option value="paid">Paid</option>
-        <option value="claimed">Claimed</option>
-      </select>
+      <app-select
+        [(ngModel)]="sortBy"
+        (ngModelChange)="onFilterChange()"
+        name="sortBy"
+        [options]="sortByOptions"
+        size="sm"
+      ></app-select>
     </label>
     <label class="field grow">
       <span class="field-label">Search</span>

@@ -43,12 +43,13 @@
         </label>
         <label class="field">
           <span class="field-label">Currency *</span>
-          <select [(ngModel)]="form.currencyCode" name="currencyCode" required>
-            <option [value]="''" disabled>Select currency…</option>
-            @for (c of currencies; track c.code) {
-              <option [value]="c.code">{{ c.code }} — {{ c.name }}</option>
-            }
-          </select>
+          <app-select
+            [(ngModel)]="form.currencyCode"
+            name="currencyCode"
+            [options]="currencyOptions"
+            placeholder="Select currency…"
+            required
+          ></app-select>
         </label>
       </div>
 

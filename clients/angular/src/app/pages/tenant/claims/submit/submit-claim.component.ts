@@ -26,6 +26,7 @@ import {
 import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
 import { TenantService } from '../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 
 interface PickerOption {
@@ -45,7 +46,7 @@ interface LineDraft {
 @Component({
   selector: 'app-submit-claim',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, CurrencyFormatPipe],
   templateUrl: './submit-claim.component.html',
   styleUrl: './submit-claim.component.scss',
 })
@@ -89,6 +90,18 @@ export class SubmitClaimComponent implements OnInit {
 
   private memberQuery$ = new Subject<string>();
   private providerQuery$ = new Subject<string>();
+
+  get schemeOptions(): SelectOption[] {
+    return this.schemes.map(s => ({ value: s.id, label: s.name }));
+  }
+
+  get currencyOptions(): SelectOption[] {
+    return this.currencies.map(c => ({
+      value: c.currencyCode,
+      label: c.currencyCode,
+      description: c.isDefault ? 'Default' : undefined,
+    }));
+  }
 
   constructor(
     private claims: ClaimsService,

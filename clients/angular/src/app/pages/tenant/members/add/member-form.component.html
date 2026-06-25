@@ -32,12 +32,12 @@
 
     <label class="field">
       <span class="field-label">Gender *</span>
-      <select [(ngModel)]="form.gender" name="gender" required>
-        <option value="">Select…</option>
-        <option value="male">Male</option>
-        <option value="female">Female</option>
-        <option value="other">Other</option>
-      </select>
+      <app-select
+        [(ngModel)]="form.gender"
+        name="gender"
+        [options]="genderOptions"
+        placeholder="Select…"
+      ></app-select>
     </label>
 
     <label class="field">

@@ -22,8 +22,8 @@ ADMIN_USER="${KEYCLOAK_ADMIN:-admin}"
 ADMIN_PASS="${KEYCLOAK_ADMIN_PASSWORD:-admin}"
 REALM="medfund-platform"
 CLIENT_ID="medfund-web"
-ANGULAR_URL="http://localhost:4200"
-GATEWAY_URL="http://localhost:3000"
+ANGULAR_URL="${ANGULAR_URL:-http://localhost:5100}"
+GATEWAY_URL="${GATEWAY_URL:-http://localhost:3000}"
 
 echo "=== MedFund Keycloak Bootstrap ==="
 echo "Keycloak URL: $KEYCLOAK_URL"
@@ -109,45 +109,53 @@ curl -s -X PUT "$KEYCLOAK_URL/admin/realms/$REALM" \
   }' > /dev/null
 echo "  ✓ SMTP configured (all emails captured by Mailpit at http://localhost:8026)"
 
-# ── Step 3: Create OIDC client ─────────────────────────────────
-echo "[3/7] Creating OIDC client '$CLIENT_ID'..."
-CLIENT_EXISTS=$(curl -s -H "Authorization: Bearer $TOKEN" \
-  "$KEYCLOAK_URL/admin/realms/$REALM/clients?clientId=$CLIENT_ID" \
-  | $PY -c "import sys,json; d=json.load(sys.stdin); print(len(d))" 2>/dev/null \
-  || echo "0")
+# ── Step 3: Create or update OIDC client ───────────────────────
+# Idempotent on re-run: if the client already exists, PUT the same
+# representation so URL changes (e.g. flipping the web port) actually
+# propagate to redirectUris and webOrigins instead of silently skipping.
+echo "[3/7] Upserting OIDC client '$CLIENT_ID'..."
+CLIENT_PAYLOAD='{
+  "clientId": "'$CLIENT_ID'",
+  "name": "MedFund Web App",
+  "enabled": true,
+  "publicClient": true,
+  "directAccessGrantsEnabled": true,
+  "standardFlowEnabled": true,
+  "implicitFlowEnabled": false,
+  "rootUrl": "'$ANGULAR_URL'",
+  "baseUrl": "'$ANGULAR_URL'",
+  "redirectUris": [
+    "'$ANGULAR_URL'/*",
+    "'$GATEWAY_URL'/*"
+  ],
+  "webOrigins": [
+    "'$ANGULAR_URL'",
+    "'$GATEWAY_URL'",
+    "+"
+  ],
+  "protocol": "openid-connect",
+  "attributes": {
+    "pkce.code.challenge.method": "S256"
+  }
+}'
 
-if [ "$CLIENT_EXISTS" != "0" ]; then
-  echo "  ✓ Client already exists, skipping"
-else
+CLIENT_UUID=$(curl -s -H "Authorization: Bearer $TOKEN" \
+  "$KEYCLOAK_URL/admin/realms/$REALM/clients?clientId=$CLIENT_ID" \
+  | $PY -c "import sys,json; d=json.load(sys.stdin); print(d[0]['id'] if d else '')" 2>/dev/null \
+  || echo "")
+
+if [ -z "$CLIENT_UUID" ]; then
   curl -s -X POST "$KEYCLOAK_URL/admin/realms/$REALM/clients" \
     -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \
-    -d '{
-      "clientId": "'$CLIENT_ID'",
-      "name": "MedFund Web App",
-      "enabled": true,
-      "publicClient": true,
-      "directAccessGrantsEnabled": true,
-      "standardFlowEnabled": true,
-      "implicitFlowEnabled": false,
-      "rootUrl": "'$ANGULAR_URL'",
-      "baseUrl": "'$ANGULAR_URL'",
-      "redirectUris": [
-        "'$ANGULAR_URL'/*",
-        "'$GATEWAY_URL'/*",
-        "http://localhost:3000/*"
-      ],
-      "webOrigins": [
-        "'$ANGULAR_URL'",
-        "'$GATEWAY_URL'",
-        "+"
-      ],
-      "protocol": "openid-connect",
-      "attributes": {
-        "pkce.code.challenge.method": "S256"
-      }
-    }'
-  echo "  ✓ Client created"
+    -d "$CLIENT_PAYLOAD" > /dev/null
+  echo "  ✓ Client created (redirectUris: $ANGULAR_URL/*, $GATEWAY_URL/*)"
+else
+  curl -s -X PUT "$KEYCLOAK_URL/admin/realms/$REALM/clients/$CLIENT_UUID" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$CLIENT_PAYLOAD" > /dev/null
+  echo "  ✓ Client updated (redirectUris: $ANGULAR_URL/*, $GATEWAY_URL/*)"
 fi
 
 # ── Step 4: Create realm roles ─────────────────────────────────

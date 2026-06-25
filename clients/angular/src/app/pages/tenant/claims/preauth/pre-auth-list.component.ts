@@ -7,6 +7,7 @@ import {
   PreAuthService,
 } from '../../../../core/services/pre-auth.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
@@ -14,7 +15,7 @@ import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
 @Component({
   selector: 'app-pre-auth-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
   templateUrl: './pre-auth-list.component.html',
   styleUrl: './pre-auth-list.component.scss',
 })
@@ -24,6 +25,14 @@ export class PreAuthListComponent implements OnInit {
   loading = false;
   errorMessage: string | null = null;
   statusFilter = '';
+
+  readonly statusFilterOptions: SelectOption[] = [
+    { value: '', label: 'All' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'approved', label: 'Approved' },
+    { value: 'rejected', label: 'Rejected' },
+    { value: 'expired', label: 'Expired' },
+  ];
 
   constructor(private service: PreAuthService, private router: Router) {}
 

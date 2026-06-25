@@ -28,10 +28,12 @@ func main() {
 		Format: `{"time":"${time}","status":${status},"method":"${method}","path":"${path}","latency":"${latency}","ip":"${ip}"}` + "\n",
 	}))
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:4200",
+		AllowOrigins:     cfg.WebOrigins,
 		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
 		AllowHeaders:     "Origin,Content-Type,Accept,Authorization,X-Tenant-ID",
+		ExposeHeaders:    "X-Cache,X-Tenant-ID",
 		AllowCredentials: true,
+		MaxAge:           600,
 	}))
 
 	// Kafka publisher for security events (login, logout, failed auth).

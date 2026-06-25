@@ -15,6 +15,7 @@ import {
 } from '../../../../core/services/billing-catalogue.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 type SubSection = 'benefit-types' | 'payment-methods' | 'transaction-types' | 'dunning' | 'cycle';
 
@@ -41,7 +42,7 @@ interface TransactionTypeDraft extends UpsertTransactionTypePayload {
 @Component({
   selector: 'app-tenant-billing-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, SelectComponent],
   templateUrl: './billing-tab.component.html',
   styleUrl: './billing-tab.component.scss',
 })
@@ -83,6 +84,18 @@ export class TenantBillingTabComponent implements OnInit {
     { id: 'transaction-types', label: 'Transaction Types', icon: 'activity' },
     { id: 'dunning',           label: 'Dunning Rules',     icon: 'alert-triangle' },
     { id: 'cycle',             label: 'Billing Cycle',     icon: 'calendar' },
+  ];
+
+  // ── SelectComponent options ─────────────────────────────────────────────
+  readonly transactionSignOptions: SelectOption[] = [
+    { value: '+', label: '+ (debit)' },
+    { value: '-', label: '- (credit)' },
+  ];
+  readonly cycleFrequencyOptions: SelectOption[] = [
+    { value: 'MONTHLY',   label: 'Monthly' },
+    { value: 'QUARTERLY', label: 'Quarterly' },
+    { value: 'ANNUAL',    label: 'Annual' },
+    { value: 'CUSTOM',    label: 'Custom (manual only)' },
   ];
 
   constructor(private svc: BillingCatalogueService) {}

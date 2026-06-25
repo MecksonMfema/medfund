@@ -8,6 +8,7 @@ import {
   ClaimStatus,
 } from '../../../../core/services/claims.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
@@ -15,7 +16,7 @@ import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
 @Component({
   selector: 'app-pending-claims-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
   templateUrl: './pending-claims-list.component.html',
   styleUrl: './pending-claims-list.component.scss',
 })
@@ -36,6 +37,19 @@ export class PendingClaimsListComponent implements OnInit {
   // Filter state
   statusFilter = '';
   searchTerm = '';
+
+  readonly statusFilterOptions: SelectOption[] = [
+    { value: '', label: 'All' },
+    { value: 'SUBMITTED', label: 'Submitted' },
+    { value: 'VERIFIED', label: 'Verified (ready)' },
+    { value: 'IN_ADJUDICATION', label: 'In adjudication' },
+    { value: 'ADJUDICATED', label: 'Adjudicated' },
+    { value: 'REJECTED', label: 'Rejected' },
+    { value: 'PENDING_INFO', label: 'Pending info' },
+    { value: 'COMMITTED', label: 'Committed' },
+    { value: 'PAID', label: 'Paid' },
+    { value: 'CANCELLED', label: 'Cancelled' },
+  ];
 
   constructor(private claims: ClaimsService, private route: ActivatedRoute, private router: Router) {}
 

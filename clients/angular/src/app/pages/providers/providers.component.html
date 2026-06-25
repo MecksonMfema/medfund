@@ -28,18 +28,20 @@
       (ngModelChange)="onSearchChange($event)"
     />
   </div>
-  <select class="filter-select" [(ngModel)]="statusFilter" (ngModelChange)="onFilterChange()">
-    <option value="">All statuses</option>
-    <option value="active">Active</option>
-    <option value="pending_verification">Pending verification</option>
-    <option value="suspended">Suspended</option>
-  </select>
-  <select class="filter-select" [(ngModel)]="typeFilter" (ngModelChange)="onFilterChange()">
-    <option value="">All types</option>
-    @for (t of providerTypes; track t.value) {
-      <option [value]="t.value">{{ t.label }}</option>
-    }
-  </select>
+  <app-select
+    [(ngModel)]="statusFilter"
+    name="statusFilter"
+    [options]="statusFilterOptions"
+    (ngModelChange)="onFilterChange()"
+    size="sm"
+  ></app-select>
+  <app-select
+    [(ngModel)]="typeFilter"
+    name="typeFilter"
+    [options]="typeFilterOptions"
+    (ngModelChange)="onFilterChange()"
+    size="sm"
+  ></app-select>
 </div>
 
 <!-- Table -->
@@ -92,17 +94,13 @@
           </div>
           <div class="form-group" [class.has-error]="fieldError('providerType')">
             <label>Provider Type <span class="required">*</span></label>
-            <select
-              class="input"
+            <app-select
               [(ngModel)]="form.providerType"
-              (blur)="touch('providerType')"
+              name="providerType"
+              [options]="providerTypeSelectOptions"
               (ngModelChange)="touch('providerType')"
-            >
-              <option value="" disabled>Select type…</option>
-              @for (t of providerTypes; track t.value) {
-                <option [value]="t.value">{{ t.label }}</option>
-              }
-            </select>
+              placeholder="Select type…"
+            ></app-select>
             @if (fieldError('providerType')) {
               <span class="field-error">{{ fieldError('providerType') }}</span>
             }

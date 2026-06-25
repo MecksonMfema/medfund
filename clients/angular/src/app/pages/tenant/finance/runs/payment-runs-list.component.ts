@@ -8,6 +8,7 @@ import {
   PaymentRunStatus,
 } from '../../../../core/services/finance.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
@@ -15,7 +16,7 @@ import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
 @Component({
   selector: 'app-payment-runs-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
   templateUrl: './payment-runs-list.component.html',
   styleUrl: './payment-runs-list.component.scss',
 })
@@ -39,6 +40,22 @@ export class PaymentRunsListComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
   ) {}
+
+  readonly statusOptions: SelectOption[] = [
+    { value: '', label: 'All' },
+    { value: 'draft', label: 'Draft' },
+    { value: 'approved', label: 'Approved' },
+    { value: 'executing', label: 'Executing' },
+    { value: 'executed', label: 'Executed' },
+    { value: 'cancelled', label: 'Cancelled' },
+  ];
+
+  get currencyOptions(): SelectOption[] {
+    return [
+      { value: '', label: 'All' },
+      ...this.uniqueCurrencies().map(c => ({ value: c, label: c })),
+    ];
+  }
 
   ngOnInit(): void {
     const data = this.route.snapshot.data;

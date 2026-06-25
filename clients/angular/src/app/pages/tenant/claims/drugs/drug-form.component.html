@@ -22,16 +22,22 @@
 
     <label class="field">
       <span class="field-label">Type</span>
-      <select [(ngModel)]="form.drugType" name="drugType">
-        @for (t of drugTypes; track t) { <option [value]="t">{{ t }}</option> }
-      </select>
+      <app-select
+        [(ngModel)]="form.drugType"
+        name="drugType"
+        [options]="drugTypeOptions"
+        placeholder="Pick a type"
+      ></app-select>
     </label>
 
     <label class="field">
       <span class="field-label">Unit</span>
-      <select [(ngModel)]="form.unitOfMeasurement" name="unitOfMeasurement">
-        @for (u of units; track u) { <option [value]="u">{{ u }}</option> }
-      </select>
+      <app-select
+        [(ngModel)]="form.unitOfMeasurement"
+        name="unitOfMeasurement"
+        [options]="unitOptions"
+        placeholder="Pick a unit"
+      ></app-select>
     </label>
 
     <label class="field">

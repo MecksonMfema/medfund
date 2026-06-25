@@ -13,11 +13,12 @@ import {
   BenefitType,
 } from '../../../../core/services/billing-catalogue.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 @Component({
   selector: 'app-scheme-change-waiting-period-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent],
   templateUrl: './scheme-change-waiting-period-form.component.html',
   styleUrl: './scheme-change-waiting-period-form.component.scss',
 })
@@ -41,6 +42,11 @@ export class SchemeChangeWaitingPeriodFormComponent implements OnInit {
     description: '',
     isActive: true,
   };
+
+  readonly changeTypeOptions: SelectOption[] = [
+    { value: 'UPGRADE', label: 'Upgrade' },
+    { value: 'DOWNGRADE', label: 'Downgrade' },
+  ];
 
   constructor(
     private waitingService: WaitingPeriodService,

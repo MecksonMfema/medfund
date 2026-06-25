@@ -32,12 +32,12 @@
 
     <label class="field">
       <span class="field-label">Category</span>
-      <select [(ngModel)]="form.category" name="category">
-        <option [value]="''">— None —</option>
-        @for (c of categories; track c) {
-          <option [value]="c">{{ c }}</option>
-        }
-      </select>
+      <app-select
+        [(ngModel)]="form.category"
+        name="category"
+        [options]="categoryOptions"
+        placeholder="— None —"
+      ></app-select>
     </label>
 
     <label class="field span-2">

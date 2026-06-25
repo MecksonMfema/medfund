@@ -162,14 +162,14 @@ make web-setup       # npm install
 Start:
 
 ```bash
-make web             # Angular app     → http://localhost:4200
+make web             # Angular app     → http://localhost:5100
 ```
 
 ---
 
 ## Step 4 — Verify Everything Is Running
 
-Open http://localhost:4200 in your browser. The app redirects to Keycloak login. Log in with any test user (e.g., `superadmin` / `admin123`). You should land on the dashboard.
+Open http://localhost:5100 in your browser. The app redirects to Keycloak login. Log in with any test user (e.g., `superadmin` / `admin123`). You should land on the dashboard.
 
 Check individual service health endpoints:
 
@@ -281,7 +281,7 @@ make infra && make keycloak-setup
 | Payment Gateway | 3004 | Go / Fiber |
 | Live Dashboard | 4000 | Elixir / Phoenix |
 | Chat Service | 4001 | Elixir / Phoenix |
-| Angular Web App | 4200 | Angular 19 |
+| Angular Web App | 5100 | Angular 19 |
 | PostgreSQL | 5433 | — |
 | Redis | 6380 | — |
 | Kafka | 9092 | — |

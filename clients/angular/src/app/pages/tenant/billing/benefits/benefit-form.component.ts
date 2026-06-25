@@ -14,6 +14,7 @@ import {
   BenefitType,
 } from '../../../../core/services/billing-catalogue.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 interface BenefitForm {
   name: string;
@@ -28,7 +29,7 @@ interface BenefitForm {
 @Component({
   selector: 'app-benefit-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent],
   templateUrl: './benefit-form.component.html',
   styleUrl: './benefit-form.component.scss',
 })
@@ -103,6 +104,10 @@ export class BenefitFormComponent implements OnInit {
       this.form.name = label;
     }
     this.form.benefitType = label;
+  }
+
+  get benefitTypeSelectOptions(): SelectOption[] {
+    return this.benefitTypes.map(t => ({ value: t.label, label: t.label }));
   }
 
   submit(): void {

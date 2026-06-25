@@ -12,6 +12,7 @@ import {
   WaitingPeriodService,
 } from '../../../../core/services/waiting-period.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
 
@@ -22,7 +23,7 @@ interface WaitingPeriodRow extends WaitingPeriod {
 @Component({
   selector: 'app-waiting-periods-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SkeletonComponent, HumanizePipe],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, SkeletonComponent, HumanizePipe],
   templateUrl: './waiting-periods-list.component.html',
   styleUrl: './waiting-periods-list.component.scss',
 })
@@ -35,6 +36,13 @@ export class WaitingPeriodsListComponent implements OnInit {
   pendingId: string | null = null;
 
   private schemeNames: Record<string, string> = {};
+
+  get schemeOptions(): SelectOption[] {
+    return [
+      { value: '', label: 'All schemes' },
+      ...this.schemes.map(s => ({ value: s.id, label: s.name })),
+    ];
+  }
 
   constructor(
     private waitingService: WaitingPeriodService,

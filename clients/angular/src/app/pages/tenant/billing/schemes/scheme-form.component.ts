@@ -7,6 +7,7 @@ import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services
 import { TenantService } from '../../../../core/services/tenant.service';
 import { SchemeTypeOption, schemeTypesForLines, insuranceLineLabel, lineForSchemeType } from '../../../../core/models/insurance-lines';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
 
 interface SchemeForm {
@@ -21,7 +22,7 @@ interface SchemeForm {
 @Component({
   selector: 'app-scheme-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent],
   templateUrl: './scheme-form.component.html',
   styleUrl: './scheme-form.component.scss',
 })
@@ -69,22 +70,26 @@ export class SchemeFormComponent implements OnInit {
    *  ngOnInit; empty briefly during initial render before tenant resolves. */
   schemeTypes: SchemeTypeOption[] = [];
 
-  /** Friendly label for an insurance-line code — used as the optgroup header. */
-  lineLabel(code: string): string { return insuranceLineLabel(code); }
-
-  /** Distinct insurance lines present in the current scheme-type list, in
-   *  configured order — drives the <optgroup> rendering in the template. */
-  get schemeTypeGroups(): string[] {
-    const seen = new Set<string>();
-    const order: string[] = [];
-    for (const t of this.schemeTypes) {
-      if (!seen.has(t.line)) { seen.add(t.line); order.push(t.line); }
-    }
-    return order;
+  /** SelectOption[] view of the scheme-type catalogue. Groups by insurance
+   *  line when the tenant has more than one line enabled, so a multi-line
+   *  carrier sees section headings ("Health Insurance", "Life Insurance", …)
+   *  in the dropdown instead of one undifferentiated wall of choices. */
+  get schemeTypeSelectOptions(): SelectOption[] {
+    const distinctLines = new Set(this.schemeTypes.map(t => t.line));
+    const multiLine = distinctLines.size > 1;
+    return this.schemeTypes.map(t => ({
+      value: t.code,
+      label: t.label,
+      group: multiLine ? insuranceLineLabel(t.line) : undefined,
+    }));
   }
 
-  schemeTypesForLine(line: string): SchemeTypeOption[] {
-    return this.schemeTypes.filter(t => t.line === line);
+  get currencySelectOptions(): SelectOption[] {
+    return this.allowedCurrencies.map(c => ({
+      value: c.currencyCode,
+      label: c.currencyCode,
+      description: c.isDefault ? 'Default' : undefined,
+    }));
   }
 
   constructor(

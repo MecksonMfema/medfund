@@ -11,11 +11,12 @@ import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../shared/components/skeleton/skeleton.component';
 import { HumanizePipe } from '../../../shared/pipes/humanize.pipe';
 import { TenantPickerComponent } from '../../../shared/components/tenant-picker/tenant-picker.component';
+import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
 
 @Component({
   selector: 'app-jobs-monitor',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, HumanizePipe, TenantPickerComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, HumanizePipe, TenantPickerComponent, SelectComponent],
   templateUrl: './jobs-monitor.component.html',
   styleUrl: './jobs-monitor.component.scss',
 })
@@ -42,6 +43,11 @@ export class JobsMonitorComponent implements OnInit {
   showAddForm = false;
   jobTypes: { type: string; displayName: string; description: string }[] = [];
   newJob = this.blankJob();
+
+  /** Job-type catalogue as SelectOption[] — used by the inline add-job form. */
+  get jobTypeOptions(): SelectOption[] {
+    return this.jobTypes.map(jt => ({ value: jt.type, label: jt.displayName, description: jt.description }));
+  }
 
   constructor(private admin: AdminService) {}
 

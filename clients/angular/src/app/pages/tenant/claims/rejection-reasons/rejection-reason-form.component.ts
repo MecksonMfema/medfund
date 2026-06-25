@@ -8,11 +8,12 @@ import {
   UpsertRejectionReasonPayload,
 } from '../../../../core/services/claims-config.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 @Component({
   selector: 'app-rejection-reason-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent],
   templateUrl: './rejection-reason-form.component.html',
   styleUrl: './rejection-reason-form.component.scss',
 })
@@ -36,6 +37,13 @@ export class RejectionReasonFormComponent implements OnInit {
     category: '',
     isActive: true,
   };
+
+  get categoryOptions(): SelectOption[] {
+    return [
+      { value: '', label: '— None —' },
+      ...this.categories.map(c => ({ value: c, label: c })),
+    ];
+  }
 
   constructor(
     private config: ClaimsConfigService,

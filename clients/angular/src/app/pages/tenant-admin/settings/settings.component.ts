@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { EditorComponent } from '@tinymce/tinymce-angular';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../shared/components/skeleton/skeleton.component';
+import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
 import {
   AdminService,
   Tenant as AdminTenant,
@@ -64,7 +65,7 @@ interface Tab {
 @Component({
   selector: 'app-tenant-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, EditorComponent, TenantRolesTabComponent, TenantCurrenciesTabComponent, TenantBillingTabComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, EditorComponent, TenantRolesTabComponent, TenantCurrenciesTabComponent, TenantBillingTabComponent, SelectComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
 })
@@ -160,6 +161,19 @@ export class TenantSettingsComponent implements OnInit {
   // ── Drug-claims toggle ───────────────────────────────────────────────────
   drugClaimsEnabled = true;
   private originalDrugClaimsEnabled = true;
+
+  // ── SelectComponent options ─────────────────────────────────────────────
+  /** Membership-model picker — blank-leading row preserves the placeholder slot. */
+  get membershipModelSelectOptions(): SelectOption[] {
+    return this.membershipModels.map(m => ({ value: m.value, label: m.label }));
+  }
+  /** Scheme-terminology presets plus a free-form 'Custom…' bucket. */
+  get schemeTerminologySelectOptions(): SelectOption[] {
+    return [
+      ...this.schemeTerminologyPresets.map(p => ({ value: p.id, label: `${p.singular} / ${p.plural}` })),
+      { value: 'custom', label: 'Custom…' },
+    ];
+  }
 
   constructor(
     private adminService: AdminService,

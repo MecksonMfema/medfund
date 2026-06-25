@@ -9,6 +9,7 @@ import { GroupLiaison, GroupLiaisonsService } from '../../../core/services/group
 import { Member, MembersService } from '../../../core/services/members.service';
 import { TenantService } from '../../../core/services/tenant.service';
 import { ToastService } from '../toast/toast.service';
+import { SelectComponent, SelectOption } from '../select/select.component';
 
 export type LiaisonKind = 'MEMBER' | 'STAFF' | 'LIAISON';
 
@@ -67,7 +68,7 @@ const EMPTY_LIAISON: NewLiaisonForm = { firstName: '', lastName: '', email: '', 
 @Component({
   selector: 'app-liaison-picker',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SelectComponent],
   templateUrl: './liaison-picker.component.html',
   styleUrl: './liaison-picker.component.scss',
 })
@@ -100,6 +101,11 @@ export class LiaisonPickerComponent implements OnInit, OnChanges {
     { value: 'finance_officer', label: 'Finance Officer' },
     { value: 'claims_officer',  label: 'Claims Officer' },
   ];
+
+  /** Realm-role picker as SelectOption[] — used by the inline new-staff form. */
+  get staffRoleOptions(): SelectOption[] {
+    return this.STAFF_ROLES.map(r => ({ value: r.value, label: r.label }));
+  }
 
   private query$ = new Subject<string>();
 

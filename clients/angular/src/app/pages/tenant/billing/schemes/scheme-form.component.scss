@@ -204,14 +204,11 @@ textarea.field-control {
   line-height: 1.5;
 }
 
-select.field-control {
-  appearance: none;
-  background-image: linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%),
-                    linear-gradient(135deg, var(--color-text-muted) 50%, transparent 50%);
-  background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%;
-  background-size: 5px 5px;
-  background-repeat: no-repeat;
-  padding-right: 36px;
+// Match the text-input radius to the SelectComponent's trigger so all
+// field controls share one shape on the form card.
+input.field-control,
+textarea.field-control {
+  border-radius: var(--radius-lg);
 }
 
 .field-help {

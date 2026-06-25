@@ -304,39 +304,33 @@
           <div class="filter-controls">
             <div class="filter-group">
               <label>Date range</label>
-              <select class="filter-select"
-                      [value]="dateRangeFilter"
-                      (change)="setDateRange($any($event.target).value)">
-                <option value="all">All Time</option>
-                <option value="thisMonth">This Month</option>
-                <option value="last30">Last 30 Days</option>
-                <option value="last90">Last 90 Days</option>
-                <option value="thisYear">This Year</option>
-              </select>
+              <app-select
+                [ngModel]="dateRangeFilter"
+                (ngModelChange)="setDateRange($event)"
+                name="dateRangeFilter"
+                [options]="dateRangeFilterOptions"
+                size="sm"
+              ></app-select>
             </div>
             <div class="filter-group">
               <label>Recipient</label>
-              <select class="filter-select"
-                      [value]="recipientFilter ?? '__all__'"
-                      (change)="setRecipient($any($event.target).value)">
-                <option value="__all__">All Recipients</option>
-                @for (r of recipientOptions; track r) {
-                  <option [value]="r">{{ r }}</option>
-                }
-              </select>
+              <app-select
+                [ngModel]="recipientFilter ?? '__all__'"
+                (ngModelChange)="setRecipient($event)"
+                name="recipientFilter"
+                [options]="recipientFilterOptions"
+                size="sm"
+              ></app-select>
             </div>
             <div class="filter-group">
               <label>Status</label>
-              <select class="filter-select"
-                      [value]="contribStatusFilter ?? '__all__'"
-                      (change)="setStatusFromSelect($any($event.target).value)">
-                <option value="__all__">All Statuses</option>
-                <option value="paid">Paid</option>
-                <option value="pending">Pending</option>
-                <option value="overdue">Overdue</option>
-                <option value="failed">Failed</option>
-                <option value="refunded">Refunded</option>
-              </select>
+              <app-select
+                [ngModel]="contribStatusFilter ?? '__all__'"
+                (ngModelChange)="setStatusFromSelect($event)"
+                name="contribStatusFilter"
+                [options]="contribStatusFilterOptions"
+                size="sm"
+              ></app-select>
             </div>
           </div>
           <a routerLink="/tenant/billing/schemes" class="download-btn">Open billing →</a>

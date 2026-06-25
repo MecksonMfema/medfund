@@ -6,12 +6,13 @@ import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 import { StatCardComponent } from '../../shared/components/stat-card/stat-card.component';
 import { DataTableComponent, TableAction } from '../../shared/components/data-table/data-table.component';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../shared/components/select/select.component';
 import { ProvidersService, Provider, ProviderQueryParams } from '../../core/services/providers.service';
 
 @Component({
   selector: 'app-providers',
   standalone: true,
-  imports: [CommonModule, FormsModule, StatCardComponent, DataTableComponent, IconComponent],
+  imports: [CommonModule, FormsModule, StatCardComponent, DataTableComponent, IconComponent, SelectComponent],
   templateUrl: './providers.component.html',
   styleUrl: './providers.component.scss',
 })
@@ -86,6 +87,25 @@ export class ProvidersComponent implements OnInit, OnDestroy {
   formTouched: Record<string, boolean> = {};
   serverError = '';
   submitting = false;
+
+  // ── SelectComponent options ─────────────────────────────────────────────
+  readonly statusFilterOptions: SelectOption[] = [
+    { value: '',                     label: 'All statuses' },
+    { value: 'active',               label: 'Active' },
+    { value: 'pending_verification', label: 'Pending verification' },
+    { value: 'suspended',            label: 'Suspended' },
+  ];
+  /** Provider-type catalogue, with a leading "All types" row for the filter chip. */
+  get typeFilterOptions(): SelectOption[] {
+    return [
+      { value: '', label: 'All types' },
+      ...this.providerTypes.map(t => ({ value: t.value, label: t.label })),
+    ];
+  }
+  /** Same catalogue without the All row — used by the register-provider modal. */
+  get providerTypeSelectOptions(): SelectOption[] {
+    return this.providerTypes.map(t => ({ value: t.value, label: t.label }));
+  }
 
   private searchSubject = new Subject<string>();
   private destroy$ = new Subject<void>();

@@ -145,11 +145,11 @@
           </label>
           <label class="field span-2">
             <span class="field-label">Role</span>
-            <select [(ngModel)]="newStaff.realmRole">
-              @for (r of STAFF_ROLES; track r.value) {
-                <option [value]="r.value">{{ r.label }}</option>
-              }
-            </select>
+            <app-select
+              [(ngModel)]="newStaff.realmRole"
+              name="newStaffRealmRole"
+              [options]="staffRoleOptions"
+            ></app-select>
           </label>
         </div>
         <div class="add-form-actions">

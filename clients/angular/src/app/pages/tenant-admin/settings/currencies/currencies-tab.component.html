@@ -76,12 +76,13 @@
     <form class="add-form" (submit)="$event.preventDefault(); add()">
       <label class="field">
         <span class="field-label">Currency</span>
-        <select [(ngModel)]="selectedCode" name="currency" required>
-          <option [ngValue]="null" disabled>Choose a currency</option>
-          @for (c of available; track c.code) {
-            <option [value]="c.code">{{ c.code }} — {{ c.name }} ({{ c.symbol }})</option>
-          }
-        </select>
+        <app-select
+          [(ngModel)]="selectedCode"
+          name="currency"
+          [options]="availableCurrencyOptions"
+          placeholder="Choose a currency"
+          required
+        ></app-select>
       </label>
 
       <fieldset class="scope-flags">
@@ -111,21 +112,23 @@
       <div class="grid">
         <label class="field">
           <span class="field-label">From</span>
-          <select [(ngModel)]="rateBase" name="rateBase" required>
-            <option [value]="''" disabled>Currency</option>
-            @for (c of rows; track c.id) {
-              <option [value]="c.currencyCode">{{ c.currencyCode }}</option>
-            }
-          </select>
+          <app-select
+            [(ngModel)]="rateBase"
+            name="rateBase"
+            [options]="configuredCurrencyOptions"
+            placeholder="Currency"
+            required
+          ></app-select>
         </label>
         <label class="field">
           <span class="field-label">To</span>
-          <select [(ngModel)]="rateQuote" name="rateQuote" required>
-            <option [value]="''" disabled>Currency</option>
-            @for (c of rows; track c.id) {
-              <option [value]="c.currencyCode">{{ c.currencyCode }}</option>
-            }
-          </select>
+          <app-select
+            [(ngModel)]="rateQuote"
+            name="rateQuote"
+            [options]="configuredCurrencyOptions"
+            placeholder="Currency"
+            required
+          ></app-select>
         </label>
         <label class="field">
           <span class="field-label">Rate</span>

@@ -6,6 +6,7 @@ import {
   FinanceService,
   ProviderBalance,
 } from '../../../../core/services/finance.service';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { CurrencyTotal, aggregateByCurrency } from '../../../../shared/utils/currency-totals';
@@ -13,7 +14,7 @@ import { CurrencyTotal, aggregateByCurrency } from '../../../../shared/utils/cur
 @Component({
   selector: 'app-creditors-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, SkeletonComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, SelectComponent, SkeletonComponent, CurrencyFormatPipe],
   templateUrl: './creditors-list.component.html',
   styleUrl: './creditors-list.component.scss',
 })
@@ -28,6 +29,19 @@ export class CreditorsListComponent implements OnInit {
   sortBy: 'outstanding' | 'paid' | 'claimed' = 'outstanding';
 
   constructor(private finance: FinanceService, private router: Router) {}
+
+  readonly sortByOptions: SelectOption[] = [
+    { value: 'outstanding', label: 'Outstanding' },
+    { value: 'paid', label: 'Paid' },
+    { value: 'claimed', label: 'Claimed' },
+  ];
+
+  get currencyOptions(): SelectOption[] {
+    return [
+      { value: '', label: 'All' },
+      ...this.uniqueCurrencies().map(c => ({ value: c, label: c })),
+    ];
+  }
 
   ngOnInit(): void {
     this.refresh();

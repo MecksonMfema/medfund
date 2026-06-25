@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ContributionsService, Scheme, UpsertAgeGroupPayload } from '../../../../core/services/contributions.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
 
 interface AgeGroupForm {
@@ -17,7 +18,7 @@ interface AgeGroupForm {
 @Component({
   selector: 'app-age-group-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent],
   templateUrl: './age-group-form.component.html',
   styleUrl: './age-group-form.component.scss',
 })
@@ -50,6 +51,13 @@ export class AgeGroupFormComponent implements OnInit {
       f.maxAge             !== o.maxAge ||
       f.contributionAmount !== o.contributionAmount
     );
+  }
+
+  get schemeOptions(): SelectOption[] {
+    return this.schemes.map(s => ({
+      value: s.id,
+      label: `${s.name} (${s.currencyCode || '—'})`,
+    }));
   }
 
   constructor(

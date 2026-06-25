@@ -166,12 +166,12 @@
         <app-skeleton variant="card" height="48px"></app-skeleton>
       } @else {
         <div class="add-member-row">
-          <select class="form-input" [(ngModel)]="selectedCandidateId">
-            <option value="">— Select a staff user —</option>
-            @for (u of candidateUsers; track u.id) {
-              <option [value]="u.id">{{ u.firstName }} {{ u.lastName }} &lt;{{ u.email }}&gt;</option>
-            }
-          </select>
+          <app-select
+            [(ngModel)]="selectedCandidateId"
+            name="selectedCandidateId"
+            [options]="candidateUserOptions"
+            placeholder="— Select a staff user —"
+          ></app-select>
           <button class="btn btn-primary" (click)="addMember()"
             [disabled]="!selectedCandidateId || membersSaving">Add</button>
         </div>

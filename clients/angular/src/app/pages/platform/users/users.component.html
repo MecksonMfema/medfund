@@ -89,12 +89,14 @@
   <div class="toolbar">
     <div class="tenant-select-wrap">
       <app-icon name="building" [size]="16"></app-icon>
-      <select class="tenant-select" [(ngModel)]="selectedTenantId" (ngModelChange)="onTenantChange()">
-        <option value="">Select a tenant…</option>
-        @for (t of tenants; track t.id) {
-          <option [value]="t.id">{{ t.name }}</option>
-        }
-      </select>
+      <app-select
+        [(ngModel)]="selectedTenantId"
+        name="selectedTenantId"
+        [options]="tenantOptions"
+        (ngModelChange)="onTenantChange()"
+        placeholder="Select a tenant…"
+        size="sm"
+      ></app-select>
     </div>
     @if (selectedTenantId) {
       <div class="search-box">
@@ -169,10 +171,12 @@
         </div>
         <div class="form-group">
           <label>Platform Role</label>
-          <select class="input" [(ngModel)]="edit.realmRole">
-            <option value="super_admin">Super Admin</option>
-            <option value="tenant_admin">Tenant Admin</option>
-          </select>
+          <app-select
+            [(ngModel)]="edit.realmRole"
+            name="editRealmRole"
+            [options]="platformRoleOptions"
+            placeholder="Select a role…"
+          ></app-select>
         </div>
       </div>
       <div class="modal-footer">
@@ -244,28 +248,25 @@
 
         <div class="form-group" [class.has-error]="inviteFieldError('realmRole')">
           <label>Role <span class="required">*</span></label>
-          <select class="input" [(ngModel)]="invite.realmRole"
-                  (blur)="touchInvite('realmRole')"
-                  (ngModelChange)="onInviteRoleChange()"
-                  [class.input-error]="inviteFieldError('realmRole')">
-            <option value="" disabled>Select a role…</option>
-            <option value="super_admin">Super Admin</option>
-            <option value="tenant_admin">Tenant Admin</option>
-          </select>
+          <app-select
+            [(ngModel)]="invite.realmRole"
+            name="inviteRealmRole"
+            [options]="platformRoleOptions"
+            (ngModelChange)="onInviteRoleChange()"
+            placeholder="Select a role…"
+          ></app-select>
           @if (inviteFieldError('realmRole')) { <span class="field-error">{{ inviteFieldError('realmRole') }}</span> }
         </div>
 
         @if (inviteNeedsTenant) {
           <div class="form-group" [class.has-error]="inviteFieldError('tenantId')">
             <label>Assign to Tenant <span class="required">*</span></label>
-            <select class="input" [(ngModel)]="invite.tenantId"
-                    (blur)="touchInvite('tenantId')"
-                    [class.input-error]="inviteFieldError('tenantId')">
-              <option value="" disabled>Select a tenant…</option>
-              @for (t of tenants; track t.id) {
-                <option [value]="t.id">{{ t.name }}</option>
-              }
-            </select>
+            <app-select
+              [(ngModel)]="invite.tenantId"
+              name="inviteTenantId"
+              [options]="tenantOptions"
+              placeholder="Select a tenant…"
+            ></app-select>
             @if (inviteFieldError('tenantId')) { <span class="field-error">{{ inviteFieldError('tenantId') }}</span> }
             <span class="field-hint">This user will only appear in the selected tenant's portal.</span>
           </div>

@@ -96,12 +96,12 @@
           <div class="form-field">
             <label class="form-label">Membership model</label>
             <p class="color-hint">Whether this tenant enrols individuals, employer groups, or both.</p>
-            <select class="form-input" [(ngModel)]="general.membershipModel">
-              <option value="">— Select —</option>
-              @for (m of membershipModels; track m.value) {
-                <option [value]="m.value">{{ m.label }}</option>
-              }
-            </select>
+            <app-select
+              [(ngModel)]="general.membershipModel"
+              name="membershipModel"
+              [options]="membershipModelSelectOptions"
+              placeholder="— Select —"
+            ></app-select>
           </div>
 
           <div class="form-field">
@@ -344,14 +344,13 @@
           <div class="general-grid">
             <div class="form-field">
               <label class="form-label">Preset</label>
-              <select class="form-input"
+              <app-select
                 [ngModel]="schemeTerminologyId"
-                (ngModelChange)="onSchemeTerminologyPreset($event)">
-                @for (p of schemeTerminologyPresets; track p.id) {
-                  <option [value]="p.id">{{ p.singular }} / {{ p.plural }}</option>
-                }
-                <option value="custom">Custom…</option>
-              </select>
+                (ngModelChange)="onSchemeTerminologyPreset($event)"
+                name="schemeTerminologyId"
+                [options]="schemeTerminologySelectOptions"
+                placeholder="Select a preset…"
+              ></app-select>
             </div>
             <div class="form-field">
               <label class="form-label">Singular</label>

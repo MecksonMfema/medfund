@@ -20,11 +20,13 @@
   <div class="filters">
     <label class="field">
       <span class="field-label">Status</span>
-      <select [(ngModel)]="committedFilter" (change)="refresh()" name="committed">
-        <option [value]="''">All</option>
-        <option value="false">Pending</option>
-        <option value="true">Committed</option>
-      </select>
+      <app-select
+        [(ngModel)]="committedFilter"
+        (ngModelChange)="refresh()"
+        name="committed"
+        [options]="committedOptions"
+        size="sm"
+      ></app-select>
     </label>
   </div>
 

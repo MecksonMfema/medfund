@@ -13,13 +13,14 @@ import { ContributionsService, Scheme } from '../../../../core/services/contribu
 import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
 import { TenantService } from '../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 interface PickerOption { id: string; label: string; sublabel?: string; }
 
 @Component({
   selector: 'app-pre-auth-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent],
   templateUrl: './pre-auth-form.component.html',
   styleUrl: './pre-auth-form.component.scss',
 })
@@ -53,6 +54,18 @@ export class PreAuthFormComponent implements OnInit {
 
   private memberQuery$ = new Subject<string>();
   private providerQuery$ = new Subject<string>();
+
+  get schemeOptions(): SelectOption[] {
+    return this.schemes.map(s => ({ value: s.id, label: s.name }));
+  }
+
+  get currencyOptions(): SelectOption[] {
+    return this.currencies.map(c => ({
+      value: c.currencyCode,
+      label: c.currencyCode,
+      description: c.isDefault ? 'Default' : undefined,
+    }));
+  }
 
   constructor(
     private service: PreAuthService,

@@ -49,11 +49,12 @@
 
     <label class="field">
       <span class="field-label">Currency</span>
-      <select [(ngModel)]="selectedCurrency" name="currency" required>
-        @for (c of currencies; track c.id) {
-          <option [value]="c.currencyCode">{{ c.currencyCode }}{{ c.isDefault ? ' (default)' : '' }}</option>
-        }
-      </select>
+      <app-select
+        [(ngModel)]="selectedCurrency"
+        name="currency"
+        [options]="currencyOptions"
+        placeholder="Pick a currency"
+      ></app-select>
     </label>
 
     <button type="submit" class="btn btn-primary" [disabled]="loading || !selectedGroup">

@@ -2,6 +2,7 @@ import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import {
   Condition,
   ConditionGroup,
@@ -85,7 +86,7 @@ interface EditorFormState {
 @Component({
   selector: 'app-rule-editor',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
   templateUrl: './rule-editor.component.html',
   styleUrl: './rule-editor.component.scss',
 })
@@ -108,6 +109,17 @@ export class RuleEditorComponent implements OnInit {
   serverError = '';
 
   form: EditorFormState = this.blankForm();
+
+  // ── SelectComponent options ─────────────────────────────────────────────
+  get categorySelectOptions(): SelectOption[] {
+    return this.categories.map(c => ({ value: c.id, label: c.label }));
+  }
+  get operatorSelectOptions(): SelectOption[] {
+    return this.operators.map(o => ({ value: o.id, label: o.label }));
+  }
+  get actionTypeSelectOptions(): SelectOption[] {
+    return this.actionTypes.map(a => ({ value: a.id, label: a.label, description: a.description }));
+  }
 
   ngOnInit(): void {
     if (this.mode === 'edit' && this.rule) {

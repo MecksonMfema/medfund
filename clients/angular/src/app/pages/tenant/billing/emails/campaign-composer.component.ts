@@ -14,11 +14,12 @@ import {
   EmailSendersService,
 } from '../../../../core/services/email-senders.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 @Component({
   selector: 'app-campaign-composer',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent],
   templateUrl: './campaign-composer.component.html',
   styleUrl: './campaign-composer.component.scss',
 })
@@ -41,6 +42,13 @@ export class CampaignComposerComponent implements OnInit {
     bodyText: '',
     audienceFilter: '{}',
   };
+
+  get senderOptions(): SelectOption[] {
+    return this.senders.map(s => ({
+      value: s.id,
+      label: `${s.address}${s.displayName ? ' (' + s.displayName + ')' : ''}`,
+    }));
+  }
 
   constructor(
     private campaigns: EmailCampaignsService,

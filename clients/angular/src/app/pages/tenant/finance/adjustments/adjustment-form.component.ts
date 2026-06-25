@@ -10,13 +10,14 @@ import {
 } from '../../../../core/services/finance.service';
 import { EntityPickerComponent } from '../../../../shared/components/entity-picker/entity-picker.component';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 type Target = 'provider' | 'member';
 
 @Component({
   selector: 'app-adjustment-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, EntityPickerComponent, IconComponent],
+  imports: [CommonModule, FormsModule, EntityPickerComponent, IconComponent, SelectComponent],
   templateUrl: './adjustment-form.component.html',
   styleUrl: './adjustment-form.component.scss',
 })
@@ -38,6 +39,18 @@ export class AdjustmentFormComponent implements OnInit {
     private finance: FinanceService,
     private router: Router,
   ) {}
+
+  readonly adjustmentTypeOptions: SelectOption[] = [
+    { value: 'IN_PAYMENT', label: 'In payment' },
+    { value: 'PAYOUT', label: 'Payout' },
+    { value: 'NON_CASH_IN', label: 'Non-cash in' },
+    { value: 'NON_CASH_OUT', label: 'Non-cash out' },
+    { value: 'TAX_WITHHELD', label: 'Tax withheld' },
+  ];
+
+  get currencyOptions(): SelectOption[] {
+    return this.currencies.map(c => ({ value: c.code, label: `${c.code} — ${c.name}` }));
+  }
 
   ngOnInit(): void {
     this.currencyService.listMaster(true).subscribe({

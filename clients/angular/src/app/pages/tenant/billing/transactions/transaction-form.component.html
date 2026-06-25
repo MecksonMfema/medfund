@@ -96,14 +96,12 @@
           } @else if (contributions.length === 0) {
             <p class="muted">No open contributions for this {{ targetType === 'GROUP' ? 'group' : 'member' }}.</p>
           } @else {
-            <select [(ngModel)]="form.contributionId" name="contributionId" required>
-              <option [value]="''" disabled>Pick a contribution</option>
-              @for (c of contributions; track c.id) {
-                <option [value]="c.id">
-                  {{ c.periodStart }} → {{ c.periodEnd }} · {{ c.amount }} {{ c.currencyCode }} · {{ c.status | humanize }}
-                </option>
-              }
-            </select>
+            <app-select
+              [(ngModel)]="form.contributionId"
+              name="contributionId"
+              [options]="contributionOptions"
+              placeholder="Pick a contribution"
+            ></app-select>
           }
         </label>
       }
@@ -121,32 +119,32 @@
 
         <label class="field">
           <span class="field-label">Currency</span>
-          <select [(ngModel)]="form.currencyCode" name="currencyCode" required>
-            <option [value]="''" disabled>Pick a currency</option>
-            @for (c of currencies; track c.id) {
-              <option [value]="c.currencyCode">{{ c.currencyCode }}</option>
-            }
-          </select>
+          <app-select
+            [(ngModel)]="form.currencyCode"
+            name="currencyCode"
+            [options]="currencyOptions"
+            placeholder="Pick a currency"
+          ></app-select>
         </label>
 
         <label class="field">
           <span class="field-label">Transaction type</span>
-          <select [(ngModel)]="form.transactionTypeCode" name="transactionType" required>
-            <option [value]="''" disabled>Pick a type</option>
-            @for (t of transactionTypes; track t.id) {
-              <option [value]="t.code">{{ t.label }} ({{ t.sign }})</option>
-            }
-          </select>
+          <app-select
+            [(ngModel)]="form.transactionTypeCode"
+            name="transactionType"
+            [options]="transactionTypeOptions"
+            placeholder="Pick a type"
+          ></app-select>
         </label>
 
         <label class="field">
           <span class="field-label">Payment method</span>
-          <select [(ngModel)]="form.paymentMethodCode" name="paymentMethod">
-            <option [value]="''">— None —</option>
-            @for (p of paymentMethods; track p.id) {
-              <option [value]="p.code">{{ p.label }}{{ p.requiresReference ? ' (requires reference)' : '' }}</option>
-            }
-          </select>
+          <app-select
+            [(ngModel)]="form.paymentMethodCode"
+            name="paymentMethod"
+            [options]="paymentMethodOptions"
+            placeholder="— None —"
+          ></app-select>
         </label>
 
         <label class="field span-2">

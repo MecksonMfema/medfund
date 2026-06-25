@@ -1,54 +1,244 @@
-.form-page { padding: 1.5rem; }
+// ── Page chrome ──────────────────────────────────────────────────────────
+// Mirrors the scheme-form layout so add/edit forms share one visual shape.
+.benefit-form-page {
+  padding: 24px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  margin: 0 0 4px;
+  font-size: 1.5rem;
+  color: var(--color-text-primary);
+}
+
+.page-sub {
+  margin: 0;
+  color: var(--color-text-muted);
+  max-width: 65ch;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+// ── Banners ──────────────────────────────────────────────────────────────
+.banner {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  border: 1px solid transparent;
+}
+
+.banner-error {
+  background: var(--color-error-light);
+  color: var(--color-error);
+  border-color: rgba(231, 29, 54, 0.25);
+}
+
+// ── Form card ────────────────────────────────────────────────────────────
+.form-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.form-card__heading {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-border-light);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
   flex-wrap: wrap;
 }
 
-.page-header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
-.page-sub { margin: 0; color: var(--text-muted, #6b7280); font-size: 0.9rem; max-width: 65ch; }
+.form-card__title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  position: relative;
+  padding-bottom: 6px;
 
-.banner {
-  padding: 0.5rem 0.75rem;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-bottom: 1rem;
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    width: 40px;
+    height: 2px;
+    background: var(--color-primary);
+    border-radius: 2px;
+  }
 }
 
-.banner-error { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
+.form-card__hint {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
 
-.form-grid {
+// ── Section grid ─────────────────────────────────────────────────────────
+.form-sections {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px 32px;
+  padding: 24px;
 }
 
-.field { display: flex; flex-direction: column; }
-.field-label { font-weight: 500; font-size: 0.875rem; margin-bottom: 0.25rem; }
-.field input,
-.field select,
-.field textarea {
-  padding: 0.5rem;
-  border: 1px solid var(--border, #d1d5db);
-  border-radius: 4px;
-  font-size: 0.95rem;
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
 }
 
-.span-2 { grid-column: span 2; }
-
-.muted {
-  margin-top: 0.25rem;
-  color: var(--text-muted, #6b7280);
-  font-size: 0.8rem;
+.form-section--full {
+  grid-column: 1 / -1;
 }
 
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.section-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+// ── Fields ───────────────────────────────────────────────────────────────
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-label {
+  font-weight: var(--font-weight-medium);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.req {
+  color: var(--color-error);
+  font-weight: var(--font-weight-bold);
+  font-size: 0.9em;
+}
+
+.optional {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+  font-size: 0.85em;
+}
+
+.field-control {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  font-family: var(--font-family);
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &::placeholder { color: var(--color-text-muted); }
+
+  &:hover:not(:disabled) {
+    border-color: var(--color-secondary);
+  }
+
+  &:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-light);
+  }
+
+  &:disabled {
+    background: var(--color-bg);
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+  }
+}
+
+textarea.field-control {
+  resize: vertical;
+  min-height: 88px;
+  line-height: 1.5;
+}
+
+// Match the text-input radius to the SelectComponent's trigger so all
+// field controls share one shape on the form card.
+input.field-control,
+textarea.field-control {
+  border-radius: var(--radius-lg);
+}
+
+.field-help {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+// ── Footer / form actions ────────────────────────────────────────────────
 .form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--color-border-light);
+  background: var(--color-bg);
+}
+
+// ── Responsive ───────────────────────────────────────────────────────────
+@media (max-width: 1024px) {
+  .form-sections {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .form-sections {
+    grid-template-columns: 1fr;
+    padding: 20px;
+    gap: 20px;
+  }
+
+  .form-card__heading,
+  .form-actions {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
 }

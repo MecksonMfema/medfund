@@ -4,8 +4,10 @@ import { RouterLink } from '@angular/router';
 import { LegendPosition } from '@swimlane/ngx-charts';
 import { BehaviorSubject, combineLatest, forkJoin, of, Subscription } from 'rxjs';
 import { catchError, distinctUntilChanged, switchMap } from 'rxjs/operators';
+import { FormsModule } from '@angular/forms';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { HasPermissionDirective } from '../../../shared/directives/has-permission.directive';
+import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
 import { AreaChartComponent } from '../../../shared/components/charts/area-chart/area-chart.component';
 import { PieChartComponent } from '../../../shared/components/charts/pie-chart/pie-chart.component';
 import { DataTableComponent } from '../../../shared/components/data-table/data-table.component';
@@ -92,9 +94,9 @@ interface CurrencyChart {
   selector: 'app-tenant-operational-dashboard',
   standalone: true,
   imports: [
-    CommonModule, RouterLink, IconComponent, HasPermissionDirective,
+    CommonModule, FormsModule, RouterLink, IconComponent, HasPermissionDirective,
     AreaChartComponent, PieChartComponent,
-    DataTableComponent, StatCardComponent,
+    DataTableComponent, StatCardComponent, SelectComponent,
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
@@ -214,6 +216,30 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
       return true;
     });
   }
+
+  // ── SelectComponent options ─────────────────────────────────────────────
+  readonly dateRangeFilterOptions: SelectOption[] = [
+    { value: 'all',       label: 'All Time' },
+    { value: 'thisMonth', label: 'This Month' },
+    { value: 'last30',    label: 'Last 30 Days' },
+    { value: 'last90',    label: 'Last 90 Days' },
+    { value: 'thisYear',  label: 'This Year' },
+  ];
+  /** Recipient names extracted from the loaded contributions, plus an All bucket. */
+  get recipientFilterOptions(): SelectOption[] {
+    return [
+      { value: '__all__', label: 'All Recipients' },
+      ...this.recipientOptions.map(r => ({ value: r, label: r })),
+    ];
+  }
+  readonly contribStatusFilterOptions: SelectOption[] = [
+    { value: '__all__',  label: 'All Statuses' },
+    { value: 'paid',     label: 'Paid' },
+    { value: 'pending',  label: 'Pending' },
+    { value: 'overdue',  label: 'Overdue' },
+    { value: 'failed',   label: 'Failed' },
+    { value: 'refunded', label: 'Refunded' },
+  ];
 
   setContribStatusFilter(s: string | null): void {
     this.contribStatusFilter = this.contribStatusFilter === s ? null : s;

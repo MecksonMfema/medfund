@@ -6,6 +6,7 @@ import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 import { StatCardComponent } from '../../../shared/components/stat-card/stat-card.component';
 import { DataTableComponent, TableAction } from '../../../shared/components/data-table/data-table.component';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
 import { AdminService, StaffUser, Tenant, TenantMember } from '../../../core/services/admin.service';
 
 type Tab = 'staff' | 'members' | 'invitations';
@@ -13,7 +14,7 @@ type Tab = 'staff' | 'members' | 'invitations';
 @Component({
   selector: 'app-users',
   standalone: true,
-  imports: [CommonModule, FormsModule, StatCardComponent, DataTableComponent, IconComponent],
+  imports: [CommonModule, FormsModule, StatCardComponent, DataTableComponent, IconComponent, SelectComponent],
   templateUrl: './users.component.html',
   styleUrl: './users.component.scss',
   // None encapsulation so the modal overlay can escape Angular's style scoping
@@ -150,6 +151,17 @@ export class UsersComponent implements OnInit, OnDestroy {
   private staffSearch$ = new Subject<string>();
   private memberSearch$ = new Subject<string>();
   private destroy$ = new Subject<void>();
+
+  /** Tenant picker options for the Members tab toolbar + Invite modal. */
+  get tenantOptions(): SelectOption[] {
+    return this.tenants.map(t => ({ value: t.id, label: t.name }));
+  }
+
+  /** Platform realm role options shared by the Edit + Invite modals. */
+  readonly platformRoleOptions: SelectOption[] = [
+    { value: 'super_admin',  label: 'Super Admin' },
+    { value: 'tenant_admin', label: 'Tenant Admin' },
+  ];
 
   constructor(private adminService: AdminService) {}
 

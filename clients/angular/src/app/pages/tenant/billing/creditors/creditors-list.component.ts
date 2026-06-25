@@ -7,6 +7,7 @@ import { BalanceService, CreditorRow, PageResponse } from '../../../../core/serv
 import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
 import { TenantService } from '../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
@@ -14,7 +15,7 @@ import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
 @Component({
   selector: 'app-creditors-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
   templateUrl: './creditors-list.component.html',
   styleUrl: './creditors-list.component.scss',
 })
@@ -32,6 +33,13 @@ export class CreditorsListComponent implements OnInit {
   totalPages = 1;
 
   private searchInput$ = new Subject<string>();
+
+  get currencyOptions(): SelectOption[] {
+    return this.currencies.map(c => ({
+      value: c.currencyCode,
+      label: `${c.currencyCode}${c.isDefault ? ' (default)' : ''}`,
+    }));
+  }
 
   constructor(
     private balanceService: BalanceService,

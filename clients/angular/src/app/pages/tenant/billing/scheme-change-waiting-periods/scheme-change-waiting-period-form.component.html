@@ -17,10 +17,12 @@
   <form (submit)="$event.preventDefault(); submit()" class="form-grid">
     <label class="field">
       <span class="field-label">Direction</span>
-      <select [(ngModel)]="form.changeType" name="changeType" required>
-        <option value="UPGRADE">Upgrade</option>
-        <option value="DOWNGRADE">Downgrade</option>
-      </select>
+      <app-select
+        [(ngModel)]="form.changeType"
+        name="changeType"
+        [options]="changeTypeOptions"
+        placeholder="Pick a direction"
+      ></app-select>
     </label>
 
     <label class="field">

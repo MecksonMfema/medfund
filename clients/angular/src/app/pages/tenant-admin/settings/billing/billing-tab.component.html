@@ -157,10 +157,11 @@
                   <td><input [(ngModel)]="transactionDraft.label" name="tt-label-{{t.id}}" required /></td>
                   <td><input [(ngModel)]="transactionDraft.description" name="tt-desc-{{t.id}}" /></td>
                   <td>
-                    <select [(ngModel)]="transactionDraft.sign" name="tt-sign-{{t.id}}">
-                      <option value="+">+ (debit)</option>
-                      <option value="-">- (credit)</option>
-                    </select>
+                    <app-select
+                      [(ngModel)]="transactionDraft.sign"
+                      [options]="transactionSignOptions"
+                      size="sm"
+                    ></app-select>
                   </td>
                   <td><input type="checkbox" [(ngModel)]="transactionDraft.requiresApproval" name="tt-appr-{{t.id}}" /></td>
                   <td><input type="checkbox" [(ngModel)]="transactionDraft.isActive" name="tt-active-{{t.id}}" /></td>
@@ -189,10 +190,12 @@
               <td><input [(ngModel)]="newTransaction.label" name="tt-new-label" placeholder="Label" /></td>
               <td><input [(ngModel)]="newTransaction.description" name="tt-new-desc" /></td>
               <td>
-                <select [(ngModel)]="newTransaction.sign" name="tt-new-sign">
-                  <option value="+">+ (debit)</option>
-                  <option value="-">- (credit)</option>
-                </select>
+                <app-select
+                  [(ngModel)]="newTransaction.sign"
+                  name="tt-new-sign"
+                  [options]="transactionSignOptions"
+                  size="sm"
+                ></app-select>
               </td>
               <td><input type="checkbox" [(ngModel)]="newTransaction.requiresApproval" name="tt-new-appr" /></td>
               <td><input type="checkbox" [(ngModel)]="newTransaction.isActive" name="tt-new-active" /></td>
@@ -257,12 +260,11 @@
         <form class="cfg-form" (submit)="$event.preventDefault(); saveCycle()">
           <label class="field">
             <span class="field-label">Frequency</span>
-            <select [(ngModel)]="cycleDraft.frequency" name="freq">
-              <option value="MONTHLY">Monthly</option>
-              <option value="QUARTERLY">Quarterly</option>
-              <option value="ANNUAL">Annual</option>
-              <option value="CUSTOM">Custom (manual only)</option>
-            </select>
+            <app-select
+              [(ngModel)]="cycleDraft.frequency"
+              name="freq"
+              [options]="cycleFrequencyOptions"
+            ></app-select>
           </label>
           <label class="field">
             <span class="field-label">Day of month</span>

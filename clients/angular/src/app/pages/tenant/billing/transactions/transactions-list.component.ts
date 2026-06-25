@@ -17,6 +17,7 @@ import {
 import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
 import { TenantService } from '../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
@@ -26,7 +27,7 @@ import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
   standalone: true,
   imports: [
     CommonModule, FormsModule, RouterLink,
-    IconComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe,
+    IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe,
   ],
   templateUrl: './transactions-list.component.html',
   styleUrl: './transactions-list.component.scss',
@@ -62,6 +63,30 @@ export class TransactionsListComponent implements OnInit {
   errorMessage: string | null = null;
 
   private searchInput$ = new Subject<string>();
+
+  get currencyOptions(): SelectOption[] {
+    return [
+      { value: '', label: 'Any' },
+      ...this.currencies.map(c => ({
+        value: c.currencyCode,
+        label: `${c.currencyCode}${c.isDefault ? ' (default)' : ''}`,
+      })),
+    ];
+  }
+
+  get typeOptions(): SelectOption[] {
+    return [
+      { value: '', label: 'Any' },
+      ...this.transactionTypes.map(t => ({ value: t.code, label: t.label })),
+    ];
+  }
+
+  get methodOptions(): SelectOption[] {
+    return [
+      { value: '', label: 'Any' },
+      ...this.paymentMethods.map(m => ({ value: m.code, label: m.label })),
+    ];
+  }
 
   constructor(
     private contributions: ContributionsService,

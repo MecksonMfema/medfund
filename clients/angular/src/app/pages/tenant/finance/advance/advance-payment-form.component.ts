@@ -9,13 +9,14 @@ import {
 } from '../../../../core/services/finance.service';
 import { EntityPickerComponent } from '../../../../shared/components/entity-picker/entity-picker.component';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 type Target = 'provider' | 'member';
 
 @Component({
   selector: 'app-advance-payment-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, EntityPickerComponent, IconComponent],
+  imports: [CommonModule, FormsModule, EntityPickerComponent, IconComponent, SelectComponent],
   templateUrl: './advance-payment-form.component.html',
   styleUrl: './advance-payment-form.component.scss',
 })
@@ -38,6 +39,10 @@ export class AdvancePaymentFormComponent implements OnInit {
     private finance: FinanceService,
     private router: Router,
   ) {}
+
+  get currencyOptions(): SelectOption[] {
+    return this.currencies.map(c => ({ value: c.code, label: `${c.code} — ${c.name}` }));
+  }
 
   ngOnInit(): void {
     this.currencyService.listMaster(true).subscribe({

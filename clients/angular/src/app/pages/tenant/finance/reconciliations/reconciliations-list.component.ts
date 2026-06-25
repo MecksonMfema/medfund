@@ -8,6 +8,7 @@ import {
   ReconciliationStatus,
 } from '../../../../core/services/finance.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
@@ -15,7 +16,7 @@ import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
 @Component({
   selector: 'app-reconciliations-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
   templateUrl: './reconciliations-list.component.html',
   styleUrl: './reconciliations-list.component.scss',
 })
@@ -31,6 +32,14 @@ export class ReconciliationsListComponent implements OnInit {
   searchTerm = '';
 
   constructor(private finance: FinanceService, private router: Router) {}
+
+  readonly statusOptions: SelectOption[] = [
+    { value: '', label: 'All' },
+    { value: 'unmatched', label: 'Unmatched' },
+    { value: 'matched', label: 'Matched' },
+    { value: 'investigating', label: 'Investigating' },
+    { value: 'resolved', label: 'Resolved' },
+  ];
 
   ngOnInit(): void {
     this.refresh();

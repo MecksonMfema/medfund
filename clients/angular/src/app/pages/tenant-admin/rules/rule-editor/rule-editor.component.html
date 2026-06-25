@@ -73,11 +73,12 @@
       <div class="form-row three-col">
         <div class="form-field">
           <label>Category *</label>
-          <select class="input" [(ngModel)]="form.category">
-            @for (c of categories; track c.id) {
-              <option [value]="c.id">{{ c.label }}</option>
-            }
-          </select>
+          <app-select
+            [(ngModel)]="form.category"
+            name="category"
+            [options]="categorySelectOptions"
+            placeholder="Select a category…"
+          ></app-select>
         </div>
         <div class="form-field">
           <label>Priority</label>
@@ -111,11 +112,12 @@
                 <input class="input field-input"
                   [(ngModel)]="row.field"
                   placeholder="claim.daysSinceService" />
-                <select class="input op-input" [(ngModel)]="row.operator">
-                  @for (op of operators; track op.id) {
-                    <option [value]="op.id">{{ op.label }}</option>
-                  }
-                </select>
+                <app-select
+                  class="op-input"
+                  [(ngModel)]="row.operator"
+                  [options]="operatorSelectOptions"
+                  size="sm"
+                ></app-select>
                 <input class="input value-input"
                   [(ngModel)]="row.value"
                   placeholder="value" />
@@ -139,11 +141,12 @@
           <div class="form-row two-col">
             <div class="form-field">
               <label>Type *</label>
-              <select class="input" [(ngModel)]="form.actionType">
-                @for (a of actionTypes; track a.id) {
-                  <option [value]="a.id">{{ a.label }}</option>
-                }
-              </select>
+              <app-select
+                [(ngModel)]="form.actionType"
+                name="actionType"
+                [options]="actionTypeSelectOptions"
+                placeholder="Select an action type…"
+              ></app-select>
               <span class="field-hint">
                 @for (a of actionTypes; track a.id) {
                   @if (form.actionType === a.id) {

@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Drug, DrugsService, UpsertDrugPayload } from '../../../../core/services/drugs.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 @Component({
   selector: 'app-drug-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent],
   templateUrl: './drug-form.component.html',
   styleUrl: './drug-form.component.scss',
 })
@@ -20,6 +21,14 @@ export class DrugFormComponent implements OnInit {
 
   readonly drugTypes = ['ACUTE', 'CHRONIC', 'OFF_LIMIT'] as const;
   readonly units = ['unit', 'ml', 'g', 'mg', 'tablet', 'capsule'] as const;
+
+  get drugTypeOptions(): SelectOption[] {
+    return this.drugTypes.map(t => ({ value: t, label: t }));
+  }
+
+  get unitOptions(): SelectOption[] {
+    return this.units.map(u => ({ value: u, label: u }));
+  }
 
   form: UpsertDrugPayload = {
     drugName: '',

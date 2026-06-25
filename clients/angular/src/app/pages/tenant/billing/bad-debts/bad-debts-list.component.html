@@ -16,11 +16,13 @@
   <div class="filters">
     <label class="field">
       <span class="field-label">Currency</span>
-      <select [(ngModel)]="selectedCurrency" (change)="onCurrencyChange()" name="currency">
-        @for (c of currencies; track c.id) {
-          <option [value]="c.currencyCode">{{ c.currencyCode }}{{ c.isDefault ? ' (default)' : '' }}</option>
-        }
-      </select>
+      <app-select
+        [(ngModel)]="selectedCurrency"
+        (selectionChange)="onCurrencyChange()"
+        name="currency"
+        size="sm"
+        [options]="currencyOptions"
+      ></app-select>
     </label>
     <label class="field">
       <span class="field-label">Min age (days)</span>

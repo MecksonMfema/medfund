@@ -5,6 +5,7 @@ import { forkJoin } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { DataTableComponent, TableAction } from '../../../shared/components/data-table/data-table.component';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
 import { AdminService } from '../../../core/services/admin.service';
 import { TenantService } from '../../../core/services/tenant.service';
 
@@ -23,7 +24,7 @@ interface DiffRow {
 @Component({
   selector: 'app-tenant-audit',
   standalone: true,
-  imports: [CommonModule, FormsModule, DataTableComponent, IconComponent],
+  imports: [CommonModule, FormsModule, DataTableComponent, IconComponent, SelectComponent],
   templateUrl: './audit.component.html',
   styleUrl: './audit.component.scss',
 })
@@ -60,6 +61,39 @@ export class TenantAuditComponent implements OnInit {
       visible: (row) => ['CREATE', 'UPDATE', 'DELETE'].includes(row.action),
       handler: (row) => this.openDiff(row),
     },
+  ];
+
+  // ── SelectComponent options ─────────────────────────────────────────────
+  readonly entityFilterOptions: SelectOption[] = [
+    { value: '',          label: 'All Entities' },
+    { value: 'AUTH',      label: 'Auth / Security' },
+    { value: 'USER',      label: 'User' },
+    { value: 'MEMBER',    label: 'Member' },
+    { value: 'DEPENDANT', label: 'Dependant' },
+    { value: 'PROVIDER',  label: 'Provider' },
+    { value: 'CLAIM',     label: 'Claim' },
+    { value: 'SCHEME',    label: 'Scheme' },
+    { value: 'PAYMENT',   label: 'Payment' },
+    { value: 'ROLE',      label: 'Role' },
+    { value: 'RULE',      label: 'Rule' },
+  ];
+  /** Action filter with the Auth Events block grouped for clarity. */
+  readonly actionFilterOptions: SelectOption[] = [
+    { value: '',       label: 'All Actions' },
+    { value: 'CREATE', label: 'Create' },
+    { value: 'UPDATE', label: 'Update' },
+    { value: 'DELETE', label: 'Delete' },
+    { value: 'LOGIN',               label: 'Login',                       group: 'Auth Events' },
+    { value: 'LOGIN_ERROR',         label: 'Login Failed',                group: 'Auth Events' },
+    { value: 'LOGOUT',              label: 'Logout',                      group: 'Auth Events' },
+    { value: 'REGISTER',            label: 'Register',                    group: 'Auth Events' },
+    { value: 'RESET_PASSWORD',      label: 'Reset Password',              group: 'Auth Events' },
+    { value: 'SEND_RESET_PASSWORD', label: 'Password Reset Email Sent',   group: 'Auth Events' },
+    { value: 'UPDATE_PASSWORD',     label: 'Password Changed',            group: 'Auth Events' },
+    { value: 'VERIFY_EMAIL',        label: 'Email Verified',              group: 'Auth Events' },
+    { value: 'SEND_VERIFY_EMAIL',   label: 'Verification Email Sent',     group: 'Auth Events' },
+    { value: 'UPDATE_EMAIL',        label: 'Email Updated',               group: 'Auth Events' },
+    { value: 'UPDATE_PROFILE',      label: 'Profile Updated',             group: 'Auth Events' },
   ];
 
   constructor(

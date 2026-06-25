@@ -8,12 +8,13 @@ import {
   UpsertMascaBankAccountPayload,
 } from '../../../../core/services/finance.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 
 @Component({
   selector: 'app-masca-banks',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, SkeletonComponent],
   templateUrl: './masca-banks.component.html',
   styleUrl: './masca-banks.component.scss',
 })
@@ -30,6 +31,10 @@ export class MascaBanksComponent implements OnInit {
   form: UpsertMascaBankAccountPayload = this.blankForm();
 
   constructor(private finance: FinanceService, private currencyService: CurrencyService) {}
+
+  get currencyOptions(): SelectOption[] {
+    return this.currencies.map(c => ({ value: c.code, label: `${c.code} — ${c.name}` }));
+  }
 
   ngOnInit(): void {
     this.refresh();

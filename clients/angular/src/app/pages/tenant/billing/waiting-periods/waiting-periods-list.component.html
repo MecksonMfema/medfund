@@ -17,12 +17,14 @@
   <div class="filters">
     <label class="field">
       <span class="field-label">Scheme</span>
-      <select [(ngModel)]="selectedSchemeId" (change)="onSchemeChange()" name="scheme">
-        <option [value]="''">All schemes</option>
-        @for (s of schemes; track s.id) {
-          <option [value]="s.id">{{ s.name }}</option>
-        }
-      </select>
+      <app-select
+        [(ngModel)]="selectedSchemeId"
+        (selectionChange)="onSchemeChange()"
+        name="scheme"
+        size="sm"
+        [options]="schemeOptions"
+        placeholder="All schemes"
+      ></app-select>
     </label>
   </div>
 

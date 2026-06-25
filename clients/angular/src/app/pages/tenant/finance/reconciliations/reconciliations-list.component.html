@@ -20,13 +20,13 @@
   <div class="filters">
     <label class="field">
       <span class="field-label">Status</span>
-      <select [(ngModel)]="statusFilter" (change)="onStatusChange()" name="status">
-        <option [value]="''">All</option>
-        <option value="unmatched">Unmatched</option>
-        <option value="matched">Matched</option>
-        <option value="investigating">Investigating</option>
-        <option value="resolved">Resolved</option>
-      </select>
+      <app-select
+        [(ngModel)]="statusFilter"
+        (ngModelChange)="onStatusChange()"
+        name="status"
+        [options]="statusOptions"
+        size="sm"
+      ></app-select>
     </label>
     <label class="field grow">
       <span class="field-label">Search</span>

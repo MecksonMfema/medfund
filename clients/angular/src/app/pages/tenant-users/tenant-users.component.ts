@@ -9,6 +9,7 @@ import { TenantService } from '../../core/services/tenant.service';
 import { DataTableComponent, TableAction } from '../../shared/components/data-table/data-table.component';
 import { StatCardComponent } from '../../shared/components/stat-card/stat-card.component';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../shared/components/select/select.component';
 
 type ActiveTab = 'staff' | 'members';
 
@@ -17,7 +18,7 @@ const PAGE_SIZE = 20;
 @Component({
   selector: 'app-tenant-users',
   standalone: true,
-  imports: [CommonModule, FormsModule, DataTableComponent, StatCardComponent, IconComponent],
+  imports: [CommonModule, FormsModule, DataTableComponent, StatCardComponent, IconComponent, SelectComponent],
   templateUrl: './tenant-users.component.html',
   styleUrl: './tenant-users.component.scss',
 })
@@ -184,6 +185,25 @@ export class TenantUsersComponent implements OnInit, OnDestroy {
   };
   editMemberErrors: Record<string, string> = {};
   editMemberSubmitting = false;
+
+  // ── SelectComponent options ─────────────────────────────────────────────
+  /** Member-status filter — already shaped as {value,label}, just retype it. */
+  get memberStatusSelectOptions(): SelectOption[] {
+    return this.memberStatusOptions.map(o => ({ value: o.value, label: o.label }));
+  }
+  /** Tenant-defined role catalogue lifted into SelectOption[]. Add-staff modal. */
+  get availableRoleOptions(): SelectOption[] {
+    return this.availableRoles.map(r => ({ value: r.value, label: r.label }));
+  }
+  /** Same roles, plus an optional legacy entry — Edit-staff modal. */
+  get editStaffRoleSelectOptions(): SelectOption[] {
+    return this.editStaffRoleOptions.map(r => ({ value: r.value, label: r.label }));
+  }
+  readonly genderOptions: SelectOption[] = [
+    { value: 'male',   label: 'Male' },
+    { value: 'female', label: 'Female' },
+    { value: 'other',  label: 'Other' },
+  ];
 
   private destroy$ = new Subject<void>();
 

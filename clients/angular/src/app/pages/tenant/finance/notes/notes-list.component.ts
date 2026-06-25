@@ -9,6 +9,7 @@ import {
   FinanceService,
 } from '../../../../core/services/finance.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 
@@ -17,7 +18,7 @@ type Mode = 'debit' | 'credit';
 @Component({
   selector: 'app-notes-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe],
   templateUrl: './notes-list.component.html',
   styleUrl: './notes-list.component.scss',
 })
@@ -38,6 +39,10 @@ export class NotesListComponent implements OnInit {
     private currencyService: CurrencyService,
     private route: ActivatedRoute,
   ) {}
+
+  get currencyOptions(): SelectOption[] {
+    return this.currencies.map(c => ({ value: c.code, label: `${c.code} — ${c.name}` }));
+  }
 
   ngOnInit(): void {
     this.mode = (this.route.snapshot.data['mode'] as Mode) || 'debit';

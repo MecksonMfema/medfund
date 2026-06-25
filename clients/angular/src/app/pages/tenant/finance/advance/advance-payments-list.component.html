@@ -20,11 +20,13 @@
   <div class="filters">
     <label class="field">
       <span class="field-label">Payee type</span>
-      <select [(ngModel)]="payeeFilter" (change)="onFilterChange()" name="payee">
-        <option [value]="''">All</option>
-        <option value="provider">Providers</option>
-        <option value="member">Members</option>
-      </select>
+      <app-select
+        [(ngModel)]="payeeFilter"
+        (ngModelChange)="onFilterChange()"
+        name="payee"
+        [options]="payeeOptions"
+        size="sm"
+      ></app-select>
     </label>
     <label class="field grow">
       <span class="field-label">Search</span>
