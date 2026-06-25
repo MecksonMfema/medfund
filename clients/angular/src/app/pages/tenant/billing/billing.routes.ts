@@ -128,7 +128,7 @@ export const BILLING_ROUTES: Routes = [
     path: 'generate',
     canActivate: [permissionGuard(['billing:generate_billing'])],
     loadComponent: () => import('./generate/generate-billing-wizard.component').then(m => m.GenerateBillingWizardComponent),
-    data: { title: 'Generate Billing', sidebar: 'operational' },
+    data: { title: 'Generate Billing', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'view',

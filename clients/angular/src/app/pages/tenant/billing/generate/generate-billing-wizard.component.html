@@ -1,49 +1,109 @@
-<div class="wizard-page">
-  <header class="page-header">
-    <div>
-      <h1>Generate billing</h1>
-      <p class="page-sub">Pick the period, preview the contributions that would be created, and commit when you're satisfied. Every active scheme is billed. The cooldown configured in Settings → Billing prevents accidental double commits.</p>
-    </div>
-    <a class="btn btn-default" routerLink="/tenant/billing/view">
-      <app-icon name="list" [size]="14"></app-icon>
-      View contributions
-    </a>
-  </header>
+<header class="page-header">
+  <div>
+    <h1>Generate billing</h1>
+    <p class="page-sub">Pick the period, preview the contributions that would be created, and commit when you're satisfied. Every active scheme is billed. The cooldown configured in Settings → Billing prevents accidental double commits.</p>
+  </div>
+  <a class="btn btn-default" routerLink="/tenant/billing/view">
+    <app-icon name="list" [size]="14"></app-icon>
+    View contributions
+  </a>
+</header>
 
+<nav class="wizard-tabs" role="tablist" aria-label="Billing run steps">
+  <button
+    type="button"
+    role="tab"
+    class="wizard-tab"
+    [class.is-active]="step === 'filters'"
+    [attr.aria-selected]="step === 'filters'"
+    (click)="goToStep('filters')"
+  >
+    <span class="wizard-tab__index">1</span>
+    <span class="wizard-tab__label">Filters</span>
+  </button>
+  <button
+    type="button"
+    role="tab"
+    class="wizard-tab"
+    [class.is-active]="step === 'preview'"
+    [class.is-disabled]="!isStepAvailable('preview')"
+    [disabled]="!isStepAvailable('preview')"
+    [attr.aria-selected]="step === 'preview'"
+    (click)="goToStep('preview')"
+  >
+    <span class="wizard-tab__index">2</span>
+    <span class="wizard-tab__label">Preview</span>
+  </button>
+  <button
+    type="button"
+    role="tab"
+    class="wizard-tab"
+    [class.is-active]="step === 'committed'"
+    [class.is-disabled]="!isStepAvailable('committed')"
+    [disabled]="!isStepAvailable('committed')"
+    [attr.aria-selected]="step === 'committed'"
+    (click)="goToStep('committed')"
+  >
+    <span class="wizard-tab__index">3</span>
+    <span class="wizard-tab__label">Commit</span>
+  </button>
+</nav>
+
+<div class="wizard-body">
   @if (errorMessage) {
     <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
   }
 
-  <ol class="wizard-steps">
-    <li [class.active]="step === 'filters'">1. Filters</li>
-    <li [class.active]="step === 'preview'">2. Preview</li>
-    <li [class.active]="step === 'committed'">3. Commit</li>
-  </ol>
-
-  <!-- ── Step 1: Filters ────────────────────────────────────────────── -->
+  <!-- ── Step 1: Filters ──────────────────────────────────────────────── -->
   @if (step === 'filters') {
-    <section class="card">
-      <h2 class="card-title">Period</h2>
-      <div class="row">
+    @if (isRetrospect) {
+      <div class="banner banner-warning">
+        <strong>Retrospective run for {{ billingMonthLabel }}.</strong>
+        Only clients and groups who were already members during that month will be billed —
+        anyone enrolled after {{ billingMonthLabel }} is skipped automatically.
+      </div>
+    }
+
+    <section class="form-card">
+      <div class="form-card__heading">
+        <h2 class="form-card__title">Billing month</h2>
+        <span class="form-card__hint">
+          One invoice per group or individual per month. Defaults to next month
+          ({{ maxBillingMonthLabel }}), that's the latest a run can target.
+        </span>
+      </div>
+
+      <div class="form-sections form-sections--one">
         <label class="field">
-          <span class="field-label">Period start</span>
-          <input type="date" [(ngModel)]="periodStart" name="periodStart" required />
-        </label>
-        <label class="field">
-          <span class="field-label">Period end</span>
-          <input type="date" [(ngModel)]="periodEnd" name="periodEnd" required />
+          <span class="field-label">
+            Billing for
+            <span class="req">*</span>
+          </span>
+          <input
+            class="field-control field-control--month"
+            type="month"
+            [(ngModel)]="billingMonth"
+            name="billingMonth"
+            [max]="maxBillingMonth"
+            required
+          />
+          <small class="field-help">
+            Forward: max is next month ({{ maxBillingMonthLabel }}).
+            Retrospect: any earlier month is allowed; entities that already have an invoice for the
+            chosen month will be skipped.
+          </small>
         </label>
       </div>
-    </section>
 
-    <div class="form-actions">
-      <button class="btn btn-primary" (click)="runPreview()" [disabled]="loading">
-        {{ loading ? 'Computing preview… (' + elapsedSeconds + 's)' : 'Preview' }}
-      </button>
-    </div>
+      <footer class="form-actions">
+        <button class="btn btn-primary" (click)="runPreview()" [disabled]="loading || !billingMonth">
+          {{ loading ? 'Computing preview… (' + elapsedSeconds + 's)' : 'Preview ' + billingMonthLabel }}
+        </button>
+      </footer>
+    </section>
   }
 
-  <!-- ── Step 2: Preview ─────────────────────────────────────────────── -->
+  <!-- ── Step 2: Preview ──────────────────────────────────────────────── -->
   @if (step === 'preview' && preview) {
     @if (preview.cooldownActive) {
       <div class="banner banner-warning">
@@ -51,106 +111,114 @@
       </div>
     }
 
-    <section class="card">
-      <header class="card-header">
-        <h2 class="card-title">Preview</h2>
-        <button class="btn btn-default" (click)="backToFilters()">
+    <section class="form-card">
+      <div class="form-card__heading">
+        <h2 class="form-card__title">Preview · {{ billingMonthLabel }}</h2>
+        <button class="btn btn-default btn-sm" (click)="backToFilters()">
           <app-icon name="arrow-left" [size]="14"></app-icon>
-          Edit filters
+          Edit month
         </button>
-      </header>
+      </div>
 
-      @if (membershipBanner(preview.membershipModel); as banner) {
-        <div class="model-banner">{{ banner }}</div>
-      }
+      <div class="form-card__body">
+        @if (membershipBanner(preview.membershipModel); as banner) {
+          <div class="model-banner">{{ banner }}</div>
+        }
 
-      <div class="preview-summary">
-        <div class="stat">
-          <span class="stat-label">Contribution rows</span>
-          <span class="stat-value">{{ preview.totalRows }}</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Group invoices</span>
-          <span class="stat-value">{{ preview.groupInvoicesProjected }}</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Individual invoices</span>
-          <span class="stat-value">{{ preview.individualInvoicesProjected }}</span>
-        </div>
-        @for (code of totalsKeys(preview.totalsByCurrency); track code) {
+        <div class="preview-summary">
           <div class="stat">
-            <span class="stat-label">Total ({{ code }})</span>
-            <span class="stat-value">{{ preview.totalsByCurrency[code] | currencyFormat:code }}</span>
+            <span class="stat-label">Contribution rows</span>
+            <span class="stat-value">{{ preview.totalRows }}</span>
           </div>
+          <div class="stat">
+            <span class="stat-label">Group invoices</span>
+            <span class="stat-value">{{ preview.groupInvoicesProjected }}</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Individual invoices</span>
+            <span class="stat-value">{{ preview.individualInvoicesProjected }}</span>
+          </div>
+          @for (code of totalsKeys(preview.totalsByCurrency); track code) {
+            <div class="stat">
+              <span class="stat-label">Total ({{ code }})</span>
+              <span class="stat-value">{{ preview.totalsByCurrency[code] | currencyFormat:code }}</span>
+            </div>
+          }
+        </div>
+
+        @if (preview.sample.length > 0) {
+          <h3 class="card-sub-title">Sample rows ({{ preview.sample.length }} of {{ preview.totalRows }})</h3>
+          <table class="sample-table">
+            <thead>
+              <tr><th>Member</th><th>Scheme</th><th class="right">Amount</th></tr>
+            </thead>
+            <tbody>
+              @for (row of preview.sample; track row.memberId) {
+                <tr>
+                  <td>{{ row.memberNumber }}</td>
+                  <td>{{ row.schemeName }}</td>
+                  <td class="right">{{ row.amount | currencyFormat:row.currencyCode }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        } @else {
+          <p class="empty-state">No members matched these filters.</p>
         }
       </div>
 
-      @if (preview.sample.length > 0) {
-        <h3 class="card-sub-title">Sample rows ({{ preview.sample.length }} of {{ preview.totalRows }})</h3>
-        <table class="data-table">
-          <thead>
-            <tr><th>Member</th><th>Scheme</th><th>Amount</th></tr>
-          </thead>
-          <tbody>
-            @for (row of preview.sample; track row.memberId) {
-              <tr>
-                <td>{{ row.memberNumber }}</td>
-                <td>{{ row.schemeName }}</td>
-                <td>{{ row.amount | currencyFormat:row.currencyCode }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      } @else {
-        <p class="empty-state">No members matched these filters.</p>
-      }
+      <footer class="form-actions">
+        <button class="btn btn-primary" (click)="commit()"
+                [disabled]="saving || preview.totalRows === 0 || preview.cooldownActive">
+          {{ saving ? 'Committing… (' + elapsedSeconds + 's)' : 'Commit ' + preview.totalRows + ' contributions' }}
+        </button>
+      </footer>
     </section>
-
-    <div class="form-actions">
-      <button class="btn btn-primary" (click)="commit()"
-              [disabled]="saving || preview.totalRows === 0 || preview.cooldownActive">
-        {{ saving ? 'Committing… (' + elapsedSeconds + 's)' : 'Commit ' + preview.totalRows + ' contributions' }}
-      </button>
-    </div>
   }
 
-  <!-- ── Step 3: Committed ──────────────────────────────────────────── -->
+  <!-- ── Step 3: Committed ────────────────────────────────────────────── -->
   @if (step === 'committed') {
-    <section class="card success">
-      <h2 class="card-title">
-        <app-icon name="check-circle" [size]="20"></app-icon>
-        Billing committed
-      </h2>
-      <p class="card-sub">{{ committedCount }} contributions rolled up into {{ committedGroupInvoices + committedIndividualInvoices }} invoices at {{ committedAt | date:'medium' }}.</p>
-
-      @if (membershipBanner(committedMembershipModel); as banner) {
-        <div class="model-banner">{{ banner }}</div>
-      }
-
-      <div class="preview-summary">
-        <div class="stat">
-          <span class="stat-label">Group invoices</span>
-          <span class="stat-value">{{ committedGroupInvoices }}</span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Individual invoices</span>
-          <span class="stat-value">{{ committedIndividualInvoices }}</span>
-        </div>
-        @for (code of totalsKeys(committedTotals); track code) {
-          <div class="stat">
-            <span class="stat-label">Total ({{ code }})</span>
-            <span class="stat-value">{{ committedTotals[code] | currencyFormat:code }}</span>
-          </div>
-        }
+    <section class="form-card success-card">
+      <div class="form-card__heading">
+        <h2 class="form-card__title">
+          <app-icon name="check-circle" [size]="20"></app-icon>
+          Billing committed
+        </h2>
+        <span class="form-card__hint">{{ committedAt | date:'medium' }}</span>
       </div>
 
-      <div class="form-actions">
+      <div class="form-card__body">
+        <p class="card-sub">{{ committedCount }} contributions rolled up into {{ committedGroupInvoices + committedIndividualInvoices }} invoices.</p>
+
+        @if (membershipBanner(committedMembershipModel); as banner) {
+          <div class="model-banner">{{ banner }}</div>
+        }
+
+        <div class="preview-summary">
+          <div class="stat">
+            <span class="stat-label">Group invoices</span>
+            <span class="stat-value">{{ committedGroupInvoices }}</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Individual invoices</span>
+            <span class="stat-value">{{ committedIndividualInvoices }}</span>
+          </div>
+          @for (code of totalsKeys(committedTotals); track code) {
+            <div class="stat">
+              <span class="stat-label">Total ({{ code }})</span>
+              <span class="stat-value">{{ committedTotals[code] | currencyFormat:code }}</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <footer class="form-actions">
         <button class="btn btn-default" (click)="startAnother()">Run another</button>
         <a class="btn btn-primary" routerLink="/tenant/billing/view">
           View contributions
           <app-icon name="arrow-right" [size]="14"></app-icon>
         </a>
-      </div>
+      </footer>
     </section>
   }
 </div>

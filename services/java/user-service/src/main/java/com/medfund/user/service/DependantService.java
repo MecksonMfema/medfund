@@ -28,6 +28,8 @@ public class DependantService {
     private final DependantRepository dependantRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
+    private final MemberSchemeLookup memberSchemeLookup;
+    private final AgeGroupResolver ageGroupResolver;
 
     public Flux<Dependant> findByMemberId(UUID memberId) {
         return dependantRepository.findByMemberId(memberId);
@@ -55,7 +57,19 @@ public class DependantService {
         dependant.setCreatedBy(UUID.fromString(actorId));
         dependant.setUpdatedBy(UUID.fromString(actorId));
 
-        return r2dbcTemplate.insert(dependant)
+        // Stamp the canonical age bucket on the dependant by joining
+        // through the parent member's scheme. Same data-gap semantics as
+        // for members — if no band covers their age, ageGroupId stays
+        // null and surfaces later as a billing issue rather than being
+        // silently coerced to the youngest/oldest bucket.
+        Mono<Void> stampAgeGroup = memberSchemeLookup.schemeIdOf(dependant.getMemberId())
+                .flatMap(schemeId -> ageGroupResolver.resolveForSchemeAndDob(
+                        schemeId, dependant.getDateOfBirth()))
+                .doOnNext(dependant::setAgeGroupId)
+                .then();
+
+        return stampAgeGroup
+            .then(r2dbcTemplate.insert(dependant))
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
                 var event = AuditEvent.create(

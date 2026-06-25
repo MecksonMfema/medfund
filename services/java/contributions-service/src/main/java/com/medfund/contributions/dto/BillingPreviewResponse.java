@@ -29,12 +29,26 @@ public record BillingPreviewResponse(
         /** Tenant's current membership model (INDIVIDUAL_ONLY / GROUP_ONLY / BOTH). */
         String membershipModel
 ) {
+    /**
+     * One row per insured PERSON the run would bill. The member's own line
+     * has {@code dependantId == null} and {@code personType = "MEMBER"};
+     * a dependant's line has both the parent {@code memberId} (for invoice
+     * grouping) AND its own {@code dependantId}, with
+     * {@code personType = "DEPENDANT"}.
+     */
     public record SampleRow(
             UUID memberId,
+            UUID dependantId,
             String memberNumber,
+            /** Display name — member's name on the member's line, dependant's name on the dependant's line. */
+            String personName,
+            /** "MEMBER" or "DEPENDANT". */
+            String personType,
             UUID schemeId,
             String schemeName,
             UUID groupId,
+            /** Friendly band label (e.g. "Adult", "Senior") — null when no band matched. */
+            String ageBand,
             BigDecimal amount,
             String currencyCode
     ) {}

@@ -287,7 +287,7 @@ public class BillingService {
      * tenant pricing rules, and returns counts/totals. No persistence.
      */
     public Mono<BillingPreviewResponse> previewBilling(PreviewBillingRequest req) {
-        return resolveCandidates(req.groupIds(), req.memberIds())
+        return resolveCandidates(req.groupIds(), req.memberIds(), req.periodStart())
                 .flatMap(candidate -> applyPricing(candidate, req.periodStart(), req.periodEnd()))
                 .collectList()
                 .zipWith(billingCycleConfigRepository.findById(BillingCycleConfig.SINGLETON_ID)
@@ -303,8 +303,11 @@ public class BillingService {
                     for (int i = 0; i < Math.min(rows.size(), SAMPLE_LIMIT); i++) {
                         PricedCandidate r = rows.get(i);
                         sample.add(new BillingPreviewResponse.SampleRow(
-                                r.memberId(), r.memberNumber(), r.schemeId(), r.schemeName(),
-                                r.groupId(), r.amount(), r.currencyCode()));
+                                r.memberId(), r.dependantId(), r.memberNumber(),
+                                r.personName(), r.personType(),
+                                r.schemeId(), r.schemeName(),
+                                r.groupId(), r.ageBandName(),
+                                r.amount(), r.currencyCode()));
                     }
                     int remainingMinutes = cooldownRemainingMinutes(cfg);
                     return Mono.deferContextual(ctx -> {
@@ -344,7 +347,7 @@ public class BillingService {
         UUID actorUuid = parseUuid(actorId);
         Instant now = Instant.now();
 
-        return resolveCandidates(req.groupIds(), req.memberIds())
+        return resolveCandidates(req.groupIds(), req.memberIds(), req.periodStart())
                 .flatMap(candidate -> applyPricing(candidate, req.periodStart(), req.periodEnd())
                         .flatMap(priced -> persistContribution(priced, req, actorUuid, now)))
                 .collectList()
@@ -520,10 +523,12 @@ public class BillingService {
                                                    UUID actorUuid, Instant now) {
         Contribution c = new Contribution();
         c.setMemberId(priced.memberId());
+        c.setDependantId(priced.dependantId()); // null for member's own line
         c.setSchemeId(priced.schemeId());
         c.setGroupId(priced.groupId());
         c.setAmount(priced.amount());
         c.setCurrencyCode(priced.currencyCode());
+        c.setAgeGroupId(priced.ageGroupId());   // frozen for historical replay
         c.setPeriodStart(req.periodStart());
         c.setPeriodEnd(req.periodEnd());
         c.setStatus("pending");
@@ -541,56 +546,142 @@ public class BillingService {
      * metadata for pricing + the wizard preview. Schemes are always included
      * in full — billing covers every active scheme by design.
      */
-    private Flux<MemberCandidate> resolveCandidates(List<UUID> groupIds, List<UUID> memberIds) {
+    private Flux<PersonCandidate> resolveCandidates(List<UUID> groupIds, List<UUID> memberIds,
+                                                    LocalDate periodStart) {
+        // One row per INSURED PERSON — the member's own line plus a line per
+        // active dependant — with the effective age-group resolved via
+        // COALESCE(billing_override, canonical) gated by the override's
+        // effective_from date. Pricing is read directly from the matched
+        // age_groups row; the tenant pricing rules later get a chance to
+        // override the amount inside applyPricing().
+        //
+        // dependant_id IS NULL on the member's line; it is set on the
+        // dependant's line. member_id is always the parent member used for
+        // invoice routing.
         StringBuilder sql = new StringBuilder("""
-                SELECT m.id            AS member_id,
-                       m.member_number AS member_number,
-                       m.scheme_id     AS scheme_id,
-                       m.group_id      AS group_id,
-                       s.name          AS scheme_name,
-                       s.currency_code AS scheme_currency
+                SELECT m.id                AS member_id,
+                       NULL::uuid          AS dependant_id,
+                       m.member_number     AS member_number,
+                       (m.first_name || ' ' || m.last_name) AS person_name,
+                       'MEMBER'            AS person_type,
+                       m.scheme_id         AS scheme_id,
+                       m.group_id          AS group_id,
+                       s.name              AS scheme_name,
+                       s.currency_code     AS scheme_currency,
+                       CASE
+                           WHEN m.billing_age_group_id IS NOT NULL
+                                AND (m.billing_override_effective_from IS NULL
+                                     OR m.billing_override_effective_from <= :periodStart)
+                           THEN m.billing_age_group_id
+                           ELSE m.age_group_id
+                       END                 AS effective_age_group_id,
+                       ag.name              AS age_band_name,
+                       ag.contribution_amount AS price_amount,
+                       ag.currency_code       AS price_currency
                   FROM members m
                   JOIN schemes s ON s.id = m.scheme_id
+                  LEFT JOIN age_groups ag ON ag.id = CASE
+                           WHEN m.billing_age_group_id IS NOT NULL
+                                AND (m.billing_override_effective_from IS NULL
+                                     OR m.billing_override_effective_from <= :periodStart)
+                           THEN m.billing_age_group_id
+                           ELSE m.age_group_id
+                       END
                  WHERE m.status = 'active'
                 """);
-        if (groupIds  != null && !groupIds.isEmpty())  sql.append(" AND m.group_id  = ANY(:groupIds) ");
-        if (memberIds != null && !memberIds.isEmpty()) sql.append(" AND m.id        = ANY(:memberIds) ");
+        if (groupIds  != null && !groupIds.isEmpty())  sql.append(" AND m.group_id = ANY(:groupIds) ");
+        if (memberIds != null && !memberIds.isEmpty()) sql.append(" AND m.id       = ANY(:memberIds) ");
 
-        var spec = db.sql(sql.toString());
+        sql.append("""
+
+                UNION ALL
+
+                SELECT m.id                AS member_id,
+                       d.id                AS dependant_id,
+                       m.member_number     AS member_number,
+                       (d.first_name || ' ' || d.last_name) AS person_name,
+                       'DEPENDANT'         AS person_type,
+                       m.scheme_id         AS scheme_id,
+                       m.group_id          AS group_id,
+                       s.name              AS scheme_name,
+                       s.currency_code     AS scheme_currency,
+                       CASE
+                           WHEN d.billing_age_group_id IS NOT NULL
+                                AND (d.billing_override_effective_from IS NULL
+                                     OR d.billing_override_effective_from <= :periodStart)
+                           THEN d.billing_age_group_id
+                           ELSE d.age_group_id
+                       END                 AS effective_age_group_id,
+                       ag.name              AS age_band_name,
+                       ag.contribution_amount AS price_amount,
+                       ag.currency_code       AS price_currency
+                  FROM dependants d
+                  JOIN members m  ON m.id = d.member_id
+                  JOIN schemes s  ON s.id = m.scheme_id
+                  LEFT JOIN age_groups ag ON ag.id = CASE
+                           WHEN d.billing_age_group_id IS NOT NULL
+                                AND (d.billing_override_effective_from IS NULL
+                                     OR d.billing_override_effective_from <= :periodStart)
+                           THEN d.billing_age_group_id
+                           ELSE d.age_group_id
+                       END
+                 WHERE d.status = 'active'
+                   AND m.status = 'active'
+                """);
+        if (groupIds  != null && !groupIds.isEmpty())  sql.append(" AND m.group_id = ANY(:groupIds) ");
+        if (memberIds != null && !memberIds.isEmpty()) sql.append(" AND m.id       = ANY(:memberIds) ");
+
+        var spec = db.sql(sql.toString()).bind("periodStart", periodStart);
         if (groupIds  != null && !groupIds.isEmpty())  spec = spec.bind("groupIds",  groupIds.toArray(UUID[]::new));
         if (memberIds != null && !memberIds.isEmpty()) spec = spec.bind("memberIds", memberIds.toArray(UUID[]::new));
 
-        return spec.map(row -> new MemberCandidate(
-                        (UUID) row.get("member_id"),
-                        (String) row.get("member_number"),
-                        (UUID) row.get("scheme_id"),
-                        (String) row.get("scheme_name"),
-                        (UUID) row.get("group_id"),
-                        (String) row.get("scheme_currency")))
+        return spec.map(row -> new PersonCandidate(
+                        row.get("member_id", UUID.class),
+                        row.get("dependant_id", UUID.class),
+                        row.get("member_number", String.class),
+                        row.get("person_name", String.class),
+                        row.get("person_type", String.class),
+                        row.get("scheme_id", UUID.class),
+                        row.get("scheme_name", String.class),
+                        row.get("group_id", UUID.class),
+                        row.get("scheme_currency", String.class),
+                        row.get("effective_age_group_id", UUID.class),
+                        row.get("age_band_name", String.class),
+                        row.get("price_amount", BigDecimal.class),
+                        row.get("price_currency", String.class)))
                 .all();
     }
 
     /**
-     * Build a transient Contribution → run pricing rules → emit a priced
-     * candidate. The transient row is never saved here; preview and commit
-     * decide whether to persist.
+     * Build a transient {@link Contribution} for the person, pre-set the
+     * amount from the age-band lookup, then run the tenant pricing rules
+     * so they get a final say (loaded premiums, custom multipliers, …).
+     * The transient row is never saved here; preview/commit decide that.
      */
-    private Mono<PricedCandidate> applyPricing(MemberCandidate m, LocalDate periodStart, LocalDate periodEnd) {
+    private Mono<PricedCandidate> applyPricing(PersonCandidate p, LocalDate periodStart, LocalDate periodEnd) {
         Contribution transient_ = new Contribution();
-        transient_.setMemberId(m.memberId());
-        transient_.setSchemeId(m.schemeId());
-        transient_.setGroupId(m.groupId());
-        transient_.setCurrencyCode(m.schemeCurrency() != null ? m.schemeCurrency() : "USD");
+        transient_.setMemberId(p.memberId());
+        transient_.setDependantId(p.dependantId());
+        transient_.setSchemeId(p.schemeId());
+        transient_.setGroupId(p.groupId());
+        transient_.setAgeGroupId(p.effectiveAgeGroupId());
+        transient_.setAmount(p.priceAmount() != null ? p.priceAmount() : BigDecimal.ZERO);
+        // Currency precedence: age-group's currency (closest to the price) →
+        // scheme currency (fallback when the band has no explicit currency) →
+        // USD (last-resort fallback).
+        String currency = p.priceCurrency() != null ? p.priceCurrency()
+                         : p.schemeCurrency() != null ? p.schemeCurrency()
+                         : "USD";
+        transient_.setCurrencyCode(currency);
         transient_.setPeriodStart(periodStart);
         transient_.setPeriodEnd(periodEnd);
         transient_.setStatus("pending");
 
-        // pricingService.price() returns the rule fact for late-fee tracking;
-        // the priced amount itself is written back onto the contribution row.
         return pricingService.price(transient_)
                 .thenReturn(new PricedCandidate(
-                        m.memberId(), m.memberNumber(),
-                        m.schemeId(), m.schemeName(), m.groupId(),
+                        p.memberId(), p.dependantId(), p.memberNumber(), p.personName(), p.personType(),
+                        p.schemeId(), p.schemeName(), p.groupId(),
+                        p.effectiveAgeGroupId(), p.ageBandName(),
                         transient_.getAmount() != null ? transient_.getAmount() : BigDecimal.ZERO,
                         transient_.getCurrencyCode()));
     }
@@ -615,11 +706,26 @@ public class BillingService {
         try { return s != null ? UUID.fromString(s) : null; } catch (IllegalArgumentException e) { return null; }
     }
 
-    private record MemberCandidate(UUID memberId, String memberNumber, UUID schemeId, String schemeName,
-                                    UUID groupId, String schemeCurrency) {}
+    /**
+     * Per-person row produced by {@link #resolveCandidates}. {@code memberId}
+     * is the parent member for invoice routing and is always set;
+     * {@code dependantId} is set only when this row is for the dependant.
+     * {@code priceAmount}/{@code priceCurrency} come from the matched
+     * {@code age_groups} row — they may be null when the person has no
+     * canonical bucket (data gap), which {@link #applyPricing} treats as
+     * zero so the row still surfaces in the preview.
+     */
+    private record PersonCandidate(
+            UUID memberId, UUID dependantId, String memberNumber, String personName, String personType,
+            UUID schemeId, String schemeName, UUID groupId, String schemeCurrency,
+            UUID effectiveAgeGroupId, String ageBandName,
+            BigDecimal priceAmount, String priceCurrency) {}
 
-    private record PricedCandidate(UUID memberId, String memberNumber, UUID schemeId, String schemeName,
-                                    UUID groupId, BigDecimal amount, String currencyCode) {}
+    private record PricedCandidate(
+            UUID memberId, UUID dependantId, String memberNumber, String personName, String personType,
+            UUID schemeId, String schemeName, UUID groupId,
+            UUID ageGroupId, String ageBandName,
+            BigDecimal amount, String currencyCode) {}
 
     public Mono<Void> markOverdueContributions() {
         return contributionRepository.findByStatus("pending")

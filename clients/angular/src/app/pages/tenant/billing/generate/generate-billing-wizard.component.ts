@@ -5,7 +5,6 @@ import { RouterLink } from '@angular/router';
 import { Subscription, interval, switchMap, takeWhile, tap } from 'rxjs';
 import {
   BillingCommitResponse,
-  BillingFilterPayload,
   BillingPreviewResponse,
   ContributionsService,
   EnqueueBillingPayload,
@@ -40,7 +39,30 @@ export class GenerateBillingWizardComponent implements OnInit, OnDestroy {
    *  alongside the spinner so the user knows it's still alive. */
   elapsedSeconds = 0;
 
-  // Period defaults to current month.
+  /**
+   * Billing month in {@code YYYY-MM} form (the value an
+   * {@code &lt;input type="month"&gt;} produces). The wizard works one
+   * calendar month at a time — every invoice is marked by month and there
+   * is exactly one invoice per entity per month. {@link periodStart} and
+   * {@link periodEnd} are derived from this value before being sent to the
+   * backend so the existing API contract is untouched.
+   */
+  billingMonth = '';
+
+  /**
+   * Hard ceiling exposed to the &lt;input type="month"&gt; max attribute.
+   * Billing can never run for a month later than "next month" — generating
+   * past that point would invoice members who haven't been around yet.
+   */
+  maxBillingMonth = '';
+
+  /**
+   * Anchor month — current calendar month — used to label "retrospect"
+   * runs ("you're billing a month that's already passed").
+   */
+  currentMonth = '';
+
+  /** Derived period bounds, recomputed from {@link billingMonth} on submit. */
   periodStart = '';
   periodEnd = '';
 
@@ -59,10 +81,69 @@ export class GenerateBillingWizardComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     const today = new Date();
-    const start = new Date(today.getFullYear(), today.getMonth(), 1);
-    const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    this.periodStart = start.toISOString().slice(0, 10);
-    this.periodEnd = end.toISOString().slice(0, 10);
+    // Default to NEXT month — that's the normal forward-billing flow
+    // (we're in June → bill for July). The user can shift it earlier for
+    // a retrospective run; the input's `max` keeps them from going past
+    // next month, so we never invoice a period that hasn't begun yet.
+    const nextMonthAnchor = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    this.billingMonth    = this.toMonthValue(nextMonthAnchor);
+    this.maxBillingMonth = this.billingMonth;
+    this.currentMonth    = this.toMonthValue(new Date(today.getFullYear(), today.getMonth(), 1));
+    this.recomputePeriodBounds();
+  }
+
+  /** YYYY-MM string the &lt;input type="month"&gt; produces and accepts. */
+  private toMonthValue(d: Date): string {
+    const year  = d.getFullYear().toString().padStart(4, '0');
+    const month = (d.getMonth() + 1).toString().padStart(2, '0');
+    return `${year}-${month}`;
+  }
+
+  /** Re-derive periodStart / periodEnd from the chosen month. periodEnd
+   *  is the last day of the month (inclusive); built via the JS quirk
+   *  that "day 0 of next month" === "last day of this month". */
+  private recomputePeriodBounds(): void {
+    if (!this.billingMonth) {
+      this.periodStart = '';
+      this.periodEnd   = '';
+      return;
+    }
+    const [y, m] = this.billingMonth.split('-').map(n => Number(n));
+    const start  = new Date(y, m - 1, 1);
+    const end    = new Date(y, m, 0);  // day 0 of next month = last day of this one
+    this.periodStart = this.toIsoDate(start);
+    this.periodEnd   = this.toIsoDate(end);
+  }
+
+  private toIsoDate(d: Date): string {
+    return [
+      d.getFullYear().toString().padStart(4, '0'),
+      (d.getMonth() + 1).toString().padStart(2, '0'),
+      d.getDate().toString().padStart(2, '0'),
+    ].join('-');
+  }
+
+  /** True when the user has shifted to a month earlier than the current one
+   *  — the run will only bill clients/groups that were members during that
+   *  month, surfaced as a banner in the template. */
+  get isRetrospect(): boolean {
+    return !!this.billingMonth && !!this.currentMonth && this.billingMonth < this.currentMonth;
+  }
+
+  /** Friendly label shown in the heading and the retrospect banner
+   *  (e.g. "July 2026"). */
+  get billingMonthLabel(): string {
+    return this.formatMonth(this.billingMonth);
+  }
+
+  get maxBillingMonthLabel(): string {
+    return this.formatMonth(this.maxBillingMonth);
+  }
+
+  private formatMonth(value: string): string {
+    if (!value) return '';
+    const [y, m] = value.split('-').map(n => Number(n));
+    return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   }
 
   ngOnDestroy(): void {
@@ -72,9 +153,9 @@ export class GenerateBillingWizardComponent implements OnInit, OnDestroy {
   /** Friendly label for the tenant's membership model banner. */
   membershipBanner(model: string | undefined): string {
     switch (model) {
-      case 'GROUP_ONLY':      return 'Groups only — every member must belong to a group; invoices go to liaisons.';
-      case 'INDIVIDUAL_ONLY': return 'Individuals only — one invoice per member.';
-      case 'BOTH':            return 'Mixed — grouped members billed via their group liaison; ungrouped members billed individually.';
+      case 'GROUP_ONLY':      return 'Groups only: every member must belong to a group; invoices go to liaisons.';
+      case 'INDIVIDUAL_ONLY': return 'Individuals only: one invoice per member.';
+      case 'BOTH':            return 'Mixed: grouped members billed via their group liaison; ungrouped members billed individually.';
       default:                return '';
     }
   }
@@ -84,10 +165,17 @@ export class GenerateBillingWizardComponent implements OnInit, OnDestroy {
   }
 
   runPreview(): void {
-    if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Pick a period';
+    if (!this.billingMonth) {
+      this.errorMessage = 'Pick a billing month';
       return;
     }
+    if (this.billingMonth > this.maxBillingMonth) {
+      // Belt-and-braces — the month input's max attribute already blocks
+      // this in compliant browsers, but a hand-edited value could slip past.
+      this.errorMessage = `Cannot bill beyond ${this.maxBillingMonthLabel} — next month is the latest allowed.`;
+      return;
+    }
+    this.recomputePeriodBounds();
     this.loading = true;
     this.errorMessage = null;
     const payload: EnqueueBillingPayload = {
@@ -132,6 +220,26 @@ export class GenerateBillingWizardComponent implements OnInit, OnDestroy {
   backToFilters(): void {
     this.step = 'filters';
     this.preview = null;
+  }
+
+  /**
+   * Tab-strip navigation. Selecting Filters always works (re-edit). Preview
+   * is only reachable when a preview is loaded. Committed is only reachable
+   * after a successful commit. Disabled tabs aren't clickable in the
+   * template, but this guard belt-and-braces against keyboard activation.
+   */
+  goToStep(target: WizardStep): void {
+    if (target === 'preview' && !this.preview) return;
+    if (target === 'committed' && !this.committedAt) return;
+    this.step = target;
+  }
+
+  /** Whether each tab is available given the current wizard state. */
+  isStepAvailable(target: WizardStep): boolean {
+    if (target === 'filters')   return true;
+    if (target === 'preview')   return !!this.preview;
+    if (target === 'committed') return !!this.committedAt;
+    return false;
   }
 
   startAnother(): void {

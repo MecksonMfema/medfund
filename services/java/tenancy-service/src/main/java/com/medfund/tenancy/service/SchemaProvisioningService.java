@@ -35,7 +35,8 @@ public class SchemaProvisioningService {
 
     public Mono<Void> provisionSchema(String schemaName) {
         return createSchema(schemaName)
-                .then(runMigrations(schemaName));
+                .then(runMigrations(schemaName))
+                .then(provisionTenantRole(schemaName));
     }
 
     private Mono<Void> createSchema(String schemaName) {
@@ -46,6 +47,24 @@ public class SchemaProvisioningService {
                                 .doFinally(s -> conn.close())
                                 .then()
                 );
+    }
+
+    /**
+     * Run the shared role-provisioning function from {@code V117}. Creates
+     * the {@code <schemaName>_role} (if missing), grants it MEMBER to the
+     * connection-pool user so the connection factory can SET ROLE into it,
+     * and lays down the schema + whitelisted public grants. Idempotent —
+     * safe to call on an existing tenant.
+     */
+    private Mono<Void> provisionTenantRole(String schemaName) {
+        return Mono.from(connectionFactory.create())
+                .flatMap(conn -> Mono.from(conn.createStatement(
+                                "SELECT public.provision_tenant_role($1)")
+                                .bind("$1", schemaName)
+                                .execute())
+                        .doOnSuccess(r -> log.info("Provisioned tenant role for schema: {}", schemaName))
+                        .doFinally(s -> conn.close())
+                        .then());
     }
 
     private Mono<Void> runMigrations(String schemaName) {

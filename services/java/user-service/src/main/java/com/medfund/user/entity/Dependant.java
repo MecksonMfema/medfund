@@ -51,6 +51,21 @@ public class Dependant {
     @Column("updated_by")
     private UUID updatedBy;
 
+    /** See {@link Member#getAgeGroupId()} — same semantics, scoped to the
+     *  parent member's scheme. */
+    @Column("age_group_id")
+    private UUID ageGroupId;
+
+    /** See {@link Member#getBillingAgeGroupId()} — same semantics. */
+    @Column("billing_age_group_id")
+    private UUID billingAgeGroupId;
+
+    @Column("billing_override_reason")
+    private String billingOverrideReason;
+
+    @Column("billing_override_effective_from")
+    private LocalDate billingOverrideEffectiveFrom;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
@@ -89,4 +104,16 @@ public class Dependant {
 
     public UUID getUpdatedBy() { return updatedBy; }
     public void setUpdatedBy(UUID updatedBy) { this.updatedBy = updatedBy; }
+
+    public UUID getAgeGroupId() { return ageGroupId; }
+    public void setAgeGroupId(UUID ageGroupId) { this.ageGroupId = ageGroupId; }
+
+    public UUID getBillingAgeGroupId() { return billingAgeGroupId; }
+    public void setBillingAgeGroupId(UUID billingAgeGroupId) { this.billingAgeGroupId = billingAgeGroupId; }
+
+    public String getBillingOverrideReason() { return billingOverrideReason; }
+    public void setBillingOverrideReason(String billingOverrideReason) { this.billingOverrideReason = billingOverrideReason; }
+
+    public LocalDate getBillingOverrideEffectiveFrom() { return billingOverrideEffectiveFrom; }
+    public void setBillingOverrideEffectiveFrom(LocalDate billingOverrideEffectiveFrom) { this.billingOverrideEffectiveFrom = billingOverrideEffectiveFrom; }
 }

@@ -56,6 +56,33 @@ public class Member {
     @Column("termination_date")
     private LocalDate terminationDate;
 
+    /**
+     * Canonical age bucket — derived from {@link #dateOfBirth} at enrolment
+     * and maintained as the member crosses age-band boundaries. References
+     * {@code age_groups(id)} on the member's scheme. Source of truth for
+     * "how many adults / children / seniors" reports — never overwritten
+     * by a pricing flag.
+     */
+    @Column("age_group_id")
+    private UUID ageGroupId;
+
+    /**
+     * Optional pricing override. When non-null, billing reads the
+     * contribution amount from this band instead of {@link #ageGroupId}.
+     * Used for cases like a lifelong-child arrangement on an adult with a
+     * disability, or a senior discount granted to an under-65 adult.
+     */
+    @Column("billing_age_group_id")
+    private UUID billingAgeGroupId;
+
+    /** Why the override exists (LIFETIME_CHILD, SENIOR_DISCOUNT, …). */
+    @Column("billing_override_reason")
+    private String billingOverrideReason;
+
+    /** Billing runs before this date keep using {@link #ageGroupId}. */
+    @Column("billing_override_effective_from")
+    private LocalDate billingOverrideEffectiveFrom;
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;
@@ -129,4 +156,16 @@ public class Member {
 
     public UUID getUpdatedBy() { return updatedBy; }
     public void setUpdatedBy(UUID updatedBy) { this.updatedBy = updatedBy; }
+
+    public UUID getAgeGroupId() { return ageGroupId; }
+    public void setAgeGroupId(UUID ageGroupId) { this.ageGroupId = ageGroupId; }
+
+    public UUID getBillingAgeGroupId() { return billingAgeGroupId; }
+    public void setBillingAgeGroupId(UUID billingAgeGroupId) { this.billingAgeGroupId = billingAgeGroupId; }
+
+    public String getBillingOverrideReason() { return billingOverrideReason; }
+    public void setBillingOverrideReason(String billingOverrideReason) { this.billingOverrideReason = billingOverrideReason; }
+
+    public LocalDate getBillingOverrideEffectiveFrom() { return billingOverrideEffectiveFrom; }
+    public void setBillingOverrideEffectiveFrom(LocalDate billingOverrideEffectiveFrom) { this.billingOverrideEffectiveFrom = billingOverrideEffectiveFrom; }
 }

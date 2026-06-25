@@ -39,6 +39,7 @@ public class MemberService {
     private final UserEventPublisher eventPublisher;
     private final KeycloakSyncService keycloakSyncService;
     private final MemberLifecycleService lifecycleService;
+    private final AgeGroupResolver ageGroupResolver;
 
     public Flux<Member> findAll() {
         return memberRepository.findAllOrderByCreatedAtDesc();
@@ -143,7 +144,14 @@ public class MemberService {
                 member.setCreatedBy(actorUuid);
                 member.setUpdatedBy(actorUuid);
 
-                return r2dbcTemplate.insert(member);
+                // Stamp the canonical age bucket from DoB against the
+                // scheme's bands. If no band covers the age, ageGroupId
+                // stays null and surfaces later as a billing data-gap
+                // (better than silently picking the youngest/oldest band).
+                return ageGroupResolver
+                        .resolveForSchemeAndDob(member.getSchemeId(), member.getDateOfBirth())
+                        .doOnNext(member::setAgeGroupId)
+                        .then(r2dbcTemplate.insert(member));
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);

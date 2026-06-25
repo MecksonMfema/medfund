@@ -68,9 +68,33 @@ public class Contribution {
     @Column("invoice_id")
     private UUID invoiceId;
 
+    /**
+     * Set only when this row is the dependant's line. The parent member's
+     * own line has {@code dependantId == null}. {@link #memberId} is always
+     * set (it carries the parent member used for invoice routing) so the
+     * pairing (memberId, dependantId) tells the reader which person the
+     * line is for.
+     */
+    @Column("dependant_id")
+    private UUID dependantId;
+
+    /**
+     * Age bucket used to price this row at run time. Frozen for the life
+     * of the row — never updated even when the person's canonical bucket
+     * later changes — so historical invoices stay reproducible.
+     */
+    @Column("age_group_id")
+    private UUID ageGroupId;
+
     // Getters and setters
     public UUID getInvoiceId() { return invoiceId; }
     public void setInvoiceId(UUID invoiceId) { this.invoiceId = invoiceId; }
+
+    public UUID getDependantId() { return dependantId; }
+    public void setDependantId(UUID dependantId) { this.dependantId = dependantId; }
+
+    public UUID getAgeGroupId() { return ageGroupId; }
+    public void setAgeGroupId(UUID ageGroupId) { this.ageGroupId = ageGroupId; }
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
