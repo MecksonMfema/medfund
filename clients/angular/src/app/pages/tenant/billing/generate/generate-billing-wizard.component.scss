@@ -314,34 +314,179 @@
   margin: 16px 0 8px;
 }
 
-// Sample-rows table — light variant of the shared data-table look so the
-// preview reads as a peek, not a full management surface.
-.sample-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 8px;
+// ── Sample-invoice cards ─────────────────────────────────────────────────
+// Each card represents one invoice the run would generate. Line items are
+// the people who'd appear on that invoice (member + their dependants), each
+// priced from the scheme's age band. We deliberately use the same card
+// chrome family as the form cards so the wizard reads as a sibling surface.
+
+.sample-invoices__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 16px 0 12px;
 }
 
-.sample-table th {
-  text-align: left;
-  padding: 10px 12px;
+.sample-invoices__note {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  max-width: 70ch;
+}
+
+.invoice-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 960px) {
+  .invoice-cards { grid-template-columns: 1fr 1fr; }
+}
+
+.invoice-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+}
+
+.invoice-card__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border-light);
   background: var(--color-bg);
+}
+
+.invoice-card__type-pill {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
   font-weight: var(--font-weight-semibold);
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
   text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-info);
+  background: var(--color-info-light);
+  border: 1px solid rgba(0, 150, 180, 0.25);
+  padding: 3px 8px;
+  border-radius: 999px;
+
+  &.is-group {
+    color: var(--color-primary);
+    background: var(--color-primary-light);
+    border-color: rgba(0, 119, 182, 0.25);
+  }
+}
+
+.invoice-card__holder {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.invoice-card__holder-name {
+  font-size: 0.9375rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.invoice-card__currency {
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
   letter-spacing: 0.04em;
+}
+
+// ── Invoice lines table ─────────────────────────────────────────────────
+.invoice-lines {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.invoice-lines th {
+  text-align: left;
+  padding: 8px 16px;
+  background: transparent;
+  font-weight: var(--font-weight-semibold);
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   border-bottom: 1px solid var(--color-border-light);
 }
 
-.sample-table td {
-  padding: 10px 12px;
+.invoice-lines td {
+  padding: 10px 16px;
   border-bottom: 1px solid var(--color-border-light);
   font-size: 0.875rem;
   color: var(--color-text-primary);
+  vertical-align: top;
 }
 
-.sample-table .right { text-align: right; }
+.invoice-lines tr:last-child td { border-bottom: none; }
+
+.invoice-lines .right { text-align: right; }
+
+// Dependant rows are visually indented + softer so a member's family
+// structure reads at a glance.
+.invoice-lines tr.is-dependant td:first-child { padding-left: 28px; }
+.invoice-lines tr.is-dependant td { color: var(--color-text-secondary); }
+
+.invoice-lines__sub {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.invoice-lines__role {
+  display: inline-block;
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border: 1px solid rgba(0, 119, 182, 0.25);
+
+  &.is-dependant {
+    background: var(--color-info-light);
+    color: var(--color-info);
+    border-color: rgba(0, 150, 180, 0.25);
+  }
+}
+
+.invoice-lines tfoot td {
+  background: var(--color-bg);
+  border-top: 1px solid var(--color-border-light);
+  border-bottom: none;
+}
+
+.invoice-lines__total-label {
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+}
+
+.invoice-lines__total {
+  font-size: 1rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
 
 .empty-state {
   color: var(--color-text-muted);

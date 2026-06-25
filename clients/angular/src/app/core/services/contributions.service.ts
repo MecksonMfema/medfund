@@ -145,10 +145,20 @@ export interface BillingFilterPayload {
 
 export interface BillingPreviewSampleRow {
   memberId: string;
+  /** Set only when this row is a dependant's line. Null for the member's own line. */
+  dependantId: string | null;
   memberNumber: string;
+  /** Display name — member's name on the member's line, dependant's name on the dependant's line. */
+  personName: string;
+  /** "MEMBER" or "DEPENDANT". */
+  personType: 'MEMBER' | 'DEPENDANT';
   schemeId: string;
   schemeName: string;
   groupId: string | null;
+  /** Friendly group name — null for individual invoices and ungrouped members. */
+  groupName: string | null;
+  /** Friendly band label (Adult, Senior, …) — null when no band matched. */
+  ageBand: string | null;
   amount: string;
   currencyCode: string;
 }

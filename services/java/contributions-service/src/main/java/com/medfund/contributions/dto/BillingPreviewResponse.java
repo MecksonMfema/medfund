@@ -47,6 +47,8 @@ public record BillingPreviewResponse(
             UUID schemeId,
             String schemeName,
             UUID groupId,
+            /** Friendly group name — null on individual invoices and for ungrouped members. */
+            String groupName,
             /** Friendly band label (e.g. "Adult", "Senior") — null when no band matched. */
             String ageBand,
             BigDecimal amount,

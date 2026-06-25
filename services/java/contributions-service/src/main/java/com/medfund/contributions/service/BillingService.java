@@ -306,7 +306,7 @@ public class BillingService {
                                 r.memberId(), r.dependantId(), r.memberNumber(),
                                 r.personName(), r.personType(),
                                 r.schemeId(), r.schemeName(),
-                                r.groupId(), r.ageBandName(),
+                                r.groupId(), r.groupName(), r.ageBandName(),
                                 r.amount(), r.currencyCode()));
                     }
                     int remainingMinutes = cooldownRemainingMinutes(cfg);
@@ -566,6 +566,7 @@ public class BillingService {
                        'MEMBER'            AS person_type,
                        m.scheme_id         AS scheme_id,
                        m.group_id          AS group_id,
+                       g.name              AS group_name,
                        s.name              AS scheme_name,
                        s.currency_code     AS scheme_currency,
                        CASE
@@ -579,7 +580,8 @@ public class BillingService {
                        ag.contribution_amount AS price_amount,
                        ag.currency_code       AS price_currency
                   FROM members m
-                  JOIN schemes s ON s.id = m.scheme_id
+                  JOIN schemes s     ON s.id = m.scheme_id
+                  LEFT JOIN groups g ON g.id = m.group_id
                   LEFT JOIN age_groups ag ON ag.id = CASE
                            WHEN m.billing_age_group_id IS NOT NULL
                                 AND (m.billing_override_effective_from IS NULL
@@ -603,6 +605,7 @@ public class BillingService {
                        'DEPENDANT'         AS person_type,
                        m.scheme_id         AS scheme_id,
                        m.group_id          AS group_id,
+                       g.name              AS group_name,
                        s.name              AS scheme_name,
                        s.currency_code     AS scheme_currency,
                        CASE
@@ -616,8 +619,9 @@ public class BillingService {
                        ag.contribution_amount AS price_amount,
                        ag.currency_code       AS price_currency
                   FROM dependants d
-                  JOIN members m  ON m.id = d.member_id
-                  JOIN schemes s  ON s.id = m.scheme_id
+                  JOIN members m     ON m.id = d.member_id
+                  JOIN schemes s     ON s.id = m.scheme_id
+                  LEFT JOIN groups g ON g.id = m.group_id
                   LEFT JOIN age_groups ag ON ag.id = CASE
                            WHEN d.billing_age_group_id IS NOT NULL
                                 AND (d.billing_override_effective_from IS NULL
@@ -644,6 +648,7 @@ public class BillingService {
                         row.get("scheme_id", UUID.class),
                         row.get("scheme_name", String.class),
                         row.get("group_id", UUID.class),
+                        row.get("group_name", String.class),
                         row.get("scheme_currency", String.class),
                         row.get("effective_age_group_id", UUID.class),
                         row.get("age_band_name", String.class),
@@ -680,7 +685,7 @@ public class BillingService {
         return pricingService.price(transient_)
                 .thenReturn(new PricedCandidate(
                         p.memberId(), p.dependantId(), p.memberNumber(), p.personName(), p.personType(),
-                        p.schemeId(), p.schemeName(), p.groupId(),
+                        p.schemeId(), p.schemeName(), p.groupId(), p.groupName(),
                         p.effectiveAgeGroupId(), p.ageBandName(),
                         transient_.getAmount() != null ? transient_.getAmount() : BigDecimal.ZERO,
                         transient_.getCurrencyCode()));
@@ -717,13 +722,13 @@ public class BillingService {
      */
     private record PersonCandidate(
             UUID memberId, UUID dependantId, String memberNumber, String personName, String personType,
-            UUID schemeId, String schemeName, UUID groupId, String schemeCurrency,
+            UUID schemeId, String schemeName, UUID groupId, String groupName, String schemeCurrency,
             UUID effectiveAgeGroupId, String ageBandName,
             BigDecimal priceAmount, String priceCurrency) {}
 
     private record PricedCandidate(
             UUID memberId, UUID dependantId, String memberNumber, String personName, String personType,
-            UUID schemeId, String schemeName, UUID groupId,
+            UUID schemeId, String schemeName, UUID groupId, String groupName,
             UUID ageGroupId, String ageBandName,
             BigDecimal amount, String currencyCode) {}
 

@@ -146,22 +146,67 @@
           }
         </div>
 
-        @if (preview.sample.length > 0) {
-          <h3 class="card-sub-title">Sample rows ({{ preview.sample.length }} of {{ preview.totalRows }})</h3>
-          <table class="sample-table">
-            <thead>
-              <tr><th>Member</th><th>Scheme</th><th class="right">Amount</th></tr>
-            </thead>
-            <tbody>
-              @for (row of preview.sample; track row.memberId) {
-                <tr>
-                  <td>{{ row.memberNumber }}</td>
-                  <td>{{ row.schemeName }}</td>
-                  <td class="right">{{ row.amount | currencyFormat:row.currencyCode }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
+        @if (sampleInvoices.length > 0) {
+          <div class="sample-invoices__head">
+            <h3 class="card-sub-title">Sample invoices ({{ sampleInvoices.length }})</h3>
+            <span class="sample-invoices__note">
+              Showing how the {{ preview.sample.length }} preview line items roll up into actual invoices.
+              Every insured person — member or dependant — gets their own line, priced from the scheme's age band.
+            </span>
+          </div>
+
+          <div class="invoice-cards">
+            @for (inv of sampleInvoices; track inv.routingKey) {
+              <article class="invoice-card">
+                <header class="invoice-card__header">
+                  <span class="invoice-card__type-pill" [class.is-group]="inv.type === 'GROUP'">
+                    {{ inv.type === 'GROUP' ? 'Group' : 'Individual' }}
+                  </span>
+                  <div class="invoice-card__holder">
+                    <span class="invoice-card__holder-name">{{ inv.holderName }}</span>
+                    <span class="invoice-card__currency">{{ inv.currencyCode }}</span>
+                  </div>
+                </header>
+
+                <table class="invoice-lines">
+                  <thead>
+                    <tr>
+                      <th>Insured</th>
+                      <th>Role</th>
+                      <th>Scheme · Band</th>
+                      <th class="right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (line of inv.lines; track $index) {
+                      <tr [class.is-dependant]="line.personType === 'DEPENDANT'">
+                        <td>
+                          <strong>{{ line.personName || '—' }}</strong>
+                          <span class="invoice-lines__sub">{{ line.memberNumber }}</span>
+                        </td>
+                        <td>
+                          <span class="invoice-lines__role" [class.is-dependant]="line.personType === 'DEPENDANT'">
+                            {{ line.personType === 'MEMBER' ? 'Member' : 'Dependant' }}
+                          </span>
+                        </td>
+                        <td>
+                          <span>{{ line.schemeName }}</span>
+                          <span class="invoice-lines__sub">{{ line.ageBand || '— no band matched' }}</span>
+                        </td>
+                        <td class="right">{{ line.amount | currencyFormat:line.currencyCode }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colspan="3" class="invoice-lines__total-label">Invoice total</td>
+                      <td class="right invoice-lines__total">{{ inv.total | currencyFormat:inv.currencyCode }}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </article>
+            }
+          </div>
         } @else {
           <p class="empty-state">No members matched these filters.</p>
         }

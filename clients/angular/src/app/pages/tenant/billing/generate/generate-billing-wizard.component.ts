@@ -6,6 +6,7 @@ import { Subscription, interval, switchMap, takeWhile, tap } from 'rxjs';
 import {
   BillingCommitResponse,
   BillingPreviewResponse,
+  BillingPreviewSampleRow,
   ContributionsService,
   EnqueueBillingPayload,
   ScheduledJobRun,
@@ -14,6 +15,23 @@ import { IconComponent } from '../../../../shared/components/icon/icon.component
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 
 type WizardStep = 'filters' | 'preview' | 'committed';
+
+/**
+ * One invoice the run would generate. Built by grouping the preview's
+ * per-person sample rows on (groupId | memberId, currency) — the same
+ * routing key the backend uses in {@code BillingService.computeRoutingKey}.
+ */
+interface SampleInvoice {
+  type: 'GROUP' | 'INDIVIDUAL';
+  /** Group name on a group invoice; the lead member's display name on an individual. */
+  holderName: string;
+  /** Stable id for *ngFor — uses the routing key. */
+  routingKey: string;
+  currencyCode: string;
+  /** Member's-line + dependant-line rows for this invoice, ordered with the member first. */
+  lines: BillingPreviewSampleRow[];
+  total: number;
+}
 
 /** Short-poll cadence — see CLAUDE memory: "Stats must be server-side". The
  *  backend can serve any number of pollers cheaply; the runs table is indexed
@@ -162,6 +180,55 @@ export class GenerateBillingWizardComponent implements OnInit, OnDestroy {
 
   totalsKeys(map: Record<string, string> | undefined): string[] {
     return map ? Object.keys(map) : [];
+  }
+
+  /**
+   * Group the preview's per-person sample rows into the invoices they
+   * would roll into. Mirrors the backend routing rule:
+   *   - INDIVIDUAL_ONLY → (memberId, currency)
+   *   - GROUP_ONLY / BOTH → (groupId, currency) when groupId is set,
+   *     otherwise fall back to (memberId, currency).
+   * The fallback covers ungrouped members in a BOTH tenant and the
+   * GROUP_ONLY anomaly path where someone has no group attached.
+   */
+  get sampleInvoices(): SampleInvoice[] {
+    if (!this.preview) return [];
+    const model = this.preview.membershipModel || 'BOTH';
+    const buckets = new Map<string, SampleInvoice>();
+
+    for (const row of this.preview.sample) {
+      const useGroup = model !== 'INDIVIDUAL_ONLY' && !!row.groupId;
+      const type: 'GROUP' | 'INDIVIDUAL' = useGroup ? 'GROUP' : 'INDIVIDUAL';
+      const anchorId = useGroup ? row.groupId! : row.memberId;
+      const routingKey = `${type}:${anchorId}:${row.currencyCode}`;
+
+      let bucket = buckets.get(routingKey);
+      if (!bucket) {
+        // Holder name: group name if we have it, else the lead row's person
+        // name. The lead row is whatever sample row hits this bucket first
+        // — for an individual invoice that's the member's own line; for a
+        // group invoice we'd rather show the group's name when available.
+        const holderName = useGroup
+          ? (row.groupName ?? `Group ${anchorId.slice(0, 8)}`)
+          : (row.personType === 'MEMBER' ? row.personName : row.personName);
+        bucket = { type, holderName, routingKey, currencyCode: row.currencyCode, lines: [], total: 0 };
+        buckets.set(routingKey, bucket);
+      }
+      bucket.lines.push(row);
+      const amt = Number(row.amount);
+      if (Number.isFinite(amt)) bucket.total += amt;
+    }
+
+    // Sort lines so the parent member's own row comes before its
+    // dependants — easier to read in the card.
+    for (const invoice of buckets.values()) {
+      invoice.lines.sort((a, b) => {
+        if (a.memberId !== b.memberId) return 0;
+        if (a.personType === b.personType) return 0;
+        return a.personType === 'MEMBER' ? -1 : 1;
+      });
+    }
+    return Array.from(buckets.values());
   }
 
   runPreview(): void {
