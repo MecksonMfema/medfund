@@ -219,11 +219,14 @@ export class GenerateBillingWizardComponent implements OnInit, OnDestroy {
       if (Number.isFinite(amt)) bucket.total += amt;
     }
 
-    // Sort lines so the parent member's own row comes before its
-    // dependants — easier to read in the card.
+    // Sort each card's lines so families stay together: order by
+    // memberNumber first (groups all rows belonging to one member),
+    // then put the member's own line before its dependants. Keeps a
+    // group invoice readable when N members live on the same card.
     for (const invoice of buckets.values()) {
       invoice.lines.sort((a, b) => {
-        if (a.memberId !== b.memberId) return 0;
+        const byNumber = (a.memberNumber || '').localeCompare(b.memberNumber || '');
+        if (byNumber !== 0) return byNumber;
         if (a.personType === b.personType) return 0;
         return a.personType === 'MEMBER' ? -1 : 1;
       });
