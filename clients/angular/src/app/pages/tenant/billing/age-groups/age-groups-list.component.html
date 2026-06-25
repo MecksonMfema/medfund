@@ -1,80 +1,47 @@
-<div class="age-groups-page">
-  <header class="page-header">
-    <div>
-      <h1>Age groups</h1>
-      <p class="page-sub">Pricing tiers per scheme. Each row is a contribution amount that applies to members in the configured age band. Currency is inherited from the parent scheme.</p>
-    </div>
-    <a class="btn btn-primary" routerLink="/tenant/billing/age-groups/add">
-      <app-icon name="plus" [size]="14"></app-icon>
-      Add age group
-    </a>
-  </header>
-
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
-
-  <div class="filters">
-    <div class="field">
-      <span class="field-label">Scheme</span>
-      <app-entity-picker
-        kind="scheme"
-        placeholder="Search schemes by name…"
-        [value]="selectedSchemeId"
-        [prefillLabel]="selectedSchemeName"
-        (selected)="onSchemePicked($event)">
-      </app-entity-picker>
-    </div>
+<header class="page-header">
+  <div>
+    <h1>Age groups</h1>
+    <p class="page-sub">Pricing tiers per scheme. Each row is a contribution amount that applies to members in the configured age band. Currency is inherited from the parent scheme.</p>
   </div>
+  <a
+    *hasPermission="'billing:manage_age_groups'"
+    class="btn btn-primary"
+    routerLink="/tenant/billing/age-groups/add"
+  >
+    <app-icon name="plus" [size]="14"></app-icon>
+    Add age group
+  </a>
+</header>
 
-  @if (loading) {
-    <app-skeleton></app-skeleton>
-  } @else {
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Min age</th>
-          <th>Max age</th>
-          <th>Contribution</th>
-          <th>Status</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of rows; track row.id) {
-          <tr>
-            <td><strong>{{ row.name }}</strong></td>
-            <td>{{ row.minAge }}</td>
-            <td>{{ row.maxAge }}</td>
-            <td>{{ row.contributionAmount | currencyFormat:row.currencyCode }}</td>
-            <td>
-              <span class="badge" [class]="'badge-' + (row.status || 'active')">{{ row.status || 'active' }}</span>
-            </td>
-            <td class="actions">
-              <button class="link-btn" (click)="edit(row)">Edit</button>
-              <button
-                class="link-btn"
-                [class.danger]="row.status !== 'inactive'"
-                [class.success]="row.status === 'inactive'"
-                (click)="toggleStatus(row)">
-                {{ row.status === 'inactive' ? 'Activate' : 'Deactivate' }}
-              </button>
-            </td>
-          </tr>
-        }
-        @if (rows.length === 0) {
-          <tr>
-            <td colspan="6" class="empty-row">
-              @if (selectedSchemeId) {
-                No age groups configured for this scheme yet.
-              } @else {
-                Search and pick a scheme above to see its age groups.
-              }
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  }
-</div>
+<section class="scheme-filter">
+  <label class="scheme-filter__label" for="age-groups-scheme-picker">Scheme</label>
+  <div class="scheme-filter__picker">
+    <app-entity-picker
+      kind="scheme"
+      placeholder="Search schemes by name…"
+      [value]="selectedSchemeId"
+      [prefillLabel]="selectedSchemeName"
+      [initialSuggestions]="initialSchemeSuggestions"
+      (selected)="onSchemePicked($event)">
+    </app-entity-picker>
+  </div>
+</section>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<app-data-table
+  [columns]="ageGroupColumns"
+  [data]="rows"
+  [actions]="ageGroupActions"
+  [showActions]="true"
+  [loading]="loading"
+  [emptyIcon]="selectedSchemeId ? 'folder-search' : 'search'"
+  [emptyMessage]="selectedSchemeId
+    ? 'No age groups configured for this scheme yet'
+    : 'Pick a scheme to view its age groups'"
+  [emptyDescription]="selectedSchemeId
+    ? 'Add an age group to start pricing members in the chosen scheme.'
+    : 'Use the scheme picker above to load this tenant\'s age-banded pricing tiers.'">
+</app-data-table>

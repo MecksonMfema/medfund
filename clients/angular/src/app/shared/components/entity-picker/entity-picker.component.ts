@@ -67,6 +67,17 @@ export class EntityPickerComponent implements OnInit, OnChanges, ControlValueAcc
    */
   @Input() prefillLabel: string | null = null;
   @Input() prefillSublabel: string | null = null;
+  /**
+   * Suggestions shown the moment the picker gains focus, before the user
+   * types anything. Lets the host pre-load a short list (typical: top N
+   * by name) so a "blank" picker is still useful — e.g. the age-groups
+   * page shows the first 5 schemes so the operator can pick one without
+   * having to know its name.
+   *
+   * Leave empty (default) to keep the original behaviour: nothing shows
+   * until the user starts typing.
+   */
+  @Input() initialSuggestions: EntityPickerSelection[] = [];
   @Output() valueChange = new EventEmitter<string | null>();
   @Output() selected = new EventEmitter<EntityPickerSelection | null>();
 
@@ -75,6 +86,21 @@ export class EntityPickerComponent implements OnInit, OnChanges, ControlValueAcc
   searching = false;
   picked: Suggestion | null = null;
   showMatches = false;
+  /**
+   * True between the user clicking "Change" and either making a new pick
+   * or blurring out. While editing, {@link picked}/{@link value} stay
+   * intact so the host keeps the previous selection until a replacement
+   * is chosen — closes the "click Change → table empties" gap.
+   */
+  editing = false;
+
+  /** Suggestions actually rendered in the popup — either the user's search
+   *  matches (when a query is present) or the host-supplied
+   *  {@link initialSuggestions} (when the field is empty but focused). */
+  get visibleSuggestions(): Suggestion[] {
+    if (this.query.trim()) return this.matches;
+    return this.initialSuggestions;
+  }
 
   private query$ = new Subject<string>();
   private onChange: (value: string | null) => void = () => {};
@@ -152,16 +178,37 @@ export class EntityPickerComponent implements OnInit, OnChanges, ControlValueAcc
     this.value = s.id;
     this.matches = [];
     this.showMatches = false;
+    this.editing = false;
     this.onChange(s.id);
     this.valueChange.emit(s.id);
     this.selected.emit({ id: s.id, label: s.label, sublabel: s.sublabel });
     this.onTouched();
   }
 
+  /**
+   * Enter edit mode without dropping the current pick. The chip is
+   * swapped for the search input (focused, with the current label pre-
+   * filled so it's discoverable), but {@link value} and {@link picked}
+   * stay set — so the host keeps treating the previous selection as
+   * active until the user explicitly picks a replacement.
+   */
+  startEditing(): void {
+    if (this.disabled) return;
+    this.editing = true;
+    this.query = this.picked?.label ?? '';
+    this.showMatches = true;
+  }
+
+  /**
+   * Clear the picker entirely — drops the current pick and emits null.
+   * Currently only used by the host via reactive-forms writeValue(null);
+   * the "Change" button no longer calls this (it uses startEditing()).
+   */
   clear(): void {
     this.picked = null;
     this.query = '';
     this.matches = [];
+    this.editing = false;
     this.value = null;
     this.onChange(null);
     this.valueChange.emit(null);
@@ -170,7 +217,16 @@ export class EntityPickerComponent implements OnInit, OnChanges, ControlValueAcc
 
   onBlur(): void {
     // Defer hiding so a click on a suggestion still registers.
-    setTimeout(() => { this.showMatches = false; }, 150);
+    setTimeout(() => {
+      this.showMatches = false;
+      // If the user opened edit mode but blurred out without picking a
+      // replacement, restore the chip view — picked / value were never
+      // touched, so the host is already in the right place.
+      if (this.editing) {
+        this.editing = false;
+        this.query = this.picked?.label ?? '';
+      }
+    }, 150);
     this.onTouched();
   }
 

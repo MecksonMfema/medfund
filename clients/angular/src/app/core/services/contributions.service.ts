@@ -25,6 +25,14 @@ export interface SchemesPage {
   totalPages: number;
 }
 
+export interface BenefitsPage {
+  content: SchemeBenefit[];
+  total: number;
+  page: number;
+  size: number;
+  totalPages: number;
+}
+
 export interface AgeGroup {
   id: string;
   schemeId: string;
@@ -329,6 +337,34 @@ export class ContributionsService {
   // ── Scheme benefits ──
   getBenefitsByScheme(schemeId: string): Observable<SchemeBenefit[]> {
     return this.api.get<SchemeBenefit[]>(`/schemes/${schemeId}/benefits`);
+  }
+
+  /**
+   * Server-side paginated + sortable + searchable benefits list. The sort
+   * key must be one of the backend-whitelisted camelCase keys (name,
+   * benefitType, status, waitingPeriodDays, annualLimit, dailyLimit,
+   * eventLimit, createdAt) — anything else falls back to name ASC on the
+   * server.
+   */
+  getBenefitsBySchemePaged(schemeId: string, opts: {
+    page: number;            // 0-indexed
+    size: number;
+    sortKey?: string;
+    sortDirection?: 'asc' | 'desc';
+    q?: string;
+    status?: string;
+    benefitType?: string;
+  }): Observable<BenefitsPage> {
+    const params: Record<string, string> = {
+      page: String(opts.page),
+      size: String(opts.size),
+    };
+    if (opts.sortKey)       params['sortKey']       = opts.sortKey;
+    if (opts.sortDirection) params['sortDirection'] = opts.sortDirection;
+    if (opts.q)             params['q']             = opts.q;
+    if (opts.status)        params['status']        = opts.status;
+    if (opts.benefitType)   params['benefitType']   = opts.benefitType;
+    return this.api.get<BenefitsPage>(`/schemes/${schemeId}/benefits/page`, params);
   }
 
   getBenefitById(id: string): Observable<SchemeBenefit> {

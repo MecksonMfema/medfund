@@ -30,7 +30,7 @@ export class ContributionsComponent implements OnInit, OnDestroy {
   // Server-side pagination + sort state. Page is 1-indexed in the UI
   // (matches the data-table's serverPage input) and 0-indexed in the API.
   page = 1;
-  pageSize = 10;
+  pageSize = 20;
   totalCount = 0;
   totalPages = 1;
   loading = false;

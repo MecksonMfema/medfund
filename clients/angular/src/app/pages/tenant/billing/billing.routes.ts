@@ -72,7 +72,7 @@ export const BILLING_ROUTES: Routes = [
     path: 'age-groups',
     canActivate: [permissionGuard(['billing:view', 'billing:manage_age_groups']), tenantPersonCentricGuard],
     loadComponent: () => import('./age-groups/age-groups-list.component').then(m => m.AgeGroupsListComponent),
-    data: { title: 'Age Groups', sidebar: 'operational' },
+    data: { title: 'Age Groups', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'age-groups/add',

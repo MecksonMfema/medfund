@@ -34,7 +34,17 @@
   [data]="benefits"
   [actions]="benefitActions"
   [showActions]="true"
+  [serverSide]="true"
   [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  [initialSortKey]="sortKey"
+  [initialSortDirection]="sortDirection"
+  (sortChange)="onSort($event)"
+  (searchChange)="onSearch($event)"
+  (pageChange)="onPageChange($event)"
   emptyMessage="No benefits configured on this scheme yet"
   emptyDescription="Add a benefit to start defining what this scheme covers and its limits.">
 </app-data-table>

@@ -1,10 +1,10 @@
-@if (picked) {
+@if (picked && !editing) {
   <div class="picked">
     <div class="picked-info">
       <strong>{{ picked.label }}</strong>
       @if (picked.sublabel) { <span class="muted">{{ picked.sublabel }}</span> }
     </div>
-    <button type="button" class="link-btn" (click)="clear()" [disabled]="disabled">Change</button>
+    <button type="button" class="link-btn" (click)="startEditing()" [disabled]="disabled">Change</button>
   </div>
 } @else {
   <div class="search-wrapper">
@@ -17,14 +17,14 @@
       [placeholder]="placeholder"
       [disabled]="disabled"
       autocomplete="off" />
-    @if (showMatches && query.trim()) {
+    @if (showMatches && (query.trim() || initialSuggestions.length > 0)) {
       <ul class="suggestions">
         @if (searching) {
           <li class="suggestion muted">Searching…</li>
-        } @else if (matches.length === 0) {
+        } @else if (visibleSuggestions.length === 0) {
           <li class="suggestion muted">No matches</li>
         } @else {
-          @for (m of matches; track m.id) {
+          @for (m of visibleSuggestions; track m.id) {
             <li class="suggestion" (mousedown)="pick(m)">
               <strong>{{ m.label }}</strong>
               @if (m.sublabel) { <span class="muted">— {{ m.sublabel }}</span> }

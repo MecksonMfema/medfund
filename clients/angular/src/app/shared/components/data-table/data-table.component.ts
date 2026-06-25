@@ -54,7 +54,7 @@ export class DataTableComponent implements OnInit, OnDestroy {
   @Input() emptyIcon = 'folder-search';
   @Input() searchable = true;
   @Input() searchPlaceholder = 'Search';
-  @Input() pageSize = 10;
+  @Input() pageSize = 20;
   // Server-side mode
   @Input() serverSide = false;
   @Input() loading = false;

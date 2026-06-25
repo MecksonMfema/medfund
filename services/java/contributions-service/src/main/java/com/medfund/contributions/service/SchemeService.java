@@ -5,6 +5,7 @@ import com.medfund.contributions.dto.UpdateAgeGroupRequest;
 import com.medfund.contributions.dto.CreateSchemeBenefitRequest;
 import com.medfund.contributions.dto.CreateSchemeRequest;
 import com.medfund.contributions.dto.PageResponse;
+import com.medfund.contributions.dto.SchemeBenefitFilterParams;
 import com.medfund.contributions.dto.SchemeFilterParams;
 import com.medfund.contributions.dto.UpdateSchemeBenefitRequest;
 import com.medfund.contributions.dto.UpdateSchemeRequest;
@@ -14,6 +15,7 @@ import com.medfund.contributions.entity.SchemeBenefit;
 import com.medfund.contributions.exception.DuplicateSchemeException;
 import com.medfund.contributions.exception.SchemeNotFoundException;
 import com.medfund.contributions.repository.AgeGroupRepository;
+import com.medfund.contributions.repository.SchemeBenefitQueryRepository;
 import com.medfund.contributions.repository.SchemeBenefitRepository;
 import com.medfund.contributions.repository.SchemeQueryRepository;
 import com.medfund.contributions.repository.SchemeRepository;
@@ -43,17 +45,20 @@ public class SchemeService {
     private final SchemeBenefitRepository schemeBenefitRepository;
     private final AgeGroupRepository ageGroupRepository;
     private final SchemeQueryRepository schemeQueryRepository;
+    private final SchemeBenefitQueryRepository schemeBenefitQueryRepository;
     private final AuditPublisher auditPublisher;
 
     public SchemeService(SchemeRepository schemeRepository,
                          SchemeBenefitRepository schemeBenefitRepository,
                          AgeGroupRepository ageGroupRepository,
                          SchemeQueryRepository schemeQueryRepository,
+                         SchemeBenefitQueryRepository schemeBenefitQueryRepository,
                          AuditPublisher auditPublisher) {
         this.schemeRepository = schemeRepository;
         this.schemeBenefitRepository = schemeBenefitRepository;
         this.ageGroupRepository = ageGroupRepository;
         this.schemeQueryRepository = schemeQueryRepository;
+        this.schemeBenefitQueryRepository = schemeBenefitQueryRepository;
         this.auditPublisher = auditPublisher;
     }
 
@@ -68,6 +73,16 @@ public class SchemeService {
         return schemeQueryRepository.search(params, size, offset)
                 .collectList()
                 .zipWith(schemeQueryRepository.count(params))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
+    }
+
+    public Mono<PageResponse<SchemeBenefit>> searchBenefitsPaged(SchemeBenefitFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 100);
+        int offset = page * size;
+        return schemeBenefitQueryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(schemeBenefitQueryRepository.count(params))
                 .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 

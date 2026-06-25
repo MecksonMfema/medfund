@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { Subscription, forkJoin } from 'rxjs';
+import { Subscription } from 'rxjs';
 import {
   ContributionsService,
   Scheme,
@@ -15,7 +15,7 @@ import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pip
 import { ToastService } from '../../../../shared/components/toast/toast.service';
 
 /** Row shape rendered in the data-table — extends the raw benefit with
- *  display-ready fields so the table can stay declarative. */
+ *  display-ready limit strings so the table can stay declarative. */
 interface BenefitRow extends SchemeBenefit {
   annualLimitDisplay: string;
   dailyLimitDisplay: string;
@@ -39,8 +39,18 @@ export class BenefitsListComponent implements OnInit, OnDestroy {
   schemeId = '';
   scheme: Scheme | null = null;
   benefits: BenefitRow[] = [];
-  loading = false;
   errorMessage: string | null = null;
+
+  // Server-side pagination + sort state. Page is 1-indexed in the UI
+  // (matches the data-table's serverPage input) and 0-indexed in the API.
+  page = 1;
+  pageSize = 20;
+  totalCount = 0;
+  totalPages = 1;
+  loading = false;
+  searchTerm = '';
+  sortKey: string = 'name';
+  sortDirection: 'asc' | 'desc' = 'asc';
 
   benefitColumns: TableColumn[] = [
     { key: 'name',               label: 'Name',          sortable: true },
@@ -97,7 +107,13 @@ export class BenefitsListComponent implements OnInit, OnDestroy {
       this.permissions.permissions$.subscribe(() => this.rebuildActions()),
     );
     this.rebuildActions();
-    this.refresh();
+    // Scheme metadata is loaded once for the page header / row decoration
+    // (we still need the scheme's currency code for limit formatting).
+    this.contributions.getSchemeById(this.schemeId).subscribe({
+      next: (s) => (this.scheme = s),
+      error: () => {},
+    });
+    this.fetchPage();
   }
 
   ngOnDestroy(): void {
@@ -110,27 +126,52 @@ export class BenefitsListComponent implements OnInit, OnDestroy {
     );
   }
 
-  refresh(): void {
+  fetchPage(): void {
     this.loading = true;
     this.errorMessage = null;
-    forkJoin({
-      scheme: this.contributions.getSchemeById(this.schemeId),
-      benefits: this.contributions.getBenefitsByScheme(this.schemeId),
+    this.contributions.getBenefitsBySchemePaged(this.schemeId, {
+      page: this.page - 1,
+      size: this.pageSize,
+      sortKey: this.sortKey,
+      sortDirection: this.sortDirection,
+      q: this.searchTerm || undefined,
     }).subscribe({
-      next: ({ scheme, benefits }) => {
-        this.scheme = scheme;
-        this.benefits = benefits.map(b => this.decorate(b));
-        this.loading = false;
+      next: (resp) => {
+        this.benefits   = resp.content.map(b => this.decorate(b));
+        this.totalCount = resp.total;
+        this.totalPages = resp.totalPages;
+        this.loading    = false;
       },
       error: (err) => {
+        this.benefits   = [];
+        this.totalCount = 0;
+        this.totalPages = 1;
         this.errorMessage = err?.error?.detail || 'Failed to load benefits';
-        this.loading = false;
+        this.loading    = false;
       },
     });
   }
 
-  /** Pre-formats currency limits so the data-table can render them with the
-   *  shared cell renderer — keeps the dash-for-empty convention. */
+  onSort(e: { key: string; direction: 'asc' | 'desc' }): void {
+    this.sortKey       = e.key;
+    this.sortDirection = e.direction;
+    this.page          = 1;
+    this.fetchPage();
+  }
+
+  onSearch(term: string): void {
+    this.searchTerm = term;
+    this.page       = 1;
+    this.fetchPage();
+  }
+
+  onPageChange(page: number): void {
+    this.page = page;
+    this.fetchPage();
+  }
+
+  /** Pre-formats currency limits so the data-table can render them through
+   *  the shared default cell renderer — keeps the dash-for-empty convention. */
   private decorate(b: SchemeBenefit): BenefitRow {
     const fmt = (amount?: string): string =>
       amount ? this.currencyFormatter.transform(amount, b.currencyCode) : '—';
@@ -157,7 +198,10 @@ export class BenefitsListComponent implements OnInit, OnDestroy {
       : this.contributions.deactivateBenefit(b.id);
     stream.subscribe({
       next: (updated) => {
-        this.benefits = this.benefits.map(x => x.id === b.id ? { ...x, status: updated.status } : x);
+        // Patch the row in place — the rest of the page (count, sort) stays.
+        this.benefits = this.benefits.map(x => x.id === b.id
+          ? this.decorate({ ...x, status: updated.status })
+          : x);
         this.toast.success(`"${b.name}" ${updated.status === 'active' ? 'activated' : 'deactivated'}`);
       },
       error: (err) => {

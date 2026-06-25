@@ -133,6 +133,29 @@ public class SchemeController {
         return schemeService.findBenefitsBySchemeId(schemeId).map(SchemeBenefitResponse::from);
     }
 
+    @GetMapping("/{schemeId}/benefits/page")
+    @Operation(summary = "Server-side paginated, sortable, filterable benefits list",
+        description = "Feeds the operational benefits list for a scheme. Sortable keys: " +
+                "name, benefitType, status, waitingPeriodDays, annualLimit, dailyLimit, " +
+                "eventLimit, createdAt. Anything else falls back to name ASC.")
+    @ApiResponse(responseCode = "200", description = "Page of benefits")
+    public Mono<PageResponse<SchemeBenefitResponse>> searchBenefitsPaged(
+            @PathVariable UUID schemeId,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String benefitType,
+            @RequestParam(required = false, defaultValue = "name") String sortKey,
+            @RequestParam(required = false, defaultValue = "asc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "20") int size) {
+        SchemeBenefitFilterParams params = new SchemeBenefitFilterParams(
+                schemeId, q, status, benefitType, sortKey, sortDirection, page, size);
+        return schemeService.searchBenefitsPaged(params)
+                .map(p -> PageResponse.of(
+                        p.content().stream().map(SchemeBenefitResponse::from).toList(),
+                        p.total(), p.page(), p.size()));
+    }
+
     @PostMapping("/benefits")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create a scheme benefit")
