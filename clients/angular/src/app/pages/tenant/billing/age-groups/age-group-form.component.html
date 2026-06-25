@@ -1,4 +1,4 @@
-<div class="form-page">
+<div class="age-group-form-page">
   <header class="page-header">
     <div>
       <h1>{{ ageGroupId ? 'Edit age group' : 'Add age group' }}</h1>
@@ -6,7 +6,7 @@
     </div>
     <a class="btn btn-default" routerLink="/tenant/billing/age-groups">
       <app-icon name="arrow-left" [size]="14"></app-icon>
-      Back
+      Back to age groups
     </a>
   </header>
 
@@ -14,45 +14,112 @@
     <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
   }
 
-  <form (submit)="$event.preventDefault(); submit()" class="form-grid">
-    <label class="field span-2">
-      <span class="field-label">Scheme</span>
-      <app-select
-        [(ngModel)]="form.schemeId"
-        name="schemeId"
-        [options]="schemeOptions"
-        placeholder="Pick a scheme"
-      ></app-select>
-      @if (selectedScheme(); as s) {
-        <small class="muted">Contribution amount will be in <strong>{{ s.currencyCode || 'USD' }}</strong>.</small>
-      }
-    </label>
+  <form (submit)="$event.preventDefault(); submit()" class="form-card">
+    <div class="form-card__heading">
+      <h2 class="form-card__title">Age group details</h2>
+      <span class="form-card__hint">All fields with required values are marked.</span>
+    </div>
 
-    <label class="field span-2">
-      <span class="field-label">Name</span>
-      <input [(ngModel)]="form.name" name="name" placeholder="Adult, Child, Senior, etc." required />
-    </label>
+    <div class="form-sections">
+      <!-- ── Identity ──────────────────────────────────────────────────── -->
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="clipboard-list" [size]="18"></app-icon></span>
+          <h3 class="section-title">Identity</h3>
+        </header>
 
-    <label class="field">
-      <span class="field-label">Min age</span>
-      <input type="number" min="0" [(ngModel)]="form.minAge" name="minAge" required />
-    </label>
+        <label class="field">
+          <span class="field-label">Scheme <span class="req">*</span></span>
+          <app-select
+            [(ngModel)]="form.schemeId"
+            name="schemeId"
+            [options]="schemeOptions"
+            placeholder="Pick a scheme"
+          ></app-select>
+          @if (selectedScheme(); as s) {
+            <small class="field-help">Contribution amount will be in <strong>{{ s.currencyCode || 'USD' }}</strong>, locked to this scheme.</small>
+          }
+        </label>
 
-    <label class="field">
-      <span class="field-label">Max age</span>
-      <input type="number" min="0" [(ngModel)]="form.maxAge" name="maxAge" required />
-    </label>
+        <label class="field">
+          <span class="field-label">Tier name <span class="req">*</span></span>
+          <input
+            class="field-control"
+            [(ngModel)]="form.name"
+            name="name"
+            placeholder="e.g. Adult, Child, Senior"
+            maxlength="100"
+            required
+          />
+        </label>
+      </section>
 
-    <label class="field span-2">
-      <span class="field-label">Contribution amount</span>
-      <input type="number" step="any" min="0" [(ngModel)]="form.contributionAmount" name="amount" required />
-    </label>
+      <!-- ── Age range ─────────────────────────────────────────────────── -->
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="users" [size]="18"></app-icon></span>
+          <h3 class="section-title">Age range</h3>
+        </header>
 
-    <div class="form-actions span-2">
+        <label class="field">
+          <span class="field-label">Min age <span class="req">*</span></span>
+          <input
+            class="field-control"
+            type="number"
+            min="0"
+            [(ngModel)]="form.minAge"
+            name="minAge"
+            required
+          />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Max age <span class="req">*</span></span>
+          <input
+            class="field-control"
+            type="number"
+            min="0"
+            [(ngModel)]="form.maxAge"
+            name="maxAge"
+            required
+          />
+          <small class="field-help">Inclusive upper bound — a member at this age still falls in this tier.</small>
+        </label>
+      </section>
+
+      <!-- ── Pricing ───────────────────────────────────────────────────── -->
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="dollar-sign" [size]="18"></app-icon></span>
+          <h3 class="section-title">Pricing</h3>
+        </header>
+
+        <label class="field">
+          <span class="field-label">
+            Contribution amount
+            @if (selectedScheme(); as s) { <span class="optional">({{ s.currencyCode || 'USD' }})</span> }
+            <span class="req">*</span>
+          </span>
+          <input
+            class="field-control"
+            type="number"
+            step="any"
+            min="0"
+            [(ngModel)]="form.contributionAmount"
+            name="amount"
+            placeholder="0.00"
+            required
+          />
+          <small class="field-help">The monthly contribution charged to members in this age band.</small>
+        </label>
+      </section>
+    </div>
+
+    <footer class="form-actions">
       <a class="btn btn-default" routerLink="/tenant/billing/age-groups">Cancel</a>
       <button type="submit" class="btn btn-primary" [disabled]="saving || loading || !isDirty">
         {{ saving ? 'Saving…' : (ageGroupId ? 'Save changes' : 'Add age group') }}
       </button>
-    </div>
+    </footer>
   </form>
 </div>

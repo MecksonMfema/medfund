@@ -96,22 +96,35 @@
 }
 
 // ── Section grid ─────────────────────────────────────────────────────────
+// Each .form-section is a subgrid so its rows (section header, field 1,
+// field 2, …) align across columns to the same horizontal tracks. With
+// --section-rows = head + max(fields-per-section), every section spans
+// the same number of rows so an empty trailing slot (e.g. a column with
+// fewer fields) doesn't push subsequent fields out of alignment.
 .form-sections {
+  --section-rows: 3;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: min-content;
   gap: 24px 32px;
   padding: 24px;
 }
 
 .form-section {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span var(--section-rows);
   gap: 16px;
   min-width: 0;
 }
 
 .form-section--full {
   grid-column: 1 / -1;
+  grid-template-rows: auto;
+  grid-row: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .section-head {
