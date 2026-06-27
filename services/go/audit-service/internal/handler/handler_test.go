@@ -106,11 +106,16 @@ func newHandler(t *testing.T) (*fiber.App, *audit.Store) {
 	return app, store
 }
 
+// tenantUUID is a fixed test UUID used wherever the handler scope check now
+// requires a real UUID (callers that previously used short slugs like "t1"
+// would now be rejected with 400).
+const tenantUUID = "33333333-3333-3333-3333-333333333333"
+
 func TestQueryEvents_EmptyStore_ReturnsOK(t *testing.T) {
 	app, _ := newHandler(t)
 
 	req := httptest.NewRequest("GET", "/api/v1/audit/events", nil)
-	req.Header.Set("X-Tenant-ID", "test-tenant")
+	req.Header.Set("X-Tenant-ID", tenantUUID)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatal(err)
@@ -122,11 +127,11 @@ func TestQueryEvents_EmptyStore_ReturnsOK(t *testing.T) {
 
 func TestQueryEvents_WithEntityTypeFilter(t *testing.T) {
 	app, store := newHandler(t)
-	store.Append(audit.Event{ID: "1", TenantID: "t1", EntityType: "Member", Action: "CREATE", Timestamp: time.Now()})
-	store.Append(audit.Event{ID: "2", TenantID: "t1", EntityType: "Claim", Action: "CREATE", Timestamp: time.Now()})
+	store.Append(audit.Event{ID: "1", TenantID: tenantUUID, EntityType: "Member", Action: "CREATE", Timestamp: time.Now()})
+	store.Append(audit.Event{ID: "2", TenantID: tenantUUID, EntityType: "Claim", Action: "CREATE", Timestamp: time.Now()})
 
 	req := httptest.NewRequest("GET", "/api/v1/audit/events?entityType=Member", nil)
-	req.Header.Set("X-Tenant-ID", "t1")
+	req.Header.Set("X-Tenant-ID", tenantUUID)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatal(err)
@@ -146,11 +151,11 @@ func TestQueryEvents_WithEntityTypeFilter(t *testing.T) {
 
 func TestQueryEvents_WithActionFilter(t *testing.T) {
 	app, store := newHandler(t)
-	store.Append(audit.Event{ID: "1", TenantID: "t1", EntityType: "Member", Action: "CREATE", Timestamp: time.Now()})
-	store.Append(audit.Event{ID: "2", TenantID: "t1", EntityType: "Member", Action: "UPDATE", Timestamp: time.Now()})
+	store.Append(audit.Event{ID: "1", TenantID: tenantUUID, EntityType: "Member", Action: "CREATE", Timestamp: time.Now()})
+	store.Append(audit.Event{ID: "2", TenantID: tenantUUID, EntityType: "Member", Action: "UPDATE", Timestamp: time.Now()})
 
 	req := httptest.NewRequest("GET", "/api/v1/audit/events?action=UPDATE", nil)
-	req.Header.Set("X-Tenant-ID", "t1")
+	req.Header.Set("X-Tenant-ID", tenantUUID)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatal(err)
@@ -199,7 +204,7 @@ func TestQueryEvents_WithPagination(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		store.Append(audit.Event{
 			ID:         string(rune('A' + i)),
-			TenantID:   "t1",
+			TenantID:   tenantUUID,
 			EntityType: "Member",
 			Action:     "CREATE",
 			Timestamp:  time.Now().Add(time.Duration(i) * time.Second),
@@ -207,13 +212,104 @@ func TestQueryEvents_WithPagination(t *testing.T) {
 	}
 
 	req := httptest.NewRequest("GET", "/api/v1/audit/events?page=1&pageSize=2", nil)
-	req.Header.Set("X-Tenant-ID", "t1")
+	req.Header.Set("X-Tenant-ID", tenantUUID)
 	resp, err := app.Test(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if resp.StatusCode != 200 {
 		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+}
+
+// ─── Scope enforcement — added when handler stopped silently degrading to
+// the platform view on a missing/invalid X-Tenant-ID header. ────────────────
+
+func TestQueryEvents_rejectsMissingScope(t *testing.T) {
+	app, _ := newHandler(t)
+	req := httptest.NewRequest("GET", "/api/v1/audit/events", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Fatalf("expected 400 for missing scope, got %d", resp.StatusCode)
+	}
+}
+
+func TestQueryEvents_rejectsNonUUIDTenant(t *testing.T) {
+	app, _ := newHandler(t)
+	req := httptest.NewRequest("GET", "/api/v1/audit/events", nil)
+	req.Header.Set("X-Tenant-ID", "not-a-uuid")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Fatalf("expected 400 for non-UUID tenant, got %d", resp.StatusCode)
+	}
+}
+
+func TestQueryEvents_acceptsPlatformScope(t *testing.T) {
+	app, store := newHandler(t)
+	otherTenant := "44444444-4444-4444-4444-444444444444"
+	store.Append(audit.Event{ID: "1", TenantID: tenantUUID, EntityType: "Member", Action: "CREATE", Timestamp: time.Now()})
+	store.Append(audit.Event{ID: "2", TenantID: otherTenant, EntityType: "Claim", Action: "CREATE", Timestamp: time.Now()})
+
+	req := httptest.NewRequest("GET", "/api/v1/audit/events", nil)
+	req.Header.Set("X-Platform-Scope", "all")
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("expected 200 for platform scope, got %d", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), tenantUUID) || !strings.Contains(string(body), otherTenant) {
+		t.Fatalf("platform scope should surface every tenant's events, got %s", string(body))
+	}
+}
+
+func TestGetDailyCounts_rejectsMissingScope(t *testing.T) {
+	app, _ := newHandler(t)
+	req := httptest.NewRequest("GET", "/api/v1/audit/events/daily-counts", nil)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 400 {
+		t.Fatalf("expected 400, got %d", resp.StatusCode)
+	}
+}
+
+func TestGetDailyCounts_filtersByTenant(t *testing.T) {
+	app, store := newHandler(t)
+	otherTenant := "44444444-4444-4444-4444-444444444444"
+	now := time.Now()
+	for i := 0; i < 3; i++ {
+		store.Append(audit.Event{ID: fmt.Sprintf("a%d", i), TenantID: tenantUUID, EntityType: "M", Action: "CREATE", Timestamp: now})
+	}
+	for i := 0; i < 5; i++ {
+		store.Append(audit.Event{ID: fmt.Sprintf("b%d", i), TenantID: otherTenant, EntityType: "M", Action: "CREATE", Timestamp: now})
+	}
+
+	req := httptest.NewRequest("GET", "/api/v1/audit/events/daily-counts?days=7", nil)
+	req.Header.Set("X-Tenant-ID", tenantUUID)
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	// Today's bucket should be 3 (this tenant only), never 8 (mixed).
+	if !strings.Contains(string(body), "\"count\":3") {
+		t.Fatalf("expected scoped count of 3 for today, got %s", string(body))
+	}
+	if strings.Contains(string(body), "\"count\":8") {
+		t.Fatalf("daily counts must not bleed across tenants, got %s", string(body))
 	}
 }
 

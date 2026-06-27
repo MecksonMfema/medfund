@@ -31,6 +31,16 @@
   flex-wrap: wrap;
 }
 
+// Each filter dropdown is its own SelectComponent. The component's :host
+// is display:block; width:100%, so without an explicit basis they'd each
+// claim the whole row and the flex container would wrap them to their own
+// lines. Pin them to ~200px so they sit inline next to the search and the
+// search keeps flex:1 of the remaining width.
+.filter-bar app-select {
+  flex: 0 1 200px;
+  min-width: 160px;
+}
+
 .filter-search {
   display: flex;
   align-items: center;
@@ -39,7 +49,7 @@
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
   padding: 0 var(--spacing-sm);
-  flex: 1;
+  flex: 1 1 280px;
   min-width: 240px;
 
   app-icon { color: var(--color-text-muted); flex-shrink: 0; }

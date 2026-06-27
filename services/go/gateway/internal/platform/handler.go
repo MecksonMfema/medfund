@@ -237,7 +237,11 @@ func (h *Handler) getActivity(c *fiber.Ctx) error {
 	token := c.Cookies("access_token")
 	url := h.cfg.AuditServiceURL + "/api/v1/audit/events?pageSize=10&page=1"
 
-	body, err := h.fetchJSON(url, token)
+	// Audit-service now requires an explicit scope on every query. The
+	// platform dashboard wants the cross-tenant view, so tell it so.
+	body, err := h.fetchJSONWithHeaders(url, token, map[string]string{
+		"X-Platform-Scope": "all",
+	})
 	if err != nil {
 		return c.JSON([]activityItem{})
 	}
@@ -555,12 +559,22 @@ func placeholderDistribution() []distributionItem {
 
 // fetchJSON GETs a URL with an optional Bearer token and returns the raw body.
 func (h *Handler) fetchJSON(url, token string) ([]byte, error) {
+	return h.fetchJSONWithHeaders(url, token, nil)
+}
+
+// fetchJSONWithHeaders is fetchJSON with additional request headers — used
+// when an upstream requires a marker beyond the bearer token (e.g. the
+// audit-service's X-Platform-Scope: all for cross-tenant queries).
+func (h *Handler) fetchJSONWithHeaders(url, token string, extra map[string]string) ([]byte, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	for k, v := range extra {
+		req.Header.Set(k, v)
 	}
 	resp, err := h.client.Do(req)
 	if err != nil {

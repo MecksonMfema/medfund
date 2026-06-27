@@ -41,21 +41,51 @@ func isValidUUID(s string) bool {
 	return true
 }
 
+// scopeFromRequest enforces that every tenant-scoped query carries a caller
+// scope set by the gateway. Returns the tenant id filter for the store (empty
+// string = no filter / platform-wide). Writes a 400 problem response and
+// returns ok=false when the request has no recognised scope.
+//
+// Accepted shapes:
+//   - X-Tenant-ID: <uuid>             — single-tenant view
+//   - X-Platform-Scope: all           — cross-tenant view (gateway sets this
+//                                       only for callers with super_admin role)
+//
+// The previous behaviour silently degraded to a platform-wide view whenever
+// the tenant header was missing or non-UUID, which made a misfiring tenant
+// interceptor leak cross-tenant data. Hard-failing the request keeps the
+// fallback explicit and auditable.
+func scopeFromRequest(c *fiber.Ctx) (tenantID string, ok bool) {
+	header := c.Get("X-Tenant-ID")
+	if header != "" {
+		if !isValidUUID(header) {
+			_ = c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "X-Tenant-ID must be a UUID",
+			})
+			return "", false
+		}
+		return header, true
+	}
+	if c.Get("X-Platform-Scope") == "all" {
+		return "", true
+	}
+	_ = c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		"error": "missing scope: provide X-Tenant-ID (UUID) or X-Platform-Scope: all",
+	})
+	return "", false
+}
+
 func (h *Handler) QueryEvents(c *fiber.Ctx) error {
+	tenantFilter, ok := scopeFromRequest(c)
+	if !ok {
+		return nil
+	}
+
 	startDateStr := c.Query("startDate")
 	endDateStr := c.Query("endDate")
 	pageStr := c.Query("page")
 	pageSizeStr := c.Query("pageSize")
 	queryStr := c.Query("q")
-
-	tenantHeader := c.Get("X-Tenant-ID")
-	// Non-UUID / absent header = platform admin view — no tenant filter applied,
-	// so the response includes events from every tenant. A valid UUID narrows
-	// the result set to that tenant alone.
-	tenantFilter := ""
-	if tenantHeader != "" && isValidUUID(tenantHeader) {
-		tenantFilter = tenantHeader
-	}
 
 	filter := audit.QueryFilter{
 		TenantID:   tenantFilter,
@@ -122,11 +152,9 @@ func (h *Handler) GetStats(c *fiber.Ctx) error {
 // The result is a continuous series (zero-filled) ready for the chart — the
 // frontend maps it directly with no calculations.
 func (h *Handler) GetDailyCounts(c *fiber.Ctx) error {
-	tenantHeader := c.Get("X-Tenant-ID")
-	// Non-UUID / absent = platform view, aggregate across all tenants.
-	tenantID := ""
-	if tenantHeader != "" && isValidUUID(tenantHeader) {
-		tenantID = tenantHeader
+	tenantID, ok := scopeFromRequest(c)
+	if !ok {
+		return nil
 	}
 	days, _ := strconv.Atoi(c.Query("days", "30"))
 	if days <= 0 || days > 365 {

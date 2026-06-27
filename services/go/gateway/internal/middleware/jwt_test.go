@@ -234,6 +234,110 @@ func TestHandler_setsXTenantIDOnlyWhenClaimIsValidUUID(t *testing.T) {
 	}
 }
 
+// ─── X-Platform-Scope marker — gateway-only, super-admin only ────────────────
+
+// probeScope spins up a tiny app that records both X-Tenant-ID and
+// X-Platform-Scope as seen by the downstream handler after middleware runs.
+func probeScope(t *testing.T, m *JWTMiddleware) (*fiber.App, *string, *string) {
+	t.Helper()
+	var tenantSeen, scopeSeen string
+	app := fiber.New()
+	app.Use(m.Handler())
+	app.Get("/probe", func(c *fiber.Ctx) error {
+		tenantSeen = string(c.Request().Header.Peek("X-Tenant-ID"))
+		scopeSeen = string(c.Request().Header.Peek("X-Platform-Scope"))
+		return c.SendString("ok")
+	})
+	return app, &tenantSeen, &scopeSeen
+}
+
+func TestHandler_setsPlatformScopeForSuperAdminWithoutTenant(t *testing.T) {
+	m, priv, kid := newMiddlewareWithKey(t)
+	app, tenantSeen, scopeSeen := probeScope(t, m)
+
+	tokenStr := signToken(t, priv, kid, jwt.MapClaims{
+		"sub":          "super-1",
+		"realm_access": map[string]interface{}{"roles": []interface{}{"super_admin"}},
+		"exp":          time.Now().Add(time.Minute).Unix(),
+	})
+	req := httptest.NewRequest("GET", "/probe", nil)
+	req.Header.Set("Authorization", "Bearer "+tokenStr)
+	if _, err := app.Test(req); err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	if *tenantSeen != "" {
+		t.Errorf("X-Tenant-ID = %q, want empty", *tenantSeen)
+	}
+	if *scopeSeen != "all" {
+		t.Errorf("X-Platform-Scope = %q, want \"all\"", *scopeSeen)
+	}
+}
+
+func TestHandler_doesNotSetPlatformScopeForNonSuperAdmin(t *testing.T) {
+	m, priv, kid := newMiddlewareWithKey(t)
+	app, _, scopeSeen := probeScope(t, m)
+
+	tokenStr := signToken(t, priv, kid, jwt.MapClaims{
+		"sub":          "user-1",
+		"realm_access": map[string]interface{}{"roles": []interface{}{"operator"}},
+		"exp":          time.Now().Add(time.Minute).Unix(),
+	})
+	req := httptest.NewRequest("GET", "/probe", nil)
+	req.Header.Set("Authorization", "Bearer "+tokenStr)
+	if _, err := app.Test(req); err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	if *scopeSeen != "" {
+		t.Errorf("X-Platform-Scope = %q, want empty for non-super-admin", *scopeSeen)
+	}
+}
+
+func TestHandler_stripsClientSuppliedPlatformScope(t *testing.T) {
+	m, priv, kid := newMiddlewareWithKey(t)
+	app, _, scopeSeen := probeScope(t, m)
+
+	// A regular tenant user shouldn't be able to spoof platform scope by
+	// setting the header in their browser — the gateway must clear it.
+	tokenStr := signToken(t, priv, kid, jwt.MapClaims{
+		"sub": "user-1",
+		"exp": time.Now().Add(time.Minute).Unix(),
+	})
+	req := httptest.NewRequest("GET", "/probe", nil)
+	req.Header.Set("Authorization", "Bearer "+tokenStr)
+	req.Header.Set("X-Platform-Scope", "all")
+	if _, err := app.Test(req); err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	if *scopeSeen != "" {
+		t.Errorf("X-Platform-Scope = %q, want empty after strip", *scopeSeen)
+	}
+}
+
+func TestHandler_doesNotOverridePlatformScopeWhenSuperAdminHasTenant(t *testing.T) {
+	m, priv, kid := newMiddlewareWithKey(t)
+	app, tenantSeen, scopeSeen := probeScope(t, m)
+
+	// Super admin already pinned to a tenant context (via SPA-attached
+	// X-Tenant-ID) is scoped to that tenant, not platform-wide.
+	tokenStr := signToken(t, priv, kid, jwt.MapClaims{
+		"sub":          "super-1",
+		"realm_access": map[string]interface{}{"roles": []interface{}{"super_admin"}},
+		"exp":          time.Now().Add(time.Minute).Unix(),
+	})
+	req := httptest.NewRequest("GET", "/probe", nil)
+	req.Header.Set("Authorization", "Bearer "+tokenStr)
+	req.Header.Set("X-Tenant-ID", "11111111-2222-3333-4444-555555555555")
+	if _, err := app.Test(req); err != nil {
+		t.Fatalf("app.Test: %v", err)
+	}
+	if *tenantSeen != "11111111-2222-3333-4444-555555555555" {
+		t.Errorf("X-Tenant-ID = %q, want preserved", *tenantSeen)
+	}
+	if *scopeSeen != "" {
+		t.Errorf("X-Platform-Scope = %q, want empty when tenant is pinned", *scopeSeen)
+	}
+}
+
 func TestHandler_returnsErrorBodyWithMessageOnInvalidToken(t *testing.T) {
 	m, _, _ := newMiddlewareWithKey(t)
 	app := fiber.New()

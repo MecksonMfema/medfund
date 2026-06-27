@@ -51,6 +51,8 @@ func main() {
 	})
 	app.Post("/auth/session", jwtMw.SessionHandler())
 	app.Post("/auth/logout", jwtMw.LogoutHandler())
+	app.Post("/auth/impersonation/start", jwtMw.ImpersonationStartHandler())
+	app.Post("/auth/impersonation/end", jwtMw.ImpersonationEndHandler())
 
 	// JWT validation for all other routes
 	app.Use(jwtMw.Handler())

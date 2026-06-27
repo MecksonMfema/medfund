@@ -69,18 +69,53 @@ func (j *JWTMiddleware) Handler() fiber.Handler {
 		c.Locals("user_id", claims["sub"])
 		c.Locals("jwt_token", tokenStr)
 
+		// Strip any client-supplied scope marker before deriving our own.
+		// X-Platform-Scope is gateway-issued; a browser must not be able to
+		// fake it and bypass per-tenant filtering downstream.
+		c.Request().Header.Del("X-Platform-Scope")
+
 		// Extract tenant from JWT. Only forward as X-Tenant-ID when the claim
 		// parses as a UUID — sentinel values like "platform" or stale formats
 		// would otherwise be rejected downstream as invalid tenant context.
+		tenantFromJWT := false
 		if tenantID, ok := claims["tenant_id"].(string); ok && tenantID != "" {
 			if _, err := uuid.Parse(tenantID); err == nil {
 				c.Locals("tenant_id", tenantID)
 				c.Request().Header.Set("X-Tenant-ID", tenantID)
+				tenantFromJWT = true
 			}
+		}
+
+		// Super admins are the only callers permitted to query cross-tenant.
+		// When they're not pinned to a specific tenant (no UUID claim, and
+		// no explicit X-Tenant-ID already attached by the SPA), mark the
+		// request as platform-scoped so audit-service knows the omission is
+		// legitimate rather than a misfiring tenant interceptor.
+		if hasSuperAdminRole(claims) && !tenantFromJWT && c.Get("X-Tenant-ID") == "" {
+			c.Request().Header.Set("X-Platform-Scope", "all")
 		}
 
 		return c.Next()
 	}
+}
+
+// hasSuperAdminRole reports whether the Keycloak realm-role claim
+// (`realm_access.roles`) contains "super_admin".
+func hasSuperAdminRole(claims jwt.MapClaims) bool {
+	realm, ok := claims["realm_access"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	roles, ok := realm["roles"].([]interface{})
+	if !ok {
+		return false
+	}
+	for _, r := range roles {
+		if s, ok := r.(string); ok && s == "super_admin" {
+			return true
+		}
+	}
+	return false
 }
 
 // SessionHandler validates a Bearer token, sets it as an HTTP-only cookie,
@@ -123,6 +158,79 @@ func (j *JWTMiddleware) SessionHandler() fiber.Handler {
 		// Token refreshes (existing cookie present) are silent — not login events.
 		if !isRefresh {
 			j.publishSecurityEvent(c, claims, "LOGIN", "")
+		}
+		return c.JSON(fiber.Map{"status": "ok"})
+	}
+}
+
+// ImpersonationStartHandler emits an IMPERSONATION_START security event scoped
+// to the target tenant. Called by the super-admin portal just before navigating
+// into a tenant's admin context. The session cookie is not modified — only the
+// audit trail is updated.
+func (j *JWTMiddleware) ImpersonationStartHandler() fiber.Handler {
+	return j.impersonationHandler("IMPERSONATION_START")
+}
+
+// ImpersonationEndHandler emits an IMPERSONATION_END security event. Called
+// when the super admin leaves the tenant context (back to platform picker, or
+// on logout).
+func (j *JWTMiddleware) ImpersonationEndHandler() fiber.Handler {
+	return j.impersonationHandler("IMPERSONATION_END")
+}
+
+// impersonationHandler validates the impersonator's session, extracts the
+// target tenant id from the request body, and publishes a security event
+// scoped to that target tenant. Rejects requests with no valid cookie,
+// invalid body, or a non-UUID target tenant.
+func (j *JWTMiddleware) impersonationHandler(eventType string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		tokenStr := c.Cookies("access_token")
+		if tokenStr == "" {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "no session"})
+		}
+		claims, err := j.validateToken(tokenStr)
+		if err != nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid session"})
+		}
+
+		var body struct {
+			TenantID   string `json:"tenantId"`
+			TenantName string `json:"tenantName"`
+		}
+		if err := c.BodyParser(&body); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
+		}
+		if _, err := uuid.Parse(body.TenantID); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "tenantId must be a UUID"})
+		}
+
+		impersonatorSub := ""
+		impersonatorEmail := ""
+		if sub, ok := claims["sub"].(string); ok {
+			impersonatorSub = sub
+		}
+		if email, ok := claims["email"].(string); ok {
+			impersonatorEmail = email
+		} else if username, ok := claims["preferred_username"].(string); ok {
+			impersonatorEmail = username
+		}
+
+		if j.publisher != nil {
+			detail, _ := json.Marshal(map[string]string{
+				"impersonatorId":    impersonatorSub,
+				"impersonatorEmail": impersonatorEmail,
+				"targetTenantId":    body.TenantID,
+				"targetTenantName":  body.TenantName,
+			})
+			j.publisher.Publish(events.SecurityEvent{
+				TenantID:   body.TenantID,
+				EventType:  eventType,
+				UserID:     impersonatorSub,
+				ActorEmail: impersonatorEmail,
+				IPAddress:  c.IP(),
+				UserAgent:  c.Get("User-Agent"),
+				Details:    string(detail),
+			})
 		}
 		return c.JSON(fiber.Map{"status": "ok"})
 	}

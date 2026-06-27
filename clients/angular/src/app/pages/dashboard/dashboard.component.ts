@@ -103,21 +103,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
       error: () => { this.recentAudit = []; },
     });
 
-    // Pre-generate 30 date labels (same pattern as analytics axisLabels).
-    // The labels exist immediately so the chart always renders with an x-axis.
-    const labels = this.last30DayLabels();
-    const emptySeries = labels.map(name => ({ name, value: 0 }));
-    this.activityData = [{ name: 'Events', series: emptySeries }];
+    // Seed the chart with 30 zero-value daily points so the x-axis renders
+    // immediately while the request is in flight.
+    this.activityData = [{ name: 'Events', series: this.seedDailySeries(30) }];
 
-    // Fetch pre-aggregated daily counts — interceptor adds X-Tenant-ID automatically
+    // Fetch pre-aggregated daily counts — interceptor adds X-Tenant-ID automatically.
+    // The audit-service returns one entry per day (oldest → newest); bind 1:1.
     this.adminService.getAuditDailyCounts(30).subscribe({
       next: (counts) => {
-        const series = labels.map((label, i) => ({
-          name:  label,
-          value: counts[i]?.count ?? 0,
+        const series = counts.map(c => ({
+          name:  this.shortDate(c.date),
+          value: c.count,
         }));
         this.activityData = [{ name: 'Events', series }];
-        const max = Math.max(...series.map(s => s.value));
+        const max = Math.max(0, ...series.map(s => s.value));
         this.activityMax  = max > 0 ? Math.ceil(max * 1.2) : 5;
         this.auditLoading = false;
       },
@@ -133,19 +132,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return value;
   }
 
-  /** 10 evenly spaced date labels over the last 30 days — same pattern as analytics axisLabels(). */
-  private last30DayLabels(): string[] {
+  /** One zero-value point per day for the last `days` days, oldest → newest.
+   *  Used as the initial chart series so the x-axis renders before data lands. */
+  private seedDailySeries(days: number): { name: string; value: number }[] {
     const today = new Date();
-    return Array.from({ length: 10 }, (_, i) => {
-      const daysAgo = Math.round(29 * (1 - i / 9));
+    return Array.from({ length: days }, (_, i) => {
       const d = new Date(today);
-      d.setDate(today.getDate() - daysAgo);
-      return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      d.setDate(today.getDate() - (days - 1 - i));
+      return { name: this.shortDateFromDate(d), value: 0 };
     });
   }
 
   private shortDate(isoDate: string): string {
-    return new Date(isoDate + 'T00:00:00Z').toLocaleDateString('en-GB', {
+    return this.shortDateFromDate(new Date(isoDate + 'T00:00:00Z'));
+  }
+
+  private shortDateFromDate(d: Date): string {
+    return d.toLocaleDateString('en-GB', {
       day: 'numeric', month: 'short', timeZone: 'UTC',
     });
   }
@@ -154,6 +157,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const map: Record<string, string> = {
       CREATE: 'Created', UPDATE: 'Updated', DELETE: 'Deleted',
       LOGIN: 'Logged in', LOGOUT: 'Logged out', LOGIN_ERROR: 'Failed login',
+      IMPERSONATION_START: 'Impersonation started',
+      IMPERSONATION_END:   'Impersonation ended',
     };
     return map[action] ?? action;
   }
@@ -162,6 +167,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     const map: Record<string, string> = {
       CREATE: 'green', UPDATE: 'blue', DELETE: 'red',
       LOGIN: 'teal', LOGOUT: 'gray', LOGIN_ERROR: 'orange',
+      IMPERSONATION_START: 'orange',
+      IMPERSONATION_END:   'gray',
     };
     return map[action] ?? 'gray';
   }

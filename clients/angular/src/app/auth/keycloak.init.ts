@@ -147,3 +147,29 @@ export async function clearSession(): Promise<void> {
     credentials: 'include',
   });
 }
+
+/** Emit an IMPERSONATION_START security event for the target tenant. Fire-and-
+ *  forget — failures are swallowed so a flaky audit pipeline never blocks the
+ *  super admin from entering a tenant. */
+export async function beginImpersonation(tenantId: string, tenantName: string): Promise<void> {
+  try {
+    await fetch(`${GATEWAY_URL}/auth/impersonation/start`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tenantId, tenantName }),
+    });
+  } catch { /* swallow — auth/audit failure must not block navigation */ }
+}
+
+/** Counterpart to {@link beginImpersonation} — emits IMPERSONATION_END. */
+export async function endImpersonation(tenantId: string, tenantName: string): Promise<void> {
+  try {
+    await fetch(`${GATEWAY_URL}/auth/impersonation/end`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tenantId, tenantName }),
+    });
+  } catch { /* swallow */ }
+}

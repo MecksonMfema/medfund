@@ -11,6 +11,7 @@ import { SelectComponent, SelectOption } from '../../../shared/components/select
 import { AdminService, Tenant } from '../../../core/services/admin.service';
 import { TenantService } from '../../../core/services/tenant.service';
 import { BrandingService } from '../../../core/services/branding.service';
+import { beginImpersonation } from '../../../auth/keycloak.init';
 import { INSURANCE_LINES, InsuranceLine, parseInsuranceLines, parseProviderRegLabel, deriveProviderRegLabel, insuranceLineLabel } from '../../../core/models/insurance-lines';
 
 @Component({
@@ -302,6 +303,11 @@ export class TenantsComponent implements OnInit, OnDestroy {
   }
 
   enterTenantAdmin(tenant: Tenant): void {
+    // Emit IMPERSONATION_START so the target tenant's audit trail records the
+    // super admin's entry. Fire-and-forget — navigation must not block on the
+    // audit pipeline.
+    beginImpersonation(tenant.id, tenant.name);
+
     // Fetch full tenant data (including branding) before navigating
     this.adminService.getTenantById(tenant.id).subscribe({
       next: (full) => {

@@ -7,7 +7,7 @@ import { NavigationService } from '../../core/services/navigation.service';
 import { TenantService } from '../../core/services/tenant.service';
 import { UserInfo } from '../../core/models/navigation.model';
 import { IconComponent } from '../../shared/components/icon/icon.component';
-import { clearSession } from '../../auth/keycloak.init';
+import { clearSession, endImpersonation } from '../../auth/keycloak.init';
 
 @Component({
   selector: 'app-header',
@@ -43,11 +43,25 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   goToOperations(): void { this.router.navigate(['/tenant/dashboard']);       this.userMenuOpen = false; }
   goToTenantAdmin(): void { this.router.navigate(['/tenant/admin/dashboard']); this.userMenuOpen = false; }
-  goToTenantPicker(): void { this.router.navigate(['/platform/tenants']);     this.userMenuOpen = false; }
+  goToTenantPicker(): void {
+    this.endActiveImpersonation();
+    this.router.navigate(['/platform/tenants']);
+    this.userMenuOpen = false;
+  }
 
   async logout(): Promise<void> {
+    this.endActiveImpersonation();
     await clearSession();
     this.keycloak.logout();
+  }
+
+  /** Fire IMPERSONATION_END if the super admin currently has a tenant in
+   *  context. Fire-and-forget — failures are swallowed inside the helper. */
+  private endActiveImpersonation(): void {
+    const t = this.tenantService.getTenant();
+    if (t?.id) {
+      endImpersonation(t.id, t.name);
+    }
   }
 
   ngOnInit(): void {
