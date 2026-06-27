@@ -5,7 +5,6 @@ import org.springframework.data.r2dbc.repository.R2dbcRepository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.Instant;
 import java.util.UUID;
 
 public interface ScheduledJobRunRepository extends R2dbcRepository<ScheduledJobRun, UUID> {
@@ -26,17 +25,4 @@ public interface ScheduledJobRunRepository extends R2dbcRepository<ScheduledJobR
            "WHERE config_id = :configId AND status = 'FAILED' " +
            "AND started_at > NOW() - INTERVAL '24 hours'")
     Mono<Long> countRecentFailures(UUID configId);
-
-    /**
-     * Recent runs the given actor kicked off, plus anything still
-     * RUNNING regardless of when it started. Used by the header bell
-     * dropdown so the operator always sees in-flight work even if they
-     * triggered it before the {@code since} window. The dropdown polls
-     * this every 30s; cap is {@code limit} rows.
-     */
-    @Query("SELECT * FROM public.scheduled_job_runs " +
-           " WHERE triggered_by = :actorId " +
-           "   AND (status = 'RUNNING' OR ended_at >= :since) " +
-           " ORDER BY started_at DESC LIMIT :limit")
-    Flux<ScheduledJobRun> findRecentForActor(UUID actorId, Instant since, int limit);
 }

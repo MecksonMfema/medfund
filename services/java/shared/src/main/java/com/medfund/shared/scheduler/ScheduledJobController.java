@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
+import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -24,14 +25,41 @@ public class ScheduledJobController {
     private final ScheduledJobService scheduledJobService;
     private final ScheduledJobRunRepository runRepository;
     private final JobDispatcher jobDispatcher;
+    private final DatabaseClient db;
 
     public ScheduledJobController(ScheduledJobService scheduledJobService,
                                    ScheduledJobRunRepository runRepository,
-                                   JobDispatcher jobDispatcher) {
+                                   JobDispatcher jobDispatcher,
+                                   DatabaseClient db) {
         this.scheduledJobService = scheduledJobService;
         this.runRepository = runRepository;
         this.jobDispatcher = jobDispatcher;
+        this.db = db;
     }
+
+    /** SQL behind /runs/recent-for-me. LEFT JOIN so a run whose config
+     *  has since been deleted still surfaces (with null name) rather
+     *  than silently vanishing from the operator's bell. */
+    private static final String RECENT_FOR_ACTOR_SQL = """
+        SELECT
+            r.id            AS id,
+            r.config_id     AS config_id,
+            c.name          AS config_name,
+            c.job_type      AS job_type,
+            r.tenant_id     AS tenant_id,
+            r.started_at    AS started_at,
+            r.ended_at      AS ended_at,
+            r.duration_ms   AS duration_ms,
+            r.status        AS status,
+            r.trigger_kind  AS trigger_kind,
+            r.error_message AS error_message
+          FROM public.scheduled_job_runs r
+     LEFT JOIN public.scheduled_job_configs c ON c.id = r.config_id
+         WHERE r.triggered_by = :actorId
+           AND (r.status = 'RUNNING' OR r.ended_at >= :since)
+         ORDER BY r.started_at DESC
+         LIMIT :limit
+        """;
 
     @GetMapping
     @Operation(summary = "List scheduled job configurations",
@@ -121,10 +149,11 @@ public class ScheduledJobController {
     @GetMapping("/runs/recent-for-me")
     @Operation(summary = "Recent jobs the caller triggered, plus anything they have running",
         description = "Powers the Angular header bell dropdown. Returns runs where triggered_by = the JWT subject " +
-                      "and (status = RUNNING OR ended_at >= since). Polled every 30s. The since query param is " +
-                      "ISO-8601; default is now minus 24 hours so a long-running commit started yesterday still " +
-                      "surfaces. limit caps the result set (default 20, max 100).")
-    public Flux<ScheduledJobRun> recentForMe(
+                      "and (status = RUNNING OR ended_at >= since), joined to scheduled_job_configs so the row " +
+                      "carries the config's friendly name + machine job type. Polled every 30s. The since query " +
+                      "param is ISO-8601; default is now minus 24 hours so a long-running commit started yesterday " +
+                      "still surfaces. limit caps the result set (default 20, max 100).")
+    public Flux<ScheduledJobRunSummary> recentForMe(
             @RequestParam(name = "since", required = false) Instant since,
             @RequestParam(name = "limit", required = false, defaultValue = "20") int limit,
             @AuthenticationPrincipal Jwt jwt) {
@@ -135,7 +164,23 @@ public class ScheduledJobController {
         }
         Instant cutoff = since != null ? since : Instant.now().minus(Duration.ofHours(24));
         int capped = Math.max(1, Math.min(limit, 100));
-        return runRepository.findRecentForActor(actorId, cutoff, capped);
+        return db.sql(RECENT_FOR_ACTOR_SQL)
+                .bind("actorId", actorId)
+                .bind("since", cutoff)
+                .bind("limit", capped)
+                .map((row, meta) -> new ScheduledJobRunSummary(
+                        row.get("id", UUID.class),
+                        row.get("config_id", UUID.class),
+                        row.get("config_name", String.class),
+                        row.get("job_type", String.class),
+                        row.get("tenant_id", UUID.class),
+                        row.get("started_at", Instant.class),
+                        row.get("ended_at", Instant.class),
+                        row.get("duration_ms", Long.class),
+                        row.get("status", String.class),
+                        row.get("trigger_kind", String.class),
+                        row.get("error_message", String.class)))
+                .all();
     }
 
     @PostMapping("/{id}/run-now")

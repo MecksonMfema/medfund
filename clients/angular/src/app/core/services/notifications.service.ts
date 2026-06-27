@@ -2,7 +2,7 @@ import { Injectable, OnDestroy } from '@angular/core';
 import { BehaviorSubject, Observable, Subscription, interval, of } from 'rxjs';
 import { catchError, switchMap } from 'rxjs/operators';
 import { ApiService } from './api.service';
-import { ScheduledJobRun } from './admin.service';
+import { ScheduledJobRunSummary } from './admin.service';
 
 /**
  * Last-seen timestamp the user has acknowledged. Anything that landed
@@ -29,14 +29,14 @@ const POLL_INTERVAL_MS = 30_000;
  */
 @Injectable({ providedIn: 'root' })
 export class NotificationsService implements OnDestroy {
-  private readonly runs$ = new BehaviorSubject<ScheduledJobRun[]>([]);
+  private readonly runs$ = new BehaviorSubject<ScheduledJobRunSummary[]>([]);
   private readonly unseenCount$ = new BehaviorSubject<number>(0);
   private poll?: Subscription;
 
   constructor(private api: ApiService) {}
 
   /** Stream of recent + in-flight runs the current user triggered. */
-  get list(): Observable<ScheduledJobRun[]> { return this.runs$.asObservable(); }
+  get list(): Observable<ScheduledJobRunSummary[]> { return this.runs$.asObservable(); }
 
   /** Count of completed runs the user hasn't acknowledged yet. Drives the bell badge. */
   get badge(): Observable<number> { return this.unseenCount$.asObservable(); }
@@ -59,8 +59,8 @@ export class NotificationsService implements OnDestroy {
   /** Force an immediate refresh — used after the user triggers a job
    *  so the bell reflects the new RUNNING row without waiting 30s. */
   refresh(): void {
-    this.api.get<ScheduledJobRun[]>('/scheduled-jobs/runs/recent-for-me', { limit: '20' })
-      .pipe(catchError(() => of<ScheduledJobRun[]>([])))
+    this.api.get<ScheduledJobRunSummary[]>('/scheduled-jobs/runs/recent-for-me', { limit: '20' })
+      .pipe(catchError(() => of<ScheduledJobRunSummary[]>([])))
       .subscribe(rows => {
         this.runs$.next(rows ?? []);
         this.unseenCount$.next(this.computeUnseen(rows ?? []));
@@ -80,7 +80,7 @@ export class NotificationsService implements OnDestroy {
     this.stop();
   }
 
-  private computeUnseen(rows: ScheduledJobRun[]): number {
+  private computeUnseen(rows: ScheduledJobRunSummary[]): number {
     const lastSeen = this.readLastSeen();
     return rows.filter(r => {
       if (r.status === 'RUNNING') return false;

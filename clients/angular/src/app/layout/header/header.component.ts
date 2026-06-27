@@ -6,7 +6,18 @@ import { KeycloakService } from 'keycloak-angular';
 import { NavigationService } from '../../core/services/navigation.service';
 import { TenantService } from '../../core/services/tenant.service';
 import { NotificationsService } from '../../core/services/notifications.service';
-import { ScheduledJobRun, ScheduledJobRunStatus } from '../../core/services/admin.service';
+import { ScheduledJobRunSummary, ScheduledJobRunStatus } from '../../core/services/admin.service';
+
+/** Friendly labels for the bell dropdown — keep aligned with
+ *  shared/scheduler/JobType in Java + job.friendlyKind in
+ *  notification-service so an operator sees the same wording across
+ *  email + bell + audit log. */
+const JOB_TYPE_LABELS: Record<string, string> = {
+  BILLING_COMMIT:  'Billing commit',
+  BILLING_PREVIEW: 'Billing preview',
+  BILLING_CYCLE:   'Billing cycle',
+  OVERDUE_CHECK:   'Overdue check',
+};
 import { UserInfo } from '../../core/models/navigation.model';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { clearSession, endImpersonation } from '../../auth/keycloak.init';
@@ -29,7 +40,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   /** Notifications observables piped straight into the bell dropdown via async pipe. */
   unseenCount$!: Observable<number>;
-  runs$!: Observable<ScheduledJobRun[]>;
+  runs$!: Observable<ScheduledJobRunSummary[]>;
 
   private sub?: Subscription;
 
@@ -87,7 +98,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.notifications.markAllSeen();
   }
 
-  isUnseen(run: ScheduledJobRun): boolean {
+  isUnseen(run: ScheduledJobRunSummary): boolean {
     if (run.status === 'RUNNING' || !run.endedAt) return false;
     // Mirrors NotificationsService.computeUnseen so the row styling
     // stays consistent with the badge count.
@@ -108,11 +119,14 @@ export class HeaderComponent implements OnInit, OnDestroy {
     return { RUNNING: 'Running', SUCCESS: 'Completed', FAILED: 'Failed' }[s] ?? s;
   }
 
-  jobLabel(run: ScheduledJobRun): string {
-    // The server doesn't include the friendly job name in the run row
-    // — we just have the run id. Use a short version for now; the full
-    // /jobs page (future) can join to scheduled_job_configs.name.
-    return 'Job ' + run.id.slice(0, 8);
+  /** "Billing commit · September billing" when both job-type and the
+   *  config name are present. Falls back gracefully for runs whose
+   *  config has since been deleted (LEFT JOIN preserves them) or
+   *  whose job type isn't in our label map. */
+  jobLabel(run: ScheduledJobRunSummary): string {
+    const kind = (run.jobType && JOB_TYPE_LABELS[run.jobType]) || run.jobType || 'Job';
+    if (run.configName) return `${kind} · ${run.configName}`;
+    return kind;
   }
 
   humanDuration(ms: number): string {

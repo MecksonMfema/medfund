@@ -306,6 +306,27 @@ export interface ScheduledJobRun {
   createdAt: string;
 }
 
+/**
+ * Projection returned by /scheduled-jobs/runs/recent-for-me. Joins
+ * scheduled_job_runs to scheduled_job_configs so the header bell can
+ * show "Billing commit · September billing" instead of "Job a1b2c3d4".
+ * configName / jobType are nullable because the LEFT JOIN preserves
+ * runs whose config has since been deleted.
+ */
+export interface ScheduledJobRunSummary {
+  id: string;
+  configId: string;
+  configName: string | null;
+  jobType: string | null;
+  tenantId: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  durationMs: number | null;
+  status: ScheduledJobRunStatus;
+  triggerKind: 'schedule' | 'manual';
+  errorMessage: string | null;
+}
+
 export interface AuditEvent {
   events: any[];
   total: number;
