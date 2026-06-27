@@ -74,14 +74,24 @@ public class TenantAwareConnectionFactory implements ConnectionFactory {
     public Publisher<? extends Connection> create() {
         return Mono.deferContextual(ctx -> {
             String tenantId = TenantContext.get(ctx);
-            if (tenantId == null) {
-                // Platform context — drop any role left from a previous
-                // tenant pool slot and pin search_path to public.
+            // Anything that doesn't parse as a UUID is treated as a
+            // platform-level request — covers (a) genuinely missing
+            // tenant context, and (b) the {@code tenant_id = "platform"}
+            // sentinel the bootstrap-keycloak script stamps on
+            // super-admin JWTs. Without this branch the factory would
+            // fall back to a phantom {@code public_role}, which doesn't
+            // exist, and the connection acquire would error out.
+            if (tenantId == null || !isUuid(tenantId)) {
                 return openWithState("public", null);
             }
             return resolveSchemaName(tenantId)
                     .flatMap(schema -> openWithState(schema + ", public", schema + "_role"));
         });
+    }
+
+    private static boolean isUuid(String s) {
+        try { UUID.fromString(s); return true; }
+        catch (IllegalArgumentException e) { return false; }
     }
 
     /**
