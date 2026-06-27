@@ -3,12 +3,30 @@ package config
 import "os"
 
 type Config struct {
-	Port           string
-	S3Bucket       string
-	S3Region       string
-	AWSAccessKey   string
-	AWSSecretKey   string
+	Port            string
+	S3Bucket        string
+	S3Region        string
+	AWSAccessKey    string
+	AWSSecretKey    string
 	MaxUploadSizeMB string
+
+	// MinIO (local dev S3-compatible store). Empty MinIOEndpoint disables
+	// the real client and the service falls back to MockStorage.
+	MinIOEndpoint  string
+	MinIOAccessKey string
+	MinIOSecretKey string
+	MinIOBucket    string
+	MinIOUseSSL    string
+
+	// Kafka — empty KafkaBrokers disables the InvoiceIssued consumer.
+	KafkaBrokers string
+
+	// Path to the wkhtmltopdf binary. The PDF renderer execs this with
+	// HTML on stdin and reads the resulting PDF from stdout. Empty value
+	// falls back to a stub renderer that returns "%PDF-1.4 stub" — same
+	// as the legacy export.GeneratePDF behaviour — so the service can
+	// boot in test/dev environments without the binary installed.
+	WkhtmltopdfBin string
 }
 
 func Load() *Config {
@@ -19,6 +37,15 @@ func Load() *Config {
 		AWSAccessKey:    getEnv("AWS_ACCESS_KEY", ""),
 		AWSSecretKey:    getEnv("AWS_SECRET_KEY", ""),
 		MaxUploadSizeMB: getEnv("MAX_UPLOAD_SIZE_MB", "50"),
+
+		MinIOEndpoint:  getEnv("MINIO_ENDPOINT", "localhost:9000"),
+		MinIOAccessKey: getEnv("MINIO_ACCESS_KEY", "medfund"),
+		MinIOSecretKey: getEnv("MINIO_SECRET_KEY", "medfund123"),
+		MinIOBucket:    getEnv("MINIO_BUCKET", "medfund-invoices"),
+		MinIOUseSSL:    getEnv("MINIO_USE_SSL", "false"),
+
+		KafkaBrokers:   getEnv("KAFKA_BROKERS", "localhost:9092"),
+		WkhtmltopdfBin: getEnv("WKHTMLTOPDF_BIN", "wkhtmltopdf"),
 	}
 }
 
