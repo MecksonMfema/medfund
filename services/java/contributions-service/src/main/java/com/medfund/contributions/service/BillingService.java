@@ -229,9 +229,17 @@ public class BillingService {
                                "totalAmount", saved.getTotalAmount().toString(),
                                "groupId", saved.getGroupId().toString()))
                     .then(eventPublisher.publishInvoiceIssued(
-                        saved.getId().toString(),
-                        saved.getInvoiceNumber(),
-                        saved.getGroupId().toString()))
+                        new ContributionEventPublisher.InvoiceIssuedPayload(
+                            saved.getId().toString(),
+                            saved.getInvoiceNumber(),
+                            tenantId,
+                            saved.getGroupId() != null  ? saved.getGroupId().toString()  : null,
+                            saved.getMemberId() != null ? saved.getMemberId().toString() : null,
+                            saved.getCurrencyCode(),
+                            saved.getTotalAmount().toPlainString(),
+                            saved.getPeriodStart().toString(),
+                            saved.getPeriodEnd().toString(),
+                            saved.getDueDate().toString())))
                     .thenReturn(saved);
             }));
     }
@@ -465,7 +473,24 @@ public class BillingService {
                         return contributionRepository.save(c);
                     })
                     .then(Mono.just(saved));
-        });
+        }).flatMap(saved -> Mono.deferContextual(ctx ->
+            // Fan out to file-service (PDF rendering) and onward to
+            // notification-service (email delivery). Fire-and-forget so the
+            // commit response stays snappy — failures are visible in
+            // audit + NotificationSent events, not blocking on Kafka latency.
+            eventPublisher.publishInvoiceIssued(
+                    new ContributionEventPublisher.InvoiceIssuedPayload(
+                            saved.getId().toString(),
+                            saved.getInvoiceNumber(),
+                            TenantContext.get(ctx),
+                            saved.getGroupId()  != null ? saved.getGroupId().toString()  : null,
+                            saved.getMemberId() != null ? saved.getMemberId().toString() : null,
+                            saved.getCurrencyCode(),
+                            saved.getTotalAmount().toPlainString(),
+                            saved.getPeriodStart().toString(),
+                            saved.getPeriodEnd().toString(),
+                            saved.getDueDate().toString()))
+                .thenReturn(saved)));
     }
 
     private RoutingKey computeRoutingKey(Contribution c, String model) {

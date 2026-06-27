@@ -76,19 +76,56 @@ class ContributionEventPublisherTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void publishInvoiceIssued_sendsToCorrectTopic() {
+    void publishInvoiceIssued_groupPayload_omitsMemberIdAndCarriesEverythingFileServiceNeeds() {
         when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
 
-        StepVerifier.create(contributionEventPublisher.publishInvoiceIssued("inv-1", "INV-123", "grp-1"))
+        var payload = new ContributionEventPublisher.InvoiceIssuedPayload(
+                "inv-1", "INV-123", "tenant-1",
+                "grp-1", null, "USD", "150.00",
+                "2026-06-01", "2026-06-30", "2026-07-30");
+
+        StepVerifier.create(contributionEventPublisher.publishInvoiceIssued(payload))
                 .verifyComplete();
 
         verify(kafkaSender).send(senderRecordCaptor.capture());
-
         StepVerifier.create(senderRecordCaptor.getValue())
                 .assertNext(record -> {
                     assertThat(record.topic()).isEqualTo("medfund.contributions.invoice-issued");
                     assertThat(record.key()).isEqualTo("inv-1");
-                    assertThat(record.value()).contains("INVOICE_ISSUED");
+                    String body = (String) record.value();
+                    assertThat(body).contains("INVOICE_ISSUED");
+                    assertThat(body).contains("tenant-1");
+                    assertThat(body).contains("grp-1");
+                    assertThat(body).contains("USD");
+                    assertThat(body).contains("150.00");
+                    assertThat(body).contains("2026-07-30");
+                    // memberId is null on a group invoice — must be elided
+                    // entirely so notification-service can disambiguate
+                    // recipient kind from key presence alone.
+                    assertThat(body).doesNotContain("memberId");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void publishInvoiceIssued_individualPayload_omitsGroupId() {
+        when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
+
+        var payload = new ContributionEventPublisher.InvoiceIssuedPayload(
+                "inv-2", "INV-124", "tenant-1",
+                null, "mem-1", "USD", "75.00",
+                "2026-06-01", "2026-06-30", "2026-07-30");
+
+        StepVerifier.create(contributionEventPublisher.publishInvoiceIssued(payload))
+                .verifyComplete();
+
+        verify(kafkaSender).send(senderRecordCaptor.capture());
+        StepVerifier.create(senderRecordCaptor.getValue())
+                .assertNext(record -> {
+                    String body = (String) record.value();
+                    assertThat(body).contains("mem-1");
+                    assertThat(body).doesNotContain("groupId");
                 })
                 .verifyComplete();
     }

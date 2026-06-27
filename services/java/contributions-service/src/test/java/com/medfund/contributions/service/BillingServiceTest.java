@@ -142,8 +142,15 @@ class BillingServiceTest {
         parentScheme.setCurrencyCode("USD");
 
         when(schemeRepository.findById(schemeId)).thenReturn(Mono.just(parentScheme));
+        // Stamp a DB-generated id on save so downstream getId().toString()
+        // calls in publishAudit don't NPE — mirrors what the real R2DBC
+        // pipeline does via the table's gen_random_uuid() default.
         when(contributionRepository.save(any(Contribution.class)))
-            .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+            .thenAnswer(inv -> {
+                Contribution c = inv.getArgument(0);
+                if (c.getId() == null) c.setId(UUID.randomUUID());
+                return Mono.just(c);
+            });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishBillingGenerated(any(), any(), any(), anyInt()))
             .thenReturn(Mono.empty());
@@ -209,9 +216,13 @@ class BillingServiceTest {
 
         when(invoiceRepository.existsByInvoiceNumber(any())).thenReturn(Mono.just(false));
         when(invoiceRepository.save(any(Invoice.class)))
-            .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+            .thenAnswer(inv -> {
+                Invoice i = inv.getArgument(0);
+                if (i.getId() == null) i.setId(UUID.randomUUID());
+                return Mono.just(i);
+            });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        when(eventPublisher.publishInvoiceIssued(any(), any(), any()))
+        when(eventPublisher.publishInvoiceIssued(any(ContributionEventPublisher.InvoiceIssuedPayload.class)))
             .thenReturn(Mono.empty());
 
         StepVerifier.create(billingService.generateInvoice(
@@ -234,7 +245,7 @@ class BillingServiceTest {
         verify(invoiceRepository).existsByInvoiceNumber(any());
         verify(invoiceRepository).save(any(Invoice.class));
         verify(auditPublisher).publish(any());
-        verify(eventPublisher).publishInvoiceIssued(any(), any(), any());
+        verify(eventPublisher).publishInvoiceIssued(any(ContributionEventPublisher.InvoiceIssuedPayload.class));
     }
 
     // ---- Helpers ----

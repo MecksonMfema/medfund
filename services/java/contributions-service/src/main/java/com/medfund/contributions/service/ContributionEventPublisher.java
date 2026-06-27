@@ -43,14 +43,51 @@ public class ContributionEventPublisher {
         ));
     }
 
-    public Mono<Void> publishInvoiceIssued(String invoiceId, String invoiceNumber, String groupId) {
-        return publishEvent("medfund.contributions.invoice-issued", invoiceId, Map.of(
-            "event", "INVOICE_ISSUED",
-            "invoiceId", invoiceId,
-            "invoiceNumber", invoiceNumber,
-            "groupId", groupId
-        ));
+    /**
+     * Notify downstream services (file-service for PDF rendering, then
+     * notification-service for email delivery) that an invoice has been
+     * issued. Carries everything those consumers need to render and
+     * dispatch without round-tripping back into contributions-service —
+     * keeps PDF generation tolerant to the source service being briefly
+     * unreachable.
+     *
+     * <p>Exactly one of {@code groupId} / {@code memberId} is non-null:
+     * group invoices route the email to the group's liaison; individual
+     * invoices route to the member directly.
+     */
+    public Mono<Void> publishInvoiceIssued(InvoiceIssuedPayload p) {
+        var fields = new java.util.LinkedHashMap<String, String>();
+        fields.put("event", "INVOICE_ISSUED");
+        fields.put("invoiceId", p.invoiceId());
+        fields.put("invoiceNumber", p.invoiceNumber());
+        fields.put("tenantId", p.tenantId());
+        if (p.groupId() != null)  fields.put("groupId",  p.groupId());
+        if (p.memberId() != null) fields.put("memberId", p.memberId());
+        fields.put("currencyCode", p.currencyCode());
+        fields.put("totalAmount",  p.totalAmount());
+        fields.put("periodStart",  p.periodStart());
+        fields.put("periodEnd",    p.periodEnd());
+        fields.put("dueDate",      p.dueDate());
+        return publishEvent("medfund.contributions.invoice-issued", p.invoiceId(), fields);
     }
+
+    /**
+     * Payload for {@link #publishInvoiceIssued(InvoiceIssuedPayload)}. Exactly
+     * one of {@code groupId} / {@code memberId} should be set — the publisher
+     * elides whichever is null from the wire payload so consumers can
+     * disambiguate "no recipient" (a data anomaly) from "the other kind".
+     */
+    public record InvoiceIssuedPayload(
+            String invoiceId,
+            String invoiceNumber,
+            String tenantId,
+            String groupId,
+            String memberId,
+            String currencyCode,
+            String totalAmount,
+            String periodStart,
+            String periodEnd,
+            String dueDate) {}
 
     private Mono<Void> publishEvent(String topic, String key, Map<String, String> payload) {
         try {
