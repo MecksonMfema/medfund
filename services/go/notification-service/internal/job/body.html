@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>{{.KindLabel}} {{.Outcome}}</title></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1f2c;max-width:580px;margin:0 auto;padding:24px;">
+  <h2 style="margin-top:0;">Hello {{.DisplayName}},</h2>
+
+  <p>Your <strong>{{.KindLabel}}</strong> {{.Outcome}} after <strong>{{.Duration}}</strong>.</p>
+
+  {{if eq .Status "SUCCESS"}}
+    <p style="background:#e6f8f3;border-radius:8px;padding:12px 16px;color:#0a6e54;">
+      ✅ The job completed without errors.
+    </p>
+    {{if .ResultPayload}}
+      <details style="margin-top:24px;">
+        <summary style="cursor:pointer;color:#5b6371;font-size:13px;">Result details</summary>
+        <pre style="background:#f6f8fb;padding:12px;border-radius:6px;overflow:auto;font-size:12px;">{{.ResultPayload}}</pre>
+      </details>
+    {{end}}
+  {{else}}
+    <p style="background:#fdebea;border-radius:8px;padding:12px 16px;color:#9a2724;">
+      ❌ The job failed and was rolled back.
+    </p>
+    {{if .ErrorMessage}}
+      <p style="color:#5b6371;font-size:13px;margin-top:16px;">
+        <strong>Error:</strong>
+      </p>
+      <pre style="background:#fef6f5;padding:12px;border-radius:6px;overflow:auto;font-size:12px;color:#9a2724;">{{.ErrorMessage}}</pre>
+    {{end}}
+    <p style="margin-top:16px;">You can retry the job from the MedFund console or contact your administrator.</p>
+  {{end}}
+
+  <p style="margin-top:32px;color:#5b6371;font-size:12px">
+    Run ID: <code>{{.RunID}}</code><br>
+    This is an automated message from MedFund.
+  </p>
+</body>
+</html>

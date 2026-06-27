@@ -19,6 +19,7 @@ import (
 	"github.com/medfund/notification-service/internal/events"
 	"github.com/medfund/notification-service/internal/handler"
 	"github.com/medfund/notification-service/internal/invoice"
+	"github.com/medfund/notification-service/internal/job"
 	"github.com/medfund/notification-service/internal/mail"
 	"github.com/medfund/notification-service/internal/notification"
 	"github.com/medfund/notification-service/internal/recipient"
@@ -87,6 +88,17 @@ func main() {
 	// of waiting goroutines when an entire billing run fails.
 	retrySched := retry.New(nil, 50)
 
+	// Job-completion email pipeline — separate dispatcher because the
+	// recipient (a staff user) and the template (JOB_COMPLETED) are
+	// distinct from the invoice path. Reuses the same SMTP sender,
+	// template resolver, and retry scheduler.
+	jobTemplates := template.NewResolver(pool, job.DefaultSubject, job.DefaultHTMLBody())
+	jobDispatcher, err := job.NewDispatcher(
+		job.DBStaffLookup{Pool: pool}, sender, jobTemplates, cfg.SMTPFrom, 30*time.Second)
+	if err != nil {
+		log.Fatalf("job dispatcher: %v", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	if cfg.KafkaBrokers != "" && fetcher != nil {
 		go runInvoiceConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID,
@@ -94,6 +106,13 @@ func main() {
 	} else {
 		log.Printf("[notification] invoice consumer disabled (kafka=%q minio=%v)",
 			cfg.KafkaBrokers, fetcher != nil)
+	}
+	if cfg.KafkaBrokers != "" && pool != nil {
+		go runJobConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID,
+			jobDispatcher, retrySched)
+	} else {
+		log.Printf("[notification] job consumer disabled (kafka=%q postgres=%v)",
+			cfg.KafkaBrokers, pool != nil)
 	}
 
 	go func() {
@@ -217,3 +236,48 @@ func buildNotificationSent(e invoice.Event, r invoice.Result,
 // Sentinel — only used when Dispatch returns Ok=false with a nil Err
 // (a defensive belt-and-braces for a future Dispatch refactor).
 var errDispatchFailed = fmt.Errorf("dispatch returned failure with no error")
+
+// runJobConsumer reads JobCompleted events and dispatches them through
+// the job-email pipeline. Skipped results (short jobs, scheduled
+// triggers) emit nothing — they're filtered before any send happens.
+// Errors hand off to the retry scheduler with backoff; after exhaustion
+// the dead-letter is logged. Job emails are best-effort by design —
+// the JobCompleted event itself is the durable record of completion,
+// the email is just an out-of-band convenience.
+func runJobConsumer(ctx context.Context, brokers, groupID string,
+	dispatcher *job.Dispatcher, retrySched *retry.Scheduler) {
+
+	sub := events.NewSubscriber(brokers, "medfund.jobs.completed", groupID+"-jobs")
+	sub.Run(ctx, func(payload []byte) {
+		var e job.Event
+		if err := json.Unmarshal(payload, &e); err != nil {
+			log.Printf("[notification] drop malformed JobCompleted: %v", err)
+			return
+		}
+		res := dispatcher.Dispatch(ctx, e)
+		if res.Skipped || res.Ok {
+			return
+		}
+		// Failed — schedule retries silently, log dead-letter on exhaustion.
+		retrySched.RunAsync(ctx, "job:"+e.RunID,
+			func(ctx context.Context, _ int) error {
+				r := dispatcher.Dispatch(ctx, e)
+				if r.Ok || r.Skipped {
+					return nil
+				}
+				if r.Err != nil {
+					return r.Err
+				}
+				return errDispatchFailed
+			},
+			func(o retry.Outcome) {
+				if o.Ok {
+					log.Printf("[notification] job email retry succeeded for run %s after %d attempts",
+						e.RunID, o.Attempts)
+					return
+				}
+				log.Printf("[notification] job email dead-lettered for run %s after %d attempts: %v",
+					e.RunID, o.Attempts, o.Err)
+			})
+	})
+}
