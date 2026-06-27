@@ -191,3 +191,97 @@ func TestHandlersAreIndependent(t *testing.T) {
 		t.Errorf("expected 1 audit and 1 security event, got %d/%d", len(events), len(secs))
 	}
 }
+
+// ─── NotificationSent ────────────────────────────────────────────────
+
+func TestHandleNotificationSent_successPersistsAsNOTIFICATION_SENT(t *testing.T) {
+	stub := &stubStore{}
+	c := newConsumerWithStub(stub)
+
+	payload, _ := json.Marshal(notificationSent{
+		Event:         "NOTIFICATION_SENT",
+		InvoiceID:     "inv-1",
+		InvoiceNumber: "INV-000123",
+		TenantID:      "tenant-1",
+		Recipient:     "liaison@example.com",
+		Channel:       "EMAIL",
+		Status:        "SENT",
+	})
+	c.handleNotificationSent(payload)
+
+	events, _ := stub.snapshot()
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	e := events[0]
+	if e.Action != "NOTIFICATION_SENT" {
+		t.Errorf("Action = %q, want NOTIFICATION_SENT", e.Action)
+	}
+	if e.EntityType != "Notification" || e.EntityID != "inv-1" || e.EntityName != "INV-000123" {
+		t.Errorf("entity fields wrong: type=%q id=%q name=%q", e.EntityType, e.EntityID, e.EntityName)
+	}
+	if e.ActorID != "system" || e.ActorEmail == "" {
+		t.Errorf("system actor not set: id=%q email=%q", e.ActorID, e.ActorEmail)
+	}
+	if e.NewValue["recipient"] != "liaison@example.com" {
+		t.Errorf("recipient missing from NewValue: %+v", e.NewValue)
+	}
+	if _, hasErr := e.NewValue["error"]; hasErr {
+		t.Errorf("success event must not carry an error field, got %v", e.NewValue["error"])
+	}
+}
+
+func TestHandleNotificationSent_failurePersistsAsNOTIFICATION_FAILED_withError(t *testing.T) {
+	stub := &stubStore{}
+	c := newConsumerWithStub(stub)
+
+	payload, _ := json.Marshal(notificationSent{
+		Event:         "NOTIFICATION_SENT",
+		InvoiceID:     "inv-2",
+		InvoiceNumber: "INV-000124",
+		TenantID:      "tenant-1",
+		Recipient:     "broken@example.com",
+		Channel:       "EMAIL",
+		Status:        "FAILED",
+		Error:         "smtp: 550 mailbox unavailable",
+	})
+	c.handleNotificationSent(payload)
+
+	events, _ := stub.snapshot()
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	e := events[0]
+	if e.Action != "NOTIFICATION_FAILED" {
+		t.Errorf("Action = %q, want NOTIFICATION_FAILED", e.Action)
+	}
+	if e.NewValue["error"] != "smtp: 550 mailbox unavailable" {
+		t.Errorf("error field missing or wrong: %v", e.NewValue["error"])
+	}
+}
+
+func TestHandleNotificationSent_dropsMissingRequiredIds(t *testing.T) {
+	stub := &stubStore{}
+	c := newConsumerWithStub(stub)
+
+	// Missing tenantId — would create an unattributable audit row.
+	payload, _ := json.Marshal(notificationSent{
+		InvoiceID: "inv-3", Status: "SENT", Channel: "EMAIL",
+	})
+	c.handleNotificationSent(payload)
+
+	events, _ := stub.snapshot()
+	if len(events) != 0 {
+		t.Errorf("event missing tenantId should be dropped, got %d persisted", len(events))
+	}
+}
+
+func TestHandleNotificationSent_dropsMalformedJSON(t *testing.T) {
+	stub := &stubStore{}
+	c := newConsumerWithStub(stub)
+	c.handleNotificationSent([]byte("not-json"))
+	events, _ := stub.snapshot()
+	if len(events) != 0 {
+		t.Errorf("malformed payload should not persist, got %d events", len(events))
+	}
+}
