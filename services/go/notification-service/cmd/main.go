@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -21,6 +22,7 @@ import (
 	"github.com/medfund/notification-service/internal/mail"
 	"github.com/medfund/notification-service/internal/notification"
 	"github.com/medfund/notification-service/internal/recipient"
+	"github.com/medfund/notification-service/internal/retry"
 	"github.com/medfund/notification-service/internal/storage"
 	"github.com/medfund/notification-service/internal/template"
 )
@@ -79,9 +81,16 @@ func main() {
 	publisher := events.NewPublisher(cfg.KafkaBrokers)
 	defer publisher.Close()
 
+	// Retry scheduler reuses the same Dispatcher for re-sends. Backoff
+	// defaults to retry.DefaultBackoff ({30s, 2m, 5m, 15m} ≈ 22 min);
+	// concurrency cap defends against a SMTP outage spawning thousands
+	// of waiting goroutines when an entire billing run fails.
+	retrySched := retry.New(nil, 50)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	if cfg.KafkaBrokers != "" && fetcher != nil {
-		go runInvoiceConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, dispatcher, publisher)
+		go runInvoiceConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID,
+			dispatcher, publisher, retrySched)
 	} else {
 		log.Printf("[notification] invoice consumer disabled (kafka=%q minio=%v)",
 			cfg.KafkaBrokers, fetcher != nil)
@@ -102,8 +111,16 @@ func main() {
 // runInvoiceConsumer pulls InvoicePdfReady events, dispatches each,
 // and publishes a NotificationSent with the actual outcome so audit /
 // dashboards distinguish successful sends from quiet failures.
+//
+// On an initial failure, the event is handed off to retrySched for
+// background re-dispatch with backoff. Re-dispatches do not publish
+// their own per-attempt outcome — only the terminal result (SENT or
+// DEAD_LETTERED) lands in the audit feed, so a worst-case failed
+// invoice produces exactly two rows: the initial FAILED and a final
+// DEAD_LETTERED. Per-attempt detail lives in notification-service logs.
 func runInvoiceConsumer(ctx context.Context, brokers, groupID string,
-	dispatcher *invoice.Dispatcher, publisher *events.Publisher) {
+	dispatcher *invoice.Dispatcher, publisher *events.Publisher,
+	retrySched *retry.Scheduler) {
 
 	sub := events.NewSubscriber(brokers, "medfund.contributions.invoice-pdf-ready", groupID)
 	sub.Run(ctx, func(payload []byte) {
@@ -113,21 +130,90 @@ func runInvoiceConsumer(ctx context.Context, brokers, groupID string,
 			return
 		}
 		res := dispatcher.Dispatch(ctx, e)
+		publisher.Publish(ctx, buildNotificationSent(e, res, "SENT", "FAILED"))
 
-		sent := events.NotificationSent{
-			InvoiceID:     e.InvoiceID,
-			InvoiceNumber: e.InvoiceNumber,
-			TenantID:      e.TenantID,
-			Recipient:     res.Recipient,
-			Channel:       "EMAIL",
-			Status:        "SENT",
+		if res.Ok {
+			return
 		}
-		if !res.Ok {
-			sent.Status = "FAILED"
-			if res.Err != nil {
-				sent.Error = res.Err.Error()
-			}
-		}
-		publisher.Publish(ctx, sent)
+		// Hand off to the retry scheduler. The retry chain re-runs
+		// Dispatch silently; the onFinal callback publishes the
+		// terminal outcome — SENT if a retry succeeded, DEAD_LETTERED
+		// if every retry failed and we're giving up. No further
+		// retries fire after the dead-letter, matching the explicit
+		// "do not continue sending" requirement.
+		scheduleRetry(ctx, retrySched, dispatcher, publisher, e)
 	})
 }
+
+// scheduleRetry wires one event into retrySched and converts the
+// terminal Outcome into the final NotificationSent on the audit feed.
+func scheduleRetry(ctx context.Context, sched *retry.Scheduler,
+	dispatcher *invoice.Dispatcher, publisher *events.Publisher, e invoice.Event) {
+
+	var lastResult invoice.Result
+	sched.RunAsync(ctx, e.InvoiceNumber,
+		func(ctx context.Context, attempt int) error {
+			r := dispatcher.Dispatch(ctx, e)
+			lastResult = r
+			if r.Ok {
+				return nil
+			}
+			if r.Err != nil {
+				return r.Err
+			}
+			// Dispatch can fail without a typed error (e.g. resolver
+			// nil). Surface a synthetic one so the scheduler's retry
+			// loop treats it as a failure rather than success.
+			return errDispatchFailed
+		},
+		func(o retry.Outcome) {
+			if o.Ok {
+				publisher.Publish(ctx, buildNotificationSent(e, lastResult, "SENT", "SENT"))
+				return
+			}
+			// Exhausted (or context-cancelled). Publish DEAD_LETTERED
+			// with a synthetic error string that includes the attempt
+			// count so the audit row is self-explanatory.
+			cause := "unknown"
+			if o.Err != nil {
+				cause = o.Err.Error()
+			}
+			publisher.Publish(ctx, events.NotificationSent{
+				InvoiceID:     e.InvoiceID,
+				InvoiceNumber: e.InvoiceNumber,
+				TenantID:      e.TenantID,
+				Recipient:     lastResult.Recipient,
+				Channel:       "EMAIL",
+				Status:        "DEAD_LETTERED",
+				Error:         fmt.Sprintf("exhausted %d retries: %s", o.Attempts, cause),
+			})
+		})
+}
+
+// buildNotificationSent translates a Dispatcher.Result into the wire
+// shape. successStatus is the status applied when Result.Ok; failure
+// applies when not — separate params so the initial-dispatch path
+// can use SENT/FAILED while the retry success path stays SENT.
+func buildNotificationSent(e invoice.Event, r invoice.Result,
+	successStatus, failureStatus string) events.NotificationSent {
+
+	sent := events.NotificationSent{
+		InvoiceID:     e.InvoiceID,
+		InvoiceNumber: e.InvoiceNumber,
+		TenantID:      e.TenantID,
+		Recipient:     r.Recipient,
+		Channel:       "EMAIL",
+		Status:        successStatus,
+	}
+	if !r.Ok {
+		sent.Status = failureStatus
+		if r.Err != nil {
+			sent.Error = r.Err.Error()
+		}
+	}
+	return sent
+}
+
+// Sentinel — only used when Dispatch returns Ok=false with a nil Err
+// (a defensive belt-and-braces for a future Dispatch refactor).
+var errDispatchFailed = fmt.Errorf("dispatch returned failure with no error")

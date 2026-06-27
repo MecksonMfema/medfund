@@ -159,8 +159,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       LOGIN: 'Logged in', LOGOUT: 'Logged out', LOGIN_ERROR: 'Failed login',
       IMPERSONATION_START: 'Impersonation started',
       IMPERSONATION_END:   'Impersonation ended',
-      NOTIFICATION_SENT:   'Email sent',
-      NOTIFICATION_FAILED: 'Email failed',
+      NOTIFICATION_SENT:          'Email sent',
+      NOTIFICATION_FAILED:        'Email failed (retrying)',
+      NOTIFICATION_DEAD_LETTERED: 'Email gave up',
     };
     return map[action] ?? action;
   }
@@ -171,8 +172,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       LOGIN: 'teal', LOGOUT: 'gray', LOGIN_ERROR: 'orange',
       IMPERSONATION_START: 'orange',
       IMPERSONATION_END:   'gray',
-      NOTIFICATION_SENT:   'teal',
-      NOTIFICATION_FAILED: 'red',
+      NOTIFICATION_SENT:          'teal',
+      NOTIFICATION_FAILED:        'orange',
+      NOTIFICATION_DEAD_LETTERED: 'red',
     };
     return map[action] ?? 'gray';
   }

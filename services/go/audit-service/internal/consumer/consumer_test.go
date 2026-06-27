@@ -231,6 +231,31 @@ func TestHandleNotificationSent_successPersistsAsNOTIFICATION_SENT(t *testing.T)
 	}
 }
 
+func TestHandleNotificationSent_deadLetteredPersistsAsNOTIFICATION_DEAD_LETTERED(t *testing.T) {
+	stub := &stubStore{}
+	c := newConsumerWithStub(stub)
+
+	payload, _ := json.Marshal(notificationSent{
+		Event:         "NOTIFICATION_SENT",
+		InvoiceID:     "inv-dl",
+		InvoiceNumber: "INV-000999",
+		TenantID:      "tenant-1",
+		Recipient:     "broken@example.com",
+		Channel:       "EMAIL",
+		Status:        "DEAD_LETTERED",
+		Error:         "exhausted 4 retries: smtp: 550 mailbox unavailable",
+	})
+	c.handleNotificationSent(payload)
+
+	events, _ := stub.snapshot()
+	if len(events) != 1 || events[0].Action != "NOTIFICATION_DEAD_LETTERED" {
+		t.Fatalf("expected NOTIFICATION_DEAD_LETTERED action, got events=%+v", events)
+	}
+	if events[0].NewValue["error"] != "exhausted 4 retries: smtp: 550 mailbox unavailable" {
+		t.Errorf("error string should carry retry context, got %v", events[0].NewValue["error"])
+	}
+}
+
 func TestHandleNotificationSent_failurePersistsAsNOTIFICATION_FAILED_withError(t *testing.T) {
 	stub := &stubStore{}
 	c := newConsumerWithStub(stub)

@@ -166,8 +166,15 @@ func (c *AuditConsumer) handleNotificationSent(data []byte) {
 	}
 
 	action := "NOTIFICATION_SENT"
-	if n.Status == "FAILED" {
+	switch n.Status {
+	case "FAILED":
 		action = "NOTIFICATION_FAILED"
+	case "DEAD_LETTERED":
+		// Final give-up after retry exhaustion. Distinct action so the
+		// audit UI can surface a "won't retry" badge without parsing
+		// NewValue — and so an operator scanning the feed for a
+		// "manual resend" candidate finds them with one filter.
+		action = "NOTIFICATION_DEAD_LETTERED"
 	}
 
 	newValue := map[string]interface{}{
