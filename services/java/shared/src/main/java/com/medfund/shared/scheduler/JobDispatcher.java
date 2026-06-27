@@ -27,13 +27,16 @@ public class JobDispatcher {
 
     private final ScheduledJobRepository jobRepository;
     private final ScheduledJobRunRepository runRepository;
+    private final JobEventPublisher eventPublisher;
     private final Map<JobType, JobExecutor> executors;
 
     public JobDispatcher(ScheduledJobRepository jobRepository,
                          ScheduledJobRunRepository runRepository,
+                         JobEventPublisher eventPublisher,
                          List<JobExecutor> executorList) {
         this.jobRepository = jobRepository;
         this.runRepository = runRepository;
+        this.eventPublisher = eventPublisher;
         this.executors = executorList.stream()
             .collect(Collectors.toMap(JobExecutor::getJobType, Function.identity()));
         log.info("JobDispatcher initialized with {} executors: {}", executors.size(),
@@ -109,10 +112,11 @@ public class JobDispatcher {
                     ? resultful.executeAndCapture(executorTenantArg, config.getSettings())
                     : executor.execute(executorTenantArg, config.getSettings()).then(Mono.<String>empty());
 
+                String kind = config.getJobType();
                 Mono<ScheduledJobRun> work = payloadMono
                     .defaultIfEmpty("")
-                    .flatMap(payload -> markSuccess(persisted, startMs, payload.isEmpty() ? null : payload))
-                    .onErrorResume(e -> markFailure(persisted, startMs, e))
+                    .flatMap(payload -> markSuccess(persisted, startMs, payload.isEmpty() ? null : payload, kind))
+                    .onErrorResume(e -> markFailure(persisted, startMs, e, kind))
                     .flatMap(finalRun -> updateExecutionTime(config).thenReturn(finalRun));
 
                 Mono<ScheduledJobRun> ctxWork = configTenantId != null
@@ -176,10 +180,11 @@ public class JobDispatcher {
                     ? resultful.executeAndCapture(executorTenantArg, config.getSettings())
                     : executor.execute(executorTenantArg, config.getSettings()).then(Mono.<String>empty());
 
+                String kind = config.getJobType();
                 Mono<ScheduledJobRun> executed = payloadMono
                     .defaultIfEmpty("")
-                    .flatMap(payload -> markSuccess(persisted, startMs, payload.isEmpty() ? null : payload))
-                    .onErrorResume(e -> markFailure(persisted, startMs, e));
+                    .flatMap(payload -> markSuccess(persisted, startMs, payload.isEmpty() ? null : payload, kind))
+                    .onErrorResume(e -> markFailure(persisted, startMs, e, kind));
                 return configTenantId != null
                     ? executed.contextWrite(ctx -> TenantContext.put(ctx, configTenantId.toString()))
                     : executed;
@@ -187,24 +192,26 @@ public class JobDispatcher {
             .flatMap(finalRun -> updateExecutionTime(config).thenReturn(finalRun));
     }
 
-    private Mono<ScheduledJobRun> markSuccess(ScheduledJobRun run, long startMs, String resultPayload) {
+    private Mono<ScheduledJobRun> markSuccess(ScheduledJobRun run, long startMs, String resultPayload, String kind) {
         run.setStatus("SUCCESS");
         run.setEndedAt(Instant.now());
         run.setDurationMs(System.currentTimeMillis() - startMs);
         run.setResultPayload(resultPayload);
         log.info("Job completed: configId={} durationMs={} payloadBytes={}",
             run.getConfigId(), run.getDurationMs(), resultPayload != null ? resultPayload.length() : 0);
-        return runRepository.save(run);
+        return runRepository.save(run)
+            .flatMap(saved -> eventPublisher.publishJobCompleted(saved, kind).thenReturn(saved));
     }
 
-    private Mono<ScheduledJobRun> markFailure(ScheduledJobRun run, long startMs, Throwable e) {
+    private Mono<ScheduledJobRun> markFailure(ScheduledJobRun run, long startMs, Throwable e, String kind) {
         run.setStatus("FAILED");
         run.setEndedAt(Instant.now());
         run.setDurationMs(System.currentTimeMillis() - startMs);
         String message = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
         run.setErrorMessage(message.length() > MAX_ERROR_LENGTH ? message.substring(0, MAX_ERROR_LENGTH) : message);
         log.error("Job failed: configId={} error={}", run.getConfigId(), message);
-        return runRepository.save(run);
+        return runRepository.save(run)
+            .flatMap(saved -> eventPublisher.publishJobCompleted(saved, kind).thenReturn(saved));
     }
 
     private Mono<Void> updateExecutionTime(ScheduledJobConfig config) {
