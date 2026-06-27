@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Invoice {{.InvoiceNumber}}</title></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1f2c;max-width:580px;margin:0 auto;padding:24px;">
+  <h2 style="margin-top:0;">Hello {{.DisplayName}},</h2>
+
+  <p>Your MedFund invoice <strong>{{.InvoiceNumber}}</strong> is attached as a PDF.</p>
+
+  <table style="border-collapse:collapse;width:100%;margin:24px 0;">
+    <tr><td style="padding:8px 0;color:#5b6371;width:40%">Amount due</td>
+        <td style="padding:8px 0;font-weight:600">{{.CurrencyCode}} {{.TotalAmount}}</td></tr>
+    <tr><td style="padding:8px 0;color:#5b6371">Billing period</td>
+        <td style="padding:8px 0">{{.PeriodStart}} &mdash; {{.PeriodEnd}}</td></tr>
+    <tr><td style="padding:8px 0;color:#5b6371">Due date</td>
+        <td style="padding:8px 0">{{.DueDate}}</td></tr>
+  </table>
+
+  <p>Please settle by the due date to avoid late fees. The full breakdown is in the attached PDF.</p>
+
+  <p style="margin-top:32px;color:#5b6371;font-size:12px">
+    This is an automated message from MedFund. If you believe you received this in error, contact your tenant administrator.
+  </p>
+</body>
+</html>

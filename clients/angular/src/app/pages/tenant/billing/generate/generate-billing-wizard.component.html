@@ -234,6 +234,10 @@
 
       <div class="form-card__body">
         <p class="card-sub">{{ committedCount }} contributions rolled up into {{ committedGroupInvoices + committedIndividualInvoices }} invoices.</p>
+        <p class="card-sub">
+          PDFs are being generated and emailed to each group liaison or member.
+          Delivery status appears in the <a routerLink="/tenant/admin/audit">audit log</a> as each invoice is sent.
+        </p>
 
         @if (membershipBanner(committedMembershipModel); as banner) {
           <div class="model-banner">{{ banner }}</div>
