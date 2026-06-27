@@ -22,6 +22,7 @@ import (
 	"github.com/medfund/notification-service/internal/notification"
 	"github.com/medfund/notification-service/internal/recipient"
 	"github.com/medfund/notification-service/internal/storage"
+	"github.com/medfund/notification-service/internal/template"
 )
 
 func main() {
@@ -64,7 +65,13 @@ func main() {
 		sender = &mail.MockSender{}
 	}
 
-	dispatcher, err := invoice.NewDispatcher(resolver, fetcher, sender, cfg.SMTPFrom)
+	// Templates are tenant-overrideable via public.tenant_email_templates
+	// (key INVOICE_ISSUED). Resolver gracefully degrades to the embedded
+	// default when the row isn't present, so a tenant who hasn't
+	// customised their template still gets a working email.
+	templates := template.NewResolver(pool, invoice.DefaultSubject, invoice.DefaultHTMLBody())
+
+	dispatcher, err := invoice.NewDispatcher(resolver, fetcher, sender, templates, cfg.SMTPFrom)
 	if err != nil {
 		log.Fatalf("invoice dispatcher: %v", err)
 	}
@@ -93,9 +100,8 @@ func main() {
 }
 
 // runInvoiceConsumer pulls InvoicePdfReady events, dispatches each,
-// and publishes a NotificationSent regardless of success so audit /
-// dashboards see every attempt. Dispatcher.Dispatch handles all error
-// logging internally; we only publish the final status here.
+// and publishes a NotificationSent with the actual outcome so audit /
+// dashboards distinguish successful sends from quiet failures.
 func runInvoiceConsumer(ctx context.Context, brokers, groupID string,
 	dispatcher *invoice.Dispatcher, publisher *events.Publisher) {
 
@@ -106,16 +112,22 @@ func runInvoiceConsumer(ctx context.Context, brokers, groupID string,
 			log.Printf("[notification] drop malformed InvoicePdfReady: %v", err)
 			return
 		}
-		dispatcher.Dispatch(ctx, e)
+		res := dispatcher.Dispatch(ctx, e)
 
-		// Always emit so the audit log sees both successful and failed
-		// dispatches — the Dispatcher already logged the cause if any.
-		publisher.Publish(ctx, events.NotificationSent{
+		sent := events.NotificationSent{
 			InvoiceID:     e.InvoiceID,
 			InvoiceNumber: e.InvoiceNumber,
 			TenantID:      e.TenantID,
+			Recipient:     res.Recipient,
 			Channel:       "EMAIL",
-			Status:        "SENT", // refined when we add an err return from Dispatch
-		})
+			Status:        "SENT",
+		}
+		if !res.Ok {
+			sent.Status = "FAILED"
+			if res.Err != nil {
+				sent.Error = res.Err.Error()
+			}
+		}
+		publisher.Publish(ctx, sent)
 	})
 }
