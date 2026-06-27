@@ -111,6 +111,149 @@
   border: 2px solid var(--color-surface);
 }
 
+// ── Bell dropdown ────────────────────────────────────────────────────
+// Anchored to .header-bell-wrap (position:relative) so the absolute
+// menu pins to the bell button rather than the viewport. Width sized
+// to fit two-line list items comfortably on desktop without stretching
+// to the full viewport on smaller screens.
+.header-bell-wrap {
+  position: relative;
+}
+
+.notification-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: var(--color-error);
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--color-surface);
+}
+
+.header-bell-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 360px;
+  max-height: 480px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+}
+
+.bell-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.bell-menu-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.bell-menu-mark-seen {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.bell-menu-mark-seen:hover {
+  background: var(--color-bg);
+}
+
+.bell-menu-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.bell-menu-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+}
+
+.bell-menu-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.bell-menu-item.is-unseen {
+  background: rgba(0, 180, 216, 0.05);
+}
+
+.bell-menu-item:last-child {
+  border-bottom: none;
+}
+
+.bell-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.bell-dot--blue   { background: #00B4D8; }
+.bell-dot--green  { background: #2EC4B6; }
+.bell-dot--red    { background: #E71D36; }
+.bell-dot--gray   { background: #9CA3AF; }
+
+.bell-item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bell-item-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.bell-item-meta {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.bell-item-duration {
+  margin-left: 4px;
+}
+
+.bell-item-error {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--color-error);
+  background: rgba(231, 29, 54, 0.08);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  word-break: break-word;
+}
+
 .header-user-wrap {
   position: relative;
 }

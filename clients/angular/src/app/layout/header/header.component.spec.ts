@@ -35,6 +35,17 @@ function instantiate(opts: {
   const nav = new MockNavigationService();
   const tenant = new MockTenantService(opts.tenant === null ? null : (opts.tenant ?? buildTenant()));
   const keycloak = new MockKeycloakService({ roles: opts.roles ?? ['operator'] });
+  // NotificationsService is a singleton that polls /scheduled-jobs/runs/...
+  // Tests use a minimal stub — no HTTP, no timers — since the bell behavior
+  // isn't under test in this suite (it has its own spec when added).
+  const notifications = {
+    start: () => {},
+    stop: () => {},
+    refresh: () => {},
+    markAllSeen: () => {},
+    badge: { subscribe: () => ({ unsubscribe() {} }) },
+    list: { subscribe: () => ({ unsubscribe() {} }) },
+  };
 
   const comp = new HeaderComponent(
     router as unknown as Router,
@@ -42,6 +53,7 @@ function instantiate(opts: {
     nav as unknown as NavigationService,
     tenant as unknown as TenantService,
     keycloak as unknown as KeycloakService,
+    notifications as never,
   );
   return { comp, events, nav, tenant, router, keycloak };
 }
