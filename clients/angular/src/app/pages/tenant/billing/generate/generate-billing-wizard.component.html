@@ -215,7 +215,12 @@
       <footer class="form-actions">
         <button class="btn btn-primary" (click)="commit()"
                 [disabled]="saving || preview.totalRows === 0 || preview.cooldownActive">
-          {{ saving ? 'Committing… (' + elapsedSeconds + 's)' : 'Commit ' + preview.totalRows + ' contributions' }}
+          <!-- Label is intentionally just "Commit" — the preview's
+               totalRows is computed from a sampled SQL window and can
+               diverge from the actual count when the run resolves
+               thousands of candidates. Showing "Commit 2 contributions"
+               for a run that goes on to write thousands was misleading. -->
+          {{ saving ? 'Committing… (' + elapsedSeconds + 's)' : 'Commit' }}
         </button>
       </footer>
     </section>

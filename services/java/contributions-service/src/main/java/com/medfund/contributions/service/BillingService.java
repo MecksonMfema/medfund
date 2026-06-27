@@ -614,7 +614,14 @@ public class BillingService {
                            THEN m.billing_age_group_id
                            ELSE m.age_group_id
                        END
-                 WHERE m.status = 'active'
+                 -- Billing covers active + suspended members so a brief
+                 -- subscription pause doesn't drop them out of arrears
+                 -- tracking. Terminated / closed members are excluded.
+                 -- Group-routed members additionally require their group
+                 -- to be active — a non-active group has no liaison to
+                 -- invoice and its membership is effectively frozen.
+                 WHERE m.status IN ('active', 'suspended')
+                   AND (m.group_id IS NULL OR g.status = 'active')
                 """);
         if (groupIds  != null && !groupIds.isEmpty())  sql.append(" AND m.group_id = ANY(:groupIds) ");
         if (memberIds != null && !memberIds.isEmpty()) sql.append(" AND m.id       = ANY(:memberIds) ");
@@ -654,8 +661,12 @@ public class BillingService {
                            THEN d.billing_age_group_id
                            ELSE d.age_group_id
                        END
-                 WHERE d.status = 'active'
-                   AND m.status = 'active'
+                 -- Dependants follow the same active+suspended rule as
+                 -- their parent member; both must qualify for the
+                 -- dependant line to bill.
+                 WHERE d.status IN ('active', 'suspended')
+                   AND m.status IN ('active', 'suspended')
+                   AND (m.group_id IS NULL OR g.status = 'active')
                 """);
         if (groupIds  != null && !groupIds.isEmpty())  sql.append(" AND m.group_id = ANY(:groupIds) ");
         if (memberIds != null && !memberIds.isEmpty()) sql.append(" AND m.id       = ANY(:memberIds) ");

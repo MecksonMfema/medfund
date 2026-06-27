@@ -68,8 +68,18 @@ public class ContributionFactBuilder {
     }
 
     private Mono<ContributionFact> enrichWithMember(ContributionFact f, String memberId) {
+        // {@code region} was previously selected here but no migration ever
+        // added that column to the {@code members} table. The resulting
+        // {@code column "region" does not exist} error poisoned the
+        // surrounding transaction (R2DBC's onErrorResume catches the Java
+        // exception but cannot recover the Postgres transaction state —
+        // every subsequent INSERT then returned "current transaction is
+        // aborted"). {@code memberRegion} is never read by any pricing
+        // rule, so the column is dropped from the SELECT rather than
+        // backfilled. See [[bug_public_prefix_silent_rollback]] for the
+        // sibling failure mode.
         return db.sql("""
-                SELECT date_of_birth, gender, region,
+                SELECT date_of_birth, gender,
                        (SELECT COUNT(*) FROM dependants d
                         WHERE d.member_id = :id AND d.status = 'active') AS dependant_count
                 FROM members
@@ -82,7 +92,6 @@ public class ContributionFactBuilder {
                         f.setMemberAge((int) ChronoUnit.YEARS.between(dob, LocalDate.now()));
                     }
                     f.setMemberGender(asString(row.get("gender")));
-                    f.setMemberRegion(asString(row.get("region")));
                     Object dc = row.get("dependant_count");
                     if (dc instanceof Number n) f.setDependantCount(n.intValue());
                     return f;
