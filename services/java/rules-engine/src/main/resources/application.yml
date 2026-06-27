@@ -9,6 +9,10 @@ server:
 spring:
   application:
     name: rules-service
+  data:
+    redis:
+      host: localhost
+      port: 6380
   r2dbc:
     url: r2dbc:postgresql://localhost:5433/medfund
     username: medfund
