@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.UUID;
 
 @RestController
@@ -114,6 +116,26 @@ public class ScheduledJobController {
         return tenantId != null
             ? runRepository.findRecentForTenant(id, tenantId, capped)
             : runRepository.findRecent(id, capped);
+    }
+
+    @GetMapping("/runs/recent-for-me")
+    @Operation(summary = "Recent jobs the caller triggered, plus anything they have running",
+        description = "Powers the Angular header bell dropdown. Returns runs where triggered_by = the JWT subject " +
+                      "and (status = RUNNING OR ended_at >= since). Polled every 30s. The since query param is " +
+                      "ISO-8601; default is now minus 24 hours so a long-running commit started yesterday still " +
+                      "surfaces. limit caps the result set (default 20, max 100).")
+    public Flux<ScheduledJobRun> recentForMe(
+            @RequestParam(name = "since", required = false) Instant since,
+            @RequestParam(name = "limit", required = false, defaultValue = "20") int limit,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID actorId = parseActorUuid(jwt);
+        if (actorId == null) {
+            // No UUID-shaped subject (e.g. system tokens) — nothing to show.
+            return Flux.empty();
+        }
+        Instant cutoff = since != null ? since : Instant.now().minus(Duration.ofHours(24));
+        int capped = Math.max(1, Math.min(limit, 100));
+        return runRepository.findRecentForActor(actorId, cutoff, capped);
     }
 
     @PostMapping("/{id}/run-now")
