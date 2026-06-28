@@ -1,54 +1,79 @@
-.page { padding: 1.5rem; max-width: 1100px; }
+// Full-width statement page — billing ledgers benefit from horizontal
+// room. Route uses fullbleed:true so the parent layout doesn't pad.
+:host { display: block; padding: 0; }
+.page { padding: 24px; max-width: none; }
 
-.back-link { display: inline-flex; align-items: center; gap: .25rem; color: var(--text-muted, #6b7280); text-decoration: none; margin-bottom: 1rem; }
-.back-link:hover { color: var(--text, #111827); }
+.back-link {
+  display: inline-flex; align-items: center; gap: .25rem;
+  color: var(--color-text-muted); text-decoration: none; margin-bottom: 1rem;
+}
+.back-link:hover { color: var(--color-text-primary); }
 
-.banner.banner-error { padding: .65rem .85rem; background: #fef2f2; color: #7f1d1d; border: 1px solid #fecaca; border-radius: 6px; cursor: pointer; margin-bottom: 1rem; }
+.banner.banner-error {
+  padding: .65rem .85rem;
+  background: #fef2f2; color: #7f1d1d; border: 1px solid #fecaca;
+  border-radius: 6px; cursor: pointer; margin-bottom: 1rem;
+}
 
-.muted { color: var(--text-muted, #6b7280); }
+.muted { color: var(--color-text-muted); }
 .muted.small { font-size: .8rem; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .header-card {
-  display: flex; justify-content: space-between; gap: 1rem;
-  background: #fff; border: 1px solid var(--border-faint, #e5e7eb); border-radius: 8px;
-  padding: 1.25rem; margin-bottom: 1rem;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;
+  background: var(--color-surface); border: 1px solid var(--color-border-light);
+  border-radius: 8px; padding: 1.25rem 1.5rem; margin-bottom: 1rem;
 }
-.header-main h1 { margin: 0 0 .5rem; }
+.header-main h1 { margin: 0 0 .5rem; font-size: 1.5rem; }
 .header-main .chips { display: flex; gap: .5rem; margin-bottom: .5rem; }
-.header-main .holder { font-size: 1.1rem; margin: 0 0 .25rem; }
+.header-main .holder { font-size: 1.05rem; margin: 0 0 .25rem; font-weight: 500; }
 .header-actions { display: flex; flex-direction: column; gap: .5rem; align-items: flex-end; }
 
 .card {
-  background: #fff; border: 1px solid var(--border-faint, #e5e7eb); border-radius: 8px;
-  padding: 1.25rem; margin-bottom: 1rem;
+  background: var(--color-surface); border: 1px solid var(--color-border-light);
+  border-radius: 8px; padding: 1.25rem 1.5rem; margin-bottom: 1rem;
 }
-.card h2 { margin: 0 0 1rem; font-size: 1.1rem; }
+.card h2 { margin: 0 0 1rem; font-size: 1.05rem; }
 
-.summary-table {
+// ── Ledger table ───────────────────────────────────────────────────
+// Stripe-style ledger: brought-forward row at top, per-scheme section
+// headers grouping their contributions, transactions section, amount
+// due row at bottom. Subtotals shown per scheme.
+.ledger {
   width: 100%; border-collapse: collapse;
-  td { padding: .5rem .75rem; border-bottom: 1px solid var(--border-faint, #e5e7eb); }
-  .total-row td { border-top: 2px solid var(--text, #111827); border-bottom: none; padding-top: .75rem; font-size: 1.05rem; }
-}
-
-.data-table {
-  width: 100%; border-collapse: collapse;
-  th, td { padding: .55rem .75rem; text-align: left; border-bottom: 1px solid var(--border-faint, #e5e7eb); }
-  th { font-weight: 600; font-size: .75rem; text-transform: uppercase; color: var(--text-muted, #6b7280); }
+  th, td {
+    padding: .6rem .75rem; text-align: left;
+    border-bottom: 1px solid var(--color-border-light);
+  }
+  th {
+    font-weight: 600; font-size: .75rem; text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
   th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  &.inner { margin-top: .5rem; }
 }
 
-.scheme-group { border-top: 1px solid var(--border-faint, #e5e7eb); }
-.scheme-group:first-of-type { border-top: 0; }
-.scheme-head { display: flex; justify-content: space-between; align-items: center; padding: .75rem 0; cursor: pointer; user-select: none; }
-.scheme-head:hover { color: var(--accent, #2563eb); }
-.scheme-sub { display: flex; gap: 1rem; align-items: center; }
+// Brought-forward + amount-due bookends get a tinted background to
+// visually separate them from the in-period activity.
+.row-bf       { background: #f9fafb; }
+.row-due      { background: #f0fdf4; border-top: 2px solid #16a34a; font-size: 1.05rem; }
+.row-due td   { padding-top: .85rem; padding-bottom: .85rem; }
 
+// Scheme section headers — bold + slight tint so the per-scheme grouping
+// is unmistakable. Subtotal rows close out each scheme block.
+.row-scheme {
+  background: #eff6ff;
+  td { padding-top: .75rem; padding-bottom: .55rem; }
+  .scheme-title { font-weight: 600; font-size: .95rem; margin-right: .5rem; }
+}
+.row-subtotal td {
+  border-top: 1px dashed var(--color-border-light);
+  background: #fafafa;
+}
+
+// ── Badges (reused from listing page palette) ──────────────────────
 .badge {
   display: inline-block; padding: .15rem .55rem; border-radius: 999px;
   font-size: .75rem; font-weight: 600; background: #e5e7eb; color: #374151;
-  margin-left: .5rem;
 }
 .badge.status {
   &[data-status="issued"]      { background: #dbeafe; color: #1e3a8a; }
@@ -71,12 +96,10 @@
   &[data-line="TRAVEL"]     { background: #cffafe; color: #155e75; }
   &[data-line="DISABILITY"] { background: #ffedd5; color: #7c2d12; }
 }
-.badge.person-type {
-  &[data-type="MEMBER"]    { background: #e0e7ff; color: #312e81; }
-  &[data-type="DEPENDANT"] { background: #f3f4f6; color: #4b5563; }
-}
 
-.btn { display: inline-flex; align-items: center; gap: .35rem; padding: .5rem .85rem; border-radius: 6px; text-decoration: none; font-weight: 500; }
-.btn.btn-primary { background: var(--accent, #2563eb); color: #fff; border: 1px solid transparent; }
-.btn.btn-primary:hover { background: var(--accent-dark, #1d4ed8); }
-.btn.disabled { opacity: .5; pointer-events: none; }
+.btn {
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: .5rem .85rem; border-radius: 6px; text-decoration: none; font-weight: 500;
+}
+.btn.btn-primary { background: var(--color-primary); color: #fff; border: 1px solid transparent; }
+.btn.btn-primary:hover { filter: brightness(.95); }

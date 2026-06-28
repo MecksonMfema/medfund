@@ -22,127 +22,116 @@
         <p class="muted">
           Period <strong>{{ statement.header.periodStart }}</strong> → <strong>{{ statement.header.periodEnd }}</strong>
           · Currency <strong>{{ statement.header.currencyCode }}</strong>
-          @if (invoice.committedAt) { · Committed {{ invoice.committedAt | date:'dd MMM yyyy, HH:mm' }} }
+          @if (invoice.committedAt || invoice.issuedAt) { · Committed {{ (invoice.committedAt || invoice.issuedAt) | date:'dd MMM yyyy, HH:mm' }} }
         </p>
       </div>
       <div class="header-actions">
-        <a class="btn btn-primary" [href]="pdfUrl()" target="_blank" rel="noopener" [class.disabled]="!isPdfReady">
+        <a class="btn btn-primary" [href]="pdfUrl()" target="_blank" rel="noopener">
           <app-icon name="download" [size]="14"></app-icon> Download PDF
         </a>
       </div>
     </section>
 
-    <!-- ── Financial summary ────────────────────────────────── -->
+    <!-- ── Ledger ──────────────────────────────────────────────
+         Layout mirrors the MASCA reference contributionStatement.js:
+           - Balance brought forward (snapshot opening_balance)
+           - Contributions, grouped by scheme, with member/dependant names
+           - Transactions (payments + adjustments) chronologically
+           - Amount due (snapshot closing_balance)
+         Contributions are debits (increase the balance the holder owes);
+         payments are credits; adjustments may go either way per the
+         transaction_types catalogue.
+    -->
     <section class="card">
-      <h2>Financial summary</h2>
-      @if (invoice.openingBalance == null && invoice.closingBalance == null) {
-        <p class="muted">Balance figures unavailable — this invoice predates snapshot capture (pre-V035).</p>
-      } @else {
-        <table class="summary-table">
-          <tbody>
-            <tr>
-              <td>Opening balance</td>
-              <td class="num">{{ statement.header.openingBalance }} {{ statement.header.currencyCode }}</td>
-            </tr>
-            <tr>
-              <td>Contributions this period</td>
-              <td class="num">{{ monthlyContributions | number:'1.2-2' }} {{ statement.header.currencyCode }}</td>
-            </tr>
-            <tr>
-              <td>Payments received (since prior commit)</td>
-              <td class="num">- {{ totalPayments | number:'1.2-2' }} {{ statement.header.currencyCode }}</td>
-            </tr>
-            <tr>
-              <td>Adjustments</td>
-              <td class="num">+ {{ totalAdjustments | number:'1.2-2' }} {{ statement.header.currencyCode }}</td>
-            </tr>
-            <tr class="total-row">
-              <td><strong>Amount due</strong></td>
-              <td class="num"><strong>{{ statement.header.closingBalance }} {{ statement.header.currencyCode }}</strong></td>
-            </tr>
-          </tbody>
-        </table>
-        <p class="muted small">Snapshot captured at commit time — these figures do not change even if a back-dated transaction lands later. Transactions posted after the commit appear on the next invoice.</p>
-      }
-    </section>
+      <h2>Statement</h2>
 
-    <!-- ── Ledger ───────────────────────────────────────────── -->
-    <section class="card">
-      <h2>Ledger</h2>
-      @if (statement.lines.length === 0) {
-        <p class="muted">No ledger lines for this window.</p>
-      } @else {
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Description</th>
-              <th>Reference</th>
-              <th class="num">Debit</th>
-              <th class="num">Credit</th>
-              <th class="num">Balance</th>
+      <table class="ledger">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Reference</th>
+            <th class="num">Debit</th>
+            <th class="num">Credit</th>
+            <th class="num">Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Balance brought forward -->
+          <tr class="row-bf">
+            <td>—</td>
+            <td><strong>Balance brought forward</strong></td>
+            <td></td>
+            <td class="num"></td>
+            <td class="num"></td>
+            <td class="num"><strong>{{ statement.header.openingBalance }} {{ statement.header.currencyCode }}</strong></td>
+          </tr>
+
+          <!-- Contributions, grouped by scheme -->
+          @for (group of schemeGroups; track group.schemeName) {
+            <tr class="row-scheme">
+              <td colspan="6">
+                <span class="scheme-title">{{ group.schemeName }}</span>
+                <span class="badge line-chip" [attr.data-line]="group.insuranceLine">{{ group.insuranceLine }}</span>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            @for (line of statement.lines; track $index) {
+            @for (row of group.rows; track row.contributionId) {
+              <tr>
+                <td>{{ statement.header.periodStart }}</td>
+                <td>
+                  {{ personLabel(row) }}
+                  <span class="muted small">· {{ row.personType }}</span>
+                  @if (row.ageBand) { <span class="muted small">· {{ row.ageBand }}</span> }
+                </td>
+                <td class="muted small">{{ referenceLabel(row) }}</td>
+                <td class="num">{{ row.amount }}</td>
+                <td class="num"></td>
+                <td class="num"></td>
+              </tr>
+            }
+            <tr class="row-subtotal">
+              <td></td>
+              <td><em>Subtotal — {{ group.schemeName }}</em></td>
+              <td></td>
+              <td class="num"><strong>{{ group.subtotal | number:'1.2-2' }}</strong></td>
+              <td class="num"></td>
+              <td class="num"></td>
+            </tr>
+          }
+
+          <!-- Transactions: payments + adjustments -->
+          @if (transactionLines.length > 0) {
+            <tr class="row-scheme">
+              <td colspan="6"><span class="scheme-title">Transactions (payments &amp; adjustments)</span></td>
+            </tr>
+            @for (line of transactionLines; track $index) {
               <tr>
                 <td>{{ line.date | date:'dd MMM yyyy, HH:mm' }}</td>
                 <td>{{ line.description }}</td>
                 <td class="muted small">{{ line.reference || '—' }}</td>
-                <td class="num">{{ line.debit  || '' }}</td>
+                <td class="num">{{ line.debit || '' }}</td>
                 <td class="num">{{ line.credit || '' }}</td>
                 <td class="num"><strong>{{ line.runningBalance }}</strong></td>
               </tr>
             }
-          </tbody>
-        </table>
-      }
-    </section>
+          }
 
-    <!-- ── Per-scheme member breakdown ───────────────────────── -->
-    @if (schemeGroups.length > 0) {
-      <section class="card">
-        <h2>Per-scheme contributions</h2>
-        @for (group of schemeGroups; track group.schemeName) {
-          <div class="scheme-group">
-            <header class="scheme-head" (click)="toggleScheme(group.schemeName)">
-              <div>
-                <strong>{{ group.schemeName }}</strong>
-                <span class="badge line-chip" [attr.data-line]="group.insuranceLine">{{ group.insuranceLine }}</span>
-              </div>
-              <div class="scheme-sub">
-                <span class="muted small">{{ group.rows.length }} line(s)</span>
-                <span class="num"><strong>{{ group.subtotal | number:'1.2-2' }}</strong></span>
-                <app-icon [name]="isExpanded(group.schemeName) ? 'chevron-up' : 'chevron-down'" [size]="16"></app-icon>
-              </div>
-            </header>
-            @if (isExpanded(group.schemeName)) {
-              <table class="data-table inner">
-                <thead>
-                  <tr>
-                    <th>Member #</th>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>Age band</th>
-                    <th class="num">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (row of group.rows; track row.contributionId) {
-                    <tr>
-                      <td>{{ row.memberNumber }}</td>
-                      <td>{{ row.personType === 'MEMBER' ? row.memberName : (row.dependantName || '—') }}</td>
-                      <td><span class="badge person-type" [attr.data-type]="row.personType">{{ row.personType }}</span></td>
-                      <td>{{ row.ageBand || '—' }}</td>
-                      <td class="num">{{ row.amount }} {{ row.currencyCode }}</td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            }
-          </div>
-        }
-      </section>
-    }
+          <!-- Amount due -->
+          <tr class="row-due">
+            <td>—</td>
+            <td><strong>Amount due</strong></td>
+            <td></td>
+            <td class="num"></td>
+            <td class="num"></td>
+            <td class="num"><strong>{{ statement.header.closingBalance }} {{ statement.header.currencyCode }}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p class="muted small">
+        Snapshot captured at commit time — these figures do not change even if a back-dated transaction lands later.
+        Transactions posted after the commit appear on the next invoice (strict-less-than-commit window).
+      </p>
+    </section>
   }
 </div>

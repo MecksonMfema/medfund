@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -61,21 +62,29 @@ func main() {
 				JSON(fiber.Map{"detail": "key query param is required"})
 		}
 		bucket := c.Query("bucket") // empty falls back to the configured default in GetObject
-		obj, size, contentType, err := minio.GetObject(c.UserContext(), bucket, key)
+		obj, _, contentType, err := minio.GetObject(c.UserContext(), bucket, key)
 		if err != nil {
 			log.Printf("[file-service] /invoice-pdf miss bucket=%q key=%q: %v", bucket, key, err)
 			return c.Status(fiber.StatusNotFound).
 				JSON(fiber.Map{"detail": "object not found"})
 		}
-		defer obj.Close()
+		// Read the whole object into memory then close — Fiber's SendStream
+		// returns before the body is fully flushed in some setups and the
+		// MinIO stream gets closed prematurely by the defer, causing the
+		// downstream WebClient to see "Connection prematurely closed".
+		// PDFs are small (tens of KB), so the buffer is harmless.
+		body, err := io.ReadAll(obj)
+		_ = obj.Close()
+		if err != nil {
+			log.Printf("[file-service] /invoice-pdf read failed bucket=%q key=%q: %v", bucket, key, err)
+			return c.Status(fiber.StatusInternalServerError).
+				JSON(fiber.Map{"detail": "object read failed"})
+		}
 		if contentType == "" {
 			contentType = "application/pdf"
 		}
 		c.Set("Content-Type", contentType)
-		if size > 0 {
-			c.Set("Content-Length", fmt.Sprintf("%d", size))
-		}
-		return c.SendStream(obj)
+		return c.Send(body)
 	})
 
 	pdf := invoice.PdfGenerator(invoice.StubPdfGenerator{})

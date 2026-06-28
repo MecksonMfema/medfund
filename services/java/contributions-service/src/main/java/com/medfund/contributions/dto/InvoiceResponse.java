@@ -21,6 +21,15 @@ public record InvoiceResponse(
         LocalDate dueDate,
         Instant issuedAt,
         Instant paidAt,
+        // Snapshot fields (V035) — the statement page reads these on the
+        // header so a refresh shows the correct opening/closing without
+        // re-running the ledger projection.
+        Instant committedAt,
+        BigDecimal openingBalance,
+        BigDecimal closingBalance,
+        BigDecimal paymentsInWindow,
+        BigDecimal adjustmentsInWindow,
+        UUID priorInvoiceId,
         Instant createdAt,
         Instant updatedAt,
         UUID createdBy
@@ -40,6 +49,12 @@ public record InvoiceResponse(
                 invoice.getDueDate(),
                 invoice.getIssuedAt(),
                 invoice.getPaidAt(),
+                invoice.getCommittedAt(),
+                invoice.getOpeningBalance(),
+                invoice.getClosingBalance(),
+                invoice.getPaymentsInWindow(),
+                invoice.getAdjustmentsInWindow(),
+                invoice.getPriorInvoiceId(),
                 invoice.getCreatedAt(),
                 invoice.getUpdatedAt(),
                 invoice.getCreatedBy()

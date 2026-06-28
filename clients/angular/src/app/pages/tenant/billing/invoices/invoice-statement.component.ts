@@ -5,7 +5,6 @@ import { forkJoin } from 'rxjs';
 import {
   ContributionsService,
   InvoiceContributionRow,
-  InvoiceListRow,
 } from '../../../../core/services/contributions.service';
 import { StatementResponse, StatementLine } from '../../../../core/services/statements.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
@@ -19,11 +18,18 @@ interface SchemeGroup {
 }
 
 /**
- * Snapshot-backed statement detail for one invoice. Header opening +
- * closing balances are read from the invoice row (captured at commit
- * time). The chronological ledger comes from
- * /invoices/{id}/statement; the per-scheme member breakdown from
- * /invoices/{id}/contributions.
+ * Snapshot-backed statement for one invoice. Mirrors the MASCA reference
+ * shape:
+ *
+ *   1. Header card — holder, period, status, Download PDF
+ *   2. Balance brought forward (opening_balance from the snapshot)
+ *   3. Contributions section — divided by scheme, each scheme showing
+ *      its members + dependants with names + amounts
+ *   4. Transactions section — chronological payments + adjustments
+ *      from /invoices/{id}/statement, filtered to non-CONTRIBUTION lines
+ *   5. Amount due (closing_balance from the snapshot)
+ *
+ * Page is full-width — billing tables benefit from horizontal room.
  */
 @Component({
   selector: 'app-invoice-statement',
@@ -37,13 +43,11 @@ export class InvoiceStatementComponent implements OnInit {
   loading = false;
   errorMessage: string | null = null;
 
-  invoice: any | null = null;          // raw InvoiceResponse (carries snapshot fields)
-  listRow: InvoiceListRow | null = null;
+  invoice: any | null = null;          // raw InvoiceResponse
   statement: StatementResponse | null = null;
   contributions: InvoiceContributionRow[] = [];
 
   schemeGroups: SchemeGroup[] = [];
-  expandedSchemes = new Set<string>();
 
   // Financial summary derived from statement lines.
   monthlyContributions = 0;
@@ -102,8 +106,6 @@ export class InvoiceStatementComponent implements OnInit {
       if (Number.isFinite(amt)) g.subtotal += amt;
     }
     this.schemeGroups = Array.from(buckets.values());
-    // Default to all collapsed for tidiness — operator clicks to expand.
-    this.expandedSchemes.clear();
   }
 
   private deriveFinancialTotals(): void {
@@ -116,7 +118,7 @@ export class InvoiceStatementComponent implements OnInit {
       if (line.type === 'CONTRIBUTION') {
         this.monthlyContributions += debit;
       } else if (line.type === 'TRANSACTION') {
-        // Credit = payment; debit = adjustment (debit note / loaded premium)
+        // Credit = payment (reduces balance), debit = adjustment (increases)
         if (credit > 0) this.totalPayments += credit;
         if (debit  > 0) this.totalAdjustments += debit;
       } else if (line.type === 'CONTRIBUTION_PAID') {
@@ -125,28 +127,33 @@ export class InvoiceStatementComponent implements OnInit {
     }
   }
 
-  toggleScheme(scheme: string): void {
-    if (this.expandedSchemes.has(scheme)) this.expandedSchemes.delete(scheme);
-    else this.expandedSchemes.add(scheme);
+  /** Transaction lines only — contributions are rendered via the per-
+   *  scheme breakdown above so we don't double-list them in the ledger. */
+  get transactionLines(): StatementLine[] {
+    return (this.statement?.lines ?? []).filter(l => l.type !== 'CONTRIBUTION');
   }
 
-  isExpanded(scheme: string): boolean {
-    return this.expandedSchemes.has(scheme);
+  /** Friendly name for the contribution row — member name on a member
+   *  row, dependant name (with parent context) on a dependant row. */
+  personLabel(row: InvoiceContributionRow): string {
+    if (row.personType === 'DEPENDANT') {
+      return row.dependantName || '—';
+    }
+    return row.memberName || '—';
+  }
+
+  /** Reference column — member_number on a member row, dependant rolls
+   *  up to the principal member's number with a "(dep)" suffix. */
+  referenceLabel(row: InvoiceContributionRow): string {
+    return row.personType === 'DEPENDANT'
+        ? `${row.memberNumber} · dep`
+        : row.memberNumber;
   }
 
   pdfUrl(): string { return this.contribSvc.getInvoicePdfUrl(this.invoiceId); }
 
-  get isPdfReady(): boolean {
-    // The single invoice GET doesn't carry pdfReady today, so we treat
-    // the link as always available — clicking 404s if it hasn't been
-    // rendered yet. Cheaper than a separate poll.
-    return true;
-  }
-
   get holderName(): string {
-    return this.invoice?.groupId
-        ? (this.statement?.header?.targetName ?? this.invoice?.groupId)
-        : (this.statement?.header?.targetName ?? `Member ${this.invoice?.memberId ?? ''}`);
+    return this.statement?.header?.targetName ?? (this.invoice?.groupId ? 'Group' : 'Individual');
   }
 
   get holderType(): string {
