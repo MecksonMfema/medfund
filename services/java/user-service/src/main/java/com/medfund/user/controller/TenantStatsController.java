@@ -529,10 +529,13 @@ public class TenantStatsController {
 
         return resolveTenantSchema(tenantId)
                 .flatMap(schema -> db.sql(
-                        "SELECT id, claim_number, status, claimed_amount, currency_code, " +
-                        "       service_date, created_at " +
-                        "FROM \"" + schema + "\".claims " +
-                        "ORDER BY created_at DESC LIMIT 10")
+                        "SELECT c.id, c.claim_number, c.status, c.claimed_amount, c.currency_code, " +
+                        "       c.service_date, c.created_at, " +
+                        "       s.insurance_line " +
+                        "FROM \"" + schema + "\".claims c " +
+                        "LEFT JOIN \"" + schema + "\".members m ON m.id = c.member_id " +
+                        "LEFT JOIN \"" + schema + "\".schemes s ON s.id = m.scheme_id " +
+                        "ORDER BY c.created_at DESC LIMIT 10")
                         .map(row -> {
                             var m = new java.util.LinkedHashMap<String, Object>();
                             m.put("id",             row.get("id",             UUID.class));
@@ -542,6 +545,11 @@ public class TenantStatsController {
                             m.put("currencyCode",   row.get("currency_code",  String.class));
                             m.put("serviceDate",    row.get("service_date",   java.time.LocalDate.class));
                             m.put("createdAt",      row.get("created_at",     java.time.OffsetDateTime.class));
+                            // Per-row insurance-line chip (Part 4.6). Joined through
+                            // members → schemes; older claims that predate the
+                            // schemes.insurance_line column show null and the chip
+                            // is suppressed by the template.
+                            m.put("insuranceLine",  nullSafe(row.get("insurance_line", String.class)));
                             return (Map<String, Object>) m;
                         })
                         .all().collectList()
@@ -657,9 +665,11 @@ public class TenantStatsController {
                 .flatMap(schema -> db.sql(
                         "SELECT c.id, c.amount, c.currency_code, c.status, c.payment_method, " +
                         "       c.period_start, c.period_end, c.created_at, " +
-                        "       m.member_number, m.first_name, m.last_name " +
+                        "       m.member_number, m.first_name, m.last_name, " +
+                        "       s.insurance_line " +
                         "FROM \"" + schema + "\".contributions c " +
                         "LEFT JOIN \"" + schema + "\".members m ON m.id = c.member_id " +
+                        "LEFT JOIN \"" + schema + "\".schemes s ON s.id = c.scheme_id " +
                         "ORDER BY c.created_at DESC LIMIT 10")
                         .map(row -> {
                             var m = new java.util.LinkedHashMap<String, Object>();
@@ -675,6 +685,9 @@ public class TenantStatsController {
                             m.put("memberName",     String.format("%s %s",
                                     nullSafe(row.get("first_name", String.class)),
                                     nullSafe(row.get("last_name",  String.class))).trim());
+                            // Per-row insurance-line chip (Part 4.6). Joined direct
+                            // from contributions.scheme_id — every row has it.
+                            m.put("insuranceLine",  nullSafe(row.get("insurance_line", String.class)));
                             return (Map<String, Object>) m;
                         })
                         .all().collectList()

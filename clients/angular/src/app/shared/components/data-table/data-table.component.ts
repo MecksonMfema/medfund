@@ -242,4 +242,26 @@ export class DataTableComponent implements OnInit, OnDestroy {
       .replace(/_/g, ' ')
       .replace(/\b\w/g, c => c.toUpperCase());
   }
+
+  /**
+   * Friendly label for the insurance-line chip column (Part 4.6).
+   * Mirrors the wizard's LINE_LABELS map — kept inline to avoid
+   * cross-component coupling for a four-word lookup.
+   */
+  toLineLabel(value: any): string {
+    if (value == null) return '';
+    const code = String(value).toUpperCase();
+    switch (code) {
+      case 'HEALTH':     return 'Health';
+      case 'VEHICLE':    return 'Motor';
+      case 'MOTOR':      return 'Motor';
+      case 'PROPERTY':   return 'Property';
+      case 'LIFE':       return 'Life';
+      case 'FUNERAL':    return 'Funeral';
+      case 'TRAVEL':     return 'Travel';
+      case 'DISABILITY': return 'Disability';
+      case 'GROUP':      return 'Group';
+      default:           return this.toLabel(code);
+    }
+  }
 }

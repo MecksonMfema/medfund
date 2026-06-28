@@ -86,6 +86,15 @@
                   @case ('label') {
                     {{ toLabel(row[col.key]) }}
                   }
+                  @case ('line') {
+                    @if (row[col.key]) {
+                      <span class="badge line-chip" [attr.data-line]="row[col.key]">
+                        {{ toLineLabel(row[col.key]) }}
+                      </span>
+                    } @else {
+                      <span class="muted">—</span>
+                    }
+                  }
                   @default {
                     <span [class]="col.class || ''">{{ row[col.key] }}</span>
                   }

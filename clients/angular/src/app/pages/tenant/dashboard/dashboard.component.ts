@@ -149,6 +149,7 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
   /** Column config for the recent-claims data-table. */
   readonly recentClaimColumns = [
     { key: 'claimNumber',    label: 'Claim #' },
+    { key: 'insuranceLine',  label: 'Line',          type: 'line' as const },
     { key: 'status',         label: 'Status',        type: 'status' as const },
     { key: 'claimedAmount',  label: 'Amount',        type: 'currency' as const },
     { key: 'currencyCode',   label: 'Ccy' },
@@ -161,6 +162,7 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
 
   readonly recentContributionColumns = [
     { key: 'id',             label: 'Contribution #' },
+    { key: 'insuranceLine',  label: 'Line',          type: 'line' as const },
     { key: 'createdAt',      label: 'Issued Date',   type: 'date' as const },
     { key: 'memberName',     label: 'Member' },
     { key: 'amount',         label: 'Amount',        type: 'currency' as const },

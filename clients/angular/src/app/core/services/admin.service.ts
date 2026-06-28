@@ -179,6 +179,8 @@ export interface RecentClaim {
   currencyCode: string;
   serviceDate: string;
   createdAt: string;
+  /** insurance_line of the joined scheme (Part 4.6 — chip column). */
+  insuranceLine?: string | null;
 }
 
 /** Per-adjudicator in-progress workload + the unassigned tail. */
@@ -208,6 +210,8 @@ export interface RecentContribution {
   createdAt: string;
   memberNumber: string;
   memberName: string;
+  /** insurance_line of the joined scheme (Part 4.6 — chip column). */
+  insuranceLine?: string | null;
 }
 
 /** Top debtor row — drives the "Outstanding by member" side card on Billing. */
