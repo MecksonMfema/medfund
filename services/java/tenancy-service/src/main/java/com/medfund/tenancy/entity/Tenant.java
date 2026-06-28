@@ -57,6 +57,13 @@ public class Tenant {
     @Column("pricing_model")
     private String pricingModel;
 
+    /** Member-number issuance scheme (V120). INDEPENDENT (default) gives
+     *  members "MBR-XXXXXX" and dependants "DEP-XXXXXX"; SHARED_WITH_SUFFIX
+     *  uses a shared base + monotonically increasing "-NN" suffix
+     *  ("MBR-XXXXXX-01" for the member, "-02" for the first dependant). */
+    @Column("member_number_scheme")
+    private String memberNumberScheme;
+
     @Column("keycloak_realm")
     private String keycloakRealm;
 

@@ -19,8 +19,9 @@ import { SelectComponent, SelectOption } from '../../../../shared/components/sel
 import { AdminService } from '../../../../core/services/admin.service';
 import { TenantService } from '../../../../core/services/tenant.service';
 
-type SubSection = 'benefit-types' | 'payment-methods' | 'transaction-types' | 'dunning' | 'cycle' | 'pricing-mode';
+type SubSection = 'benefit-types' | 'payment-methods' | 'transaction-types' | 'dunning' | 'cycle' | 'pricing-mode' | 'member-number-scheme';
 type PricingMode = 'STANDARD' | 'INDIVIDUAL' | 'AI_DRIVEN';
+type MemberNumberScheme = 'INDEPENDENT' | 'SHARED_WITH_SUFFIX';
 
 interface BenefitTypeDraft extends UpsertBenefitTypePayload {
   id?: string;
@@ -88,6 +89,7 @@ export class TenantBillingTabComponent implements OnInit {
     { id: 'dunning',           label: 'Dunning Rules',     icon: 'alert-triangle' },
     { id: 'cycle',             label: 'Billing Cycle',     icon: 'calendar' },
     { id: 'pricing-mode',      label: 'Pricing Mode',      icon: 'sliders' },
+    { id: 'member-number-scheme', label: 'Member-number Scheme', icon: 'hash' },
   ];
 
   // ── SelectComponent options ─────────────────────────────────────────────
@@ -108,6 +110,12 @@ export class TenantBillingTabComponent implements OnInit {
   ];
   pricingModeDraft: PricingMode = 'STANDARD';
 
+  readonly memberNumberSchemeOptions: SelectOption[] = [
+    { value: 'INDEPENDENT',        label: 'Independent — members get MBR-XXXXXX, dependants get DEP-XXXXXX' },
+    { value: 'SHARED_WITH_SUFFIX', label: 'Shared base + suffix — MBR-XXXXXX-01 for member, -02 for first dependant, etc.' },
+  ];
+  memberNumberSchemeDraft: MemberNumberScheme = 'INDEPENDENT';
+
   constructor(
     private svc: BillingCatalogueService,
     private admin: AdminService,
@@ -121,6 +129,7 @@ export class TenantBillingTabComponent implements OnInit {
     // back to STANDARD when the tenant predates the column.
     const t = this.tenantSvc.getTenant();
     this.pricingModeDraft = (t?.pricingModel as PricingMode) || 'STANDARD';
+    this.memberNumberSchemeDraft = (t?.memberNumberScheme as MemberNumberScheme) || 'INDEPENDENT';
   }
 
   loadAll(): void {
@@ -290,6 +299,25 @@ export class TenantBillingTabComponent implements OnInit {
         // a logout/login round-trip.
         this.tenantSvc.setTenant({ ...t, pricingModel: this.pricingModeDraft });
         this.flash('Pricing mode saved');
+      },
+      error: (err) => { this.saving = false; this.errorMessage = err?.error?.detail || 'Save failed'; },
+    });
+  }
+
+  saveMemberNumberScheme(): void {
+    const t = this.tenantSvc.getTenant();
+    if (!t?.id) {
+      this.errorMessage = 'No tenant in session — refresh and try again';
+      return;
+    }
+    this.saving = true;
+    this.admin.updateTenant(t.id, { memberNumberScheme: this.memberNumberSchemeDraft }).subscribe({
+      next: () => {
+        this.saving = false;
+        // Refresh cached snapshot so subsequent enrolments + dependant
+        // adds see the new scheme without a logout/login cycle.
+        this.tenantSvc.setTenant({ ...t, memberNumberScheme: this.memberNumberSchemeDraft });
+        this.flash('Member-number scheme saved');
       },
       error: (err) => { this.saving = false; this.errorMessage = err?.error?.detail || 'Save failed'; },
     });

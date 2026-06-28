@@ -7,7 +7,9 @@ import com.medfund.user.dto.CreateDependantRequest;
 import com.medfund.user.dto.UpdateDependantRequest;
 import com.medfund.user.entity.Dependant;
 import com.medfund.user.exception.DependantNotFoundException;
+import com.medfund.user.exception.MemberNotFoundException;
 import com.medfund.user.repository.DependantRepository;
+import com.medfund.user.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
@@ -26,10 +28,12 @@ import java.util.UUID;
 public class DependantService {
 
     private final DependantRepository dependantRepository;
+    private final MemberRepository memberRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
     private final MemberSchemeLookup memberSchemeLookup;
     private final AgeGroupResolver ageGroupResolver;
+    private final MemberNumberService memberNumberService;
 
     public Flux<Dependant> findByMemberId(UUID memberId) {
         return dependantRepository.findByMemberId(memberId);
@@ -68,7 +72,18 @@ public class DependantService {
                 .doOnNext(dependant::setAgeGroupId)
                 .then();
 
+        // Issue a tenant-configured member_number — INDEPENDENT scheme
+        // yields "DEP-XXXXXX", SHARED_WITH_SUFFIX yields the parent's
+        // base + monotonically-increasing "-NN" suffix. Loads the parent
+        // member first to feed its number into the suffix lookup.
+        Mono<Void> stampMemberNumber = memberRepository.findById(dependant.getMemberId())
+                .switchIfEmpty(Mono.error(new MemberNotFoundException(dependant.getMemberId())))
+                .flatMap(memberNumberService::nextDependantNumber)
+                .doOnNext(dependant::setMemberNumber)
+                .then();
+
         return stampAgeGroup
+            .then(stampMemberNumber)
             .then(r2dbcTemplate.insert(dependant))
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);

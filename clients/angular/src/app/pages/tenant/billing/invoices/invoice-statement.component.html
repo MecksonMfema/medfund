@@ -64,7 +64,7 @@
             <td></td>
             <td class="num"></td>
             <td class="num"></td>
-            <td class="num"><strong>{{ statement.header.openingBalance }} {{ statement.header.currencyCode }}</strong></td>
+            <td class="num"><strong>{{ money(statement.header.openingBalance) }} {{ statement.header.currencyCode }}</strong></td>
           </tr>
 
           <!-- Contributions, grouped by scheme -->
@@ -84,7 +84,7 @@
                   @if (row.ageBand) { <span class="muted small">· {{ row.ageBand }}</span> }
                 </td>
                 <td class="muted small">{{ referenceLabel(row) }}</td>
-                <td class="num">{{ row.amount }}</td>
+                <td class="num">{{ money(row.amount) }}</td>
                 <td class="num"></td>
                 <td class="num"></td>
               </tr>
@@ -93,7 +93,7 @@
               <td></td>
               <td><em>Subtotal — {{ group.schemeName }}</em></td>
               <td></td>
-              <td class="num"><strong>{{ group.subtotal | number:'1.2-2' }}</strong></td>
+              <td class="num"><strong>{{ money(group.subtotal) }}</strong></td>
               <td class="num"></td>
               <td class="num"></td>
             </tr>
@@ -109,9 +109,9 @@
                 <td>{{ line.date | date:'dd MMM yyyy, HH:mm' }}</td>
                 <td>{{ line.description }}</td>
                 <td class="muted small">{{ line.reference || '—' }}</td>
-                <td class="num">{{ line.debit || '' }}</td>
-                <td class="num">{{ line.credit || '' }}</td>
-                <td class="num"><strong>{{ line.runningBalance }}</strong></td>
+                <td class="num">{{ money(line.debit) }}</td>
+                <td class="num">{{ money(line.credit) }}</td>
+                <td class="num"><strong>{{ money(line.runningBalance) }}</strong></td>
               </tr>
             }
           }
@@ -123,7 +123,7 @@
             <td></td>
             <td class="num"></td>
             <td class="num"></td>
-            <td class="num"><strong>{{ statement.header.closingBalance }} {{ statement.header.currencyCode }}</strong></td>
+            <td class="num"><strong>{{ money(statement.header.closingBalance) }} {{ statement.header.currencyCode }}</strong></td>
           </tr>
         </tbody>
       </table>

@@ -63,6 +63,13 @@ export interface Tenant {
    * applies the AI risk multiplier.
    */
   pricingModel?: 'STANDARD' | 'INDIVIDUAL' | 'AI_DRIVEN';
+  /**
+   * Member-number issuance scheme (V120). INDEPENDENT (default) gives
+   * members "MBR-XXXXXX" + dependants "DEP-XXXXXX"; SHARED_WITH_SUFFIX
+   * gives members "MBR-XXXXXX-01" + dependants "-02", "-03", … under
+   * the same base.
+   */
+  memberNumberScheme?: 'INDEPENDENT' | 'SHARED_WITH_SUFFIX';
   createdAt: string;
 }
 
@@ -398,7 +405,7 @@ export class AdminService {
     return this.api.post<Tenant>('/tenants', data);
   }
 
-  updateTenant(id: string, data: { name?: string; domain?: string; contactEmail?: string; timezone?: string; membershipModel?: string; settings?: string; branding?: string; pricingModel?: 'STANDARD' | 'INDIVIDUAL' | 'AI_DRIVEN' }): Observable<Tenant> {
+  updateTenant(id: string, data: { name?: string; domain?: string; contactEmail?: string; timezone?: string; membershipModel?: string; settings?: string; branding?: string; pricingModel?: 'STANDARD' | 'INDIVIDUAL' | 'AI_DRIVEN'; memberNumberScheme?: 'INDEPENDENT' | 'SHARED_WITH_SUFFIX' }): Observable<Tenant> {
     return this.api.put<Tenant>(`/tenants/${id}`, data);
   }
 

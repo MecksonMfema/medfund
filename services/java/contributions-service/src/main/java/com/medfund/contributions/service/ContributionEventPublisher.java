@@ -76,6 +76,12 @@ public class ContributionEventPublisher {
         if (p.closingBalance() != null)      fields.put("closingBalance",      p.closingBalance());
         if (p.paymentsInWindow() != null)    fields.put("paymentsInWindow",    p.paymentsInWindow());
         if (p.adjustmentsInWindow() != null) fields.put("adjustmentsInWindow", p.adjustmentsInWindow());
+        // Recipient name resolved by BillingService.persistInvoiceFor before
+        // publishing — file-service uses it on the PDF header so the
+        // rendered document shows the real group/member name instead of
+        // the truncated-UUID fallback "Group abc12345".
+        if (p.recipientName() != null && !p.recipientName().isBlank())
+            fields.put("recipientName", p.recipientName());
         return publishEvent("medfund.contributions.invoice-issued", p.invoiceId(), fields);
     }
 
@@ -100,7 +106,11 @@ public class ContributionEventPublisher {
             String openingBalance,
             String closingBalance,
             String paymentsInWindow,
-            String adjustmentsInWindow) {}
+            String adjustmentsInWindow,
+            /** Friendly group or member name resolved from the DB before
+             *  publishing so file-service doesn't have to do its own
+             *  cross-schema lookup. */
+            String recipientName) {}
 
     private Mono<Void> publishEvent(String topic, String key, Map<String, String> payload) {
         try {

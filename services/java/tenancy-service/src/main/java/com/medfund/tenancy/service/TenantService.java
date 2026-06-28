@@ -180,6 +180,7 @@ public class TenantService {
                     if (request.timezone() != null)        existing.setTimezone(request.timezone());
                     if (request.membershipModel() != null) existing.setMembershipModel(request.membershipModel());
                     if (request.pricingModel() != null)    existing.setPricingModel(request.pricingModel());
+                    if (request.memberNumberScheme() != null) existing.setMemberNumberScheme(request.memberNumberScheme());
                     if (request.settings() != null)        existing.setSettings(JsonString.of(request.settings()));
                     if (request.branding() != null)        existing.setBranding(JsonString.of(request.branding()));
                     existing.setUpdatedAt(Instant.now());

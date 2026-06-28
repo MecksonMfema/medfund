@@ -324,5 +324,42 @@
         </form>
       </section>
     }
+
+    <!-- ── Member-number scheme ─────────────────────────────────────── -->
+    @if (active === 'member-number-scheme') {
+      <section class="section">
+        <header class="section-header">
+          <div>
+            <h3 class="section-title">Member-number Scheme</h3>
+            <p class="section-sub">How new member + dependant numbers are issued. Pick Independent for fully separate unique numbers, or Shared-with-suffix to give a member's dependants a numeric suffix on the same base.</p>
+          </div>
+        </header>
+
+        <form class="cfg-form" (submit)="$event.preventDefault(); saveMemberNumberScheme()">
+          <label class="field">
+            <span class="field-label">Scheme</span>
+            <app-select
+              [(ngModel)]="memberNumberSchemeDraft"
+              name="memberNumberScheme"
+              [options]="memberNumberSchemeOptions"
+            ></app-select>
+          </label>
+          <p class="muted">
+            @if (memberNumberSchemeDraft === 'INDEPENDENT') {
+              Each member gets an unrelated number (<code>MBR-XXXXXX</code>); each dependant gets their own (<code>DEP-XXXXXX</code>). Numbers are checked unique across both populations.
+            }
+            @if (memberNumberSchemeDraft === 'SHARED_WITH_SUFFIX') {
+              Members are <code>MBR-XXXXXX-01</code>; the first dependant added under that member becomes <code>-02</code>, the next <code>-03</code>, etc. Suffixes never repeat — even after a dependant is removed the next one gets a fresh higher number.
+            }
+          </p>
+          <p class="muted">
+            <strong>Switching only affects new enrolments.</strong> Existing member + dependant numbers keep their current format.
+          </p>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" [disabled]="saving">Save member-number scheme</button>
+          </div>
+        </form>
+      </section>
+    }
   }
 </div>

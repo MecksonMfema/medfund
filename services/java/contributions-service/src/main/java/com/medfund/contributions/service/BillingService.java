@@ -294,7 +294,8 @@ public class BillingService {
                             // capture. Pass null for snapshot fields; the
                             // file-service template treats nulls as "balance
                             // figures unavailable" per the legacy-row note.
-                            null, null, null, null, null)))
+                            // recipientName also null; renderer falls back.
+                            null, null, null, null, null, null)))
                     .thenReturn(saved);
             }));
     }
@@ -640,28 +641,60 @@ public class BillingService {
                     })
                     .then(Mono.just(saved));
         }).flatMap(saved -> Mono.deferContextual(ctx ->
-            // Fan out to file-service (PDF rendering) and onward to
-            // notification-service (email delivery). Fire-and-forget so the
-            // commit response stays snappy — failures are visible in
-            // audit + NotificationSent events, not blocking on Kafka latency.
-            eventPublisher.publishInvoiceIssued(
-                    new ContributionEventPublisher.InvoiceIssuedPayload(
-                            saved.getId().toString(),
-                            saved.getInvoiceNumber(),
-                            TenantContext.get(ctx),
-                            saved.getGroupId()  != null ? saved.getGroupId().toString()  : null,
-                            saved.getMemberId() != null ? saved.getMemberId().toString() : null,
-                            saved.getCurrencyCode(),
-                            saved.getTotalAmount().toPlainString(),
-                            saved.getPeriodStart().toString(),
-                            saved.getPeriodEnd().toString(),
-                            saved.getDueDate().toString(),
-                            saved.getCommittedAt() != null ? saved.getCommittedAt().toString() : null,
-                            saved.getOpeningBalance()      != null ? saved.getOpeningBalance().toPlainString()      : null,
-                            saved.getClosingBalance()      != null ? saved.getClosingBalance().toPlainString()      : null,
-                            saved.getPaymentsInWindow()    != null ? saved.getPaymentsInWindow().toPlainString()    : null,
-                            saved.getAdjustmentsInWindow() != null ? saved.getAdjustmentsInWindow().toPlainString() : null))
+            // Resolve the friendly group/member name now — the PDF
+            // renderer in file-service uses it on the document header
+            // (plan §1A). Single round-trip; defaults to null if the
+            // holder row is missing so the renderer falls back to its
+            // truncated-UUID label.
+            resolveRecipientName(saved.getGroupId(), saved.getMemberId())
+                .defaultIfEmpty("")
+                // Fan out to file-service (PDF rendering) and onward to
+                // notification-service (email delivery). Fire-and-forget so the
+                // commit response stays snappy — failures are visible in
+                // audit + NotificationSent events, not blocking on Kafka latency.
+                .flatMap(recipientName -> eventPublisher.publishInvoiceIssued(
+                        new ContributionEventPublisher.InvoiceIssuedPayload(
+                                saved.getId().toString(),
+                                saved.getInvoiceNumber(),
+                                TenantContext.get(ctx),
+                                saved.getGroupId()  != null ? saved.getGroupId().toString()  : null,
+                                saved.getMemberId() != null ? saved.getMemberId().toString() : null,
+                                saved.getCurrencyCode(),
+                                saved.getTotalAmount().toPlainString(),
+                                saved.getPeriodStart().toString(),
+                                saved.getPeriodEnd().toString(),
+                                saved.getDueDate().toString(),
+                                saved.getCommittedAt() != null ? saved.getCommittedAt().toString() : null,
+                                saved.getOpeningBalance()      != null ? saved.getOpeningBalance().toPlainString()      : null,
+                                saved.getClosingBalance()      != null ? saved.getClosingBalance().toPlainString()      : null,
+                                saved.getPaymentsInWindow()    != null ? saved.getPaymentsInWindow().toPlainString()    : null,
+                                saved.getAdjustmentsInWindow() != null ? saved.getAdjustmentsInWindow().toPlainString() : null,
+                                recipientName.isBlank() ? null : recipientName)))
                 .thenReturn(saved)));
+    }
+
+    /**
+     * Look up the friendly group/member name from the tenant schema
+     * before publishing INVOICE_ISSUED. Used to populate the PDF
+     * header so the rendered document shows the real name instead of
+     * the truncated-UUID fallback in file-service.
+     */
+    private Mono<String> resolveRecipientName(UUID groupId, UUID memberId) {
+        if (groupId != null) {
+            return db.sql("SELECT name FROM groups WHERE id = :id")
+                    .bind("id", groupId)
+                    .map(row -> row.get("name", String.class))
+                    .one()
+                    .onErrorReturn("");
+        }
+        if (memberId != null) {
+            return db.sql("SELECT (first_name || ' ' || last_name) AS name FROM members WHERE id = :id")
+                    .bind("id", memberId)
+                    .map(row -> row.get("name", String.class))
+                    .one()
+                    .onErrorReturn("");
+        }
+        return Mono.just("");
     }
 
     private RoutingKey computeRoutingKey(Contribution c, String model) {

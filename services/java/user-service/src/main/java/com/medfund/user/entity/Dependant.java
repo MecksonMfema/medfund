@@ -19,6 +19,21 @@ public class Dependant {
     @Column("member_id")
     private UUID memberId;
 
+    /**
+     * Per-tenant structured number — populated by MemberNumberService
+     * during create() according to the tenant's member_number_scheme
+     * setting (V036 + V120). NULL on pre-V036 rows.
+     *
+     * <ul>
+     *   <li>INDEPENDENT — "DEP-XXXXXX", own unique number.</li>
+     *   <li>SHARED_WITH_SUFFIX — parent member's base + monotonically
+     *       increasing suffix ("MBR-XXXXXX-02", "-03", …). The suffix
+     *       is never reused even after a dependant is soft-deleted.</li>
+     * </ul>
+     */
+    @Column("member_number")
+    private String memberNumber;
+
     @Column("first_name")
     private String firstName;
 
@@ -76,6 +91,9 @@ public class Dependant {
 
     public UUID getMemberId() { return memberId; }
     public void setMemberId(UUID memberId) { this.memberId = memberId; }
+
+    public String getMemberNumber() { return memberNumber; }
+    public void setMemberNumber(String memberNumber) { this.memberNumber = memberNumber; }
 
     public String getFirstName() { return firstName; }
     public void setFirstName(String firstName) { this.firstName = firstName; }

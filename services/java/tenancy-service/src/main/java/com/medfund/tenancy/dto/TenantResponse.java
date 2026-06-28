@@ -21,6 +21,8 @@ public record TenantResponse(
         String membershipModel,
         /** STANDARD or INDIVIDUAL — see V118. */
         String pricingModel,
+        /** INDEPENDENT or SHARED_WITH_SUFFIX — see V120. */
+        String memberNumberScheme,
         String keycloakRealm,
         Instant createdAt,
         Instant updatedAt
@@ -41,6 +43,7 @@ public record TenantResponse(
                 tenant.getTimezone(),
                 tenant.getMembershipModel(),
                 tenant.getPricingModel() != null ? tenant.getPricingModel() : "STANDARD",
+                tenant.getMemberNumberScheme() != null ? tenant.getMemberNumberScheme() : "INDEPENDENT",
                 tenant.getKeycloakRealm(),
                 tenant.getCreatedAt(),
                 tenant.getUpdatedAt()

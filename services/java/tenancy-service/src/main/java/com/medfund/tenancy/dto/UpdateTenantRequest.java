@@ -27,6 +27,10 @@ public record UpdateTenantRequest(
          *  DB CHECK enforces the enum. */
         String pricingModel,
 
+        /** "INDEPENDENT" or "SHARED_WITH_SUFFIX" — see V120 plus
+         *  MemberNumberService. Default INDEPENDENT; DB CHECK enforces. */
+        String memberNumberScheme,
+
         String settings,
 
         String branding

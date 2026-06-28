@@ -83,7 +83,7 @@ class ContributionEventPublisherTest {
                 "inv-1", "INV-123", "tenant-1",
                 "grp-1", null, "USD", "150.00",
                 "2026-06-01", "2026-06-30", "2026-07-30",
-                null, null, null, null, null);
+                null, null, null, null, null, null);
 
         StepVerifier.create(contributionEventPublisher.publishInvoiceIssued(payload))
                 .verifyComplete();
@@ -117,7 +117,7 @@ class ContributionEventPublisherTest {
                 "inv-2", "INV-124", "tenant-1",
                 null, "mem-1", "USD", "75.00",
                 "2026-06-01", "2026-06-30", "2026-07-30",
-                null, null, null, null, null);
+                null, null, null, null, null, null);
 
         StepVerifier.create(contributionEventPublisher.publishInvoiceIssued(payload))
                 .verifyComplete();

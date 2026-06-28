@@ -80,6 +80,12 @@ type InvoiceIssued struct {
 	PeriodStart   string `json:"periodStart"`
 	PeriodEnd     string `json:"periodEnd"`
 	DueDate       string `json:"dueDate"`
+	// RecipientName is the resolved group/member name — used as the
+	// PDF's recipient label so the document shows "Acme Corp" rather
+	// than the truncated-UUID fallback "Group abc12345". Omitted on
+	// legacy events; renderer falls back to the short-id label in that
+	// case (see invoice.defaultRecipientLabel).
+	RecipientName string `json:"recipientName,omitempty"`
 }
 
 // ParseInvoiceIssued unmarshals the Kafka message body and validates

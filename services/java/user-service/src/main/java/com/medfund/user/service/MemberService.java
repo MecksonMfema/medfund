@@ -40,6 +40,7 @@ public class MemberService {
     private final KeycloakSyncService keycloakSyncService;
     private final MemberLifecycleService lifecycleService;
     private final AgeGroupResolver ageGroupResolver;
+    private final MemberNumberService memberNumberService;
 
     public Flux<Member> findAll() {
         return memberRepository.findAllOrderByCreatedAtDesc();
@@ -116,7 +117,7 @@ public class MemberService {
 
     @Transactional
     public Mono<Member> enroll(CreateMemberRequest request, String actorId, String actorEmail) {
-        return generateMemberNumber()
+        return memberNumberService.nextMemberNumber()
             .flatMap(memberNumber -> {
                 var member = new Member();
                 // id NOT set — let PostgreSQL generate via DEFAULT gen_random_uuid()
@@ -322,11 +323,9 @@ public class MemberService {
         catch (IllegalArgumentException e) { return null; }
     }
 
-    private Mono<String> generateMemberNumber() {
-        String number = "MBR-" + ThreadLocalRandom.current().nextInt(100000, 999999);
-        return memberRepository.existsByMemberNumber(number)
-            .flatMap(exists -> exists ? generateMemberNumber() : Mono.just(number));
-    }
+    // generateMemberNumber removed — MemberNumberService is now the single
+    // source of truth for member-number issuance, honouring the tenant's
+    // configured scheme (INDEPENDENT vs SHARED_WITH_SUFFIX).
 
     private Mono<Void> publishAudit(String tenantId, Member current, Member previous, String actorId, String actorEmail, String action) {
         var event = AuditEvent.create(

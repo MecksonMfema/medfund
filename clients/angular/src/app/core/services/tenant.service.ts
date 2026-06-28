@@ -54,6 +54,13 @@ export interface Tenant {
    * Billing → Pricing mode by tenant admins (V118/V119 backend).
    */
   pricingModel?: 'STANDARD' | 'INDIVIDUAL' | 'AI_DRIVEN';
+
+  /**
+   * Member-number issuance scheme (V120). INDEPENDENT gives separate
+   * numbers; SHARED_WITH_SUFFIX gives members + dependants a shared
+   * base with monotonically increasing "-NN" suffix.
+   */
+  memberNumberScheme?: 'INDEPENDENT' | 'SHARED_WITH_SUFFIX';
 }
 
 const SESSION_KEY = 'medfund_current_tenant';

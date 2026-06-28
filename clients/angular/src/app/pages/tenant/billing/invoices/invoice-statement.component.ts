@@ -152,6 +152,24 @@ export class InvoiceStatementComponent implements OnInit {
 
   pdfUrl(): string { return this.contribSvc.getInvoicePdfUrl(this.invoiceId); }
 
+  /**
+   * Format any money value (string or number) to 2 decimal places.
+   * Backend returns BigDecimal as strings with variable scale
+   * ("65.0000", "0", "115.00") — the operator expects "65.00".
+   * Empty / null inputs render as a dash so transaction-row debit /
+   * credit cells (only one is populated per line) don't show "0.00"
+   * on the empty side.
+   */
+  money(v: string | number | null | undefined): string {
+    if (v === null || v === undefined || v === '') return '';
+    const n = typeof v === 'string' ? parseFloat(v) : v;
+    if (!Number.isFinite(n)) return '';
+    return n.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
   get holderName(): string {
     return this.statement?.header?.targetName ?? (this.invoice?.groupId ? 'Group' : 'Individual');
   }

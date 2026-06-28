@@ -149,6 +149,10 @@ func runInvoiceConsumer(ctx context.Context, brokers string, renderer *invoice.R
 			PeriodStart:   evt.PeriodStart,
 			PeriodEnd:     evt.PeriodEnd,
 			DueDate:       evt.DueDate,
+			// Real recipient name (resolved by contributions-service from
+			// groups/members before publish). Renderer falls back to a
+			// truncated-UUID label only when this is empty.
+			RecipientLabel: evt.RecipientName,
 		})
 		if err != nil {
 			log.Printf("[file-service] render %s failed: %v", evt.InvoiceNumber, err)
