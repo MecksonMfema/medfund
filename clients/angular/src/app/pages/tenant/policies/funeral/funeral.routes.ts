@@ -4,7 +4,7 @@ export const FUNERAL_ROUTES: Routes = [
   {
     path: '',
     loadComponent: () => import('./funeral-policies-list.component').then(m => m.FuneralPoliciesListComponent),
-    data: { title: 'Funeral Policies', sidebar: 'operational' },
+    data: { title: 'Funeral Policies', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'add',

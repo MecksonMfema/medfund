@@ -1,13 +1,19 @@
-.page { padding: 1.5rem; }
+// Match /tenant/billing/schemes: flush page-header banner, then a
+// padded content area below it. No outer padding on `.page` so the
+// fullbleed route data takes effect.
+.page { padding: 0; }
 
 .page-head {
   display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 1rem; margin-bottom: 1.5rem;
-  .title-block h1 { margin: 0 0 .25rem; }
-  .muted { margin: 0; color: var(--text-muted, #6b7280); }
+  gap: 1rem;
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+  .title-block h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
+  .muted { margin: 0; color: var(--color-text-muted); font-size: 0.9rem; max-width: 65ch; }
 }
 
-.toolbar { margin-bottom: 1rem; }
+.toolbar { padding: 16px 24px 0; margin-bottom: 1rem; }
 .search-input {
   width: 100%; max-width: 420px;
   padding: .5rem .75rem; border: 1px solid var(--border, #d1d5db);

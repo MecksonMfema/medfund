@@ -148,12 +148,15 @@ public class InvoiceSnapshotService {
                    AND ( (:groupId  IS NOT NULL AND c.group_id  = :groupId)
                       OR (:memberId IS NOT NULL AND c.member_id = :memberId) )
                 """;
-        return db.sql(sql)
+        var spec = db.sql(sql)
                 .bind("currency",    invoice.getCurrencyCode())
                 .bind("committedAt", committedAt)
-                .bind("lower",       priorCommittedAt != null ? priorCommittedAt : (Instant) null)
                 .bind("groupId",     invoice.getGroupId()  != null ? invoice.getGroupId()  : new java.util.UUID(0,0))
-                .bind("memberId",    invoice.getMemberId() != null ? invoice.getMemberId() : new java.util.UUID(0,0))
+                .bind("memberId",    invoice.getMemberId() != null ? invoice.getMemberId() : new java.util.UUID(0,0));
+        // R2DBC: nulls must go through bindNull(name, type).
+        spec = (priorCommittedAt != null) ? spec.bind("lower", priorCommittedAt)
+                                          : spec.bindNull("lower", Instant.class);
+        return spec
                 .map(row -> new WindowSums(
                         row.get("payments", BigDecimal.class),
                         row.get("adjustments", BigDecimal.class)))

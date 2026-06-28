@@ -4,7 +4,7 @@ export const PROPERTIES_ROUTES: Routes = [
   {
     path: '',
     loadComponent: () => import('./properties-list.component').then(m => m.PropertiesListComponent),
-    data: { title: 'Properties', sidebar: 'operational' },
+    data: { title: 'Properties', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'add',

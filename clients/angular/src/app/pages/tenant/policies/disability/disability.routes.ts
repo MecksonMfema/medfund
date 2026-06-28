@@ -4,7 +4,7 @@ export const DISABILITY_ROUTES: Routes = [
   {
     path: '',
     loadComponent: () => import('./disability-policies-list.component').then(m => m.DisabilityPoliciesListComponent),
-    data: { title: 'Disability Policies', sidebar: 'operational' },
+    data: { title: 'Disability Policies', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'add',

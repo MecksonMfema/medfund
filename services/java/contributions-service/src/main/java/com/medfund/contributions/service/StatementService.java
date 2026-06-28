@@ -310,12 +310,13 @@ public class StatementService {
                    AND ( (:groupId  IS NOT NULL AND c.group_id  = :groupId)
                       OR (:memberId IS NOT NULL AND c.member_id = :memberId) )
                 """;
-        return db.sql(sql)
+        var spec = db.sql(sql)
                 .bind("currency", inv.getCurrencyCode())
                 .bind("upper",    inv.getCommittedAt())
-                .bind("lower",    lower != null ? lower : (Instant) null)
                 .bind("groupId",  inv.getGroupId()  != null ? inv.getGroupId()  : new java.util.UUID(0,0))
-                .bind("memberId", inv.getMemberId() != null ? inv.getMemberId() : new java.util.UUID(0,0))
+                .bind("memberId", inv.getMemberId() != null ? inv.getMemberId() : new java.util.UUID(0,0));
+        spec = (lower != null) ? spec.bind("lower", lower) : spec.bindNull("lower", Instant.class);
+        return spec
                 .map(row -> {
                     Transaction t = new Transaction();
                     t.setId((UUID) row.get("id"));

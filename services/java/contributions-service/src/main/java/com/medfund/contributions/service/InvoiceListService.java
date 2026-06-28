@@ -134,14 +134,18 @@ public class InvoiceListService {
 
     private static org.springframework.r2dbc.core.DatabaseClient.GenericExecuteSpec bindFilters(
             org.springframework.r2dbc.core.DatabaseClient.GenericExecuteSpec spec, Filter f) {
-        return spec
-                .bind("year",       f.year()       != null ? f.year()       : (Integer) null)
-                .bind("month",      f.month()      != null ? f.month()      : (Integer) null)
-                .bind("status",     f.status()     != null ? f.status()     : (String) null)
-                .bind("currency",   f.currency()   != null ? f.currency()   : (String) null)
-                .bind("holderType", f.holderType() != null ? f.holderType() : (String) null)
-                .bind("line",       f.insuranceLine() != null ? f.insuranceLine() : (String) null)
-                .bind("q",          f.q()          != null && !f.q().isBlank() ? f.q() : (String) null);
+        // R2DBC rejects .bind("x", null) — must use bindNull(name, type)
+        // so the driver knows the SQL parameter's column type. The query's
+        // `:year IS NULL OR ...` predicate then matches the null binding
+        // and skips the filter.
+        spec = (f.year()       != null) ? spec.bind("year",       f.year())       : spec.bindNull("year",       Integer.class);
+        spec = (f.month()      != null) ? spec.bind("month",      f.month())      : spec.bindNull("month",      Integer.class);
+        spec = (f.status()     != null) ? spec.bind("status",     f.status())     : spec.bindNull("status",     String.class);
+        spec = (f.currency()   != null) ? spec.bind("currency",   f.currency())   : spec.bindNull("currency",   String.class);
+        spec = (f.holderType() != null) ? spec.bind("holderType", f.holderType()) : spec.bindNull("holderType", String.class);
+        spec = (f.insuranceLine() != null) ? spec.bind("line", f.insuranceLine()) : spec.bindNull("line",       String.class);
+        spec = (f.q() != null && !f.q().isBlank()) ? spec.bind("q", f.q())        : spec.bindNull("q",          String.class);
+        return spec;
     }
 
     private static InvoiceListRow mapRow(io.r2dbc.spi.Readable row) {

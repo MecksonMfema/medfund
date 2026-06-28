@@ -4,7 +4,7 @@ export const TRAVEL_ROUTES: Routes = [
   {
     path: '',
     loadComponent: () => import('./travel-policies-list.component').then(m => m.TravelPoliciesListComponent),
-    data: { title: 'Travel Policies', sidebar: 'operational' },
+    data: { title: 'Travel Policies', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'add',

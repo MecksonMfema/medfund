@@ -4,7 +4,7 @@ export const LIFE_ROUTES: Routes = [
   {
     path: '',
     loadComponent: () => import('./life-policies-list.component').then(m => m.LifePoliciesListComponent),
-    data: { title: 'Life Policies', sidebar: 'operational' },
+    data: { title: 'Life Policies', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'add',

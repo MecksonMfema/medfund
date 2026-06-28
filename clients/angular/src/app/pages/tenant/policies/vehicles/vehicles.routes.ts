@@ -4,7 +4,7 @@ export const VEHICLES_ROUTES: Routes = [
   {
     path: '',
     loadComponent: () => import('./vehicles-list.component').then(m => m.VehiclesListComponent),
-    data: { title: 'Vehicles', sidebar: 'operational' },
+    data: { title: 'Vehicles', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'add',
