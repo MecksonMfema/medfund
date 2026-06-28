@@ -258,19 +258,21 @@ public class StatementService {
                 .bind("iid", inv.getId())
                 .map((row, meta) -> {
                     Contribution c = new Contribution();
-                    c.setId((UUID) row.get("id"));
-                    c.setMemberId((UUID) row.get("member_id"));
-                    c.setDependantId((UUID) row.get("dependant_id"));
-                    c.setSchemeId((UUID) row.get("scheme_id"));
-                    c.setGroupId((UUID) row.get("group_id"));
-                    c.setAmount((BigDecimal) row.get("amount"));
-                    c.setCurrencyCode((String) row.get("currency_code"));
-                    c.setStatus((String) row.get("status"));
-                    c.setPeriodStart((LocalDate) row.get("period_start"));
-                    c.setPeriodEnd((LocalDate) row.get("period_end"));
-                    c.setCreatedAt((Instant) row.get("created_at"));
-                    c.setPaidAt((Instant) row.get("paid_at"));
-                    c.setPaymentReference((String) row.get("payment_reference"));
+                    c.setId(row.get("id", UUID.class));
+                    c.setMemberId(row.get("member_id", UUID.class));
+                    c.setDependantId(row.get("dependant_id", UUID.class));
+                    c.setSchemeId(row.get("scheme_id", UUID.class));
+                    c.setGroupId(row.get("group_id", UUID.class));
+                    c.setAmount(row.get("amount", BigDecimal.class));
+                    c.setCurrencyCode(row.get("currency_code", String.class));
+                    c.setStatus(row.get("status", String.class));
+                    c.setPeriodStart(row.get("period_start", LocalDate.class));
+                    c.setPeriodEnd(row.get("period_end", LocalDate.class));
+                    // R2DBC Postgres driver returns TIMESTAMPTZ as OffsetDateTime,
+                    // not Instant — request Instant explicitly so the driver converts.
+                    c.setCreatedAt(row.get("created_at", Instant.class));
+                    c.setPaidAt(row.get("paid_at", Instant.class));
+                    c.setPaymentReference(row.get("payment_reference", String.class));
                     return c;
                 })
                 .all().collectList();
@@ -319,19 +321,21 @@ public class StatementService {
         return spec
                 .map(row -> {
                     Transaction t = new Transaction();
-                    t.setId((UUID) row.get("id"));
-                    t.setTransactionNumber((String) row.get("transaction_number"));
-                    t.setContributionId((UUID) row.get("contribution_id"));
-                    t.setInvoiceId((UUID) row.get("invoice_id"));
-                    t.setAmount((BigDecimal) row.get("amount"));
-                    t.setCurrencyCode((String) row.get("currency_code"));
-                    t.setTransactionType((String) row.get("transaction_type"));
-                    t.setPaymentMethod((String) row.get("payment_method"));
-                    t.setReference((String) row.get("reference"));
-                    t.setStatus((String) row.get("status"));
-                    t.setTransactionDate((Instant) row.get("transaction_date"));
-                    t.setCreatedAt((Instant) row.get("created_at"));
-                    t.setCreatedBy((UUID) row.get("created_by"));
+                    t.setId(row.get("id", UUID.class));
+                    t.setTransactionNumber(row.get("transaction_number", String.class));
+                    t.setContributionId(row.get("contribution_id", UUID.class));
+                    t.setInvoiceId(row.get("invoice_id", UUID.class));
+                    t.setAmount(row.get("amount", BigDecimal.class));
+                    t.setCurrencyCode(row.get("currency_code", String.class));
+                    t.setTransactionType(row.get("transaction_type", String.class));
+                    t.setPaymentMethod(row.get("payment_method", String.class));
+                    t.setReference(row.get("reference", String.class));
+                    t.setStatus(row.get("status", String.class));
+                    // R2DBC Postgres returns TIMESTAMPTZ as OffsetDateTime — ask
+                    // for Instant explicitly so the driver converts.
+                    t.setTransactionDate(row.get("transaction_date", Instant.class));
+                    t.setCreatedAt(row.get("created_at", Instant.class));
+                    t.setCreatedBy(row.get("created_by", UUID.class));
                     return t;
                 })
                 .all();
