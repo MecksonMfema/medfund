@@ -1,0 +1,48 @@
+<div class="page">
+  <header class="page-head">
+    <div class="title-block">
+      <h1>Life Policies</h1>
+      <p class="muted">Life-insurance policies. Each policy is bound to an insured member and bills against its scheme using the standard or per-policy custom premium.</p>
+    </div>
+    <a class="btn btn-primary" routerLink="/tenant/policies/life/add">
+      <app-icon name="plus" [size]="14"></app-icon> Add life policy
+    </a>
+  </header>
+
+  <div class="toolbar">
+    <input type="search"
+           class="search-input"
+           placeholder="Search by policy number…"
+           [(ngModel)]="searchQuery"
+           (input)="onSearch()" />
+  </div>
+
+  @if (loading) {
+    <p class="muted">Loading…</p>
+  } @else if (policies.length === 0) {
+    <p class="muted">No life policies yet. Click <strong>Add life policy</strong> to register the first one.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Policy #</th>
+          <th>Insured</th>
+          <th>Sum assured</th>
+          <th>Term (months)</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of policies; track p.id) {
+          <tr (click)="rowClick(p)" class="clickable">
+            <td><strong>{{ p.policyNumber }}</strong></td>
+            <td><span class="hash">{{ shortId(p.insuredMemberId) }}</span></td>
+            <td>{{ p.sumAssured | number:'1.0-2' }}</td>
+            <td>{{ p.termMonths }}</td>
+            <td><span class="chip status" [attr.data-status]="p.status">{{ p.status }}</span></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

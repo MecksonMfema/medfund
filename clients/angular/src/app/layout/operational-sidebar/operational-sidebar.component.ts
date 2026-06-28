@@ -104,6 +104,19 @@ export class OperationalSidebarComponent implements OnInit, OnDestroy {
         // Missing membershipModel is treated as BOTH for back-compat with
         // older cached tenant snapshots that predate the field.
         return (tenant?.membershipModel ?? 'BOTH') !== 'INDIVIDUAL_ONLY';
+      case 'vehiclesAvailable':
+        return (tenant?.insuranceLines ?? []).includes('VEHICLE')
+            || (tenant?.insuranceLines ?? []).includes('MOTOR');
+      case 'propertiesAvailable':
+        return (tenant?.insuranceLines ?? []).includes('PROPERTY');
+      case 'lifeAvailable':
+        return (tenant?.insuranceLines ?? []).includes('LIFE');
+      case 'funeralAvailable':
+        return (tenant?.insuranceLines ?? []).includes('FUNERAL');
+      case 'travelAvailable':
+        return (tenant?.insuranceLines ?? []).includes('TRAVEL');
+      case 'disabilityAvailable':
+        return (tenant?.insuranceLines ?? []).includes('DISABILITY');
       default:
         return false;
     }

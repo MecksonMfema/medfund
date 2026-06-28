@@ -30,7 +30,16 @@ export interface OperationalNavItem {
   route: string;
   permissions?: PermissionKey[];
   exactMatch?: boolean;
-  featureFlag?: 'drugClaims' | 'ageGroupsAvailable' | 'groupsAvailable';
+  featureFlag?:
+      | 'drugClaims'
+      | 'ageGroupsAvailable'
+      | 'groupsAvailable'
+      | 'vehiclesAvailable'
+      | 'propertiesAvailable'
+      | 'lifeAvailable'
+      | 'funeralAvailable'
+      | 'travelAvailable'
+      | 'disabilityAvailable';
 }
 
 /**
@@ -70,6 +79,21 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
       { label: 'Creditors',      icon: 'trending-down',  route: '/tenant/billing/creditors',    permissions: ['billing:view_creditors'] },
       { label: 'Bad Debts',      icon: 'alert-triangle', route: '/tenant/billing/bad-debts',    permissions: ['billing:manage_bad_debts'] },
       { label: 'Group Charge',   icon: 'building',       route: '/tenant/billing/group-charge', permissions: ['billing:view_creditors'] },
+    ],
+  },
+  {
+    title: 'Policies',
+    items: [
+      // Six per-line policy CRUD surfaces (V032 + Part 4). Each entry
+      // is gated by the tenant having the corresponding insurance line
+      // enabled in their settings.insuranceLines — a tenant who only
+      // sells HEALTH never sees the Motor / Property / Life rows.
+      { label: 'Vehicles',    icon: 'shield',  route: '/tenant/policies/vehicles',    featureFlag: 'vehiclesAvailable' },
+      { label: 'Properties',  icon: 'shield',  route: '/tenant/policies/properties',  featureFlag: 'propertiesAvailable' },
+      { label: 'Life',        icon: 'shield',  route: '/tenant/policies/life',        featureFlag: 'lifeAvailable' },
+      { label: 'Funeral',     icon: 'shield',  route: '/tenant/policies/funeral',     featureFlag: 'funeralAvailable' },
+      { label: 'Travel',      icon: 'shield',  route: '/tenant/policies/travel',      featureFlag: 'travelAvailable' },
+      { label: 'Disability',  icon: 'shield',  route: '/tenant/policies/disability',  featureFlag: 'disabilityAvailable' },
     ],
   },
   {

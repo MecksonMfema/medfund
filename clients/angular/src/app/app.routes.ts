@@ -106,6 +106,10 @@ export const routes: Routes = [
         path: 'members',
         loadChildren: () => import('./pages/tenant/members/members.routes').then(m => m.MEMBERS_ROUTES),
       },
+      {
+        path: 'policies',
+        loadChildren: () => import('./pages/tenant/policies/policies.routes').then(m => m.POLICIES_ROUTES),
+      },
     ],
   },
   // Legacy unprefixed paths — keep as redirectTo so old bookmarks resolve.

@@ -1,0 +1,126 @@
+<div class="page">
+  <header class="page-head">
+    <a class="back-link" routerLink="/tenant/policies/properties">
+      <app-icon name="chevron-left" [size]="16"></app-icon> Back to Properties
+    </a>
+    <div class="title-block">
+      <h1>{{ isEdit ? 'Edit Property' : 'Add Property' }}</h1>
+      @if (property) {
+        <div class="meta">
+          <span class="chip">{{ property.propertyName }}</span>
+          <span class="chip status" [attr.data-status]="property.status">{{ property.status }}</span>
+        </div>
+      }
+    </div>
+    @if (isEdit && property) {
+      <div class="actions">
+        @if (property.status === 'active')     { <button type="button" class="btn small warn"   (click)="suspend()">Suspend</button> }
+        @if (property.status !== 'terminated') { <button type="button" class="btn small danger" (click)="terminate()">Terminate</button> }
+        @if (property.billingOverrideAmount != null) { <button type="button" class="btn small" (click)="clearOverride()">Clear custom premium</button> }
+      </div>
+    }
+  </header>
+
+  @if (errorMessage) {
+    <div class="error-banner" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+    <p class="muted">Loading…</p>
+  } @else {
+    <form (ngSubmit)="submit()" class="form-grid">
+      <label class="field span-2">
+        <span class="field-label">Property name *</span>
+        <input type="text" maxlength="200" [(ngModel)]="form.propertyName" name="propertyName" required />
+      </label>
+      <label class="field span-2">
+        <span class="field-label">Address *</span>
+        <textarea rows="2" [(ngModel)]="form.address" name="address" required></textarea>
+      </label>
+      <label class="field">
+        <span class="field-label">Sum insured *</span>
+        <input type="number" min="0" step="0.01" [(ngModel)]="form.sumInsured" name="sumInsured" required />
+      </label>
+      <label class="field">
+        <span class="field-label">Property age (years)</span>
+        <input type="number" min="0" [(ngModel)]="form.propertyAgeYears" name="propertyAgeYears" />
+      </label>
+      <div class="field">
+        <span class="field-label">Construction type</span>
+        <app-select [(ngModel)]="form.constructionType" name="constructionType" [options]="constructionTypeOptions"></app-select>
+      </div>
+      <label class="field">
+        <span class="field-label">Roof type</span>
+        <input type="text" maxlength="40" [(ngModel)]="form.roofType" name="roofType" placeholder="e.g. tile, asbestos, IBR" />
+      </label>
+      <div class="field">
+        <span class="field-label">Location risk band</span>
+        <app-select [(ngModel)]="form.locationRiskBand" name="locationRiskBand" [options]="locationRiskBandOptions"></app-select>
+      </div>
+      <div class="field">
+        <span class="field-label">Occupancy</span>
+        <app-select [(ngModel)]="form.occupancy" name="occupancy" [options]="occupancyOptions"></app-select>
+      </div>
+      <label class="field">
+        <span class="field-label">Security features count</span>
+        <input type="number" min="0" [(ngModel)]="form.securityFeaturesCount" name="securityFeaturesCount" />
+      </label>
+      <div class="field">
+        <span class="field-label">Scheme *</span>
+        <app-entity-picker
+          kind="scheme"
+          [(value)]="form.schemeId"
+          [prefillLabel]="schemeLabel"
+          [prefillSublabel]="schemeSublabel"
+          placeholder="Search by scheme name…">
+        </app-entity-picker>
+      </div>
+      <div class="field">
+        <span class="field-label">Group (optional)</span>
+        <app-entity-picker
+          kind="group"
+          [(value)]="form.groupId"
+          [prefillLabel]="groupLabel"
+          placeholder="Search by group name…">
+        </app-entity-picker>
+      </div>
+      <div class="field span-2">
+        <span class="field-label">Owner member (optional — corporate portfolios can leave blank)</span>
+        <app-entity-picker
+          kind="member"
+          [(value)]="form.ownerMemberId"
+          [prefillLabel]="ownerLabel"
+          placeholder="Search by member name…">
+        </app-entity-picker>
+      </div>
+
+      @if (individualPricing) {
+        <fieldset class="span-2 override-fieldset">
+          <legend>Custom premium (INDIVIDUAL pricing mode)</legend>
+          <p class="muted">Override the scheme default with a per-asset amount. Effective from the chosen date; billing falls back to the scheme default for earlier periods.</p>
+          <div class="form-grid inner">
+            <label class="field">
+              <span class="field-label">Override amount</span>
+              <input type="number" min="0.01" step="0.01" [(ngModel)]="form.billingOverrideAmount" name="overrideAmount" />
+            </label>
+            <label class="field">
+              <span class="field-label">Effective from</span>
+              <input type="date" [(ngModel)]="form.billingOverrideEffectiveFrom" name="overrideEf" />
+            </label>
+            <label class="field span-2">
+              <span class="field-label">Reason (max 40 chars)</span>
+              <input type="text" maxlength="40" [(ngModel)]="form.billingOverrideReason" name="overrideRe" placeholder="e.g. high-value contents" />
+            </label>
+          </div>
+        </fieldset>
+      }
+
+      <div class="form-actions span-2">
+        <button type="button" class="btn" (click)="cancel()" [disabled]="saving">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving">
+          {{ saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Register property') }}
+        </button>
+      </div>
+    </form>
+  }
+</div>

@@ -1,0 +1,48 @@
+<div class="page">
+  <header class="page-head">
+    <div class="title-block">
+      <h1>Disability Policies</h1>
+      <p class="muted">Income-protection cover for insured members. Each policy bills against its scheme using the standard or per-policy custom premium.</p>
+    </div>
+    <a class="btn btn-primary" routerLink="/tenant/policies/disability/add">
+      <app-icon name="plus" [size]="14"></app-icon> Add disability policy
+    </a>
+  </header>
+
+  <div class="toolbar">
+    <input type="search"
+           class="search-input"
+           placeholder="Search by policy number…"
+           [(ngModel)]="searchQuery"
+           (input)="onSearch()" />
+  </div>
+
+  @if (loading) {
+    <p class="muted">Loading…</p>
+  } @else if (policies.length === 0) {
+    <p class="muted">No disability policies yet. Click <strong>Add disability policy</strong> to register the first one.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Policy #</th>
+          <th>Monthly benefit</th>
+          <th>Waiting (days)</th>
+          <th>Benefit period</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of policies; track p.id) {
+          <tr (click)="rowClick(p)" class="clickable">
+            <td><strong>{{ p.policyNumber }}</strong></td>
+            <td>{{ p.monthlyBenefit | number:'1.0-2' }}</td>
+            <td>{{ p.waitingPeriodDays }}</td>
+            <td>{{ p.benefitPeriod || '—' }}</td>
+            <td><span class="chip status" [attr.data-status]="p.status">{{ p.status }}</span></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

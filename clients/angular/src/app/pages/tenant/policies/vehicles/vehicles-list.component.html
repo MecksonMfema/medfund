@@ -1,0 +1,48 @@
+<div class="page">
+  <header class="page-head">
+    <div class="title-block">
+      <h1>Vehicles</h1>
+      <p class="muted">Motor-insurance asset records. Each vehicle bills against its scheme using the standard or per-asset custom premium.</p>
+    </div>
+    <a class="btn btn-primary" routerLink="/tenant/policies/vehicles/add">
+      <app-icon name="plus" [size]="14"></app-icon> Add vehicle
+    </a>
+  </header>
+
+  <div class="toolbar">
+    <input type="search"
+           class="search-input"
+           placeholder="Search by registration, make, or model…"
+           [(ngModel)]="searchQuery"
+           (input)="onSearch()" />
+  </div>
+
+  @if (loading) {
+    <p class="muted">Loading…</p>
+  } @else if (vehicles.length === 0) {
+    <p class="muted">No vehicles yet. Click <strong>Add vehicle</strong> to register the first one.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Registration</th>
+          <th>Make / Model</th>
+          <th>Year</th>
+          <th>Value</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (v of vehicles; track v.id) {
+          <tr (click)="rowClick(v)" class="clickable">
+            <td><strong>{{ v.registrationNumber }}</strong></td>
+            <td>{{ v.make }} {{ v.model }}</td>
+            <td>{{ v.year }}</td>
+            <td>{{ v.vehicleValue | number:'1.0-2' }}</td>
+            <td><span class="chip status" [attr.data-status]="v.status">{{ v.status }}</span></td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

@@ -1,0 +1,117 @@
+<div class="page">
+  <header class="page-head">
+    <a class="back-link" routerLink="/tenant/policies/disability">
+      <app-icon name="chevron-left" [size]="16"></app-icon> Back to Disability Policies
+    </a>
+    <div class="title-block">
+      <h1>{{ isEdit ? 'Edit Disability Policy' : 'Add Disability Policy' }}</h1>
+      @if (policy) {
+        <div class="meta">
+          <span class="chip">{{ policy.policyNumber }}</span>
+          <span class="chip status" [attr.data-status]="policy.status">{{ policy.status }}</span>
+        </div>
+      }
+    </div>
+    @if (isEdit && policy) {
+      <div class="actions">
+        @if (policy.status === 'active')     { <button type="button" class="btn small warn"   (click)="suspend()">Suspend</button> }
+        @if (policy.status !== 'terminated') { <button type="button" class="btn small danger" (click)="terminate()">Terminate</button> }
+        @if (policy.billingOverrideAmount != null) { <button type="button" class="btn small" (click)="clearOverride()">Clear custom premium</button> }
+      </div>
+    }
+  </header>
+
+  @if (errorMessage) {
+    <div class="error-banner" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+    <p class="muted">Loading…</p>
+  } @else {
+    <form (ngSubmit)="submit()" class="form-grid">
+      <label class="field">
+        <span class="field-label">Policy number *</span>
+        <input type="text" maxlength="50" [(ngModel)]="form.policyNumber" name="policyNumber" required />
+      </label>
+      <label class="field">
+        <span class="field-label">Monthly benefit *</span>
+        <input type="number" min="0" step="0.01" [(ngModel)]="form.monthlyBenefit" name="monthlyBenefit" required />
+      </label>
+      <label class="field">
+        <span class="field-label">Waiting period (days) *</span>
+        <input type="number" min="0" step="1" [(ngModel)]="form.waitingPeriodDays" name="waitingPeriodDays" required />
+      </label>
+      <div class="field">
+        <span class="field-label">Benefit period</span>
+        <app-select [(ngModel)]="form.benefitPeriod" name="benefitPeriod" [options]="benefitPeriodOptions"></app-select>
+      </div>
+      <div class="field span-2">
+        <span class="field-label">Occupation hazard class</span>
+        <app-select [(ngModel)]="form.occupationHazardClass" name="occupationHazardClass" [options]="hazardClassOptions"></app-select>
+      </div>
+      <div class="field">
+        <span class="field-label">Scheme *</span>
+        <app-entity-picker
+          kind="scheme"
+          [(value)]="form.schemeId"
+          [prefillLabel]="schemeLabel"
+          [prefillSublabel]="schemeSublabel"
+          placeholder="Search by scheme name…">
+        </app-entity-picker>
+      </div>
+      <div class="field">
+        <span class="field-label">Group (optional)</span>
+        <app-entity-picker
+          kind="group"
+          [(value)]="form.groupId"
+          [prefillLabel]="groupLabel"
+          placeholder="Search by group name…">
+        </app-entity-picker>
+      </div>
+      <div class="field span-2">
+        <span class="field-label">Insured member *</span>
+        @if (isEdit) {
+          <div class="readonly-chip">
+            <span class="chip">{{ insuredMemberLabel || '(member)' }}</span>
+            <span class="muted">The insured member is fixed for the life of the policy.</span>
+          </div>
+        } @else {
+          <app-entity-picker
+            kind="member"
+            [(value)]="form.insuredMemberId"
+            [prefillLabel]="insuredMemberLabel"
+            placeholder="Search by member name…">
+          </app-entity-picker>
+        }
+      </div>
+
+      @if (individualPricing) {
+        <fieldset class="span-2 override-fieldset">
+          <legend>Custom premium (INDIVIDUAL pricing mode)</legend>
+          <p class="muted">Override the scheme default with a per-policy amount. Effective from the chosen date; billing falls back to the scheme default for earlier periods.</p>
+          <div class="form-grid inner">
+            <label class="field">
+              <span class="field-label">Override amount</span>
+              <input type="number" min="0.01" step="0.01" [(ngModel)]="form.billingOverrideAmount" name="overrideAmount" />
+            </label>
+            <label class="field">
+              <span class="field-label">Effective from</span>
+              <input type="date" [(ngModel)]="form.billingOverrideEffectiveFrom" name="overrideEf" />
+            </label>
+            <label class="field span-2">
+              <span class="field-label">Reason (max 40 chars)</span>
+              <input type="text" maxlength="40" [(ngModel)]="form.billingOverrideReason" name="overrideRe" placeholder="e.g. high-hazard loading" />
+            </label>
+          </div>
+        </fieldset>
+      }
+
+      <div class="form-actions span-2">
+        <button type="button" class="btn" (click)="cancel()" [disabled]="saving">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving">
+          {{ saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Register policy') }}
+        </button>
+      </div>
+    </form>
+  }
+</div>

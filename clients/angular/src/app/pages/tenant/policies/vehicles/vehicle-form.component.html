@@ -1,0 +1,118 @@
+<div class="page">
+  <header class="page-head">
+    <a class="back-link" routerLink="/tenant/policies/vehicles">
+      <app-icon name="chevron-left" [size]="16"></app-icon> Back to Vehicles
+    </a>
+    <div class="title-block">
+      <h1>{{ isEdit ? 'Edit Vehicle' : 'Add Vehicle' }}</h1>
+      @if (vehicle) {
+        <div class="meta">
+          <span class="chip">{{ vehicle.registrationNumber }}</span>
+          <span class="chip status" [attr.data-status]="vehicle.status">{{ vehicle.status }}</span>
+        </div>
+      }
+    </div>
+    @if (isEdit && vehicle) {
+      <div class="actions">
+        @if (vehicle.status === 'active')     { <button type="button" class="btn small warn"   (click)="suspend()">Suspend</button> }
+        @if (vehicle.status !== 'terminated') { <button type="button" class="btn small danger" (click)="terminate()">Terminate</button> }
+        @if (vehicle.billingOverrideAmount != null) { <button type="button" class="btn small" (click)="clearOverride()">Clear custom premium</button> }
+      </div>
+    }
+  </header>
+
+  @if (errorMessage) {
+    <div class="error-banner" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+    <p class="muted">Loading…</p>
+  } @else {
+    <form (ngSubmit)="submit()" class="form-grid">
+      <label class="field">
+        <span class="field-label">Registration number *</span>
+        <input type="text" [(ngModel)]="form.registrationNumber" name="reg" required />
+      </label>
+      <label class="field">
+        <span class="field-label">Year *</span>
+        <input type="number" min="1900" max="2100" [(ngModel)]="form.year" name="year" required />
+      </label>
+      <label class="field">
+        <span class="field-label">Make *</span>
+        <input type="text" [(ngModel)]="form.make" name="make" required />
+      </label>
+      <label class="field">
+        <span class="field-label">Model *</span>
+        <input type="text" [(ngModel)]="form.model" name="model" required />
+      </label>
+      <label class="field">
+        <span class="field-label">Vehicle value *</span>
+        <input type="number" min="0" step="0.01" [(ngModel)]="form.vehicleValue" name="value" required />
+      </label>
+      <div class="field">
+        <span class="field-label">Body type</span>
+        <app-select [(ngModel)]="form.bodyType" name="bodyType" [options]="bodyTypeOptions"></app-select>
+      </div>
+      <div class="field">
+        <span class="field-label">Usage type</span>
+        <app-select [(ngModel)]="form.usageType" name="usageType" [options]="usageTypeOptions"></app-select>
+      </div>
+      <div class="field">
+        <span class="field-label">Scheme *</span>
+        <app-entity-picker
+          kind="scheme"
+          [(value)]="form.schemeId"
+          [prefillLabel]="schemeLabel"
+          [prefillSublabel]="schemeSublabel"
+          placeholder="Search by scheme name…">
+        </app-entity-picker>
+      </div>
+      <div class="field">
+        <span class="field-label">Group (optional)</span>
+        <app-entity-picker
+          kind="group"
+          [(value)]="form.groupId"
+          [prefillLabel]="groupLabel"
+          placeholder="Search by group name…">
+        </app-entity-picker>
+      </div>
+      <div class="field span-2">
+        <span class="field-label">Owner member (optional — corporate portfolios can leave blank)</span>
+        <app-entity-picker
+          kind="member"
+          [(value)]="form.ownerMemberId"
+          [prefillLabel]="ownerLabel"
+          placeholder="Search by member name…">
+        </app-entity-picker>
+      </div>
+
+      @if (individualPricing) {
+        <fieldset class="span-2 override-fieldset">
+          <legend>Custom premium (INDIVIDUAL pricing mode)</legend>
+          <p class="muted">Override the scheme default with a per-asset amount. Effective from the chosen date; billing falls back to the scheme default for earlier periods.</p>
+          <div class="form-grid inner">
+            <label class="field">
+              <span class="field-label">Override amount</span>
+              <input type="number" min="0.01" step="0.01" [(ngModel)]="form.billingOverrideAmount" name="overrideAmount" />
+            </label>
+            <label class="field">
+              <span class="field-label">Effective from</span>
+              <input type="date" [(ngModel)]="form.billingOverrideEffectiveFrom" name="overrideEf" />
+            </label>
+            <label class="field span-2">
+              <span class="field-label">Reason (max 40 chars)</span>
+              <input type="text" maxlength="40" [(ngModel)]="form.billingOverrideReason" name="overrideRe" placeholder="e.g. fleet discount" />
+            </label>
+          </div>
+        </fieldset>
+      }
+
+      <div class="form-actions span-2">
+        <button type="button" class="btn" (click)="cancel()" [disabled]="saving">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving">
+          {{ saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Register vehicle') }}
+        </button>
+      </div>
+    </form>
+  }
+</div>
