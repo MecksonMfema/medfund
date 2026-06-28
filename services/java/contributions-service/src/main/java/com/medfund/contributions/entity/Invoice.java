@@ -52,6 +52,28 @@ public class Invoice {
     @Column("paid_at")
     private Instant paidAt;
 
+    // Snapshot fields captured at commit time by InvoiceSnapshotService.
+    // See plan §3a/§3b — once written these are immutable; the next
+    // commit's window starts at committed_at so every transaction is
+    // consumed by exactly one invoice.
+    @Column("committed_at")
+    private Instant committedAt;
+
+    @Column("opening_balance")
+    private BigDecimal openingBalance;
+
+    @Column("closing_balance")
+    private BigDecimal closingBalance;
+
+    @Column("payments_in_window")
+    private BigDecimal paymentsInWindow;
+
+    @Column("adjustments_in_window")
+    private BigDecimal adjustmentsInWindow;
+
+    @Column("prior_invoice_id")
+    private UUID priorInvoiceId;
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;
@@ -102,6 +124,24 @@ public class Invoice {
 
     public Instant getPaidAt() { return paidAt; }
     public void setPaidAt(Instant paidAt) { this.paidAt = paidAt; }
+
+    public Instant getCommittedAt() { return committedAt; }
+    public void setCommittedAt(Instant committedAt) { this.committedAt = committedAt; }
+
+    public BigDecimal getOpeningBalance() { return openingBalance; }
+    public void setOpeningBalance(BigDecimal openingBalance) { this.openingBalance = openingBalance; }
+
+    public BigDecimal getClosingBalance() { return closingBalance; }
+    public void setClosingBalance(BigDecimal closingBalance) { this.closingBalance = closingBalance; }
+
+    public BigDecimal getPaymentsInWindow() { return paymentsInWindow; }
+    public void setPaymentsInWindow(BigDecimal paymentsInWindow) { this.paymentsInWindow = paymentsInWindow; }
+
+    public BigDecimal getAdjustmentsInWindow() { return adjustmentsInWindow; }
+    public void setAdjustmentsInWindow(BigDecimal adjustmentsInWindow) { this.adjustmentsInWindow = adjustmentsInWindow; }
+
+    public UUID getPriorInvoiceId() { return priorInvoiceId; }
+    public void setPriorInvoiceId(UUID priorInvoiceId) { this.priorInvoiceId = priorInvoiceId; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

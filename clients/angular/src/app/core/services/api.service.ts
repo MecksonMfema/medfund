@@ -73,4 +73,11 @@ export class ApiService {
       withCredentials: true,
     });
   }
+
+  /** Returns the fully-qualified URL for a given API path. Used for
+   *  download-link hrefs where the browser does the streaming and we
+   *  can't lean on the HttpClient. */
+  absoluteUrl(path: string): string {
+    return `${this.baseUrl}${path}`;
+  }
 }

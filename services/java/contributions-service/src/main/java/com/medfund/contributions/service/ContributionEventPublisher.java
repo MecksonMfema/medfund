@@ -68,6 +68,14 @@ public class ContributionEventPublisher {
         fields.put("periodStart",  p.periodStart());
         fields.put("periodEnd",    p.periodEnd());
         fields.put("dueDate",      p.dueDate());
+        // Snapshot fields (plan §4c) so the file-service renderer can put
+        // the numbers on the PDF without re-querying the DB. Stringified
+        // BigDecimals so the Map<String,String> envelope stays uniform.
+        if (p.committedAt() != null)         fields.put("committedAt",         p.committedAt());
+        if (p.openingBalance() != null)      fields.put("openingBalance",      p.openingBalance());
+        if (p.closingBalance() != null)      fields.put("closingBalance",      p.closingBalance());
+        if (p.paymentsInWindow() != null)    fields.put("paymentsInWindow",    p.paymentsInWindow());
+        if (p.adjustmentsInWindow() != null) fields.put("adjustmentsInWindow", p.adjustmentsInWindow());
         return publishEvent("medfund.contributions.invoice-issued", p.invoiceId(), fields);
     }
 
@@ -87,7 +95,12 @@ public class ContributionEventPublisher {
             String totalAmount,
             String periodStart,
             String periodEnd,
-            String dueDate) {}
+            String dueDate,
+            String committedAt,
+            String openingBalance,
+            String closingBalance,
+            String paymentsInWindow,
+            String adjustmentsInWindow) {}
 
     private Mono<Void> publishEvent(String topic, String key, Map<String, String> payload) {
         try {

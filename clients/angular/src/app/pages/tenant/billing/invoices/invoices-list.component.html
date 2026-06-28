@@ -1,0 +1,43 @@
+<header class="page-header">
+  <div>
+    <h1>Invoices</h1>
+    <p class="page-sub">One row per invoice — every member + dependant contribution under a group rolls into a single invoice. Tabs separate the list by insurance line.</p>
+  </div>
+</header>
+
+@if (showTabs) {
+  <nav class="scheme-tabs" role="tablist" aria-label="Filter invoices by insurance line">
+    @for (tab of tabs; track tab.value) {
+      <button
+        type="button"
+        role="tab"
+        class="scheme-tab"
+        [class.is-active]="activeTab === tab.value"
+        [attr.aria-selected]="activeTab === tab.value"
+        (click)="selectTab(tab.value)">
+        {{ tab.label }}
+      </button>
+    }
+  </nav>
+}
+
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [actions]="actions"
+  [showActions]="true"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  [initialSortKey]="sortKey"
+  [initialSortDirection]="sortDirection"
+  emptyMessage="No invoices match your filters."
+  searchPlaceholder="Search by holder, member, or invoice number…"
+  (sortChange)="onSort($event)"
+  (searchChange)="onSearch($event)"
+  (pageChange)="onPageChange($event)"
+  (rowClick)="rowClick($event)">
+</app-data-table>

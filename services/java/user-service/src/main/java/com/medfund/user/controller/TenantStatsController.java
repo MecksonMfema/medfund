@@ -695,6 +695,76 @@ public class TenantStatsController {
                 .switchIfEmpty(Mono.just(List.of()));
     }
 
+    /**
+     * 10 most recent invoices — one row per invoice (group or individual),
+     * joined with holder name + scheme names + line(s) + pdf_ready. This
+     * replaces the dashboard's per-contribution "Recent Contributions"
+     * widget (plan §5 / §8). Row click navigates to /tenant/billing/view/:id.
+     */
+    @GetMapping("/recent-invoices")
+    @Operation(summary = "10 most recent invoices (per-invoice rows, names not UUIDs)",
+               description = "Powers the dashboard's Recent Invoices widget. Same projection " +
+                       "as /api/v1/invoices but capped at 10 and ordered by issued_at DESC.")
+    public Mono<List<Map<String, Object>>> getRecentInvoices(
+            @RequestHeader(value = "X-Tenant-ID", required = false) String tenantHeader) {
+        if (tenantHeader == null || tenantHeader.isBlank()) return Mono.just(List.of());
+        UUID tenantId;
+        try { tenantId = UUID.fromString(tenantHeader); }
+        catch (IllegalArgumentException e) { return Mono.just(List.of()); }
+
+        return resolveTenantSchema(tenantId)
+                .flatMap(schema -> db.sql(
+                        "SELECT i.id, i.invoice_number, i.status, i.currency_code, i.total_amount, " +
+                        "       i.period_start, i.period_end, i.due_date, i.issued_at, i.committed_at, " +
+                        "       i.opening_balance, i.closing_balance, " +
+                        "       CASE WHEN i.group_id IS NOT NULL THEN 'GROUP' ELSE 'INDIVIDUAL' END AS holder_type, " +
+                        "       COALESCE(g.name, (m.first_name || ' ' || m.last_name)) AS holder_name, " +
+                        "       COALESCE(g.registration_number, m.member_number) AS holder_number, " +
+                        "       COALESCE((SELECT string_agg(DISTINCT s2.insurance_line, ',' ORDER BY s2.insurance_line) " +
+                        "                 FROM \"" + schema + "\".contributions c2 " +
+                        "                 JOIN \"" + schema + "\".schemes s2 ON s2.id = c2.scheme_id " +
+                        "                 WHERE c2.invoice_id = i.id), '') AS insurance_lines, " +
+                        "       (SELECT COUNT(*) FROM \"" + schema + "\".contributions c3 WHERE c3.invoice_id = i.id) AS contribution_count, " +
+                        "       EXISTS (SELECT 1 FROM \"" + schema + "\".invoice_pdfs p WHERE p.invoice_id = i.id) AS pdf_ready " +
+                        "FROM \"" + schema + "\".invoices i " +
+                        "LEFT JOIN \"" + schema + "\".groups  g ON g.id = i.group_id " +
+                        "LEFT JOIN \"" + schema + "\".members m ON m.id = i.member_id " +
+                        "ORDER BY i.issued_at DESC LIMIT 10")
+                        .map(row -> {
+                            var out = new java.util.LinkedHashMap<String, Object>();
+                            out.put("id",               row.get("id",               UUID.class));
+                            out.put("invoiceNumber",    nullSafe(row.get("invoice_number",  String.class)));
+                            out.put("holderType",       nullSafe(row.get("holder_type",     String.class)));
+                            out.put("holderName",       nullSafe(row.get("holder_name",     String.class)));
+                            out.put("holderNumber",     nullSafe(row.get("holder_number",   String.class)));
+                            out.put("totalAmount",      row.get("total_amount",     java.math.BigDecimal.class));
+                            out.put("currencyCode",     row.get("currency_code",    String.class));
+                            out.put("openingBalance",   row.get("opening_balance",  java.math.BigDecimal.class));
+                            out.put("closingBalance",   row.get("closing_balance",  java.math.BigDecimal.class));
+                            out.put("periodStart",      row.get("period_start",     java.time.LocalDate.class));
+                            out.put("periodEnd",        row.get("period_end",       java.time.LocalDate.class));
+                            out.put("dueDate",          row.get("due_date",         java.time.LocalDate.class));
+                            out.put("issuedAt",         row.get("issued_at",        java.time.OffsetDateTime.class));
+                            out.put("committedAt",      row.get("committed_at",     java.time.OffsetDateTime.class));
+                            out.put("status",           nullSafe(row.get("status",  String.class)));
+                            String linesRaw = nullSafe(row.get("insurance_lines",   String.class));
+                            out.put("insuranceLines",
+                                    linesRaw.isEmpty()
+                                            ? java.util.List.of()
+                                            : java.util.Arrays.stream(linesRaw.split(","))
+                                                    .map(String::trim).filter(s -> !s.isEmpty())
+                                                    .distinct().toList());
+                            Number cc = row.get("contribution_count", Number.class);
+                            out.put("contributionCount", cc != null ? cc.intValue() : 0);
+                            Boolean pdfReady = row.get("pdf_ready", Boolean.class);
+                            out.put("pdfReady", pdfReady != null && pdfReady);
+                            return (Map<String, Object>) out;
+                        })
+                        .all().collectList()
+                        .onErrorReturn(List.of()))
+                .switchIfEmpty(Mono.just(List.of()));
+    }
+
     /** Top 10 members by outstanding (pending) contribution amount — side card on Billing tab. */
     @GetMapping("/top-debtors")
     @Operation(summary = "Top debtors by outstanding contributions",

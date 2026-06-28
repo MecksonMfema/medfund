@@ -115,6 +115,65 @@ export interface Invoice {
   dueDate: string;
 }
 
+// ── Per-invoice listing + statement (V035 / plan §1, §3d) ─────────────
+export interface InvoiceListRow {
+  id: string;
+  invoiceNumber: string;
+  holderType: 'GROUP' | 'INDIVIDUAL';
+  holderName: string;
+  holderNumber: string | null;
+  schemeNames: string;
+  insuranceLines: string[];
+  periodStart: string;
+  periodEnd: string;
+  totalAmount: string;
+  currencyCode: string;
+  contributionCount: number;
+  status: string;
+  dueDate: string;
+  issuedAt: string;
+  paidAt: string | null;
+  committedAt: string | null;
+  openingBalance: string | null;
+  closingBalance: string | null;
+  pdfReady: boolean;
+}
+
+export interface InvoicesPage {
+  content: InvoiceListRow[];
+  total: number;
+  page: number;
+  size: number;
+  totalPages: number;
+}
+
+export interface InvoiceListFilter {
+  year?: number;
+  month?: number;
+  status?: string;
+  insuranceLine?: string;
+  currency?: string;
+  holderType?: 'GROUP' | 'INDIVIDUAL';
+  q?: string;
+  page?: number;
+  size?: number;
+  sortKey?: string;
+  sortDirection?: 'asc' | 'desc';
+}
+
+export interface InvoiceContributionRow {
+  contributionId: string;
+  memberNumber: string;
+  memberName: string;
+  personType: 'MEMBER' | 'DEPENDANT';
+  dependantName: string | null;
+  schemeName: string;
+  insuranceLine: string;
+  ageBand: string | null;
+  amount: string;
+  currencyCode: string;
+}
+
 export interface UpsertSchemePayload {
   name: string;
   description?: string;
@@ -460,6 +519,43 @@ export class ContributionsService {
    */
   revokeBilling(payload: RevokeBillingPayload): Observable<BillingRevokeResponse> {
     return this.api.post<BillingRevokeResponse>('/contributions/billing/revoke', payload);
+  }
+
+  // ── Per-invoice listing + statement + PDF (V035) ────────────────────
+  listInvoices(filter: InvoiceListFilter = {}): Observable<InvoicesPage> {
+    const params: Record<string, string> = {};
+    if (filter.year !== undefined)        params['year']          = String(filter.year);
+    if (filter.month !== undefined)       params['month']         = String(filter.month);
+    if (filter.status)                    params['status']        = filter.status;
+    if (filter.insuranceLine)             params['insuranceLine'] = filter.insuranceLine;
+    if (filter.currency)                  params['currency']      = filter.currency;
+    if (filter.holderType)                params['holderType']    = filter.holderType;
+    if (filter.q)                         params['q']             = filter.q;
+    if (filter.page !== undefined)        params['page']          = String(filter.page);
+    if (filter.size !== undefined)        params['size']          = String(filter.size);
+    if (filter.sortKey)                   params['sortKey']       = filter.sortKey;
+    if (filter.sortDirection)             params['sortDirection'] = filter.sortDirection;
+    return this.api.get<InvoicesPage>('/invoices', params);
+  }
+
+  /** Snapshot-backed per-invoice statement (opening/closing fixed at commit time). */
+  getInvoiceStatement(id: string): Observable<any> {
+    return this.api.get<any>(`/invoices/${id}/statement`);
+  }
+
+  /** Per-scheme member breakdown for the statement detail page. */
+  getInvoiceContributions(id: string): Observable<InvoiceContributionRow[]> {
+    return this.api.get<InvoiceContributionRow[]>(`/invoices/${id}/contributions`);
+  }
+
+  /** Absolute URL the row's Download PDF button hrefs to. The browser streams. */
+  getInvoicePdfUrl(id: string): string {
+    return this.api.absoluteUrl(`/invoices/${id}/pdf`);
+  }
+
+  /** Single-invoice metadata for the statement page header. */
+  getInvoiceById(id: string): Observable<any> {
+    return this.api.get<any>(`/invoices/${id}`);
   }
 
   /**

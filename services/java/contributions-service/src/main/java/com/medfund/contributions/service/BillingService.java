@@ -62,6 +62,7 @@ public class BillingService {
     private final BalanceService balanceService;
     private final DatabaseClient db;
     private final AiPricingClient aiPricingClient;
+    private final InvoiceSnapshotService invoiceSnapshotService;
     /**
      * Per-insurance-line candidate resolvers, keyed by
      * {@link com.medfund.contributions.service.candidate.CandidateResolver#supportedLine()}.
@@ -81,6 +82,7 @@ public class BillingService {
                           BalanceService balanceService,
                           DatabaseClient db,
                           AiPricingClient aiPricingClient,
+                          InvoiceSnapshotService invoiceSnapshotService,
                           java.util.List<com.medfund.contributions.service.candidate.CandidateResolver> resolvers) {
         this.contributionRepository = contributionRepository;
         this.invoiceRepository = invoiceRepository;
@@ -93,6 +95,7 @@ public class BillingService {
         this.balanceService = balanceService;
         this.db = db;
         this.aiPricingClient = aiPricingClient;
+        this.invoiceSnapshotService = invoiceSnapshotService;
         // Tolerant of a null/empty resolver list so unit tests that mock
         // the service without spinning up the Spring context still work.
         // In production Spring auto-collects every @Component
@@ -107,6 +110,27 @@ public class BillingService {
 
     public Flux<Contribution> findContributionsByMemberId(UUID memberId) {
         return contributionRepository.findByMemberId(memberId);
+    }
+
+    /**
+     * Look up the {@code invoice_pdfs} pointer for an invoice. Returns
+     * empty when the PDF hasn't been rendered yet (the
+     * InvoicePdfReadyConsumer hasn't received its Kafka event). The
+     * caller surfaces that as a 404 with "PDF not yet rendered".
+     */
+    public Mono<com.medfund.contributions.controller.InvoiceController.PdfPointer> findPdfPointer(UUID invoiceId) {
+        return db.sql("""
+                SELECT p.bucket, p.object_key, i.invoice_number
+                  FROM invoice_pdfs p
+                  JOIN invoices i ON i.id = p.invoice_id
+                 WHERE p.invoice_id = :id
+                """)
+                .bind("id", invoiceId)
+                .map(row -> new com.medfund.contributions.controller.InvoiceController.PdfPointer(
+                        row.get("bucket", String.class),
+                        row.get("object_key", String.class),
+                        row.get("invoice_number", String.class)))
+                .one();
     }
 
     public Flux<Contribution> findContributionsByGroupId(UUID groupId) {
@@ -265,7 +289,12 @@ public class BillingService {
                             saved.getTotalAmount().toPlainString(),
                             saved.getPeriodStart().toString(),
                             saved.getPeriodEnd().toString(),
-                            saved.getDueDate().toString())))
+                            saved.getDueDate().toString(),
+                            // Legacy single-invoice path — predates snapshot
+                            // capture. Pass null for snapshot fields; the
+                            // file-service template treats nulls as "balance
+                            // figures unavailable" per the legacy-row note.
+                            null, null, null, null, null)))
                     .thenReturn(saved);
             }));
     }
@@ -433,9 +462,12 @@ public class BillingService {
                     // generateInvoicesFor for the routing rules.
                     Mono<List<Invoice>> invoices = Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
+                        // Pass `now` down so every invoice from this commit
+                        // shares the same committed_at — keeps snapshot
+                        // windows aligned per the user's exact-instant rule.
                         return getMembershipModel(tenantId).flatMap(model ->
                                 generateInvoicesFor(saved, model, actorUuid,
-                                        req.periodStart(), req.periodEnd()));
+                                        req.periodStart(), req.periodEnd(), now));
                     });
 
                     return stamp.then(publish).then(audit).then(invoices)
@@ -548,7 +580,8 @@ public class BillingService {
     // because the invoices table carries a single currency_code column.
 
     private Mono<List<Invoice>> generateInvoicesFor(List<Contribution> contributions, String model,
-                                                    UUID actorUuid, LocalDate periodStart, LocalDate periodEnd) {
+                                                     UUID actorUuid, LocalDate periodStart, LocalDate periodEnd,
+                                                     Instant committedAt) {
         if (contributions.isEmpty()) return Mono.just(List.of());
 
         Map<RoutingKey, List<Contribution>> buckets = new LinkedHashMap<>();
@@ -557,13 +590,19 @@ public class BillingService {
             buckets.computeIfAbsent(key, k -> new ArrayList<>()).add(c);
         }
 
+        // concatMap (not flatMap) keeps the snapshot prior-lookup ordered
+        // — if two invoices in this commit share the same (holder, currency),
+        // the second one must read the first as its prior. Sequential
+        // persistence guarantees that ordering.
         return Flux.fromIterable(buckets.entrySet())
-                .concatMap(e -> persistInvoiceFor(e.getKey(), e.getValue(), actorUuid, periodStart, periodEnd))
+                .concatMap(e -> persistInvoiceFor(e.getKey(), e.getValue(), actorUuid,
+                        periodStart, periodEnd, committedAt))
                 .collectList();
     }
 
     private Mono<Invoice> persistInvoiceFor(RoutingKey key, List<Contribution> rows, UUID actorUuid,
-                                            LocalDate periodStart, LocalDate periodEnd) {
+                                            LocalDate periodStart, LocalDate periodEnd,
+                                            Instant committedAt) {
         BigDecimal total = rows.stream()
                 .map(c -> c.getAmount() != null ? c.getAmount() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -580,12 +619,17 @@ public class BillingService {
             inv.setStatus("issued");
             inv.setPeriodStart(periodStart);
             inv.setPeriodEnd(periodEnd);
-            inv.setIssuedAt(Instant.now());
+            inv.setIssuedAt(committedAt);
             inv.setDueDate(periodEnd.plusDays(30));
-            inv.setCreatedAt(Instant.now());
-            inv.setUpdatedAt(Instant.now());
+            inv.setCreatedAt(committedAt);
+            inv.setUpdatedAt(committedAt);
             inv.setCreatedBy(actorUuid);
-            return invoiceRepository.save(inv);
+            // Capture the financial snapshot BEFORE save so the next
+            // invoice in this commit (same holder+currency) reads
+            // this one as its prior. See InvoiceSnapshotService for
+            // the half-open [prior, this) window rule.
+            return invoiceSnapshotService.stampSnapshot(inv, committedAt)
+                    .flatMap(invoiceRepository::save);
         }).flatMap(saved -> {
             // Back-link every contribution to its invoice so audit + payment
             // allocation can trace the rollup later without a heuristic join.
@@ -611,7 +655,12 @@ public class BillingService {
                             saved.getTotalAmount().toPlainString(),
                             saved.getPeriodStart().toString(),
                             saved.getPeriodEnd().toString(),
-                            saved.getDueDate().toString()))
+                            saved.getDueDate().toString(),
+                            saved.getCommittedAt() != null ? saved.getCommittedAt().toString() : null,
+                            saved.getOpeningBalance()      != null ? saved.getOpeningBalance().toPlainString()      : null,
+                            saved.getClosingBalance()      != null ? saved.getClosingBalance().toPlainString()      : null,
+                            saved.getPaymentsInWindow()    != null ? saved.getPaymentsInWindow().toPlainString()    : null,
+                            saved.getAdjustmentsInWindow() != null ? saved.getAdjustmentsInWindow().toPlainString() : null))
                 .thenReturn(saved)));
     }
 

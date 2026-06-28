@@ -47,6 +47,37 @@ func main() {
 		log.Printf("[file-service] MinIO unavailable: %v — invoice PDFs disabled", err)
 	}
 
+	// GET /invoice-pdf?bucket=...&key=... — contributions-service
+	// delegates here (plan §4b) so it doesn't have to dual-wire MinIO
+	// credentials. 404 when MinIO is down or the object isn't found.
+	app.Get("/invoice-pdf", func(c *fiber.Ctx) error {
+		if minio == nil {
+			return c.Status(fiber.StatusServiceUnavailable).
+				JSON(fiber.Map{"detail": "MinIO unavailable"})
+		}
+		key := c.Query("key")
+		if key == "" {
+			return c.Status(fiber.StatusBadRequest).
+				JSON(fiber.Map{"detail": "key query param is required"})
+		}
+		bucket := c.Query("bucket") // empty falls back to the configured default in GetObject
+		obj, size, contentType, err := minio.GetObject(c.UserContext(), bucket, key)
+		if err != nil {
+			log.Printf("[file-service] /invoice-pdf miss bucket=%q key=%q: %v", bucket, key, err)
+			return c.Status(fiber.StatusNotFound).
+				JSON(fiber.Map{"detail": "object not found"})
+		}
+		defer obj.Close()
+		if contentType == "" {
+			contentType = "application/pdf"
+		}
+		c.Set("Content-Type", contentType)
+		if size > 0 {
+			c.Set("Content-Length", fmt.Sprintf("%d", size))
+		}
+		return c.SendStream(obj)
+	})
+
 	pdf := invoice.PdfGenerator(invoice.StubPdfGenerator{})
 	if cfg.WkhtmltopdfBin != "" {
 		pdf = invoice.NewWkhtmltopdfGenerator(cfg.WkhtmltopdfBin)

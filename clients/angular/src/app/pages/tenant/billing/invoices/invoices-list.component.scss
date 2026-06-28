@@ -1,0 +1,28 @@
+// Layout matches /tenant/billing/schemes so reviewers see one shape
+// across the operator-facing list pages. The page-header + scheme-tabs
+// styling here mirrors contributions.component.scss; the shared
+// data-table component owns the table chrome itself.
+:host { display: block; padding: 1.5rem; }
+
+.page-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 1rem; margin-bottom: 1rem;
+}
+.page-header h1 { margin: 0 0 .25rem; }
+.page-sub { margin: 0; color: var(--text-muted, #6b7280); max-width: 720px; }
+
+.scheme-tabs {
+  display: flex; flex-wrap: wrap; gap: .25rem;
+  border-bottom: 1px solid var(--border, #d1d5db); margin-bottom: 1rem;
+}
+.scheme-tab {
+  background: transparent; border: none;
+  padding: .55rem .9rem; font-size: .9rem; font-weight: 500;
+  color: var(--text-muted, #6b7280); cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.scheme-tab:hover { color: var(--text, #111827); }
+.scheme-tab.is-active {
+  color: var(--accent, #2563eb);
+  border-bottom-color: var(--accent, #2563eb);
+}

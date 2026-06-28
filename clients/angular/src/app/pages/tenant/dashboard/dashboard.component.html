@@ -349,9 +349,10 @@
         </div>
 
         <app-data-table
-          [columns]="recentContributionColumns"
+          [columns]="recentInvoiceColumns"
           [data]="filteredContributions"
-          emptyMessage="No contributions captured yet."
+          (rowClick)="onInvoiceRowClick($event)"
+          emptyMessage="No invoices issued yet."
         ></app-data-table>
       </div>
     </section>

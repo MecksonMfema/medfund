@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"time"
 
@@ -62,6 +63,27 @@ func (s *MinIOStore) PutObject(ctx context.Context, key string, data []byte, con
 		return "", fmt.Errorf("put object %q: %w", key, err)
 	}
 	return key, nil
+}
+
+// GetObject streams the object at <bucket>/<key> back to the caller.
+// Used by the /invoice-pdf streaming route the contributions-service
+// delegates to so PDF storage stays encapsulated in this service.
+// Caller is responsible for closing the returned reader.
+func (s *MinIOStore) GetObject(ctx context.Context, bucket, key string) (
+		io.ReadCloser, int64, string, error) {
+	if bucket == "" {
+		bucket = s.bucket
+	}
+	obj, err := s.client.GetObject(ctx, bucket, key, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, 0, "", fmt.Errorf("get object %q/%q: %w", bucket, key, err)
+	}
+	stat, err := obj.Stat()
+	if err != nil {
+		_ = obj.Close()
+		return nil, 0, "", fmt.Errorf("stat object %q/%q: %w", bucket, key, err)
+	}
+	return obj, stat.Size, stat.ContentType, nil
 }
 
 // PresignedGet returns a time-limited URL the notification-service can

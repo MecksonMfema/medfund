@@ -3,9 +3,11 @@ package com.medfund.contributions.service;
 import com.medfund.contributions.dto.StatementLine;
 import com.medfund.contributions.dto.StatementResponse;
 import com.medfund.contributions.entity.Contribution;
+import com.medfund.contributions.entity.Invoice;
 import com.medfund.contributions.entity.Transaction;
 import com.medfund.contributions.entity.TransactionType;
 import com.medfund.contributions.repository.ContributionRepository;
+import com.medfund.contributions.repository.InvoiceRepository;
 import com.medfund.contributions.repository.TransactionTypeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,6 +56,7 @@ public class StatementService {
 
     private final ContributionRepository contributionRepository;
     private final TransactionTypeRepository transactionTypeRepository;
+    private final InvoiceRepository invoiceRepository;
     private final DatabaseClient db;
 
     public Mono<StatementResponse> generate(String targetType,
@@ -218,6 +221,181 @@ public class StatementService {
                     return t;
                 })
                 .all();
+    }
+
+    // ── Snapshot-backed per-invoice statement (plan §3d) ─────────────────
+    //
+    // Reads the snapshot fields directly off the invoice row + the prior
+    // invoice's committed_at, then queries the contributions belonging
+    // to this invoice and the transactions in the half-open window
+    // [prior.committed_at, this.committed_at). The header opening/closing
+    // are NEVER recomputed — they are read from the snapshotted columns.
+    // The running balance in the line list is derived additively from
+    // the snapshotted opening, so the response reconciles by construction.
+
+    public Mono<StatementResponse> generateForInvoice(UUID invoiceId) {
+        if (invoiceId == null) {
+            return Mono.error(new IllegalArgumentException("invoiceId is required"));
+        }
+        return invoiceRepository.findById(invoiceId)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Invoice not found: " + invoiceId)))
+                .flatMap(this::assembleSnapshotStatement);
+    }
+
+    private Mono<StatementResponse> assembleSnapshotStatement(Invoice inv) {
+        String targetType = inv.getGroupId() != null ? "GROUP" : "MEMBER";
+        UUID   targetId   = inv.getGroupId() != null ? inv.getGroupId() : inv.getMemberId();
+
+        Mono<Instant> lowerBoundMono = inv.getPriorInvoiceId() != null
+                ? invoiceRepository.findById(inv.getPriorInvoiceId())
+                        .map(Invoice::getCommittedAt)
+                        .defaultIfEmpty(null)
+                : Mono.justOrEmpty((Instant) null).defaultIfEmpty(null);
+
+        Mono<List<Contribution>> rowsMono = db.sql("""
+                SELECT * FROM contributions WHERE invoice_id = :iid
+                """)
+                .bind("iid", inv.getId())
+                .map((row, meta) -> {
+                    Contribution c = new Contribution();
+                    c.setId((UUID) row.get("id"));
+                    c.setMemberId((UUID) row.get("member_id"));
+                    c.setDependantId((UUID) row.get("dependant_id"));
+                    c.setSchemeId((UUID) row.get("scheme_id"));
+                    c.setGroupId((UUID) row.get("group_id"));
+                    c.setAmount((BigDecimal) row.get("amount"));
+                    c.setCurrencyCode((String) row.get("currency_code"));
+                    c.setStatus((String) row.get("status"));
+                    c.setPeriodStart((LocalDate) row.get("period_start"));
+                    c.setPeriodEnd((LocalDate) row.get("period_end"));
+                    c.setCreatedAt((Instant) row.get("created_at"));
+                    c.setPaidAt((Instant) row.get("paid_at"));
+                    c.setPaymentReference((String) row.get("payment_reference"));
+                    return c;
+                })
+                .all().collectList();
+
+        return Mono.zip(
+                resolveTargetHeader(targetType, targetId),
+                rowsMono,
+                lowerBoundMono.defaultIfEmpty(Instant.EPOCH),
+                transactionTypeRepository.findAllOrdered().collectList()
+        ).flatMap(tuple -> {
+            Header header                     = tuple.getT1();
+            List<Contribution> rows           = tuple.getT2();
+            Instant lower                     = Instant.EPOCH.equals(tuple.getT3()) ? null : tuple.getT3();
+            Map<String, String> typeSigns     = tuple.getT4().stream()
+                    .filter(t -> t.getCode() != null && t.getSign() != null)
+                    .collect(Collectors.toMap(TransactionType::getCode, TransactionType::getSign, (a, b) -> a));
+
+            return windowedTransactions(inv, lower).collectList()
+                    .map(txns -> projectSnapshotStatement(inv, header, rows, txns, typeSigns,
+                            targetType, targetId, lower));
+        });
+    }
+
+    private Flux<Transaction> windowedTransactions(Invoice inv, Instant lower) {
+        // Join transactions → contributions to scope by holder. Strict-less-than
+        // on the upper bound = exact-instant rule (no transaction appears on
+        // two invoices).
+        String sql = """
+                SELECT t.id, t.transaction_number, t.contribution_id, t.invoice_id,
+                       t.amount, t.currency_code, t.transaction_type, t.payment_method,
+                       t.reference, t.status, t.transaction_date, t.created_at, t.created_by
+                  FROM transactions t
+                  JOIN contributions c ON c.id = t.contribution_id
+                 WHERE t.currency_code = :currency
+                   AND t.created_at <  :upper
+                   AND (:lower IS NULL OR t.created_at >= :lower)
+                   AND ( (:groupId  IS NOT NULL AND c.group_id  = :groupId)
+                      OR (:memberId IS NOT NULL AND c.member_id = :memberId) )
+                """;
+        return db.sql(sql)
+                .bind("currency", inv.getCurrencyCode())
+                .bind("upper",    inv.getCommittedAt())
+                .bind("lower",    lower != null ? lower : (Instant) null)
+                .bind("groupId",  inv.getGroupId()  != null ? inv.getGroupId()  : new java.util.UUID(0,0))
+                .bind("memberId", inv.getMemberId() != null ? inv.getMemberId() : new java.util.UUID(0,0))
+                .map(row -> {
+                    Transaction t = new Transaction();
+                    t.setId((UUID) row.get("id"));
+                    t.setTransactionNumber((String) row.get("transaction_number"));
+                    t.setContributionId((UUID) row.get("contribution_id"));
+                    t.setInvoiceId((UUID) row.get("invoice_id"));
+                    t.setAmount((BigDecimal) row.get("amount"));
+                    t.setCurrencyCode((String) row.get("currency_code"));
+                    t.setTransactionType((String) row.get("transaction_type"));
+                    t.setPaymentMethod((String) row.get("payment_method"));
+                    t.setReference((String) row.get("reference"));
+                    t.setStatus((String) row.get("status"));
+                    t.setTransactionDate((Instant) row.get("transaction_date"));
+                    t.setCreatedAt((Instant) row.get("created_at"));
+                    t.setCreatedBy((UUID) row.get("created_by"));
+                    return t;
+                })
+                .all();
+    }
+
+    private StatementResponse projectSnapshotStatement(Invoice inv,
+                                                        Header header,
+                                                        List<Contribution> rows,
+                                                        List<Transaction> txns,
+                                                        Map<String, String> typeSigns,
+                                                        String targetType,
+                                                        UUID targetId,
+                                                        Instant lower) {
+        BigDecimal opening = inv.getOpeningBalance() != null ? inv.getOpeningBalance() : BigDecimal.ZERO;
+        BigDecimal running = opening;
+
+        record Event(Instant date, String type, String description, String reference,
+                      BigDecimal delta, UUID sourceId) {}
+        List<Event> events = new ArrayList<>();
+        for (Contribution c : rows) {
+            if (c.getAmount() == null || c.getCreatedAt() == null) continue;
+            String desc = String.format("Contribution %s → %s",
+                    c.getPeriodStart() != null ? c.getPeriodStart() : "?",
+                    c.getPeriodEnd()   != null ? c.getPeriodEnd()   : "?");
+            events.add(new Event(c.getCreatedAt(), "CONTRIBUTION", desc, null, c.getAmount(), c.getId()));
+        }
+        for (Transaction t : txns) {
+            if (t.getAmount() == null) continue;
+            String sign = typeSigns.getOrDefault(t.getTransactionType(), "-");
+            BigDecimal delta = "-".equals(sign) ? t.getAmount().negate() : t.getAmount();
+            Instant when = t.getTransactionDate() != null ? t.getTransactionDate() : t.getCreatedAt();
+            String desc = String.format("%s · %s", nz(t.getTransactionType()), nz(t.getPaymentMethod()));
+            events.add(new Event(when, "TRANSACTION", desc, t.getReference(), delta, t.getId()));
+        }
+        events.sort(Comparator.comparing(Event::date, Comparator.nullsLast(Comparator.naturalOrder())));
+
+        List<StatementLine> lines = new ArrayList<>();
+        BigDecimal totalCharges = BigDecimal.ZERO;
+        BigDecimal totalPayments = BigDecimal.ZERO;
+        for (Event e : events) {
+            running = running.add(e.delta());
+            BigDecimal debit  = e.delta().signum() > 0 ? e.delta() : null;
+            BigDecimal credit = e.delta().signum() < 0 ? e.delta().abs() : null;
+            if (debit  != null) totalCharges  = totalCharges.add(debit);
+            if (credit != null) totalPayments = totalPayments.add(credit);
+            lines.add(new StatementLine(e.date(), e.type(), e.description(), e.reference(),
+                    debit, credit, running, e.sourceId()));
+        }
+
+        // Snapshot integrity: trust the snapshot's closing_balance, not
+        // the running tally — they should match by construction. If they
+        // diverge log a warning so we surface drift loudly.
+        BigDecimal snapshotClosing = inv.getClosingBalance() != null ? inv.getClosingBalance() : running;
+        if (snapshotClosing.compareTo(running) != 0) {
+            log.warn("[statement] invoice={} snapshot closing={} but running={} — investigate",
+                    inv.getInvoiceNumber(), snapshotClosing, running);
+        }
+
+        StatementResponse.Header outHeader = new StatementResponse.Header(
+                targetType, targetId,
+                header != null ? header.name() : null,
+                header != null ? header.code() : null,
+                inv.getPeriodStart(), inv.getPeriodEnd(),
+                inv.getCurrencyCode(), opening, snapshotClosing, totalCharges, totalPayments);
+        return new StatementResponse(outHeader, lines);
     }
 
     private Mono<Header> resolveTargetHeader(String targetType, UUID targetId) {

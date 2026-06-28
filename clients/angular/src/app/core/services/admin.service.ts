@@ -214,6 +214,28 @@ export interface RecentContribution {
   insuranceLine?: string | null;
 }
 
+/** Row shape for the dashboard's Recent Invoices widget (V035). */
+export interface RecentInvoice {
+  id: string;
+  invoiceNumber: string;
+  holderType: 'GROUP' | 'INDIVIDUAL';
+  holderName: string;
+  holderNumber: string | null;
+  totalAmount: string;
+  currencyCode: string;
+  openingBalance: string | null;
+  closingBalance: string | null;
+  periodStart: string;
+  periodEnd: string;
+  dueDate: string;
+  issuedAt: string;
+  committedAt: string | null;
+  status: string;
+  insuranceLines: string[];
+  contributionCount: number;
+  pdfReady: boolean;
+}
+
 /** Top debtor row — drives the "Outstanding by member" side card on Billing. */
 export interface TopDebtor {
   id: string;
@@ -732,6 +754,12 @@ export class AdminService {
   getRecentContributions(tenantId: string): Observable<RecentContribution[]> {
     return this.api.getWithHeaders<RecentContribution[]>(
       '/tenant-stats/recent-contributions', { 'X-Tenant-ID': tenantId });
+  }
+
+  /** 10 most recent invoices for the Billing tab (per-invoice rollup, V035). */
+  getRecentInvoices(tenantId: string): Observable<RecentInvoice[]> {
+    return this.api.getWithHeaders<RecentInvoice[]>(
+      '/tenant-stats/recent-invoices', { 'X-Tenant-ID': tenantId });
   }
 
   /** Top 10 members by outstanding contribution amount — Billing side card. */

@@ -1,0 +1,148 @@
+<div class="page">
+  <a class="back-link" routerLink="/tenant/billing/view">
+    <app-icon name="chevron-left" [size]="16"></app-icon> Back to Invoices
+  </a>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+    <p class="muted">Loading statement…</p>
+  } @else if (invoice && statement) {
+    <!-- ── Header card ───────────────────────────────────────── -->
+    <section class="header-card">
+      <div class="header-main">
+        <h1>{{ invoice.invoiceNumber }}</h1>
+        <div class="chips">
+          <span class="badge holder-type" [attr.data-type]="holderType">{{ holderType }}</span>
+          <span class="badge status" [attr.data-status]="invoice.status">{{ invoice.status }}</span>
+        </div>
+        <p class="holder">{{ holderName }} <small class="muted">· {{ statement.header.targetCode || '—' }}</small></p>
+        <p class="muted">
+          Period <strong>{{ statement.header.periodStart }}</strong> → <strong>{{ statement.header.periodEnd }}</strong>
+          · Currency <strong>{{ statement.header.currencyCode }}</strong>
+          @if (invoice.committedAt) { · Committed {{ invoice.committedAt | date:'dd MMM yyyy, HH:mm' }} }
+        </p>
+      </div>
+      <div class="header-actions">
+        <a class="btn btn-primary" [href]="pdfUrl()" target="_blank" rel="noopener" [class.disabled]="!isPdfReady">
+          <app-icon name="download" [size]="14"></app-icon> Download PDF
+        </a>
+      </div>
+    </section>
+
+    <!-- ── Financial summary ────────────────────────────────── -->
+    <section class="card">
+      <h2>Financial summary</h2>
+      @if (invoice.openingBalance == null && invoice.closingBalance == null) {
+        <p class="muted">Balance figures unavailable — this invoice predates snapshot capture (pre-V035).</p>
+      } @else {
+        <table class="summary-table">
+          <tbody>
+            <tr>
+              <td>Opening balance</td>
+              <td class="num">{{ statement.header.openingBalance }} {{ statement.header.currencyCode }}</td>
+            </tr>
+            <tr>
+              <td>Contributions this period</td>
+              <td class="num">{{ monthlyContributions | number:'1.2-2' }} {{ statement.header.currencyCode }}</td>
+            </tr>
+            <tr>
+              <td>Payments received (since prior commit)</td>
+              <td class="num">- {{ totalPayments | number:'1.2-2' }} {{ statement.header.currencyCode }}</td>
+            </tr>
+            <tr>
+              <td>Adjustments</td>
+              <td class="num">+ {{ totalAdjustments | number:'1.2-2' }} {{ statement.header.currencyCode }}</td>
+            </tr>
+            <tr class="total-row">
+              <td><strong>Amount due</strong></td>
+              <td class="num"><strong>{{ statement.header.closingBalance }} {{ statement.header.currencyCode }}</strong></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="muted small">Snapshot captured at commit time — these figures do not change even if a back-dated transaction lands later. Transactions posted after the commit appear on the next invoice.</p>
+      }
+    </section>
+
+    <!-- ── Ledger ───────────────────────────────────────────── -->
+    <section class="card">
+      <h2>Ledger</h2>
+      @if (statement.lines.length === 0) {
+        <p class="muted">No ledger lines for this window.</p>
+      } @else {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Description</th>
+              <th>Reference</th>
+              <th class="num">Debit</th>
+              <th class="num">Credit</th>
+              <th class="num">Balance</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of statement.lines; track $index) {
+              <tr>
+                <td>{{ line.date | date:'dd MMM yyyy, HH:mm' }}</td>
+                <td>{{ line.description }}</td>
+                <td class="muted small">{{ line.reference || '—' }}</td>
+                <td class="num">{{ line.debit  || '' }}</td>
+                <td class="num">{{ line.credit || '' }}</td>
+                <td class="num"><strong>{{ line.runningBalance }}</strong></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </section>
+
+    <!-- ── Per-scheme member breakdown ───────────────────────── -->
+    @if (schemeGroups.length > 0) {
+      <section class="card">
+        <h2>Per-scheme contributions</h2>
+        @for (group of schemeGroups; track group.schemeName) {
+          <div class="scheme-group">
+            <header class="scheme-head" (click)="toggleScheme(group.schemeName)">
+              <div>
+                <strong>{{ group.schemeName }}</strong>
+                <span class="badge line-chip" [attr.data-line]="group.insuranceLine">{{ group.insuranceLine }}</span>
+              </div>
+              <div class="scheme-sub">
+                <span class="muted small">{{ group.rows.length }} line(s)</span>
+                <span class="num"><strong>{{ group.subtotal | number:'1.2-2' }}</strong></span>
+                <app-icon [name]="isExpanded(group.schemeName) ? 'chevron-up' : 'chevron-down'" [size]="16"></app-icon>
+              </div>
+            </header>
+            @if (isExpanded(group.schemeName)) {
+              <table class="data-table inner">
+                <thead>
+                  <tr>
+                    <th>Member #</th>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Age band</th>
+                    <th class="num">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of group.rows; track row.contributionId) {
+                    <tr>
+                      <td>{{ row.memberNumber }}</td>
+                      <td>{{ row.personType === 'MEMBER' ? row.memberName : (row.dependantName || '—') }}</td>
+                      <td><span class="badge person-type" [attr.data-type]="row.personType">{{ row.personType }}</span></td>
+                      <td>{{ row.ageBand || '—' }}</td>
+                      <td class="num">{{ row.amount }} {{ row.currencyCode }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        }
+      </section>
+    }
+  }
+</div>

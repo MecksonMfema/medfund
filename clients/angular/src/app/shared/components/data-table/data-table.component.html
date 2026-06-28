@@ -95,6 +95,24 @@
                       <span class="muted">—</span>
                     }
                   }
+                  @case ('lineList') {
+                    @if (row[col.key] && row[col.key].length > 0) {
+                      @for (line of row[col.key]; track line) {
+                        <span class="badge line-chip" [attr.data-line]="line">
+                          {{ toLineLabel(line) }}
+                        </span>
+                      }
+                    } @else {
+                      <span class="muted">—</span>
+                    }
+                  }
+                  @case ('pdfFlag') {
+                    @if (row[col.key]) {
+                      <span class="badge badge-active">Ready</span>
+                    } @else {
+                      <span class="muted small">rendering…</span>
+                    }
+                  }
                   @default {
                     <span [class]="col.class || ''">{{ row[col.key] }}</span>
                   }

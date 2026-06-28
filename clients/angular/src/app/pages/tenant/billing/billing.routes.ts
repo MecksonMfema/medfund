@@ -133,8 +133,14 @@ export const BILLING_ROUTES: Routes = [
   {
     path: 'view',
     canActivate: [permissionGuard(['billing:view'])],
-    loadComponent: () => import('./contributions/contributions-list.component').then(m => m.ContributionsListComponent),
-    data: { title: 'View Contributions', sidebar: 'operational' },
+    loadComponent: () => import('./invoices/invoices-list.component').then(m => m.InvoicesListComponent),
+    data: { title: 'View Invoices', sidebar: 'operational' },
+  },
+  {
+    path: 'view/:id',
+    canActivate: [permissionGuard(['billing:view'])],
+    loadComponent: () => import('./invoices/invoice-statement.component').then(m => m.InvoiceStatementComponent),
+    data: { title: 'Invoice Statement', sidebar: 'operational' },
   },
   {
     path: 'statements',

@@ -1,0 +1,82 @@
+.page { padding: 1.5rem; max-width: 1100px; }
+
+.back-link { display: inline-flex; align-items: center; gap: .25rem; color: var(--text-muted, #6b7280); text-decoration: none; margin-bottom: 1rem; }
+.back-link:hover { color: var(--text, #111827); }
+
+.banner.banner-error { padding: .65rem .85rem; background: #fef2f2; color: #7f1d1d; border: 1px solid #fecaca; border-radius: 6px; cursor: pointer; margin-bottom: 1rem; }
+
+.muted { color: var(--text-muted, #6b7280); }
+.muted.small { font-size: .8rem; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.header-card {
+  display: flex; justify-content: space-between; gap: 1rem;
+  background: #fff; border: 1px solid var(--border-faint, #e5e7eb); border-radius: 8px;
+  padding: 1.25rem; margin-bottom: 1rem;
+}
+.header-main h1 { margin: 0 0 .5rem; }
+.header-main .chips { display: flex; gap: .5rem; margin-bottom: .5rem; }
+.header-main .holder { font-size: 1.1rem; margin: 0 0 .25rem; }
+.header-actions { display: flex; flex-direction: column; gap: .5rem; align-items: flex-end; }
+
+.card {
+  background: #fff; border: 1px solid var(--border-faint, #e5e7eb); border-radius: 8px;
+  padding: 1.25rem; margin-bottom: 1rem;
+}
+.card h2 { margin: 0 0 1rem; font-size: 1.1rem; }
+
+.summary-table {
+  width: 100%; border-collapse: collapse;
+  td { padding: .5rem .75rem; border-bottom: 1px solid var(--border-faint, #e5e7eb); }
+  .total-row td { border-top: 2px solid var(--text, #111827); border-bottom: none; padding-top: .75rem; font-size: 1.05rem; }
+}
+
+.data-table {
+  width: 100%; border-collapse: collapse;
+  th, td { padding: .55rem .75rem; text-align: left; border-bottom: 1px solid var(--border-faint, #e5e7eb); }
+  th { font-weight: 600; font-size: .75rem; text-transform: uppercase; color: var(--text-muted, #6b7280); }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  &.inner { margin-top: .5rem; }
+}
+
+.scheme-group { border-top: 1px solid var(--border-faint, #e5e7eb); }
+.scheme-group:first-of-type { border-top: 0; }
+.scheme-head { display: flex; justify-content: space-between; align-items: center; padding: .75rem 0; cursor: pointer; user-select: none; }
+.scheme-head:hover { color: var(--accent, #2563eb); }
+.scheme-sub { display: flex; gap: 1rem; align-items: center; }
+
+.badge {
+  display: inline-block; padding: .15rem .55rem; border-radius: 999px;
+  font-size: .75rem; font-weight: 600; background: #e5e7eb; color: #374151;
+  margin-left: .5rem;
+}
+.badge.status {
+  &[data-status="issued"]      { background: #dbeafe; color: #1e3a8a; }
+  &[data-status="paid"]        { background: #d1fae5; color: #065f46; }
+  &[data-status="overdue"]     { background: #fee2e2; color: #991b1b; }
+  &[data-status="draft"]       { background: #fef3c7; color: #92400e; }
+}
+.badge.holder-type {
+  &[data-type="GROUP"]      { background: #e0e7ff; color: #312e81; }
+  &[data-type="INDIVIDUAL"] { background: #fce7f3; color: #831843; }
+}
+.badge.line-chip {
+  font-weight: 500;
+  &[data-line="HEALTH"]     { background: #dbeafe; color: #1e3a8a; }
+  &[data-line="VEHICLE"],
+  &[data-line="MOTOR"]      { background: #fef3c7; color: #92400e; }
+  &[data-line="PROPERTY"]   { background: #d1fae5; color: #065f46; }
+  &[data-line="LIFE"]       { background: #fce7f3; color: #831843; }
+  &[data-line="FUNERAL"]    { background: #ede9fe; color: #4c1d95; }
+  &[data-line="TRAVEL"]     { background: #cffafe; color: #155e75; }
+  &[data-line="DISABILITY"] { background: #ffedd5; color: #7c2d12; }
+}
+.badge.person-type {
+  &[data-type="MEMBER"]    { background: #e0e7ff; color: #312e81; }
+  &[data-type="DEPENDANT"] { background: #f3f4f6; color: #4b5563; }
+}
+
+.btn { display: inline-flex; align-items: center; gap: .35rem; padding: .5rem .85rem; border-radius: 6px; text-decoration: none; font-weight: 500; }
+.btn.btn-primary { background: var(--accent, #2563eb); color: #fff; border: 1px solid transparent; }
+.btn.btn-primary:hover { background: var(--accent-dark, #1d4ed8); }
+.btn.disabled { opacity: .5; pointer-events: none; }

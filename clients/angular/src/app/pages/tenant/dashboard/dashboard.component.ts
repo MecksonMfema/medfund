@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { LegendPosition } from '@swimlane/ngx-charts';
 import { BehaviorSubject, combineLatest, forkJoin, of, Subscription } from 'rxjs';
 import { catchError, distinctUntilChanged, switchMap } from 'rxjs/operators';
@@ -19,7 +19,7 @@ import { TenantService } from '../../../core/services/tenant.service';
 import {
   AdminService, TenantStats, TenantCharts, TrendPoint,
   ClaimsStatusDistribution, RecentClaim, AdjudicatorWorkload,
-  RecentContribution,
+  RecentInvoice,
   PaymentsStatusDistribution, RecentPayment, TopPayee, PaymentMethodDistribution,
 } from '../../../core/services/admin.service';
 
@@ -157,43 +157,40 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
     { key: 'createdAt',      label: 'Submitted',     type: 'date' as const },
   ];
 
-  // ── Billing tab state — matches the reference billing dashboard layout. ──
-  recentContributions: RecentContribution[] = [];
+  // ── Billing tab state — Recent Invoices widget (V035 rebrand). ──
+  recentInvoices: RecentInvoice[] = [];
 
-  readonly recentContributionColumns = [
-    { key: 'id',             label: 'Contribution #' },
+  readonly recentInvoiceColumns = [
+    { key: 'invoiceNumber',  label: 'Invoice #' },
     { key: 'insuranceLine',  label: 'Line',          type: 'line' as const },
-    { key: 'createdAt',      label: 'Issued Date',   type: 'date' as const },
-    { key: 'memberName',     label: 'Member' },
-    { key: 'amount',         label: 'Amount',        type: 'currency' as const },
-    { key: 'paymentMethod',  label: 'Method' },
-    { key: 'periodEnd',      label: 'Due Date',      type: 'date' as const },
+    { key: 'issuedAt',       label: 'Issued',        type: 'date' as const },
+    { key: 'holderName',     label: 'Holder' },
+    { key: 'totalAmount',    label: 'Total',         type: 'currency' as const },
+    { key: 'periodEnd',      label: 'Period End',    type: 'date' as const },
     { key: 'status',         label: 'Status',        type: 'status' as const },
   ];
 
-  /** Quick-filter chip state for the contributions table (client-side filter). */
+  /** Quick-filter chip state for the invoices table (client-side filter). */
   contribStatusFilter: string | null = null;
-  readonly contribStatusFilters = ['paid', 'pending', 'overdue'];
+  readonly contribStatusFilters = ['issued', 'paid', 'overdue'];
 
   /** Date-range select state. Values are filter keys; labels live in the template. */
   dateRangeFilter: 'all' | 'thisMonth' | 'last30' | 'last90' | 'thisYear' = 'all';
 
-  /** Recipient (member name) select state — null means "all". */
+  /** Holder (group or member name) select state — null means "all". */
   recipientFilter: string | null = null;
 
-  /** Unique recipient names extracted from the loaded contributions, sorted. */
+  /** Unique holder names extracted from the loaded invoices, sorted. */
   get recipientOptions(): string[] {
     const names = new Set<string>();
-    for (const c of this.recentContributions) {
-      if (c.memberName) names.add(c.memberName);
+    for (const inv of this.recentInvoices) {
+      if (inv.holderName) names.add(inv.holderName);
     }
     return Array.from(names).sort();
   }
 
-  /** Client-side filter pipeline applied to the loaded contributions: status
-   *  chip + status select + date range + recipient. Order doesn't matter
-   *  since each is an independent predicate. */
-  get filteredContributions(): RecentContribution[] {
+  /** Client-side filter pipeline applied to the loaded invoices. */
+  get filteredContributions(): RecentInvoice[] {
     const now = Date.now();
     const dayMs = 86_400_000;
     let from = 0;
@@ -208,15 +205,20 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
       const d = new Date();
       from = new Date(d.getFullYear(), 0, 1).getTime();
     }
-    return this.recentContributions.filter(c => {
-      if (this.contribStatusFilter && c.status !== this.contribStatusFilter) return false;
-      if (this.recipientFilter      && c.memberName !== this.recipientFilter) return false;
+    return this.recentInvoices.filter(inv => {
+      if (this.contribStatusFilter && inv.status !== this.contribStatusFilter) return false;
+      if (this.recipientFilter && inv.holderName !== this.recipientFilter) return false;
       if (from > 0) {
-        const created = new Date(c.createdAt).getTime();
-        if (Number.isFinite(created) && created < from) return false;
+        const issued = new Date(inv.issuedAt).getTime();
+        if (Number.isFinite(issued) && issued < from) return false;
       }
       return true;
     });
+  }
+
+  /** Row-click → invoice statement page. */
+  onInvoiceRowClick(row: RecentInvoice): void {
+    if (row?.id) this.router.navigate(['/tenant/billing/view', row.id]);
   }
 
   // ── SelectComponent options ─────────────────────────────────────────────
@@ -390,6 +392,7 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
     private permissions: PermissionService,
     private tenantService: TenantService,
     private adminService: AdminService,
+    private router: Router,
   ) {}
 
   ngOnInit(): void {
@@ -432,9 +435,9 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
                     ? this.adminService.getAdjudicatorWorkload(t.id).pipe(
                         catchError(() => of<AdjudicatorWorkload>(EMPTY_WORKLOAD)))
                     : of<AdjudicatorWorkload>(EMPTY_WORKLOAD),
-          recentContributions: canViewBilling
-                    ? this.adminService.getRecentContributions(t.id).pipe(catchError(() => of<RecentContribution[]>([])))
-                    : of<RecentContribution[]>([]),
+          recentInvoices: canViewBilling
+                    ? this.adminService.getRecentInvoices(t.id).pipe(catchError(() => of<RecentInvoice[]>([])))
+                    : of<RecentInvoice[]>([]),
           paymentsDistribution: canViewFinance
                     ? this.adminService.getPaymentsStatusDistribution(t.id).pipe(
                         catchError(() => of<PaymentsStatusDistribution>({ total: 0, buckets: [] })))
@@ -474,7 +477,7 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
         this.workload = result.workload;
         this.workloadMax = Math.max(1, ...result.workload.adjudicators.map(a => a.count));
 
-        this.recentContributions = result.recentContributions;
+        this.recentInvoices = result.recentInvoices;
 
         // ── Finance tab — pipeline pie + method distribution mirror the
         // empty-state pattern: render placeholder slices behind the overlay
