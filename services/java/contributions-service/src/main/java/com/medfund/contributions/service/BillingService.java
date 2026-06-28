@@ -16,6 +16,7 @@ import com.medfund.contributions.repository.BillingCycleConfigRepository;
 import com.medfund.contributions.repository.ContributionRepository;
 import com.medfund.contributions.repository.InvoiceRepository;
 import com.medfund.contributions.repository.SchemeRepository;
+import com.medfund.contributions.service.candidate.PersonCandidate;
 import com.medfund.shared.audit.AuditActor;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
@@ -57,6 +58,13 @@ public class BillingService {
     private final BalanceService balanceService;
     private final DatabaseClient db;
     private final AiPricingClient aiPricingClient;
+    /**
+     * Per-insurance-line candidate resolvers, keyed by
+     * {@link com.medfund.contributions.service.candidate.CandidateResolver#supportedLine()}.
+     * Spring auto-collects every {@code @Component} implementation —
+     * adding a new line is "drop one class" — no edit here.
+     */
+    private final java.util.Map<String, com.medfund.contributions.service.candidate.CandidateResolver> candidateResolvers;
 
     public BillingService(ContributionRepository contributionRepository,
                           InvoiceRepository invoiceRepository,
@@ -68,7 +76,8 @@ public class BillingService {
                           ContributionPricingService pricingService,
                           BalanceService balanceService,
                           DatabaseClient db,
-                          AiPricingClient aiPricingClient) {
+                          AiPricingClient aiPricingClient,
+                          java.util.List<com.medfund.contributions.service.candidate.CandidateResolver> resolvers) {
         this.contributionRepository = contributionRepository;
         this.invoiceRepository = invoiceRepository;
         this.schemeRepository = schemeRepository;
@@ -80,6 +89,16 @@ public class BillingService {
         this.balanceService = balanceService;
         this.db = db;
         this.aiPricingClient = aiPricingClient;
+        // Tolerant of a null/empty resolver list so unit tests that mock
+        // the service without spinning up the Spring context still work.
+        // In production Spring auto-collects every @Component
+        // CandidateResolver into this list.
+        java.util.List<com.medfund.contributions.service.candidate.CandidateResolver> safeResolvers =
+                resolvers != null ? resolvers : java.util.List.of();
+        this.candidateResolvers = safeResolvers.stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        com.medfund.contributions.service.candidate.CandidateResolver::supportedLine,
+                        r -> r));
     }
 
     public Flux<Contribution> findContributionsByMemberId(UUID memberId) {
@@ -592,212 +611,33 @@ public class BillingService {
     }
 
     /**
-     * Per-tenant entry point: reads the tenant's pricing_model from
-     * public.tenants and delegates to the SQL builder. Streams through
-     * a deferred lookup so the candidates Flux only starts after the
-     * model resolves.
+     * Per-tenant entry point: reads the tenant's pricing_model + the
+     * insurance line for this run, then delegates to the matching
+     * {@link com.medfund.contributions.service.candidate.CandidateResolver}.
+     *
+     * <p>Defaults to HEALTH when no line is supplied — keeps the v1
+     * single-line wizard working without an explicit line on every
+     * enqueue. Multi-line tenants pass the line via the wizard's tab
+     * (Part 4.5) and the dispatcher routes to the right resolver.
      */
     private Flux<PersonCandidate> resolveCandidatesForTenant(List<UUID> groupIds, List<UUID> memberIds,
                                                               LocalDate periodStart, LocalDate periodEnd) {
+        return resolveCandidatesForTenant(groupIds, memberIds, periodStart, periodEnd, "HEALTH");
+    }
+
+    private Flux<PersonCandidate> resolveCandidatesForTenant(List<UUID> groupIds, List<UUID> memberIds,
+                                                              LocalDate periodStart, LocalDate periodEnd,
+                                                              String insuranceLine) {
+        com.medfund.contributions.service.candidate.CandidateResolver resolver =
+                candidateResolvers.get(insuranceLine != null ? insuranceLine : "HEALTH");
+        if (resolver == null) {
+            log.warn("No CandidateResolver registered for line {} — skipping run", insuranceLine);
+            return Flux.empty();
+        }
         return Mono.deferContextual(ctx -> getPricingModel(TenantContext.get(ctx)))
-                .flatMapMany(mode -> resolveCandidates(groupIds, memberIds, periodStart, periodEnd, mode));
+                .flatMapMany(mode -> resolver.resolveCandidates(groupIds, memberIds, periodStart, periodEnd, mode));
     }
 
-    /**
-     * Walks the {@code members} table joined to {@code schemes}, applying the
-     * optional group / member filters. Returned candidates carry just enough
-     * metadata for pricing + the wizard preview. Schemes are always included
-     * in full — billing covers every active scheme by design.
-     *
-     * <p>{@code pricingModel} ("STANDARD" or "INDIVIDUAL") gates the
-     * per-member override CASE. STANDARD ignores overrides entirely;
-     * INDIVIDUAL applies them when set and effective.
-     */
-    private Flux<PersonCandidate> resolveCandidates(List<UUID> groupIds, List<UUID> memberIds,
-                                                    LocalDate periodStart, LocalDate periodEnd,
-                                                    String pricingModel) {
-        // One row per INSURED PERSON — the member's own line plus a line per
-        // active dependant — with the effective age-group resolved via
-        // COALESCE(billing_override, canonical) gated by the override's
-        // effective_from date. Pricing is read directly from the matched
-        // age_groups row; the tenant pricing rules later get a chance to
-        // override the amount inside applyPricing().
-        //
-        // dependant_id IS NULL on the member's line; it is set on the
-        // dependant's line. member_id is always the parent member used for
-        // invoice routing.
-        // Price lookup: LATERAL join to the age_group_prices row that
-        // was active for this billing period — the row whose
-        // [effective_from, effective_to] range overlaps [periodStart,
-        // periodEnd]. This keeps retrospective runs deterministic
-        // even after the tenant edits the price; today's amount is
-        // not retroactively applied to last month's bill.
-        StringBuilder sql = new StringBuilder("""
-                SELECT m.id                AS member_id,
-                       NULL::uuid          AS dependant_id,
-                       m.member_number     AS member_number,
-                       (m.first_name || ' ' || m.last_name) AS person_name,
-                       'MEMBER'            AS person_type,
-                       m.scheme_id         AS scheme_id,
-                       m.group_id          AS group_id,
-                       g.name              AS group_name,
-                       s.name              AS scheme_name,
-                       s.currency_code     AS scheme_currency,
-                       CASE
-                           WHEN m.billing_age_group_id IS NOT NULL
-                                AND (m.billing_override_effective_from IS NULL
-                                     OR m.billing_override_effective_from <= :periodStart)
-                           THEN m.billing_age_group_id
-                           ELSE m.age_group_id
-                       END                 AS effective_age_group_id,
-                       ag.name              AS age_band_name,
-                       -- Per-member override gated on the tenant's
-                       -- pricing_model (V118). STANDARD ignores overrides
-                       -- entirely; INDIVIDUAL honours an override when
-                       -- set and effective. Currency stays with the
-                       -- scheme-default source — billing_override_amount
-                       -- is just a number.
-                       COALESCE(
-                           CASE WHEN :pricingModel = 'INDIVIDUAL'
-                                     AND m.billing_override_amount IS NOT NULL
-                                     AND (m.billing_override_effective_from IS NULL
-                                          OR m.billing_override_effective_from <= :periodEnd)
-                                THEN m.billing_override_amount END,
-                           p.contribution_amount) AS price_amount,
-                       p.currency_code       AS price_currency
-                  FROM members m
-                  JOIN schemes s     ON s.id = m.scheme_id
-                  LEFT JOIN groups g ON g.id = m.group_id
-                  LEFT JOIN age_groups ag ON ag.id = CASE
-                           WHEN m.billing_age_group_id IS NOT NULL
-                                AND (m.billing_override_effective_from IS NULL
-                                     OR m.billing_override_effective_from <= :periodStart)
-                           THEN m.billing_age_group_id
-                           ELSE m.age_group_id
-                       END
-                  LEFT JOIN LATERAL (
-                       SELECT contribution_amount, currency_code
-                         FROM age_group_prices
-                        WHERE age_group_id = ag.id
-                          AND effective_from <= :periodEnd
-                          AND (effective_to IS NULL OR effective_to >= :periodStart)
-                        ORDER BY effective_from DESC
-                        LIMIT 1
-                  ) p ON TRUE
-                 -- Billing covers active + suspended members so a brief
-                 -- subscription pause doesn't drop them out of arrears
-                 -- tracking. Terminated / closed members are excluded.
-                 -- Group-routed members additionally require their group
-                 -- to be active — a non-active group has no liaison to
-                 -- invoice and its membership is effectively frozen.
-                 --
-                 -- enrollment_date gates retrospective runs: a member
-                 -- enrolled in June must not appear in May's bill. The
-                 -- DB enforces enrollment is always 1st-of-month (see
-                 -- members_enrollment_date_first_of_month constraint),
-                 -- so comparing against periodEnd is sufficient — anyone
-                 -- enrolled by the last day of the billing period
-                 -- qualifies for that period and every period after.
-                 WHERE m.status IN ('active', 'suspended')
-                   AND (m.group_id IS NULL OR g.status = 'active')
-                   AND m.enrollment_date <= :periodEnd
-                """);
-        if (groupIds  != null && !groupIds.isEmpty())  sql.append(" AND m.group_id = ANY(:groupIds) ");
-        if (memberIds != null && !memberIds.isEmpty()) sql.append(" AND m.id       = ANY(:memberIds) ");
-
-        sql.append("""
-
-                UNION ALL
-
-                SELECT m.id                AS member_id,
-                       d.id                AS dependant_id,
-                       m.member_number     AS member_number,
-                       (d.first_name || ' ' || d.last_name) AS person_name,
-                       'DEPENDANT'         AS person_type,
-                       m.scheme_id         AS scheme_id,
-                       m.group_id          AS group_id,
-                       g.name              AS group_name,
-                       s.name              AS scheme_name,
-                       s.currency_code     AS scheme_currency,
-                       CASE
-                           WHEN d.billing_age_group_id IS NOT NULL
-                                AND (d.billing_override_effective_from IS NULL
-                                     OR d.billing_override_effective_from <= :periodStart)
-                           THEN d.billing_age_group_id
-                           ELSE d.age_group_id
-                       END                 AS effective_age_group_id,
-                       ag.name              AS age_band_name,
-                       -- Same gating as the member branch: STANDARD
-                       -- ignores the dependant's override; INDIVIDUAL
-                       -- honours it when set and effective.
-                       COALESCE(
-                           CASE WHEN :pricingModel = 'INDIVIDUAL'
-                                     AND d.billing_override_amount IS NOT NULL
-                                     AND (d.billing_override_effective_from IS NULL
-                                          OR d.billing_override_effective_from <= :periodEnd)
-                                THEN d.billing_override_amount END,
-                           p.contribution_amount) AS price_amount,
-                       p.currency_code       AS price_currency
-                  FROM dependants d
-                  JOIN members m     ON m.id = d.member_id
-                  JOIN schemes s     ON s.id = m.scheme_id
-                  LEFT JOIN groups g ON g.id = m.group_id
-                  LEFT JOIN age_groups ag ON ag.id = CASE
-                           WHEN d.billing_age_group_id IS NOT NULL
-                                AND (d.billing_override_effective_from IS NULL
-                                     OR d.billing_override_effective_from <= :periodStart)
-                           THEN d.billing_age_group_id
-                           ELSE d.age_group_id
-                       END
-                  LEFT JOIN LATERAL (
-                       SELECT contribution_amount, currency_code
-                         FROM age_group_prices
-                        WHERE age_group_id = ag.id
-                          AND effective_from <= :periodEnd
-                          AND (effective_to IS NULL OR effective_to >= :periodStart)
-                        ORDER BY effective_from DESC
-                        LIMIT 1
-                  ) p ON TRUE
-                 -- Dependants follow the same active+suspended rule as
-                 -- their parent member; both must qualify for the
-                 -- dependant line to bill. Dependants have no
-                 -- enrollment_date column — created_at::date is the
-                 -- best available proxy for "when they joined the
-                 -- household on cover". They also can't bill earlier
-                 -- than their parent member's enrollment_date.
-                 WHERE d.status IN ('active', 'suspended')
-                   AND m.status IN ('active', 'suspended')
-                   AND (m.group_id IS NULL OR g.status = 'active')
-                   AND m.enrollment_date <= :periodEnd
-                   AND d.created_at::date <= :periodEnd
-                """);
-        if (groupIds  != null && !groupIds.isEmpty())  sql.append(" AND m.group_id = ANY(:groupIds) ");
-        if (memberIds != null && !memberIds.isEmpty()) sql.append(" AND m.id       = ANY(:memberIds) ");
-
-        var spec = db.sql(sql.toString())
-                .bind("periodStart",  periodStart)
-                .bind("periodEnd",    periodEnd)
-                .bind("pricingModel", pricingModel != null ? pricingModel : "STANDARD");
-        if (groupIds  != null && !groupIds.isEmpty())  spec = spec.bind("groupIds",  groupIds.toArray(UUID[]::new));
-        if (memberIds != null && !memberIds.isEmpty()) spec = spec.bind("memberIds", memberIds.toArray(UUID[]::new));
-
-        return spec.map(row -> new PersonCandidate(
-                        row.get("member_id", UUID.class),
-                        row.get("dependant_id", UUID.class),
-                        row.get("member_number", String.class),
-                        row.get("person_name", String.class),
-                        row.get("person_type", String.class),
-                        row.get("scheme_id", UUID.class),
-                        row.get("scheme_name", String.class),
-                        row.get("group_id", UUID.class),
-                        row.get("group_name", String.class),
-                        row.get("scheme_currency", String.class),
-                        row.get("effective_age_group_id", UUID.class),
-                        row.get("age_band_name", String.class),
-                        row.get("price_amount", BigDecimal.class),
-                        row.get("price_currency", String.class)))
-                .all();
-    }
 
     /**
      * Build a transient {@link Contribution} for the person, pre-set the
@@ -893,20 +733,10 @@ public class BillingService {
         try { return s != null ? UUID.fromString(s) : null; } catch (IllegalArgumentException e) { return null; }
     }
 
-    /**
-     * Per-person row produced by {@link #resolveCandidates}. {@code memberId}
-     * is the parent member for invoice routing and is always set;
-     * {@code dependantId} is set only when this row is for the dependant.
-     * {@code priceAmount}/{@code priceCurrency} come from the matched
-     * {@code age_groups} row — they may be null when the person has no
-     * canonical bucket (data gap), which {@link #applyPricing} treats as
-     * zero so the row still surfaces in the preview.
-     */
-    private record PersonCandidate(
-            UUID memberId, UUID dependantId, String memberNumber, String personName, String personType,
-            UUID schemeId, String schemeName, UUID groupId, String groupName, String schemeCurrency,
-            UUID effectiveAgeGroupId, String ageBandName,
-            BigDecimal priceAmount, String priceCurrency) {}
+    // PersonCandidate moved to service/candidate/PersonCandidate.java as
+    // a public record so per-line CandidateResolver implementations can
+    // construct it. The aliased import at the top of this file keeps the
+    // existing call-sites readable.
 
     private record PricedCandidate(
             UUID memberId, UUID dependantId, String memberNumber, String personName, String personType,

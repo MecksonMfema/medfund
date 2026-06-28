@@ -20,7 +20,7 @@ import com.medfund.contributions.repository.SchemeBenefitQueryRepository;
 import com.medfund.contributions.repository.SchemeBenefitRepository;
 import com.medfund.contributions.repository.SchemeQueryRepository;
 import com.medfund.contributions.repository.SchemeRepository;
-import com.medfund.contributions.util.PersonCentricLines;
+import com.medfund.shared.insurance.InsuranceLine;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
@@ -287,7 +287,7 @@ public class SchemeService {
         return schemeRepository.findById(request.schemeId())
             .switchIfEmpty(Mono.error(new SchemeNotFoundException(request.schemeId())))
             .flatMap(scheme -> {
-                if (!PersonCentricLines.isPersonCentric(scheme.getInsuranceLine())) {
+                if (!InsuranceLine.isPersonCentric(scheme.getInsuranceLine())) {
                     return Mono.<SchemeBenefit>error(new ResponseStatusException(
                         HttpStatus.UNPROCESSABLE_ENTITY,
                         "Scheme benefits do not apply to " + scheme.getInsuranceLine()
@@ -409,7 +409,7 @@ public class SchemeService {
         return schemeRepository.findById(request.schemeId())
             .switchIfEmpty(Mono.error(new SchemeNotFoundException(request.schemeId())))
             .flatMap(scheme -> {
-                if (!PersonCentricLines.isPersonCentric(scheme.getInsuranceLine())) {
+                if (!InsuranceLine.isPersonCentric(scheme.getInsuranceLine())) {
                     return Mono.<AgeGroup>error(new ResponseStatusException(
                         HttpStatus.UNPROCESSABLE_ENTITY,
                         "Age groups do not apply to " + scheme.getInsuranceLine()
@@ -537,10 +537,10 @@ public class SchemeService {
             return "HEALTH";
         }
         String normalized = line.toUpperCase();
-        if (!PersonCentricLines.isKnown(normalized)) {
+        if (!InsuranceLine.isKnown(normalized)) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "Unknown insurance line '" + line + "'. Must be one of "
-                    + PersonCentricLines.ALL_LINES + ".");
+                    + InsuranceLine.allCodes() + ".");
         }
         return normalized;
     }

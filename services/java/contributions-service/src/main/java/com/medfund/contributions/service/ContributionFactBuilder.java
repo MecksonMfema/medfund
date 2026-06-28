@@ -1,6 +1,7 @@
 package com.medfund.contributions.service;
 
 import com.medfund.contributions.entity.Contribution;
+import com.medfund.contributions.service.factenricher.LineFactEnricher;
 import com.medfund.rules.fact.ContributionFact;
 import com.medfund.rules.fact.TimeFact;
 import lombok.extern.slf4j.Slf4j;
@@ -8,41 +9,75 @@ import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Translates a {@link Contribution} entity into a {@link ContributionFact}
- * (and a companion {@link TimeFact}) for rules-engine evaluation.
+ * + {@link TimeFact} pair for rules-engine evaluation.
  *
- * <p>Issues a single member lookup against the tenant {@code members} table to
- * populate age / gender / region / dependant-count / chronic-conditions
- * columns. Defaults are non-failing: a missing member produces an empty
- * fact rather than crashing the pricing flow — pricing rules typically
- * gate on positive matches (age ≥ 65, smoker = true, …) so a default
- * fact won't trip them.
+ * <p>Dispatches to the line-specific {@link LineFactEnricher} (HEALTH,
+ * MOTOR, PROPERTY, …) by looking up the scheme's {@code insurance_line}.
+ * The enricher reads its own per-line risk signals and populates both
+ * the legacy typed fields on the fact AND the line-agnostic
+ * {@code attributes} map.
+ *
+ * <p>Adding a new line is "drop one {@code @Component} that implements
+ * {@link LineFactEnricher}" — no edit here. Lines with no registered
+ * enricher fall through to the base fact (no enrichment), keeping
+ * pricing deterministic.
  */
 @Slf4j
 @Component
 public class ContributionFactBuilder {
 
     private final DatabaseClient db;
+    private final Map<String, LineFactEnricher> enrichers;
 
-    public ContributionFactBuilder(DatabaseClient db) {
+    public ContributionFactBuilder(DatabaseClient db, List<LineFactEnricher> enricherList) {
         this.db = db;
+        this.enrichers = (enricherList != null ? enricherList : List.<LineFactEnricher>of())
+                .stream()
+                .collect(Collectors.toMap(LineFactEnricher::supportedLine, e -> e));
     }
 
     public Mono<Facts> build(Contribution contribution) {
         ContributionFact base = toFact(contribution);
-
-        Mono<ContributionFact> enriched = contribution.getMemberId() == null
-                ? Mono.just(base)
-                : enrichWithMember(base, contribution.getMemberId().toString());
-
         TimeFact time = TimeFact.of(LocalDate.now());
 
-        return enriched.map(c -> new Facts(c, time));
+        return resolveInsuranceLine(contribution.getSchemeId())
+                .flatMap(line -> {
+                    LineFactEnricher enricher = enrichers.get(line);
+                    if (enricher == null) {
+                        log.debug("[contribution-fact] no enricher for line {} — using base fact", line);
+                        return Mono.just(base);
+                    }
+                    return enricher.enrich(base, contribution);
+                })
+                .map(fact -> new Facts(fact, time));
+    }
+
+    /**
+     * Look up the scheme's insurance_line so the builder can pick the
+     * right enricher. Defaults to HEALTH on missing scheme / null
+     * column / lookup error — the only line shipped today, and the
+     * safest fallback if a tenant's scheme is missing the column.
+     */
+    private Mono<String> resolveInsuranceLine(UUID schemeId) {
+        if (schemeId == null) return Mono.just("HEALTH");
+        return db.sql("SELECT insurance_line FROM schemes WHERE id = :id")
+                .bind("id", schemeId)
+                .map(row -> {
+                    Object v = row.get("insurance_line");
+                    return v != null ? v.toString() : "HEALTH";
+                })
+                .one()
+                .defaultIfEmpty("HEALTH")
+                .onErrorReturn("HEALTH");
     }
 
     private ContributionFact toFact(Contribution c) {
@@ -55,104 +90,15 @@ public class ContributionFactBuilder {
         f.setPeriodStart(c.getPeriodStart());
         f.setPeriodEnd(c.getPeriodEnd());
         f.setBaseAmount(c.getAmount());
-        f.setPremiumAmount(c.getAmount()); // start as base; rules may override
+        f.setPremiumAmount(c.getAmount());
         f.setPaid("paid".equalsIgnoreCase(c.getStatus()));
         if (c.getPeriodEnd() != null) {
-            // Days overdue: only counted once the period has ended and the row is unpaid.
             LocalDate today = LocalDate.now();
             if (!"paid".equalsIgnoreCase(c.getStatus()) && today.isAfter(c.getPeriodEnd())) {
                 f.setDaysOverdue((int) ChronoUnit.DAYS.between(c.getPeriodEnd(), today));
             }
         }
         return f;
-    }
-
-    private Mono<ContributionFact> enrichWithMember(ContributionFact f, String memberId) {
-        // The medical_history JSONB column (V031) gives the rules engine
-        // + AI scorer per-member risk signals — chronic conditions,
-        // smoking status, BMI, medication count. Selected here so rules
-        // like "if chronicConditionCount >= 2 then amount = base * 1.3"
-        // can fire without an extra round-trip. A null medical_history
-        // collapses to the safe defaults on ContributionFact (count = 0,
-        // smokingStatus = null) — no loading applied.
-        return db.sql("""
-                SELECT date_of_birth, gender, medical_history,
-                       (SELECT COUNT(*) FROM dependants d
-                        WHERE d.member_id = :id AND d.status = 'active') AS dependant_count
-                FROM members
-                WHERE id = :id
-                """)
-                .bind("id", java.util.UUID.fromString(memberId))
-                .fetch().one()
-                .map(row -> {
-                    if (row.get("date_of_birth") instanceof LocalDate dob) {
-                        f.setMemberAge((int) ChronoUnit.YEARS.between(dob, LocalDate.now()));
-                    }
-                    f.setMemberGender(asString(row.get("gender")));
-                    Object dc = row.get("dependant_count");
-                    if (dc instanceof Number n) f.setDependantCount(n.intValue());
-                    applyMedicalHistory(f, row.get("medical_history"));
-                    return f;
-                })
-                .defaultIfEmpty(f)
-                .onErrorResume(err -> {
-                    log.debug("[contribution-fact] member lookup failed for {}: {}",
-                            memberId, err.getMessage());
-                    return Mono.just(f);
-                });
-    }
-
-    /**
-     * Project the medical_history JSONB blob onto BOTH the structured
-     * HEALTH-specific fields AND the line-agnostic
-     * {@link ContributionFact#getAttributes() attributes} map. Rules
-     * written against the typed fields keep working; new rules SHOULD
-     * use {@code fact.attribute("key")} so the same DRL fires
-     * regardless of which line populated the attributes.
-     *
-     * <p>Per-line FactBuilder strategies (MOTOR, PROPERTY, LIFE, …)
-     * land in this same package once we ship those lines — pick the
-     * builder by {@code schemes.insurance_line} and have it populate
-     * its own attribute keys. The contract is "rules read attributes;
-     * the line's builder writes them".
-     *
-     * <p>Reads each key defensively — every signal is optional, so a
-     * member with a partial profile still yields a usable fact. The
-     * blob arrives from r2dbc-postgresql as a
-     * {@code io.r2dbc.postgresql.codec.Json} wrapper; falling back to
-     * {@code toString()} keeps the parser tolerant of either shape.
-     */
-    private void applyMedicalHistory(ContributionFact f, Object raw) {
-        if (raw == null) return;
-        String json = raw.toString();
-        if (json.isBlank() || json.equals("{}")) return;
-        try {
-            com.fasterxml.jackson.databind.JsonNode node =
-                    new com.fasterxml.jackson.databind.ObjectMapper().readTree(json);
-            if (node.has("chronic_conditions") && node.get("chronic_conditions").isArray()) {
-                int count = node.get("chronic_conditions").size();
-                f.setChronicConditionCount(count);
-                f.getAttributes().put("chronic_condition_count", count);
-                if (count > 0) f.setHasChronicConditions(true);
-            }
-            if (node.hasNonNull("smoking_status")) {
-                String s = node.get("smoking_status").asText();
-                f.setSmokingStatus(s);
-                f.getAttributes().put("smoking_status", s);
-            }
-            if (node.hasNonNull("bmi")) {
-                java.math.BigDecimal bmi = new java.math.BigDecimal(node.get("bmi").asText());
-                f.setBmi(bmi);
-                f.getAttributes().put("bmi", bmi.doubleValue());
-            }
-            if (node.hasNonNull("medication_count")) {
-                int mc = node.get("medication_count").asInt(0);
-                f.setMedicationCount(mc);
-                f.getAttributes().put("medication_count", mc);
-            }
-        } catch (Exception e) {
-            log.debug("[contribution-fact] medical_history parse failed: {}", e.getMessage());
-        }
     }
 
     /** Translates a fact (after rules have run) back into the contribution row. */
@@ -165,8 +111,6 @@ public class ContributionFactBuilder {
         // for now.
     }
 
-    private static String asString(Object o) { return o == null ? null : o.toString(); }
-
-    /** Pair returned to callers — claims-style. */
+    /** Bundle of the per-contribution + time facts handed to the rules engine. */
     public record Facts(ContributionFact contribution, TimeFact time) {}
 }
