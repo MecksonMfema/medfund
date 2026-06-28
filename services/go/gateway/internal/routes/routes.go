@@ -48,6 +48,24 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/tenant-stats", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/tenant-stats/*", proxy.Handler(cfg.UserServiceURL))
 
+	// ── Per-line policy/asset entities (V032 multi-line build) ────────────────
+	// MOTOR / vehicles + PROPERTY / properties are asset-centric;
+	// LIFE / FUNERAL / TRAVEL / DISABILITY are person-insuring policies
+	// keyed off a NOT NULL FK to members.id. All six get the same
+	// CRUD + suspend/terminate + clear-billing-override surface.
+	app.All("/api/v1/vehicles", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/vehicles/*", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/properties", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/properties/*", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/life-policies", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/life-policies/*", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/funeral-policies", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/funeral-policies/*", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/travel-policies", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/travel-policies/*", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/disability-policies", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/disability-policies/*", proxy.Handler(cfg.UserServiceURL))
+
 	// ── Claims Service ────────────────────────────────────────────────────────
 	app.All("/api/v1/claims/*", proxy.Handler(cfg.ClaimsServiceURL))
 	app.All("/api/v1/tariffs/*", proxy.Handler(cfg.ClaimsServiceURL))
