@@ -83,6 +83,16 @@ public class Member {
     @Column("billing_override_effective_from")
     private LocalDate billingOverrideEffectiveFrom;
 
+    /**
+     * Per-member explicit premium amount (V030). When set, takes
+     * precedence over the resolved age-group price in the billing run.
+     * Currency follows the resolved age-group's currency. Effective
+     * from {@link #billingOverrideEffectiveFrom}. Used for data-driven
+     * individual pricing without minting custom age_groups per member.
+     */
+    @Column("billing_override_amount")
+    private java.math.BigDecimal billingOverrideAmount;
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;
@@ -168,4 +178,7 @@ public class Member {
 
     public LocalDate getBillingOverrideEffectiveFrom() { return billingOverrideEffectiveFrom; }
     public void setBillingOverrideEffectiveFrom(LocalDate billingOverrideEffectiveFrom) { this.billingOverrideEffectiveFrom = billingOverrideEffectiveFrom; }
+
+    public java.math.BigDecimal getBillingOverrideAmount() { return billingOverrideAmount; }
+    public void setBillingOverrideAmount(java.math.BigDecimal billingOverrideAmount) { this.billingOverrideAmount = billingOverrideAmount; }
 }

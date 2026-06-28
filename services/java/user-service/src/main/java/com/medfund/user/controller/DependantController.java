@@ -77,4 +77,13 @@ public class DependantController {
     public Mono<DependantResponse> remove(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
         return dependantService.remove(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(DependantResponse::from);
     }
+
+    @PostMapping("/{id}/clear-billing-override")
+    @Operation(summary = "Clear the dependant's per-person pricing override",
+        description = "Nulls billing_override_amount, reason, and effective_from so billing falls back to the " +
+                      "age-group price. Mirrors POST /members/{id}/clear-billing-override.")
+    public Mono<DependantResponse> clearBillingOverride(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return dependantService.clearBillingOverride(id, AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(DependantResponse::from);
+    }
 }

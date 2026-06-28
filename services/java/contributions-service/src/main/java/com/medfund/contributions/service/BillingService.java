@@ -608,7 +608,17 @@ public class BillingService {
                            ELSE m.age_group_id
                        END                 AS effective_age_group_id,
                        ag.name              AS age_band_name,
-                       p.contribution_amount AS price_amount,
+                       -- Per-member override takes precedence over the
+                       -- age-group price when it's set and its effective
+                       -- date has been reached for this period. Currency
+                       -- falls back to the age-group price's currency —
+                       -- billing_override_amount is just a number.
+                       COALESCE(
+                           CASE WHEN m.billing_override_amount IS NOT NULL
+                                     AND (m.billing_override_effective_from IS NULL
+                                          OR m.billing_override_effective_from <= :periodEnd)
+                                THEN m.billing_override_amount END,
+                           p.contribution_amount) AS price_amount,
                        p.currency_code       AS price_currency
                   FROM members m
                   JOIN schemes s     ON s.id = m.scheme_id
@@ -672,7 +682,16 @@ public class BillingService {
                            ELSE d.age_group_id
                        END                 AS effective_age_group_id,
                        ag.name              AS age_band_name,
-                       p.contribution_amount AS price_amount,
+                       -- Same per-person override precedence as the
+                       -- member branch — the dependant's own override
+                       -- amount wins over the resolved age-group price
+                       -- when set and effective.
+                       COALESCE(
+                           CASE WHEN d.billing_override_amount IS NOT NULL
+                                     AND (d.billing_override_effective_from IS NULL
+                                          OR d.billing_override_effective_from <= :periodEnd)
+                                THEN d.billing_override_amount END,
+                           p.contribution_amount) AS price_amount,
                        p.currency_code       AS price_currency
                   FROM dependants d
                   JOIN members m     ON m.id = d.member_id

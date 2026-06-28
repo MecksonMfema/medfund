@@ -66,6 +66,11 @@ public class Dependant {
     @Column("billing_override_effective_from")
     private LocalDate billingOverrideEffectiveFrom;
 
+    /** Per-dependant explicit premium amount (V030); same precedence
+     *  rules as {@code Member.billingOverrideAmount}. */
+    @Column("billing_override_amount")
+    private java.math.BigDecimal billingOverrideAmount;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
@@ -116,4 +121,7 @@ public class Dependant {
 
     public LocalDate getBillingOverrideEffectiveFrom() { return billingOverrideEffectiveFrom; }
     public void setBillingOverrideEffectiveFrom(LocalDate billingOverrideEffectiveFrom) { this.billingOverrideEffectiveFrom = billingOverrideEffectiveFrom; }
+
+    public java.math.BigDecimal getBillingOverrideAmount() { return billingOverrideAmount; }
+    public void setBillingOverrideAmount(java.math.BigDecimal billingOverrideAmount) { this.billingOverrideAmount = billingOverrideAmount; }
 }

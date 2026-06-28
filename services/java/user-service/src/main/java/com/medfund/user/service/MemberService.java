@@ -225,6 +225,16 @@ public class MemberService {
                 if (request.address() != null) existing.setAddress(request.address());
                 if (request.groupId() != null) existing.setGroupId(request.groupId());
                 if (request.schemeId() != null) existing.setSchemeId(request.schemeId());
+
+                // Individual-pricing override (V030). Three fields move
+                // together: setting amount requires effective_from (the
+                // DB CHECK enforces this — bean-validation belt-and-
+                // braces below). Clearing amount also clears reason +
+                // effective_from so the row doesn't carry stale context.
+                applyOverride(existing, request.billingOverrideAmount(),
+                        request.billingOverrideReason(),
+                        request.billingOverrideEffectiveFrom());
+
                 existing.setUpdatedAt(Instant.now());
                 existing.setUpdatedBy(safeParseUuid(actorId));
 
@@ -333,6 +343,60 @@ public class MemberService {
             UUID.randomUUID().toString()
         );
         return auditPublisher.publish(event);
+    }
+
+    /**
+     * Null out the override fields so billing falls back to the
+     * age-group price. Audited as a normal UPDATE so the operator
+     * can see the previous override amount in the diff. No-op when
+     * the member has no override set.
+     */
+    @Transactional
+    public Mono<Member> clearBillingOverride(UUID id, String actorId, String actorEmail) {
+        return memberRepository.findById(id)
+            .switchIfEmpty(Mono.error(new MemberNotFoundException(id)))
+            .flatMap(existing -> {
+                if (existing.getBillingOverrideAmount() == null) {
+                    return Mono.just(existing);
+                }
+                var previous = copyMember(existing);
+                existing.setBillingOverrideAmount(null);
+                existing.setBillingOverrideReason(null);
+                existing.setBillingOverrideEffectiveFrom(null);
+                existing.setUpdatedAt(Instant.now());
+                existing.setUpdatedBy(safeParseUuid(actorId));
+                return memberRepository.save(existing)
+                    .flatMap(saved -> Mono.deferContextual(ctx -> {
+                        String tenantId = TenantContext.get(ctx);
+                        return publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE")
+                            .thenReturn(saved);
+                    }));
+            });
+    }
+
+    /**
+     * Apply a billing-override payload to a Member. Three-way semantics:
+     * <ul>
+     *   <li>amount is non-null + non-zero → set all three fields,
+     *       require effective_from (DB CHECK enforces too, but throw
+     *       earlier here for a clean 400 instead of a SQL error).</li>
+     *   <li>amount is null in the request → no change. The existing
+     *       override (if any) stays; use the explicit
+     *       /clear-billing-override endpoint to remove one.</li>
+     * </ul>
+     */
+    private static void applyOverride(Member m,
+                                       java.math.BigDecimal amount,
+                                       String reason,
+                                       java.time.LocalDate effectiveFrom) {
+        if (amount == null) return;
+        if (effectiveFrom == null) {
+            throw new IllegalArgumentException(
+                    "billingOverrideEffectiveFrom is required when billingOverrideAmount is set");
+        }
+        m.setBillingOverrideAmount(amount);
+        m.setBillingOverrideReason(reason);
+        m.setBillingOverrideEffectiveFrom(effectiveFrom);
     }
 
     private Member copyMember(Member source) {

@@ -121,4 +121,14 @@ public class MemberController {
     public Mono<MemberResponse> terminate(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
         return memberService.terminate(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(MemberResponse::from);
     }
+
+    @PostMapping("/{id}/clear-billing-override")
+    @Operation(summary = "Clear the member's per-person pricing override",
+        description = "Nulls billing_override_amount, reason, and effective_from so billing falls back to the " +
+                      "age-group price. Distinct from update so the PATCH semantics on update can stay " +
+                      "'null = no change' without ambiguity about how to remove an override.")
+    public Mono<MemberResponse> clearBillingOverride(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return memberService.clearBillingOverride(id, AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(MemberResponse::from);
+    }
 }

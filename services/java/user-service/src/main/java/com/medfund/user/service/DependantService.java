@@ -102,6 +102,21 @@ public class DependantService {
                 if (request.gender()       != null) existing.setGender(request.gender());
                 if (request.relationship() != null) existing.setRelationship(request.relationship());
                 if (request.nationalId()   != null) existing.setNationalId(request.nationalId());
+
+                // Individual-pricing override (V030). Same three-way
+                // semantics as Member: setting amount requires
+                // effective_from; clearing requires the dedicated
+                // /clear-billing-override endpoint.
+                if (request.billingOverrideAmount() != null) {
+                    if (request.billingOverrideEffectiveFrom() == null) {
+                        throw new IllegalArgumentException(
+                                "billingOverrideEffectiveFrom is required when billingOverrideAmount is set");
+                    }
+                    existing.setBillingOverrideAmount(request.billingOverrideAmount());
+                    existing.setBillingOverrideReason(request.billingOverrideReason());
+                    existing.setBillingOverrideEffectiveFrom(request.billingOverrideEffectiveFrom());
+                }
+
                 existing.setUpdatedAt(Instant.now());
                 existing.setUpdatedBy(UUID.fromString(actorId));
 
@@ -117,6 +132,42 @@ public class DependantService {
                             new String[]{"firstName", "lastName", "relationship"},
                             UUID.randomUUID().toString()
                         );
+                        return auditPublisher.publish(event).thenReturn(saved);
+                    }));
+            });
+    }
+
+    /**
+     * Null out the override fields so billing falls back to the
+     * age-group price for this dependant. Audited as a normal
+     * UPDATE; no-op when no override is set.
+     */
+    @Transactional
+    public Mono<Dependant> clearBillingOverride(UUID id, String actorId, String actorEmail) {
+        return dependantRepository.findById(id)
+            .switchIfEmpty(Mono.error(new DependantNotFoundException(id)))
+            .flatMap(existing -> {
+                if (existing.getBillingOverrideAmount() == null) {
+                    return Mono.just(existing);
+                }
+                var previousAmount = existing.getBillingOverrideAmount().toPlainString();
+                existing.setBillingOverrideAmount(null);
+                existing.setBillingOverrideReason(null);
+                existing.setBillingOverrideEffectiveFrom(null);
+                existing.setUpdatedAt(Instant.now());
+                existing.setUpdatedBy(UUID.fromString(actorId));
+                return dependantRepository.save(existing)
+                    .flatMap(saved -> Mono.deferContextual(ctx -> {
+                        String tenantId = TenantContext.get(ctx);
+                        var event = AuditEvent.create(
+                                tenantId != null ? tenantId : "unknown",
+                                "Dependant", saved.getId().toString(),
+                                saved.getFirstName() + " " + saved.getLastName(),
+                                "UPDATE", actorId, actorEmail,
+                                Map.of("billingOverrideAmount", previousAmount),
+                                Map.of("billingOverrideAmount", "cleared"),
+                                new String[]{"billingOverrideAmount"},
+                                UUID.randomUUID().toString());
                         return auditPublisher.publish(event).thenReturn(saved);
                     }));
             });

@@ -1,8 +1,11 @@
 package com.medfund.user.dto;
 
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
@@ -11,6 +14,13 @@ import java.time.LocalDate;
  * Member detail page. Non-null values are still subject to format checks
  * (e.g. {@code gender} must be one of the canonical values), but a null
  * gender or nationalId on an update is fine and leaves the column alone.
+ *
+ * <p>Individual-pricing override (Phase A / V030): same three fields
+ * as Member. {@code billingOverrideAmount} > 0 sets the per-dependant
+ * price; {@code billingOverrideEffectiveFrom} gates when it kicks in.
+ * Clear an override via the dedicated /clear-billing-override endpoint —
+ * sending null amount here leaves the existing override untouched
+ * (consistent with the rest of the patch semantics).
  */
 public record UpdateDependantRequest(
     @Size(max = 100) String firstName,
@@ -20,5 +30,13 @@ public record UpdateDependantRequest(
         message = "gender must be male, female, or other")
     @Size(max = 10) String gender,
     @Size(max = 50) String relationship,
-    @Size(max = 50) String nationalId
+    @Size(max = 50) String nationalId,
+
+    @DecimalMin(value = "0.01", message = "Override amount must be positive")
+    @Digits(integer = 15, fraction = 4)
+    BigDecimal billingOverrideAmount,
+
+    @Size(max = 40) String billingOverrideReason,
+
+    LocalDate billingOverrideEffectiveFrom
 ) {}
