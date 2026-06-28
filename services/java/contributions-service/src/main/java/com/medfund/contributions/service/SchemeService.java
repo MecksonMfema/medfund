@@ -1,5 +1,6 @@
 package com.medfund.contributions.service;
 
+import java.math.BigDecimal;
 import com.medfund.contributions.dto.CreateAgeGroupRequest;
 import com.medfund.contributions.dto.UpdateAgeGroupRequest;
 import com.medfund.contributions.dto.CreateSchemeBenefitRequest;
@@ -47,19 +48,77 @@ public class SchemeService {
     private final SchemeQueryRepository schemeQueryRepository;
     private final SchemeBenefitQueryRepository schemeBenefitQueryRepository;
     private final AuditPublisher auditPublisher;
+    private final org.springframework.r2dbc.core.DatabaseClient db;
 
     public SchemeService(SchemeRepository schemeRepository,
                          SchemeBenefitRepository schemeBenefitRepository,
                          AgeGroupRepository ageGroupRepository,
                          SchemeQueryRepository schemeQueryRepository,
                          SchemeBenefitQueryRepository schemeBenefitQueryRepository,
-                         AuditPublisher auditPublisher) {
+                         AuditPublisher auditPublisher,
+                         org.springframework.r2dbc.core.DatabaseClient db) {
         this.schemeRepository = schemeRepository;
         this.schemeBenefitRepository = schemeBenefitRepository;
         this.ageGroupRepository = ageGroupRepository;
         this.schemeQueryRepository = schemeQueryRepository;
         this.schemeBenefitQueryRepository = schemeBenefitQueryRepository;
         this.auditPublisher = auditPublisher;
+        this.db = db;
+    }
+
+    /**
+     * Seed the price-history row for a newly-created age group. The
+     * effective_from is today; effective_to is NULL ("currently
+     * active"). Called from createAgeGroup so every age_group has at
+     * least one price row from creation onward.
+     */
+    private Mono<Void> insertCurrentPrice(UUID ageGroupId, BigDecimal amount, String currency, UUID actorUuid) {
+        return db.sql("""
+                INSERT INTO age_group_prices
+                    (age_group_id, contribution_amount, currency_code, effective_from, created_by)
+                VALUES (:ageGroupId, :amount, :currency, CURRENT_DATE, :actor)
+                """)
+            .bind("ageGroupId", ageGroupId)
+            .bind("amount", amount)
+            .bind("currency", currency)
+            .bind("actor", actorUuid != null ? actorUuid : java.util.UUID.randomUUID())
+            .then();
+    }
+
+    /**
+     * Version the price when the billable fields change. Closes the
+     * currently-active row (sets effective_to = today - 1) and
+     * inserts a new row with effective_from = today. The
+     * denormalised age_groups.contribution_amount + currency_code
+     * stay in sync as the "current" cache.
+     *
+     * <p>No-op when neither the amount nor the currency changed —
+     * trivial edits (name, age band) don't pollute history.
+     */
+    private Mono<Void> versionPriceIfChanged(UUID ageGroupId,
+                                              BigDecimal oldAmount, String oldCurrency,
+                                              BigDecimal newAmount, String newCurrency,
+                                              UUID actorUuid) {
+        boolean amountChanged   = oldAmount != null && newAmount != null
+                                  && oldAmount.compareTo(newAmount) != 0;
+        boolean currencyChanged = oldCurrency != null && !oldCurrency.equals(newCurrency);
+        if (!amountChanged && !currencyChanged) {
+            return Mono.empty();
+        }
+        return db.sql("""
+                UPDATE age_group_prices
+                   SET effective_to = CURRENT_DATE - INTERVAL '1 day'
+                 WHERE age_group_id = :ageGroupId
+                   AND effective_to IS NULL
+                """)
+            .bind("ageGroupId", ageGroupId)
+            .then()
+            .then(insertCurrentPrice(ageGroupId, newAmount, newCurrency, actorUuid));
+    }
+
+    private static UUID parseUuidOrNull(String s) {
+        if (s == null || s.isBlank()) return null;
+        try { return UUID.fromString(s); } catch (IllegalArgumentException e) { return null; }
     }
 
     public Flux<Scheme> findAll() {
@@ -371,6 +430,9 @@ public class SchemeService {
 
                 return ageGroupRepository.save(ageGroup);
             })
+            .flatMap(saved -> insertCurrentPrice(saved.getId(),
+                    saved.getContributionAmount(), saved.getCurrencyCode(),
+                    parseUuidOrNull(actorId)).thenReturn(saved))
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
                 return publishAudit(tenantId, "AgeGroup", saved.getId().toString(), saved.getName(),
@@ -395,7 +457,9 @@ public class SchemeService {
             .flatMap(existing -> schemeRepository.findById(existing.getSchemeId())
                 .switchIfEmpty(Mono.error(new SchemeNotFoundException(existing.getSchemeId())))
                 .flatMap(scheme -> {
-                    String previousName = existing.getName();
+                    String previousName     = existing.getName();
+                    BigDecimal previousAmount   = existing.getContributionAmount();
+                    String     previousCurrency = existing.getCurrencyCode();
                     String resolvedCurrency = resolveChildCurrency(scheme, request.currencyCode());
 
                     existing.setName(request.name());
@@ -405,6 +469,10 @@ public class SchemeService {
                     existing.setCurrencyCode(resolvedCurrency);
 
                     return ageGroupRepository.save(existing)
+                        .flatMap(saved -> versionPriceIfChanged(saved.getId(),
+                                previousAmount, previousCurrency,
+                                saved.getContributionAmount(), saved.getCurrencyCode(),
+                                parseUuidOrNull(actorId)).thenReturn(saved))
                         .flatMap(saved -> Mono.deferContextual(ctx -> {
                             String tenantId = TenantContext.get(ctx);
                             return publishAudit(tenantId, "AgeGroup", saved.getId().toString(), saved.getName(),

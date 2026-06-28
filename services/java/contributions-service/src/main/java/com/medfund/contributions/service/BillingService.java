@@ -295,7 +295,7 @@ public class BillingService {
      * tenant pricing rules, and returns counts/totals. No persistence.
      */
     public Mono<BillingPreviewResponse> previewBilling(PreviewBillingRequest req) {
-        return resolveCandidates(req.groupIds(), req.memberIds(), req.periodStart())
+        return resolveCandidates(req.groupIds(), req.memberIds(), req.periodStart(), req.periodEnd())
                 .flatMap(candidate -> applyPricing(candidate, req.periodStart(), req.periodEnd()))
                 .collectList()
                 .zipWith(billingCycleConfigRepository.findById(BillingCycleConfig.SINGLETON_ID)
@@ -355,7 +355,7 @@ public class BillingService {
         UUID actorUuid = parseUuid(actorId);
         Instant now = Instant.now();
 
-        return resolveCandidates(req.groupIds(), req.memberIds(), req.periodStart())
+        return resolveCandidates(req.groupIds(), req.memberIds(), req.periodStart(), req.periodEnd())
                 .flatMap(candidate -> applyPricing(candidate, req.periodStart(), req.periodEnd())
                         .flatMap(priced -> persistContribution(priced, req, actorUuid, now)))
                 .collectList()
@@ -572,7 +572,7 @@ public class BillingService {
      * in full — billing covers every active scheme by design.
      */
     private Flux<PersonCandidate> resolveCandidates(List<UUID> groupIds, List<UUID> memberIds,
-                                                    LocalDate periodStart) {
+                                                    LocalDate periodStart, LocalDate periodEnd) {
         // One row per INSURED PERSON — the member's own line plus a line per
         // active dependant — with the effective age-group resolved via
         // COALESCE(billing_override, canonical) gated by the override's
@@ -583,6 +583,12 @@ public class BillingService {
         // dependant_id IS NULL on the member's line; it is set on the
         // dependant's line. member_id is always the parent member used for
         // invoice routing.
+        // Price lookup: LATERAL join to the age_group_prices row that
+        // was active for this billing period — the row whose
+        // [effective_from, effective_to] range overlaps [periodStart,
+        // periodEnd]. This keeps retrospective runs deterministic
+        // even after the tenant edits the price; today's amount is
+        // not retroactively applied to last month's bill.
         StringBuilder sql = new StringBuilder("""
                 SELECT m.id                AS member_id,
                        NULL::uuid          AS dependant_id,
@@ -602,8 +608,8 @@ public class BillingService {
                            ELSE m.age_group_id
                        END                 AS effective_age_group_id,
                        ag.name              AS age_band_name,
-                       ag.contribution_amount AS price_amount,
-                       ag.currency_code       AS price_currency
+                       p.contribution_amount AS price_amount,
+                       p.currency_code       AS price_currency
                   FROM members m
                   JOIN schemes s     ON s.id = m.scheme_id
                   LEFT JOIN groups g ON g.id = m.group_id
@@ -614,14 +620,32 @@ public class BillingService {
                            THEN m.billing_age_group_id
                            ELSE m.age_group_id
                        END
+                  LEFT JOIN LATERAL (
+                       SELECT contribution_amount, currency_code
+                         FROM age_group_prices
+                        WHERE age_group_id = ag.id
+                          AND effective_from <= :periodEnd
+                          AND (effective_to IS NULL OR effective_to >= :periodStart)
+                        ORDER BY effective_from DESC
+                        LIMIT 1
+                  ) p ON TRUE
                  -- Billing covers active + suspended members so a brief
                  -- subscription pause doesn't drop them out of arrears
                  -- tracking. Terminated / closed members are excluded.
                  -- Group-routed members additionally require their group
                  -- to be active — a non-active group has no liaison to
                  -- invoice and its membership is effectively frozen.
+                 --
+                 -- enrollment_date gates retrospective runs: a member
+                 -- enrolled in June must not appear in May's bill. The
+                 -- DB enforces enrollment is always 1st-of-month (see
+                 -- members_enrollment_date_first_of_month constraint),
+                 -- so comparing against periodEnd is sufficient — anyone
+                 -- enrolled by the last day of the billing period
+                 -- qualifies for that period and every period after.
                  WHERE m.status IN ('active', 'suspended')
                    AND (m.group_id IS NULL OR g.status = 'active')
+                   AND m.enrollment_date <= :periodEnd
                 """);
         if (groupIds  != null && !groupIds.isEmpty())  sql.append(" AND m.group_id = ANY(:groupIds) ");
         if (memberIds != null && !memberIds.isEmpty()) sql.append(" AND m.id       = ANY(:memberIds) ");
@@ -648,8 +672,8 @@ public class BillingService {
                            ELSE d.age_group_id
                        END                 AS effective_age_group_id,
                        ag.name              AS age_band_name,
-                       ag.contribution_amount AS price_amount,
-                       ag.currency_code       AS price_currency
+                       p.contribution_amount AS price_amount,
+                       p.currency_code       AS price_currency
                   FROM dependants d
                   JOIN members m     ON m.id = d.member_id
                   JOIN schemes s     ON s.id = m.scheme_id
@@ -661,17 +685,34 @@ public class BillingService {
                            THEN d.billing_age_group_id
                            ELSE d.age_group_id
                        END
+                  LEFT JOIN LATERAL (
+                       SELECT contribution_amount, currency_code
+                         FROM age_group_prices
+                        WHERE age_group_id = ag.id
+                          AND effective_from <= :periodEnd
+                          AND (effective_to IS NULL OR effective_to >= :periodStart)
+                        ORDER BY effective_from DESC
+                        LIMIT 1
+                  ) p ON TRUE
                  -- Dependants follow the same active+suspended rule as
                  -- their parent member; both must qualify for the
-                 -- dependant line to bill.
+                 -- dependant line to bill. Dependants have no
+                 -- enrollment_date column — created_at::date is the
+                 -- best available proxy for "when they joined the
+                 -- household on cover". They also can't bill earlier
+                 -- than their parent member's enrollment_date.
                  WHERE d.status IN ('active', 'suspended')
                    AND m.status IN ('active', 'suspended')
                    AND (m.group_id IS NULL OR g.status = 'active')
+                   AND m.enrollment_date <= :periodEnd
+                   AND d.created_at::date <= :periodEnd
                 """);
         if (groupIds  != null && !groupIds.isEmpty())  sql.append(" AND m.group_id = ANY(:groupIds) ");
         if (memberIds != null && !memberIds.isEmpty()) sql.append(" AND m.id       = ANY(:memberIds) ");
 
-        var spec = db.sql(sql.toString()).bind("periodStart", periodStart);
+        var spec = db.sql(sql.toString())
+                .bind("periodStart", periodStart)
+                .bind("periodEnd",   periodEnd);
         if (groupIds  != null && !groupIds.isEmpty())  spec = spec.bind("groupIds",  groupIds.toArray(UUID[]::new));
         if (memberIds != null && !memberIds.isEmpty()) spec = spec.bind("memberIds", memberIds.toArray(UUID[]::new));
 

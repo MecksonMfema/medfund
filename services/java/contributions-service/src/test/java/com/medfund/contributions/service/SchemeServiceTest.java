@@ -49,8 +49,28 @@ class SchemeServiceTest {
     @Mock
     private AuditPublisher auditPublisher;
 
+    @Mock
+    private org.springframework.r2dbc.core.DatabaseClient db;
+    @Mock
+    private org.springframework.r2dbc.core.DatabaseClient.GenericExecuteSpec dbExec;
+
     @InjectMocks
     private SchemeService schemeService;
+
+    /**
+     * The age-group create/update paths call {@code db.sql(...).bind(...).then()}
+     * to insert/version the price-history row. Stub the chain so the
+     * mainline tests can ignore the price-history side-effect — its
+     * own behaviour is covered by an integration test.
+     */
+    @org.junit.jupiter.api.BeforeEach
+    void stubPriceHistoryDbChain() {
+        org.mockito.Mockito.lenient().when(db.sql(org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(dbExec);
+        org.mockito.Mockito.lenient().when(dbExec.bind(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any())).thenReturn(dbExec);
+        org.mockito.Mockito.lenient().when(dbExec.then()).thenReturn(Mono.empty());
+    }
 
     private final String actorId = UUID.randomUUID().toString();
     private final String actorEmail = "actor@test.example";
