@@ -45,6 +45,15 @@ export interface Tenant {
    * cached snapshots so the picker stays usable.
    */
   membershipModel?: 'INDIVIDUAL_ONLY' | 'GROUP_ONLY' | 'BOTH';
+
+  /**
+   * How premium amounts are computed per candidate. STANDARD = the
+   * scheme/age-group default; INDIVIDUAL = honour each member's
+   * billing_override_amount when set; AI_DRIVEN = multiply the
+   * standard by the ai-service risk multiplier. Set in Settings →
+   * Billing → Pricing mode by tenant admins (V118/V119 backend).
+   */
+  pricingModel?: 'STANDARD' | 'INDIVIDUAL' | 'AI_DRIVEN';
 }
 
 const SESSION_KEY = 'medfund_current_tenant';

@@ -9,6 +9,7 @@ import { EntityPickerComponent } from '../../../../shared/components/entity-pick
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { TenantService } from '../../../../core/services/tenant.service';
 
 interface MemberForm {
   firstName: string;
@@ -20,6 +21,15 @@ interface MemberForm {
   address: string;
   groupId: string;
   schemeId: string;
+  /**
+   * Custom-premium triple (V030). Only rendered + sent when the tenant's
+   * pricingModel === 'INDIVIDUAL'. The backend enforces that
+   * effectiveFrom is non-null when amount is set; the form mirrors that
+   * client-side so we surface a 400 as a friendly inline message.
+   */
+  billingOverrideAmount: number | null;
+  billingOverrideReason: string;
+  billingOverrideEffectiveFrom: string;
 }
 
 interface DependantForm {
@@ -52,6 +62,7 @@ export class MemberDetailComponent implements OnInit {
   form: MemberForm = {
     firstName: '', lastName: '', gender: '', nationalId: '',
     email: '', phone: '', address: '', groupId: '', schemeId: '',
+    billingOverrideAmount: null, billingOverrideReason: '', billingOverrideEffectiveFrom: '',
   };
 
   dependants: Dependant[] = [];
@@ -93,7 +104,13 @@ export class MemberDetailComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private toast: ToastService,
+    private tenantSvc: TenantService,
   ) {}
+
+  /** Whether the Custom-premium section + Clear-override button render. */
+  get individualPricing(): boolean {
+    return this.tenantSvc.getTenant()?.pricingModel === 'INDIVIDUAL';
+  }
 
   ngOnInit(): void {
     this.memberId = this.route.snapshot.paramMap.get('id') ?? '';
@@ -122,6 +139,9 @@ export class MemberDetailComponent implements OnInit {
           address:    (m as any).address ?? '',
           groupId:    m.groupId ?? '',
           schemeId:   m.schemeId ?? '',
+          billingOverrideAmount: m.billingOverrideAmount ?? null,
+          billingOverrideReason: m.billingOverrideReason ?? '',
+          billingOverrideEffectiveFrom: m.billingOverrideEffectiveFrom ?? '',
         };
         this.loading = false;
         this.loadPrefillLabels(m);
@@ -165,7 +185,18 @@ export class MemberDetailComponent implements OnInit {
   save(): void {
     this.saving = true;
     this.errorMessage = null;
-    const payload = {
+    // INDIVIDUAL pricing: amount + effective_from must travel together
+    // (DB CHECK + service-level guard). Surface the gap inline so we
+    // don't round-trip a 400.
+    if (this.individualPricing
+        && this.form.billingOverrideAmount != null
+        && !this.form.billingOverrideEffectiveFrom) {
+      this.saving = false;
+      this.errorMessage = 'Custom premium: effective_from is required when an override amount is set.';
+      this.toast.error(this.errorMessage);
+      return;
+    }
+    const payload: any = {
       firstName:  this.form.firstName.trim()  || undefined,
       lastName:   this.form.lastName.trim()   || undefined,
       gender:     this.form.gender.trim()     || undefined,
@@ -176,6 +207,11 @@ export class MemberDetailComponent implements OnInit {
       groupId:    this.form.groupId           || undefined,
       schemeId:   this.form.schemeId          || undefined,
     };
+    if (this.individualPricing && this.form.billingOverrideAmount != null) {
+      payload.billingOverrideAmount = this.form.billingOverrideAmount;
+      payload.billingOverrideReason = this.form.billingOverrideReason.trim() || undefined;
+      payload.billingOverrideEffectiveFrom = this.form.billingOverrideEffectiveFrom;
+    }
     this.members.update(this.memberId, payload).subscribe({
       next: (updated) => {
         this.member = updated;
@@ -197,10 +233,25 @@ export class MemberDetailComponent implements OnInit {
   canActivate():  boolean { return this.member?.status === 'enrolled' || this.member?.status === 'suspended'; }
   canSuspend():   boolean { return this.member?.status === 'active'; }
   canTerminate(): boolean { return this.member?.status !== 'terminated'; }
+  canClearOverride(): boolean { return this.member?.billingOverrideAmount != null; }
 
   activate():  void { this.applyStatusAction('activate',  this.members.activate(this.memberId)); }
   suspend():   void { this.applyStatusAction('suspend',   this.members.suspend(this.memberId)); }
   terminate(): void { this.applyStatusAction('terminate', this.members.terminate(this.memberId)); }
+
+  clearBillingOverride(): void {
+    if (!confirm('Remove this member\'s custom premium? Billing will revert to the age-group price next cycle.')) return;
+    this.members.clearBillingOverride(this.memberId).subscribe({
+      next: (updated) => {
+        this.member = updated;
+        this.form.billingOverrideAmount = null;
+        this.form.billingOverrideReason = '';
+        this.form.billingOverrideEffectiveFrom = '';
+        this.toast.success('Custom premium cleared');
+      },
+      error: (err) => this.toast.error(err?.error?.detail || 'Clear failed'),
+    });
+  }
 
   private applyStatusAction(label: string, stream: ReturnType<MembersService['activate']>): void {
     stream.subscribe({

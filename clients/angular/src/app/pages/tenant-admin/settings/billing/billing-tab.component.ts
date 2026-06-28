@@ -16,8 +16,11 @@ import {
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { AdminService } from '../../../../core/services/admin.service';
+import { TenantService } from '../../../../core/services/tenant.service';
 
-type SubSection = 'benefit-types' | 'payment-methods' | 'transaction-types' | 'dunning' | 'cycle';
+type SubSection = 'benefit-types' | 'payment-methods' | 'transaction-types' | 'dunning' | 'cycle' | 'pricing-mode';
+type PricingMode = 'STANDARD' | 'INDIVIDUAL' | 'AI_DRIVEN';
 
 interface BenefitTypeDraft extends UpsertBenefitTypePayload {
   id?: string;
@@ -84,6 +87,7 @@ export class TenantBillingTabComponent implements OnInit {
     { id: 'transaction-types', label: 'Transaction Types', icon: 'activity' },
     { id: 'dunning',           label: 'Dunning Rules',     icon: 'alert-triangle' },
     { id: 'cycle',             label: 'Billing Cycle',     icon: 'calendar' },
+    { id: 'pricing-mode',      label: 'Pricing Mode',      icon: 'sliders' },
   ];
 
   // ── SelectComponent options ─────────────────────────────────────────────
@@ -97,11 +101,26 @@ export class TenantBillingTabComponent implements OnInit {
     { value: 'ANNUAL',    label: 'Annual' },
     { value: 'CUSTOM',    label: 'Custom (manual only)' },
   ];
+  readonly pricingModeOptions: SelectOption[] = [
+    { value: 'STANDARD',   label: 'Standard — scheme/age-group default' },
+    { value: 'INDIVIDUAL', label: 'Individual — honour per-member overrides' },
+    { value: 'AI_DRIVEN',  label: 'AI-driven — scheme default × risk multiplier' },
+  ];
+  pricingModeDraft: PricingMode = 'STANDARD';
 
-  constructor(private svc: BillingCatalogueService) {}
+  constructor(
+    private svc: BillingCatalogueService,
+    private admin: AdminService,
+    private tenantSvc: TenantService,
+  ) {}
 
   ngOnInit(): void {
     this.loadAll();
+    // Seed the dropdown from the cached tenant snapshot so the field
+    // reflects the saved value when the operator opens the tab. Falls
+    // back to STANDARD when the tenant predates the column.
+    const t = this.tenantSvc.getTenant();
+    this.pricingModeDraft = (t?.pricingModel as PricingMode) || 'STANDARD';
   }
 
   loadAll(): void {
@@ -252,6 +271,26 @@ export class TenantBillingTabComponent implements OnInit {
     this.saving = true;
     this.svc.upsertCycle(this.cycleDraft).subscribe({
       next: (saved) => { this.cycle = saved; this.cycleDraft = { ...saved }; this.saving = false; this.flash('Billing cycle saved'); },
+      error: (err) => { this.saving = false; this.errorMessage = err?.error?.detail || 'Save failed'; },
+    });
+  }
+
+  savePricingMode(): void {
+    const t = this.tenantSvc.getTenant();
+    if (!t?.id) {
+      this.errorMessage = 'No tenant in session — refresh and try again';
+      return;
+    }
+    this.saving = true;
+    this.admin.updateTenant(t.id, { pricingModel: this.pricingModeDraft }).subscribe({
+      next: () => {
+        this.saving = false;
+        // Refresh the cached snapshot so the new value is visible to
+        // every other surface (member forms, billing wizard) without
+        // a logout/login round-trip.
+        this.tenantSvc.setTenant({ ...t, pricingModel: this.pricingModeDraft });
+        this.flash('Pricing mode saved');
+      },
       error: (err) => { this.saving = false; this.errorMessage = err?.error?.detail || 'Save failed'; },
     });
   }

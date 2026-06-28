@@ -16,6 +16,15 @@ export interface Member {
   schemeId: string | null;
   enrollmentDate: string;
   createdAt: string;
+  /**
+   * Per-member custom premium (Phase A — V030). Non-null when an
+   * operator has set a personal price that overrides the scheme's
+   * age-group default. Only honoured when the tenant's pricingModel
+   * is 'INDIVIDUAL'. Cleared via /members/{id}/clear-billing-override.
+   */
+  billingOverrideAmount?: number | null;
+  billingOverrideReason?: string | null;
+  billingOverrideEffectiveFrom?: string | null;
 }
 
 export interface Dependant {
@@ -71,6 +80,10 @@ export class MembersService {
 
   terminate(id: string): Observable<Member> {
     return this.api.post<Member>(`/members/${id}/terminate`, {});
+  }
+
+  clearBillingOverride(id: string): Observable<Member> {
+    return this.api.post<Member>(`/members/${id}/clear-billing-override`, {});
   }
 
   /** All members belonging to a group — used by GroupDetailComponent. */

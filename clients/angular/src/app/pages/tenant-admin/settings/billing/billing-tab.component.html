@@ -287,5 +287,42 @@
         </form>
       </section>
     }
+
+    <!-- ── Pricing mode ──────────────────────────────────────────────── -->
+    @if (active === 'pricing-mode') {
+      <section class="section">
+        <header class="section-header">
+          <div>
+            <h3 class="section-title">Pricing Mode</h3>
+            <p class="section-sub">How premium amounts are computed across every billing run. Choose Standard for the scheme/age-group default, Individual to honour per-member custom premiums, or AI-driven to scale the default by the per-candidate risk multiplier from the ai-service.</p>
+          </div>
+        </header>
+
+        <form class="cfg-form" (submit)="$event.preventDefault(); savePricingMode()">
+          <label class="field">
+            <span class="field-label">Mode</span>
+            <app-select
+              [(ngModel)]="pricingModeDraft"
+              name="pricingMode"
+              [options]="pricingModeOptions"
+            ></app-select>
+          </label>
+          <p class="muted">
+            @if (pricingModeDraft === 'STANDARD') {
+              Every candidate is priced from the scheme's default — for HEALTH that's the age-group price, for other lines the scheme's flat default_premium.
+            }
+            @if (pricingModeDraft === 'INDIVIDUAL') {
+              Members and assets with a billing_override_amount set use that value (once their effective_from date has been reached); everyone else falls back to the scheme default.
+            }
+            @if (pricingModeDraft === 'AI_DRIVEN') {
+              The scheme default is multiplied by the AI risk multiplier from the line-specific scorer (health: age + medical history, motor: vehicle + driver profile, etc.). Audit trail records the model version, factors, and score.
+            }
+          </p>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" [disabled]="saving">Save pricing mode</button>
+          </div>
+        </form>
+      </section>
+    }
   }
 </div>

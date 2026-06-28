@@ -57,6 +57,12 @@ export interface Tenant {
   settings?: string;
   /** Raw JSON string as returned by the tenancy service. */
   branding?: string;
+  /**
+   * Pricing mode (V118/V119). STANDARD | INDIVIDUAL | AI_DRIVEN.
+   * Drives whether billing honours per-member overrides and/or
+   * applies the AI risk multiplier.
+   */
+  pricingModel?: 'STANDARD' | 'INDIVIDUAL' | 'AI_DRIVEN';
   createdAt: string;
 }
 
@@ -366,7 +372,7 @@ export class AdminService {
     return this.api.post<Tenant>('/tenants', data);
   }
 
-  updateTenant(id: string, data: { name?: string; domain?: string; contactEmail?: string; timezone?: string; membershipModel?: string; settings?: string; branding?: string }): Observable<Tenant> {
+  updateTenant(id: string, data: { name?: string; domain?: string; contactEmail?: string; timezone?: string; membershipModel?: string; settings?: string; branding?: string; pricingModel?: 'STANDARD' | 'INDIVIDUAL' | 'AI_DRIVEN' }): Observable<Tenant> {
     return this.api.put<Tenant>(`/tenants/${id}`, data);
   }
 

@@ -16,6 +16,7 @@
         @if (canActivate())  { <button type="button" class="btn small"          (click)="activate()">Activate</button>  }
         @if (canSuspend())   { <button type="button" class="btn small warn"     (click)="suspend()">Suspend</button>   }
         @if (canTerminate()) { <button type="button" class="btn small danger"   (click)="terminate()">Terminate</button> }
+        @if (canClearOverride()) { <button type="button" class="btn small"     (click)="clearBillingOverride()">Clear custom premium</button> }
       </div>
     }
   </header>
@@ -106,6 +107,37 @@
         </button>
       </div>
     </section>
+
+    <!-- ── Custom premium (INDIVIDUAL pricing mode only) ───────── -->
+    @if (individualPricing) {
+      <section class="card">
+        <h2>Custom premium</h2>
+        <p class="muted">
+          Override this member's age-group price with a personal amount.
+          Effective from the chosen date; billing falls back to the
+          age-group default for any period before then. Clear via the
+          button in the header.
+        </p>
+        <div class="form-grid">
+          <div class="field">
+            <label>Override amount</label>
+            <input type="number" min="0.01" step="0.01"
+                   [(ngModel)]="form.billingOverrideAmount" />
+          </div>
+          <div class="field">
+            <label>Effective from</label>
+            <input type="date" [(ngModel)]="form.billingOverrideEffectiveFrom" />
+          </div>
+          <div class="field span-2">
+            <label>Reason (max 40 chars)</label>
+            <input type="text" maxlength="40"
+                   [(ngModel)]="form.billingOverrideReason"
+                   placeholder="e.g. corporate discount, hardship rate" />
+          </div>
+        </div>
+        <p class="muted">Saved together with the Save changes button above.</p>
+      </section>
+    }
 
     <!-- ── Dependants ──────────────────────────────────────────── -->
     <section class="card">

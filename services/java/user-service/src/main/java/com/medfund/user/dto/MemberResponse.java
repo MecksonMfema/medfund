@@ -2,6 +2,7 @@ package com.medfund.user.dto;
 
 import com.medfund.user.entity.Member;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -23,6 +24,9 @@ public record MemberResponse(
     String status,
     LocalDate enrollmentDate,
     LocalDate terminationDate,
+    BigDecimal billingOverrideAmount,
+    String billingOverrideReason,
+    LocalDate billingOverrideEffectiveFrom,
     Instant createdAt,
     Instant updatedAt
 ) {
@@ -33,6 +37,9 @@ public record MemberResponse(
             m.getEmail(), m.getPhone(), m.getAddress(),
             m.getGroupId(), m.getSchemeId(), m.getKeycloakUserId(),
             m.getStatus(), m.getEnrollmentDate(), m.getTerminationDate(),
+            m.getBillingOverrideAmount(),
+            m.getBillingOverrideReason(),
+            m.getBillingOverrideEffectiveFrom(),
             m.getCreatedAt(), m.getUpdatedAt()
         );
     }
