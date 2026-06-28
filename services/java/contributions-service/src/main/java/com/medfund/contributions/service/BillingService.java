@@ -56,6 +56,7 @@ public class BillingService {
     private final ContributionPricingService pricingService;
     private final BalanceService balanceService;
     private final DatabaseClient db;
+    private final AiPricingClient aiPricingClient;
 
     public BillingService(ContributionRepository contributionRepository,
                           InvoiceRepository invoiceRepository,
@@ -66,7 +67,8 @@ public class BillingService {
                           ContributionEventPublisher eventPublisher,
                           ContributionPricingService pricingService,
                           BalanceService balanceService,
-                          DatabaseClient db) {
+                          DatabaseClient db,
+                          AiPricingClient aiPricingClient) {
         this.contributionRepository = contributionRepository;
         this.invoiceRepository = invoiceRepository;
         this.schemeRepository = schemeRepository;
@@ -77,6 +79,7 @@ public class BillingService {
         this.pricingService = pricingService;
         this.balanceService = balanceService;
         this.db = db;
+        this.aiPricingClient = aiPricingClient;
     }
 
     public Flux<Contribution> findContributionsByMemberId(UUID memberId) {
@@ -822,12 +825,52 @@ public class BillingService {
         transient_.setStatus("pending");
 
         return pricingService.price(transient_)
+                .then(applyAiMultiplierIfEnabled(transient_, p))
                 .thenReturn(new PricedCandidate(
                         p.memberId(), p.dependantId(), p.memberNumber(), p.personName(), p.personType(),
                         p.schemeId(), p.schemeName(), p.groupId(), p.groupName(),
                         p.effectiveAgeGroupId(), p.ageBandName(),
                         transient_.getAmount() != null ? transient_.getAmount() : BigDecimal.ZERO,
                         transient_.getCurrencyCode()));
+    }
+
+    /**
+     * Phase C: when the tenant's pricing_model is AI_DRIVEN, call the
+     * ai-service /api/v1/pricing/score endpoint with the per-member
+     * signals (chronic conditions, smoking, BMI, …) and multiply the
+     * resolved amount by the returned multiplier. INDIVIDUAL overrides
+     * still win — a hand-curated billing_override_amount short-circuits
+     * the AI path because the resolved amount IS the override (see the
+     * COALESCE in resolveCandidates), and we never multiply an override
+     * value through the scorer.
+     *
+     * <p>Fails open: a network error or non-2xx response logs and
+     * leaves the amount unchanged. The billing run should never
+     * collapse on an unreachable AI service.
+     */
+    private Mono<Void> applyAiMultiplierIfEnabled(Contribution c, PersonCandidate p) {
+        if (c.getMemberId() == null) return Mono.empty();
+        return Mono.deferContextual(ctx -> getPricingModel(TenantContext.get(ctx)))
+                .flatMap(mode -> {
+                    if (!"AI_DRIVEN".equals(mode)) return Mono.empty();
+                    return aiPricingClient.score(c)
+                            .doOnNext(multiplier -> {
+                                if (multiplier != null && c.getAmount() != null) {
+                                    BigDecimal scaled = c.getAmount()
+                                            .multiply(BigDecimal.valueOf(multiplier))
+                                            .setScale(4, java.math.RoundingMode.HALF_UP);
+                                    log.info("[ai-pricing] member={} base={} multiplier={} scaled={}",
+                                            c.getMemberId(), c.getAmount(), multiplier, scaled);
+                                    c.setAmount(scaled);
+                                }
+                            })
+                            .onErrorResume(err -> {
+                                log.warn("[ai-pricing] member={} skipped — scorer error: {}",
+                                        c.getMemberId(), err.getMessage());
+                                return Mono.empty();
+                            })
+                            .then();
+                });
     }
 
     private static int cooldownRemainingMinutes(BillingCycleConfig cfg) {

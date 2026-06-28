@@ -68,18 +68,15 @@ public class ContributionFactBuilder {
     }
 
     private Mono<ContributionFact> enrichWithMember(ContributionFact f, String memberId) {
-        // {@code region} was previously selected here but no migration ever
-        // added that column to the {@code members} table. The resulting
-        // {@code column "region" does not exist} error poisoned the
-        // surrounding transaction (R2DBC's onErrorResume catches the Java
-        // exception but cannot recover the Postgres transaction state —
-        // every subsequent INSERT then returned "current transaction is
-        // aborted"). {@code memberRegion} is never read by any pricing
-        // rule, so the column is dropped from the SELECT rather than
-        // backfilled. See [[bug_public_prefix_silent_rollback]] for the
-        // sibling failure mode.
+        // The medical_history JSONB column (V031) gives the rules engine
+        // + AI scorer per-member risk signals — chronic conditions,
+        // smoking status, BMI, medication count. Selected here so rules
+        // like "if chronicConditionCount >= 2 then amount = base * 1.3"
+        // can fire without an extra round-trip. A null medical_history
+        // collapses to the safe defaults on ContributionFact (count = 0,
+        // smokingStatus = null) — no loading applied.
         return db.sql("""
-                SELECT date_of_birth, gender,
+                SELECT date_of_birth, gender, medical_history,
                        (SELECT COUNT(*) FROM dependants d
                         WHERE d.member_id = :id AND d.status = 'active') AS dependant_count
                 FROM members
@@ -94,6 +91,7 @@ public class ContributionFactBuilder {
                     f.setMemberGender(asString(row.get("gender")));
                     Object dc = row.get("dependant_count");
                     if (dc instanceof Number n) f.setDependantCount(n.intValue());
+                    applyMedicalHistory(f, row.get("medical_history"));
                     return f;
                 })
                 .defaultIfEmpty(f)
@@ -102,6 +100,40 @@ public class ContributionFactBuilder {
                             memberId, err.getMessage());
                     return Mono.just(f);
                 });
+    }
+
+    /**
+     * Project the medical_history JSONB blob onto the structured fact
+     * fields. Reads each key defensively — every signal is optional, so
+     * a member with a partial profile still yields a usable fact (rest
+     * stay at safe defaults). The blob arrives from r2dbc-postgresql as
+     * a {@code io.r2dbc.postgresql.codec.Json} wrapper; falling back to
+     * {@code toString()} keeps the parser tolerant of either shape.
+     */
+    private void applyMedicalHistory(ContributionFact f, Object raw) {
+        if (raw == null) return;
+        String json = raw.toString();
+        if (json.isBlank() || json.equals("{}")) return;
+        try {
+            com.fasterxml.jackson.databind.JsonNode node =
+                    new com.fasterxml.jackson.databind.ObjectMapper().readTree(json);
+            if (node.has("chronic_conditions") && node.get("chronic_conditions").isArray()) {
+                int count = node.get("chronic_conditions").size();
+                f.setChronicConditionCount(count);
+                if (count > 0) f.setHasChronicConditions(true);
+            }
+            if (node.hasNonNull("smoking_status")) {
+                f.setSmokingStatus(node.get("smoking_status").asText());
+            }
+            if (node.hasNonNull("bmi")) {
+                f.setBmi(new java.math.BigDecimal(node.get("bmi").asText()));
+            }
+            if (node.hasNonNull("medication_count")) {
+                f.setMedicationCount(node.get("medication_count").asInt(0));
+            }
+        } catch (Exception e) {
+            log.debug("[contribution-fact] medical_history parse failed: {}", e.getMessage());
+        }
     }
 
     /** Translates a fact (after rules have run) back into the contribution row. */

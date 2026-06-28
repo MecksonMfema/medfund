@@ -15,6 +15,7 @@ from app.api.ocr import router as ocr_router
 from app.api.chatbot import router as chatbot_router
 from app.api.forecasting import router as forecasting_router
 from app.api.analytics import router as analytics_router
+from app.api.pricing import router as pricing_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -72,3 +73,4 @@ app.include_router(ocr_router)
 app.include_router(chatbot_router)
 app.include_router(forecasting_router)
 app.include_router(analytics_router)
+app.include_router(pricing_router)

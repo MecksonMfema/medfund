@@ -52,6 +52,21 @@ public class ContributionFact {
     private int dependantCount;
     private boolean hasChronicConditions;
 
+    // ── Phase B — medical-history fact projection ────────────────────────────
+    // Sourced from members.medical_history JSONB (V031). Tenants write DRL
+    // rules referencing these fields to load premiums based on risk signals.
+    // All default to safe sentinel values so a member with no medical_history
+    // captured behaves like the legacy "unknown risk" case — no loading.
+
+    /** Number of chronic conditions logged for this member (0 when unknown). */
+    private int chronicConditionCount;
+    /** "NEVER" | "FORMER" | "CURRENT" | null when unknown. */
+    private String smokingStatus;
+    /** Body mass index, null when not captured. */
+    private java.math.BigDecimal bmi;
+    /** Active medication count (0 when unknown). */
+    private int medicationCount;
+
     /** Amount due before any rule-driven adjustments. */
     private BigDecimal baseAmount;
     /** Amount written by SET_PREMIUM rules. Reflects final billing. */
