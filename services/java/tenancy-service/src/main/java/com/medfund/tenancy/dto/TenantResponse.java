@@ -19,6 +19,8 @@ public record TenantResponse(
         String countryCode,
         String timezone,
         String membershipModel,
+        /** STANDARD or INDIVIDUAL — see V118. */
+        String pricingModel,
         String keycloakRealm,
         Instant createdAt,
         Instant updatedAt
@@ -38,6 +40,7 @@ public record TenantResponse(
                 tenant.getCountryCode(),
                 tenant.getTimezone(),
                 tenant.getMembershipModel(),
+                tenant.getPricingModel() != null ? tenant.getPricingModel() : "STANDARD",
                 tenant.getKeycloakRealm(),
                 tenant.getCreatedAt(),
                 tenant.getUpdatedAt()

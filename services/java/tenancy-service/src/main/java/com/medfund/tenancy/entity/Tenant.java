@@ -51,6 +51,12 @@ public class Tenant {
     @Column("membership_model")
     private String membershipModel;
 
+    /** Pricing source: AGE_GROUP (default — age_groups.contribution_amount)
+     *  or INDIVIDUAL (per-member billing_override_amount when set, else
+     *  age-group fallback). Set per V118. */
+    @Column("pricing_model")
+    private String pricingModel;
+
     @Column("keycloak_realm")
     private String keycloakRealm;
 

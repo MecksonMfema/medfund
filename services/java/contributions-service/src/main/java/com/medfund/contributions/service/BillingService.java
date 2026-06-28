@@ -295,7 +295,7 @@ public class BillingService {
      * tenant pricing rules, and returns counts/totals. No persistence.
      */
     public Mono<BillingPreviewResponse> previewBilling(PreviewBillingRequest req) {
-        return resolveCandidates(req.groupIds(), req.memberIds(), req.periodStart(), req.periodEnd())
+        return resolveCandidatesForTenant(req.groupIds(), req.memberIds(), req.periodStart(), req.periodEnd())
                 .flatMap(candidate -> applyPricing(candidate, req.periodStart(), req.periodEnd()))
                 .collectList()
                 .zipWith(billingCycleConfigRepository.findById(BillingCycleConfig.SINGLETON_ID)
@@ -355,7 +355,7 @@ public class BillingService {
         UUID actorUuid = parseUuid(actorId);
         Instant now = Instant.now();
 
-        return resolveCandidates(req.groupIds(), req.memberIds(), req.periodStart(), req.periodEnd())
+        return resolveCandidatesForTenant(req.groupIds(), req.memberIds(), req.periodStart(), req.periodEnd())
                 .flatMap(candidate -> applyPricing(candidate, req.periodStart(), req.periodEnd())
                         .flatMap(priced -> persistContribution(priced, req, actorUuid, now)))
                 .collectList()
@@ -528,6 +528,29 @@ public class BillingService {
         return new InvoiceProjection(groupKeys.size(), memberKeys.size());
     }
 
+    /**
+     * Read the tenant's pricing_model from public.tenants. Returns
+     * STANDARD for missing tenants or rows where the column is null —
+     * that's the safest fallback (matches every tenant's behaviour
+     * pre-V118 when the column didn't exist yet). STANDARD means
+     * "use whatever the scheme's insurance line normally prices off"
+     * (age_groups for HEALTH, sum-assured bands for LIFE, etc.);
+     * INDIVIDUAL means "honour per-member billing_override_amount
+     * when set, scheme-default as fallback".
+     */
+    private Mono<String> getPricingModel(String tenantId) {
+        if (tenantId == null) return Mono.just("STANDARD");
+        UUID tid;
+        try { tid = UUID.fromString(tenantId); }
+        catch (IllegalArgumentException e) { return Mono.just("STANDARD"); }
+        return db.sql("SELECT pricing_model FROM public.tenants WHERE id = :tenantId")
+                .bind("tenantId", tid)
+                .map(row -> row.get("pricing_model", String.class))
+                .one()
+                .defaultIfEmpty("STANDARD")
+                .onErrorReturn("STANDARD");
+    }
+
     private Mono<String> getMembershipModel(String tenantId) {
         if (tenantId == null) return Mono.just("BOTH");
         UUID tid;
@@ -566,13 +589,30 @@ public class BillingService {
     }
 
     /**
+     * Per-tenant entry point: reads the tenant's pricing_model from
+     * public.tenants and delegates to the SQL builder. Streams through
+     * a deferred lookup so the candidates Flux only starts after the
+     * model resolves.
+     */
+    private Flux<PersonCandidate> resolveCandidatesForTenant(List<UUID> groupIds, List<UUID> memberIds,
+                                                              LocalDate periodStart, LocalDate periodEnd) {
+        return Mono.deferContextual(ctx -> getPricingModel(TenantContext.get(ctx)))
+                .flatMapMany(mode -> resolveCandidates(groupIds, memberIds, periodStart, periodEnd, mode));
+    }
+
+    /**
      * Walks the {@code members} table joined to {@code schemes}, applying the
      * optional group / member filters. Returned candidates carry just enough
      * metadata for pricing + the wizard preview. Schemes are always included
      * in full — billing covers every active scheme by design.
+     *
+     * <p>{@code pricingModel} ("STANDARD" or "INDIVIDUAL") gates the
+     * per-member override CASE. STANDARD ignores overrides entirely;
+     * INDIVIDUAL applies them when set and effective.
      */
     private Flux<PersonCandidate> resolveCandidates(List<UUID> groupIds, List<UUID> memberIds,
-                                                    LocalDate periodStart, LocalDate periodEnd) {
+                                                    LocalDate periodStart, LocalDate periodEnd,
+                                                    String pricingModel) {
         // One row per INSURED PERSON — the member's own line plus a line per
         // active dependant — with the effective age-group resolved via
         // COALESCE(billing_override, canonical) gated by the override's
@@ -608,13 +648,15 @@ public class BillingService {
                            ELSE m.age_group_id
                        END                 AS effective_age_group_id,
                        ag.name              AS age_band_name,
-                       -- Per-member override takes precedence over the
-                       -- age-group price when it's set and its effective
-                       -- date has been reached for this period. Currency
-                       -- falls back to the age-group price's currency —
-                       -- billing_override_amount is just a number.
+                       -- Per-member override gated on the tenant's
+                       -- pricing_model (V118). STANDARD ignores overrides
+                       -- entirely; INDIVIDUAL honours an override when
+                       -- set and effective. Currency stays with the
+                       -- scheme-default source — billing_override_amount
+                       -- is just a number.
                        COALESCE(
-                           CASE WHEN m.billing_override_amount IS NOT NULL
+                           CASE WHEN :pricingModel = 'INDIVIDUAL'
+                                     AND m.billing_override_amount IS NOT NULL
                                      AND (m.billing_override_effective_from IS NULL
                                           OR m.billing_override_effective_from <= :periodEnd)
                                 THEN m.billing_override_amount END,
@@ -682,12 +724,12 @@ public class BillingService {
                            ELSE d.age_group_id
                        END                 AS effective_age_group_id,
                        ag.name              AS age_band_name,
-                       -- Same per-person override precedence as the
-                       -- member branch — the dependant's own override
-                       -- amount wins over the resolved age-group price
-                       -- when set and effective.
+                       -- Same gating as the member branch: STANDARD
+                       -- ignores the dependant's override; INDIVIDUAL
+                       -- honours it when set and effective.
                        COALESCE(
-                           CASE WHEN d.billing_override_amount IS NOT NULL
+                           CASE WHEN :pricingModel = 'INDIVIDUAL'
+                                     AND d.billing_override_amount IS NOT NULL
                                      AND (d.billing_override_effective_from IS NULL
                                           OR d.billing_override_effective_from <= :periodEnd)
                                 THEN d.billing_override_amount END,
@@ -730,8 +772,9 @@ public class BillingService {
         if (memberIds != null && !memberIds.isEmpty()) sql.append(" AND m.id       = ANY(:memberIds) ");
 
         var spec = db.sql(sql.toString())
-                .bind("periodStart", periodStart)
-                .bind("periodEnd",   periodEnd);
+                .bind("periodStart",  periodStart)
+                .bind("periodEnd",    periodEnd)
+                .bind("pricingModel", pricingModel != null ? pricingModel : "STANDARD");
         if (groupIds  != null && !groupIds.isEmpty())  spec = spec.bind("groupIds",  groupIds.toArray(UUID[]::new));
         if (memberIds != null && !memberIds.isEmpty()) spec = spec.bind("memberIds", memberIds.toArray(UUID[]::new));
 

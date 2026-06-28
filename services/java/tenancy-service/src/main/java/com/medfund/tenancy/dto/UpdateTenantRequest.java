@@ -21,6 +21,12 @@ public record UpdateTenantRequest(
 
         String membershipModel,
 
+        /** "STANDARD" (scheme-default pricing per insurance line, e.g.
+         *  age_groups for HEALTH) or "INDIVIDUAL" (honour per-member
+         *  billing_override_amount when set). Default STANDARD; the
+         *  DB CHECK enforces the enum. */
+        String pricingModel,
+
         String settings,
 
         String branding
