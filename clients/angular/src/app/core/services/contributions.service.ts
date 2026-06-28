@@ -197,6 +197,21 @@ export interface EnqueueBillingPayload extends BillingFilterPayload {
   insuranceLine?: string;
 }
 
+export interface RevokeBillingPayload {
+  periodStart: string;
+  periodEnd: string;
+  insuranceLine?: string;
+}
+
+export interface BillingRevokeResponse {
+  contributionsDeleted: number;
+  invoicesDeleted: number;
+  periodStart: string;
+  periodEnd: string;
+  insuranceLine: string | null;
+  revokedAt: string;
+}
+
 export interface EnqueueBillingResponse {
   configId: string;
   runId: string;
@@ -434,6 +449,17 @@ export class ContributionsService {
    */
   enqueueBilling(payload: EnqueueBillingPayload): Observable<EnqueueBillingResponse> {
     return this.api.post<EnqueueBillingResponse>('/contributions/billing/enqueue', payload);
+  }
+
+  /**
+   * Revoke a billing run for the next-month window. RBAC-gated by
+   * 'billing:revoke_billing' on the caller's permissions; the backend
+   * also enforces the next-month-only rule (returns 422 outside the
+   * window). Deletes all contributions + invoices for the (period,
+   * line) so a corrected re-commit can run.
+   */
+  revokeBilling(payload: RevokeBillingPayload): Observable<BillingRevokeResponse> {
+    return this.api.post<BillingRevokeResponse>('/contributions/billing/revoke', payload);
   }
 
   /**

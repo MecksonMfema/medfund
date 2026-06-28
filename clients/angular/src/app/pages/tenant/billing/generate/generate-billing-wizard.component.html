@@ -72,6 +72,24 @@
   @if (errorMessage) {
     <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
   }
+  @if (alreadyCommittedDetail && canRevoke && revokeWindowActive) {
+    <div class="banner banner-warn revoke-card">
+      <div>
+        <strong>This period already has contributions.</strong>
+        Revoking deletes every contribution + invoice for
+        {{ alreadyCommittedDetail.periodStart }} → {{ alreadyCommittedDetail.periodEnd }}
+        @if (alreadyCommittedDetail.insuranceLine) { ({{ lineLabel(alreadyCommittedDetail.insuranceLine) }}) }
+        so you can re-commit with corrected inputs. Only available
+        for the month immediately following today.
+      </div>
+      <div class="revoke-actions">
+        <button type="button" class="btn btn-default" (click)="alreadyCommittedDetail = null" [disabled]="revoking">Dismiss</button>
+        <button type="button" class="btn btn-danger" (click)="revoke()" [disabled]="revoking">
+          {{ revoking ? 'Revoking…' : 'Revoke and regenerate' }}
+        </button>
+      </div>
+    </div>
+  }
 
   <!-- ── Step 1: Filters ──────────────────────────────────────────────── -->
   @if (step === 'filters') {

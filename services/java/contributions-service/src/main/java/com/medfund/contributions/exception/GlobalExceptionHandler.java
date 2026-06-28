@@ -46,6 +46,30 @@ public class GlobalExceptionHandler {
         return Mono.just(problem);
     }
 
+    @ExceptionHandler(BillingPeriodAlreadyCommittedException.class)
+    public Mono<ProblemDetail> handlePeriodAlreadyCommitted(BillingPeriodAlreadyCommittedException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        problem.setType(URI.create("https://medfund.healthcare/errors/billing-period-already-committed"));
+        problem.setTitle("Billing Period Already Committed");
+        problem.setProperty("periodStart",   ex.getPeriodStart().toString());
+        problem.setProperty("periodEnd",     ex.getPeriodEnd().toString());
+        problem.setProperty("insuranceLine", ex.getInsuranceLine());
+        problem.setProperty("existingCount", ex.getExistingCount());
+        return Mono.just(problem);
+    }
+
+    @ExceptionHandler(com.medfund.contributions.exception.BillingNotRevocableException.class)
+    public Mono<ProblemDetail> handleNotRevocable(
+            com.medfund.contributions.exception.BillingNotRevocableException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+        problem.setType(URI.create("https://medfund.healthcare/errors/billing-not-revocable"));
+        problem.setTitle("Billing Period Not Revocable");
+        problem.setProperty("requestedPeriodStart",
+                ex.getRequestedPeriodStart() != null ? ex.getRequestedPeriodStart().toString() : null);
+        problem.setProperty("allowedPeriodStart", ex.getAllowedPeriodStart().toString());
+        return Mono.just(problem);
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public Mono<ProblemDetail> handleBadRequest(IllegalArgumentException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());

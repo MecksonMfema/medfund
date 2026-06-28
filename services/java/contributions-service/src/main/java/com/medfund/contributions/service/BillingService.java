@@ -8,7 +8,11 @@ import com.medfund.contributions.dto.PreviewBillingRequest;
 import com.medfund.contributions.entity.BillingCycleConfig;
 import com.medfund.contributions.entity.Contribution;
 import com.medfund.contributions.entity.Invoice;
+import com.medfund.contributions.dto.BillingRevokeResponse;
+import com.medfund.contributions.dto.RevokeBillingRequest;
 import com.medfund.contributions.exception.BillingCooldownException;
+import com.medfund.contributions.exception.BillingNotRevocableException;
+import com.medfund.contributions.exception.BillingPeriodAlreadyCommittedException;
 import com.medfund.contributions.exception.ContributionNotFoundException;
 import com.medfund.contributions.exception.InvoiceNotFoundException;
 import com.medfund.contributions.repository.AgeGroupRepository;
@@ -369,7 +373,24 @@ public class BillingService {
                     if (remaining > 0) {
                         return Mono.<BillingCommitResponse>error(new BillingCooldownException(remaining));
                     }
-                    return doCommit(req, actorId, actorEmail, cfg);
+                    // Period guard — one commit per (period, line). The
+                    // cooldown above only stops accidental double-clicks
+                    // (hours); this stops a deliberate re-commit days
+                    // later. The DB-level UNIQUE index added in V034
+                    // makes this defense-in-depth — a race that beats
+                    // the count check still hits the constraint.
+                    return contributionRepository.countByPeriodAndLine(
+                                    req.periodStart(), req.periodEnd(), req.insuranceLine())
+                            .defaultIfEmpty(0L)
+                            .flatMap(existing -> {
+                                if (existing > 0) {
+                                    return Mono.<BillingCommitResponse>error(
+                                            new BillingPeriodAlreadyCommittedException(
+                                                    req.periodStart(), req.periodEnd(),
+                                                    req.insuranceLine(), existing));
+                                }
+                                return doCommit(req, actorId, actorEmail, cfg);
+                            });
                 });
     }
 
@@ -430,6 +451,83 @@ public class BillingService {
                                 });
                             }));
                 });
+    }
+
+    // ── Revoke ─────────────────────────────────────────────────────────────
+
+    /**
+     * Delete every contribution + invoice for the (period, line) so the
+     * operator can re-commit a corrected run. Gated by a strict
+     * "next month only" window — once the requested month becomes
+     * the current month its contributions are active and changes
+     * have to go through the corrections flow instead.
+     *
+     * <p>Bound to {@code billing:revoke_billing} on the frontend (the
+     * gateway/RBAC layer doesn't enforce backend method-level permissions
+     * today; the frontend hides the button for unauthorised users).
+     */
+    @Transactional
+    public Mono<BillingRevokeResponse> revokeBilling(RevokeBillingRequest req, String actorId, String actorEmail) {
+        LocalDate allowedStart = LocalDate.now().plusMonths(1).withDayOfMonth(1);
+        if (req.periodStart() == null || !req.periodStart().equals(allowedStart)) {
+            return Mono.error(new BillingNotRevocableException(req.periodStart(), allowedStart));
+        }
+
+        Instant now = Instant.now();
+        String line = req.insuranceLine();
+
+        // Two DELETEs in one transaction: invoices first (they FK back
+        // to contribution rows via period in spirit if not in SQL),
+        // then the contributions themselves. Per-line scoping joins
+        // through schemes the same way the count query does.
+        Mono<Long> deletedInvoices = db.sql("""
+                DELETE FROM invoices
+                 WHERE period_start = :start
+                   AND period_end   = :end
+                   AND ( :line IS NULL
+                      OR EXISTS (SELECT 1 FROM schemes s
+                                  WHERE s.id = invoices.scheme_id
+                                    AND s.insurance_line = :line) )
+                """)
+                .bind("start", req.periodStart())
+                .bind("end",   req.periodEnd())
+                .bind("line",  line == null ? "" : line)
+                .fetch().rowsUpdated();
+
+        Mono<Long> deletedContributions = db.sql("""
+                DELETE FROM contributions
+                 WHERE period_start = :start
+                   AND period_end   = :end
+                   AND ( :line IS NULL
+                      OR EXISTS (SELECT 1 FROM schemes s
+                                  WHERE s.id = contributions.scheme_id
+                                    AND s.insurance_line = :line) )
+                """)
+                .bind("start", req.periodStart())
+                .bind("end",   req.periodEnd())
+                .bind("line",  line == null ? "" : line)
+                .fetch().rowsUpdated();
+
+        return deletedInvoices.zipWith(deletedContributions)
+                .flatMap(t -> Mono.deferContextual(ctx -> {
+                    String tenantId = TenantContext.get(ctx);
+                    long invoices = t.getT1();
+                    long contributions = t.getT2();
+                    log.info("[revoke] tenant={} period={} to {} line={} deleted invoices={} contributions={}",
+                            tenantId, req.periodStart(), req.periodEnd(), line, invoices, contributions);
+                    return publishAudit(tenantId, "BillingCycle", "revoke",
+                                    req.periodStart() + " to " + req.periodEnd(),
+                                    "DELETE", actorId, actorEmail,
+                                    Map.of("contributions", String.valueOf(contributions),
+                                            "invoices", String.valueOf(invoices),
+                                            "periodStart", req.periodStart().toString(),
+                                            "periodEnd", req.periodEnd().toString(),
+                                            "insuranceLine", line == null ? "(all)" : line),
+                                    null)
+                            .thenReturn(new BillingRevokeResponse(
+                                    contributions, invoices,
+                                    req.periodStart(), req.periodEnd(), line, now));
+                }));
     }
 
     // ── Membership-model-aware invoice generation ──────────────────────────

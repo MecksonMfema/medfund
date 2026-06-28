@@ -175,6 +175,21 @@ public class ContributionController {
         return billingService.generateBilling(request, AuditActor.id(jwt), AuditActor.email(jwt));
     }
 
+    @PostMapping("/billing/revoke")
+    @Operation(summary = "Revoke a billing run for next month",
+        description = "Deletes every contribution + invoice for the (period, line) so the operator can re-commit. " +
+                "Only the calendar month immediately following today is revocable — once that month becomes the " +
+                "current month the contributions are active and any correction has to go through the corrections flow.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Revoke succeeded"),
+        @ApiResponse(responseCode = "422", description = "Period outside the next-month revoke window")
+    })
+    public Mono<com.medfund.contributions.dto.BillingRevokeResponse> revokeBilling(
+            @Valid @RequestBody com.medfund.contributions.dto.RevokeBillingRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return billingService.revokeBilling(request, AuditActor.id(jwt), AuditActor.email(jwt));
+    }
+
     @PostMapping("/{id}/pay")
     @Operation(summary = "Record contribution payment")
     @ApiResponses({

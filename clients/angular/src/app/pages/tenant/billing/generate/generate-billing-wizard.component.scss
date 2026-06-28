@@ -569,3 +569,25 @@
   font-size: 0.85rem;
   color: var(--color-text-muted, #6b7280);
 }
+
+// Revoke card — only rendered when commit failed with "already
+// committed" AND caller has billing:revoke_billing AND the period is
+// in the next-month revoke window. Visually a yellow banner with
+// inline actions so the operator doesn't have to navigate away.
+.banner.revoke-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  color: #78350f;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+}
+.revoke-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}

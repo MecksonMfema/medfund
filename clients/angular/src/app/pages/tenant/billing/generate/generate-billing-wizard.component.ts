@@ -14,6 +14,7 @@ import {
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { TenantService } from '../../../../core/services/tenant.service';
+import { PermissionService } from '../../../../core/security/permission.service';
 
 /**
  * Friendly labels for the line tab strip. Matches the codes carried in
@@ -124,10 +125,62 @@ export class GenerateBillingWizardComponent implements OnInit, OnDestroy {
   availableLines: string[] = [];
   activeLine = '';
 
+  /**
+   * Set when the last enqueueBilling job failed with a "period already
+   * committed" error. Drives the inline "Revoke and regenerate" card
+   * — visible only when the operator has billing:revoke_billing AND
+   * the offending period is in the next-month window.
+   */
+  alreadyCommittedDetail: {
+    periodStart: string;
+    periodEnd: string;
+    insuranceLine: string | null;
+    existingCount: number;
+  } | null = null;
+  revoking = false;
+
   constructor(
     private contributions: ContributionsService,
     private tenantSvc: TenantService,
+    private perms: PermissionService,
   ) {}
+
+  /** Permission gate for the revoke flow — hidden when the caller can't revoke. */
+  get canRevoke(): boolean { return this.perms.hasAny(['billing:revoke_billing']); }
+
+  /**
+   * Backend rule duplicated client-side so the revoke button only
+   * appears when revoke would actually succeed. periodStart must be
+   * the first day of the calendar month immediately following today.
+   */
+  get revokeWindowActive(): boolean {
+    if (!this.alreadyCommittedDetail) return false;
+    const now = new Date();
+    const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const expected = `${next.getFullYear().toString().padStart(4, '0')}-${(next.getMonth() + 1).toString().padStart(2, '0')}-01`;
+    return this.alreadyCommittedDetail.periodStart === expected;
+  }
+
+  revoke(): void {
+    if (!this.alreadyCommittedDetail) return;
+    if (!confirm('Revoke and delete all contributions + invoices for this period? You\'ll need to re-commit to restore them.')) return;
+    this.revoking = true;
+    this.contributions.revokeBilling({
+      periodStart:  this.alreadyCommittedDetail.periodStart,
+      periodEnd:    this.alreadyCommittedDetail.periodEnd,
+      insuranceLine: this.alreadyCommittedDetail.insuranceLine ?? this.activeLine,
+    }).subscribe({
+      next: (resp) => {
+        this.revoking = false;
+        this.alreadyCommittedDetail = null;
+        this.errorMessage = `Revoked: deleted ${resp.contributionsDeleted} contribution(s) and ${resp.invoicesDeleted} invoice(s). Run commit again to regenerate.`;
+      },
+      error: (err) => {
+        this.revoking = false;
+        this.errorMessage = err?.error?.detail || err?.error?.title || 'Revoke failed';
+      },
+    });
+  }
 
   /** Friendly label for a line code — used in the tab strip + payload preview. */
   lineLabel(code: string): string { return LINE_LABELS[code] ?? code; }
@@ -453,5 +506,18 @@ export class GenerateBillingWizardComponent implements OnInit, OnDestroy {
     this.saving = false;
     const label = kind === 'preview' ? 'Preview' : 'Commit';
     this.errorMessage = run.errorMessage ? `${label} failed: ${run.errorMessage}` : `${label} failed`;
+    // Sniff the failure message for the "already committed" signature
+    // so the wizard can surface the revoke card without a separate
+    // structured-error envelope from the backend.
+    if (kind === 'commit'
+        && run.errorMessage
+        && run.errorMessage.includes('Billing already committed')) {
+      this.alreadyCommittedDetail = {
+        periodStart:   this.periodStart,
+        periodEnd:     this.periodEnd,
+        insuranceLine: this.activeLine || null,
+        existingCount: 0,
+      };
+    }
   }
 }

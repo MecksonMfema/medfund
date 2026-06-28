@@ -24,6 +24,7 @@ export type PermissionKey =
   | 'billing:view' | 'billing:manage_schemes' | 'billing:manage_age_groups'
   | 'billing:manage_waiting_periods' | 'billing:manage_groups'
   | 'billing:manage_dependants' | 'billing:generate_billing'
+  | 'billing:revoke_billing'
   | 'billing:view_statements' | 'billing:post_transactions'
   | 'billing:view_currencies' | 'billing:manage_currencies'
   | 'billing:manage_billing_settings'
