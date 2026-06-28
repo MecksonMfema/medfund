@@ -9,6 +9,25 @@
   </a>
 </header>
 
+@if (showLineTabs) {
+  <nav class="line-tabs" role="tablist" aria-label="Insurance line">
+    @for (line of availableLines; track line) {
+      <button
+        type="button"
+        role="tab"
+        class="line-tab"
+        [class.is-active]="activeLine === line"
+        [attr.aria-selected]="activeLine === line"
+        (click)="selectLine(line)">
+        {{ lineLabel(line) }}
+      </button>
+    }
+  </nav>
+  <p class="muted line-hint">
+    Each line bills separately — switching tabs starts a fresh preview/commit for the chosen line. Schemes outside the active line are ignored by the run.
+  </p>
+}
+
 <nav class="wizard-tabs" role="tablist" aria-label="Billing run steps">
   <button
     type="button"

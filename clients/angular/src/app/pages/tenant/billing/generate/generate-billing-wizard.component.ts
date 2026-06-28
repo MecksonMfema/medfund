@@ -13,6 +13,25 @@ import {
 } from '../../../../core/services/contributions.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
+import { TenantService } from '../../../../core/services/tenant.service';
+
+/**
+ * Friendly labels for the line tab strip. Matches the codes carried in
+ * tenant.insuranceLines (string[]) — VEHICLE/MOTOR are aliases per
+ * shared.insurance.InsuranceLine.from(); the wizard surfaces them as
+ * "Motor" to match what the operator sees on the schemes form.
+ */
+const LINE_LABELS: Record<string, string> = {
+  HEALTH:     'Health',
+  VEHICLE:    'Motor',
+  MOTOR:      'Motor',
+  PROPERTY:   'Property',
+  LIFE:       'Life',
+  FUNERAL:    'Funeral',
+  TRAVEL:     'Travel',
+  DISABILITY: 'Disability',
+  GROUP:      'Group',
+};
 
 type WizardStep = 'filters' | 'preview' | 'committed';
 
@@ -95,10 +114,44 @@ export class GenerateBillingWizardComponent implements OnInit, OnDestroy {
   private pollSubscription: Subscription | null = null;
   private jobStartMs = 0;
 
-  constructor(private contributions: ContributionsService) {}
+  /**
+   * Tenant's enabled insurance lines (HEALTH | VEHICLE | PROPERTY | LIFE
+   * | FUNERAL | TRAVEL | DISABILITY | GROUP). Single-line tenants see
+   * the wizard with no tabs (legacy flow). Multi-line tenants get a tab
+   * per enabled line — each tab is the same wizard skeleton but pins
+   * the active line into the enqueue payload.
+   */
+  availableLines: string[] = [];
+  activeLine = '';
+
+  constructor(
+    private contributions: ContributionsService,
+    private tenantSvc: TenantService,
+  ) {}
+
+  /** Friendly label for a line code — used in the tab strip + payload preview. */
+  lineLabel(code: string): string { return LINE_LABELS[code] ?? code; }
+
+  /** True when the wizard should render the tab strip (2+ lines enabled). */
+  get showLineTabs(): boolean { return this.availableLines.length > 1; }
+
+  /** Switch the active line tab. Resets preview/commit state so the new
+   *  line's run starts from a clean filter step. */
+  selectLine(line: string): void {
+    if (this.activeLine === line) return;
+    this.activeLine = line;
+    this.startAnother();
+  }
 
   ngOnInit(): void {
     const today = new Date();
+    // Seed the tab strip from the tenant snapshot. Fall back to [HEALTH]
+    // when the field is missing (older cached tenants predate the
+    // insuranceLines settings array) so the legacy single-line flow
+    // keeps working.
+    const lines = this.tenantSvc.getTenant()?.insuranceLines ?? [];
+    this.availableLines = lines.length > 0 ? lines : ['HEALTH'];
+    this.activeLine = this.availableLines[0];
     // Default to NEXT month — that's the normal forward-billing flow
     // (we're in June → bill for July). The user can shift it earlier for
     // a retrospective run; the input's `max` keeps them from going past
@@ -252,6 +305,10 @@ export class GenerateBillingWizardComponent implements OnInit, OnDestroy {
       kind: 'preview',
       periodStart: this.periodStart,
       periodEnd: this.periodEnd,
+      // Single-line tenants leave activeLine = 'HEALTH' (the legacy
+      // default) — sending it explicitly hardens the contract against
+      // a future backend default change.
+      insuranceLine: this.activeLine,
     };
     this.contributions.enqueueBilling(payload).subscribe({
       next: (resp) => {
@@ -277,6 +334,7 @@ export class GenerateBillingWizardComponent implements OnInit, OnDestroy {
       kind: 'commit',
       periodStart: this.periodStart,
       periodEnd: this.periodEnd,
+      insuranceLine: this.activeLine,
     };
     this.contributions.enqueueBilling(payload).subscribe({
       next: (resp) => this.pollJob(resp.configId, 'commit'),

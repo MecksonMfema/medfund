@@ -65,7 +65,10 @@ public class BillingPreviewExecutor implements ResultfulJobExecutor {
         JsonNode node = objectMapper.readTree(settings);
         LocalDate start = LocalDate.parse(node.get("periodStart").asText());
         LocalDate end = LocalDate.parse(node.get("periodEnd").asText());
-        return new PreviewBillingRequest(start, end, readUuidArray(node, "groupIds"), readUuidArray(node, "memberIds"));
+        String line = node.has("insuranceLine") && !node.get("insuranceLine").isNull()
+                ? node.get("insuranceLine").asText() : null;
+        return new PreviewBillingRequest(start, end,
+                readUuidArray(node, "groupIds"), readUuidArray(node, "memberIds"), line);
     }
 
     private static List<UUID> readUuidArray(JsonNode node, String field) {

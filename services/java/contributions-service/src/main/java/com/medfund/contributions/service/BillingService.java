@@ -317,7 +317,8 @@ public class BillingService {
      * tenant pricing rules, and returns counts/totals. No persistence.
      */
     public Mono<BillingPreviewResponse> previewBilling(PreviewBillingRequest req) {
-        return resolveCandidatesForTenant(req.groupIds(), req.memberIds(), req.periodStart(), req.periodEnd())
+        return resolveCandidatesForTenant(req.groupIds(), req.memberIds(),
+                        req.periodStart(), req.periodEnd(), req.insuranceLine())
                 .flatMap(candidate -> applyPricing(candidate, req.periodStart(), req.periodEnd()))
                 .collectList()
                 .zipWith(billingCycleConfigRepository.findById(BillingCycleConfig.SINGLETON_ID)
@@ -377,7 +378,8 @@ public class BillingService {
         UUID actorUuid = parseUuid(actorId);
         Instant now = Instant.now();
 
-        return resolveCandidatesForTenant(req.groupIds(), req.memberIds(), req.periodStart(), req.periodEnd())
+        return resolveCandidatesForTenant(req.groupIds(), req.memberIds(),
+                        req.periodStart(), req.periodEnd(), req.insuranceLine())
                 .flatMap(candidate -> applyPricing(candidate, req.periodStart(), req.periodEnd())
                         .flatMap(priced -> persistContribution(priced, req, actorUuid, now)))
                 .collectList()
@@ -772,7 +774,10 @@ public class BillingService {
         LocalDate periodStart = today.withDayOfMonth(1);
         LocalDate periodEnd = today.withDayOfMonth(today.lengthOfMonth());
         log.info("Auto billing for period {} to {}", periodStart, periodEnd);
-        CommitBillingRequest req = new CommitBillingRequest(periodStart, periodEnd, null, null);
+        // Auto-billing cron runs HEALTH by default — multi-line tenants
+        // schedule their own per-line cron entries by setting insuranceLine
+        // in the job's settings JSON.
+        CommitBillingRequest req = new CommitBillingRequest(periodStart, periodEnd, null, null, null);
         return commitBilling(req, AuditActor.SYSTEM_ID, AuditActor.SYSTEM_EMAIL)
             .doOnNext(resp -> log.info("Auto billing committed {} contributions across {} group + {} member invoices",
                 resp.contributionsCreated(), resp.groupInvoicesCreated(), resp.individualInvoicesCreated()))

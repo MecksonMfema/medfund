@@ -150,6 +150,9 @@ public class ContributionController {
         map.put("periodEnd", req.periodEnd().toString());
         if (req.groupIds() != null && !req.groupIds().isEmpty()) map.put("groupIds", req.groupIds());
         if (req.memberIds() != null && !req.memberIds().isEmpty()) map.put("memberIds", req.memberIds());
+        if (req.insuranceLine() != null && !req.insuranceLine().isBlank()) {
+            map.put("insuranceLine", req.insuranceLine());
+        }
         if ("commit".equals(req.kind())) {
             map.put("actorId", actorId);
             map.put("actorEmail", actorEmail);

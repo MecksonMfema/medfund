@@ -188,6 +188,13 @@ export interface BillingCommitResponse {
 
 export interface EnqueueBillingPayload extends BillingFilterPayload {
   kind: 'preview' | 'commit';
+  /**
+   * Multi-line wizard tab choice (Part 4.5). Omit for single-line
+   * tenants — backend defaults to HEALTH. Multi-line tenants must
+   * pick a line so the dispatcher routes to the matching
+   * CandidateResolver.
+   */
+  insuranceLine?: string;
 }
 
 export interface EnqueueBillingResponse {

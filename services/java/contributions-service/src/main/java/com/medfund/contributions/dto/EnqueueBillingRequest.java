@@ -19,5 +19,13 @@ public record EnqueueBillingRequest(
         @NotNull LocalDate periodStart,
         @NotNull LocalDate periodEnd,
         List<UUID> groupIds,
-        List<UUID> memberIds
+        List<UUID> memberIds,
+        /**
+         * Multi-line wizard tab choice (Part 4.5). Null defaults to HEALTH
+         * so the single-line tenants who've been running this endpoint
+         * since v1 see no behaviour change. The executors read this from
+         * the settings JSON and feed it to BillingService, which routes
+         * to the matching CandidateResolver.
+         */
+        String insuranceLine
 ) {}

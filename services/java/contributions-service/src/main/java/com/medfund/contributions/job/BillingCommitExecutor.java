@@ -63,7 +63,9 @@ public class BillingCommitExecutor implements ResultfulJobExecutor {
             LocalDate end = LocalDate.parse(node.get("periodEnd").asText());
             req = new CommitBillingRequest(start, end,
                 readUuidArray(node, "groupIds"),
-                readUuidArray(node, "memberIds"));
+                readUuidArray(node, "memberIds"),
+                node.has("insuranceLine") && !node.get("insuranceLine").isNull()
+                    ? node.get("insuranceLine").asText() : null);
             actorId = node.has("actorId") && !node.get("actorId").isNull()
                 ? node.get("actorId").asText() : AuditActor.SYSTEM_ID;
             actorEmail = node.has("actorEmail") && !node.get("actorEmail").isNull()
