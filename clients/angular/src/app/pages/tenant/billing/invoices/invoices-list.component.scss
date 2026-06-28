@@ -1,28 +1,68 @@
-// Layout matches /tenant/billing/schemes so reviewers see one shape
-// across the operator-facing list pages. The page-header + scheme-tabs
-// styling here mirrors contributions.component.scss; the shared
-// data-table component owns the table chrome itself.
-:host { display: block; padding: 1.5rem; }
+// Mirrors clients/angular/src/app/pages/contributions/contributions.component.scss
+// 1:1 so /tenant/billing/view and /tenant/billing/schemes look identical:
+// flush page-header banner (no host padding), underlined-tab strip flush
+// to the next banner, design-system variables for colour + spacing.
+// Route uses `fullbleed: true` so the parent layout doesn't wrap us
+// in its own padding (matches /schemes).
 
 .page-header {
-  display: flex; justify-content: space-between; align-items: flex-start;
-  gap: 1rem; margin-bottom: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
 }
-.page-header h1 { margin: 0 0 .25rem; }
-.page-sub { margin: 0; color: var(--text-muted, #6b7280); max-width: 720px; }
 
+.page-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.page-header .page-sub {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  max-width: 65ch;
+}
+
+// ── Insurance-line tabs — separate the invoices by line just as the
+// schemes page does by scheme_type. Always rendered so the operator
+// sees the separation even on a single-line tenant (the "All" + the
+// one line tab make the grouping explicit).
 .scheme-tabs {
-  display: flex; flex-wrap: wrap; gap: .25rem;
-  border-bottom: 1px solid var(--border, #d1d5db); margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
 }
+
 .scheme-tab {
-  background: transparent; border: none;
-  padding: .55rem .9rem; font-size: .9rem; font-weight: 500;
-  color: var(--text-muted, #6b7280); cursor: pointer;
-  border-bottom: 2px solid transparent; margin-bottom: -1px;
-}
-.scheme-tab:hover { color: var(--text, #111827); }
-.scheme-tab.is-active {
-  color: var(--accent, #2563eb);
-  border-bottom-color: var(--accent, #2563eb);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 4px;
+  margin: 0 8px 0 0;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+
+  &.is-active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+  }
 }

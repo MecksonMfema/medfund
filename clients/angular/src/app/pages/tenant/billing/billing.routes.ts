@@ -134,13 +134,17 @@ export const BILLING_ROUTES: Routes = [
     path: 'view',
     canActivate: [permissionGuard(['billing:view'])],
     loadComponent: () => import('./invoices/invoices-list.component').then(m => m.InvoicesListComponent),
-    data: { title: 'View Invoices', sidebar: 'operational' },
+    // fullbleed matches /tenant/billing/schemes so the page-header banner
+    // sits flush against the sidebar like the schemes page does. Without
+    // this the parent layout wraps the content in its own padding and
+    // the header banner looks inset relative to /schemes.
+    data: { title: 'View Invoices', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'view/:id',
     canActivate: [permissionGuard(['billing:view'])],
     loadComponent: () => import('./invoices/invoice-statement.component').then(m => m.InvoiceStatementComponent),
-    data: { title: 'Invoice Statement', sidebar: 'operational' },
+    data: { title: 'Invoice Statement', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'statements',
