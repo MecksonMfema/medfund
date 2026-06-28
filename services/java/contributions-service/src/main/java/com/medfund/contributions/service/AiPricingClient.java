@@ -52,13 +52,19 @@ public class AiPricingClient {
      */
     public Mono<Double> score(Contribution c) {
         if (c.getMemberId() == null || c.getAmount() == null) return Mono.empty();
-        return loadMemberSignals(c.getMemberId())
-                .flatMap(signals -> {
-                    Map<String, Object> body = new LinkedHashMap<>(signals);
-                    body.put("member_id",      c.getMemberId().toString());
-                    body.put("tenant_id",      "unknown"); // populated downstream from TenantContext
-                    body.put("base_amount",    c.getAmount().doubleValue());
-                    body.put("currency_code",  c.getCurrencyCode() != null ? c.getCurrencyCode() : "USD");
+        return loadMemberSignals(c.getMemberId()).flatMap(signals -> resolveInsuranceLine(c.getSchemeId())
+                .flatMap(line -> {
+                    Map<String, Object> body = new LinkedHashMap<>();
+                    body.put("member_id",       c.getMemberId().toString());
+                    body.put("tenant_id",       "unknown"); // populated downstream from TenantContext
+                    body.put("insurance_line",  line);
+                    body.put("base_amount",     c.getAmount().doubleValue());
+                    body.put("currency_code",   c.getCurrencyCode() != null ? c.getCurrencyCode() : "USD");
+                    // Line-agnostic attribute bag — the line's scorer reads
+                    // whatever keys it knows. HEALTH signals from medical_history
+                    // go here verbatim; future MOTOR/PROPERTY builders populate
+                    // vehicle.* / property.* keys the same way.
+                    body.put("attributes",      signals);
                     return http.post()
                             .uri("/api/v1/pricing/score")
                             .bodyValue(body)
@@ -69,7 +75,27 @@ public class AiPricingClient {
                                 if (m instanceof Number n) return n.doubleValue();
                                 return 1.0;
                             });
-                });
+                }));
+    }
+
+    /**
+     * Resolve the scheme's insurance_line so the scorer can pick the
+     * right line-specific function. Falls back to HEALTH on lookup
+     * failures — that's the only line shipped today and the safest
+     * default if a tenant somehow has a scheme with a null/missing
+     * line column.
+     */
+    private Mono<String> resolveInsuranceLine(UUID schemeId) {
+        if (schemeId == null) return Mono.just("HEALTH");
+        return db.sql("SELECT insurance_line FROM schemes WHERE id = :id")
+                .bind("id", schemeId)
+                .map(row -> {
+                    Object v = row.get("insurance_line");
+                    return v != null ? v.toString() : "HEALTH";
+                })
+                .one()
+                .defaultIfEmpty("HEALTH")
+                .onErrorReturn("HEALTH");
     }
 
     /**

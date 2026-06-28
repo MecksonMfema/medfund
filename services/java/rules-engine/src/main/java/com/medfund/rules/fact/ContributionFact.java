@@ -53,8 +53,10 @@ public class ContributionFact {
     private boolean hasChronicConditions;
 
     // ── Phase B — medical-history fact projection ────────────────────────────
-    // Sourced from members.medical_history JSONB (V031). Tenants write DRL
-    // rules referencing these fields to load premiums based on risk signals.
+    // Sourced from members.medical_history JSONB (V031). HEALTH-specific
+    // typed fields. They stay around for back-compat with rules already
+    // written against them; new rules SHOULD prefer the line-agnostic
+    // {@link #attributes} map below so the same DRL works for any line.
     // All default to safe sentinel values so a member with no medical_history
     // captured behaves like the legacy "unknown risk" case — no loading.
 
@@ -66,6 +68,37 @@ public class ContributionFact {
     private java.math.BigDecimal bmi;
     /** Active medication count (0 when unknown). */
     private int medicationCount;
+
+    // ── Line-agnostic attribute bag (Phase B follow-up) ──────────────────────
+    // Holds whatever signals the scheme's insurance line cares about — for
+    // HEALTH the medical-history projection lands here in parallel to the
+    // typed fields above; for MOTOR a tenant FactBuilder would put
+    // {"vehicle.age": 12, "vehicle.value": 8500, "driver.claims_last_3y": 2}
+    // and so on. DRL rules reference attributes via {@code fact.attribute("key")}
+    // which keeps rule syntax line-agnostic.
+    //
+    // Empty map (never null) so DRL .containsKey checks are safe.
+    private java.util.Map<String, Object> attributes = new java.util.HashMap<>();
+
+    /** Read an attribute by key. Returns null when absent — rules should
+     *  guard with isNotNull where the field is required. */
+    public Object attribute(String key) { return attributes != null ? attributes.get(key) : null; }
+
+    /** Convenience: numeric attribute or {@code 0} when absent or non-numeric. */
+    public double attributeAsDouble(String key) {
+        Object v = attribute(key);
+        if (v instanceof Number n) return n.doubleValue();
+        if (v instanceof String s) {
+            try { return Double.parseDouble(s); } catch (NumberFormatException e) { return 0; }
+        }
+        return 0;
+    }
+
+    /** Convenience: string attribute or null. */
+    public String attributeAsString(String key) {
+        Object v = attribute(key);
+        return v != null ? v.toString() : null;
+    }
 
     /** Amount due before any rule-driven adjustments. */
     private BigDecimal baseAmount;

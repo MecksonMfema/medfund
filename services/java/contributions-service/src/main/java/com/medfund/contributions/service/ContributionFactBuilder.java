@@ -103,11 +103,23 @@ public class ContributionFactBuilder {
     }
 
     /**
-     * Project the medical_history JSONB blob onto the structured fact
-     * fields. Reads each key defensively — every signal is optional, so
-     * a member with a partial profile still yields a usable fact (rest
-     * stay at safe defaults). The blob arrives from r2dbc-postgresql as
-     * a {@code io.r2dbc.postgresql.codec.Json} wrapper; falling back to
+     * Project the medical_history JSONB blob onto BOTH the structured
+     * HEALTH-specific fields AND the line-agnostic
+     * {@link ContributionFact#getAttributes() attributes} map. Rules
+     * written against the typed fields keep working; new rules SHOULD
+     * use {@code fact.attribute("key")} so the same DRL fires
+     * regardless of which line populated the attributes.
+     *
+     * <p>Per-line FactBuilder strategies (MOTOR, PROPERTY, LIFE, …)
+     * land in this same package once we ship those lines — pick the
+     * builder by {@code schemes.insurance_line} and have it populate
+     * its own attribute keys. The contract is "rules read attributes;
+     * the line's builder writes them".
+     *
+     * <p>Reads each key defensively — every signal is optional, so a
+     * member with a partial profile still yields a usable fact. The
+     * blob arrives from r2dbc-postgresql as a
+     * {@code io.r2dbc.postgresql.codec.Json} wrapper; falling back to
      * {@code toString()} keeps the parser tolerant of either shape.
      */
     private void applyMedicalHistory(ContributionFact f, Object raw) {
@@ -120,16 +132,23 @@ public class ContributionFactBuilder {
             if (node.has("chronic_conditions") && node.get("chronic_conditions").isArray()) {
                 int count = node.get("chronic_conditions").size();
                 f.setChronicConditionCount(count);
+                f.getAttributes().put("chronic_condition_count", count);
                 if (count > 0) f.setHasChronicConditions(true);
             }
             if (node.hasNonNull("smoking_status")) {
-                f.setSmokingStatus(node.get("smoking_status").asText());
+                String s = node.get("smoking_status").asText();
+                f.setSmokingStatus(s);
+                f.getAttributes().put("smoking_status", s);
             }
             if (node.hasNonNull("bmi")) {
-                f.setBmi(new java.math.BigDecimal(node.get("bmi").asText()));
+                java.math.BigDecimal bmi = new java.math.BigDecimal(node.get("bmi").asText());
+                f.setBmi(bmi);
+                f.getAttributes().put("bmi", bmi.doubleValue());
             }
             if (node.hasNonNull("medication_count")) {
-                f.setMedicationCount(node.get("medication_count").asInt(0));
+                int mc = node.get("medication_count").asInt(0);
+                f.setMedicationCount(mc);
+                f.getAttributes().put("medication_count", mc);
             }
         } catch (Exception e) {
             log.debug("[contribution-fact] medical_history parse failed: {}", e.getMessage());
