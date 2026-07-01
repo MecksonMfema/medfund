@@ -27,6 +27,12 @@ type Config struct {
 	// as the legacy export.GeneratePDF behaviour — so the service can
 	// boot in test/dev environments without the binary installed.
 	WkhtmltopdfBin string
+
+	// Base URL of the contributions-service used to fetch the full
+	// render payload (invoice + statement + contributions) at PDF
+	// render time. The endpoint is `/api/v1/internal/invoices/{id}/render-payload`
+	// and is permitted without JWT but still requires X-Tenant-ID.
+	ContributionsBaseURL string
 }
 
 func Load() *Config {
@@ -44,8 +50,9 @@ func Load() *Config {
 		MinIOBucket:    getEnv("MINIO_BUCKET", "medfund-invoices"),
 		MinIOUseSSL:    getEnv("MINIO_USE_SSL", "false"),
 
-		KafkaBrokers:   getEnv("KAFKA_BROKERS", "localhost:9092"),
-		WkhtmltopdfBin: getEnv("WKHTMLTOPDF_BIN", "wkhtmltopdf"),
+		KafkaBrokers:         getEnv("KAFKA_BROKERS", "localhost:9092"),
+		WkhtmltopdfBin:       getEnv("WKHTMLTOPDF_BIN", "wkhtmltopdf"),
+		ContributionsBaseURL: getEnv("CONTRIBUTIONS_BASE_URL", "http://localhost:8084"),
 	}
 }
 

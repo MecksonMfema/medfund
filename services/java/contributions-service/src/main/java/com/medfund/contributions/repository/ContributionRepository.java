@@ -52,4 +52,25 @@ public interface ContributionRepository extends R2dbcRepository<Contribution, UU
                                 AND s.insurance_line = :insuranceLine) )
             """)
     Mono<Long> countByPeriodAndLine(LocalDate start, LocalDate end, String insuranceLine);
+
+    /**
+     * Stream every contribution row for the (period, line) tuple. Used by
+     * {@link com.medfund.contributions.service.BillingService#revokeBilling}
+     * to reverse each row's running-balance debit before the DELETE
+     * statement removes it.
+     *
+     * <p>{@code insuranceLine} follows the same null-vs-scoped semantics
+     * as {@link #countByPeriodAndLine}: null counts every scheme, non-null
+     * filters via the schemes join.
+     */
+    @Query("""
+            SELECT c.* FROM contributions c
+             WHERE c.period_start = :start
+               AND c.period_end   = :end
+               AND ( :insuranceLine IS NULL
+                  OR EXISTS (SELECT 1 FROM schemes s
+                              WHERE s.id = c.scheme_id
+                                AND s.insurance_line = :insuranceLine) )
+            """)
+    Flux<Contribution> findByPeriodAndLine(LocalDate start, LocalDate end, String insuranceLine);
 }

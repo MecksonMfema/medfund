@@ -7,17 +7,27 @@
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1a1f2c; margin: 40px; }
     .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e3e7ee; padding-bottom: 24px; margin-bottom: 32px; }
     .header h1 { margin: 0 0 4px 0; font-size: 28px; letter-spacing: 0.02em; }
-    .header .meta { color: #5b6371; font-size: 13px; }
-    .recipient { background: #f6f8fb; border-radius: 8px; padding: 16px 20px; margin-bottom: 32px; }
+    .header .meta { color: #5b6371; font-size: 13px; line-height: 1.6; }
+    .recipient { background: #f6f8fb; border-radius: 8px; padding: 16px 20px; margin-bottom: 28px; }
     .recipient .label { text-transform: uppercase; color: #5b6371; font-size: 11px; letter-spacing: 0.08em; }
     .recipient .value { font-size: 16px; margin-top: 4px; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
-    th { text-align: left; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #5b6371; border-bottom: 1px solid #e3e7ee; padding: 12px 8px; }
-    td { padding: 14px 8px; border-bottom: 1px solid #f0f3f7; font-size: 14px; }
+
+    .section-title { margin: 28px 0 10px 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: #5b6371; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+    th { text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #5b6371; border-bottom: 1px solid #e3e7ee; padding: 10px 8px; }
+    td { padding: 10px 8px; border-bottom: 1px solid #f0f3f7; font-size: 13px; }
     .right { text-align: right; }
-    .totals { margin-left: auto; width: 320px; }
-    .totals tr td { border: none; padding: 6px 8px; }
-    .totals .grand td { border-top: 2px solid #1a1f2c; font-size: 18px; font-weight: 700; padding-top: 12px; }
+    .muted { color: #8a94a6; font-size: 12px; }
+
+    .scheme-header td { background: #f6f8fb; font-weight: 600; padding: 8px 8px; border-bottom: 1px solid #e3e7ee; color: #1a1f2c; }
+    .subtotal-row td { border-top: 1px solid #e3e7ee; border-bottom: 1px solid #e3e7ee; font-weight: 600; }
+
+    .summary { margin-top: 20px; margin-left: auto; width: 340px; }
+    .summary tr td { border: none; padding: 6px 8px; }
+    .summary .row-label { color: #5b6371; }
+    .summary .divider td { border-top: 1px solid #e3e7ee; padding-top: 10px; }
+    .summary .grand td { border-top: 2px solid #1a1f2c; font-size: 18px; font-weight: 700; padding-top: 14px; }
+
     .footer { margin-top: 48px; font-size: 12px; color: #5b6371; text-align: center; }
   </style>
 </head>
@@ -36,9 +46,101 @@
 
   <div class="recipient">
     <div class="label">Bill to</div>
-    <div class="value">{{.RecipientLabel}}</div>
+    <div class="value">{{.Recipient}}</div>
   </div>
 
+  {{if .HasSnapshot}}
+
+  {{if .OpeningBalance}}
+  <div class="section-title">Balance brought forward</div>
+  <table>
+    <tbody>
+      <tr>
+        <td>Opening balance as of period start</td>
+        <td class="right">{{.CurrencyCode}} {{.OpeningBalance}}</td>
+      </tr>
+    </tbody>
+  </table>
+  {{end}}
+
+  {{if .Schemes}}
+  <div class="section-title">Contributions for {{.PeriodStart}} &mdash; {{.PeriodEnd}}</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:22%">Reference</th>
+        <th>Member / dependant</th>
+        <th style="width:14%">Age band</th>
+        <th class="right" style="width:22%">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Schemes}}
+      <tr class="scheme-header">
+        <td colspan="4">{{.SchemeName}}</td>
+      </tr>
+      {{range .Rows}}
+      <tr>
+        <td>{{.Reference}}</td>
+        <td>{{.Name}}</td>
+        <td>{{if .AgeBand}}{{.AgeBand}}{{else}}<span class="muted">—</span>{{end}}</td>
+        <td class="right">{{$.CurrencyCode}} {{.Amount}}</td>
+      </tr>
+      {{end}}
+      <tr class="subtotal-row">
+        <td colspan="3" class="right">Subtotal</td>
+        <td class="right">{{$.CurrencyCode}} {{.Subtotal}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{end}}
+
+  {{if .Transactions}}
+  <div class="section-title">Transactions in window</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:15%">Date</th>
+        <th>Description</th>
+        <th style="width:16%">Reference</th>
+        <th class="right" style="width:12%">Debit</th>
+        <th class="right" style="width:12%">Credit</th>
+        <th class="right" style="width:15%">Balance</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Transactions}}
+      <tr>
+        <td>{{.Date}}</td>
+        <td>{{.Description}}</td>
+        <td>{{.Reference}}</td>
+        <td class="right">{{if .Debit}}{{$.CurrencyCode}} {{.Debit}}{{end}}</td>
+        <td class="right">{{if .Credit}}{{$.CurrencyCode}} {{.Credit}}{{end}}</td>
+        <td class="right">{{if .Balance}}{{$.CurrencyCode}} {{.Balance}}{{end}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{end}}
+
+  <table class="summary">
+    {{if .OpeningBalance}}
+    <tr><td class="row-label">Balance brought forward</td><td class="right">{{.CurrencyCode}} {{.OpeningBalance}}</td></tr>
+    {{end}}
+    {{if .TotalCharges}}
+    <tr><td class="row-label">Contributions this period</td><td class="right">{{.CurrencyCode}} {{.TotalCharges}}</td></tr>
+    {{end}}
+    {{if .TotalPayments}}
+    <tr><td class="row-label">Payments received</td><td class="right">&minus; {{.CurrencyCode}} {{.TotalPayments}}</td></tr>
+    {{end}}
+    {{if .TotalAdjustments}}
+    <tr><td class="row-label">Adjustments</td><td class="right">{{.CurrencyCode}} {{.TotalAdjustments}}</td></tr>
+    {{end}}
+    <tr class="grand"><td>Amount due</td><td class="right">{{.CurrencyCode}} {{.AmountDue}}</td></tr>
+  </table>
+
+  {{else}}
   <table>
     <thead>
       <tr>
@@ -49,15 +151,16 @@
     <tbody>
       <tr>
         <td>Contributions for {{.PeriodStart}} &mdash; {{.PeriodEnd}}</td>
-        <td class="right">{{.CurrencyCode}} {{.TotalAmount}}</td>
+        <td class="right">{{.CurrencyCode}} {{.SubtotalAmount}}</td>
       </tr>
     </tbody>
   </table>
 
-  <table class="totals">
-    <tr><td>Subtotal</td><td class="right">{{.CurrencyCode}} {{.TotalAmount}}</td></tr>
-    <tr class="grand"><td>Total due</td><td class="right">{{.CurrencyCode}} {{.TotalAmount}}</td></tr>
+  <table class="summary">
+    <tr><td class="row-label">Subtotal</td><td class="right">{{.CurrencyCode}} {{.SubtotalAmount}}</td></tr>
+    <tr class="grand"><td>Total due</td><td class="right">{{.CurrencyCode}} {{.AmountDue}}</td></tr>
   </table>
+  {{end}}
 
   <div class="footer">
     Invoice generated by MedFund. Please settle by {{.DueDate}} to avoid late fees.

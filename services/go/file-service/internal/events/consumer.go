@@ -104,3 +104,31 @@ func ParseInvoiceIssued(body []byte) (InvoiceIssued, bool) {
 	}
 	return e, true
 }
+
+// InvoicePdfDeleted is the projection of the wire payload published by
+// ContributionEventPublisher.publishInvoicePdfDeleted on
+// `medfund.contributions.invoice-pdf-deleted`. Carries the MinIO
+// (bucket, objectKey) tuple that file-service should remove.
+type InvoicePdfDeleted struct {
+	Event     string `json:"event"`
+	TenantID  string `json:"tenantId"`
+	InvoiceID string `json:"invoiceId"`
+	Bucket    string `json:"bucket"`
+	ObjectKey string `json:"objectKey"`
+}
+
+// ParseInvoicePdfDeleted unmarshals the Kafka body and validates that
+// the blob coordinates are populated. Same commit-and-skip semantics
+// as ParseInvoiceIssued.
+func ParseInvoicePdfDeleted(body []byte) (InvoicePdfDeleted, bool) {
+	var e InvoicePdfDeleted
+	if err := json.Unmarshal(body, &e); err != nil {
+		log.Printf("[file-service] drop malformed InvoicePdfDeleted: %v", err)
+		return InvoicePdfDeleted{}, false
+	}
+	if e.ObjectKey == "" {
+		log.Printf("[file-service] drop InvoicePdfDeleted missing objectKey: %+v", e)
+		return InvoicePdfDeleted{}, false
+	}
+	return e, true
+}

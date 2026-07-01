@@ -1,0 +1,89 @@
+// Confirm dialog — matches the MUI/Chakra pattern the SelectComponent
+// already uses: 8px card radius, soft elevated shadow, subtle backdrop.
+// Kept close to the platform's neutral palette so it inherits any future
+// tenant theme without a rewrite.
+
+.confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000; // above sidebar, above dropdowns, below toasts (which sit at 1100)
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fade-in 120ms ease-out;
+}
+
+.confirm-card {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.22);
+  padding: 22px 24px 20px;
+  min-width: 360px;
+  max-width: 520px;
+  width: calc(100% - 32px);
+  animation: card-in 140ms ease-out;
+}
+
+.confirm-title {
+  margin: 0 0 8px 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: #1a1f2c;
+  letter-spacing: -0.01em;
+}
+
+.confirm-message {
+  margin: 0 0 22px 0;
+  font-size: 14px;
+  color: #4b5563;
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+
+  .btn {
+    min-width: 96px;
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: transform 60ms ease, filter 120ms ease;
+
+    &:active { transform: translateY(1px); }
+  }
+
+  .btn-default {
+    background: #f3f4f6;
+    color: #1a1f2c;
+    &:hover { background: #e5e7eb; }
+  }
+
+  .btn-primary {
+    background: #2563eb;
+    color: #fff;
+    &:hover { filter: brightness(1.05); }
+  }
+
+  .btn-danger {
+    background: #dc2626;
+    color: #fff;
+    &:hover { filter: brightness(1.05); }
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes card-in {
+  from { transform: translateY(6px) scale(0.98); opacity: 0; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}

@@ -6,12 +6,13 @@ import { SidebarComponent } from './sidebar/sidebar.component';
 import { HeaderComponent } from './header/header.component';
 import { ProgressBarComponent } from '../shared/components/progress-bar/progress-bar.component';
 import { ToastContainerComponent } from '../shared/components/toast/toast-container.component';
+import { ConfirmDialogComponent } from '../shared/components/confirm-dialog/confirm-dialog.component';
 import { NavigationService } from '../core/services/navigation.service';
 
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, SidebarComponent, HeaderComponent, ProgressBarComponent, ToastContainerComponent],
+  imports: [CommonModule, RouterOutlet, SidebarComponent, HeaderComponent, ProgressBarComponent, ToastContainerComponent, ConfirmDialogComponent],
   templateUrl: './layout.component.html',
   styleUrl: './layout.component.scss',
 })

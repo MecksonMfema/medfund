@@ -13,12 +13,13 @@ import { PermissionService } from '../../core/security/permission.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { ProgressBarComponent } from '../../shared/components/progress-bar/progress-bar.component';
 import { ToastContainerComponent } from '../../shared/components/toast/toast-container.component';
+import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { clearSession } from '../../auth/keycloak.init';
 
 @Component({
   selector: 'app-tenant-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, TenantSidebarComponent, OperationalSidebarComponent, IconComponent, ProgressBarComponent, ToastContainerComponent],
+  imports: [CommonModule, RouterOutlet, TenantSidebarComponent, OperationalSidebarComponent, IconComponent, ProgressBarComponent, ToastContainerComponent, ConfirmDialogComponent],
   templateUrl: './tenant-layout.component.html',
   styleUrl: './tenant-layout.component.scss',
 })

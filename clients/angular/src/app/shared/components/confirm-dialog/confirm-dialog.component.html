@@ -1,0 +1,25 @@
+@if (service.current$ | async; as req) {
+  <div class="confirm-backdrop" (click)="onCancel()">
+    <div class="confirm-card" (click)="$event.stopPropagation()"
+         role="dialog" aria-modal="true" [attr.aria-label]="req.options.title">
+      <h3 class="confirm-title">{{ req.options.title }}</h3>
+      @if (req.options.message) {
+        <p class="confirm-message">{{ req.options.message }}</p>
+      }
+      <div class="confirm-actions">
+        <button type="button" class="btn btn-default" (click)="onCancel()">
+          {{ req.options.cancelLabel }}
+        </button>
+        <button type="button"
+                class="btn"
+                [class.btn-danger]="req.options.danger"
+                [class.btn-primary]="!req.options.danger"
+                (click)="onConfirm()"
+                cdkTrapFocus
+                autofocus>
+          {{ req.options.confirmLabel }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

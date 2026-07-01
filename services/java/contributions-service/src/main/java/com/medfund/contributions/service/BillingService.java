@@ -508,60 +508,142 @@ public class BillingService {
 
         Instant now = Instant.now();
         String line = req.insuranceLine();
+        // NULLIF-in-SQL wants a bindable value. Coerce null → "" here
+        // so downstream .bind("line", …) always has a non-null; the
+        // SQL uses NULLIF(:line, '') IS NULL to detect the no-filter case.
+        String lineBind = line == null ? "" : line;
 
-        // Two DELETEs in one transaction: invoices first (they FK back
-        // to contribution rows via period in spirit if not in SQL),
-        // then the contributions themselves. Per-line scoping joins
-        // through schemes the same way the count query does.
-        Mono<Long> deletedInvoices = db.sql("""
-                DELETE FROM invoices
-                 WHERE period_start = :start
-                   AND period_end   = :end
-                   AND ( :line IS NULL
+        // 1) Reverse the running-balance debit for every contribution
+        //    we're about to delete. Streams the contributions one at a
+        //    time and pairs each with the same upsertMember/upsertGroup
+        //    path that applyContributionDebit uses, just with the
+        //    amount negated and reason="CONTRIBUTION_REVOKED". Must run
+        //    BEFORE the DELETE so the amount column is still readable.
+        Mono<Void> reverseBalances = contributionRepository
+                .findByPeriodAndLine(req.periodStart(), req.periodEnd(), line)
+                .concatMap(balanceService::reverseContributionDebit)
+                .then();
+
+        // 2) Enumerate the invoice IDs in scope BEFORE any DELETE runs.
+        //    Group invoices have scheme_id = NULL — a straight
+        //    invoices.scheme_id join misses them — so we resolve line
+        //    scope via the invoice's contributions, which always carry
+        //    scheme_id. Individual invoices fall through the same
+        //    predicate because their contribution's scheme_id matches
+        //    their own scheme_id.
+        Mono<List<UUID>> targetInvoiceIds = db.sql("""
+                SELECT DISTINCT i.id
+                  FROM invoices i
+                 WHERE i.period_start = :start
+                   AND i.period_end   = :end
+                   AND ( NULLIF(:line, '') IS NULL
+                      OR EXISTS (SELECT 1 FROM contributions c
+                                   JOIN schemes s ON s.id = c.scheme_id
+                                  WHERE c.invoice_id = i.id
+                                    AND s.insurance_line = :line)
                       OR EXISTS (SELECT 1 FROM schemes s
-                                  WHERE s.id = invoices.scheme_id
+                                  WHERE s.id = i.scheme_id
                                     AND s.insurance_line = :line) )
                 """)
                 .bind("start", req.periodStart())
                 .bind("end",   req.periodEnd())
-                .bind("line",  line == null ? "" : line)
-                .fetch().rowsUpdated();
+                .bind("line",  lineBind)
+                .map(row -> row.get("id", UUID.class))
+                .all()
+                .collectList();
 
+        // 3) Capture (bucket, object_key) pointers for every invoice
+        //    we're about to remove so we can publish per-blob delete
+        //    events after the DELETE. invoice_pdfs is ON DELETE
+        //    CASCADE on invoices(id), so the pointer row goes away;
+        //    the MinIO blob doesn't unless file-service is told.
+        Mono<List<PdfPointer>> capturePdfPointers = targetInvoiceIds.flatMap(ids -> {
+            if (ids.isEmpty()) return Mono.just(List.<PdfPointer>of());
+            return db.sql("""
+                    SELECT ip.invoice_id, ip.bucket, ip.object_key
+                      FROM invoice_pdfs ip
+                     WHERE ip.invoice_id IN (:ids)
+                    """)
+                    .bind("ids", ids)
+                    .map(row -> new PdfPointer(
+                            row.get("invoice_id", UUID.class),
+                            row.get("bucket", String.class),
+                            row.get("object_key", String.class)))
+                    .all()
+                    .collectList();
+        });
+
+        // 4) DELETE contributions first — the FK on contributions.invoice_id
+        //    would otherwise block the invoice DELETE.
+        //
+        //    Scope covers every contribution matching the period + line
+        //    filter (period+scheme.insurance_line), not just those with
+        //    invoice_id set — a paranoid orphan sweep for pre-V020 rows.
         Mono<Long> deletedContributions = db.sql("""
                 DELETE FROM contributions
                  WHERE period_start = :start
                    AND period_end   = :end
-                   AND ( :line IS NULL
+                   AND ( NULLIF(:line, '') IS NULL
                       OR EXISTS (SELECT 1 FROM schemes s
                                   WHERE s.id = contributions.scheme_id
                                     AND s.insurance_line = :line) )
                 """)
                 .bind("start", req.periodStart())
                 .bind("end",   req.periodEnd())
-                .bind("line",  line == null ? "" : line)
+                .bind("line",  lineBind)
                 .fetch().rowsUpdated();
 
-        return deletedInvoices.zipWith(deletedContributions)
-                .flatMap(t -> Mono.deferContextual(ctx -> {
-                    String tenantId = TenantContext.get(ctx);
-                    long invoices = t.getT1();
-                    long contributions = t.getT2();
-                    log.info("[revoke] tenant={} period={} to {} line={} deleted invoices={} contributions={}",
-                            tenantId, req.periodStart(), req.periodEnd(), line, invoices, contributions);
-                    return publishAudit(tenantId, "BillingCycle", "revoke",
-                                    req.periodStart() + " to " + req.periodEnd(),
-                                    "DELETE", actorId, actorEmail,
-                                    Map.of("contributions", String.valueOf(contributions),
-                                            "invoices", String.valueOf(invoices),
-                                            "periodStart", req.periodStart().toString(),
-                                            "periodEnd", req.periodEnd().toString(),
-                                            "insuranceLine", line == null ? "(all)" : line),
-                                    null)
-                            .thenReturn(new BillingRevokeResponse(
-                                    contributions, invoices,
-                                    req.periodStart(), req.periodEnd(), line, now));
-                }));
+        // 5) DELETE the enumerated invoices. Uses the ID list from step
+        //    2 so group invoices (scheme_id = NULL) are actually removed.
+        //    The FK is already unblocked by step 4.
+        Mono<Long> deletedInvoices = targetInvoiceIds.flatMap(ids -> {
+            if (ids.isEmpty()) return Mono.just(0L);
+            return db.sql("DELETE FROM invoices WHERE id IN (:ids)")
+                    .bind("ids", ids)
+                    .fetch().rowsUpdated();
+        });
+
+        return reverseBalances
+                .then(capturePdfPointers)
+                .flatMap(pointers -> deletedContributions
+                        .flatMap(contributions -> deletedInvoices
+                                .flatMap(invoices -> Mono.deferContextual(ctx -> {
+                                    String tenantId = TenantContext.get(ctx);
+                                    log.info("[revoke] tenant={} period={} to {} line={} deleted invoices={} contributions={} pdfBlobs={}",
+                                            tenantId, req.periodStart(), req.periodEnd(), line,
+                                            invoices, contributions, pointers.size());
+
+                                    // 6) Tell file-service to delete each MinIO blob
+                                    //    that was just orphaned. Fire-and-forget; the
+                                    //    revoke succeeds even if Kafka is down.
+                                    Mono<Void> publishDeletes = Flux.fromIterable(pointers)
+                                            .concatMap(p -> eventPublisher.publishInvoicePdfDeleted(
+                                                    tenantId,
+                                                    p.invoiceId() == null ? null : p.invoiceId().toString(),
+                                                    p.bucket(),
+                                                    p.objectKey()))
+                                            .then();
+
+                                    return publishDeletes.then(
+                                            publishAudit(tenantId, "BillingCycle", "revoke",
+                                                    req.periodStart() + " to " + req.periodEnd(),
+                                                    "DELETE", actorId, actorEmail,
+                                                    Map.of("contributions", String.valueOf(contributions),
+                                                            "invoices", String.valueOf(invoices),
+                                                            "pdfBlobs", String.valueOf(pointers.size()),
+                                                            "periodStart", req.periodStart().toString(),
+                                                            "periodEnd", req.periodEnd().toString(),
+                                                            "insuranceLine", line == null ? "(all)" : line),
+                                                    null))
+                                            .thenReturn(new BillingRevokeResponse(
+                                                    contributions, invoices,
+                                                    req.periodStart(), req.periodEnd(), line, now));
+                                }))));
     }
+
+    /** Internal: invoice → MinIO pointer tuple captured before the
+     *  DELETE cascade clears the {@code invoice_pdfs} row. */
+    private record PdfPointer(UUID invoiceId, String bucket, String objectKey) {}
 
     // ── Membership-model-aware invoice generation ──────────────────────────
     // After per-member contributions are persisted, roll them up into

@@ -112,6 +112,36 @@ public class ContributionEventPublisher {
              *  cross-schema lookup. */
             String recipientName) {}
 
+    /**
+     * Fire-and-forget signal to file-service that an invoice's PDF blob
+     * should be removed from object storage. Published from
+     * {@link BillingService#revokeBilling} after the invoice row + its
+     * cascading {@code invoice_pdfs} pointer have been deleted — the
+     * blob itself in MinIO isn't covered by the CASCADE, so we hand the
+     * (bucket, objectKey) tuple back to file-service which owns the
+     * MinIO client.
+     *
+     * <p>One event per blob; tenantId is included so future per-tenant
+     * MinIO buckets / lifecycle policies have the context they need.
+     * Failure is logged at the publisher but doesn't block the revoke —
+     * an orphan blob is recoverable (it can be GC'd by a sweeper), an
+     * inconsistent ledger is not.
+     */
+    public Mono<Void> publishInvoicePdfDeleted(String tenantId, String invoiceId,
+                                               String bucket, String objectKey) {
+        if (bucket == null || objectKey == null || bucket.isBlank() || objectKey.isBlank()) {
+            return Mono.empty();
+        }
+        var fields = new java.util.LinkedHashMap<String, String>();
+        fields.put("event", "INVOICE_PDF_DELETED");
+        fields.put("tenantId",  tenantId  == null ? "" : tenantId);
+        fields.put("invoiceId", invoiceId == null ? "" : invoiceId);
+        fields.put("bucket",     bucket);
+        fields.put("objectKey",  objectKey);
+        return publishEvent("medfund.contributions.invoice-pdf-deleted",
+                invoiceId == null ? bucket + "/" + objectKey : invoiceId, fields);
+    }
+
     private Mono<Void> publishEvent(String topic, String key, Map<String, String> payload) {
         try {
             String json = objectMapper.writeValueAsString(payload);

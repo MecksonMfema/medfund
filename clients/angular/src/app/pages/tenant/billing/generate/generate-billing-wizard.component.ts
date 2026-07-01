@@ -15,6 +15,7 @@ import { IconComponent } from '../../../../shared/components/icon/icon.component
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { TenantService } from '../../../../core/services/tenant.service';
 import { PermissionService } from '../../../../core/security/permission.service';
+import { ConfirmService } from '../../../../shared/components/confirm-dialog/confirm.service';
 
 /**
  * Friendly labels for the line tab strip. Matches the codes carried in
@@ -143,6 +144,7 @@ export class GenerateBillingWizardComponent implements OnInit, OnDestroy {
     private contributions: ContributionsService,
     private tenantSvc: TenantService,
     private perms: PermissionService,
+    private confirmSvc: ConfirmService,
   ) {}
 
   /** Permission gate for the revoke flow — hidden when the caller can't revoke. */
@@ -161,9 +163,19 @@ export class GenerateBillingWizardComponent implements OnInit, OnDestroy {
     return this.alreadyCommittedDetail.periodStart === expected;
   }
 
-  revoke(): void {
+  async revoke(): Promise<void> {
     if (!this.alreadyCommittedDetail) return;
-    if (!confirm('Revoke and delete all contributions + invoices for this period? You\'ll need to re-commit to restore them.')) return;
+    const ok = await this.confirmSvc.ask({
+      title: 'Revoke this billing run?',
+      message:
+        'This deletes every contribution + invoice for this period, ' +
+        'reverses each running balance, and removes the PDF blobs. ' +
+        "You'll need to re-commit to restore them.",
+      confirmLabel: 'Revoke',
+      cancelLabel: 'Keep run',
+      danger: true,
+    });
+    if (!ok) return;
     this.revoking = true;
     this.contributions.revokeBilling({
       periodStart:  this.alreadyCommittedDetail.periodStart,

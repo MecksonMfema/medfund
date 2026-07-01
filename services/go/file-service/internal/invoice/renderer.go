@@ -4,21 +4,25 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
 	"os/exec"
+	"strconv"
 	"time"
+
+	"github.com/medfund/file-service/internal/contributions"
 )
 
 //go:embed template.html
 var defaultTemplate string
 
-// Payload is the projection of an InvoiceIssued event the template binds
-// to. Mirrors the wire shape published by contributions-service
-// (ContributionEventPublisher.InvoiceIssuedPayload) but resolves
-// RecipientLabel inside Renderer so the template stays neutral about
-// group-vs-individual routing.
+// Payload is the identity envelope for one PDF render. It is the input
+// to Render — a caller populates the fields it knows from the
+// InvoiceIssued Kafka event and (optionally) the enriched RenderPayload
+// pulled from contributions-service. When RenderData is nil the
+// renderer falls back to the legacy summary view (period + total only).
 type Payload struct {
 	InvoiceID      string
 	InvoiceNumber  string
@@ -32,6 +36,12 @@ type Payload struct {
 	DueDate        string
 	IssuedDate     string
 	RecipientLabel string
+
+	// RenderData is the full statement snapshot fetched from
+	// contributions-service. When present the template shows the
+	// same rows the Angular statement page does: opening balance →
+	// per-scheme contributions → transactions → closing balance.
+	RenderData *contributions.RenderPayload
 }
 
 // PdfGenerator turns rendered HTML into PDF bytes. Modeled as an
@@ -68,8 +78,9 @@ func (r *Renderer) Render(ctx context.Context, p Payload) ([]byte, error) {
 		p.IssuedDate = time.Now().UTC().Format("2006-01-02")
 	}
 
+	view := buildView(p)
 	var buf bytes.Buffer
-	if err := r.tmpl.Execute(&buf, p); err != nil {
+	if err := r.tmpl.Execute(&buf, view); err != nil {
 		return nil, fmt.Errorf("execute invoice template: %w", err)
 	}
 	return r.pdf.GeneratePDF(ctx, buf.Bytes())
@@ -85,11 +96,143 @@ func (r *Renderer) HTML(p Payload) ([]byte, error) {
 	if p.IssuedDate == "" {
 		p.IssuedDate = time.Now().UTC().Format("2006-01-02")
 	}
+	view := buildView(p)
 	var buf bytes.Buffer
-	if err := r.tmpl.Execute(&buf, p); err != nil {
+	if err := r.tmpl.Execute(&buf, view); err != nil {
 		return nil, fmt.Errorf("execute invoice template: %w", err)
 	}
 	return buf.Bytes(), nil
+}
+
+// ─── Template view model ─────────────────────────────────────────────
+//
+// A pre-formatted, template-friendly projection of Payload. All money
+// values are already rendered as strings with 2 decimal places so the
+// template stays dumb.
+
+type templateView struct {
+	InvoiceNumber string
+	IssuedDate    string
+	DueDate       string
+	PeriodStart   string
+	PeriodEnd     string
+	Recipient     string
+	CurrencyCode  string
+
+	HasSnapshot     bool
+	OpeningBalance  string
+	ClosingBalance  string
+	TotalCharges    string
+	TotalPayments   string
+	TotalAdjustments string
+	AmountDue       string
+	SubtotalAmount  string
+
+	Schemes      []schemeGroup
+	Transactions []transactionRow
+}
+
+type schemeGroup struct {
+	SchemeName string
+	Rows       []contributionRow
+	Subtotal   string
+}
+
+type contributionRow struct {
+	Reference string
+	Name      string
+	AgeBand   string
+	Amount    string
+}
+
+type transactionRow struct {
+	Date        string
+	Description string
+	Reference   string
+	Debit       string
+	Credit      string
+	Balance     string
+}
+
+func buildView(p Payload) templateView {
+	v := templateView{
+		InvoiceNumber:  p.InvoiceNumber,
+		IssuedDate:     p.IssuedDate,
+		DueDate:        p.DueDate,
+		PeriodStart:    p.PeriodStart,
+		PeriodEnd:      p.PeriodEnd,
+		Recipient:      p.RecipientLabel,
+		CurrencyCode:   p.CurrencyCode,
+		SubtotalAmount: money2dpStr(p.TotalAmount),
+		AmountDue:      money2dpStr(p.TotalAmount),
+	}
+
+	rd := p.RenderData
+	if rd == nil {
+		return v
+	}
+
+	v.HasSnapshot = true
+	// Prefer statement header's balances; fall back to invoice snapshot fields.
+	v.OpeningBalance = money2dpNum(pickNumber(rd.Statement.Header.OpeningBalance, rd.Invoice.OpeningBalance))
+	v.ClosingBalance = money2dpNum(pickNumber(rd.Statement.Header.ClosingBalance, rd.Invoice.ClosingBalance))
+	v.TotalCharges = money2dpNum(rd.Statement.Header.TotalCharges)
+	v.TotalPayments = money2dpNum(rd.Statement.Header.TotalPayments)
+	v.TotalAdjustments = money2dpNum(rd.Invoice.AdjustmentsInWindow)
+	v.AmountDue = money2dpNum(pickNumber(rd.Statement.Header.ClosingBalance, rd.Invoice.ClosingBalance))
+
+	// Group contributions by scheme (preserve first-seen order).
+	seen := map[string]int{}
+	for _, row := range rd.Contributions {
+		idx, ok := seen[row.SchemeName]
+		if !ok {
+			idx = len(v.Schemes)
+			seen[row.SchemeName] = idx
+			v.Schemes = append(v.Schemes, schemeGroup{SchemeName: row.SchemeName})
+		}
+		name := row.MemberName
+		if row.PersonType == "DEPENDANT" && row.DependantName != "" {
+			name = row.DependantName
+		}
+		ref := row.MemberNumber
+		if row.PersonType == "DEPENDANT" {
+			ref = row.MemberNumber + " · dep"
+		}
+		v.Schemes[idx].Rows = append(v.Schemes[idx].Rows, contributionRow{
+			Reference: ref,
+			Name:      name,
+			AgeBand:   row.AgeBand,
+			Amount:    money2dpNum(row.Amount),
+		})
+	}
+	// Compute per-scheme subtotals.
+	for i := range v.Schemes {
+		sum := 0.0
+		for _, r := range v.Schemes[i].Rows {
+			amt, _ := strconv.ParseFloat(stripCommas(r.Amount), 64)
+			sum += amt
+		}
+		v.Schemes[i].Subtotal = fmt.Sprintf("%.2f", sum)
+	}
+
+	// Transactions: everything the statement page excludes from the
+	// contributions detail. We already show contributions in their
+	// own sections above, so filter CONTRIBUTION lines out here.
+	for _, ln := range rd.Statement.Lines {
+		if ln.Type == "CONTRIBUTION" {
+			continue
+		}
+		v.Transactions = append(v.Transactions, transactionRow{
+			Date:        formatDate(ln.Date),
+			Description: ln.Description,
+			Reference:   ln.Reference,
+			Debit:       money2dpNum(ln.Debit),
+			Credit:      money2dpNum(ln.Credit),
+			Balance:     money2dpNum(ln.RunningBalance),
+		})
+	}
+
+	return v
 }
 
 func defaultRecipientLabel(p Payload) string {
@@ -111,6 +254,70 @@ func shortID(id string) string {
 		return id
 	}
 	return id[:8]
+}
+
+// money2dpStr formats a BigDecimal-as-string with 2 decimal places.
+// Empty or unparsable inputs render as "0.00" so grand-total cells
+// never show blank — safer for a financial document than a dash.
+func money2dpStr(s string) string {
+	if s == "" {
+		return "0.00"
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return s
+	}
+	return fmt.Sprintf("%.2f", f)
+}
+
+// money2dpNum is the json.Number variant used for optional money
+// fields coming off the render-payload wire (opening/closing balance,
+// per-line debit/credit). An empty Number renders as an empty string
+// so debit/credit cells only fill on the side that carries the amount.
+func money2dpNum(n json.Number) string {
+	s := string(n)
+	if s == "" {
+		return ""
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return s
+	}
+	return fmt.Sprintf("%.2f", f)
+}
+
+// pickNumber returns the first non-empty json.Number, falling back to
+// the second. Used when the same value might be present on both the
+// statement header and the invoice snapshot — the header is authoritative.
+func pickNumber(a, b json.Number) json.Number {
+	if string(a) != "" {
+		return a
+	}
+	return b
+}
+
+func stripCommas(s string) string {
+	out := make([]byte, 0, len(s))
+	for i := 0; i < len(s); i++ {
+		if s[i] == ',' {
+			continue
+		}
+		out = append(out, s[i])
+	}
+	return string(out)
+}
+
+// formatDate turns an ISO-8601 instant ("2026-07-01T10:00:00Z") into a
+// short human date ("01 Jul 2026") — matches the statement page.
+func formatDate(iso string) string {
+	if iso == "" {
+		return ""
+	}
+	t, err := time.Parse(time.RFC3339, iso)
+	if err != nil {
+		return iso
+	}
+	return t.UTC().Format("02 Jan 2006")
 }
 
 // ─── wkhtmltopdf-backed PdfGenerator ─────────────────────────────────

@@ -77,6 +77,32 @@ public class BalanceService {
                         : Mono.empty());
     }
 
+    /**
+     * Reverse a previously-applied contribution debit. Called by
+     * {@code BillingService.revokeBilling} before the {@code contributions}
+     * row is deleted so the running balance ledger stays consistent.
+     *
+     * <p>Symmetric to {@link #applyContributionDebit(Contribution)}: subtracts
+     * the same amount from the member balance (and group balance, when the
+     * contribution was group-billed). Does NOT touch {@code last_charge_at}
+     * or {@code last_payment_at} — a revoke is an undo, not a new
+     * charge/payment activity, so the dunning timestamps stay frozen at
+     * whatever the most recent real event set them to.
+     */
+    @Transactional
+    public Mono<Void> reverseContributionDebit(Contribution c) {
+        if (c.getAmount() == null || c.getCurrencyCode() == null || c.getMemberId() == null) {
+            return Mono.empty();
+        }
+        BigDecimal neg = c.getAmount().negate();
+        return upsertMember(c.getMemberId(), c.getCurrencyCode(), neg, false, false,
+                "CONTRIBUTION_REVOKED")
+                .then(c.getGroupId() != null
+                        ? upsertGroup(c.getGroupId(), c.getCurrencyCode(), neg, false, false,
+                                "CONTRIBUTION_REVOKED")
+                        : Mono.empty());
+    }
+
     @Transactional
     public Mono<Void> applyContributionPaid(Contribution c) {
         if (c.getAmount() == null || c.getCurrencyCode() == null || c.getMemberId() == null) {

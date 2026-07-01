@@ -9,9 +9,11 @@ import {
   InvoicesPage,
 } from '../../../../core/services/contributions.service';
 import { TenantService } from '../../../../core/services/tenant.service';
+import { PermissionService } from '../../../../core/security/permission.service';
 import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { ConfirmService } from '../../../../shared/components/confirm-dialog/confirm.service';
 
 interface LineTab {
   /** API filter value (insurance_line code) or null for the "All" tab. */
@@ -97,6 +99,20 @@ export class InvoicesListComponent implements OnInit, OnDestroy {
         window.open(this.contributions.getInvoicePdfUrl(row.id), '_blank');
       },
     },
+    {
+      // Permission gate is enforced via the `visible` predicate so
+      // super admins (whose PermissionService.hasAny bypass returns true)
+      // see the action even when their tenant role catalogue doesn't
+      // explicitly grant billing:revoke_billing. The row-level gate
+      // additionally hides it for any invoice outside the next-month
+      // revoke window — same rule the backend enforces.
+      label: 'Revoke invoice',
+      icon: 'x-circle',
+      color: 'danger',
+      requiresPermission: 'billing:revoke_billing',
+      visible: (row: any) => this.canRevokeRow(row),
+      handler: (row: any) => this.revokeRow(row),
+    },
   ];
 
   private subs: Subscription[] = [];
@@ -104,8 +120,10 @@ export class InvoicesListComponent implements OnInit, OnDestroy {
   constructor(
     private contributions: ContributionsService,
     private tenantSvc: TenantService,
+    private perms: PermissionService,
     private router: Router,
     private toast: ToastService,
+    private confirmSvc: ConfirmService,
   ) {}
 
   ngOnInit(): void {
@@ -190,5 +208,58 @@ export class InvoicesListComponent implements OnInit, OnDestroy {
 
   rowClick(row: any): void {
     if (row?.id) this.router.navigate(['/tenant/billing/view', row.id]);
+  }
+
+  /**
+   * Per-row revoke gate. Matches the backend's strict next-month window
+   * (BillingService.revokeBilling) so the action is hidden for any
+   * invoice the API would reject. Super admins still need the row to
+   * fall inside the window — revoke is a destructive workflow, not a
+   * privileged override.
+   */
+  private canRevokeRow(row: any): boolean {
+    if (!this.perms.hasAny(['billing:revoke_billing'])) return false;
+    if (!row?.periodStart) return false;
+    const now = new Date();
+    const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const expected = `${next.getFullYear().toString().padStart(4, '0')}-${(next.getMonth() + 1).toString().padStart(2, '0')}-01`;
+    return row.periodStart === expected;
+  }
+
+  /**
+   * Confirm-then-revoke. Sends the full (periodStart, periodEnd,
+   * insuranceLine) tuple to the backend so the DELETE scopes to the
+   * same scheme line as the original commit. Refreshes the list on
+   * success so the revoked row disappears immediately.
+   */
+  private async revokeRow(row: any): Promise<void> {
+    const ok = await this.confirmSvc.ask({
+      title: `Revoke invoice ${row.invoiceNumber}?`,
+      message:
+        `This deletes every contribution + invoice for ${row.periodStart} → ${row.periodEnd}, ` +
+        `reverses each running balance, and removes the PDF blob. You'll need to re-commit to regenerate.`,
+      confirmLabel: 'Revoke',
+      cancelLabel: 'Keep invoice',
+      danger: true,
+    });
+    if (!ok) return;
+    const insuranceLine = Array.isArray(row.insuranceLines) && row.insuranceLines.length === 1
+      ? row.insuranceLines[0]
+      : (this.activeTab ?? null);
+    this.contributions.revokeBilling({
+      periodStart:   row.periodStart,
+      periodEnd:     row.periodEnd,
+      insuranceLine,
+    }).subscribe({
+      next: (resp) => {
+        this.toast.success(
+          `Revoked: ${resp.contributionsDeleted} contribution(s), ${resp.invoicesDeleted} invoice(s).`
+        );
+        this.fetchPage();
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.detail || err?.error?.title || 'Revoke failed');
+      },
+    });
   }
 }

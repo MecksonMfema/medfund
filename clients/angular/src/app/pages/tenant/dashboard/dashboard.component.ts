@@ -162,7 +162,7 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
 
   readonly recentInvoiceColumns = [
     { key: 'invoiceNumber',  label: 'Invoice #' },
-    { key: 'insuranceLine',  label: 'Line',          type: 'line' as const },
+    { key: 'insuranceLines', label: 'Line',          type: 'lineList' as const },
     { key: 'issuedAt',       label: 'Issued',        type: 'date' as const },
     { key: 'holderName',     label: 'Holder' },
     { key: 'totalAmount',    label: 'Total',         type: 'currency' as const },
@@ -591,11 +591,9 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
    * fields so the dashboard never renders blank.
    */
   private applyCharts(charts: TenantCharts): void {
-    const claimsByCurrency        = charts.claimsByMonthByCurrency        ?? {};
     const contributionsByCurrency = charts.contributionsAmountByMonthByCurrency ?? {};
     const paymentsByCurrency      = charts.paymentsAmountByMonthByCurrency ?? {};
 
-    const claimsCodes        = Object.keys(claimsByCurrency);
     const contributionsCodes = Object.keys(contributionsByCurrency);
 
     // Claims tab: single-series area chart, mirroring the Tenant Growth

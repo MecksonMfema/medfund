@@ -86,6 +86,24 @@ func (s *MinIOStore) GetObject(ctx context.Context, bucket, key string) (
 	return obj, stat.Size, stat.ContentType, nil
 }
 
+// RemoveObject deletes <bucket>/<key>. Used by the invoice-pdf-deleted
+// consumer when contributions-service revokes a billing run. A nil
+// bucket falls back to the configured default — same defaulting as
+// GetObject so the caller doesn't have to know the bucket layout.
+//
+// Idempotent: MinIO's RemoveObject does not error on a missing object,
+// which matches the at-least-once delivery semantics of the consumer
+// (a redelivered event for an already-deleted blob is a no-op).
+func (s *MinIOStore) RemoveObject(ctx context.Context, bucket, key string) error {
+	if bucket == "" {
+		bucket = s.bucket
+	}
+	if err := s.client.RemoveObject(ctx, bucket, key, minio.RemoveObjectOptions{}); err != nil {
+		return fmt.Errorf("remove object %q/%q: %w", bucket, key, err)
+	}
+	return nil
+}
+
 // PresignedGet returns a time-limited URL the notification-service can
 // use to fetch the object back. Keep the window short — these URLs
 // shouldn't be reused beyond the email send.
