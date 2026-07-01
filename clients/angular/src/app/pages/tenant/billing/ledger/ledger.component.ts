@@ -14,6 +14,7 @@ import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
 
@@ -23,20 +24,34 @@ interface TargetOption {
   sublabel?: string;
 }
 
+/**
+ * Financial ledger for a member or a group. Layout mirrors
+ * /tenant/billing/schemes and /tenant/billing/view:
+ *   1. page-header banner (title + sub + export actions on the right)
+ *   2. tab strip (Individual / Group) — filters the target picker
+ *   3. single-line filter bar (search + from + to + currency + Search)
+ *   4. results below — summary cards + Date / Description / Reference / Debit / Credit / Balance table
+ *
+ * Reuses the existing /statements API on contributions-service — this is a
+ * pure UI rebrand: same wire shape, same Excel export endpoint. The old
+ * StatementsComponent stays only for the invoice-detail per-invoice view.
+ */
 @Component({
-  selector: 'app-statements',
+  selector: 'app-ledger',
   standalone: true,
   imports: [
     CommonModule, FormsModule,
     IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe,
   ],
-  templateUrl: './statements.component.html',
-  styleUrl: './statements.component.scss',
+  templateUrl: './ledger.component.html',
+  styleUrl: './ledger.component.scss',
 })
-export class StatementsComponent implements OnInit {
-  // ── Filter state ───────────────────────────────────────────────────────
+export class LedgerComponent implements OnInit {
+  // ── Tab state (Individual / Group) ─────────────────────────────────────
   membershipModel: 'INDIVIDUAL_ONLY' | 'GROUP_ONLY' | 'BOTH' = 'BOTH';
   targetType: StatementTargetType = 'GROUP';
+
+  // ── Filter bar state ───────────────────────────────────────────────────
   targetQuery = '';
   targetMatches: TargetOption[] = [];
   targetSearching = false;
@@ -49,7 +64,7 @@ export class StatementsComponent implements OnInit {
   currencies: TenantCurrencyConfig[] = [];
 
   // ── Result state ───────────────────────────────────────────────────────
-  statement: StatementResponse | null = null;
+  ledger: StatementResponse | null = null;
   loading = false;
   errorMessage: string | null = null;
 
@@ -57,12 +72,17 @@ export class StatementsComponent implements OnInit {
 
   get currencyOptions(): SelectOption[] {
     return [
-      { value: '', label: 'Auto-detect from contributions' },
+      { value: '', label: 'Auto' },
       ...this.currencies.map(c => ({
         value: c.currencyCode,
         label: `${c.currencyCode}${c.isDefault ? ' (default)' : ''}`,
       })),
     ];
+  }
+
+  /** Only render the tab strip when the tenant has both models enabled. */
+  get showTabs(): boolean {
+    return this.membershipModel === 'BOTH';
   }
 
   constructor(
@@ -71,6 +91,7 @@ export class StatementsComponent implements OnInit {
     private groupsService: GroupsService,
     private membersService: MembersService,
     private statementsService: StatementsService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -83,7 +104,9 @@ export class StatementsComponent implements OnInit {
     if (this.membershipModel === 'INDIVIDUAL_ONLY') this.targetType = 'MEMBER';
     else if (this.membershipModel === 'GROUP_ONLY') this.targetType = 'GROUP';
 
-    // Default period: first day of current month → today
+    // Default window — first-of-current-month through today so the
+    // most common lookup ("show me this member's arrears for the month")
+    // is one click away.
     const today = new Date();
     const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     this.periodStart = firstOfMonth.toISOString().slice(0, 10);
@@ -100,7 +123,7 @@ export class StatementsComponent implements OnInit {
 
     this.query$
       .pipe(
-        debounceTime(350),
+        debounceTime(300),
         distinctUntilChanged(),
         switchMap((q) => {
           const trimmed = q.trim();
@@ -132,14 +155,22 @@ export class StatementsComponent implements OnInit {
       });
   }
 
-  onTargetTypeChange(): void {
-    this.clearTarget();
+  // ── Tab handlers ─────────────────────────────────────────────────────
+  selectTab(t: StatementTargetType): void {
+    if (this.targetType === t) return;
+    this.targetType = t;
+    this.selectedTarget = null;
     this.targetQuery = '';
     this.targetMatches = [];
+    this.ledger = null;
   }
 
+  // ── Target picker handlers ────────────────────────────────────────────
   onTargetQueryChange(): void {
     this.showMatches = true;
+    if (this.selectedTarget && this.targetQuery !== this.selectedTarget.label) {
+      this.selectedTarget = null;
+    }
     this.query$.next(this.targetQuery);
   }
 
@@ -152,25 +183,32 @@ export class StatementsComponent implements OnInit {
 
   clearTarget(): void {
     this.selectedTarget = null;
-    this.statement = null;
+    this.targetQuery = '';
+    this.ledger = null;
   }
 
-  generate(): void {
+  // Hide the suggestion dropdown when the operator clicks anywhere else.
+  onTargetBlur(): void {
+    setTimeout(() => { this.showMatches = false; }, 120);
+  }
+
+  // ── Submit ────────────────────────────────────────────────────────────
+  search(): void {
     if (!this.selectedTarget) {
-      this.errorMessage = 'Pick a target first';
+      this.toast.warning('Pick a ' + (this.targetType === 'GROUP' ? 'group' : 'member') + ' first');
       return;
     }
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Period start and end are required';
+      this.toast.warning('Set both dates');
       return;
     }
     if (this.periodEnd < this.periodStart) {
-      this.errorMessage = 'Period end must not be before period start';
+      this.toast.warning('End date must be on or after start date');
       return;
     }
     this.loading = true;
     this.errorMessage = null;
-    this.statement = null;
+    this.ledger = null;
     this.statementsService.generate({
       targetType: this.targetType,
       targetId: this.selectedTarget.id,
@@ -179,38 +217,40 @@ export class StatementsComponent implements OnInit {
       currency: this.currencyCode || undefined,
     }).subscribe({
       next: (resp) => {
-        this.statement = resp;
+        this.ledger = resp;
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to generate statement';
+        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load ledger';
         this.loading = false;
       },
     });
   }
 
-  editFilters(): void {
-    this.statement = null;
-  }
-
+  // ── Exports ───────────────────────────────────────────────────────────
   print(): void {
     window.print();
   }
 
+  /**
+   * Client-side PDF fallback. The Excel export is the recommended path
+   * (better for downstream Excel/CSV workflows) but we keep PDF for
+   * operators who need a print-ready copy without going through Excel.
+   */
   async exportPdf(): Promise<void> {
-    if (!this.statement) return;
+    if (!this.ledger) return;
     const [{ default: jsPDF }, autoTableModule] = await Promise.all([
       import('jspdf'),
       import('jspdf-autotable'),
     ]);
     const autoTable = (autoTableModule as { default?: unknown }).default ?? autoTableModule;
-    const h = this.statement.header;
+    const h = this.ledger.header;
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
     const margin = 36;
     let y = margin;
 
     doc.setFontSize(16).setFont('helvetica', 'bold');
-    doc.text('Contribution Statement', margin, y);
+    doc.text('Ledger', margin, y);
     y += 22;
 
     doc.setFontSize(11).setFont('helvetica', 'normal');
@@ -224,7 +264,7 @@ export class StatementsComponent implements OnInit {
     doc.text(`Charges: ${h.totalCharges}    Payments: ${h.totalPayments}`, margin, y);
     y += 14;
 
-    const body = this.statement.lines.map(l => [
+    const body = this.ledger.lines.map(l => [
       l.date.slice(0, 10),
       l.description,
       l.reference ?? '—',
@@ -247,33 +287,38 @@ export class StatementsComponent implements OnInit {
       margin: { left: margin, right: margin },
     });
 
-    const filename = `statement-${(h.targetName || h.targetId).replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${h.periodStart}-${h.periodEnd}.pdf`;
+    const filename = this.exportFilename('pdf');
     doc.save(filename);
   }
 
-  async exportExcel(): Promise<void> {
-    if (!this.statement) return;
+  exportExcel(): void {
+    if (!this.ledger) return;
     this.statementsService.exportExcel({
       targetType: this.targetType,
-      targetId: this.statement.header.targetId,
-      periodStart: this.statement.header.periodStart,
-      periodEnd: this.statement.header.periodEnd,
-      currency: this.statement.header.currencyCode,
+      targetId: this.ledger.header.targetId,
+      periodStart: this.ledger.header.periodStart,
+      periodEnd: this.ledger.header.periodEnd,
+      currency: this.ledger.header.currencyCode,
     }).subscribe({
       next: (blob) => {
-        const h = this.statement!.header;
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `statement-${(h.targetName || h.targetId).replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${h.periodStart}-${h.periodEnd}.xlsx`;
+        a.download = this.exportFilename('xlsx');
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to export Excel';
+        this.toast.error(err?.error?.detail || 'Failed to export Excel');
       },
     });
+  }
+
+  private exportFilename(ext: 'pdf' | 'xlsx'): string {
+    const h = this.ledger!.header;
+    const slug = (h.targetName || h.targetId).replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+    return `ledger-${slug}-${h.periodStart}-${h.periodEnd}.${ext}`;
   }
 }

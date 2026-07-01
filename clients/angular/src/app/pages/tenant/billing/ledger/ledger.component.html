@@ -1,0 +1,192 @@
+<header class="page-header">
+  <div>
+    <h1>Ledger</h1>
+    <p class="page-sub">Financial ledger for a member or group — opening balance, every charge and payment in the window, closing balance. Export as Excel for downstream analysis or PDF for print.</p>
+  </div>
+  @if (ledger) {
+    <div class="header-actions">
+      <button type="button" class="btn btn-default" (click)="print()">
+        <app-icon name="file-text" [size]="14"></app-icon>
+        Print
+      </button>
+      <button type="button" class="btn btn-default" (click)="exportPdf()">
+        <app-icon name="download" [size]="14"></app-icon>
+        PDF
+      </button>
+      <button type="button" class="btn btn-primary" (click)="exportExcel()">
+        <app-icon name="download" [size]="14"></app-icon>
+        Excel
+      </button>
+    </div>
+  }
+</header>
+
+@if (showTabs) {
+  <nav class="scheme-tabs" role="tablist" aria-label="Ledger target type">
+    <button
+      type="button"
+      role="tab"
+      class="scheme-tab"
+      [class.is-active]="targetType === 'GROUP'"
+      [attr.aria-selected]="targetType === 'GROUP'"
+      (click)="selectTab('GROUP')">
+      Group
+    </button>
+    <button
+      type="button"
+      role="tab"
+      class="scheme-tab"
+      [class.is-active]="targetType === 'MEMBER'"
+      [attr.aria-selected]="targetType === 'MEMBER'"
+      (click)="selectTab('MEMBER')">
+      Individual
+    </button>
+  </nav>
+}
+
+<form class="ledger-toolbar" (submit)="$event.preventDefault(); search()">
+  <!-- Search column — grows to consume slack; contains the search icon,
+       input, clear button, and the anchored suggestions dropdown. -->
+  <div class="toolbar-cell cell-search">
+    <app-icon name="search" [size]="16"></app-icon>
+    <input
+      type="text"
+      [(ngModel)]="targetQuery"
+      (ngModelChange)="onTargetQueryChange()"
+      (focus)="showMatches = true"
+      (blur)="onTargetBlur()"
+      name="targetQuery"
+      autocomplete="off"
+      [placeholder]="targetType === 'GROUP' ? 'Search group…' : 'Search member…'" />
+    @if (selectedTarget) {
+      <button type="button" class="clear-btn" (click)="clearTarget()" aria-label="Clear selection">×</button>
+    }
+    @if (showMatches && targetQuery.trim() && !selectedTarget) {
+      <ul class="suggestions">
+        @if (targetSearching) {
+          <li class="suggestion muted">Searching…</li>
+        } @else if (targetMatches.length === 0) {
+          <li class="suggestion muted">No matches</li>
+        } @else {
+          @for (m of targetMatches; track m.id) {
+            <li class="suggestion" (mousedown)="pickTarget(m)">
+              <strong>{{ m.label }}</strong>
+              @if (m.sublabel) { <span class="muted">— {{ m.sublabel }}</span> }
+            </li>
+          }
+        }
+      </ul>
+    }
+  </div>
+
+  <div class="toolbar-cell cell-date">
+    <span class="cell-label">From</span>
+    <input type="date" [(ngModel)]="periodStart" name="periodStart" aria-label="From" />
+  </div>
+
+  <div class="toolbar-cell cell-date">
+    <span class="cell-label">To</span>
+    <input type="date" [(ngModel)]="periodEnd" name="periodEnd" aria-label="To" />
+  </div>
+
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Currency</span>
+    <app-select
+      [(ngModel)]="currencyCode"
+      name="currency"
+      [options]="currencyOptions"
+      placeholder="Auto"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-submit">
+    <button type="submit" class="toolbar-submit" [disabled]="loading">
+      {{ loading ? 'Loading…' : 'Search' }}
+    </button>
+  </div>
+</form>
+
+@if (errorMessage) {
+  <div class="ledger-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="ledger-body">
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (ledger) {
+    <div class="ledger-summary">
+      <div class="summary-header">
+        <div>
+          <p class="muted">{{ ledger.header.targetType | humanize }}</p>
+          <h2>{{ ledger.header.targetName || ledger.header.targetId }}</h2>
+          @if (ledger.header.targetCode) {
+            <p class="muted">{{ ledger.header.targetCode }}</p>
+          }
+        </div>
+        <div class="summary-period">
+          <p class="muted">Period</p>
+          <strong>{{ ledger.header.periodStart }} → {{ ledger.header.periodEnd }}</strong>
+          <p class="muted">{{ ledger.header.currencyCode }}</p>
+        </div>
+      </div>
+
+      <div class="summary-cards">
+        <div class="summary-card">
+          <span class="summary-label">Opening balance</span>
+          <span class="summary-value">{{ ledger.header.openingBalance | currencyFormat:ledger.header.currencyCode }}</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Total charges</span>
+          <span class="summary-value debit">{{ ledger.header.totalCharges | currencyFormat:ledger.header.currencyCode }}</span>
+        </div>
+        <div class="summary-card">
+          <span class="summary-label">Total payments</span>
+          <span class="summary-value credit">{{ ledger.header.totalPayments | currencyFormat:ledger.header.currencyCode }}</span>
+        </div>
+        <div class="summary-card highlight">
+          <span class="summary-label">Closing balance</span>
+          <span class="summary-value">{{ ledger.header.closingBalance | currencyFormat:ledger.header.currencyCode }}</span>
+        </div>
+      </div>
+    </div>
+
+    @if (ledger.lines.length === 0) {
+      <div class="empty-state">
+        <app-icon name="folder-search" [size]="48"></app-icon>
+        <p>No ledger activity in this period.</p>
+      </div>
+    } @else {
+      <table class="ledger-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Reference</th>
+            <th class="right">Debit</th>
+            <th class="right">Credit</th>
+            <th class="right">Balance</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (l of ledger.lines; track l.sourceId) {
+            <tr>
+              <td>{{ l.date | date:'mediumDate' }}</td>
+              <td>{{ l.description }}</td>
+              <td class="muted">{{ l.reference || '—' }}</td>
+              <td class="right">{{ l.debit ? (l.debit | currencyFormat:ledger.header.currencyCode) : '' }}</td>
+              <td class="right credit">{{ l.credit ? (l.credit | currencyFormat:ledger.header.currencyCode) : '' }}</td>
+              <td class="right"><strong>{{ l.runningBalance | currencyFormat:ledger.header.currencyCode }}</strong></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  } @else {
+    <div class="empty-state">
+      <app-icon name="folder-search" [size]="48"></app-icon>
+      <p>Pick a {{ targetType === 'GROUP' ? 'group' : 'member' }}, set a period, then search to display the ledger.</p>
+    </div>
+  }
+</div>

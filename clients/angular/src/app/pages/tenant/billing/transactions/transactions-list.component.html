@@ -1,116 +1,111 @@
-<div class="transactions-page">
-  <header class="page-header">
-    <div>
-      <h1>{{ pageTitle }}</h1>
-      <p class="page-sub">{{ pageDescription }}</p>
-    </div>
-    <a class="btn btn-primary" routerLink="/tenant/billing/transactions/add">
-      <app-icon name="plus" [size]="14"></app-icon>
-      Record transaction
-    </a>
-  </header>
+<header class="page-header">
+  <div>
+    <h1>{{ pageTitle }}</h1>
+    <p class="page-sub">{{ pageDescription }}</p>
+  </div>
+  <a class="btn btn-primary" routerLink="/tenant/billing/transactions/add">
+    <app-icon name="plus" [size]="14"></app-icon>
+    Record transaction
+  </a>
+</header>
 
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<!-- ── Filter strip ─────────────────────────────────────────────────
+     Same shape as /tenant/billing/ledger's toolbar: flat strip with
+     column-like cells separated by 1px vertical dividers. Search sits
+     first as the wide cell, then Currency / Type / Method / From / To.
+     Clear button lives at the far right of the strip. Data-table's
+     built-in search is disabled ([searchable]="false") so we don't
+     render two search inputs on two rows. ─────────────────────────── -->
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-search">
+    <app-icon name="search" [size]="16"></app-icon>
+    <input
+      type="search"
+      [ngModel]="searchTerm"
+      (ngModelChange)="onSearchInput($event)"
+      name="search"
+      placeholder="Search receipt # or reference…"
+      aria-label="Search transactions"
+    />
+  </div>
+
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Currency</span>
+    <app-select
+      [(ngModel)]="selectedCurrency"
+      (selectionChange)="onFilterChange()"
+      name="currency"
+      size="sm"
+      [options]="currencyOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  @if (!presetType) {
+    <div class="toolbar-cell cell-select">
+      <span class="cell-label">Type</span>
+      <app-select
+        [(ngModel)]="selectedType"
+        (selectionChange)="onFilterChange()"
+        name="type"
+        size="sm"
+        [options]="typeOptions"
+        placeholder="Any"
+        [searchable]="false"
+        [autoSearchThreshold]="9999"
+      ></app-select>
+    </div>
   }
 
-  <div class="filters">
-    <label class="field">
-      <span class="field-label">Currency</span>
-      <app-select
-        [(ngModel)]="selectedCurrency"
-        (selectionChange)="onFilterChange()"
-        name="currency"
-        size="sm"
-        [options]="currencyOptions"
-        placeholder="Any"
-      ></app-select>
-    </label>
-    @if (!presetType) {
-      <label class="field">
-        <span class="field-label">Type</span>
-        <app-select
-          [(ngModel)]="selectedType"
-          (selectionChange)="onFilterChange()"
-          name="type"
-          size="sm"
-          [options]="typeOptions"
-          placeholder="Any"
-        ></app-select>
-      </label>
-    }
-    <label class="field">
-      <span class="field-label">Method</span>
-      <app-select
-        [(ngModel)]="selectedMethod"
-        (selectionChange)="onFilterChange()"
-        name="method"
-        size="sm"
-        [options]="methodOptions"
-        placeholder="Any"
-      ></app-select>
-    </label>
-    <label class="field">
-      <span class="field-label">Period start</span>
-      <input type="date" [(ngModel)]="periodStart" (change)="onFilterChange()" name="periodStart" />
-    </label>
-    <label class="field">
-      <span class="field-label">Period end</span>
-      <input type="date" [(ngModel)]="periodEnd" (change)="onFilterChange()" name="periodEnd" />
-    </label>
-    <label class="field grow">
-      <span class="field-label">Search</span>
-      <input type="search" [ngModel]="search" (ngModelChange)="onSearchChange($event)"
-             name="search" placeholder="Receipt # or reference…" />
-    </label>
-    <button type="button" class="btn btn-default reset-btn" (click)="clearFilters()">
-      <app-icon name="x" [size]="12"></app-icon>
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Method</span>
+    <app-select
+      [(ngModel)]="selectedMethod"
+      (selectionChange)="onFilterChange()"
+      name="method"
+      size="sm"
+      [options]="methodOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-date">
+    <span class="cell-label">From</span>
+    <input type="date" [(ngModel)]="periodStart" (change)="onFilterChange()" name="periodStart" aria-label="From" />
+  </div>
+
+  <div class="toolbar-cell cell-date">
+    <span class="cell-label">To</span>
+    <input type="date" [(ngModel)]="periodEnd" (change)="onFilterChange()" name="periodEnd" aria-label="To" />
+  </div>
+
+  <div class="toolbar-cell cell-clear">
+    <button type="button" class="clear-btn" (click)="clearFilters()">
+      <app-icon name="x-circle" [size]="14"></app-icon>
       Clear
     </button>
   </div>
-
-  @if (loading) {
-    <app-skeleton></app-skeleton>
-  } @else if (rows.length === 0) {
-    <p class="empty-state">No transactions match these filters.</p>
-  } @else {
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Type</th>
-          <th>Method</th>
-          <th class="right">Amount</th>
-          <th>Receipt #</th>
-          <th>Reference</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of rows; track row.id) {
-          <tr>
-            <td>{{ (row.transactionDate || row.createdAt) | date:'medium' }}</td>
-            <td>{{ row.transactionType | humanize }}</td>
-            <td>{{ row.paymentMethod ? (row.paymentMethod | humanize) : '—' }}</td>
-            <td class="right"><strong>{{ row.amount | currencyFormat:row.currencyCode }}</strong></td>
-            <td><code>{{ row.transactionNumber }}</code></td>
-            <td>{{ row.reference || '—' }}</td>
-            <td><span class="status-badge status-{{ row.status }}">{{ row.status | humanize }}</span></td>
-          </tr>
-        }
-      </tbody>
-    </table>
-
-    <footer class="page-footer">
-      <span class="muted">Page {{ page + 1 }} of {{ totalPages }} — {{ totalRows }} total</span>
-      <div class="pager">
-        <button class="btn btn-default" (click)="prevPage()" [disabled]="page === 0">
-          <app-icon name="chevron-left" [size]="14"></app-icon> Prev
-        </button>
-        <button class="btn btn-default" (click)="nextPage()" [disabled]="page >= totalPages - 1">
-          Next <app-icon name="chevron-right" [size]="14"></app-icon>
-        </button>
-      </div>
-    </footer>
-  }
 </div>
+
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [showActions]="false"
+  [searchable]="false"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  emptyMessage="No transactions yet."
+  (pageChange)="onPageChange($event)">
+</app-data-table>

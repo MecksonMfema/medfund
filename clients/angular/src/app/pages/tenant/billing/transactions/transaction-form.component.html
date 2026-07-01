@@ -113,21 +113,6 @@
 
       <div class="form-grid">
         <label class="field">
-          <span class="field-label">Amount</span>
-          <input type="number" step="any" min="0" [(ngModel)]="form.amount" name="amount" required />
-        </label>
-
-        <label class="field">
-          <span class="field-label">Currency</span>
-          <app-select
-            [(ngModel)]="form.currencyCode"
-            name="currencyCode"
-            [options]="currencyOptions"
-            placeholder="Pick a currency"
-          ></app-select>
-        </label>
-
-        <label class="field">
           <span class="field-label">Transaction type</span>
           <app-select
             [(ngModel)]="form.transactionTypeCode"
@@ -144,6 +129,21 @@
             name="paymentMethod"
             [options]="paymentMethodOptions"
             placeholder="— None —"
+          ></app-select>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Amount</span>
+          <input type="number" step="any" min="0" [(ngModel)]="form.amount" name="amount" required />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Currency</span>
+          <app-select
+            [(ngModel)]="form.currencyCode"
+            name="currencyCode"
+            [options]="currencyOptions"
+            placeholder="Pick a currency"
           ></app-select>
         </label>
 

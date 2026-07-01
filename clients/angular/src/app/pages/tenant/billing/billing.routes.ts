@@ -147,10 +147,20 @@ export const BILLING_ROUTES: Routes = [
     data: { title: 'Invoice Statement', sidebar: 'operational', fullbleed: true },
   },
   {
-    path: 'statements',
+    path: 'ledger',
     canActivate: [permissionGuard(['billing:view_statements'])],
-    loadComponent: () => import('./statements/statements.component').then(m => m.StatementsComponent),
-    data: { title: 'Statements', sidebar: 'operational' },
+    loadComponent: () => import('./ledger/ledger.component').then(m => m.LedgerComponent),
+    // fullbleed matches /tenant/billing/schemes so the page-header banner
+    // sits flush against the sidebar like the schemes/view pages do.
+    data: { title: 'Ledger', sidebar: 'operational', fullbleed: true },
+  },
+  // Legacy /tenant/billing/statements → /tenant/billing/ledger. Kept
+  // as a redirect so bookmarks, emails, and audit-log deep links from
+  // the pre-rename era still resolve.
+  {
+    path: 'statements',
+    redirectTo: 'ledger',
+    pathMatch: 'full',
   },
 
   // ── Transactions ───────────────────────────────────────────────────────────
@@ -158,7 +168,9 @@ export const BILLING_ROUTES: Routes = [
     path: 'transactions',
     canActivate: [permissionGuard(['billing:view'])],
     loadComponent: () => import('./transactions/transactions-list.component').then(m => m.TransactionsListComponent),
-    data: { title: 'Transactions', sidebar: 'operational' },
+    // fullbleed so the page-header banner sits flush with the sidebar,
+    // matching /tenant/billing/schemes and /tenant/billing/view.
+    data: { title: 'Transactions', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'transactions/add',
@@ -177,6 +189,7 @@ export const BILLING_ROUTES: Routes = [
       description: 'Transactions posted as adjustments — manual debits/credits applied to contributions or balances.',
       presetTransactionType: 'ADJUSTMENT',
       sidebar: 'operational',
+      fullbleed: true,
     },
   },
   {
@@ -188,6 +201,7 @@ export const BILLING_ROUTES: Routes = [
       description: 'Transactions sourced from bank statements for reconciliation.',
       presetTransactionType: 'BANK',
       sidebar: 'operational',
+      fullbleed: true,
     },
   },
   {
@@ -199,6 +213,7 @@ export const BILLING_ROUTES: Routes = [
       description: 'Transactions routed through the fund custodian.',
       presetTransactionType: 'FC',
       sidebar: 'operational',
+      fullbleed: true,
     },
   },
   {
@@ -210,6 +225,7 @@ export const BILLING_ROUTES: Routes = [
       description: 'Balance-changing entries — manual debits and credits not tied to a payment run.',
       presetTransactionType: 'DEBIT_CREDIT',
       sidebar: 'operational',
+      fullbleed: true,
     },
   },
   {
@@ -221,6 +237,7 @@ export const BILLING_ROUTES: Routes = [
       description: 'Cost-to-cure transactions: clinical-cost transfers between schemes.',
       presetTransactionType: 'CTC',
       sidebar: 'operational',
+      fullbleed: true,
     },
   },
 
