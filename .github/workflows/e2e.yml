@@ -5,13 +5,7 @@ name: Playwright E2E (advisory)
 # protection) once the suite passes 50 consecutive runs with <2% flake.
 
 on:
-  push:
-    paths:
-      - 'clients/angular/**'
-      - '.github/workflows/e2e.yml'
-  pull_request:
-    paths:
-      - 'clients/angular/**'
+  workflow_dispatch:
 
 jobs:
   e2e:

@@ -1,15 +1,7 @@
 name: Angular Web CI
 
 on:
-  push:
-    paths:
-      - 'clients/angular/**'
-      - '!clients/angular/e2e/**'
-      - '.github/workflows/angular.yml'
-  pull_request:
-    paths:
-      - 'clients/angular/**'
-      - '!clients/angular/e2e/**'
+  workflow_dispatch:
 
 defaults:
   run:

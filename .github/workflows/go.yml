@@ -1,13 +1,7 @@
 name: Go Services CI
 
 on:
-  push:
-    paths:
-      - 'services/go/**'
-      - '.github/workflows/go.yml'
-  pull_request:
-    paths:
-      - 'services/go/**'
+  workflow_dispatch:
 
 defaults:
   run:

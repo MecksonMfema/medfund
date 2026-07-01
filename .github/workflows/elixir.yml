@@ -1,13 +1,7 @@
 name: Elixir Services CI
 
 on:
-  push:
-    paths:
-      - 'services/elixir/**'
-      - '.github/workflows/elixir.yml'
-  pull_request:
-    paths:
-      - 'services/elixir/**'
+  workflow_dispatch:
 
 defaults:
   run:

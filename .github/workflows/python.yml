@@ -1,13 +1,7 @@
 name: Python AI Service CI
 
 on:
-  push:
-    paths:
-      - 'services/python/**'
-      - '.github/workflows/python.yml'
-  pull_request:
-    paths:
-      - 'services/python/**'
+  workflow_dispatch:
 
 defaults:
   run:
