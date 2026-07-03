@@ -1,12 +1,12 @@
 <header class="page-header">
   <div>
-    <h1>Invoices</h1>
-    <p class="page-sub">One row per invoice — every member + dependant contribution under a group rolls into a single invoice. Tabs separate the list by insurance line.</p>
+    <h1>Contribution statements</h1>
+    <p class="page-sub">One row per contribution statement — every member + dependant contribution under a group rolls into a single statement. Tabs separate the list by insurance line.</p>
   </div>
 </header>
 
 @if (showTabs) {
-  <nav class="scheme-tabs" role="tablist" aria-label="Filter invoices by insurance line">
+  <nav class="scheme-tabs" role="tablist" aria-label="Filter contribution statements by insurance line">
     @for (tab of tabs; track tab.value) {
       <button
         type="button"
@@ -34,8 +34,8 @@
   [serverPage]="page"
   [initialSortKey]="sortKey"
   [initialSortDirection]="sortDirection"
-  emptyMessage="No invoices match your filters."
-  searchPlaceholder="Search by holder, member, or invoice number…"
+  emptyMessage="No contribution statements match your filters."
+  searchPlaceholder="Search by holder, member, or statement number…"
   (sortChange)="onSort($event)"
   (searchChange)="onSearch($event)"
   (pageChange)="onPageChange($event)"

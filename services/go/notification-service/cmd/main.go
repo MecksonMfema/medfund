@@ -94,7 +94,7 @@ func main() {
 	// template resolver, and retry scheduler.
 	jobTemplates := template.NewResolver(pool, job.DefaultSubject, job.DefaultHTMLBody())
 	jobDispatcher, err := job.NewDispatcher(
-		job.DBStaffLookup{Pool: pool}, sender, jobTemplates, cfg.SMTPFrom, 30*time.Second)
+		job.DBStaffLookup{Pool: pool}, sender, jobTemplates, cfg.SMTPFrom)
 	if err != nil {
 		log.Fatalf("job dispatcher: %v", err)
 	}

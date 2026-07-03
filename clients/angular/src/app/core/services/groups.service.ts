@@ -9,6 +9,12 @@ export interface Group {
   name: string;
   registrationNumber?: string;
   address?: string;
+  /**
+   * Group contact email — fallback recipient for contribution statements
+   * when no liaison user is assigned. Required for newly-created groups
+   * (V038); optional here to remain tolerant of legacy rows.
+   */
+  email?: string;
   /** Discriminator for liaisonUserId. Null when no liaison is assigned. */
   liaisonKind?: LiaisonKind | null;
   /** ID in members, staff_users, or group_liaisons per liaisonKind. */
@@ -22,6 +28,8 @@ export interface UpsertGroupPayload {
   name: string;
   registrationNumber?: string;
   address?: string;
+  /** Required on create; optional on update. */
+  email?: string;
   /**
    * On create: 'MEMBER' | 'STAFF' | 'LIAISON' (or null for no liaison).
    * On update: 'CLEAR' to drop the existing liaison; null/undefined for

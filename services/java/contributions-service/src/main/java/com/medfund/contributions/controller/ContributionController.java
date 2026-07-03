@@ -134,7 +134,7 @@ public class ContributionController {
         return Mono.deferContextual(ctx -> {
             UUID tenantUuid = parseUuidOrNull(TenantContext.get(ctx));
             return scheduledJobService.createAdHocConfig(tenantUuid, jobType.name(), name, settings, actorId)
-                .flatMap(config -> jobDispatcher.runNowAsync(config, parseUuidOrNull(actorId))
+                .flatMap(config -> jobDispatcher.runNowAsync(config, parseUuidOrNull(actorId), actorEmail)
                     .map(run -> new EnqueueBillingResponse(
                         run.getConfigId(),
                         run.getId(),

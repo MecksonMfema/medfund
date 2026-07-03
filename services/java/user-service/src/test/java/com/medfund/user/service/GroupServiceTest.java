@@ -129,7 +129,7 @@ class GroupServiceTest {
         var actorId = UUID.randomUUID().toString();
         var liaisonId = UUID.randomUUID();
         var request = new CreateGroupRequest(
-            "Acme Corp", "REG-001", null, "MEMBER", liaisonId
+            "Acme Corp", "REG-001", null, "billing@acme.test", "MEMBER", liaisonId
         );
 
         when(memberRepository.existsById(liaisonId)).thenReturn(Mono.just(true));
@@ -147,6 +147,9 @@ class GroupServiceTest {
                 assertThat(group.getStatus()).isEqualTo("active");
                 assertThat(group.getName()).isEqualTo("Acme Corp");
                 assertThat(group.getRegistrationNumber()).isEqualTo("REG-001");
+                // Email is the fallback recipient when no liaison is assigned;
+                // it must survive the create path unchanged.
+                assertThat(group.getEmail()).isEqualTo("billing@acme.test");
             })
             .verifyComplete();
 
@@ -160,7 +163,7 @@ class GroupServiceTest {
         var id = group.getId();
         var actorId = UUID.randomUUID().toString();
         var request = new UpdateGroupRequest(
-            "Updated Corp", null, null, null, null
+            "Updated Corp", null, null, null, null, null
         );
 
         when(groupRepository.findById(id)).thenReturn(Mono.just(group));
@@ -175,6 +178,55 @@ class GroupServiceTest {
                 assertThat(result.getName()).isEqualTo("Updated Corp");
                 assertThat(result.getRegistrationNumber()).isEqualTo("REG-001");
             })
+            .verifyComplete();
+    }
+
+    /**
+     * Guard against the "null email means no change" rule regressing to
+     * "null email wipes the field". The DTO's Optional-null convention has
+     * bitten several other fields — pin it here for email too.
+     */
+    @Test
+    void update_nullEmail_leavesExistingUntouched() {
+        var group = createTestGroup();
+        group.setEmail("keep@acme.test");
+        var id = group.getId();
+        var actorId = UUID.randomUUID().toString();
+        var request = new UpdateGroupRequest(
+            "Renamed", null, null, null, null, null
+        );
+
+        when(groupRepository.findById(id)).thenReturn(Mono.just(group));
+        when(groupRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            groupService.update(id, request, actorId, "actor@test.example")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .assertNext(saved -> assertThat(saved.getEmail()).isEqualTo("keep@acme.test"))
+            .verifyComplete();
+    }
+
+    @Test
+    void update_providedEmail_replacesExisting() {
+        var group = createTestGroup();
+        group.setEmail("old@acme.test");
+        var id = group.getId();
+        var actorId = UUID.randomUUID().toString();
+        var request = new UpdateGroupRequest(
+            null, null, null, "new@acme.test", null, null
+        );
+
+        when(groupRepository.findById(id)).thenReturn(Mono.just(group));
+        when(groupRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            groupService.update(id, request, actorId, "actor@test.example")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .assertNext(saved -> assertThat(saved.getEmail()).isEqualTo("new@acme.test"))
             .verifyComplete();
     }
 
@@ -205,7 +257,7 @@ class GroupServiceTest {
         var actorId = UUID.randomUUID().toString();
         var liaisonId = UUID.randomUUID();
         var request = new CreateGroupRequest(
-            "Acme", null, null,
+            "Acme", null, null, "contact@acme.test",
             "MEMBER", liaisonId
         );
         when(memberRepository.existsById(liaisonId)).thenReturn(Mono.just(true));
@@ -236,7 +288,7 @@ class GroupServiceTest {
         var actorId = UUID.randomUUID().toString();
         var liaisonId = UUID.randomUUID();
         var request = new CreateGroupRequest(
-            "Acme", null, null,
+            "Acme", null, null, "contact@acme.test",
             "STAFF", liaisonId
         );
         when(staffUserRepository.existsById(liaisonId)).thenReturn(Mono.just(true));
@@ -266,7 +318,7 @@ class GroupServiceTest {
         var actorId = UUID.randomUUID().toString();
         var liaisonId = UUID.randomUUID();
         var request = new CreateGroupRequest(
-            "Acme", null, null,
+            "Acme", null, null, "contact@acme.test",
             "LIAISON", liaisonId
         );
         when(groupLiaisonRepository.existsById(liaisonId)).thenReturn(Mono.just(true));
@@ -295,7 +347,7 @@ class GroupServiceTest {
         var actorId = UUID.randomUUID().toString();
         var liaisonId = UUID.randomUUID();
         var request = new CreateGroupRequest(
-            "Acme", null, null,
+            "Acme", null, null, "contact@acme.test",
             "LIAISON", liaisonId
         );
         when(groupLiaisonRepository.existsById(liaisonId)).thenReturn(Mono.just(false));
@@ -314,11 +366,16 @@ class GroupServiceTest {
         verify(keycloakSyncService, never()).assignRealmRoles(anyString(), anyString(), any());
     }
 
+    /**
+     * The single "you need a way to email this group" rule: neither a
+     * liaison nor a contact email → 422. Both being set is fine; either
+     * on its own is fine.
+     */
     @Test
-    void create_withoutLiaison_returns422() {
+    void create_withoutLiaisonAndWithoutEmail_returns422() {
         var actorId = UUID.randomUUID().toString();
         var request = new CreateGroupRequest(
-            "Acme", null, null,
+            "Acme", null, null, null,
             null, null
         );
 
@@ -329,16 +386,103 @@ class GroupServiceTest {
             .expectErrorSatisfies(err -> {
                 assertThat(err).isInstanceOf(ResponseStatusException.class);
                 assertThat(((ResponseStatusException) err).getStatusCode().value()).isEqualTo(422);
-                assertThat(err.getMessage()).contains("required");
+                assertThat(err.getMessage())
+                    .contains("either a liaison")
+                    .contains("contact email");
             })
             .verify();
+    }
+
+    /** Email-only is now a valid create shape — no liaison required. */
+    @Test
+    void create_emailOnly_succeeds() {
+        var actorId = UUID.randomUUID().toString();
+        var request = new CreateGroupRequest(
+            "Acme", null, null, "billing@acme.test",
+            null, null
+        );
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            groupService.create(request, actorId, "actor@test.example")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "t1"))
+        )
+            .assertNext(g -> {
+                assertThat(g.getEmail()).isEqualTo("billing@acme.test");
+                assertThat(g.getLiaisonKind()).isNull();
+                assertThat(g.getLiaisonUserId()).isNull();
+            })
+            .verifyComplete();
+
+        // No liaison → the Keycloak role-grant path must not fire.
+        verify(keycloakSyncService, never()).assignRealmRoles(anyString(), anyString(), any());
+    }
+
+    /** Liaison-only (no email) is now valid — the resolver still has a route. */
+    @Test
+    void create_liaisonOnlyNoEmail_succeeds() {
+        var actorId = UUID.randomUUID().toString();
+        var liaisonId = UUID.randomUUID();
+        var request = new CreateGroupRequest(
+            "Acme", null, null, null,
+            "MEMBER", liaisonId
+        );
+        when(memberRepository.existsById(liaisonId)).thenReturn(Mono.just(true));
+        var memberStub = new Member();
+        memberStub.setId(liaisonId);
+        memberStub.setKeycloakUserId("kc-mem-x");
+        when(memberRepository.findById(liaisonId)).thenReturn(Mono.just(memberStub));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            groupService.create(request, actorId, "actor@test.example")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "t1"))
+        )
+            .assertNext(g -> {
+                assertThat(g.getLiaisonKind()).isEqualTo("MEMBER");
+                assertThat(g.getEmail()).isNull();
+            })
+            .verifyComplete();
+    }
+
+    /**
+     * The update-time twin of the create rule: an UPDATE cannot leave the
+     * group with neither liaison nor email, or subsequent statement
+     * dispatches have nowhere to route.
+     */
+    @Test
+    void update_wouldLeaveBothEmpty_returns422() {
+        var group = createTestGroup();
+        group.setEmail("current@acme.test");
+        // No liaison assigned — the group is currently reachable via email only.
+        var id = group.getId();
+        var actorId = UUID.randomUUID().toString();
+        // Blank email clears; no liaison touch → post-update both are empty.
+        var request = new UpdateGroupRequest(
+            null, null, null, "", null, null
+        );
+
+        when(groupRepository.findById(id)).thenReturn(Mono.just(group));
+
+        StepVerifier.create(
+            groupService.update(id, request, actorId, "actor@test.example")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "t1"))
+        )
+            .expectErrorSatisfies(err -> {
+                assertThat(err).isInstanceOf(ResponseStatusException.class);
+                assertThat(((ResponseStatusException) err).getStatusCode().value()).isEqualTo(422);
+                assertThat(err.getMessage()).contains("leave both empty");
+            })
+            .verify();
+
+        verify(groupRepository, never()).save(any());
     }
 
     @Test
     void create_kindWithoutId_returns422() {
         var actorId = UUID.randomUUID().toString();
         var request = new CreateGroupRequest(
-            "Acme", null, null,
+            "Acme", null, null, "contact@acme.test",
             "MEMBER", null
         );
 
@@ -359,7 +503,7 @@ class GroupServiceTest {
         var actorId = UUID.randomUUID().toString();
         var liaisonId = UUID.randomUUID();
         var request = new CreateGroupRequest(
-            "Acme", null, null,
+            "Acme", null, null, "contact@acme.test",
             "MEMBER", liaisonId
         );
         when(memberRepository.existsById(liaisonId)).thenReturn(Mono.just(false));
@@ -383,7 +527,7 @@ class GroupServiceTest {
         group.setLiaisonUserId(UUID.randomUUID());
         var actorId = UUID.randomUUID().toString();
         var request = new UpdateGroupRequest(
-            null, null, null,
+            null, null, null, null,
             "CLEAR", null
         );
 
@@ -410,7 +554,7 @@ class GroupServiceTest {
         var actorId = UUID.randomUUID().toString();
         var newStaffId = UUID.randomUUID();
         var request = new UpdateGroupRequest(
-            null, null, null,
+            null, null, null, null,
             "STAFF", newStaffId
         );
 
@@ -439,6 +583,10 @@ class GroupServiceTest {
         group.setId(UUID.randomUUID());
         group.setName("Acme Corp");
         group.setRegistrationNumber("REG-001");
+        // Baseline groups carry a fallback email so update-time tests aren't
+        // tripped by the "leave both empty" 422 — the tests that specifically
+        // exercise the emptiness rule override this to null.
+        group.setEmail("existing@acme.test");
         group.setStatus("active");
         group.setCreatedAt(Instant.now());
         group.setUpdatedAt(Instant.now());

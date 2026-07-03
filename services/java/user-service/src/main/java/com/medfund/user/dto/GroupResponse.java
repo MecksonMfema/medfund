@@ -10,6 +10,7 @@ public record GroupResponse(
     String name,
     String registrationNumber,
     String address,
+    String email,
     String liaisonKind,
     UUID liaisonUserId,
     String status,
@@ -19,7 +20,7 @@ public record GroupResponse(
     public static GroupResponse from(Group g) {
         return new GroupResponse(
             g.getId(), g.getName(), g.getRegistrationNumber(),
-            g.getAddress(), g.getLiaisonKind(), g.getLiaisonUserId(),
+            g.getAddress(), g.getEmail(), g.getLiaisonKind(), g.getLiaisonUserId(),
             g.getStatus(), g.getCreatedAt(), g.getUpdatedAt()
         );
     }

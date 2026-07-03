@@ -37,9 +37,10 @@ public class ScheduledJobController {
         this.db = db;
     }
 
-    /** SQL behind /runs/recent-for-me. LEFT JOIN so a run whose config
-     *  has since been deleted still surfaces (with null name) rather
-     *  than silently vanishing from the operator's bell. */
+    /** SQL behind /runs/recent-for-me — legacy wizard/dashboard uses it
+     *  for scheduled-job monitoring. The bell has moved to the generic
+     *  {@code public.notifications} table (see NotificationsController)
+     *  so any producer can surface entries without touching this query. */
     private static final String RECENT_FOR_ACTOR_SQL = """
         SELECT
             r.id            AS id,

@@ -42,7 +42,12 @@ public class TenantWebFilter implements WebFilter {
             "/api/v1/quotes",
             "/api/v1/tenant-stats",
             "/api/v1/providers",
-            "/api/v1/audit"
+            "/api/v1/audit",
+            // Notifications are scoped to the JWT subject, not the tenant.
+            // A super admin without an active tenant still needs to read
+            // their bell, and per-user rows already carry tenant_id for
+            // downstream filtering.
+            "/api/v1/notifications"
     );
 
     @Override

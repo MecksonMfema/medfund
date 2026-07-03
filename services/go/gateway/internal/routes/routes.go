@@ -118,8 +118,13 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/rule-templates", proxy.Handler(cfg.RulesServiceURL))
 	app.All("/api/v1/rule-templates/*", proxy.Handler(cfg.RulesServiceURL))
 
+	// In-app notifications (bell dropdown) — Java-owned via the shared
+	// NotificationsController. Persisted rows live in public.notifications;
+	// the Go notification-service handles email fan-out only.
+	app.All("/api/v1/notifications", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/notifications/*", proxy.Handler(cfg.UserServiceURL))
+
 	// ── Go Services ───────────────────────────────────────────────────────────
-	app.All("/api/v1/notifications/*", proxy.Handler(cfg.NotifServiceURL))
 	app.All("/api/v1/audit", proxy.Handler(cfg.AuditServiceURL))
 	app.All("/api/v1/audit/*", proxy.Handler(cfg.AuditServiceURL))
 	app.All("/api/v1/files/*", proxy.Handler(cfg.FileServiceURL))

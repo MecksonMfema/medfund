@@ -1,7 +1,7 @@
 import { Component, ElementRef, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, NavigationEnd, Router, RouterOutlet } from '@angular/router';
-import { Subscription, filter, map } from 'rxjs';
+import { Observable, Subscription, filter } from 'rxjs';
 import { KeycloakService } from 'keycloak-angular';
 import { TenantSidebarComponent } from '../tenant-sidebar/tenant-sidebar.component';
 import { OperationalSidebarComponent } from '../operational-sidebar/operational-sidebar.component';
@@ -9,6 +9,7 @@ import { NavigationService } from '../../core/services/navigation.service';
 import { TenantService } from '../../core/services/tenant.service';
 import { AdminService } from '../../core/services/admin.service';
 import { BrandingService } from '../../core/services/branding.service';
+import { NotificationsService, UserNotification } from '../../core/services/notifications.service';
 import { PermissionService } from '../../core/security/permission.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { ProgressBarComponent } from '../../shared/components/progress-bar/progress-bar.component';
@@ -34,6 +35,13 @@ export class TenantLayoutComponent implements OnInit, OnDestroy {
   userName = 'User';
   userInitials = 'U';
   userMenuOpen = false;
+  notificationsOpen = false;
+
+  /** Streams piped straight into the bell dropdown via async pipe. Same
+   *  wiring as HeaderComponent so the operational and legacy shells stay
+   *  in sync when the notification model evolves. */
+  unseenCount$!: Observable<number>;
+  notifications$!: Observable<UserNotification[]>;
 
   /** Realm-role flags — drive the portal-navigation items in the dropdown. */
   isSuperAdmin = false;
@@ -62,6 +70,7 @@ export class TenantLayoutComponent implements OnInit, OnDestroy {
     private tenantService: TenantService,
     private adminService: AdminService,
     private brandingService: BrandingService,
+    private notifications: NotificationsService,
     private keycloak: KeycloakService,
     private permissions: PermissionService,
     private router: Router,
@@ -160,6 +169,45 @@ export class TenantLayoutComponent implements OnInit, OnDestroy {
       .slice(0, 2)
       .join('')
       .toUpperCase();
+
+    // Bell dropdown wiring — the service is a singleton, so start() is a
+    // no-op if HeaderComponent already booted it during a prior route.
+    this.notifications.start();
+    this.unseenCount$ = this.notifications.badge;
+    this.notifications$ = this.notifications.list;
+  }
+
+  // ── Notifications bell ────────────────────────────────────────────────
+
+  toggleNotifications(): void {
+    this.notificationsOpen = !this.notificationsOpen;
+    if (this.notificationsOpen) {
+      this.notifications.refresh();
+    }
+  }
+
+  markAllSeen(): void {
+    this.notifications.markAllSeen();
+  }
+
+  onRowClick(n: UserNotification): void {
+    if (!n.seen) this.notifications.markSeen(n.id);
+    if (n.actionUrl) this.router.navigateByUrl(n.actionUrl);
+  }
+
+  severityColor(s: string): string {
+    return { info: 'blue', success: 'green', warning: 'amber', error: 'red' }[s] ?? 'gray';
+  }
+
+  relative(iso: string): string {
+    const then = new Date(iso).getTime();
+    if (!Number.isFinite(then)) return '';
+    const secs = Math.floor((Date.now() - then) / 1000);
+    if (secs < 60)   return `${Math.max(1, secs)}s ago`;
+    if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+    if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+    if (secs < 172800) return 'yesterday';
+    return `${Math.floor(secs / 86400)}d ago`;
   }
 
   ngOnDestroy(): void {

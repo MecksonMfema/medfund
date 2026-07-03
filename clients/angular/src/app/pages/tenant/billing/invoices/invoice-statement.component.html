@@ -1,6 +1,6 @@
 <div class="page">
   <a class="back-link" routerLink="/tenant/billing/view">
-    <app-icon name="chevron-left" [size]="16"></app-icon> Back to Invoices
+    <app-icon name="chevron-left" [size]="16"></app-icon> Back to Contribution statements
   </a>
 
   @if (errorMessage) {
@@ -130,7 +130,7 @@
 
       <p class="muted small">
         Snapshot captured at commit time — these figures do not change even if a back-dated transaction lands later.
-        Transactions posted after the commit appear on the next invoice (strict-less-than-commit window).
+        Transactions posted after the commit appear on the next contribution statement (strict-less-than-commit window).
       </p>
     </section>
   }

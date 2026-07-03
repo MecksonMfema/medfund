@@ -8,6 +8,9 @@ import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
 @EnableR2dbcRepositories(basePackages = {
         "com.medfund.contributions.repository",
         "com.medfund.shared.scheduler",
+        // NotificationRepository — the in-app bell reads/writes rows against
+        // public.notifications from any service that hosts JobEventPublisher.
+        "com.medfund.shared.notification",
         // TenantRuleRepository — contributions-service reads tenant rules to feed
         // the rules engine for CONTRIBUTION_PRICING / CONTRIBUTION_BILLING evaluation.
         "com.medfund.rules.repository",

@@ -28,6 +28,7 @@ export class GroupFormComponent implements OnInit {
     name: '',
     registrationNumber: '',
     address: '',
+    email: '',
     liaisonKind: null,
     liaisonUserId: null,
   };
@@ -67,6 +68,7 @@ export class GroupFormComponent implements OnInit {
           name: g.name,
           registrationNumber: g.registrationNumber ?? '',
           address: g.address ?? '',
+          email: g.email ?? '',
           liaisonKind: g.liaisonKind ?? null,
           liaisonUserId: g.liaisonUserId ?? null,
         };
@@ -84,16 +86,19 @@ export class GroupFormComponent implements OnInit {
       this.errorMessage = 'Name is required';
       return;
     }
-    // Only enforce on create — edit is allowed to keep the existing liaison
-    // unchanged (the form may not re-pick it on every save).
-    if (!this.groupId && (!this.form.liaisonKind || !this.form.liaisonUserId)) {
-      this.errorMessage = 'A liaison is required — pick a member, staff user, or add a new liaison.';
+    // Either-or rule: the group needs at least one route for statements —
+    // a liaison user OR a contact email. Both is fine; neither is not.
+    const hasLiaison = !!(this.form.liaisonKind && this.form.liaisonKind !== 'CLEAR' && this.form.liaisonUserId);
+    const hasEmail = !!this.form.email?.trim();
+    if (!this.groupId && !hasLiaison && !hasEmail) {
+      this.errorMessage = 'Add either a liaison or a contact email — the group needs at least one route for contribution statements.';
       return;
     }
     const payload: UpsertGroupPayload = {
       name: this.form.name.trim(),
       registrationNumber: this.form.registrationNumber?.trim() || undefined,
       address: this.form.address?.trim() || undefined,
+      email:         this.form.email?.trim() || undefined,
       liaisonKind:   this.form.liaisonKind   ?? undefined,
       liaisonUserId: this.form.liaisonUserId ?? undefined,
     };

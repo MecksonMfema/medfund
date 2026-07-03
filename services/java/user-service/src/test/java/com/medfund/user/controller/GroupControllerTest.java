@@ -64,43 +64,68 @@ class GroupControllerTest {
                 .post().uri("/api/v1/groups")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue("{\"name\":\"Acme Corp\",\"registrationNumber\":\"REG-001\","
+                        + "\"email\":\"contact@acme.test\","
                         + "\"liaisonKind\":\"MEMBER\",\"liaisonUserId\":\"11111111-1111-1111-1111-111111111111\"}")
                 .header("X-Tenant-ID", "test-tenant")
                 .exchange()
                 .expectStatus().isCreated();
     }
 
+    /** Liaison-only payload is accepted at the DTO layer under the relaxed rule. */
     @Test
-    void create_missingLiaisonKind_returns400() {
+    void create_liaisonOnly_returns201() {
+        when(groupService.create(any(), any(), any())).thenReturn(Mono.just(createTestGroup()));
+
         webTestClient.mutateWith(mockJwt())
                 .post().uri("/api/v1/groups")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue("{\"name\":\"Acme Corp\",\"registrationNumber\":\"REG-001\","
+                        + "\"liaisonKind\":\"MEMBER\","
                         + "\"liaisonUserId\":\"11111111-1111-1111-1111-111111111111\"}")
                 .header("X-Tenant-ID", "test-tenant")
                 .exchange()
-                .expectStatus().isBadRequest();
+                .expectStatus().isCreated();
     }
 
+    /** Email-only payload is also accepted — resolver falls back to the group email. */
+    @Test
+    void create_emailOnly_returns201() {
+        when(groupService.create(any(), any(), any())).thenReturn(Mono.just(createTestGroup()));
+
+        webTestClient.mutateWith(mockJwt())
+                .post().uri("/api/v1/groups")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"name\":\"Acme Corp\",\"registrationNumber\":\"REG-001\","
+                        + "\"email\":\"billing@acme.test\"}")
+                .header("X-Tenant-ID", "test-tenant")
+                .exchange()
+                .expectStatus().isCreated();
+    }
+
+    /** Invalid liaisonKind (schema-drift attempt) still short-circuits at DTO validation. */
     @Test
     void create_invalidLiaisonKind_returns400() {
         webTestClient.mutateWith(mockJwt())
                 .post().uri("/api/v1/groups")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue("{\"name\":\"Acme Corp\",\"registrationNumber\":\"REG-001\","
+                        + "\"email\":\"contact@acme.test\","
                         + "\"liaisonKind\":\"OWNER\",\"liaisonUserId\":\"11111111-1111-1111-1111-111111111111\"}")
                 .header("X-Tenant-ID", "test-tenant")
                 .exchange()
                 .expectStatus().isBadRequest();
     }
 
+    /** Malformed email is still caught at DTO validation. */
     @Test
-    void create_missingLiaisonUserId_returns400() {
+    void create_invalidEmailFormat_returns400() {
         webTestClient.mutateWith(mockJwt())
                 .post().uri("/api/v1/groups")
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue("{\"name\":\"Acme Corp\",\"registrationNumber\":\"REG-001\","
-                        + "\"liaisonKind\":\"MEMBER\"}")
+                        + "\"email\":\"not-an-email\","
+                        + "\"liaisonKind\":\"MEMBER\","
+                        + "\"liaisonUserId\":\"11111111-1111-1111-1111-111111111111\"}")
                 .header("X-Tenant-ID", "test-tenant")
                 .exchange()
                 .expectStatus().isBadRequest();

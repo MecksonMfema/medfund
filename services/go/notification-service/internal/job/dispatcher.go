@@ -1,9 +1,7 @@
 // Package job consumes JobCompleted events from the scheduler and
-// emails the triggering user when a long-running job finishes.
-//
-// "Long-running" is a configurable duration threshold (default 30s)
-// so a quick preview commit doesn't flood the inbox while an hours-
-// long billing run still produces a "your job finished" mail.
+// emails the triggering user when a job finishes. Every manual-triggered
+// completion produces a mail — no duration gate — because the operator
+// who kicked the run is the person who needs to know it finished.
 package job
 
 import (
@@ -45,11 +43,18 @@ type Event struct {
 	Status        string `json:"status"`
 	TriggerKind   string `json:"triggerKind"`
 	TriggeredBy   string `json:"triggeredBy"`
-	StartedAt     string `json:"startedAt"`
-	EndedAt       string `json:"endedAt"`
-	DurationMs    string `json:"durationMs"`
-	ResultPayload string `json:"resultPayload"`
-	ErrorMessage  string `json:"errorMessage"`
+	// TriggeredByEmail is the actor email captured from the JWT at
+	// enqueue time (JobDispatcher.runNowAsync). When present the
+	// dispatcher uses it verbatim — no staff_users lookup required.
+	// Empty for scheduled / system jobs; falls through to StaffLookup
+	// for the legacy path so cron-driven runs still email their owner
+	// if one is provisioned in staff_users.
+	TriggeredByEmail string `json:"triggeredByEmail"`
+	StartedAt        string `json:"startedAt"`
+	EndedAt          string `json:"endedAt"`
+	DurationMs       string `json:"durationMs"`
+	ResultPayload    string `json:"resultPayload"`
+	ErrorMessage     string `json:"errorMessage"`
 }
 
 const templateKey = "JOB_COMPLETED"
@@ -73,10 +78,20 @@ func (l DBStaffLookup) ForActor(ctx context.Context, actorID string) (StaffUser,
 	if l.Pool == nil {
 		return StaffUser{}, fmt.Errorf("postgres pool unavailable")
 	}
+	// actorID here is the JWT `sub` claim — a Keycloak subject UUID as a
+	// string. `staff_users.id` is a locally-generated UUID; the Keycloak
+	// side lives in `keycloak_user_id`. The earlier `WHERE id = $1` query
+	// silently returned "no rows" for every JobCompleted event, dropping
+	// every commit-completed notification. Match the string column and
+	// fall back to `id` for legacy rows that were seeded before Keycloak
+	// linkage — that way locally-provisioned admin accounts still work.
 	var email, first, last string
-	err := l.Pool.QueryRow(ctx,
-		`SELECT email, first_name, last_name FROM public.staff_users WHERE id = $1`,
-		actorID).Scan(&email, &first, &last)
+	err := l.Pool.QueryRow(ctx, `
+		SELECT email, first_name, last_name
+		  FROM public.staff_users
+		 WHERE keycloak_user_id = $1
+		    OR id::text          = $1
+		 LIMIT 1`, actorID).Scan(&email, &first, &last)
 	if err != nil {
 		return StaffUser{}, fmt.Errorf("lookup staff user %s: %w", actorID, err)
 	}
@@ -106,46 +121,47 @@ type TemplateResolver interface {
 }
 
 type Dispatcher struct {
-	Lookup      StaffLookup
-	Sender      mail.Sender
-	Templates   TemplateResolver
-	From        string
-	MinDuration time.Duration
+	Lookup    StaffLookup
+	Sender    mail.Sender
+	Templates TemplateResolver
+	From      string
 }
 
-// NewDispatcher builds a Dispatcher. minDuration of 0 sends on every
-// job; the default 30s is the value cmd/main passes.
-func NewDispatcher(l StaffLookup, s mail.Sender, t TemplateResolver, from string, minDuration time.Duration) (*Dispatcher, error) {
+func NewDispatcher(l StaffLookup, s mail.Sender, t TemplateResolver, from string) (*Dispatcher, error) {
 	if t == nil {
 		return nil, fmt.Errorf("template resolver is required")
 	}
-	return &Dispatcher{
-		Lookup: l, Sender: s, Templates: t, From: from, MinDuration: minDuration,
-	}, nil
+	return &Dispatcher{Lookup: l, Sender: s, Templates: t, From: from}, nil
 }
 
 // Dispatch resolves the actor → renders the email → sends it. Returns
-// Skipped=true (no Err) when the event doesn't meet the email criteria
-// — caller should not publish NotificationSent in that case.
+// Skipped=true (no Err) when the event has no human actor to email —
+// caller should not publish NotificationSent in that case.
 func (d *Dispatcher) Dispatch(ctx context.Context, e Event) Result {
-	// Filter 1: scheduled jobs (no human actor) — no inbox to email.
+	// Scheduled/system jobs have no human inbox — skip. Every other
+	// manual completion emails, regardless of how quick the run was.
 	if e.TriggerKind == "schedule" || e.TriggeredBy == "" {
 		return Result{Skipped: true}
 	}
-	// Filter 2: long-running threshold.
 	dur := parseDuration(e.DurationMs)
-	if dur < d.MinDuration {
-		log.Printf("[job] %s — duration %v below threshold %v, skipping email", e.RunID, dur, d.MinDuration)
-		return Result{Skipped: true}
-	}
 
-	if d.Lookup == nil {
-		return Result{Err: fmt.Errorf("staff lookup unavailable")}
-	}
-	user, err := d.Lookup.ForActor(ctx, e.TriggeredBy)
-	if err != nil {
-		log.Printf("[job] %s — actor lookup failed: %v", e.RunID, err)
-		return Result{Err: err}
+	// Prefer the email captured on the event itself (populated from the
+	// caller's JWT at enqueue time). Falls back to the staff_users lookup
+	// only when the event predates the plumbing OR the caller was a
+	// scheduled job whose owner is provisioned in staff_users.
+	var user StaffUser
+	if e.TriggeredByEmail != "" {
+		user = StaffUser{Email: e.TriggeredByEmail, DisplayName: e.TriggeredByEmail}
+	} else {
+		if d.Lookup == nil {
+			return Result{Err: fmt.Errorf("staff lookup unavailable and event carries no triggeredByEmail")}
+		}
+		var err error
+		user, err = d.Lookup.ForActor(ctx, e.TriggeredBy)
+		if err != nil {
+			log.Printf("[job] %s — actor lookup failed: %v", e.RunID, err)
+			return Result{Err: err}
+		}
 	}
 
 	tmpl := d.Templates.Resolve(ctx, e.TenantID, templateKey)

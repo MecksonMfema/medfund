@@ -5,19 +5,7 @@ import { Observable, Subscription, filter, map } from 'rxjs';
 import { KeycloakService } from 'keycloak-angular';
 import { NavigationService } from '../../core/services/navigation.service';
 import { TenantService } from '../../core/services/tenant.service';
-import { NotificationsService } from '../../core/services/notifications.service';
-import { ScheduledJobRunSummary, ScheduledJobRunStatus } from '../../core/services/admin.service';
-
-/** Friendly labels for the bell dropdown — keep aligned with
- *  shared/scheduler/JobType in Java + job.friendlyKind in
- *  notification-service so an operator sees the same wording across
- *  email + bell + audit log. */
-const JOB_TYPE_LABELS: Record<string, string> = {
-  BILLING_COMMIT:  'Billing commit',
-  BILLING_PREVIEW: 'Billing preview',
-  BILLING_CYCLE:   'Billing cycle',
-  OVERDUE_CHECK:   'Overdue check',
-};
+import { NotificationsService, UserNotification } from '../../core/services/notifications.service';
 import { UserInfo } from '../../core/models/navigation.model';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { clearSession, endImpersonation } from '../../auth/keycloak.init';
@@ -40,7 +28,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   /** Notifications observables piped straight into the bell dropdown via async pipe. */
   unseenCount$!: Observable<number>;
-  runs$!: Observable<ScheduledJobRunSummary[]>;
+  notifications$!: Observable<UserNotification[]>;
 
   private sub?: Subscription;
 
@@ -98,45 +86,28 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.notifications.markAllSeen();
   }
 
-  isUnseen(run: ScheduledJobRunSummary): boolean {
-    if (run.status === 'RUNNING' || !run.endedAt) return false;
-    // Mirrors NotificationsService.computeUnseen so the row styling
-    // stays consistent with the badge count.
-    try {
-      const raw = localStorage.getItem('medfund_notifications_last_seen');
-      const ts = raw ? new Date(raw).getTime() : 0;
-      return new Date(run.endedAt).getTime() > ts;
-    } catch {
-      return true;
-    }
+  onRowClick(n: UserNotification): void {
+    if (!n.seen) this.notifications.markSeen(n.id);
+    if (n.actionUrl) this.router.navigateByUrl(n.actionUrl);
   }
 
-  statusColor(s: ScheduledJobRunStatus): string {
-    return { RUNNING: 'blue', SUCCESS: 'green', FAILED: 'red' }[s] ?? 'gray';
+  /** Bell dot colour, driven by the persisted severity column. Producers
+   *  choose which severity fits their event; unknown values render gray. */
+  severityColor(s: string): string {
+    return { info: 'blue', success: 'green', warning: 'amber', error: 'red' }[s] ?? 'gray';
   }
 
-  statusVerb(s: ScheduledJobRunStatus): string {
-    return { RUNNING: 'Running', SUCCESS: 'Completed', FAILED: 'Failed' }[s] ?? s;
-  }
-
-  /** "Billing commit · September billing" when both job-type and the
-   *  config name are present. Falls back gracefully for runs whose
-   *  config has since been deleted (LEFT JOIN preserves them) or
-   *  whose job type isn't in our label map. */
-  jobLabel(run: ScheduledJobRunSummary): string {
-    const kind = (run.jobType && JOB_TYPE_LABELS[run.jobType]) || run.jobType || 'Job';
-    if (run.configName) return `${kind} · ${run.configName}`;
-    return kind;
-  }
-
-  humanDuration(ms: number): string {
-    if (ms < 1000) return `${ms}ms`;
-    const s = Math.round(ms / 1000);
-    if (s < 60) return `${s}s`;
-    const m = Math.floor(s / 60);
-    if (m < 60) return `${m}m${s % 60}s`;
-    const h = Math.floor(m / 60);
-    return `${h}h${m % 60}m`;
+  /** Compact relative time — "5m ago", "2h ago", "yesterday". Server
+   *  sends UTC ISO timestamps; the browser handles the timezone. */
+  relative(iso: string): string {
+    const then = new Date(iso).getTime();
+    if (!Number.isFinite(then)) return '';
+    const secs = Math.floor((Date.now() - then) / 1000);
+    if (secs < 60)   return `${Math.max(1, secs)}s ago`;
+    if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+    if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+    if (secs < 172800) return 'yesterday';
+    return `${Math.floor(secs / 86400)}d ago`;
   }
 
   ngOnInit(): void {
@@ -147,7 +118,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     // the template binds via async pipe.
     this.notifications.start();
     this.unseenCount$ = this.notifications.badge;
-    this.runs$ = this.notifications.list;
+    this.notifications$ = this.notifications.list;
 
     this.sub = this.router.events
       .pipe(

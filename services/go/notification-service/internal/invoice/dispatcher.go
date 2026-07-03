@@ -19,7 +19,7 @@ var defaultBodyTemplate string
 
 // DefaultSubject is exported so the cmd/main wiring can hand it to the
 // template resolver as the platform-wide fallback.
-const DefaultSubject = "Invoice {{.InvoiceNumber}} — {{.CurrencyCode}} {{.TotalAmount}} due {{.DueDate}}"
+const DefaultSubject = "Contribution statement {{.InvoiceNumber}} — {{.CurrencyCode}} {{.TotalAmount}} due {{.DueDate}}"
 
 // DefaultHTMLBody returns the embedded fallback body template — same
 // value the dispatcher used before per-tenant template lookup landed.

@@ -8,6 +8,8 @@ import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
 @EnableR2dbcRepositories(basePackages = {
         "com.medfund.claims.repository",
         "com.medfund.shared.scheduler",
+        // NotificationRepository — required wherever JobEventPublisher loads.
+        "com.medfund.shared.notification",
         // TenantRuleRepository — claims-service reads tenant rules to feed
         // the per-tenant Drools engine during the AdjudicationPipeline's
         // tenant-rules stage.

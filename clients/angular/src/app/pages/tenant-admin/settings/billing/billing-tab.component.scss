@@ -144,6 +144,12 @@
   border-radius: 4px;
 }
 
+.field-hint {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #6b7280);
+}
+
 .checkbox {
   display: inline-flex;
   align-items: center;

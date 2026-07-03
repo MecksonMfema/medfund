@@ -106,7 +106,7 @@ export class InvoicesListComponent implements OnInit, OnDestroy {
       // explicitly grant billing:revoke_billing. The row-level gate
       // additionally hides it for any invoice outside the next-month
       // revoke window — same rule the backend enforces.
-      label: 'Revoke invoice',
+      label: 'Revoke statement',
       icon: 'x-circle',
       color: 'danger',
       requiresPermission: 'billing:revoke_billing',
@@ -184,7 +184,7 @@ export class InvoicesListComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.loading = false;
-        this.toast.error(err?.error?.detail || 'Failed to load invoices');
+        this.toast.error(err?.error?.detail || 'Failed to load contribution statements');
       },
     });
   }
@@ -234,12 +234,12 @@ export class InvoicesListComponent implements OnInit, OnDestroy {
    */
   private async revokeRow(row: any): Promise<void> {
     const ok = await this.confirmSvc.ask({
-      title: `Revoke invoice ${row.invoiceNumber}?`,
+      title: `Revoke statement ${row.invoiceNumber}?`,
       message:
-        `This deletes every contribution + invoice for ${row.periodStart} → ${row.periodEnd}, ` +
+        `This deletes every contribution + statement for ${row.periodStart} → ${row.periodEnd}, ` +
         `reverses each running balance, and removes the PDF blob. You'll need to re-commit to regenerate.`,
       confirmLabel: 'Revoke',
-      cancelLabel: 'Keep invoice',
+      cancelLabel: 'Keep statement',
       danger: true,
     });
     if (!ok) return;
@@ -253,7 +253,7 @@ export class InvoicesListComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: (resp) => {
         this.toast.success(
-          `Revoked: ${resp.contributionsDeleted} contribution(s), ${resp.invoicesDeleted} invoice(s).`
+          `Revoked: ${resp.contributionsDeleted} contribution(s), ${resp.invoicesDeleted} statement(s).`
         );
         this.fetchPage();
       },

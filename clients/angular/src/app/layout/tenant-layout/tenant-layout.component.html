@@ -35,10 +35,53 @@
 
       <!-- Right: notifications + user -->
       <div class="t-header-right">
-        <button class="t-icon-btn" title="Notifications">
-          <app-icon name="bell" [size]="20"></app-icon>
-          <span class="t-notif-dot"></span>
-        </button>
+        <div class="t-bell-wrap">
+          <button class="t-icon-btn" title="Notifications" (click)="toggleNotifications()">
+            <app-icon name="bell" [size]="20"></app-icon>
+            @if ((unseenCount$ | async); as count) {
+              @if (count > 0) {
+                <span class="t-notif-badge">{{ count > 9 ? '9+' : count }}</span>
+              }
+            }
+          </button>
+
+          @if (notificationsOpen) {
+            <div class="t-bell-menu" (click)="$event.stopPropagation()">
+              <div class="t-bell-menu-header">
+                <span class="t-bell-menu-title">Recent activity</span>
+                @if ((unseenCount$ | async); as count) {
+                  @if (count > 0) {
+                    <button class="t-bell-menu-mark-seen" (click)="markAllSeen()">Mark all read</button>
+                  }
+                }
+              </div>
+
+              @if ((notifications$ | async); as items) {
+                @if (items.length === 0) {
+                  <div class="t-bell-menu-empty">No notifications yet. Things you trigger and events that need your attention will appear here.</div>
+                } @else {
+                  <ul class="t-bell-menu-list">
+                    @for (n of items; track n.id) {
+                      <li class="t-bell-menu-item"
+                          [class.is-unseen]="!n.seen"
+                          [class.is-clickable]="n.actionUrl"
+                          (click)="onRowClick(n)">
+                        <span class="t-bell-dot" [class]="'t-bell-dot--' + severityColor(n.severity)"></span>
+                        <div class="t-bell-item-body">
+                          <span class="t-bell-item-title">{{ n.title }}</span>
+                          <span class="t-bell-item-meta">{{ relative(n.createdAt) }}</span>
+                          @if (n.body) {
+                            <span class="t-bell-item-error" [class.t-bell-item-body-text]="n.severity !== 'error'">{{ n.body }}</span>
+                          }
+                        </div>
+                      </li>
+                    }
+                  </ul>
+                }
+              }
+            </div>
+          }
+        </div>
 
         <div class="t-user" (click)="userMenuOpen = !userMenuOpen">
           <div class="t-avatar">{{ userInitials }}</div>

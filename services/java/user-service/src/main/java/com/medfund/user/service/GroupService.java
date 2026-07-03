@@ -60,18 +60,18 @@ public class GroupService {
 
     @Transactional
     public Mono<Group> create(CreateGroupRequest request, String actorId, String actorEmail) {
-        // A group must always have a liaison — the canonical contact path
-        // for invoices, dunning, and the group-portal login. Controller-level
-        // @NotBlank/@NotNull on CreateGroupRequest already enforces this for
-        // HTTP callers; this defensive check covers internal call sites that
-        // bypass DTO validation. The mismatched-pair case (one set, the
-        // other null) falls through to validateLiaison which produces a more
-        // specific "supplied together" error.
+        // A group must reach the notification-service either via a liaison
+        // or a fallback email — one or the other must be set. Both is fine;
+        // neither leaves the recipient resolver with nothing to route to
+        // and stalls every subsequent contribution statement (see
+        // bug_public_prefix_silent_rollback for the outage this replaces).
         boolean kindMissing = request.liaisonKind() == null || request.liaisonKind().isBlank();
         boolean idMissing = request.liaisonUserId() == null;
-        if (kindMissing && idMissing) {
+        boolean liaisonMissing = kindMissing || idMissing;
+        boolean emailMissing = request.email() == null || request.email().isBlank();
+        if (liaisonMissing && emailMissing) {
             return Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                "liaisonKind and liaisonUserId are required when creating a group"));
+                "A group needs either a liaison (kind + user) or a contact email — both are missing"));
         }
         return validateLiaison(request.liaisonKind(), request.liaisonUserId())
             .then(grantLiaisonRole(request.liaisonKind(), request.liaisonUserId()))
@@ -81,6 +81,7 @@ public class GroupService {
                 group.setName(request.name());
                 group.setRegistrationNumber(request.registrationNumber());
                 group.setAddress(request.address());
+                group.setEmail(request.email());
                 group.setLiaisonKind(request.liaisonKind());
                 group.setLiaisonUserId(request.liaisonUserId());
                 group.setStatus("active");
@@ -115,6 +116,16 @@ public class GroupService {
                 if (request.name() != null) existing.setName(request.name());
                 if (request.registrationNumber() != null) existing.setRegistrationNumber(request.registrationNumber());
                 if (request.address() != null) existing.setAddress(request.address());
+                if (request.email() != null) existing.setEmail(request.email().isBlank() ? null : request.email());
+                // Post-update the group must still be reachable — liaison OR
+                // email. Blocks an operator from clearing both in one PATCH
+                // and silently orphaning the group from the statement flow.
+                boolean hasLiaison = existing.getLiaisonKind() != null && existing.getLiaisonUserId() != null;
+                boolean hasEmail = existing.getEmail() != null && !existing.getEmail().isBlank();
+                if (!hasLiaison && !hasEmail) {
+                    return Mono.<Group>error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                        "A group needs either a liaison (kind + user) or a contact email — this update would leave both empty"));
+                }
                 existing.setUpdatedAt(Instant.now());
                 existing.setUpdatedBy(UUID.fromString(actorId));
 

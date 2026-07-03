@@ -39,28 +39,22 @@
             }
           </div>
 
-          @if ((runs$ | async); as runs) {
-            @if (runs.length === 0) {
-              <div class="bell-menu-empty">No recent jobs. Long-running jobs you trigger appear here.</div>
+          @if ((notifications$ | async); as items) {
+            @if (items.length === 0) {
+              <div class="bell-menu-empty">No notifications yet. Things you trigger and events that need your attention will appear here.</div>
             } @else {
               <ul class="bell-menu-list">
-                @for (run of runs; track run.id) {
-                  <li class="bell-menu-item" [class.is-unseen]="isUnseen(run)">
-                    <span class="bell-dot" [class]="'bell-dot--' + statusColor(run.status)"></span>
+                @for (n of items; track n.id) {
+                  <li class="bell-menu-item"
+                      [class.is-unseen]="!n.seen"
+                      [class.is-clickable]="n.actionUrl"
+                      (click)="onRowClick(n)">
+                    <span class="bell-dot" [class]="'bell-dot--' + severityColor(n.severity)"></span>
                     <div class="bell-item-body">
-                      <span class="bell-item-title">
-                        {{ jobLabel(run) }}
-                      </span>
-                      <span class="bell-item-meta">
-                        {{ run.status === 'RUNNING'
-                            ? 'Running since ' + (run.startedAt | date:'shortTime')
-                            : statusVerb(run.status) + ' ' + (run.endedAt | date:'short') }}
-                        @if (run.durationMs && run.status !== 'RUNNING') {
-                          <span class="bell-item-duration">· {{ humanDuration(run.durationMs) }}</span>
-                        }
-                      </span>
-                      @if (run.status === 'FAILED' && run.errorMessage) {
-                        <span class="bell-item-error">{{ run.errorMessage }}</span>
+                      <span class="bell-item-title">{{ n.title }}</span>
+                      <span class="bell-item-meta">{{ relative(n.createdAt) }}</span>
+                      @if (n.body) {
+                        <span class="bell-item-error" [class.bell-item-body-text]="n.severity !== 'error'">{{ n.body }}</span>
                       }
                     </div>
                   </li>

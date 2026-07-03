@@ -25,6 +25,9 @@ var platformPaths = []string{
 	"/api/v1/providers",
 	"/api/v1/audit",
 	"/api/v1/scheduled-jobs",
+	// Notifications are scoped to the JWT subject, not the tenant — a
+	// super admin without a chosen tenant still needs to read theirs.
+	"/api/v1/notifications",
 }
 
 // TenantResolver returns a Fiber middleware that resolves the current tenant from

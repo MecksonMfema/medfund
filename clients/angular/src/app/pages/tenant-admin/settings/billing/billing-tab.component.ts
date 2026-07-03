@@ -76,7 +76,7 @@ export class TenantBillingTabComponent implements OnInit {
     autoSuspend: false, autoWriteOff: false,
   };
   cycleDraft: BillingCycleConfig = {
-    frequency: 'MONTHLY', dayOfMonth: 1, autoGenerate: false, commitCooldownHours: 3,
+    frequency: 'MONTHLY', dayOfMonth: 1, autoGenerate: false, commitCooldownHours: 0,
   };
 
   saving = false;

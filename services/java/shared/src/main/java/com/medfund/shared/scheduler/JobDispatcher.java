@@ -82,6 +82,16 @@ public class JobDispatcher {
      * via {@code markFailure} — exactly like the synchronous path.
      */
     public Mono<ScheduledJobRun> runNowAsync(ScheduledJobConfig config, UUID actorId) {
+        return runNowAsync(config, actorId, null);
+    }
+
+    /**
+     * Overload that captures the caller's email at enqueue time and stamps it on
+     * the run row so downstream consumers (notification-service) don't need a
+     * secondary lookup to convert {@code actorId} → email. Prefer this from any
+     * controller path that already has the JWT decoded.
+     */
+    public Mono<ScheduledJobRun> runNowAsync(ScheduledJobConfig config, UUID actorId, String actorEmail) {
         JobType jobType;
         try {
             jobType = JobType.valueOf(config.getJobType());
@@ -104,6 +114,7 @@ public class JobDispatcher {
         runRecord.setStatus("RUNNING");
         runRecord.setTriggerKind("manual");
         runRecord.setTriggeredBy(actorId);
+        runRecord.setTriggeredByEmail(actorEmail);
 
         return runRepository.save(runRecord)
             .doOnNext(persisted -> {
@@ -172,6 +183,14 @@ public class JobDispatcher {
         return runRepository.save(runRecord)
             .flatMap(persisted -> {
                 long startMs = System.currentTimeMillis();
+                String kind = config.getJobType();
+                // Emit the "job started" bell fan-out immediately after the
+                // RUNNING row lands so operators see the scheduled run kicking
+                // off at the same time the DB records it. Fire-and-forget —
+                // failures inside the notification path never block execution.
+                Mono<Void> startNotice = eventPublisher.publishJobStarted(persisted, kind)
+                    .onErrorResume(e -> Mono.empty());
+
                 // ResultfulJobExecutor hands back a JSON payload we persist
                 // onto the run row; plain JobExecutor returns Mono<Void> so
                 // we adapt it into an empty Mono<String> and let the run
@@ -180,11 +199,10 @@ public class JobDispatcher {
                     ? resultful.executeAndCapture(executorTenantArg, config.getSettings())
                     : executor.execute(executorTenantArg, config.getSettings()).then(Mono.<String>empty());
 
-                String kind = config.getJobType();
-                Mono<ScheduledJobRun> executed = payloadMono
+                Mono<ScheduledJobRun> executed = startNotice.then(payloadMono
                     .defaultIfEmpty("")
                     .flatMap(payload -> markSuccess(persisted, startMs, payload.isEmpty() ? null : payload, kind))
-                    .onErrorResume(e -> markFailure(persisted, startMs, e, kind));
+                    .onErrorResume(e -> markFailure(persisted, startMs, e, kind)));
                 return configTenantId != null
                     ? executed.contextWrite(ctx -> TenantContext.put(ctx, configTenantId.toString()))
                     : executed;

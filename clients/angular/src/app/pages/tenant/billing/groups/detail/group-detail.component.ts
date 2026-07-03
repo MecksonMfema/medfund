@@ -29,6 +29,7 @@ export class GroupDetailComponent implements OnInit {
     name: '',
     registrationNumber: '',
     address: '',
+    email: '',
     liaisonKind: null,
     liaisonUserId: null,
   };
@@ -69,6 +70,7 @@ export class GroupDetailComponent implements OnInit {
           name: g.name,
           registrationNumber: g.registrationNumber ?? '',
           address: g.address ?? '',
+          email: g.email ?? '',
           liaisonKind: g.liaisonKind ?? null,
           liaisonUserId: g.liaisonUserId ?? null,
         };
@@ -98,10 +100,12 @@ export class GroupDetailComponent implements OnInit {
       this.errorMessage = 'Name is required';
       return;
     }
-    // A group must always have a liaison — clearing it without picking a
-    // replacement is not allowed.
-    if (this.form.liaisonKind === 'CLEAR' || !this.form.liaisonUserId) {
-      this.errorMessage = 'A liaison is required — pick a member, staff user, or add a new liaison before saving.';
+    // Either-or rule: the group needs a route for statements — a liaison
+    // OR a contact email. Both is fine; clearing both is not.
+    const hasLiaison = !!(this.form.liaisonKind && this.form.liaisonKind !== 'CLEAR' && this.form.liaisonUserId);
+    const hasEmail = !!this.form.email?.trim();
+    if (!hasLiaison && !hasEmail) {
+      this.errorMessage = 'Add either a liaison or a contact email — the group needs at least one route for contribution statements.';
       return;
     }
     this.saving = true;
@@ -110,6 +114,7 @@ export class GroupDetailComponent implements OnInit {
       name: this.form.name.trim(),
       registrationNumber: this.form.registrationNumber?.trim() || undefined,
       address:            this.form.address?.trim()            || undefined,
+      email:              this.form.email?.trim() || undefined,
       liaisonKind:        this.form.liaisonKind                ?? undefined,
       liaisonUserId:      this.form.liaisonUserId              ?? undefined,
     };

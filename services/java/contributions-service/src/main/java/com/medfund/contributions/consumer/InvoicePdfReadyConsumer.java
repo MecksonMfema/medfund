@@ -11,8 +11,9 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.kafka.receiver.KafkaReceiver;
 import reactor.kafka.receiver.ReceiverOptions;
-import reactor.util.context.Context;
+import reactor.util.retry.Retry;
 
+import java.time.Duration;
 import java.util.Collections;
 
 /**
@@ -53,8 +54,19 @@ public class InvoicePdfReadyConsumer {
         KafkaReceiver.create(options)
                 .receive()
                 .flatMap(record -> processEvent(record.value())
-                        .doOnTerminate(() -> record.receiverOffset().acknowledge()))
-                .doOnError(e -> log.error("InvoicePdfReady consumer error: {}", e.getMessage()))
+                        // Only ack on success. If processing errors — even after
+                        // the bounded retry inside processEvent — leave the offset
+                        // untouched so the record is redelivered on the next poll.
+                        // Previous version used doOnTerminate which fires on both
+                        // success and error, causing failed events (e.g. a stale
+                        // pooled R2DBC connection) to be permanently lost.
+                        .doOnSuccess(v -> record.receiverOffset().acknowledge())
+                        .onErrorResume(e -> {
+                            logCauseChain("processing offset=" + record.receiverOffset().topicPartition()
+                                    + "@" + record.offset(), e);
+                            return Mono.empty();
+                        }))
+                .doOnError(e -> logCauseChain("consumer stream", e))
                 .retry()
                 .subscribe();
     }
@@ -92,10 +104,59 @@ public class InvoicePdfReadyConsumer {
                     .doOnNext(n -> log.info("[invoice-pdf-ready] tenant={} invoice={} UPSERTed pointer rows={}",
                             tenantId, invoiceId, n))
                     .then()
+                    // Bounded backoff for transient acquire failures. The r2dbc-pool
+                    // occasionally hands back a stale connection after a long idle
+                    // window (a real observed failure was "Failed to obtain R2DBC
+                    // Connection" ~7 min after the previous successful UPSERT).
+                    // 250 ms → 2 s → capped total ≈ 5 s. Errors that survive the
+                    // retry propagate up, the offset stays un-acked, and the
+                    // partition is redelivered on the next poll.
+                    .retryWhen(Retry.backoff(3, Duration.ofMillis(250))
+                            .maxBackoff(Duration.ofSeconds(2))
+                            .filter(InvoicePdfReadyConsumer::isTransient)
+                            .doBeforeRetry(sig -> log.warn(
+                                    "[invoice-pdf-ready] retry {} for invoice={} tenant={} — {}",
+                                    sig.totalRetries() + 1, invoiceId, tenantId,
+                                    sig.failure().getClass().getSimpleName())))
                     .contextWrite(ctx -> TenantContext.put(ctx, tenantId));
         } catch (Exception e) {
             log.error("Failed to parse invoice-pdf-ready event: {}", e.getMessage());
             return Mono.error(e);
         }
+    }
+
+    /**
+     * Any acquire / query / driver issue is worth one more shot — most of these
+     * are stale-pool or transient network blips. Parse / validation errors
+     * (thrown before we reach the DB) fall through {@link #processEvent}'s
+     * catch and never enter this retry path.
+     */
+    private static boolean isTransient(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            String n = t.getClass().getName();
+            if (n.startsWith("io.r2dbc")
+                    || n.startsWith("org.springframework.r2dbc")
+                    || n.startsWith("org.springframework.dao")
+                    || n.equals("java.util.concurrent.TimeoutException")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Walks the entire cause chain so we don't lose the real reason inside
+     * a wrapping "Failed to obtain R2DBC Connection". The previous logger
+     * printed only e.getMessage() on the top exception, which erased the
+     * caused-by SQLState / driver message we actually needed to diagnose.
+     */
+    private static void logCauseChain(String context, Throwable e) {
+        StringBuilder sb = new StringBuilder();
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (sb.length() > 0) sb.append(" ← ");
+            sb.append(t.getClass().getSimpleName()).append(": ").append(t.getMessage());
+            if (t.getCause() == t) break; // guard against self-referential cause loops
+        }
+        log.error("[invoice-pdf-ready] {} failed: {}", context, sb, e);
     }
 }

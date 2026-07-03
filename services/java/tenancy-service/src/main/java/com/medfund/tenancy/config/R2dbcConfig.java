@@ -15,7 +15,12 @@ import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
 import java.util.List;
 
 @Configuration
-@EnableR2dbcRepositories(basePackages = {"com.medfund.tenancy.repository", "com.medfund.shared.scheduler"})
+@EnableR2dbcRepositories(basePackages = {
+        "com.medfund.tenancy.repository",
+        "com.medfund.shared.scheduler",
+        // NotificationRepository — required wherever JobEventPublisher loads.
+        "com.medfund.shared.notification",
+})
 @EnableR2dbcAuditing
 public class R2dbcConfig {
 

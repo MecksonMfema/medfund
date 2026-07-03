@@ -229,13 +229,19 @@ class BillingServiceTest {
                     groupId, schemeId, periodStart, periodEnd, totalAmount, "USD", actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
             .assertNext(saved -> {
-                assertThat(saved.getInvoiceNumber()).startsWith("INV-");
+                // Prefix pinned so the CS- rename (2026-07) doesn't silently
+                // regress. Historical INV- rows remain valid — only new ones
+                // are guaranteed CS-.
+                assertThat(saved.getInvoiceNumber()).startsWith("CS-");
                 assertThat(saved.getStatus()).isEqualTo("issued");
                 assertThat(saved.getGroupId()).isEqualTo(groupId);
                 assertThat(saved.getSchemeId()).isEqualTo(schemeId);
                 assertThat(saved.getTotalAmount()).isEqualByComparingTo(totalAmount);
                 assertThat(saved.getCurrencyCode()).isEqualTo("USD");
-                assertThat(saved.getDueDate()).isEqualTo(periodEnd.plusDays(30));
+                // Due date is end-of-billing-month (was previously periodEnd
+                // + 30 days). Guarding this so a copy-paste from the finance
+                // module doesn't silently re-introduce the 30-day drift.
+                assertThat(saved.getDueDate()).isEqualTo(periodEnd);
                 assertThat(saved.getIssuedAt()).isNotNull();
                 assertThat(saved.getId()).isNotNull();
                 assertThat(saved.getCreatedBy()).isEqualTo(UUID.fromString(actorId));

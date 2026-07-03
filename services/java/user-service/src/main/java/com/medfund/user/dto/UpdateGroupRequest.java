@@ -1,5 +1,6 @@
 package com.medfund.user.dto;
 
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -13,6 +14,14 @@ public record UpdateGroupRequest(
     String registrationNumber,
 
     String address,
+
+    /**
+     * Group contact email. Optional on update (null = no change); when
+     * provided must be a valid address. Matches the recipient resolver's
+     * fallback source for statements when no liaison is assigned.
+     */
+    @Email @Size(max = 255)
+    String email,
 
     /**
      * Liaison discriminator. "CLEAR" drops the existing liaison; null means

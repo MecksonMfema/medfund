@@ -70,11 +70,12 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
   {
     title: 'Billing',
     items: [
-      { label: 'Transactions',   icon: 'activity',       route: '/tenant/billing/transactions', permissions: ['billing:post_transactions', 'billing:view'] },
+      { label: 'Transactions',       icon: 'activity',    route: '/tenant/billing/transactions',     permissions: ['billing:post_transactions', 'billing:view'], exactMatch: true },
+      { label: 'Record Transaction', icon: 'credit-card', route: '/tenant/billing/transactions/add', permissions: ['billing:post_transactions'] },
       { label: 'Schemes',        icon: 'briefcase',      route: '/tenant/billing/schemes',      permissions: ['billing:view', 'billing:manage_schemes'], exactMatch: true },
       { label: 'Age Groups',     icon: 'users',          route: '/tenant/billing/age-groups',   permissions: ['billing:view', 'billing:manage_age_groups'], featureFlag: 'ageGroupsAvailable' },
       { label: 'Generate',       icon: 'play-circle',    route: '/tenant/billing/generate',     permissions: ['billing:generate_billing'] },
-      { label: 'Contributions',  icon: 'list',           route: '/tenant/billing/view',         permissions: ['billing:view'] },
+      { label: 'Contribution Statements', icon: 'list',           route: '/tenant/billing/view',         permissions: ['billing:view'] },
       { label: 'Ledger',         icon: 'file-text',      route: '/tenant/billing/ledger',       permissions: ['billing:view_statements'] },
       { label: 'Creditors',      icon: 'trending-down',  route: '/tenant/billing/creditors',    permissions: ['billing:view_creditors'] },
       { label: 'Bad Debts',      icon: 'alert-triangle', route: '/tenant/billing/bad-debts',    permissions: ['billing:manage_bad_debts'] },

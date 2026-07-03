@@ -34,6 +34,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -262,7 +263,9 @@ public class BillingService {
                 invoice.setPeriodStart(periodStart);
                 invoice.setPeriodEnd(periodEnd);
                 invoice.setIssuedAt(Instant.now());
-                invoice.setDueDate(periodEnd.plusDays(30));
+                // Due by the end of the billing month itself — contributions
+                // for month X are payable by the last day of month X.
+                invoice.setDueDate(periodEnd);
                 invoice.setCreatedAt(Instant.now());
                 invoice.setUpdatedAt(Instant.now());
                 invoice.setCreatedBy(UUID.fromString(actorId));
@@ -286,7 +289,7 @@ public class BillingService {
                             saved.getGroupId() != null  ? saved.getGroupId().toString()  : null,
                             saved.getMemberId() != null ? saved.getMemberId().toString() : null,
                             saved.getCurrencyCode(),
-                            saved.getTotalAmount().toPlainString(),
+                            moneyDisplay(saved.getTotalAmount()),
                             saved.getPeriodStart().toString(),
                             saved.getPeriodEnd().toString(),
                             saved.getDueDate().toString(),
@@ -307,7 +310,13 @@ public class BillingService {
     }
 
     private Mono<String> generateInvoiceNumber() {
-        String number = "INV-" + String.format("%06d", ThreadLocalRandom.current().nextInt(0, 999999));
+        // Contribution statement number. The historical INV- prefix was
+        // dropped in the 2026-07 rename that reframed these documents
+        // from "invoices" to "contribution statements" — the CS- prefix
+        // makes the document type unambiguous on any exported PDF or
+        // reconciliation report. Existing rows with INV- prefixes remain
+        // valid; the uniqueness check spans both eras.
+        String number = "CS-" + String.format("%06d", ThreadLocalRandom.current().nextInt(0, 999999));
         return invoiceRepository.existsByInvoiceNumber(number)
             .flatMap(exists -> exists ? generateInvoiceNumber() : Mono.just(number));
     }
@@ -531,6 +540,16 @@ public class BillingService {
         //    scheme_id. Individual invoices fall through the same
         //    predicate because their contribution's scheme_id matches
         //    their own scheme_id.
+        //
+        //    .cache() is load-bearing: this Mono is subscribed twice —
+        //    once by capturePdfPointers (before the contribution DELETE)
+        //    and once by deletedInvoices (after). Without caching, the
+        //    second subscribe re-runs the SELECT after contributions are
+        //    gone, and group invoices — which only match via the
+        //    contributions-join branch when a line filter is set — drop
+        //    out of the ID list. The invoice then survives the DELETE
+        //    even though its contributions and balance were already
+        //    reversed. Caching pins the enumeration to a single query.
         Mono<List<UUID>> targetInvoiceIds = db.sql("""
                 SELECT DISTINCT i.id
                   FROM invoices i
@@ -550,7 +569,8 @@ public class BillingService {
                 .bind("line",  lineBind)
                 .map(row -> row.get("id", UUID.class))
                 .all()
-                .collectList();
+                .collectList()
+                .cache();
 
         // 3) Capture (bucket, object_key) pointers for every invoice
         //    we're about to remove so we can publish per-blob delete
@@ -703,7 +723,7 @@ public class BillingService {
             inv.setPeriodStart(periodStart);
             inv.setPeriodEnd(periodEnd);
             inv.setIssuedAt(committedAt);
-            inv.setDueDate(periodEnd.plusDays(30));
+            inv.setDueDate(periodEnd);
             inv.setCreatedAt(committedAt);
             inv.setUpdatedAt(committedAt);
             inv.setCreatedBy(actorUuid);
@@ -742,15 +762,15 @@ public class BillingService {
                                 saved.getGroupId()  != null ? saved.getGroupId().toString()  : null,
                                 saved.getMemberId() != null ? saved.getMemberId().toString() : null,
                                 saved.getCurrencyCode(),
-                                saved.getTotalAmount().toPlainString(),
+                                moneyDisplay(saved.getTotalAmount()),
                                 saved.getPeriodStart().toString(),
                                 saved.getPeriodEnd().toString(),
                                 saved.getDueDate().toString(),
                                 saved.getCommittedAt() != null ? saved.getCommittedAt().toString() : null,
-                                saved.getOpeningBalance()      != null ? saved.getOpeningBalance().toPlainString()      : null,
-                                saved.getClosingBalance()      != null ? saved.getClosingBalance().toPlainString()      : null,
-                                saved.getPaymentsInWindow()    != null ? saved.getPaymentsInWindow().toPlainString()    : null,
-                                saved.getAdjustmentsInWindow() != null ? saved.getAdjustmentsInWindow().toPlainString() : null,
+                                moneyDisplay(saved.getOpeningBalance()),
+                                moneyDisplay(saved.getClosingBalance()),
+                                moneyDisplay(saved.getPaymentsInWindow()),
+                                moneyDisplay(saved.getAdjustmentsInWindow()),
                                 recipientName.isBlank() ? null : recipientName)))
                 .thenReturn(saved)));
     }
@@ -1031,6 +1051,19 @@ public class BillingService {
      * with the cooldown message, which is exactly the behaviour we want
      * (prevents the cron from doubling-up on a manual commit).
      */
+    /**
+     * Wire-shape display of a money-typed column. Amounts persist at
+     * scale 4 for arithmetic headroom, but every outbound presentation
+     * surface (invoice email, PDF header, statement page) expects two
+     * decimals. Formatting here means the same value lands consistently
+     * in every consumer without each having to know the storage scale.
+     * Returns null for a null input so the record can preserve
+     * "unavailable" semantics for legacy rows.
+     */
+    private static String moneyDisplay(BigDecimal amount) {
+        return amount == null ? null : amount.setScale(2, RoundingMode.HALF_UP).toPlainString();
+    }
+
     public Mono<Void> runAutoBilling() {
         LocalDate today = LocalDate.now();
         LocalDate periodStart = today.withDayOfMonth(1);

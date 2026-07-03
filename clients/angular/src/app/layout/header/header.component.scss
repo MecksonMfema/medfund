@@ -220,8 +220,22 @@
 
 .bell-dot--blue   { background: #00B4D8; }
 .bell-dot--green  { background: #2EC4B6; }
+.bell-dot--amber  { background: #F59E0B; }
 .bell-dot--red    { background: #E71D36; }
 .bell-dot--gray   { background: #9CA3AF; }
+
+.bell-menu-item.is-clickable {
+  cursor: pointer;
+  &:hover { background: var(--color-bg); }
+}
+
+// Body text on non-error rows shouldn't wear the red error chip. Reuse
+// the layout of bell-item-error but strip its severity styling.
+.bell-item-error.bell-item-body-text {
+  color: var(--color-text-muted);
+  background: transparent;
+  padding: 0;
+}
 
 .bell-item-body {
   display: flex;

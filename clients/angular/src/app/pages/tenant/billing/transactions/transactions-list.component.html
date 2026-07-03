@@ -3,10 +3,6 @@
     <h1>{{ pageTitle }}</h1>
     <p class="page-sub">{{ pageDescription }}</p>
   </div>
-  <a class="btn btn-primary" routerLink="/tenant/billing/transactions/add">
-    <app-icon name="plus" [size]="14"></app-icon>
-    Record transaction
-  </a>
 </header>
 
 @if (errorMessage) {

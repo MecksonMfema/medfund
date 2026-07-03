@@ -42,8 +42,19 @@
         rows="3"></textarea>
     </label>
 
+    <label class="field span-2">
+      <span class="field-label">Contact email {{ form.liaisonUserId ? '(optional if liaison is set)' : '*' }}</span>
+      <input
+        type="email"
+        [(ngModel)]="form.email"
+        name="email"
+        maxlength="255"
+        placeholder="billing@company.com" />
+      <span class="field-hint">Fallback recipient for contribution statements when no liaison is assigned.</span>
+    </label>
+
     <div class="field span-2">
-      <span class="field-label">Liaison</span>
+      <span class="field-label">Liaison {{ form.email?.trim() ? '(optional if email is set)' : '*' }}</span>
       <app-liaison-picker
         [value]="form.liaisonUserId ?? null"
         [kind]="form.liaisonKind === 'CLEAR' ? null : (form.liaisonKind ?? null)"

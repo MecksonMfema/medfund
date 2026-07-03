@@ -23,6 +23,16 @@ public class Group {
     private String address;
 
     /**
+     * Group-level email — the fallback recipient when no liaison is assigned.
+     * Required for new groups at the DTO layer (@NotBlank @Email on
+     * {@code CreateGroupRequest}); left nullable at the DB level so V038
+     * doesn't wedge on pre-existing rows. See recipient.ForGroup in the
+     * notification-service which resolves to this address when
+     * {@code liaison_user_id IS NULL}.
+     */
+    private String email;
+
+    /**
      * Discriminator for the liaison_user_id FK target. NULL when no liaison
      * is assigned; otherwise one of 'MEMBER' (FK to {@code members.id}) or
      * 'STAFF' (FK to {@code staff_users.id}). Pair-consistency is enforced
@@ -61,6 +71,9 @@ public class Group {
 
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 
     public String getLiaisonKind() { return liaisonKind; }
     public void setLiaisonKind(String liaisonKind) { this.liaisonKind = liaisonKind; }

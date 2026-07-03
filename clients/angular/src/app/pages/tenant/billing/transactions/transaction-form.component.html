@@ -1,129 +1,140 @@
-<div class="form-page">
+<div class="transaction-form-page">
   <header class="page-header">
     <div>
       <h1>Record transaction</h1>
       <p class="page-sub">Pick a target, choose one of their open contributions, then enter the payment details.</p>
     </div>
-    <a class="btn btn-default" routerLink="/tenant/billing/transactions">
-      <app-icon name="arrow-left" [size]="14"></app-icon>
-      Back
-    </a>
   </header>
 
   @if (errorMessage) {
     <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
   }
   @if (successMessage) {
-    <div class="banner banner-success">{{ successMessage }}</div>
+    <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
   }
 
-  <form (submit)="$event.preventDefault(); submit()" class="card">
+  <form (submit)="$event.preventDefault(); submit()" class="form-card">
+    <div class="form-card__heading">
+      <h2 class="form-card__title">Transaction details</h2>
+      <span class="form-card__hint">All fields with required values are marked.</span>
+    </div>
 
-    <!-- ── Section 1: Target & contribution ───────────────────────────── -->
-    <section class="section">
-      <h3 class="section-title">Target</h3>
-
-      @if (membershipModel === 'BOTH') {
-        <div class="segmented" role="tablist">
-          <label class="segment" [class.active]="targetType === 'GROUP'">
-            <input
-              type="radio"
-              name="targetType"
-              value="GROUP"
-              [(ngModel)]="targetType"
-              (ngModelChange)="onTargetTypeChange()" />
-            Group
-          </label>
-          <label class="segment" [class.active]="targetType === 'INDIVIDUAL'">
-            <input
-              type="radio"
-              name="targetType"
-              value="INDIVIDUAL"
-              [(ngModel)]="targetType"
-              (ngModelChange)="onTargetTypeChange()" />
-            Individual
-          </label>
-        </div>
-      }
-
-      <label class="field">
-        <span class="field-label">
-          @if (targetType === 'GROUP') { Group } @else { Member }
-        </span>
-        @if (selectedTarget) {
-          <div class="selected-pill">
-            <div class="selected-info">
-              <strong>{{ selectedTarget.label }}</strong>
-              @if (selectedTarget.sublabel) { <span class="muted">{{ selectedTarget.sublabel }}</span> }
+    <div class="form-sections">
+      <!-- ── Target ─────────────────────────────────────────────────────── -->
+      <section class="form-section form-section--full">
+        <header class="section-head section-head--split">
+          <div class="section-head__lead">
+            <span class="section-icon"><app-icon name="users" [size]="18"></app-icon></span>
+            <h3 class="section-title">Target</h3>
+          </div>
+          @if (membershipModel === 'BOTH') {
+            <div class="segmented" role="tablist">
+              <label class="segment" [class.active]="targetType === 'GROUP'">
+                <input
+                  type="radio"
+                  name="targetType"
+                  value="GROUP"
+                  [(ngModel)]="targetType"
+                  (ngModelChange)="onTargetTypeChange()" />
+                Group
+              </label>
+              <label class="segment" [class.active]="targetType === 'INDIVIDUAL'">
+                <input
+                  type="radio"
+                  name="targetType"
+                  value="INDIVIDUAL"
+                  [(ngModel)]="targetType"
+                  (ngModelChange)="onTargetTypeChange()" />
+                Individual
+              </label>
             </div>
-            <button type="button" class="link-btn" (click)="clearTarget()">Change</button>
-          </div>
-        } @else {
-          <div class="search-wrapper">
-            <input
-              type="text"
-              [(ngModel)]="targetQuery"
-              (ngModelChange)="onTargetQueryChange()"
-              (focus)="showMatches = true"
-              name="targetQuery"
-              [placeholder]="targetType === 'GROUP' ? 'Search by group name…' : 'Search by member name…'"
-              autocomplete="off" />
-            @if (showMatches && targetQuery.trim()) {
-              <ul class="suggestions">
-                @if (targetSearching) {
-                  <li class="suggestion muted">Searching…</li>
-                } @else if (targetMatches.length === 0) {
-                  <li class="suggestion muted">No matches</li>
-                } @else {
-                  @for (m of targetMatches; track m.id) {
-                    <li class="suggestion" (click)="pickTarget(m)">
-                      <strong>{{ m.label }}</strong>
-                      @if (m.sublabel) { <span class="muted">— {{ m.sublabel }}</span> }
-                    </li>
-                  }
-                }
-              </ul>
-            }
-          </div>
-        }
-      </label>
+          }
+        </header>
 
-      @if (selectedTarget) {
         <label class="field">
-          <span class="field-label">Contribution</span>
-          @if (loadingContributions) {
-            <p class="muted">Loading contributions…</p>
-          } @else if (contributions.length === 0) {
-            <p class="muted">No open contributions for this {{ targetType === 'GROUP' ? 'group' : 'member' }}.</p>
+          <span class="field-label">
+            @if (targetType === 'GROUP') { Group } @else { Member }
+            <span class="req">*</span>
+          </span>
+          @if (selectedTarget) {
+            <div class="selected-pill">
+              <div class="selected-info">
+                <strong>{{ selectedTarget.label }}</strong>
+                @if (selectedTarget.sublabel) { <span class="muted">{{ selectedTarget.sublabel }}</span> }
+              </div>
+              <button type="button" class="link-btn" (click)="clearTarget()">Change</button>
+            </div>
           } @else {
-            <app-select
-              [(ngModel)]="form.contributionId"
-              name="contributionId"
-              [options]="contributionOptions"
-              placeholder="Pick a contribution"
-            ></app-select>
+            <div class="search-wrapper">
+              <input
+                class="field-control"
+                type="text"
+                [(ngModel)]="targetQuery"
+                (ngModelChange)="onTargetQueryChange()"
+                (focus)="showMatches = true"
+                name="targetQuery"
+                [placeholder]="targetType === 'GROUP' ? 'Search by group name…' : 'Search by member name…'"
+                autocomplete="off" />
+              @if (showMatches && targetQuery.trim()) {
+                <ul class="suggestions">
+                  @if (targetSearching) {
+                    <li class="suggestion muted">Searching…</li>
+                  } @else if (targetMatches.length === 0) {
+                    <li class="suggestion muted">No matches</li>
+                  } @else {
+                    @for (m of targetMatches; track m.id) {
+                      <li class="suggestion" (click)="pickTarget(m)">
+                        <strong>{{ m.label }}</strong>
+                        @if (m.sublabel) { <span class="muted">— {{ m.sublabel }}</span> }
+                      </li>
+                    }
+                  }
+                </ul>
+              }
+            </div>
           }
         </label>
-      }
-    </section>
 
-    <!-- ── Section 2: Payment details ─────────────────────────────────── -->
-    <section class="section">
-      <h3 class="section-title">Payment details</h3>
+        @if (selectedTarget) {
+          <label class="field">
+            <span class="field-label">Contribution <span class="req">*</span></span>
+            @if (loadingContributions) {
+              <small class="field-help">Loading contributions…</small>
+            } @else if (contributions.length === 0) {
+              <small class="field-help">No open contributions for this {{ targetType === 'GROUP' ? 'group' : 'member' }}.</small>
+            } @else {
+              <app-select
+                [(ngModel)]="form.contributionId"
+                name="contributionId"
+                [options]="contributionOptions"
+                placeholder="Pick a contribution"
+              ></app-select>
+              <small class="field-help">Only open contributions (not fully paid or cancelled) are listed.</small>
+            }
+          </label>
+        }
+      </section>
 
-      <div class="form-grid">
+      <!-- ── Classification ────────────────────────────────────────────── -->
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="activity" [size]="18"></app-icon></span>
+          <h3 class="section-title">Classification</h3>
+        </header>
+
         <label class="field">
-          <span class="field-label">Transaction type</span>
+          <span class="field-label">Transaction type <span class="req">*</span></span>
           <app-select
             [(ngModel)]="form.transactionTypeCode"
             name="transactionType"
             [options]="transactionTypeOptions"
             placeholder="Pick a type"
           ></app-select>
+          <small class="field-help">The sign in brackets determines whether this debits or credits the balance.</small>
         </label>
 
         <label class="field">
-          <span class="field-label">Payment method</span>
+          <span class="field-label">Payment method <span class="optional">(optional)</span></span>
           <app-select
             [(ngModel)]="form.paymentMethodCode"
             name="paymentMethod"
@@ -131,14 +142,30 @@
             placeholder="— None —"
           ></app-select>
         </label>
+      </section>
+
+      <!-- ── Amount ────────────────────────────────────────────────────── -->
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="dollar-sign" [size]="18"></app-icon></span>
+          <h3 class="section-title">Amount</h3>
+        </header>
 
         <label class="field">
-          <span class="field-label">Amount</span>
-          <input type="number" step="any" min="0" [(ngModel)]="form.amount" name="amount" required />
+          <span class="field-label">Amount <span class="req">*</span></span>
+          <input
+            class="field-control"
+            type="number"
+            step="any"
+            min="0"
+            [(ngModel)]="form.amount"
+            name="amount"
+            placeholder="0.00"
+            required />
         </label>
 
         <label class="field">
-          <span class="field-label">Currency</span>
+          <span class="field-label">Currency <span class="req">*</span></span>
           <app-select
             [(ngModel)]="form.currencyCode"
             name="currencyCode"
@@ -146,25 +173,39 @@
             placeholder="Pick a currency"
           ></app-select>
         </label>
+      </section>
 
-        <label class="field span-2">
+      <!-- ── Reference ─────────────────────────────────────────────────── -->
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="file-text" [size]="18"></app-icon></span>
+          <h3 class="section-title">Reference</h3>
+        </header>
+
+        <label class="field">
           <span class="field-label">
             Reference
             @if (selectedMethod()?.requiresReference) {
-              <span class="required">required</span>
+              <span class="req">*</span>
+            } @else {
+              <span class="optional">(optional)</span>
             }
           </span>
-          <input [(ngModel)]="form.reference" name="reference"
-                 [placeholder]="selectedMethod()?.requiresReference ? 'Bank reference / receipt #' : 'Optional'" />
+          <input
+            class="field-control"
+            [(ngModel)]="form.reference"
+            name="reference"
+            [placeholder]="selectedMethod()?.requiresReference ? 'Bank reference / receipt #' : 'Optional'" />
+          <small class="field-help">The selected payment method may make this mandatory.</small>
         </label>
-      </div>
-    </section>
+      </section>
+    </div>
 
-    <div class="form-actions">
+    <footer class="form-actions">
       <a class="btn btn-default" routerLink="/tenant/billing/transactions">Cancel</a>
       <button type="submit" class="btn btn-primary" [disabled]="saving">
         {{ saving ? 'Saving…' : 'Record transaction' }}
       </button>
-    </div>
+    </footer>
   </form>
 </div>

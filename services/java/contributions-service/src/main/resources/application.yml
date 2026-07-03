@@ -17,6 +17,22 @@ spring:
     url: r2dbc:postgresql://localhost:5433/medfund
     username: medfund
     password: medfund
+    # Pool tuned to prevent "Failed to obtain R2DBC Connection" when a
+    # pooled connection has gone stale after an idle window (observed
+    # after ~7 min inactivity — the InvoicePdfReadyConsumer surfaced this
+    # first, but every Kafka-driven UPSERT path can hit the same edge).
+    #  - validation-query + validation-depth=REMOTE runs a cheap SELECT 1
+    #    on every acquire so a dead connection is discarded before use.
+    #  - max-idle-time trimmed below typical NAT / Postgres tcp_keepalive
+    #    windows so long-lived pooled connections are recycled proactively.
+    pool:
+      enabled: true
+      initial-size: 2
+      max-size: 15
+      max-idle-time: 5m
+      max-acquire-time: 10s
+      validation-query: SELECT 1
+      validation-depth: REMOTE
   security:
     oauth2:
       resourceserver:

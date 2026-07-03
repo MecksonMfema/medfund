@@ -123,7 +123,7 @@ public class InvoiceController {
                     return Mono.just(ResponseEntity.ok()
                             .contentType(MediaType.APPLICATION_PDF)
                             .header(HttpHeaders.CONTENT_DISPOSITION,
-                                    "attachment; filename=\"invoice-" + invoiceNumber + ".pdf\"")
+                                    "attachment; filename=\"contribution-statement-" + invoiceNumber + ".pdf\"")
                             .body(body));
                 }))
                 .switchIfEmpty(Mono.error(new com.medfund.contributions.exception.InvoiceNotFoundException(

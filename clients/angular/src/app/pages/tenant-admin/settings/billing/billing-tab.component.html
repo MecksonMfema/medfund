@@ -253,7 +253,7 @@
         <header class="section-header">
           <div>
             <h3 class="section-title">Billing Cycle</h3>
-            <p class="section-sub">Default frequency, day-of-month and the cooldown that prevents accidental double commits. Auto-generate is opt-in — when off, billing only runs from the operational Generate wizard.</p>
+            <p class="section-sub">Default frequency, day-of-month and the cooldown that prevents accidental double commits. Set the cooldown to <strong>0</strong> to disable it entirely (useful during development). Auto-generate is opt-in — when off, billing only runs from the operational Generate wizard.</p>
           </div>
         </header>
 
@@ -273,6 +273,13 @@
           <label class="field">
             <span class="field-label">Commit cooldown (hours)</span>
             <input type="number" min="0" [(ngModel)]="cycleDraft.commitCooldownHours" name="cooldown" />
+            <span class="field-hint">
+              @if (!cycleDraft.commitCooldownHours) {
+                Cooldown disabled — commits can run back-to-back.
+              } @else {
+                Blocks another commit for {{ cycleDraft.commitCooldownHours }} hour(s) after a successful run.
+              }
+            </span>
           </label>
           <label class="checkbox">
             <input type="checkbox" [(ngModel)]="cycleDraft.autoGenerate" name="auto-gen" />

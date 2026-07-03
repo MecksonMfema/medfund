@@ -8,6 +8,8 @@ import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
 @EnableR2dbcRepositories(basePackages = {
         "com.medfund.user.repository",
         "com.medfund.shared.scheduler",
+        // NotificationRepository — required wherever JobEventPublisher loads.
+        "com.medfund.shared.notification",
         // TenantRuleRepository — user-service runs MEMBER_LIFECYCLE / AGE_GROUP /
         // UNDERWRITING rules through the engine on enrollment + termination.
         "com.medfund.rules.repository",

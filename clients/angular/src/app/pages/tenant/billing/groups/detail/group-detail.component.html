@@ -45,7 +45,13 @@
         </div>
 
         <div class="field span-2">
-          <label>Liaison</label>
+          <label>Email <span *ngIf="!form.liaisonUserId" class="required">*</span></label>
+          <input type="email" [(ngModel)]="form.email" placeholder="finance@company.com" />
+          <small class="field-help">Required if no liaison is assigned — the fallback recipient for contribution statements.</small>
+        </div>
+
+        <div class="field span-2">
+          <label>Liaison <span *ngIf="!form.email?.trim()" class="required">*</span></label>
           <app-liaison-picker
             [value]="form.liaisonUserId ?? null"
             [kind]="form.liaisonKind === 'CLEAR' ? null : (form.liaisonKind ?? null)"

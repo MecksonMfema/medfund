@@ -57,6 +57,16 @@ public class ScheduledJobRun {
     private UUID triggeredBy;
 
     /**
+     * Actor email captured at job-enqueue time from the caller's JWT. Threaded
+     * into JobCompleted so notification-service doesn't have to convert
+     * {@link #triggeredBy} UUID → email via a staff_users lookup that requires
+     * a locally-provisioned row (and silently dropped every commit-completed
+     * email when the row wasn't there). Null for scheduled / system jobs.
+     */
+    @Column("triggered_by_email")
+    private String triggeredByEmail;
+
+    /**
      * Optional JSON payload an executor hands back on success — e.g. billing
      * preview totals, commit counts. Stored as TEXT with a CHECK(IS JSON);
      * see V116 for the storage rationale. {@code null} for jobs that don't

@@ -127,7 +127,7 @@ class DependantServiceTest {
         var dependant = createTestDependant(UUID.randomUUID());
         var id = dependant.getId();
         var actorId = UUID.randomUUID().toString();
-        var request = new UpdateDependantRequest("Janet", null, null, null, "spouse", null);
+        var request = new UpdateDependantRequest("Janet", null, null, null, "spouse", null, null, null, null);
 
         when(dependantRepository.findById(id)).thenReturn(Mono.just(dependant));
         when(dependantRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
@@ -152,7 +152,7 @@ class DependantServiceTest {
     @Test
     void update_nonExisting_throwsNotFound() {
         var id = UUID.randomUUID();
-        var request = new UpdateDependantRequest("X", null, null, null, null, null);
+        var request = new UpdateDependantRequest("X", null, null, null, null, null, null, null, null);
         when(dependantRepository.findById(id)).thenReturn(Mono.empty());
 
         StepVerifier.create(
