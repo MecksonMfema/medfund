@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Map;
@@ -26,13 +27,16 @@ public class BadDebtService {
     private final BadDebtRepository badDebtRepository;
     private final ContributionRepository contributionRepository;
     private final AuditPublisher auditPublisher;
+    private final BalanceService balanceService;
 
     public BadDebtService(BadDebtRepository badDebtRepository,
                           ContributionRepository contributionRepository,
-                          AuditPublisher auditPublisher) {
+                          AuditPublisher auditPublisher,
+                          BalanceService balanceService) {
         this.badDebtRepository = badDebtRepository;
         this.contributionRepository = contributionRepository;
         this.auditPublisher = auditPublisher;
+        this.balanceService = balanceService;
     }
 
     public Flux<BadDebt> findAll() {
@@ -96,6 +100,15 @@ public class BadDebtService {
                 bd.setUpdatedAt(Instant.now());
 
                 return badDebtRepository.save(bd)
+                    // Zero the current-collectable side of the ledger.
+                    // The bad_debts row itself preserves the historical
+                    // fact (amount, subject, date) for future risk scoring
+                    // — that survives even when the group/member is later
+                    // deleted, because the FK has no ON DELETE CASCADE.
+                    .flatMap(saved -> balanceService.writeOffBalance(
+                                saved.getMemberId(), saved.getGroupId(),
+                                saved.getCurrencyCode(), saved.getAmount())
+                            .thenReturn(saved))
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
                         return publishAudit(tenantId, "BadDebt", saved.getId().toString(), badDebtName(saved),
@@ -107,6 +120,71 @@ public class BadDebtService {
                             .thenReturn(saved);
                     }));
             });
+    }
+
+    /**
+     * Auto-write-off for aggregate debts driven by the arrears sweep.
+     *
+     * <p>The aged-balance view aggregates across many contributions —
+     * there's no single contribution to flag. Inserts a {@code bad_debts}
+     * row with {@code contribution_id = NULL} (nullable per V004) and
+     * {@code status = 'WRITTEN_OFF'} in one step (skips the FLAGGED
+     * intermediate — the tenant already opted in via
+     * {@code auto_write_off = TRUE}), then zeros the running balance.
+     * The row itself preserves the subject FK + amount for risk scoring.
+     *
+     * @param subjectType {@code "MEMBER"} or {@code "GROUP"} — routes
+     *                    {@code subjectId} to the right FK column.
+     */
+    @Transactional
+    public Mono<BadDebt> flagAndWriteOffAggregate(String subjectType, UUID subjectId,
+                                                    String currencyCode, BigDecimal amount,
+                                                    String reason,
+                                                    String actorId, String actorEmail) {
+        if (subjectId == null || currencyCode == null || amount == null) {
+            return Mono.empty();
+        }
+        boolean isGroup = "GROUP".equalsIgnoreCase(subjectType);
+
+        var bd = new BadDebt();
+        // contribution_id intentionally left null — aggregate row.
+        if (isGroup) {
+            bd.setGroupId(subjectId);
+        } else {
+            bd.setMemberId(subjectId);
+        }
+        bd.setAmount(amount);
+        bd.setCurrencyCode(currencyCode);
+        bd.setStatus("WRITTEN_OFF");
+        bd.setReason(reason);
+        LocalDate today = LocalDate.now();
+        bd.setFlaggedDate(today);
+        bd.setWrittenOffDate(today);
+        try { bd.setWrittenOffBy(UUID.fromString(actorId)); }
+        catch (IllegalArgumentException ignore) { /* SYSTEM actor id shape */ }
+        Instant now = Instant.now();
+        bd.setCreatedAt(now);
+        bd.setUpdatedAt(now);
+
+        return badDebtRepository.save(bd)
+            // Zero the current-collectable side of the ledger. Historical
+            // fact stays on the bad_debts row we just inserted.
+            .flatMap(saved -> balanceService.writeOffBalance(
+                        saved.getMemberId(), saved.getGroupId(),
+                        saved.getCurrencyCode(), saved.getAmount())
+                    .thenReturn(saved))
+            .flatMap(saved -> Mono.deferContextual(ctx -> {
+                String tenantId = TenantContext.get(ctx);
+                return publishAudit(tenantId, "BadDebt", saved.getId().toString(),
+                        badDebtName(saved),
+                        "CREATE", actorId, actorEmail,
+                        null,
+                        Map.of("amount", saved.getAmount().toPlainString(),
+                               "currencyCode", saved.getCurrencyCode(),
+                               "status", saved.getStatus(),
+                               "reason", saved.getReason() != null ? saved.getReason() : ""))
+                    .thenReturn(saved);
+            }));
     }
 
     @Transactional

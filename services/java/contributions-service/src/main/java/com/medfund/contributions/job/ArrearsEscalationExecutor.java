@@ -58,6 +58,7 @@ public class ArrearsEscalationExecutor implements JobExecutor {
     private final UserServiceClient userClient;
     private final ArrearsNoticePublisher arrearsPublisher;
     private final DatabaseClient db;
+    private final com.medfund.contributions.service.BadDebtService badDebtService;
 
     @Override
     public JobType getJobType() {
@@ -190,9 +191,21 @@ public class ArrearsEscalationExecutor implements JobExecutor {
                     ? userClient.suspendGroup(subjectId, null, "ARREARS_ESCALATION")
                     : userClient.suspendMember(subjectId, null, "ARREARS_ESCALATION");
         } else if ("WRITE_OFF".equals(bucket) && autoWriteOff) {
-            escalate = isGroup
+            // Two effects on the write-off leg: stop future billing
+            // (user-service deactivate) and record the loss + zero the
+            // ledger (bad_debts insert + writeOffBalance). Deactivate
+            // first so a failure on the ledger side doesn't leave a
+            // still-billed subject; the ledger fix retries daily.
+            escalate = (isGroup
                     ? userClient.deactivateGroup(subjectId, null, "ARREARS_ESCALATION")
-                    : userClient.deactivateMember(subjectId, null, "ARREARS_ESCALATION");
+                    : userClient.deactivateMember(subjectId, null, "ARREARS_ESCALATION"))
+                .then(badDebtService.flagAndWriteOffAggregate(
+                        subjectType, subjectId,
+                        row.currencyCode(), row.balance(),
+                        "AUTO_ARREARS_WRITE_OFF",
+                        com.medfund.shared.audit.AuditActor.SYSTEM_ID,
+                        com.medfund.shared.audit.AuditActor.SYSTEM_EMAIL)
+                    .then());
         } else if (Boolean.TRUE.equals(config.getAutoRemind())
                 && shouldRemindToday(bucket, daysOverdue, suspensionDays, config)) {
             String kind = "GRACE".equals(bucket)

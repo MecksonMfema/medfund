@@ -118,6 +118,36 @@ public class BalanceService {
     }
 
     /**
+     * Zero-out a written-off balance. Standard-accounting write-off:
+     * the customer's outstanding is no longer receivable, so subtract
+     * {@code amount} from member (and group if present) running balance.
+     * The historical fact — the amount, the subject, the date — is
+     * captured on the {@code bad_debts} row created by
+     * {@code BadDebtService.writeOff} / {@code flagAndWriteOffAggregate}
+     * so risk scoring can walk that trail later. This method touches
+     * only the current-collectable figure.
+     *
+     * <p>Reason string is {@code BAD_DEBT_WRITE_OFF} so a ledger audit
+     * can distinguish an operator-driven write-off from a normal
+     * revoke ({@code CONTRIBUTION_REVOKED}) or payment
+     * ({@code CONTRIBUTION_PAID}).
+     */
+    @Transactional
+    public Mono<Void> writeOffBalance(UUID memberId, UUID groupId,
+                                       String currencyCode, BigDecimal amount) {
+        if (currencyCode == null || amount == null) return Mono.empty();
+        if (memberId == null && groupId == null) return Mono.empty();
+        BigDecimal neg = amount.negate();
+        Mono<Void> memberLeg = memberId != null
+                ? upsertMember(memberId, currencyCode, neg, false, false, "BAD_DEBT_WRITE_OFF")
+                : Mono.empty();
+        Mono<Void> groupLeg = groupId != null
+                ? upsertGroup(groupId, currencyCode, neg, false, false, "BAD_DEBT_WRITE_OFF")
+                : Mono.empty();
+        return memberLeg.then(groupLeg);
+    }
+
+    /**
      * Apply an arbitrary transaction. {@code sign} comes from the
      * {@code transaction_types.sign} column ('+' or '-'). Transactions
      * without a contribution_id and without an invoice_id are no-ops because

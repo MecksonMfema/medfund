@@ -45,14 +45,21 @@ class ArrearsEscalationExecutorTest {
     @Mock UserServiceClient userClient;
     @Mock ArrearsNoticePublisher arrearsPublisher;
     @Mock DatabaseClient db;
+    @Mock com.medfund.contributions.service.BadDebtService badDebtService;
 
     private ArrearsEscalationExecutor executor;
 
     @BeforeEach
     void setUp() {
         executor = new ArrearsEscalationExecutor(dunningRepo, balanceService,
-                userClient, arrearsPublisher, db);
+                userClient, arrearsPublisher, db, badDebtService);
         stubActiveCurrencies("USD");
+        // WRITE_OFF branch now chains flagAndWriteOffAggregate — stub as
+        // no-op so existing tests keep passing; the write-off test
+        // asserts on the actual invocation.
+        lenient().when(badDebtService.flagAndWriteOffAggregate(
+                any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(Mono.empty());
     }
 
     @Test
@@ -94,7 +101,7 @@ class ArrearsEscalationExecutorTest {
     }
 
     @Test
-    void writeOffBucket_autoWriteOffOn_callsDeactivateMember() {
+    void writeOffBucket_autoWriteOffOn_callsDeactivateMember_andFlagsWrittenOff() {
         DunningConfig cfg = config(true, true, false, 30, 90, 7, 3, true);
         when(dunningRepo.findById(DunningConfig.SINGLETON_ID)).thenReturn(Mono.just(cfg));
         UUID memberId = UUID.randomUUID();
@@ -109,6 +116,16 @@ class ArrearsEscalationExecutorTest {
 
         verify(userClient).deactivateMember(eq(memberId), isNull(), eq("ARREARS_ESCALATION"));
         verify(userClient, never()).suspendMember(any(), any(), any());
+        // The auto-write-off leg must also flag + write off the debt so
+        // the running balance zeros AND the bad_debts row exists for
+        // future risk scoring. Fix landed after a 2026-07 audit found
+        // this branch was deactivating without a ledger entry.
+        verify(badDebtService).flagAndWriteOffAggregate(
+                eq("MEMBER"), eq(memberId),
+                eq("USD"), eq(new BigDecimal("125.00")),
+                eq("AUTO_ARREARS_WRITE_OFF"),
+                eq(com.medfund.shared.audit.AuditActor.SYSTEM_ID),
+                eq(com.medfund.shared.audit.AuditActor.SYSTEM_EMAIL));
     }
 
     @Test

@@ -179,7 +179,11 @@ public class BillingService {
                 // APPLY_LOADED_PREMIUM rules fire; tenants without pricing rules
                 // get the legacy behaviour (whatever amount the request supplied).
                 return pricingService.price(contribution)
-                    .then(Mono.defer(() -> contributionRepository.save(contribution)));
+                    .then(Mono.defer(() -> contributionRepository.save(contribution)))
+                    // Same pairing as persistContribution — every contribution
+                    // write must land on the running balance or the customer's
+                    // outstanding drifts.
+                    .flatMap(saved -> balanceService.applyContributionDebit(saved).thenReturn(saved));
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);

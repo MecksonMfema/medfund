@@ -180,6 +180,11 @@ class BillingServiceTest {
         }));
         verify(auditPublisher).publish(any());
         verify(eventPublisher).publishBillingGenerated(any(), any(), any(), anyInt());
+        // Every contribution write must pair with a running-balance
+        // debit; without this the customer's outstanding drifts down
+        // from what the contributions table says they owe. Locked in
+        // after a 2026-07 audit found the pairing missing.
+        verify(balanceService).applyContributionDebit(any(Contribution.class));
     }
 
     @Test
@@ -356,6 +361,72 @@ class BillingServiceTest {
         lenient().when(spec.bind(anyString(), any())).thenReturn(spec);
         lenient().when(spec.map(any(java.util.function.Function.class))).thenAnswer(inv -> fetch);
         lenient().when(fetch.one()).thenReturn(Mono.just("BOTH"));
+    }
+
+    // ------------------------------------------------------------------
+    // runAutoBilling: scheduler contract with commitBilling
+    // ------------------------------------------------------------------
+
+    @Test
+    void runAutoBilling_delegatesToCommitBilling_withCurrentMonthPeriod() {
+        // Locks in the auto-billing contract: current calendar month,
+        // no group/member/line filter (multi-line tenants override via
+        // per-line cron entries), SYSTEM actor on the audit trail.
+        // A regression that shifts the period (e.g. previous month due
+        // to a timezone bug) would silently miss the current month for
+        // every tenant.
+        var spy = org.mockito.Mockito.spy(billingService);
+        var response = new com.medfund.contributions.dto.BillingCommitResponse(
+                5, java.util.Map.of("USD", new BigDecimal("500.00")),
+                Instant.now(), 1, 2, "BOTH");
+        org.mockito.Mockito.doReturn(Mono.just(response))
+                .when(spy).commitBilling(any(), anyString(), anyString());
+
+        StepVerifier.create(spy.runAutoBilling()).verifyComplete();
+
+        var reqCap = org.mockito.ArgumentCaptor.forClass(
+                com.medfund.contributions.dto.CommitBillingRequest.class);
+        verify(spy).commitBilling(reqCap.capture(),
+                eq(com.medfund.shared.audit.AuditActor.SYSTEM_ID),
+                eq(com.medfund.shared.audit.AuditActor.SYSTEM_EMAIL));
+        var req = reqCap.getValue();
+        LocalDate today = LocalDate.now();
+        assertThat(req.periodStart()).isEqualTo(today.withDayOfMonth(1));
+        assertThat(req.periodEnd()).isEqualTo(today.withDayOfMonth(today.lengthOfMonth()));
+        // No filter — auto-billing bills the whole tenant.
+        assertThat(req.groupIds()).isNull();
+        assertThat(req.memberIds()).isNull();
+        assertThat(req.insuranceLine()).isNull();
+    }
+
+    @Test
+    void runAutoBilling_cooldownException_propagatesUpwards() {
+        // The scheduler's error-handling in BillingCycleExecutor marks
+        // the run FAILED and moves on — precisely because the exception
+        // propagates from here. If runAutoBilling ever wraps this in
+        // onErrorResume it would silently swallow a real cooldown mismatch.
+        var spy = org.mockito.Mockito.spy(billingService);
+        org.mockito.Mockito.doReturn(Mono.error(
+                        new com.medfund.contributions.exception.BillingCooldownException(120)))
+                .when(spy).commitBilling(any(), anyString(), anyString());
+
+        StepVerifier.create(spy.runAutoBilling())
+                .expectError(com.medfund.contributions.exception.BillingCooldownException.class)
+                .verify();
+    }
+
+    @Test
+    void runAutoBilling_periodAlreadyCommitted_propagatesUpwards() {
+        // Same failure contract for the period-guard exception.
+        var spy = org.mockito.Mockito.spy(billingService);
+        org.mockito.Mockito.doReturn(Mono.error(
+                        new com.medfund.contributions.exception.BillingPeriodAlreadyCommittedException(
+                                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31), "HEALTH", 42L)))
+                .when(spy).commitBilling(any(), anyString(), anyString());
+
+        StepVerifier.create(spy.runAutoBilling())
+                .expectError(com.medfund.contributions.exception.BillingPeriodAlreadyCommittedException.class)
+                .verify();
     }
 
     private Contribution createTestContribution() {

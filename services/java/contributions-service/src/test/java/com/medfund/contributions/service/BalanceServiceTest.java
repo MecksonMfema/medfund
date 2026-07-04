@@ -165,6 +165,83 @@ class BalanceServiceTest {
                 .verifyComplete();
     }
 
+    // ------------------------------------------------------------------
+    // writeOffBalance — zeros the current-collectable side of the ledger
+    // when a bad_debts row is written off. See BalanceService.writeOffBalance
+    // for why we zero the ledger and let the bad_debts row carry the history.
+    // ------------------------------------------------------------------
+
+    @Test
+    void writeOffBalance_nullCurrency_isNoOp() {
+        StepVerifier.create(service.writeOffBalance(UUID.randomUUID(), null, null, BigDecimal.TEN))
+                .verifyComplete();
+        verifyNoInteractions(db);
+    }
+
+    @Test
+    void writeOffBalance_bothSubjectsNull_isNoOp() {
+        StepVerifier.create(service.writeOffBalance(null, null, "USD", BigDecimal.TEN))
+                .verifyComplete();
+        verifyNoInteractions(db);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void writeOffBalance_memberAndGroup_hitsBothLegs() {
+        // A group-billed member's write-off must zero both the member's
+        // running balance AND the group's — the two rows track separately
+        // and both must reflect the loss.
+        UUID memberId = UUID.randomUUID();
+        UUID groupId = UUID.randomUUID();
+        stubUpsertDbChain();
+
+        StepVerifier.create(service.writeOffBalance(memberId, groupId, "USD", new BigDecimal("125.50")))
+                .verifyComplete();
+
+        // Two SQL calls — one per leg. upsertMember + upsertGroup both
+        // hit db.sql().bind(...).map(...).one().
+        verify(db, org.mockito.Mockito.times(2)).sql(anyString());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void writeOffBalance_memberOnly_hitsMemberLegOnly() {
+        // Individual (ungrouped) member — only the member leg fires.
+        UUID memberId = UUID.randomUUID();
+        stubUpsertDbChain();
+
+        StepVerifier.create(service.writeOffBalance(memberId, null, "USD", new BigDecimal("50.00")))
+                .verifyComplete();
+
+        verify(db, org.mockito.Mockito.times(1)).sql(anyString());
+    }
+
+    /**
+     * Stubs the DatabaseClient.sql().bind()...map().one() chain plus the
+     * downstream audit + event publishers so upsertMember / upsertGroup
+     * can complete. Kept private + reusable so the write-off tests
+     * focus on which legs fire, not on ledger arithmetic.
+     */
+    @SuppressWarnings("unchecked")
+    private void stubUpsertDbChain() {
+        DatabaseClient.GenericExecuteSpec spec = org.mockito.Mockito.mock(
+                DatabaseClient.GenericExecuteSpec.class);
+        org.springframework.r2dbc.core.RowsFetchSpec<BigDecimal> fetch =
+                org.mockito.Mockito.mock(org.springframework.r2dbc.core.RowsFetchSpec.class);
+        lenient().when(db.sql(anyString())).thenReturn(spec);
+        lenient().when(spec.bind(anyString(), any())).thenReturn(spec);
+        lenient().when(spec.map(any(java.util.function.Function.class))).thenAnswer(inv -> fetch);
+        lenient().when(fetch.one()).thenReturn(Mono.just(BigDecimal.ZERO));
+        // upsertMember/upsertGroup fan out to auditPublisher.publish and
+        // eventPublisher.publishMember/GroupBalance after the .one() —
+        // both must complete or the outer Mono errors "last".
+        lenient().when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberBalance(any(), any(), any(), any(), any()))
+                .thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishGroupBalance(any(), any(), any(), any(), any()))
+                .thenReturn(Mono.empty());
+    }
+
     private static com.medfund.contributions.dto.BalanceRow agedBalanceRow(UUID id) {
         return new com.medfund.contributions.dto.BalanceRow(
                 "MEMBER", id, "CODE", "Name", "e@x.com",
