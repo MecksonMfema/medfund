@@ -41,7 +41,8 @@ class UserEventPublisherTest {
     void publishMemberEnrolled_sendsToCorrectTopic() {
         when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
 
-        StepVerifier.create(userEventPublisher.publishMemberEnrolled("mbr-1", "MBR-123", "grp-1"))
+        StepVerifier.create(userEventPublisher.publishMemberEnrolled(
+                        "mbr-1", "MBR-123", "grp-1", "scheme-1", "2026-07-01"))
                 .verifyComplete();
 
         verify(kafkaSender).send(senderRecordCaptor.capture());
@@ -60,7 +61,8 @@ class UserEventPublisherTest {
     void publishMemberLifecycle_sendsToCorrectTopic() {
         when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
 
-        StepVerifier.create(userEventPublisher.publishMemberLifecycle("mbr-1", "suspended"))
+        StepVerifier.create(userEventPublisher.publishMemberLifecycle(
+                        "mbr-1", "suspended", null, "grp-1", "scheme-1"))
                 .verifyComplete();
 
         verify(kafkaSender).send(senderRecordCaptor.capture());

@@ -91,6 +91,10 @@ public class StatementService {
                             .filter(t -> t.getCode() != null && t.getSign() != null)
                             .collect(Collectors.toMap(TransactionType::getCode, TransactionType::getSign,
                                     (a, b) -> a));
+                    Map<String, String> typeLabelByCode = tuple.getT3().stream()
+                            .filter(t -> t.getCode() != null && t.getLabel() != null)
+                            .collect(Collectors.toMap(TransactionType::getCode, TransactionType::getLabel,
+                                    (a, b) -> a));
 
                     String resolvedCurrency = currencyCode != null
                             ? currencyCode
@@ -110,7 +114,7 @@ public class StatementService {
                     return txnsMono.map(txns -> assemble(
                             targetType, targetId, header, periodStart, periodEnd,
                             periodStartInstant, periodEndExclusive,
-                            resolvedCurrency, matching, txns, typeSignByCode));
+                            resolvedCurrency, matching, txns, typeSignByCode, typeLabelByCode));
                 });
     }
 
@@ -122,7 +126,8 @@ public class StatementService {
                                         String currencyCode,
                                         List<Contribution> contributions,
                                         List<Transaction> transactions,
-                                        Map<String, String> signByCode) {
+                                        Map<String, String> signByCode,
+                                        Map<String, String> labelByCode) {
 
         record Event(Instant date, String type, String description, String reference,
                      BigDecimal delta, UUID sourceId) {}
@@ -148,7 +153,7 @@ public class StatementService {
             String sign = signByCode.getOrDefault(t.getTransactionType(), "-");
             BigDecimal delta = "-".equals(sign) ? t.getAmount().negate() : t.getAmount();
             Instant when = t.getTransactionDate() != null ? t.getTransactionDate() : t.getCreatedAt();
-            String desc = String.format("%s · %s", nz(t.getTransactionType()), nz(t.getPaymentMethod()));
+            String desc = describeTransaction(t, labelByCode);
             events.add(new Event(when, "TRANSACTION", desc, t.getReference(), delta, t.getId()));
         }
 
@@ -289,9 +294,12 @@ public class StatementService {
             Map<String, String> typeSigns     = tuple.getT4().stream()
                     .filter(t -> t.getCode() != null && t.getSign() != null)
                     .collect(Collectors.toMap(TransactionType::getCode, TransactionType::getSign, (a, b) -> a));
+            Map<String, String> typeLabels    = tuple.getT4().stream()
+                    .filter(t -> t.getCode() != null && t.getLabel() != null)
+                    .collect(Collectors.toMap(TransactionType::getCode, TransactionType::getLabel, (a, b) -> a));
 
             return windowedTransactions(inv, lower).collectList()
-                    .map(txns -> projectSnapshotStatement(inv, header, rows, txns, typeSigns,
+                    .map(txns -> projectSnapshotStatement(inv, header, rows, txns, typeSigns, typeLabels,
                             targetType, targetId, lower));
         });
     }
@@ -303,7 +311,7 @@ public class StatementService {
         String sql = """
                 SELECT t.id, t.transaction_number, t.contribution_id, t.invoice_id,
                        t.amount, t.currency_code, t.transaction_type, t.payment_method,
-                       t.reference, t.status, t.transaction_date, t.created_at, t.created_by
+                       t.reference, t.reason, t.status, t.transaction_date, t.created_at, t.created_by
                   FROM transactions t
                   JOIN contributions c ON c.id = t.contribution_id
                  WHERE t.currency_code = :currency
@@ -330,6 +338,7 @@ public class StatementService {
                     t.setTransactionType(row.get("transaction_type", String.class));
                     t.setPaymentMethod(row.get("payment_method", String.class));
                     t.setReference(row.get("reference", String.class));
+                    t.setReason(row.get("reason", String.class));
                     t.setStatus(row.get("status", String.class));
                     // R2DBC Postgres returns TIMESTAMPTZ as OffsetDateTime — ask
                     // for Instant explicitly so the driver converts.
@@ -346,6 +355,7 @@ public class StatementService {
                                                         List<Contribution> rows,
                                                         List<Transaction> txns,
                                                         Map<String, String> typeSigns,
+                                                        Map<String, String> typeLabels,
                                                         String targetType,
                                                         UUID targetId,
                                                         Instant lower) {
@@ -367,7 +377,7 @@ public class StatementService {
             String sign = typeSigns.getOrDefault(t.getTransactionType(), "-");
             BigDecimal delta = "-".equals(sign) ? t.getAmount().negate() : t.getAmount();
             Instant when = t.getTransactionDate() != null ? t.getTransactionDate() : t.getCreatedAt();
-            String desc = String.format("%s · %s", nz(t.getTransactionType()), nz(t.getPaymentMethod()));
+            String desc = describeTransaction(t, typeLabels);
             events.add(new Event(when, "TRANSACTION", desc, t.getReference(), delta, t.getId()));
         }
         events.sort(Comparator.comparing(Event::date, Comparator.nullsLast(Comparator.naturalOrder())));
@@ -416,6 +426,28 @@ public class StatementService {
 
     private static String nz(String s) {
         return (s == null || s.isBlank()) ? "—" : s;
+    }
+
+    /**
+     * Compose the statement-line description for a transaction. Prefers
+     * the catalog's friendly label over the raw code so no client-facing
+     * surface shows {@code LATE_ENROLMENT_CHARGE} — the label already
+     * reads "Late enrolment charge". A CREDIT/DEBIT with a reason
+     * appends the reason as the salient detail; otherwise the payment
+     * method rides along for context.
+     */
+    private static String describeTransaction(Transaction t, Map<String, String> labelByCode) {
+        String code = t.getTransactionType();
+        String label = code != null ? labelByCode.getOrDefault(code, code) : nz(code);
+        String reason = t.getReason();
+        if (reason != null && !reason.isBlank()) {
+            return label + " · " + reason;
+        }
+        String method = t.getPaymentMethod();
+        if (method != null && !method.isBlank()) {
+            return label + " · " + method;
+        }
+        return label;
     }
 
     private record Header(String name, String code) {}

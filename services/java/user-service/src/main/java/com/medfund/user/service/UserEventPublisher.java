@@ -24,21 +24,45 @@ public class UserEventPublisher {
         this.objectMapper = objectMapper;
     }
 
-    public Mono<Void> publishMemberEnrolled(String memberId, String memberNumber, String groupId) {
-        return publishEvent("medfund.users.member-enrolled", memberId, Map.of(
-            "event", "MEMBER_ENROLLED",
-            "memberId", memberId,
-            "memberNumber", memberNumber,
-            "groupId", groupId != null ? groupId : ""
-        ));
+    /**
+     * Enriched with {@code enrollmentDate} + {@code schemeId} so the
+     * contributions-service consumer can decide whether the new member's
+     * effective date falls in an already-billed period (→ auto-post a
+     * LATE_ENROLMENT_CHARGE). Nullable fields serialise as empty strings
+     * to keep the Map&lt;String,String&gt; envelope uniform.
+     */
+    public Mono<Void> publishMemberEnrolled(String memberId, String memberNumber,
+                                             String groupId, String schemeId,
+                                             String enrollmentDate) {
+        var payload = new java.util.LinkedHashMap<String, String>();
+        payload.put("event", "MEMBER_ENROLLED");
+        payload.put("memberId", memberId);
+        payload.put("memberNumber", memberNumber);
+        payload.put("groupId",         groupId         != null ? groupId         : "");
+        payload.put("schemeId",        schemeId        != null ? schemeId        : "");
+        payload.put("enrollmentDate",  enrollmentDate  != null ? enrollmentDate  : "");
+        return publishEvent("medfund.users.member-enrolled", memberId, payload);
     }
 
-    public Mono<Void> publishMemberLifecycle(String memberId, String status) {
-        return publishEvent("medfund.users.member-lifecycle", memberId, Map.of(
-            "event", "MEMBER_STATUS_CHANGED",
-            "memberId", memberId,
-            "status", status
-        ));
+    /**
+     * Enriched with {@code terminationDate} + {@code groupId} +
+     * {@code schemeId} so the contributions-service consumer can figure
+     * out whether the termination window overlaps a period that was
+     * already billed for this member (→ auto-post a
+     * LATE_TERMINATION_CREDIT). All extra fields are optional; empty
+     * strings on the wire when null.
+     */
+    public Mono<Void> publishMemberLifecycle(String memberId, String status,
+                                              String terminationDate,
+                                              String groupId, String schemeId) {
+        var payload = new java.util.LinkedHashMap<String, String>();
+        payload.put("event", "MEMBER_STATUS_CHANGED");
+        payload.put("memberId", memberId);
+        payload.put("status", status);
+        payload.put("terminationDate", terminationDate != null ? terminationDate : "");
+        payload.put("groupId",         groupId         != null ? groupId         : "");
+        payload.put("schemeId",        schemeId        != null ? schemeId        : "");
+        return publishEvent("medfund.users.member-lifecycle", memberId, payload);
     }
 
     public Mono<Void> publishProviderOnboarded(String providerId, String name) {

@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Subject, debounceTime, distinctUntilChanged, forkJoin, switchMap, of } from 'rxjs';
 import {
-  Contribution,
   ContributionsService,
   RecordTransactionPayload,
 } from '../../../../core/services/contributions.service';
@@ -54,28 +53,25 @@ export class TransactionFormComponent implements OnInit {
   selectedTarget: TargetOption | null = null;
   showMatches = false;
 
-  // ── Contribution picker (depends on selected target) ───────────────────
-  contributions: Contribution[] = [];
-  loadingContributions = false;
-
   form = {
-    contributionId: '',
     amount: '',
     currencyCode: '',
     transactionTypeCode: '',
     paymentMethodCode: '',
     reference: '',
+    reason: '',
   };
+
+  /** True when the selected transaction type is an adjustment
+   *  (CREDIT/DEBIT) that needs a reason. Used to toggle the field's
+   *  required indicator and the client-side validation gate. */
+  get needsReason(): boolean {
+    const t = (this.form.transactionTypeCode || '').toUpperCase();
+    return t === 'CREDIT' || t === 'DEBIT';
+  }
 
   private query$ = new Subject<string>();
   private humanize = new HumanizePipe();
-
-  get contributionOptions(): SelectOption[] {
-    return this.contributions.map(c => ({
-      value: c.id,
-      label: `${c.periodStart} → ${c.periodEnd} · ${c.amount} ${c.currencyCode} · ${this.humanize.transform(c.status)}`,
-    }));
-  }
 
   get currencyOptions(): SelectOption[] {
     return this.currencies.map(c => ({ value: c.currencyCode, label: c.currencyCode }));
@@ -184,34 +180,11 @@ export class TransactionFormComponent implements OnInit {
     this.targetQuery = t.label;
     this.showMatches = false;
     this.targetMatches = [];
-    this.loadContributionsForTarget();
   }
 
   clearTarget(): void {
     this.selectedTarget = null;
-    this.contributions = [];
-    this.form.contributionId = '';
     this.targetQuery = '';
-  }
-
-  private loadContributionsForTarget(): void {
-    if (!this.selectedTarget) return;
-    this.loadingContributions = true;
-    const stream = this.targetType === 'GROUP'
-      ? this.contributionsService.getContributionsByGroup(this.selectedTarget.id)
-      : this.contributionsService.getContributionsByMember(this.selectedTarget.id);
-    stream.subscribe({
-      next: (rows) => {
-        this.contributions = rows
-          .filter(c => c.status !== 'paid' && c.status !== 'cancelled')
-          .sort((a, b) => (b.periodStart || '').localeCompare(a.periodStart || ''));
-        this.loadingContributions = false;
-      },
-      error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load contributions';
-        this.loadingContributions = false;
-      },
-    });
   }
 
   selectedMethod(): PaymentMethod | undefined {
@@ -225,10 +198,6 @@ export class TransactionFormComponent implements OnInit {
       this.errorMessage = 'Pick a target (group or individual) to record the transaction against';
       return;
     }
-    if (!this.form.contributionId) {
-      this.errorMessage = 'Pick a contribution to apply this payment to';
-      return;
-    }
     if (!this.form.amount || !this.form.currencyCode || !this.form.transactionTypeCode) {
       this.errorMessage = 'Amount, currency, and transaction type are required';
       return;
@@ -238,14 +207,23 @@ export class TransactionFormComponent implements OnInit {
       this.errorMessage = `${method.label} requires a reference`;
       return;
     }
+    if (this.needsReason && !this.form.reason.trim()) {
+      this.errorMessage = 'A reason is required for CREDIT / DEBIT adjustments — explain why the ledger is being moved.';
+      return;
+    }
 
+    // Owner is the target directly — a payment anchors to a group or a
+    // member, not to a specific contribution. Contribution/invoice picks
+    // are optional refinements: tag the payment as intended for one line.
     const payload: RecordTransactionPayload = {
-      contributionId: this.form.contributionId,
+      groupId:  this.targetType === 'GROUP'      ? this.selectedTarget.id : undefined,
+      memberId: this.targetType === 'INDIVIDUAL' ? this.selectedTarget.id : undefined,
       amount: this.form.amount,
       currencyCode: this.form.currencyCode,
       transactionType: this.form.transactionTypeCode,
       paymentMethod: this.form.paymentMethodCode || undefined,
       reference: this.form.reference.trim() || undefined,
+      reason:    this.form.reason.trim()    || undefined,
     };
 
     this.saving = true;
@@ -254,7 +232,13 @@ export class TransactionFormComponent implements OnInit {
       next: () => {
         this.saving = false;
         this.successMessage = 'Transaction recorded';
-        setTimeout(() => this.router.navigate(['/tenant/billing/transactions']), 800);
+        // Stay on the form so the operator can record another payment
+        // without navigating back — reset money fields but keep the
+        // target picked so consecutive payments to the same group /
+        // member don't require re-searching.
+        this.form.amount = '';
+        this.form.reference = '';
+        this.form.reason = '';
       },
       error: (err) => {
         this.saving = false;

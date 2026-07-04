@@ -40,6 +40,9 @@ public class GroupService {
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
     private final KeycloakSyncService keycloakSyncService;
+    // Cascades group-lifecycle transitions to member rows. Split constructor
+    // above stays unchanged — @RequiredArgsConstructor picks this up.
+    private final MemberService memberService;
 
     public Flux<Group> findAll() {
         return groupRepository.findAllOrderByCreatedAtDesc();
@@ -257,26 +260,123 @@ public class GroupService {
 
     @Transactional
     public Mono<Group> suspend(UUID id, String actorId, String actorEmail) {
+        return suspend(id, null, null, actorId, actorEmail);
+    }
+
+    @Transactional
+    public Mono<Group> suspend(UUID id, java.time.LocalDate effectiveDate, String reason,
+                                String actorId, String actorEmail) {
+        return applyOrScheduleGroup(id, "suspended", effectiveDate, reason, actorId, actorEmail);
+    }
+
+    @Transactional
+    public Mono<Group> activate(UUID id, java.time.LocalDate effectiveDate, String reason,
+                                 String actorId, String actorEmail) {
+        return applyOrScheduleGroup(id, "active", effectiveDate, reason, actorId, actorEmail);
+    }
+
+    @Transactional
+    public Mono<Group> terminate(UUID id, java.time.LocalDate effectiveDate, String reason,
+                                  String actorId, String actorEmail) {
+        return applyOrScheduleGroup(id, "terminated", effectiveDate, reason, actorId, actorEmail);
+    }
+
+    @Transactional
+    public Mono<Group> deactivate(UUID id, java.time.LocalDate effectiveDate, String reason,
+                                   String actorId, String actorEmail) {
+        return applyOrScheduleGroup(id, "deactivated", effectiveDate, reason, actorId, actorEmail);
+    }
+
+    /**
+     * Group-lifecycle router. Same shape as
+     * {@code MemberService.applyOrSchedule} — future dates land in the
+     * scheduled trio, immediate transitions flip status + audit + cascade
+     * to members. Members in {@code active} or {@code suspended} get
+     * the same target status (with the same reason); already-terminated
+     * or already-deactivated rows are left alone per the plan.
+     */
+    private Mono<Group> applyOrScheduleGroup(UUID id, String targetStatus,
+                                              java.time.LocalDate effectiveDate,
+                                              String reason,
+                                              String actorId, String actorEmail) {
+        java.time.LocalDate today = java.time.LocalDate.now();
+        boolean isFuture = effectiveDate != null && effectiveDate.isAfter(today);
         return groupRepository.findById(id)
             .switchIfEmpty(Mono.error(new GroupNotFoundException(id)))
             .flatMap(existing -> {
-                existing.setStatus("suspended");
+                String previousStatus = existing.getStatus();
+                if (isFuture) {
+                    existing.setScheduledStatus(targetStatus);
+                    existing.setScheduledStatusEffectiveFrom(effectiveDate);
+                    existing.setScheduledStatusReason(reason);
+                } else {
+                    existing.setStatus(targetStatus);
+                    existing.setScheduledStatus(null);
+                    existing.setScheduledStatusEffectiveFrom(null);
+                    existing.setScheduledStatusReason(null);
+                }
                 existing.setUpdatedAt(Instant.now());
-                existing.setUpdatedBy(UUID.fromString(actorId));
+                existing.setUpdatedBy(safeParseUuid(actorId));
                 return groupRepository.save(existing)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
+                        Map<String, Object> oldVal = Map.of("status", previousStatus != null ? previousStatus : "?");
+                        Map<String, Object> newVal = isFuture
+                            ? Map.of("scheduledStatus", targetStatus,
+                                     "scheduledEffective", effectiveDate.toString())
+                            : Map.of("status", targetStatus);
                         var event = AuditEvent.create(
                             tenantId != null ? tenantId : "unknown", "Group", saved.getId().toString(),
                             saved.getName(),
                             "UPDATE", actorId, actorEmail,
-                            Map.of("status", "active"),
-                            Map.of("status", "suspended"),
+                            oldVal, newVal,
                             new String[]{"status"},
                             UUID.randomUUID().toString()
                         );
-                        return auditPublisher.publish(event).thenReturn(saved);
+                        Mono<Void> auditThenCascade = auditPublisher.publish(event);
+                        if (!isFuture && shouldCascadeToMembers(targetStatus)) {
+                            auditThenCascade = auditThenCascade.then(cascadeToMembers(
+                                    saved.getId(), targetStatus, reason, actorId, actorEmail));
+                        }
+                        return auditThenCascade.thenReturn(saved);
                     }));
             });
+    }
+
+    /** Only deactivated / terminated cascade. Suspended and activated
+     *  group changes leave individual member statuses alone. */
+    private static boolean shouldCascadeToMembers(String targetStatus) {
+        return "deactivated".equals(targetStatus) || "terminated".equals(targetStatus);
+    }
+
+    /**
+     * Cascade the group-level transition to every member currently in
+     * {@code active} or {@code suspended}. Skips already-terminated /
+     * already-deactivated rows per the plan (preserves audit history).
+     * Errors on individual members are logged and swallowed so one
+     * bad row doesn't leave the group half-cascaded.
+     */
+    private Mono<Void> cascadeToMembers(UUID groupId, String targetStatus, String reason,
+                                         String actorId, String actorEmail) {
+        return memberRepository.findByGroupId(groupId)
+            .filter(m -> "active".equals(m.getStatus()) || "suspended".equals(m.getStatus()))
+            .flatMap(m -> {
+                Mono<?> op = switch (targetStatus) {
+                    case "deactivated" -> memberService.deactivate(m.getId(), null, reason, actorId, actorEmail);
+                    case "terminated"  -> memberService.terminate(m.getId(), null, reason, actorId, actorEmail);
+                    default -> Mono.empty();
+                };
+                return op.onErrorResume(err -> {
+                    log.warn("Cascade to member {} failed: {}", m.getId(), err.getMessage());
+                    return Mono.empty();
+                });
+            })
+            .then();
+    }
+
+    private static UUID safeParseUuid(String s) {
+        if (s == null || s.isBlank()) return null;
+        try { return UUID.fromString(s); }
+        catch (IllegalArgumentException e) { return null; }
     }
 }

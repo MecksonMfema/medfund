@@ -909,6 +909,33 @@ public class BillingService {
         return resolveCandidatesForTenant(groupIds, memberIds, periodStart, periodEnd, "HEALTH");
     }
 
+    /**
+     * Package-visible seam for {@link LateAdjustmentService} and any other
+     * caller that needs to know "what would billing charge this member for
+     * this month?" without running a full commit. Reuses the same
+     * candidate → applyPricing pipeline that {@link #commitBilling} uses,
+     * so late-enrolment / scheme-change adjustments post the same amount
+     * a normal billing run would have. Returns {@link BigDecimal#ZERO}
+     * when the member has no scheme, no active age-group price, or when
+     * no candidate resolver handles the scheme's insurance line.
+     */
+    public Mono<BigDecimal> priceOneMember(UUID memberId, UUID schemeId,
+                                    LocalDate periodStart, LocalDate periodEnd) {
+        if (memberId == null || schemeId == null || periodStart == null || periodEnd == null) {
+            return Mono.just(BigDecimal.ZERO);
+        }
+        return schemeRepository.findById(schemeId)
+                .flatMap(scheme -> {
+                    String line = scheme.getInsuranceLine() != null ? scheme.getInsuranceLine() : "HEALTH";
+                    return resolveCandidatesForTenant(null, List.of(memberId), periodStart, periodEnd, line)
+                            .next()
+                            .flatMap(pc -> applyPricing(pc, periodStart, periodEnd))
+                            .map(PricedCandidate::amount)
+                            .defaultIfEmpty(BigDecimal.ZERO);
+                })
+                .defaultIfEmpty(BigDecimal.ZERO);
+    }
+
     private Flux<PersonCandidate> resolveCandidatesForTenant(List<UUID> groupIds, List<UUID> memberIds,
                                                               LocalDate periodStart, LocalDate periodEnd,
                                                               String insuranceLine) {

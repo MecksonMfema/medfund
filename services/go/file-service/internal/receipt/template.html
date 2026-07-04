@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Official receipt {{.TransactionNumber}}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --ink:       #0f172a;
+      --ink-soft:  #475569;
+      --ink-muted: #94a3b8;
+      --line:      #e2e8f0;
+      --line-soft: #f1f5f9;
+      --brand:     #047857;
+      --brand-tint:#ecfdf5;
+      --paper:     #ffffff;
+      --stamp-bg:  #dcfce7;
+      --stamp-ink: #14532d;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      color: var(--ink);
+      font-size: 13px;
+      line-height: 1.55;
+      background: var(--paper);
+      padding: 44px 52px 40px;
+    }
+
+    /* ── Top masthead ────────────────────────────────────────────── */
+    .masthead {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding-bottom: 20px; border-bottom: 3px solid var(--brand); margin-bottom: 28px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark {
+      width: 44px; height: 44px; border-radius: 10px;
+      background: var(--brand); color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 20px; letter-spacing: -0.02em;
+    }
+    .brand-name { font-weight: 800; font-size: 20px; letter-spacing: -0.02em; color: var(--ink); }
+    .brand-tag  { font-size: 11px; color: var(--ink-muted); letter-spacing: 0.02em; }
+
+    .doc-title {
+      text-align: right;
+    }
+    .doc-title .kicker {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em;
+      color: var(--ink-muted); margin-bottom: 4px;
+    }
+    .doc-title .title {
+      font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink);
+    }
+    .doc-title .no {
+      margin-top: 6px; font-size: 12px; color: var(--ink-soft);
+      font-variant-numeric: tabular-nums;
+    }
+    .doc-title .no strong { color: var(--ink); letter-spacing: 0.02em; }
+
+    /* ── Meta grid: issued + received-from side by side ───────────── */
+    .meta {
+      display: table; width: 100%; margin-bottom: 22px;
+      border-collapse: separate; border-spacing: 0;
+    }
+    .meta .cell {
+      display: table-cell; vertical-align: top; width: 50%;
+      padding: 14px 18px; background: var(--line-soft); border-radius: 8px;
+    }
+    .meta .cell + .cell { border-left: 6px solid var(--paper); }
+    .meta .k { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-muted); }
+    .meta .v { font-size: 15px; font-weight: 600; color: var(--ink); margin-top: 2px; }
+    .meta .v.small { font-size: 13px; font-weight: 500; }
+
+    /* ── Received-with-thanks narrative ──────────────────────────── */
+    .narrative {
+      margin: 22px 0 8px; font-size: 14px; color: var(--ink-soft);
+      line-height: 1.7;
+    }
+    .narrative strong { color: var(--ink); font-weight: 600; }
+
+    /* ── Amount block ────────────────────────────────────────────── */
+    .amount-band {
+      margin: 22px 0; padding: 22px 24px;
+      background: var(--brand-tint);
+      border-left: 4px solid var(--brand);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .amount-band .k {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-soft);
+      margin-bottom: 4px;
+    }
+    .amount-band .v {
+      font-size: 30px; font-weight: 800; color: var(--brand);
+      letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
+    }
+    .stamp {
+      transform: rotate(-6deg);
+      border: 2.5px solid var(--stamp-ink); color: var(--stamp-ink);
+      padding: 6px 14px; border-radius: 6px; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.14em; font-size: 12px;
+      background: var(--stamp-bg);
+    }
+
+    /* ── Payment details table ───────────────────────────────────── */
+    table.details {
+      width: 100%; border-collapse: collapse; margin-top: 8px;
+      font-variant-numeric: tabular-nums;
+    }
+    table.details th {
+      text-align: left; padding: 10px 12px; font-size: 10px;
+      text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-muted);
+      background: var(--line-soft); border-bottom: 1px solid var(--line);
+    }
+    table.details th.num { text-align: right; }
+    table.details td {
+      padding: 12px; font-size: 13px; color: var(--ink); border-bottom: 1px solid var(--line-soft);
+    }
+    table.details td.num { text-align: right; font-weight: 600; }
+    table.details tr.total td {
+      font-size: 14px; font-weight: 700; padding-top: 14px;
+      border-top: 2px solid var(--ink); border-bottom: none;
+      background: transparent;
+    }
+
+    /* ── Meta table: method / reference / etc ────────────────────── */
+    .paydetails {
+      margin-top: 22px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
+    }
+    .paydetails .row {
+      display: table; width: 100%; border-collapse: collapse;
+    }
+    .paydetails .row + .row { border-top: 1px solid var(--line-soft); }
+    .paydetails .row > div {
+      display: table-cell; padding: 10px 16px; vertical-align: middle;
+    }
+    .paydetails .row .k {
+      width: 34%; font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-muted);
+      background: var(--line-soft);
+    }
+    .paydetails .row .v {
+      font-size: 13px; color: var(--ink); font-weight: 500;
+    }
+
+    /* ── Footer: signature + notice ──────────────────────────────── */
+    .footer {
+      margin-top: 34px; display: flex; justify-content: space-between; align-items: flex-end;
+      gap: 40px;
+    }
+    .sig .line {
+      width: 220px; border-top: 1.5px solid var(--ink);
+      padding-top: 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em;
+      color: var(--ink-muted);
+    }
+    .sig .caption { font-size: 11px; color: var(--ink-muted); margin-top: 3px; }
+    .fine {
+      max-width: 260px; text-align: right; font-size: 10px; color: var(--ink-muted);
+      line-height: 1.5;
+    }
+
+    .rule { border-top: 1px dashed var(--line); margin: 28px 0 12px; }
+  </style>
+</head>
+<body>
+
+  <!-- Masthead -->
+  <div class="masthead">
+    <div class="brand">
+      <div class="brand-mark">M</div>
+      <div>
+        <div class="brand-name">MedFund</div>
+        <div class="brand-tag">Healthcare contributions</div>
+      </div>
+    </div>
+    <div class="doc-title">
+      <div class="kicker">Official</div>
+      <div class="title">Payment receipt</div>
+      <div class="no">No. <strong>{{.TransactionNumber}}</strong></div>
+    </div>
+  </div>
+
+  <!-- Meta strip: issued date + received from -->
+  <div class="meta">
+    <div class="cell">
+      <div class="k">Date issued</div>
+      <div class="v">{{.TransactionDate}}</div>
+    </div>
+    <div class="cell">
+      <div class="k">Received from</div>
+      <div class="v">{{.RecipientLabel}}</div>
+    </div>
+  </div>
+
+  <!-- Traditional receipt narrative -->
+  <div class="narrative">
+    Received with thanks from <strong>{{.RecipientLabel}}</strong> the sum of
+    <strong>{{.CurrencyCode}} {{.Amount}}</strong> in respect of
+    <strong>{{.TransactionType}}</strong>, settled via <strong>{{.PaymentMethod}}</strong>{{if .Reference}}
+    with reference <strong>{{.Reference}}</strong>{{end}}.
+  </div>
+
+  <!-- Amount band with stamp -->
+  <div class="amount-band">
+    <div>
+      <div class="k">Total amount received</div>
+      <div class="v">{{.CurrencyCode}} {{.Amount}}</div>
+    </div>
+    <div class="stamp">Paid</div>
+  </div>
+
+  <!-- Line-item table (single row today; extensible when split allocations land) -->
+  <table class="details">
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th class="num">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>{{.TransactionType}} — recorded {{.TransactionDate}}</td>
+        <td class="num">{{.CurrencyCode}} {{.Amount}}</td>
+      </tr>
+      <tr class="total">
+        <td>Total</td>
+        <td class="num">{{.CurrencyCode}} {{.Amount}}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Detailed payment metadata -->
+  <div class="paydetails">
+    <div class="row"><div class="k">Payment method</div><div class="v">{{.PaymentMethod}}</div></div>
+    {{if .Reference}}<div class="row"><div class="k">Reference</div><div class="v">{{.Reference}}</div></div>{{end}}
+    <div class="row"><div class="k">Received on</div><div class="v">{{.TransactionDate}}</div></div>
+    <div class="row"><div class="k">Receipt number</div><div class="v">{{.TransactionNumber}}</div></div>
+  </div>
+
+  <div class="rule"></div>
+
+  <!-- Footer with signature and computer-generated notice -->
+  <div class="footer">
+    <div class="sig">
+      <div class="line">Authorised signature</div>
+      <div class="caption">MedFund Finance Team</div>
+    </div>
+    <div class="fine">
+      This is a system-generated receipt. Retain for your records.
+      Reply to the email this was attached to if any detail is incorrect.
+    </div>
+  </div>
+
+</body>
+</html>

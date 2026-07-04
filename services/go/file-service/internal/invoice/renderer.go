@@ -238,22 +238,15 @@ func buildView(p Payload) templateView {
 func defaultRecipientLabel(p Payload) string {
 	switch {
 	case p.GroupID != "":
-		return "Group " + shortID(p.GroupID)
+		return "Valued group"
 	case p.MemberID != "":
-		return "Member " + shortID(p.MemberID)
+		return "Valued member"
 	default:
 		// Should never happen — the publisher elides whichever side is
 		// null. Fall back to the invoice number so the PDF still
 		// renders something meaningful.
 		return "Invoice " + p.InvoiceNumber
 	}
-}
-
-func shortID(id string) string {
-	if len(id) <= 8 {
-		return id
-	}
-	return id[:8]
 }
 
 // money2dpStr formats a BigDecimal-as-string with 2 decimal places.

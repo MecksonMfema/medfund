@@ -8,7 +8,11 @@ public enum JobType {
     PAYMENT_RUN("Payment Run", "Auto-execute approved payment runs"),
     AGE_PROCESSING("Age Processing", "Check dependant age limits and update status"),
     PRE_AUTH_EXPIRY("Pre-Auth Expiry", "Expire pre-authorizations past their expiry date"),
-    TARIFF_ACTIVATION("Tariff Activation", "Activate/deactivate tariff schedules by effective date");
+    TARIFF_ACTIVATION("Tariff Activation", "Activate/deactivate tariff schedules by effective date"),
+    SCHEDULED_STATUS_ROLL("Scheduled Status Roll",
+        "Roll enrolled → active on the enrolment date; apply due scheduled status changes on members and groups"),
+    ARREARS_ESCALATION("Arrears Escalation",
+        "Auto-suspend / deactivate members and groups based on dunning_config thresholds");
 
     private final String displayName;
     private final String description;

@@ -18,11 +18,22 @@ public class Transaction {
     @Column("transaction_number")
     private String transactionNumber;
 
+    /** Optional refinement — a payment MAY point at a specific contribution
+     *  it's meant to settle. Nullable; balance ownership is decided by
+     *  {@link #groupId}/{@link #memberId}, not by this link. */
     @Column("contribution_id")
     private UUID contributionId;
 
     @Column("invoice_id")
     private UUID invoiceId;
+
+    /** Direct owner columns (V039). Exactly one of the two is non-null
+     *  for post-V039 rows; the CHECK constraint enforces the exclusivity. */
+    @Column("group_id")
+    private UUID groupId;
+
+    @Column("member_id")
+    private UUID memberId;
 
     private BigDecimal amount;
 
@@ -36,6 +47,14 @@ public class Transaction {
     private String paymentMethod;
 
     private String reference;
+
+    /**
+     * Free-text justification, required for adjustment-style entries
+     * (CREDIT / DEBIT). Distinct from {@link #reference} (an external
+     * bank/wallet id) — this is the operator's own note about why the
+     * ledger is being moved.
+     */
+    private String reason;
 
     private String status = "completed";
 
@@ -62,6 +81,12 @@ public class Transaction {
     public UUID getInvoiceId() { return invoiceId; }
     public void setInvoiceId(UUID invoiceId) { this.invoiceId = invoiceId; }
 
+    public UUID getGroupId() { return groupId; }
+    public void setGroupId(UUID groupId) { this.groupId = groupId; }
+
+    public UUID getMemberId() { return memberId; }
+    public void setMemberId(UUID memberId) { this.memberId = memberId; }
+
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }
 
@@ -76,6 +101,9 @@ public class Transaction {
 
     public String getReference() { return reference; }
     public void setReference(String reference) { this.reference = reference; }
+
+    public String getReason() { return reason; }
+    public void setReason(String reason) { this.reason = reason; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }

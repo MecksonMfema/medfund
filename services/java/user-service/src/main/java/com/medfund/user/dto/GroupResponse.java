@@ -3,6 +3,7 @@ package com.medfund.user.dto;
 import com.medfund.user.entity.Group;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 public record GroupResponse(
@@ -14,6 +15,12 @@ public record GroupResponse(
     String liaisonKind,
     UUID liaisonUserId,
     String status,
+    /** Non-null when the group has a future-dated status change queued
+     *  (V042 scheduled trio). Cleared when the SCHEDULED_STATUS_ROLL
+     *  job applies it. */
+    String scheduledStatus,
+    LocalDate scheduledStatusEffectiveFrom,
+    String scheduledStatusReason,
     Instant createdAt,
     Instant updatedAt
 ) {
@@ -21,7 +28,11 @@ public record GroupResponse(
         return new GroupResponse(
             g.getId(), g.getName(), g.getRegistrationNumber(),
             g.getAddress(), g.getEmail(), g.getLiaisonKind(), g.getLiaisonUserId(),
-            g.getStatus(), g.getCreatedAt(), g.getUpdatedAt()
+            g.getStatus(),
+            g.getScheduledStatus(),
+            g.getScheduledStatusEffectiveFrom(),
+            g.getScheduledStatusReason(),
+            g.getCreatedAt(), g.getUpdatedAt()
         );
     }
 }

@@ -19,6 +19,7 @@ import (
 	exportpkg "github.com/medfund/file-service/internal/export"
 	"github.com/medfund/file-service/internal/handler"
 	"github.com/medfund/file-service/internal/invoice"
+	"github.com/medfund/file-service/internal/receipt"
 	"github.com/medfund/file-service/internal/storage"
 )
 
@@ -95,6 +96,10 @@ func main() {
 	renderer, err := invoice.NewRenderer(pdf)
 	if err != nil {
 		log.Fatalf("invoice renderer: %v", err)
+	}
+	receiptRenderer, err := receipt.NewRenderer(pdf)
+	if err != nil {
+		log.Fatalf("receipt renderer: %v", err)
 	}
 
 	publisher := events.NewPublisher(cfg.KafkaBrokers)
@@ -187,6 +192,10 @@ func main() {
 		// orphaned PDF blob from MinIO. Decoupled from the renderer
 		// loop so a slow render doesn't block the cleanup pipeline.
 		go runInvoicePdfDeletedConsumer(ctx, cfg.KafkaBrokers, minio)
+		// Receipt PDF pipeline — TransactionRecorded → render → upload
+		// → ReceiptPdfReady. Notification-service consumes the ready
+		// event and attaches the fetched PDF to the receipt email.
+		go runReceiptConsumer(ctx, cfg.KafkaBrokers, receiptRenderer, minio, publisher)
 	} else {
 		log.Printf("[file-service] invoice consumer disabled (kafka=%q minio=%v)", cfg.KafkaBrokers, minio != nil)
 	}
@@ -301,5 +310,70 @@ func runInvoicePdfDeletedConsumer(ctx context.Context, brokers string, store *st
 		}
 		log.Printf("[file-service] removed invoice PDF blob tenant=%s invoice=%s key=%s",
 			evt.TenantID, evt.InvoiceID, evt.ObjectKey)
+	})
+}
+
+// runReceiptConsumer subscribes to TransactionRecorded, renders the
+// receipt PDF, uploads it, and publishes ReceiptPdfReady so the
+// notification-service can attach + email. Same commit-and-skip
+// semantics as the invoice consumer: log errors, keep the loop alive.
+func runReceiptConsumer(ctx context.Context, brokers string, renderer *receipt.Renderer,
+	store *storage.MinIOStore, publisher *events.Publisher) {
+
+	sub := events.NewSubscriber(brokers, "medfund.contributions.transaction-recorded", "file-service-receipts")
+	sub.Run(ctx, func(payload []byte) {
+		evt, ok := events.ParseTransactionRecorded(payload)
+		if !ok {
+			return
+		}
+		log.Printf("[file-service] rendering receipt %s (tenant=%s)", evt.TransactionNumber, evt.TenantID)
+
+		pdf, err := renderer.Render(ctx, receipt.Payload{
+			TransactionID:     evt.TransactionID,
+			TransactionNumber: evt.TransactionNumber,
+			TenantID:          evt.TenantID,
+			GroupID:           evt.GroupID,
+			MemberID:          evt.MemberID,
+			Amount:            evt.Amount,
+			CurrencyCode:      evt.CurrencyCode,
+			TransactionType:   evt.TransactionType,
+			PaymentMethod:     evt.PaymentMethod,
+			Reference:         evt.Reference,
+			TransactionDate:   evt.TransactionDate,
+			// Real name from contributions-service — renderer falls
+			// back to a generic label when this is missing (never a UUID).
+			RecipientLabel: evt.RecipientName,
+		})
+		if err != nil {
+			log.Printf("[file-service] render receipt %s failed: %v", evt.TransactionNumber, err)
+			return
+		}
+
+		key := fmt.Sprintf("receipts/%s/%s.pdf", evt.TenantID, evt.TransactionNumber)
+		if _, err := store.PutObject(ctx, key, pdf, "application/pdf"); err != nil {
+			log.Printf("[file-service] upload receipt %s failed: %v", key, err)
+			return
+		}
+
+		publisher.PublishReceipt(ctx, events.ReceiptPdfReady{
+			TransactionID:     evt.TransactionID,
+			TransactionNumber: evt.TransactionNumber,
+			TenantID:          evt.TenantID,
+			GroupID:           evt.GroupID,
+			MemberID:          evt.MemberID,
+			Amount:            evt.Amount,
+			CurrencyCode:      evt.CurrencyCode,
+			TransactionType:   evt.TransactionType,
+			PaymentMethod:     evt.PaymentMethod,
+			Reference:         evt.Reference,
+			// Normalised so the email body shows the same nicely-
+			// formatted date that appears on the PDF header.
+			TransactionDate: receipt.HumaniseDate(evt.TransactionDate),
+			RecipientName:   evt.RecipientName,
+			PdfBucket:       store.Bucket(),
+			PdfObjectKey:    key,
+		})
+		log.Printf("[file-service] published ReceiptPdfReady for %s (%d bytes at %s)",
+			evt.TransactionNumber, len(pdf), key)
 	})
 }

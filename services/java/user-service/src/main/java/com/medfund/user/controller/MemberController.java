@@ -122,6 +122,49 @@ public class MemberController {
         return memberService.terminate(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(MemberResponse::from);
     }
 
+    /**
+     * Idempotent status-change action. Accepts optional {@code effectiveDate}
+     * — omit or set to today for an immediate flip; set in the future to
+     * schedule (the daily SCHEDULED_STATUS_ROLL job picks it up on that
+     * day). Actions: {@code activate | suspend | terminate | deactivate |
+     * reactivate}. {@code reactivate} is an alias for {@code activate}
+     * used by the arrears escalation flow so audit trails carry the
+     * "why" distinct from a manual activation.
+     */
+    @PostMapping("/{id}/actions/{action}")
+    @Operation(summary = "Schedule or apply a status change on a member",
+        description = "One idempotent endpoint replacing the four legacy status endpoints. Accepts optional " +
+                      "effectiveDate + reason. Immediate when effectiveDate is null / today / past; scheduled " +
+                      "when in the future. reason is threaded through to the lifecycle event and audit.")
+    public Mono<MemberResponse> action(@PathVariable UUID id,
+                                        @PathVariable String action,
+                                        @Valid @RequestBody(required = false) MemberActionRequest request,
+                                        @AuthenticationPrincipal Jwt jwt) {
+        java.time.LocalDate effectiveDate = request != null ? request.effectiveDate() : null;
+        String reason = request != null ? request.reason() : null;
+        String actorId = AuditActor.id(jwt);
+        String actorEmail = AuditActor.email(jwt);
+        Mono<com.medfund.user.entity.Member> op = switch (action.toLowerCase()) {
+            case "activate", "reactivate" ->
+                memberService.activate(id, effectiveDate, reason, actorId, actorEmail);
+            case "suspend" -> memberService.suspend(id, effectiveDate, reason, actorId, actorEmail);
+            case "terminate" -> memberService.terminate(id, effectiveDate, reason, actorId, actorEmail);
+            case "deactivate" -> memberService.deactivate(id, effectiveDate, reason, actorId, actorEmail);
+            default -> Mono.error(new IllegalArgumentException(
+                "Unknown action '" + action + "' — expected activate / suspend / terminate / deactivate / reactivate"));
+        };
+        return op.map(MemberResponse::from);
+    }
+
+    /**
+     * Body for {@link #action}. Both fields optional. If provided,
+     * {@code effectiveDate} in ISO-8601 (YYYY-MM-DD); {@code reason} is
+     * free-text carried onto the lifecycle event and audit row so a
+     * downstream consumer can distinguish OPERATOR from
+     * ARREARS_ESCALATION.
+     */
+    public record MemberActionRequest(java.time.LocalDate effectiveDate, String reason) {}
+
     @PostMapping("/{id}/clear-billing-override")
     @Operation(summary = "Clear the member's per-person pricing override",
         description = "Nulls billing_override_amount, reason, and effective_from so billing falls back to the " +

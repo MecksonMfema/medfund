@@ -51,11 +51,34 @@ class TransactionServiceTest {
     @Mock
     private AuditPublisher auditPublisher;
 
+    @Mock
+    private ContributionEventPublisher eventPublisher;
+
+    @Mock
+    private org.springframework.r2dbc.core.DatabaseClient db;
+
     @InjectMocks
     private TransactionService transactionService;
 
     private final String actorId = UUID.randomUUID().toString();
     private final String actorEmail = "actor@test.example";
+
+    /**
+     * Stub the DatabaseClient fluent chain used by resolveRecipientName
+     * so it emits the given name. Structure mirrors the production
+     * chain: db.sql(...).bind(...).map(...).one() → Mono&lt;String&gt;.
+     */
+    @SuppressWarnings("unchecked")
+    private void stubRecipientNameLookup(String name) {
+        var spec = org.mockito.Mockito.mock(org.springframework.r2dbc.core.DatabaseClient.GenericExecuteSpec.class);
+        var fetchSpec = org.mockito.Mockito.mock(org.springframework.r2dbc.core.RowsFetchSpec.class);
+        org.mockito.Mockito.lenient().when(db.sql(org.mockito.ArgumentMatchers.anyString())).thenReturn(spec);
+        org.mockito.Mockito.lenient().when(spec.bind(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any())).thenReturn(spec);
+        org.mockito.Mockito.lenient().when(spec.map(org.mockito.ArgumentMatchers.any(java.util.function.Function.class)))
+                .thenReturn(fetchSpec);
+        org.mockito.Mockito.lenient().when(fetchSpec.one()).thenReturn(Mono.just(name));
+    }
 
     @BeforeEach
     void setupBalanceMocks() {
@@ -101,16 +124,23 @@ class TransactionServiceTest {
     }
 
     @Test
-    void record_validRequest_createsTransaction() {
+    void record_paymentAgainstGroup_publishesReceiptEvent() {
+        UUID groupId = UUID.randomUUID();
         var request = new RecordTransactionRequest(
-            UUID.randomUUID(), null,
+            groupId, null,
             new BigDecimal("150.00"), "USD",
-            "payment", "bank_transfer", "REF-001"
+            "PAYMENT", "bank_transfer", "REF-001", null
         );
 
         when(transactionRepository.save(any(Transaction.class)))
-            .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+            .thenAnswer(inv -> {
+                Transaction t = inv.getArgument(0);
+                if (t.getId() == null) t.setId(UUID.randomUUID());
+                return Mono.just(t);
+            });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishTransactionRecorded(any())).thenReturn(Mono.empty());
+        stubRecipientNameLookup("Acme Corp");
 
         StepVerifier.create(transactionService.record(request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
@@ -119,10 +149,12 @@ class TransactionServiceTest {
                 assertThat(saved.getStatus()).isEqualTo("completed");
                 assertThat(saved.getAmount()).isEqualByComparingTo(new BigDecimal("150.00"));
                 assertThat(saved.getCurrencyCode()).isEqualTo("USD");
-                assertThat(saved.getTransactionType()).isEqualTo("payment");
+                assertThat(saved.getTransactionType()).isEqualTo("PAYMENT");
                 assertThat(saved.getPaymentMethod()).isEqualTo("bank_transfer");
                 assertThat(saved.getReference()).isEqualTo("REF-001");
-                assertThat(saved.getContributionId()).isEqualTo(request.contributionId());
+                assertThat(saved.getGroupId()).isEqualTo(groupId);
+                assertThat(saved.getMemberId()).isNull();
+                assertThat(saved.getContributionId()).isNull();
                 assertThat(saved.getTransactionDate()).isNotNull();
                 assertThat(saved.getId()).isNotNull();
                 assertThat(saved.getCreatedBy()).isEqualTo(UUID.fromString(actorId));
@@ -131,6 +163,55 @@ class TransactionServiceTest {
 
         verify(transactionRepository).save(any(Transaction.class));
         verify(auditPublisher).publish(any());
+        verify(eventPublisher).publishTransactionRecorded(any());
+    }
+
+    /**
+     * Internal ledger operations (ADJUSTMENT, DEBIT, CREDIT, REVERSAL)
+     * skip the receipt fan-out — the payer already knows about them via
+     * out-of-band operator communication. Guard here so a well-meaning
+     * refactor that "always publishes on save" doesn't spam every
+     * refund/chargeback out to the group liaison.
+     */
+    @Test
+    void record_adjustment_skipsReceiptEvent() {
+        UUID groupId = UUID.randomUUID();
+        var request = new RecordTransactionRequest(
+            groupId, null,
+            new BigDecimal("20.00"), "USD",
+            "ADJUSTMENT", "manual", "note-write-off", null
+        );
+
+        when(transactionRepository.save(any(Transaction.class)))
+            .thenAnswer(inv -> {
+                Transaction t = inv.getArgument(0);
+                if (t.getId() == null) t.setId(UUID.randomUUID());
+                return Mono.just(t);
+            });
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(transactionService.record(request, actorId, actorEmail)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .assertNext(saved -> assertThat(saved.getTransactionType()).isEqualTo("ADJUSTMENT"))
+            .verifyComplete();
+
+        verify(eventPublisher, org.mockito.Mockito.never()).publishTransactionRecorded(any());
+    }
+
+    /** Missing both group and member is a 422 — nothing to anchor the ledger to. */
+    @Test
+    void record_noOwner_returns422() {
+        var request = new RecordTransactionRequest(
+            null, null,
+            new BigDecimal("50"), "USD",
+            "payment", "cash", null, null
+        );
+
+        StepVerifier.create(transactionService.record(request, actorId, actorEmail)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .expectErrorSatisfies(err ->
+                assertThat(err.getMessage()).contains("groupId or a memberId"))
+            .verify();
     }
 
     @Test
@@ -158,7 +239,7 @@ class TransactionServiceTest {
 
     @Test
     void search_clampsSize_andComputesOffset() {
-        var params = new TransactionFilterParams("USD", "ORDINARY", null, null, null,
+        var params = new TransactionFilterParams("USD", "PAYMENT", null, null, null,
                 null, null, "REF", 2, 500); // size 500 should be capped to 100
 
         when(queryRepository.search(any(TransactionFilterParams.class), eq(100), eq(200)))

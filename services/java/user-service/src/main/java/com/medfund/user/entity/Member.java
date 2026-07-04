@@ -57,6 +57,25 @@ public class Member {
     private LocalDate terminationDate;
 
     /**
+     * Future-dated status trio (V042). When {@link #scheduledStatus} and
+     * {@link #scheduledStatusEffectiveFrom} are both non-null, the
+     * SCHEDULED_STATUS_ROLL daily job flips {@link #status} to
+     * {@code scheduledStatus} on that date and clears the trio.
+     * {@link #scheduledStatusReason} rides on the resulting
+     * MEMBER_STATUS_CHANGED lifecycle event so downstream consumers
+     * (arrears audit, receipt) can distinguish OPERATOR from
+     * ARREARS_ESCALATION.
+     */
+    @Column("scheduled_status")
+    private String scheduledStatus;
+
+    @Column("scheduled_status_effective_from")
+    private LocalDate scheduledStatusEffectiveFrom;
+
+    @Column("scheduled_status_reason")
+    private String scheduledStatusReason;
+
+    /**
      * Canonical age bucket — derived from {@link #dateOfBirth} at enrolment
      * and maintained as the member crosses age-band boundaries. References
      * {@code age_groups(id)} on the member's scheme. Source of truth for
@@ -154,6 +173,15 @@ public class Member {
 
     public LocalDate getTerminationDate() { return terminationDate; }
     public void setTerminationDate(LocalDate terminationDate) { this.terminationDate = terminationDate; }
+
+    public String getScheduledStatus() { return scheduledStatus; }
+    public void setScheduledStatus(String scheduledStatus) { this.scheduledStatus = scheduledStatus; }
+
+    public LocalDate getScheduledStatusEffectiveFrom() { return scheduledStatusEffectiveFrom; }
+    public void setScheduledStatusEffectiveFrom(LocalDate d) { this.scheduledStatusEffectiveFrom = d; }
+
+    public String getScheduledStatusReason() { return scheduledStatusReason; }
+    public void setScheduledStatusReason(String scheduledStatusReason) { this.scheduledStatusReason = scheduledStatusReason; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

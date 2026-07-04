@@ -46,6 +46,12 @@ class MemberServiceTest {
     @Mock
     private MemberLifecycleService lifecycleService;
 
+    @Mock
+    private AgeGroupResolver ageGroupResolver;
+
+    @Mock
+    private MemberNumberService memberNumberService;
+
     @InjectMocks
     private MemberService memberService;
 
@@ -63,6 +69,14 @@ class MemberServiceTest {
         // here it just needs to be a no-op (empty Mono completes without firing
         // the doOnNext branch in MemberService.enroll).
         lenient().when(lifecycleService.evaluateOnEnrollment(any(Member.class)))
+                .thenReturn(Mono.empty());
+        // MemberService.enroll now asks MemberNumberService for the next
+        // number + AgeGroupResolver for the age-bucket. Both are called
+        // eagerly; stub as no-op so the tests that don't care about their
+        // outputs don't NPE.
+        lenient().when(memberNumberService.nextMemberNumber())
+                .thenReturn(Mono.just("MBR-000000"));
+        lenient().when(ageGroupResolver.resolveForSchemeAndDob(any(), any()))
                 .thenReturn(Mono.empty());
     }
 
@@ -127,10 +141,10 @@ class MemberServiceTest {
             null, "john@example.com", null, null, null, null, null
         );
 
-        when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
-        when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        lenient().when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
+        lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        when(eventPublisher.publishMemberEnrolled(any(), any(), any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
         when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
 
         StepVerifier.create(
@@ -149,7 +163,7 @@ class MemberServiceTest {
 
         verify(memberRepository, atLeast(1)).save(any());
         verify(auditPublisher).publish(any());
-        verify(eventPublisher).publishMemberEnrolled(any(), any(), any());
+        verify(eventPublisher).publishMemberEnrolled(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -163,10 +177,10 @@ class MemberServiceTest {
             "63-1234567", "john@example.com", null, null, null, UUID.randomUUID(), null
         );
 
-        when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
-        when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        lenient().when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
+        lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        when(eventPublisher.publishMemberEnrolled(any(), any(), any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
         when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
 
         StepVerifier.create(
@@ -192,10 +206,10 @@ class MemberServiceTest {
             "63-1234567", "john@example.com", null, null, null, UUID.randomUUID(), null
         );
 
-        when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
-        when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        lenient().when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
+        lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        when(eventPublisher.publishMemberEnrolled(any(), any(), any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
         when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
         // Override the lenient no-op from @BeforeEach
         when(lifecycleService.evaluateOnEnrollment(any()))
@@ -209,7 +223,7 @@ class MemberServiceTest {
             .verifyComplete();
 
         verify(auditPublisher).publish(any());
-        verify(eventPublisher).publishMemberEnrolled(any(), any(), any());
+        verify(eventPublisher).publishMemberEnrolled(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -223,12 +237,12 @@ class MemberServiceTest {
             "63-1234567", "john@example.com", null, null, null, UUID.randomUUID(), null
         );
 
-        when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
-        when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        lenient().when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
+        lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.error(new RuntimeException("Kafka down")));
         // The .then() arg is evaluated eagerly even though it's never subscribed
         // once audit errors — stub it to keep Mockito from returning null.
-        when(eventPublisher.publishMemberEnrolled(any(), any(), any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
         when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
 
         StepVerifier.create(
@@ -250,10 +264,10 @@ class MemberServiceTest {
             "63-1234567", "john@example.com", null, null, null, UUID.randomUUID(), midMonth
         );
 
-        when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
-        when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        lenient().when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
+        lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        when(eventPublisher.publishMemberEnrolled(any(), any(), any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
         when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
 
         StepVerifier.create(
@@ -272,9 +286,9 @@ class MemberServiceTest {
         var actorId = UUID.randomUUID().toString();
 
         when(memberRepository.findById(id)).thenReturn(Mono.just(member));
-        when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        when(eventPublisher.publishMemberLifecycle(any(), any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberLifecycle(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
             memberService.activate(id, actorId, "actor@test.example")
@@ -293,9 +307,9 @@ class MemberServiceTest {
         var actorId = UUID.randomUUID().toString();
 
         when(memberRepository.findById(id)).thenReturn(Mono.just(member));
-        when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        when(eventPublisher.publishMemberLifecycle(any(), any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberLifecycle(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
             memberService.suspend(id, actorId, "actor@test.example")
@@ -305,7 +319,7 @@ class MemberServiceTest {
             .verifyComplete();
 
         verify(auditPublisher).publish(any());
-        verify(eventPublisher).publishMemberLifecycle(any(), any());
+        verify(eventPublisher).publishMemberLifecycle(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -315,9 +329,9 @@ class MemberServiceTest {
         var actorId = UUID.randomUUID().toString();
 
         when(memberRepository.findById(id)).thenReturn(Mono.just(member));
-        when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        when(eventPublisher.publishMemberLifecycle(any(), any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberLifecycle(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
             memberService.terminate(id, actorId, "actor@test.example")
@@ -330,7 +344,7 @@ class MemberServiceTest {
             .verifyComplete();
 
         verify(auditPublisher).publish(any());
-        verify(eventPublisher).publishMemberLifecycle(any(), any());
+        verify(eventPublisher).publishMemberLifecycle(any(), any(), any(), any(), any());
     }
 
     private Member createTestMember() {

@@ -95,24 +95,6 @@
           }
         </label>
 
-        @if (selectedTarget) {
-          <label class="field">
-            <span class="field-label">Contribution <span class="req">*</span></span>
-            @if (loadingContributions) {
-              <small class="field-help">Loading contributions…</small>
-            } @else if (contributions.length === 0) {
-              <small class="field-help">No open contributions for this {{ targetType === 'GROUP' ? 'group' : 'member' }}.</small>
-            } @else {
-              <app-select
-                [(ngModel)]="form.contributionId"
-                name="contributionId"
-                [options]="contributionOptions"
-                placeholder="Pick a contribution"
-              ></app-select>
-              <small class="field-help">Only open contributions (not fully paid or cancelled) are listed.</small>
-            }
-          </label>
-        }
       </section>
 
       <!-- ── Classification ────────────────────────────────────────────── -->
@@ -198,6 +180,22 @@
             [placeholder]="selectedMethod()?.requiresReference ? 'Bank reference / receipt #' : 'Optional'" />
           <small class="field-help">The selected payment method may make this mandatory.</small>
         </label>
+
+        @if (needsReason) {
+          <label class="field">
+            <span class="field-label">
+              Reason
+              <span class="req">*</span>
+            </span>
+            <textarea
+              class="field-control"
+              [(ngModel)]="form.reason"
+              name="reason"
+              rows="3"
+              placeholder="Why is this adjustment being made? e.g. Waiver approved by Finance."></textarea>
+            <small class="field-help">Required for CREDIT / DEBIT adjustments — this note lands on the audit trail alongside the ledger move.</small>
+          </label>
+        }
       </section>
     </div>
 

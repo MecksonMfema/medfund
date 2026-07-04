@@ -22,35 +22,31 @@ import java.util.Collections;
 import java.util.UUID;
 
 /**
- * Consumes {@code medfund.users.member-enrolled} and auto-posts a
- * {@code LATE_ENROLMENT_CHARGE} when the new member's enrolment date
- * falls in a billing period the system has already committed for their
- * scheme.
+ * Consumes {@code medfund.users.member-lifecycle} and auto-posts a
+ * {@code LATE_TERMINATION_CREDIT} when a member is terminated with an
+ * effective date inside a period the system has already billed for
+ * their scheme.
  *
- * <p>The scenario: billing for July was committed last week, then a
- * member is enrolled with {@code enrollment_date=2026-07-01}. The
- * regular {@code BILLING_CYCLE} scheduled job won't cover them until
- * August's run — but they owe for July. This consumer detects that
- * gap and asks {@link LateAdjustmentService} to bring the ledger in
- * line for the missed month(s).
+ * <p>Scenario: July was billed for the group last week; on 20 July the
+ * tenant records the member's termination with
+ * {@code termination_date=2026-07-01}. The July premium was invoiced
+ * to the group but the member shouldn't have been counted. This
+ * consumer notices the overlap and posts a rebate for one month.
  *
  * <p>No-op paths:
  * <ul>
- *   <li>Enrolment date missing (legacy event without the enriched field).
- *   <li>Enrolment date in the current month or the future — nothing was
- *       mis-billed because the normal cycle covers the current period.
- *   <li>Scheme lookup fails (deleted / cross-tenant leak).
- *   <li>Zero prior periods have been billed for the scheme.
+ *   <li>Status ≠ {@code terminated} (activation, suspension, etc.).
+ *   <li>Termination date missing or in the future.
+ *   <li>Scheme lookup fails.
+ *   <li>Zero billed periods overlap the termination window.
  * </ul>
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class MemberEnrolledConsumer {
+public class MemberLifecycleConsumer {
 
-    private static final String TOPIC = "medfund.users.member-enrolled";
-    // Guard against runaway walks — no tenant should have more than a year
-    // of prior periods to backfill in one shot.
+    private static final String TOPIC = "medfund.users.member-lifecycle";
     private static final int MAX_MONTHS_TO_WALK = 12;
 
     private final ReceiverOptions<String, String> receiverOptions;
@@ -67,16 +63,12 @@ public class MemberEnrolledConsumer {
                 .flatMap(record -> processEvent(record.value())
                         .doOnSuccess(v -> record.receiverOffset().acknowledge())
                         .onErrorResume(e -> {
-                            // Log the failure but still ack — a broken event
-                            // shouldn't block the whole partition. If the
-                            // domain event is important the source system's
-                            // retry / operator intervention will re-emit.
-                            log.warn("MemberEnrolled consumer failed for record, acking anyway: {}",
+                            log.warn("MemberLifecycle consumer failed for record, acking anyway: {}",
                                     e.getMessage());
                             record.receiverOffset().acknowledge();
                             return Mono.empty();
                         }))
-                .doOnError(e -> log.error("MemberEnrolled consumer error: {}", e.getMessage()))
+                .doOnError(e -> log.error("MemberLifecycle consumer error: {}", e.getMessage()))
                 .retry()
                 .subscribe();
     }
@@ -84,63 +76,66 @@ public class MemberEnrolledConsumer {
     public Mono<Void> processEvent(String json) {
         try {
             JsonNode node = objectMapper.readTree(json);
+            String status = optText(node, "status");
+            if (!"terminated".equalsIgnoreCase(status)) return Mono.empty();
             String memberIdStr = node.get("memberId").asText();
             String groupIdStr  = optText(node, "groupId");
             String schemeIdStr = optText(node, "schemeId");
-            String enrollDate  = optText(node, "enrollmentDate");
-            String tenantId    = optText(node, "tenantId"); // present on some upstream events; may be null
-            if (schemeIdStr == null || enrollDate == null) {
-                log.debug("MemberEnrolled event missing schemeId/enrollmentDate — skipping late-adjustment check");
+            String termDate    = optText(node, "terminationDate");
+            String tenantId    = optText(node, "tenantId");
+            if (schemeIdStr == null || termDate == null) {
+                log.debug("MemberLifecycle event missing schemeId/terminationDate — skipping");
                 return Mono.empty();
             }
             UUID memberId = UUID.fromString(memberIdStr);
             UUID groupId  = groupIdStr != null ? UUID.fromString(groupIdStr) : null;
             UUID schemeId = UUID.fromString(schemeIdStr);
-            LocalDate enrollment = LocalDate.parse(enrollDate);
+            LocalDate termination = LocalDate.parse(termDate);
             LocalDate currentMonth = LocalDate.now().withDayOfMonth(1);
-            if (!enrollment.isBefore(currentMonth)) {
-                log.debug("Enrolment {} is in the current or a future month — normal billing covers it", enrollment);
+            if (termination.isAfter(currentMonth.withDayOfMonth(currentMonth.lengthOfMonth()))) {
+                log.debug("Termination {} is in a future month — no rebate needed", termination);
                 return Mono.empty();
             }
-            Mono<Void> work = maybePostLateEnrolment(memberId, groupId, schemeId, enrollment);
+            Mono<Void> work = maybePostRebate(memberId, groupId, schemeId, termination);
             return tenantId != null && !tenantId.isBlank()
                     ? work.contextWrite(Context.of(TenantContext.KEY, tenantId))
                     : work;
         } catch (Exception e) {
-            log.error("Failed to parse MemberEnrolled event: {}", e.getMessage());
+            log.error("Failed to parse MemberLifecycle event: {}", e.getMessage());
             return Mono.error(e);
         }
     }
 
-    private Mono<Void> maybePostLateEnrolment(UUID memberId, UUID groupId,
-                                               UUID schemeId, LocalDate enrollment) {
+    private Mono<Void> maybePostRebate(UUID memberId, UUID groupId,
+                                        UUID schemeId, LocalDate termination) {
         return schemeRepository.findById(schemeId)
-                .flatMap(scheme -> countBilledMonthsFrom(enrollment, scheme)
+                .flatMap(scheme -> countBilledMonthsFrom(termination, scheme)
                         .flatMap(months -> months <= 0
                                 ? Mono.<Void>empty()
                                 : lateAdjustmentService.postAggregate(
                                         memberId, groupId, schemeId,
-                                        enrollment, months,
+                                        termination.withDayOfMonth(1), months,
                                         currencyOf(scheme),
-                                        "LATE_ENROLMENT_CHARGE",
+                                        "LATE_TERMINATION_CREDIT",
                                         memberId.toString())))
                 .then();
     }
 
     /**
-     * Walk forward reactively from the enrolment month, counting how
-     * many months have already been billed for this scheme's insurance
-     * line. Stops at the first unbilled month, at the current month, or
-     * at {@link #MAX_MONTHS_TO_WALK} — whichever comes first. Cheap in
-     * the common case (0 or 1 iterations); scary only if someone
-     * back-dates 12+ months.
+     * How many months from the termination date onwards have already
+     * been billed? Same forward walk as
+     * {@link MemberEnrolledConsumer} but the caller's semantics differ
+     * — here we're counting "how many billed periods DID cover this
+     * member incorrectly?" rather than "how many did we miss?". The
+     * arithmetic is identical.
      */
-    private Mono<Integer> countBilledMonthsFrom(LocalDate enrollment, Scheme scheme) {
+    private Mono<Integer> countBilledMonthsFrom(LocalDate termination, Scheme scheme) {
         String line = scheme.getInsuranceLine() != null ? scheme.getInsuranceLine() : "HEALTH";
         LocalDate currentMonth = LocalDate.now().withDayOfMonth(1);
+        LocalDate start = termination.withDayOfMonth(1);
         return Flux.range(0, MAX_MONTHS_TO_WALK)
-                .map(i -> enrollment.withDayOfMonth(1).plusMonths(i))
-                .takeWhile(m -> m.isBefore(currentMonth))
+                .map(i -> start.plusMonths(i))
+                .takeWhile(m -> !m.isAfter(currentMonth))
                 .concatMap(m -> contributionRepository
                         .countByPeriodAndLine(m, m.withDayOfMonth(m.lengthOfMonth()), line)
                         .map(c -> c != null && c > 0L))

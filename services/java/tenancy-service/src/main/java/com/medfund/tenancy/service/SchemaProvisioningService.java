@@ -68,13 +68,38 @@ public class SchemaProvisioningService {
     }
 
     private Mono<Void> runMigrations(String schemaName) {
+        return migrateTenantSchema(schemaName);
+    }
+
+    /**
+     * Package-visible entry point for TenantMigrationRunner. Runs the
+     * {@code db/migration/tenant} Flyway locations against the supplied
+     * schema. Idempotent — Flyway skips migrations already applied to
+     * that schema's own {@code flyway_schema_history} table, so calling
+     * on boot for every tenant is cheap once the tenants are current.
+     */
+    Mono<Void> migrateTenantSchema(String schemaName) {
         return Mono.fromRunnable(() -> {
             Flyway flyway = Flyway.configure()
                     .dataSource(flywayJdbcUrl, flywayUser, flywayPassword)
                     .schemas(schemaName)
                     .locations("classpath:db/migration/tenant")
                     .baselineOnMigrate(true)
+                    // Legacy tenant schemas had ad-hoc migrations recorded in
+                    // application.yml order; allow out-of-order so a new
+                    // Vxx that lands after a Vxxxx from public/ still runs.
+                    .outOfOrder(true)
                     .load();
+            // Repair first — same rationale as FlywayConfig for the public
+            // schema. If a prior tenant Flyway run failed (bad SQL, DB blip)
+            // the failed entry is deleted and applied entries have their
+            // checksums realigned. Cheap when there's nothing to fix.
+            try {
+                flyway.repair();
+            } catch (Exception e) {
+                log.warn("Flyway repair() for {} reported: {} — continuing to migrate()",
+                        schemaName, e.getMessage());
+            }
             flyway.migrate();
             log.info("Flyway migrations complete for schema: {}", schemaName);
         }).subscribeOn(Schedulers.boundedElastic()).then();

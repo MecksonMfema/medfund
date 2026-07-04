@@ -117,6 +117,51 @@ type InvoicePdfDeleted struct {
 	ObjectKey string `json:"objectKey"`
 }
 
+// TransactionRecorded is the projection of the wire payload published
+// by TransactionService.record on
+// `medfund.contributions.transaction-recorded`. file-service consumes
+// this to render the receipt PDF and republish ReceiptPdfReady for
+// notification-service to attach + email.
+type TransactionRecorded struct {
+	Event             string `json:"event"`
+	TransactionID     string `json:"transactionId"`
+	TransactionNumber string `json:"transactionNumber"`
+	TenantID          string `json:"tenantId"`
+	GroupID           string `json:"groupId,omitempty"`
+	MemberID          string `json:"memberId,omitempty"`
+	Amount            string `json:"amount"`
+	CurrencyCode      string `json:"currencyCode"`
+	TransactionType   string `json:"transactionType"`
+	PaymentMethod     string `json:"paymentMethod,omitempty"`
+	Reference         string `json:"reference,omitempty"`
+	TransactionDate   string `json:"transactionDate,omitempty"`
+	// Friendly group/member name resolved by contributions-service
+	// before publish. UUIDs never leak into rendered artefacts —
+	// the renderer uses this string for the "Received from" line.
+	RecipientName string `json:"recipientName,omitempty"`
+}
+
+// ParseTransactionRecorded unmarshals + validates the payload. Requires
+// txn number, tenant, currency, amount, and at least one of groupId or
+// memberId — a receipt with no owner has nowhere to route.
+func ParseTransactionRecorded(body []byte) (TransactionRecorded, bool) {
+	var e TransactionRecorded
+	if err := json.Unmarshal(body, &e); err != nil {
+		log.Printf("[file-service] drop malformed TransactionRecorded: %v", err)
+		return TransactionRecorded{}, false
+	}
+	if e.TransactionID == "" || e.TransactionNumber == "" || e.TenantID == "" ||
+		e.CurrencyCode == "" || e.Amount == "" {
+		log.Printf("[file-service] drop TransactionRecorded missing required fields: %+v", e)
+		return TransactionRecorded{}, false
+	}
+	if e.GroupID == "" && e.MemberID == "" {
+		log.Printf("[file-service] drop TransactionRecorded with no owner: %+v", e)
+		return TransactionRecorded{}, false
+	}
+	return e, true
+}
+
 // ParseInvoicePdfDeleted unmarshals the Kafka body and validates that
 // the blob coordinates are populated. Same commit-and-skip semantics
 // as ParseInvoiceIssued.

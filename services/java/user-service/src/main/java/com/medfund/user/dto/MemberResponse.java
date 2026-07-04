@@ -24,6 +24,12 @@ public record MemberResponse(
     String status,
     LocalDate enrollmentDate,
     LocalDate terminationDate,
+    /** Non-null when the member has a future-dated status change queued
+     *  (V042 scheduled trio). Cleared when the SCHEDULED_STATUS_ROLL
+     *  job applies it. */
+    String scheduledStatus,
+    LocalDate scheduledStatusEffectiveFrom,
+    String scheduledStatusReason,
     BigDecimal billingOverrideAmount,
     String billingOverrideReason,
     LocalDate billingOverrideEffectiveFrom,
@@ -37,6 +43,9 @@ public record MemberResponse(
             m.getEmail(), m.getPhone(), m.getAddress(),
             m.getGroupId(), m.getSchemeId(), m.getKeycloakUserId(),
             m.getStatus(), m.getEnrollmentDate(), m.getTerminationDate(),
+            m.getScheduledStatus(),
+            m.getScheduledStatusEffectiveFrom(),
+            m.getScheduledStatusReason(),
             m.getBillingOverrideAmount(),
             m.getBillingOverrideReason(),
             m.getBillingOverrideEffectiveFrom(),

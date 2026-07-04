@@ -127,6 +127,85 @@ public class ContributionEventPublisher {
      * an orphan blob is recoverable (it can be GC'd by a sweeper), an
      * inconsistent ledger is not.
      */
+    /**
+     * Notify downstream services that a transaction has been recorded so
+     * the notification-service can dispatch a receipt to the owning
+     * group's liaison or the paying member. Exactly one of
+     * {@code groupId} / {@code memberId} is non-null — the recipient
+     * resolver picks its channel based on which is present.
+     */
+    public Mono<Void> publishTransactionRecorded(TransactionRecordedPayload p) {
+        var fields = new java.util.LinkedHashMap<String, String>();
+        fields.put("event", "TRANSACTION_RECORDED");
+        fields.put("transactionId",     p.transactionId());
+        fields.put("transactionNumber", p.transactionNumber());
+        fields.put("tenantId",          p.tenantId());
+        if (p.groupId()  != null) fields.put("groupId",  p.groupId());
+        if (p.memberId() != null) fields.put("memberId", p.memberId());
+        fields.put("amount",          p.amount());
+        fields.put("currencyCode",    p.currencyCode());
+        fields.put("transactionType", p.transactionType());
+        if (p.paymentMethod() != null) fields.put("paymentMethod", p.paymentMethod());
+        if (p.reference()     != null) fields.put("reference",     p.reference());
+        if (p.transactionDate() != null) fields.put("transactionDate", p.transactionDate());
+        // Friendly recipient name resolved from the tenant DB before publish
+        // so downstream services never emit UUIDs to end users. Field is
+        // omitted on legacy events; renderers fall back to a generic label.
+        if (p.recipientName() != null && !p.recipientName().isBlank())
+            fields.put("recipientName", p.recipientName());
+        return publishEvent("medfund.contributions.transaction-recorded",
+                p.transactionId(), fields);
+    }
+
+    /** Payload for {@link #publishTransactionRecorded}. */
+    public record TransactionRecordedPayload(
+            String transactionId,
+            String transactionNumber,
+            String tenantId,
+            String groupId,
+            String memberId,
+            String amount,
+            String currencyCode,
+            String transactionType,
+            String paymentMethod,
+            String reference,
+            String transactionDate,
+            /** Friendly group/member name resolved from the DB before
+             *  publishing so no downstream artefact shows a UUID. */
+            String recipientName) {}
+
+    /**
+     * Notify downstream services that a scheme change has been made
+     * effective. The {@code SchemeChangedConsumer} on the contributions
+     * side uses the payload to detect a back-dated upgrade/downgrade
+     * that overlaps an already-billed period and auto-posts the
+     * corresponding SCHEME_UPGRADE_ARREARS / SCHEME_DOWNGRADE_REBATE.
+     */
+    public Mono<Void> publishSchemeChanged(SchemeChangedPayload p) {
+        var fields = new java.util.LinkedHashMap<String, String>();
+        fields.put("event", "SCHEME_CHANGED");
+        fields.put("schemeChangeId", p.schemeChangeId());
+        fields.put("memberId",       p.memberId());
+        fields.put("tenantId",       nullSafe(p.tenantId()));
+        fields.put("fromSchemeId",   nullSafe(p.fromSchemeId()));
+        fields.put("toSchemeId",     nullSafe(p.toSchemeId()));
+        fields.put("effectiveDate",  nullSafe(p.effectiveDate()));
+        return publishEvent("medfund.contributions.scheme-changed",
+                p.schemeChangeId(), fields);
+    }
+
+    /** Payload for {@link #publishSchemeChanged}. Consumer resolves the
+     *  member's group_id at consume time so this stays a lean domain event. */
+    public record SchemeChangedPayload(
+            String schemeChangeId,
+            String memberId,
+            String tenantId,
+            String fromSchemeId,
+            String toSchemeId,
+            String effectiveDate) {}
+
+    private static String nullSafe(String v) { return v == null ? "" : v; }
+
     public Mono<Void> publishInvoicePdfDeleted(String tenantId, String invoiceId,
                                                String bucket, String objectKey) {
         if (bucket == null || objectKey == null || bucket.isBlank() || objectKey.isBlank()) {

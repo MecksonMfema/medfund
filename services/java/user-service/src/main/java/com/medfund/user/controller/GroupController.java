@@ -84,4 +84,39 @@ public class GroupController {
     public Mono<GroupResponse> suspend(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
         return groupService.suspend(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(GroupResponse::from);
     }
+
+    /**
+     * Idempotent status-change endpoint for groups. Mirrors
+     * {@code MemberController.action}. When the group cascades
+     * to {@code deactivated} or {@code terminated} the service walks its
+     * members and applies the same status to any in {@code active} or
+     * {@code suspended} — see {@code GroupService.cascadeToMembers}.
+     */
+    @PostMapping("/{id}/actions/{action}")
+    @Operation(summary = "Schedule or apply a group-level status change",
+        description = "Actions: activate / suspend / terminate / deactivate / reactivate. Optional " +
+                      "effectiveDate + reason; future dates go through the daily SCHEDULED_STATUS_ROLL. " +
+                      "deactivate / terminate cascade to member statuses on the same run.")
+    public Mono<GroupResponse> action(@PathVariable UUID id,
+                                       @PathVariable String action,
+                                       @Valid @RequestBody(required = false) GroupActionRequest request,
+                                       @AuthenticationPrincipal Jwt jwt) {
+        java.time.LocalDate effectiveDate = request != null ? request.effectiveDate() : null;
+        String reason = request != null ? request.reason() : null;
+        String actorId = AuditActor.id(jwt);
+        String actorEmail = AuditActor.email(jwt);
+        Mono<com.medfund.user.entity.Group> op = switch (action.toLowerCase()) {
+            case "activate", "reactivate" ->
+                groupService.activate(id, effectiveDate, reason, actorId, actorEmail);
+            case "suspend" -> groupService.suspend(id, effectiveDate, reason, actorId, actorEmail);
+            case "terminate" -> groupService.terminate(id, effectiveDate, reason, actorId, actorEmail);
+            case "deactivate" -> groupService.deactivate(id, effectiveDate, reason, actorId, actorEmail);
+            default -> Mono.error(new IllegalArgumentException(
+                "Unknown action '" + action + "' — expected activate / suspend / terminate / deactivate / reactivate"));
+        };
+        return op.map(GroupResponse::from);
+    }
+
+    /** Body for {@link #action}. Both fields optional. */
+    public record GroupActionRequest(java.time.LocalDate effectiveDate, String reason) {}
 }

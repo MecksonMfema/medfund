@@ -49,9 +49,10 @@ public class TransactionQueryRepository {
 
     private String baseQuery(TransactionFilterParams f, boolean hasQ) {
         StringBuilder sb = new StringBuilder("""
-                SELECT id, transaction_number, contribution_id, invoice_id,
+                SELECT id, transaction_number, group_id, member_id,
+                       contribution_id, invoice_id,
                        amount, currency_code, transaction_type, payment_method,
-                       reference, status, transaction_date, created_at, created_by
+                       reference, reason, status, transaction_date, created_at, created_by
                   FROM transactions
                  WHERE 1 = 1
                 """);
@@ -91,6 +92,8 @@ public class TransactionQueryRepository {
         Transaction t = new Transaction();
         t.setId((UUID) row.get("id"));
         t.setTransactionNumber((String) row.get("transaction_number"));
+        t.setGroupId((UUID) row.get("group_id"));
+        t.setMemberId((UUID) row.get("member_id"));
         t.setContributionId((UUID) row.get("contribution_id"));
         t.setInvoiceId((UUID) row.get("invoice_id"));
         t.setAmount((BigDecimal) row.get("amount"));
@@ -98,9 +101,14 @@ public class TransactionQueryRepository {
         t.setTransactionType((String) row.get("transaction_type"));
         t.setPaymentMethod((String) row.get("payment_method"));
         t.setReference((String) row.get("reference"));
+        t.setReason((String) row.get("reason"));
         t.setStatus((String) row.get("status"));
-        t.setTransactionDate((Instant) row.get("transaction_date"));
-        t.setCreatedAt((Instant) row.get("created_at"));
+        // TIMESTAMPTZ columns come back as OffsetDateTime; ask R2DBC to
+        // hand us Instant directly so we don't ClassCastException on the
+        // legacy (Instant) row.get(...) shape. See snapshot statement
+        // queries for the same pattern.
+        t.setTransactionDate(row.get("transaction_date", Instant.class));
+        t.setCreatedAt(row.get("created_at", Instant.class));
         t.setCreatedBy((UUID) row.get("created_by"));
         return t;
     }

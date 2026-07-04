@@ -9,6 +9,8 @@ import java.util.UUID;
 public record TransactionResponse(
         UUID id,
         String transactionNumber,
+        UUID groupId,
+        UUID memberId,
         UUID contributionId,
         UUID invoiceId,
         BigDecimal amount,
@@ -16,6 +18,7 @@ public record TransactionResponse(
         String transactionType,
         String paymentMethod,
         String reference,
+        String reason,
         String status,
         Instant transactionDate,
         Instant createdAt,
@@ -25,6 +28,8 @@ public record TransactionResponse(
         return new TransactionResponse(
                 transaction.getId(),
                 transaction.getTransactionNumber(),
+                transaction.getGroupId(),
+                transaction.getMemberId(),
                 transaction.getContributionId(),
                 transaction.getInvoiceId(),
                 transaction.getAmount(),
@@ -32,6 +37,7 @@ public record TransactionResponse(
                 transaction.getTransactionType(),
                 transaction.getPaymentMethod(),
                 transaction.getReference(),
+                transaction.getReason(),
                 transaction.getStatus(),
                 transaction.getTransactionDate(),
                 transaction.getCreatedAt(),

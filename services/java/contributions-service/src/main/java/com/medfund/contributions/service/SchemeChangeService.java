@@ -25,11 +25,14 @@ public class SchemeChangeService {
 
     private final SchemeChangeRepository schemeChangeRepository;
     private final AuditPublisher auditPublisher;
+    private final ContributionEventPublisher eventPublisher;
 
     public SchemeChangeService(SchemeChangeRepository schemeChangeRepository,
-                               AuditPublisher auditPublisher) {
+                               AuditPublisher auditPublisher,
+                               ContributionEventPublisher eventPublisher) {
         this.schemeChangeRepository = schemeChangeRepository;
         this.auditPublisher = auditPublisher;
+        this.eventPublisher = eventPublisher;
     }
 
     public Flux<SchemeChange> findByMemberId(UUID memberId) {
@@ -147,6 +150,19 @@ public class SchemeChangeService {
                                 "UPDATE", actorId, actorEmail,
                                 Map.of("status", previousStatus),
                                 Map.of("status", saved.getStatus()))
+                            // Fire a domain event so SchemeChangedConsumer can
+                            // auto-post arrears / rebate when the effective
+                            // date overlaps an already-billed period.
+                            // Fire-and-forget — Kafka failure never rolls
+                            // back the persisted status flip.
+                            .then(eventPublisher.publishSchemeChanged(
+                                new ContributionEventPublisher.SchemeChangedPayload(
+                                    saved.getId().toString(),
+                                    saved.getMemberId() != null ? saved.getMemberId().toString() : null,
+                                    tenantId,
+                                    saved.getFromSchemeId() != null ? saved.getFromSchemeId().toString() : null,
+                                    saved.getToSchemeId()   != null ? saved.getToSchemeId().toString()   : null,
+                                    saved.getEffectiveDate() != null ? saved.getEffectiveDate().toString() : null)))
                             .thenReturn(saved);
                     }));
             });

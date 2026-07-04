@@ -22,6 +22,7 @@ import (
 	"github.com/medfund/notification-service/internal/job"
 	"github.com/medfund/notification-service/internal/mail"
 	"github.com/medfund/notification-service/internal/notification"
+	"github.com/medfund/notification-service/internal/receipt"
 	"github.com/medfund/notification-service/internal/recipient"
 	"github.com/medfund/notification-service/internal/retry"
 	"github.com/medfund/notification-service/internal/storage"
@@ -99,6 +100,15 @@ func main() {
 		log.Fatalf("job dispatcher: %v", err)
 	}
 
+	// Receipt pipeline — TransactionRecorded → email to group liaison
+	// (via ForGroup) or member (via ForMember). No PDF; template body
+	// carries the receipt lines.
+	receiptTemplates := template.NewResolver(pool, receipt.DefaultSubject, receipt.DefaultHTMLBody())
+	receiptDispatcher, err := receipt.NewDispatcher(resolver, fetcher, sender, receiptTemplates, cfg.SMTPFrom)
+	if err != nil {
+		log.Fatalf("receipt dispatcher: %v", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	if cfg.KafkaBrokers != "" && fetcher != nil {
 		go runInvoiceConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID,
@@ -112,6 +122,12 @@ func main() {
 			jobDispatcher, retrySched)
 	} else {
 		log.Printf("[notification] job consumer disabled (kafka=%q postgres=%v)",
+			cfg.KafkaBrokers, pool != nil)
+	}
+	if cfg.KafkaBrokers != "" && pool != nil {
+		go runReceiptConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, receiptDispatcher, retrySched)
+	} else {
+		log.Printf("[notification] receipt consumer disabled (kafka=%q postgres=%v)",
 			cfg.KafkaBrokers, pool != nil)
 	}
 
@@ -278,6 +294,49 @@ func runJobConsumer(ctx context.Context, brokers, groupID string,
 				}
 				log.Printf("[notification] job email dead-lettered for run %s after %d attempts: %v",
 					e.RunID, o.Attempts, o.Err)
+			})
+	})
+}
+
+// runReceiptConsumer reads TransactionRecorded events and dispatches a
+// receipt email to the group liaison or the paying member. Same retry
+// contract as the invoice consumer — best-effort with backoff, no
+// per-attempt NotificationSent chatter (only the terminal outcome
+// would land, but we omit it here since receipts are not yet tracked
+// in the notification-sent audit stream).
+func runReceiptConsumer(ctx context.Context, brokers, groupID string,
+	dispatcher *receipt.Dispatcher, retrySched *retry.Scheduler) {
+
+	sub := events.NewSubscriber(brokers, "medfund.contributions.receipt-pdf-ready", groupID+"-receipts")
+	sub.Run(ctx, func(payload []byte) {
+		var e receipt.Event
+		if err := json.Unmarshal(payload, &e); err != nil {
+			log.Printf("[notification] drop malformed ReceiptPdfReady: %v", err)
+			return
+		}
+		res := dispatcher.Dispatch(ctx, e)
+		if res.Ok {
+			return
+		}
+		retrySched.RunAsync(ctx, "receipt:"+e.TransactionID,
+			func(ctx context.Context, _ int) error {
+				r := dispatcher.Dispatch(ctx, e)
+				if r.Ok {
+					return nil
+				}
+				if r.Err != nil {
+					return r.Err
+				}
+				return errDispatchFailed
+			},
+			func(o retry.Outcome) {
+				if o.Ok {
+					log.Printf("[notification] receipt retry succeeded for txn %s after %d attempts",
+						e.TransactionNumber, o.Attempts)
+					return
+				}
+				log.Printf("[notification] receipt dead-lettered for txn %s after %d attempts: %v",
+					e.TransactionNumber, o.Attempts, o.Err)
 			})
 	})
 }

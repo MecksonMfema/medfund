@@ -296,13 +296,20 @@ export interface ScheduledJobRun {
 }
 
 export interface RecordTransactionPayload {
-  contributionId?: string;
-  invoiceId?: string;
+  /** Exactly one of groupId/memberId is required — the owner whose
+   *  balance the transaction moves. Payments no longer link to a
+   *  contribution at creation time; the balance service allocates the
+   *  amount against outstanding contributions later. */
+  groupId?: string;
+  memberId?: string;
   amount: string;
   currencyCode: string;
   transactionType: string;
   paymentMethod?: string;
   reference?: string;
+  /** Operator-supplied justification. Required by the backend for
+   *  CREDIT / DEBIT adjustments; ignored for other types. */
+  reason?: string;
 }
 
 export interface TransactionSearchParams {

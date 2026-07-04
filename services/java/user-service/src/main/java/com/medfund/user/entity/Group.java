@@ -7,6 +7,7 @@ import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Table("groups")
@@ -46,6 +47,22 @@ public class Group {
 
     private String status;
 
+    /**
+     * Future-dated status trio (V042). Same shape as
+     * {@link Member}. When both scheduled columns are populated the
+     * SCHEDULED_STATUS_ROLL job flips {@link #status} on the effective
+     * date and cascades the change to members per the deactivation
+     * rule.
+     */
+    @Column("scheduled_status")
+    private String scheduledStatus;
+
+    @Column("scheduled_status_effective_from")
+    private LocalDate scheduledStatusEffectiveFrom;
+
+    @Column("scheduled_status_reason")
+    private String scheduledStatusReason;
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;
@@ -83,6 +100,15 @@ public class Group {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public String getScheduledStatus() { return scheduledStatus; }
+    public void setScheduledStatus(String scheduledStatus) { this.scheduledStatus = scheduledStatus; }
+
+    public LocalDate getScheduledStatusEffectiveFrom() { return scheduledStatusEffectiveFrom; }
+    public void setScheduledStatusEffectiveFrom(LocalDate d) { this.scheduledStatusEffectiveFrom = d; }
+
+    public String getScheduledStatusReason() { return scheduledStatusReason; }
+    public void setScheduledStatusReason(String r) { this.scheduledStatusReason = r; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

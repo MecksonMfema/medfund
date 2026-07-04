@@ -199,7 +199,9 @@ public class MemberService {
                         .then(eventPublisher.publishMemberEnrolled(
                             saved.getId().toString(),
                             saved.getMemberNumber(),
-                            saved.getGroupId() != null ? saved.getGroupId().toString() : null
+                            saved.getGroupId()  != null ? saved.getGroupId().toString()  : null,
+                            saved.getSchemeId() != null ? saved.getSchemeId().toString() : null,
+                            saved.getEnrollmentDate() != null ? saved.getEnrollmentDate().toString() : null
                         ))
                         .onErrorResume(e -> {
                             log.warn("Audit/event publish failed for member {}: {}", saved.getMemberNumber(), e.getMessage());
@@ -250,13 +252,29 @@ public class MemberService {
 
     @Transactional
     public Mono<Member> activate(UUID id, String actorId, String actorEmail) {
-        return transitionStatus(id, "active", actorId, actorEmail);
+        return activate(id, null, null, actorId, actorEmail);
+    }
+
+    @Transactional
+    public Mono<Member> activate(UUID id, LocalDate effectiveDate, String reason,
+                                  String actorId, String actorEmail) {
+        return applyOrSchedule(id, "active", effectiveDate, reason, actorId, actorEmail);
     }
 
     @Transactional
     public Mono<Member> suspend(UUID id, String actorId, String actorEmail) {
-        return transitionStatus(id, "suspended", actorId, actorEmail)
+        return suspend(id, null, null, actorId, actorEmail);
+    }
+
+    @Transactional
+    public Mono<Member> suspend(UUID id, LocalDate effectiveDate, String reason,
+                                 String actorId, String actorEmail) {
+        return applyOrSchedule(id, "suspended", effectiveDate, reason, actorId, actorEmail)
             .flatMap(member -> Mono.deferContextual(ctx -> {
+                // Keycloak disable only fires on immediate suspensions —
+                // a future-dated suspend leaves the user active in
+                // Keycloak until the daily job actually flips them.
+                if (!"suspended".equals(member.getStatus())) return Mono.just(member);
                 String tenantId = TenantContext.get(ctx);
                 if (member.getKeycloakUserId() != null) {
                     return keycloakSyncService.disableUser("tenant-" + tenantId, member.getKeycloakUserId())
@@ -268,27 +286,73 @@ public class MemberService {
 
     @Transactional
     public Mono<Member> terminate(UUID id, String actorId, String actorEmail) {
+        return terminate(id, null, null, actorId, actorEmail);
+    }
+
+    @Transactional
+    public Mono<Member> terminate(UUID id, LocalDate effectiveDate, String reason,
+                                   String actorId, String actorEmail) {
+        return applyOrSchedule(id, "terminated", effectiveDate, reason, actorId, actorEmail)
+            .flatMap(member -> Mono.deferContextual(ctx -> {
+                if (!"terminated".equals(member.getStatus())) return Mono.just(member);
+                String tenantId = TenantContext.get(ctx);
+                if (member.getKeycloakUserId() != null) {
+                    return keycloakSyncService.disableUser("tenant-" + tenantId, member.getKeycloakUserId())
+                        .thenReturn(member);
+                }
+                return Mono.just(member);
+            }));
+    }
+
+    @Transactional
+    public Mono<Member> deactivate(UUID id, LocalDate effectiveDate, String reason,
+                                    String actorId, String actorEmail) {
+        return applyOrSchedule(id, "deactivated", effectiveDate, reason, actorId, actorEmail);
+    }
+
+    /**
+     * Router for the four lifecycle transitions. When {@code effectiveDate}
+     * is null or on/before today, applies immediately (delegates to
+     * {@link #transitionStatus} so the existing MEMBER_STATUS_CHANGED
+     * event fires); when it's in the future, stashes the target in the
+     * {@code scheduled_status} trio for the daily
+     * {@link com.medfund.shared.scheduler.JobType#SCHEDULED_STATUS_ROLL}
+     * job to pick up.
+     */
+    private Mono<Member> applyOrSchedule(UUID id, String targetStatus, LocalDate effectiveDate,
+                                          String reason, String actorId, String actorEmail) {
+        LocalDate today = LocalDate.now();
+        boolean isFuture = effectiveDate != null && effectiveDate.isAfter(today);
+        if (!isFuture) {
+            return transitionStatus(id, targetStatus, actorId, actorEmail)
+                .flatMap(saved -> {
+                    // Terminated rows also record the termination_date so the
+                    // downstream MemberLifecycleConsumer can compute the
+                    // LATE_TERMINATION_CREDIT window from it.
+                    if ("terminated".equals(targetStatus) && saved.getTerminationDate() == null) {
+                        saved.setTerminationDate(effectiveDate != null ? effectiveDate : today);
+                        return memberRepository.save(saved);
+                    }
+                    return Mono.just(saved);
+                });
+        }
         return memberRepository.findById(id)
             .switchIfEmpty(Mono.error(new MemberNotFoundException(id)))
             .flatMap(existing -> {
                 var previous = copyMember(existing);
-                existing.setStatus("terminated");
-                existing.setTerminationDate(LocalDate.now());
+                existing.setScheduledStatus(targetStatus);
+                existing.setScheduledStatusEffectiveFrom(effectiveDate);
+                existing.setScheduledStatusReason(reason);
                 existing.setUpdatedAt(Instant.now());
                 existing.setUpdatedBy(safeParseUuid(actorId));
-
                 return memberRepository.save(existing)
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
+                        // Audit-only — no MEMBER_STATUS_CHANGED yet; that
+                        // publishes when the scheduled roll actually
+                        // flips the status.
                         String tenantId = TenantContext.get(ctx);
-                        Mono<Void> keycloakDisable = Mono.empty();
-                        if (saved.getKeycloakUserId() != null) {
-                            keycloakDisable = keycloakSyncService.disableUser(
-                                "tenant-" + tenantId, saved.getKeycloakUserId());
-                        }
-                        return keycloakDisable
-                            .then(publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE"))
-                            .then(eventPublisher.publishMemberLifecycle(saved.getId().toString(), "terminated"))
-                            .thenReturn(saved);
+                        return publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE")
+                                .thenReturn(saved);
                     }));
             });
     }
@@ -299,6 +363,11 @@ public class MemberService {
             .flatMap(existing -> {
                 var previous = copyMember(existing);
                 existing.setStatus(newStatus);
+                // Clear the scheduled trio — the roll job (or a manual
+                // apply-now) has consumed the schedule.
+                existing.setScheduledStatus(null);
+                existing.setScheduledStatusEffectiveFrom(null);
+                existing.setScheduledStatusReason(null);
                 existing.setUpdatedAt(Instant.now());
                 existing.setUpdatedBy(safeParseUuid(actorId));
 
@@ -306,7 +375,12 @@ public class MemberService {
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
                         return publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE")
-                            .then(eventPublisher.publishMemberLifecycle(saved.getId().toString(), newStatus))
+                            .then(eventPublisher.publishMemberLifecycle(
+                                saved.getId().toString(),
+                                newStatus,
+                                saved.getTerminationDate() != null ? saved.getTerminationDate().toString() : null,
+                                saved.getGroupId()  != null ? saved.getGroupId().toString()  : null,
+                                saved.getSchemeId() != null ? saved.getSchemeId().toString() : null))
                             .thenReturn(saved);
                     }));
             });
