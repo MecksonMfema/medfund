@@ -4,7 +4,10 @@ import com.medfund.contributions.config.SecurityConfig;
 import com.medfund.contributions.entity.Invoice;
 import com.medfund.contributions.repository.InvoiceRepository;
 import com.medfund.contributions.service.BillingService;
+import com.medfund.contributions.service.InvoiceListService;
+import com.medfund.contributions.service.StatementService;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -22,8 +25,18 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockJwt;
 
 @WebFluxTest(InvoiceController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, InvoiceControllerTest.WebClientBuilderCfg.class})
 class InvoiceControllerTest {
+
+    @org.springframework.boot.test.context.TestConfiguration
+    static class WebClientBuilderCfg {
+        // Real (unused) builder — the controller instantiates a WebClient
+        // in its ctor via builder.baseUrl(...).build(). Tests never call
+        // the PDF proxy endpoint, so the underlying WebClient can safely
+        // point at localhost.
+        @org.springframework.context.annotation.Bean
+        WebClient.Builder webClientBuilder() { return WebClient.builder(); }
+    }
 
     @Autowired
     private WebTestClient webTestClient;
@@ -33,6 +46,13 @@ class InvoiceControllerTest {
 
     @MockBean
     private InvoiceRepository invoiceRepository;
+
+    @MockBean
+    private InvoiceListService invoiceListService;
+
+    @MockBean
+    private StatementService statementService;
+
 
     @Test
     void findByGroupId_returns200() {

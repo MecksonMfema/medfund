@@ -27,9 +27,27 @@ import java.util.UUID;
 public class GroupController {
 
     private final GroupService groupService;
+    private final com.medfund.user.repository.GroupRepository groupRepository;
 
-    public GroupController(GroupService groupService) {
+    public GroupController(GroupService groupService,
+                            com.medfund.user.repository.GroupRepository groupRepository) {
         this.groupService = groupService;
+        this.groupRepository = groupRepository;
+    }
+
+    /**
+     * Lookup used by the arrears-escalation auto-reactivate sweep in
+     * contributions-service. Returns every group currently in
+     * {@code status = 'suspended'} whose {@code suspend_reason}
+     * matches. Same pattern as
+     * {@code MemberController.listSuspendedByReason}.
+     */
+    @GetMapping("/suspended")
+    @Operation(summary = "List groups currently suspended for a given reason",
+        description = "Internal lookup for auto-reactivation flows.")
+    public Flux<GroupResponse> listSuspendedByReason(
+            @RequestParam(name = "reason") String reason) {
+        return groupRepository.findSuspendedByReason(reason).map(GroupResponse::from);
     }
 
     @GetMapping

@@ -243,7 +243,7 @@ class TenantServiceTest {
 
         var request = new UpdateTenantRequest(
                 "Updated Name", null, null, "new@test.com",
-                null, null, null, null
+                null, null, null, null, null, null
         );
 
         when(tenantRepository.findById(tenantId)).thenReturn(Mono.just(existing));

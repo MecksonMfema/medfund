@@ -288,7 +288,7 @@ class MemberServiceTest {
         when(memberRepository.findById(id)).thenReturn(Mono.just(member));
         lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        lenient().when(eventPublisher.publishMemberLifecycle(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberLifecycle(any(), any(), any(), any(), any(), any(), any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
             memberService.activate(id, actorId, "actor@test.example")
@@ -309,7 +309,7 @@ class MemberServiceTest {
         when(memberRepository.findById(id)).thenReturn(Mono.just(member));
         lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        lenient().when(eventPublisher.publishMemberLifecycle(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberLifecycle(any(), any(), any(), any(), any(), any(), any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
             memberService.suspend(id, actorId, "actor@test.example")
@@ -319,7 +319,7 @@ class MemberServiceTest {
             .verifyComplete();
 
         verify(auditPublisher).publish(any());
-        verify(eventPublisher).publishMemberLifecycle(any(), any(), any(), any(), any());
+        verify(eventPublisher).publishMemberLifecycle(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -331,7 +331,7 @@ class MemberServiceTest {
         when(memberRepository.findById(id)).thenReturn(Mono.just(member));
         lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        lenient().when(eventPublisher.publishMemberLifecycle(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberLifecycle(any(), any(), any(), any(), any(), any(), any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
             memberService.terminate(id, actorId, "actor@test.example")
@@ -344,7 +344,126 @@ class MemberServiceTest {
             .verifyComplete();
 
         verify(auditPublisher).publish(any());
-        verify(eventPublisher).publishMemberLifecycle(any(), any(), any(), any(), any());
+        verify(eventPublisher).publishMemberLifecycle(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    // ------------------------------------------------------------------
+    // Future-dated + reason-plumbing tests (V042/V043)
+    // ------------------------------------------------------------------
+
+    @Test
+    void suspend_futureDate_writesScheduledTrio_doesNotFlipStatus() {
+        var member = createTestMember();
+        member.setStatus("active");
+        var id = member.getId();
+        var effective = LocalDate.now().plusDays(5);
+
+        when(memberRepository.findById(id)).thenReturn(Mono.just(member));
+        when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            memberService.suspend(id, effective, "OPERATOR", UUID.randomUUID().toString(), "actor@test")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "tnt"))
+        )
+            .assertNext(saved -> {
+                assertThat(saved.getStatus()).isEqualTo("active");
+                assertThat(saved.getScheduledStatus()).isEqualTo("suspended");
+                assertThat(saved.getScheduledStatusEffectiveFrom()).isEqualTo(effective);
+                assertThat(saved.getScheduledStatusReason()).isEqualTo("OPERATOR");
+            })
+            .verifyComplete();
+
+        // No lifecycle publish on schedule-only path.
+        verify(eventPublisher, never())
+                .publishMemberLifecycle(any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void suspend_pastDate_appliesImmediately_persistsSuspendReason() {
+        var member = createTestMember();
+        member.setStatus("active");
+        var id = member.getId();
+
+        when(memberRepository.findById(id)).thenReturn(Mono.just(member));
+        when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishMemberLifecycle(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            memberService.suspend(id, LocalDate.now().minusDays(1), "ARREARS_ESCALATION",
+                    UUID.randomUUID().toString(), "actor@test")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "tnt"))
+        )
+            .assertNext(saved -> {
+                assertThat(saved.getStatus()).isEqualTo("suspended");
+                assertThat(saved.getSuspendReason()).isEqualTo("ARREARS_ESCALATION");
+                // Scheduled trio cleared as part of the transition.
+                assertThat(saved.getScheduledStatus()).isNull();
+                assertThat(saved.getScheduledStatusEffectiveFrom()).isNull();
+                assertThat(saved.getScheduledStatusReason()).isNull();
+            })
+            .verifyComplete();
+
+        // Guards against arg drift on the publisher — tenantId + reason
+        // must reach publishMemberLifecycle in the correct slots.
+        verify(eventPublisher).publishMemberLifecycle(
+                org.mockito.ArgumentMatchers.eq("tnt"),
+                org.mockito.ArgumentMatchers.eq(id.toString()),
+                org.mockito.ArgumentMatchers.eq("suspended"),
+                org.mockito.ArgumentMatchers.eq("ARREARS_ESCALATION"),
+                any(), any(), any());
+    }
+
+    @Test
+    void activate_afterSuspend_clearsSuspendReason() {
+        var member = createTestMember();
+        member.setStatus("suspended");
+        member.setSuspendReason("ARREARS_ESCALATION");
+        var id = member.getId();
+
+        when(memberRepository.findById(id)).thenReturn(Mono.just(member));
+        when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishMemberLifecycle(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            memberService.activate(id, null, "ARREARS_CLEARED",
+                    UUID.randomUUID().toString(), "actor@test")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "tnt"))
+        )
+            .assertNext(saved -> {
+                assertThat(saved.getStatus()).isEqualTo("active");
+                // Any prior arrears reason must be wiped on return to active.
+                assertThat(saved.getSuspendReason()).isNull();
+            })
+            .verifyComplete();
+    }
+
+    @Test
+    void deactivate_persistsScheduledTrio_whenFutureDate() {
+        var member = createTestMember();
+        member.setStatus("suspended");
+        var id = member.getId();
+        var effective = LocalDate.now().plusDays(30);
+
+        when(memberRepository.findById(id)).thenReturn(Mono.just(member));
+        when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            memberService.deactivate(id, effective, "PLANNED",
+                    UUID.randomUUID().toString(), "actor@test")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "tnt"))
+        )
+            .assertNext(saved -> {
+                assertThat(saved.getStatus()).isEqualTo("suspended"); // unchanged
+                assertThat(saved.getScheduledStatus()).isEqualTo("deactivated");
+                assertThat(saved.getScheduledStatusEffectiveFrom()).isEqualTo(effective);
+            })
+            .verifyComplete();
     }
 
     private Member createTestMember() {

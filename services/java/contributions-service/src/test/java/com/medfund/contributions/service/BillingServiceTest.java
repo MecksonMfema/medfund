@@ -65,6 +65,12 @@ class BillingServiceTest {
     @Mock
     private DatabaseClient databaseClient;
 
+    @Mock
+    private AiPricingClient aiPricingClient;
+
+    @Mock
+    private InvoiceSnapshotService invoiceSnapshotService;
+
     @InjectMocks
     private BillingService billingService;
 
@@ -255,6 +261,102 @@ class BillingServiceTest {
     }
 
     // ---- Helpers ----
+
+    // ------------------------------------------------------------------
+    // commitBilling gates: cooldown + one-commit-per-period + preview no-persist
+    // ------------------------------------------------------------------
+
+    @Test
+    void commitBilling_insideCooldownWindow_errorsWithCooldownException() {
+        // Cooldown 24h + last_committed_at = 1 hour ago → 23-ish hours
+        // remaining. commitBilling must reject before ever touching the
+        // ledger — no contribution row, no invoice, no publisher.
+        var cfg = cycleConfigWithCooldown((short) 24, Instant.now().minusSeconds(3600));
+        when(billingCycleConfigRepository.findById(com.medfund.contributions.entity.BillingCycleConfig.SINGLETON_ID))
+                .thenReturn(Mono.just(cfg));
+
+        var req = new com.medfund.contributions.dto.CommitBillingRequest(
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31),
+                java.util.List.of(), java.util.List.of(), "HEALTH");
+
+        StepVerifier.create(billingService.commitBilling(req, actorId, actorEmail))
+                .expectError(com.medfund.contributions.exception.BillingCooldownException.class)
+                .verify();
+
+        verify(contributionRepository, never()).save(any());
+        verify(contributionRepository, never()).countByPeriodAndLine(any(), any(), any());
+    }
+
+    @Test
+    void commitBilling_periodAlreadyCommitted_errorsWithoutPersist() {
+        // No cooldown active (last_committed_at NULL) but a prior commit
+        // for this exact (period, line) already landed rows. The count-
+        // > 0 branch must abort with BillingPeriodAlreadyCommittedException.
+        // Guards the "operator clicks re-commit a week later" flow.
+        var cfg = cycleConfigWithCooldown((short) 0, null);
+        when(billingCycleConfigRepository.findById(com.medfund.contributions.entity.BillingCycleConfig.SINGLETON_ID))
+                .thenReturn(Mono.just(cfg));
+        when(contributionRepository.countByPeriodAndLine(
+                any(LocalDate.class), any(LocalDate.class), anyString()))
+                .thenReturn(Mono.just(3L));
+
+        var req = new com.medfund.contributions.dto.CommitBillingRequest(
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31),
+                java.util.List.of(), java.util.List.of(), "HEALTH");
+
+        StepVerifier.create(billingService.commitBilling(req, actorId, actorEmail))
+                .expectError(com.medfund.contributions.exception.BillingPeriodAlreadyCommittedException.class)
+                .verify();
+
+        verify(contributionRepository, never()).save(any());
+    }
+
+    @Test
+    void previewBilling_neverCallsContributionRepositorySave() {
+        // The single most-load-bearing invariant of the wizard: preview
+        // is read-only. If a refactor accidentally lets preview reach
+        // the persist branch, an operator opening the wizard doubles up
+        // an entire tenant's month. This test locks it in.
+        var cfg = cycleConfigWithCooldown((short) 0, null);
+        when(billingCycleConfigRepository.findById(com.medfund.contributions.entity.BillingCycleConfig.SINGLETON_ID))
+                .thenReturn(Mono.just(cfg));
+        stubMembershipModelDbCall();
+
+        var req = new com.medfund.contributions.dto.PreviewBillingRequest(
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31),
+                java.util.List.of(), java.util.List.of(), "HEALTH");
+
+        StepVerifier.create(billingService.previewBilling(req)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "not-a-uuid")))
+                .assertNext(resp -> assertThat(resp.totalRows()).isZero())
+                .verifyComplete();
+
+        verify(contributionRepository, never()).save(any());
+        verify(eventPublisher, never()).publishBillingGenerated(
+                any(), any(), any(), anyInt());
+    }
+
+    private static com.medfund.contributions.entity.BillingCycleConfig cycleConfigWithCooldown(
+            short hours, Instant lastCommit) {
+        var cfg = new com.medfund.contributions.entity.BillingCycleConfig();
+        cfg.setId(com.medfund.contributions.entity.BillingCycleConfig.SINGLETON_ID);
+        cfg.setFrequency("MONTHLY");
+        cfg.setDayOfMonth((short) 1);
+        cfg.setCommitCooldownHours(hours);
+        cfg.setLastCommittedAt(lastCommit);
+        return cfg;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void stubMembershipModelDbCall() {
+        DatabaseClient.GenericExecuteSpec spec = mock(DatabaseClient.GenericExecuteSpec.class);
+        org.springframework.r2dbc.core.RowsFetchSpec<String> fetch =
+                mock(org.springframework.r2dbc.core.RowsFetchSpec.class);
+        lenient().when(databaseClient.sql(anyString())).thenReturn(spec);
+        lenient().when(spec.bind(anyString(), any())).thenReturn(spec);
+        lenient().when(spec.map(any(java.util.function.Function.class))).thenAnswer(inv -> fetch);
+        lenient().when(fetch.one()).thenReturn(Mono.just("BOTH"));
+    }
 
     private Contribution createTestContribution() {
         var c = new Contribution();

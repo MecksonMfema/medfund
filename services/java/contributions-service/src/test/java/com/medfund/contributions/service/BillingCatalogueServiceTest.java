@@ -89,7 +89,9 @@ class BillingCatalogueServiceTest {
 
     @Test
     void upsertDunning_initialisesSingleton() {
-        var req = new UpsertDunningConfigRequest(7, 30, 90, true, false);
+        var req = new UpsertDunningConfigRequest(
+                7, 30, 90, true, false,
+                null, null, null, null);
         when(dunningRepo.findById(DunningConfig.SINGLETON_ID)).thenReturn(Mono.empty());
         when(dunningRepo.save(any(DunningConfig.class)))
                 .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
@@ -100,9 +102,69 @@ class BillingCatalogueServiceTest {
                     assertThat(saved.getId()).isEqualTo(DunningConfig.SINGLETON_ID);
                     assertThat(saved.getGraceDays()).isEqualTo(7);
                     assertThat(saved.getSuspensionDays()).isEqualTo(30);
-                    assertThat(saved.getWriteOffDays()).isEqualTo(90);
+                    assertThat(saved.getDeactivationDays()).isEqualTo(90);
                     assertThat(saved.getAutoSuspend()).isTrue();
                     assertThat(saved.getAutoWriteOff()).isFalse();
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void upsertDunning_persistsAllReminderFields() {
+        // V044 knobs must round-trip. Guards against a rename or dropped
+        // field in the DTO → entity mapping — that failure would silently
+        // leave the reminder loop misconfigured.
+        var req = new UpsertDunningConfigRequest(
+                7, 30, 90, true, false,
+                true,  // autoRemind
+                7,     // reminderLeadDays
+                3,     // reminderIntervalDays
+                true); // reminderContinuePastSuspension
+        when(dunningRepo.findById(DunningConfig.SINGLETON_ID)).thenReturn(Mono.empty());
+        when(dunningRepo.save(any(DunningConfig.class)))
+                .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any(AuditEvent.class))).thenReturn(Mono.empty());
+
+        StepVerifier.create(service.upsertDunningConfig(req, "actor", "actor@test"))
+                .assertNext(saved -> {
+                    assertThat(saved.getAutoRemind()).isTrue();
+                    assertThat(saved.getReminderLeadDays()).isEqualTo(7);
+                    assertThat(saved.getReminderIntervalDays()).isEqualTo(3);
+                    assertThat(saved.getReminderContinuePastSuspension()).isTrue();
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void upsertDunning_partialUpdate_leavesUnsetFieldsAlone() {
+        // Only autoRemind set → other reminder fields stay at their
+        // previously-persisted values. This is the operator "toggle a
+        // single switch without re-typing the whole form" flow.
+        DunningConfig existing = new DunningConfig();
+        existing.setId(DunningConfig.SINGLETON_ID);
+        existing.setGraceDays(7);
+        existing.setSuspensionDays(30);
+        existing.setDeactivationDays(90);
+        existing.setAutoRemind(false);
+        existing.setReminderLeadDays(10);
+        existing.setReminderIntervalDays(5);
+        existing.setReminderContinuePastSuspension(false);
+        when(dunningRepo.findById(DunningConfig.SINGLETON_ID)).thenReturn(Mono.just(existing));
+        when(dunningRepo.save(any(DunningConfig.class)))
+                .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any(AuditEvent.class))).thenReturn(Mono.empty());
+
+        var req = new UpsertDunningConfigRequest(
+                null, null, null, null, null,
+                true,   // autoRemind — only this one changes
+                null, null, null);
+
+        StepVerifier.create(service.upsertDunningConfig(req, "actor", "actor@test"))
+                .assertNext(saved -> {
+                    assertThat(saved.getAutoRemind()).isTrue();  // flipped
+                    assertThat(saved.getReminderLeadDays()).isEqualTo(10);  // preserved
+                    assertThat(saved.getReminderIntervalDays()).isEqualTo(5);
+                    assertThat(saved.getReminderContinuePastSuspension()).isFalse();
                 })
                 .verifyComplete();
     }

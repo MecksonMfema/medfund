@@ -17,9 +17,11 @@ import (
 
 	"github.com/medfund/notification-service/internal/config"
 	"github.com/medfund/notification-service/internal/events"
+	"github.com/medfund/notification-service/internal/arrears"
 	"github.com/medfund/notification-service/internal/handler"
 	"github.com/medfund/notification-service/internal/invoice"
 	"github.com/medfund/notification-service/internal/job"
+	"github.com/medfund/notification-service/internal/lifecycle"
 	"github.com/medfund/notification-service/internal/mail"
 	"github.com/medfund/notification-service/internal/notification"
 	"github.com/medfund/notification-service/internal/receipt"
@@ -109,6 +111,29 @@ func main() {
 		log.Fatalf("receipt dispatcher: %v", err)
 	}
 
+	// Arrears reminders + suspension/deactivation notices. Same recipient
+	// resolver as invoice + receipt so a group notice lands on the liaison
+	// (falling back to the group email) and a member notice hits the
+	// member directly. No PDF — the template body carries balance +
+	// days-overdue + next-step copy.
+	arrearsTemplates := template.NewResolver(pool, arrears.DefaultSubject, arrears.DefaultHTMLBody())
+	arrearsDispatcher, err := arrears.NewDispatcher(resolver, sender, arrearsTemplates, cfg.SMTPFrom)
+	if err != nil {
+		log.Fatalf("arrears dispatcher: %v", err)
+	}
+
+	// Lifecycle pipeline: reacts to MEMBER_STATUS_CHANGED /
+	// GROUP_STATUS_CHANGED. Handles the "your account has been
+	// suspended / deactivated / reactivated" email for both
+	// operator-triggered flips and arrears-triggered flips (the arrears
+	// executor invokes user-service which then emits these same
+	// events), so there's exactly one email per real transition.
+	lifecycleTemplates := template.NewResolver(pool, lifecycle.DefaultSubject, lifecycle.DefaultHTMLBody())
+	lifecycleDispatcher, err := lifecycle.NewDispatcher(resolver, sender, lifecycleTemplates, cfg.SMTPFrom)
+	if err != nil {
+		log.Fatalf("lifecycle dispatcher: %v", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	if cfg.KafkaBrokers != "" && fetcher != nil {
 		go runInvoiceConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID,
@@ -128,6 +153,19 @@ func main() {
 		go runReceiptConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, receiptDispatcher, retrySched)
 	} else {
 		log.Printf("[notification] receipt consumer disabled (kafka=%q postgres=%v)",
+			cfg.KafkaBrokers, pool != nil)
+	}
+	if cfg.KafkaBrokers != "" && pool != nil {
+		go runArrearsConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, arrearsDispatcher, retrySched)
+	} else {
+		log.Printf("[notification] arrears consumer disabled (kafka=%q postgres=%v)",
+			cfg.KafkaBrokers, pool != nil)
+	}
+	if cfg.KafkaBrokers != "" && pool != nil {
+		go runMemberLifecycleConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, lifecycleDispatcher, retrySched)
+		go runGroupLifecycleConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, lifecycleDispatcher, retrySched)
+	} else {
+		log.Printf("[notification] lifecycle consumers disabled (kafka=%q postgres=%v)",
 			cfg.KafkaBrokers, pool != nil)
 	}
 
@@ -339,4 +377,153 @@ func runReceiptConsumer(ctx context.Context, brokers, groupID string,
 					e.TransactionNumber, o.Attempts, o.Err)
 			})
 	})
+}
+
+// runArrearsConsumer reads ARREARS_NOTICE events (reminders +
+// suspend/deactivate notices) and dispatches emails via the arrears
+// pipeline. Same retry contract as invoice: transient failures go
+// through the retry scheduler; terminal failures land in the log.
+func runArrearsConsumer(ctx context.Context, brokers, groupID string,
+	dispatcher *arrears.Dispatcher, retrySched *retry.Scheduler) {
+
+	sub := events.NewSubscriber(brokers, "medfund.contributions.arrears-notice", groupID+"-arrears")
+	sub.Run(ctx, func(payload []byte) {
+		var e arrears.Event
+		if err := json.Unmarshal(payload, &e); err != nil {
+			log.Printf("[notification] drop malformed ARREARS_NOTICE: %v", err)
+			return
+		}
+		res := dispatcher.Dispatch(ctx, e)
+		if res.Ok {
+			return
+		}
+		retrySched.RunAsync(ctx, "arrears:"+e.Kind+":"+e.SubjectID,
+			func(ctx context.Context, _ int) error {
+				r := dispatcher.Dispatch(ctx, e)
+				if r.Ok {
+					return nil
+				}
+				if r.Err != nil {
+					return r.Err
+				}
+				return errDispatchFailed
+			},
+			func(o retry.Outcome) {
+				if o.Ok {
+					log.Printf("[notification] arrears retry succeeded for %s %s after %d attempts",
+						e.Kind, e.SubjectID, o.Attempts)
+					return
+				}
+				log.Printf("[notification] arrears dead-lettered for %s %s after %d attempts: %v",
+					e.Kind, e.SubjectID, o.Attempts, o.Err)
+			})
+	})
+}
+
+// memberLifecycleRaw / groupLifecycleRaw mirror the payloads
+// user-service publishes. Kept separate here so a field rename on
+// either side is a compile-time signal, not a silent decode-to-zero.
+// The JSON key on the wire is `event`, not `eventType` — matches
+// UserEventPublisher's payload envelope.
+type memberLifecycleRaw struct {
+	TenantID string `json:"tenantId"`
+	MemberID string `json:"memberId"`
+	Status   string `json:"status"`
+	Reason   string `json:"reason"`
+	Event    string `json:"event"`
+}
+
+type groupLifecycleRaw struct {
+	TenantID string `json:"tenantId"`
+	GroupID  string `json:"groupId"`
+	Status   string `json:"status"`
+	Reason   string `json:"reason"`
+	Event    string `json:"event"`
+}
+
+// runMemberLifecycleConsumer reads MEMBER_STATUS_CHANGED events and
+// emails the affected member. See lifecycle package comment for why
+// this consumer + the group one collapse status-transition emails
+// into a single path.
+func runMemberLifecycleConsumer(ctx context.Context, brokers, groupID string,
+	dispatcher *lifecycle.Dispatcher, retrySched *retry.Scheduler) {
+
+	sub := events.NewSubscriber(brokers, "medfund.users.member-lifecycle", groupID+"-lifecycle-member")
+	sub.Run(ctx, func(payload []byte) {
+		var raw memberLifecycleRaw
+		if err := json.Unmarshal(payload, &raw); err != nil {
+			log.Printf("[notification] drop malformed MEMBER_LIFECYCLE: %v", err)
+			return
+		}
+		// Only status-change events feed this pipeline; enrolled /
+		// terminated events still fire on the same topic for other
+		// consumers.
+		if raw.Event != "" && raw.Event != "MEMBER_STATUS_CHANGED" {
+			return
+		}
+		e := lifecycle.Event{
+			TenantID:    raw.TenantID,
+			SubjectType: lifecycle.SubjectMember,
+			SubjectID:   raw.MemberID,
+			Status:      raw.Status,
+			Reason:      raw.Reason,
+		}
+		dispatchLifecycle(ctx, dispatcher, retrySched, "member", e)
+	})
+}
+
+// runGroupLifecycleConsumer — same shape, group side.
+func runGroupLifecycleConsumer(ctx context.Context, brokers, groupID string,
+	dispatcher *lifecycle.Dispatcher, retrySched *retry.Scheduler) {
+
+	sub := events.NewSubscriber(brokers, "medfund.users.group-lifecycle", groupID+"-lifecycle-group")
+	sub.Run(ctx, func(payload []byte) {
+		var raw groupLifecycleRaw
+		if err := json.Unmarshal(payload, &raw); err != nil {
+			log.Printf("[notification] drop malformed GROUP_LIFECYCLE: %v", err)
+			return
+		}
+		if raw.Event != "" && raw.Event != "GROUP_STATUS_CHANGED" {
+			return
+		}
+		e := lifecycle.Event{
+			TenantID:    raw.TenantID,
+			SubjectType: lifecycle.SubjectGroup,
+			SubjectID:   raw.GroupID,
+			Status:      raw.Status,
+			Reason:      raw.Reason,
+		}
+		dispatchLifecycle(ctx, dispatcher, retrySched, "group", e)
+	})
+}
+
+// dispatchLifecycle is the shared retry-wired body for both lifecycle
+// consumers so the two runners stay two lines each. `label` shows up
+// in the retry key + logs so operators can tell them apart.
+func dispatchLifecycle(ctx context.Context, dispatcher *lifecycle.Dispatcher,
+	retrySched *retry.Scheduler, label string, e lifecycle.Event) {
+	res := dispatcher.Dispatch(ctx, e)
+	if res.Ok {
+		return
+	}
+	retrySched.RunAsync(ctx, "lifecycle:"+label+":"+e.SubjectID+":"+e.Status,
+		func(ctx context.Context, _ int) error {
+			r := dispatcher.Dispatch(ctx, e)
+			if r.Ok {
+				return nil
+			}
+			if r.Err != nil {
+				return r.Err
+			}
+			return errDispatchFailed
+		},
+		func(o retry.Outcome) {
+			if o.Ok {
+				log.Printf("[notification] lifecycle %s retry succeeded for %s %s after %d attempts",
+					label, e.SubjectID, e.Status, o.Attempts)
+				return
+			}
+			log.Printf("[notification] lifecycle %s dead-lettered for %s %s after %d attempts: %v",
+				label, e.SubjectID, e.Status, o.Attempts, o.Err)
+		})
 }

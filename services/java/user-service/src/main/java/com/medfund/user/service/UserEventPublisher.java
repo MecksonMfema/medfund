@@ -52,17 +52,39 @@ public class UserEventPublisher {
      * LATE_TERMINATION_CREDIT). All extra fields are optional; empty
      * strings on the wire when null.
      */
-    public Mono<Void> publishMemberLifecycle(String memberId, String status,
+    public Mono<Void> publishMemberLifecycle(String tenantId, String memberId, String status,
+                                              String reason,
                                               String terminationDate,
                                               String groupId, String schemeId) {
         var payload = new java.util.LinkedHashMap<String, String>();
         payload.put("event", "MEMBER_STATUS_CHANGED");
+        payload.put("tenantId", tenantId != null ? tenantId : "");
         payload.put("memberId", memberId);
         payload.put("status", status);
+        payload.put("reason",          reason          != null ? reason          : "");
         payload.put("terminationDate", terminationDate != null ? terminationDate : "");
         payload.put("groupId",         groupId         != null ? groupId         : "");
         payload.put("schemeId",        schemeId        != null ? schemeId        : "");
         return publishEvent("medfund.users.member-lifecycle", memberId, payload);
+    }
+
+    /**
+     * Group-level lifecycle event. Fires on every immediate status flip
+     * (activate / suspend / terminate / deactivate) so downstream
+     * consumers can react to group-scope state changes without polling
+     * the members table. The per-member cascade in
+     * {@code GroupService.cascadeToMembers} still fires MEMBER_STATUS_CHANGED
+     * events per member for row-level notifications.
+     */
+    public Mono<Void> publishGroupLifecycle(String tenantId, String groupId, String status,
+                                              String reason) {
+        var payload = new java.util.LinkedHashMap<String, String>();
+        payload.put("event", "GROUP_STATUS_CHANGED");
+        payload.put("tenantId", tenantId != null ? tenantId : "");
+        payload.put("groupId", groupId);
+        payload.put("status", status);
+        payload.put("reason", reason != null ? reason : "");
+        return publishEvent("medfund.users.group-lifecycle", groupId, payload);
     }
 
     public Mono<Void> publishProviderOnboarded(String providerId, String name) {

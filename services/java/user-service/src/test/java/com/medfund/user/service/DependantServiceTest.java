@@ -39,6 +39,18 @@ class DependantServiceTest {
     @Mock
     private R2dbcEntityTemplate r2dbcTemplate;
 
+    @Mock
+    private MemberSchemeLookup memberSchemeLookup;
+
+    @Mock
+    private com.medfund.user.repository.MemberRepository memberRepository;
+
+    @Mock
+    private MemberNumberService memberNumberService;
+
+    @Mock
+    private AgeGroupResolver ageGroupResolver;
+
     @InjectMocks
     private DependantService dependantService;
 
@@ -49,6 +61,25 @@ class DependantServiceTest {
             if (d.getId() == null) d.setId(UUID.randomUUID());
             return Mono.just(d);
         });
+        // MemberSchemeLookup is queried on create so the dependant inherits
+        // the primary member's scheme — stub as empty (no scheme) for these
+        // tests since none of them assert on the resulting scheme_id column.
+        lenient().when(memberSchemeLookup.schemeIdOf(any())).thenReturn(Mono.empty());
+        // create() looks up the primary member for age-group / status
+        // context. Stub as a minimal Member so downstream logic doesn't NPE.
+        lenient().when(memberRepository.findById(any(UUID.class))).thenAnswer(inv -> {
+            var m = new com.medfund.user.entity.Member();
+            m.setId(inv.getArgument(0));
+            m.setStatus("active");
+            m.setMemberNumber("MBR-000001");
+            return Mono.just(m);
+        });
+        // Number-issue + age-group resolution both run on create — stub as
+        // no-ops so the test focuses on the persist + audit path.
+        lenient().when(memberNumberService.nextDependantNumber(any()))
+                .thenAnswer(inv -> Mono.just("DEP-000001"));
+        lenient().when(ageGroupResolver.resolveForSchemeAndDob(any(), any()))
+                .thenReturn(Mono.empty());
     }
 
     @Test

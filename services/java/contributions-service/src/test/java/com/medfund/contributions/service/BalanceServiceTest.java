@@ -121,4 +121,55 @@ class BalanceServiceTest {
                 .assertNext(resp -> assertThat(resp.balance()).isEqualByComparingTo("250.00"))
                 .verifyComplete();
     }
+
+    // ------------------------------------------------------------------
+    // V043 arrears-reactivation surface
+    // ------------------------------------------------------------------
+
+    @Test
+    void currentlyAgedSubjectIds_readsSuspensionThresholdFromDunning_andReturnsSet() {
+        // Uses dunning_config.suspension_days as the age cutoff. That's
+        // the same threshold the arrears escalator uses to compute the
+        // aging bucket, so a subject that drops out of this set has
+        // demonstrably cleared the SUSPENDED-bucket age.
+        DunningConfig cfg = new DunningConfig();
+        cfg.setId(DunningConfig.SINGLETON_ID);
+        cfg.setSuspensionDays(30);
+        when(dunningRepo.findById(DunningConfig.SINGLETON_ID)).thenReturn(Mono.just(cfg));
+
+        UUID id1 = UUID.randomUUID();
+        UUID id2 = UUID.randomUUID();
+        when(queryRepo.findAged(any(), org.mockito.ArgumentMatchers.eq(30), any(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(reactor.core.publisher.Flux.just(
+                        agedBalanceRow(id1), agedBalanceRow(id2)));
+
+        StepVerifier.create(service.currentlyAgedSubjectIds())
+                .assertNext(set -> {
+                    assertThat(set).containsExactlyInAnyOrder(id1, id2);
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void currentlyAgedSubjectIds_defaultThresholdWhenNoDunningConfig() {
+        // No dunning_config row → default to 30 days. Guards against a
+        // fresh tenant that hasn't opened the arrears settings panel yet.
+        when(dunningRepo.findById(DunningConfig.SINGLETON_ID)).thenReturn(Mono.empty());
+        when(queryRepo.findAged(any(), org.mockito.ArgumentMatchers.eq(30), any(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(reactor.core.publisher.Flux.empty());
+
+        StepVerifier.create(service.currentlyAgedSubjectIds())
+                .assertNext(set -> assertThat(set).isEmpty())
+                .verifyComplete();
+    }
+
+    private static com.medfund.contributions.dto.BalanceRow agedBalanceRow(UUID id) {
+        return new com.medfund.contributions.dto.BalanceRow(
+                "MEMBER", id, "CODE", "Name", "e@x.com",
+                "USD", new BigDecimal("100.00"),
+                Instant.now().minusSeconds(60L * 60L * 24L * 40L),
+                null);
+    }
 }

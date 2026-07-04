@@ -177,6 +177,21 @@ public class BalanceService {
                         .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size)));
     }
 
+    /**
+     * V043 auto-reactivate helper — returns the set of subject ids that
+     * are CURRENTLY aged past the SUSPENDED threshold (across all
+     * currencies). Consumers reactivate any arrears-suspended row whose
+     * id is NOT in this set, because "not aged anymore" means their
+     * payment cleared the debt below the threshold. Cheap when total
+     * aged rows fit in memory (thousands, not millions).
+     */
+    public Mono<java.util.Set<UUID>> currentlyAgedSubjectIds() {
+        return resolveMinAge(null)
+                .flatMap(threshold -> queryRepo.findAged(null, threshold, null, 10_000, 0)
+                        .map(BalanceRow::subjectId)
+                        .collect(java.util.stream.Collectors.toSet()));
+    }
+
     private Mono<Integer> resolveMinAge(Integer override) {
         if (override != null) return Mono.just(Math.max(override, 0));
         return dunningRepo.findById(DunningConfig.SINGLETON_ID)

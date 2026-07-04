@@ -227,9 +227,16 @@ public class BillingCatalogueService {
                     Map<String, Object> oldMap = existing.getId() != null ? dunningMap(existing) : null;
                     existing.setGraceDays(req.graceDays());
                     existing.setSuspensionDays(req.suspensionDays());
-                    existing.setWriteOffDays(req.writeOffDays());
+                    existing.setDeactivationDays(req.deactivationDays());
                     if (req.autoSuspend() != null)   existing.setAutoSuspend(req.autoSuspend());
                     if (req.autoWriteOff() != null)  existing.setAutoWriteOff(req.autoWriteOff());
+                    // V044 reminder cadence — null-tolerant for backward
+                    // compatibility with clients that don't send them yet.
+                    if (req.autoRemind() != null)              existing.setAutoRemind(req.autoRemind());
+                    if (req.reminderLeadDays() != null)        existing.setReminderLeadDays(req.reminderLeadDays());
+                    if (req.reminderIntervalDays() != null)    existing.setReminderIntervalDays(req.reminderIntervalDays());
+                    if (req.reminderContinuePastSuspension() != null)
+                        existing.setReminderContinuePastSuspension(req.reminderContinuePastSuspension());
                     existing.setUpdatedAt(Instant.now());
                     if (actorId != null) {
                         try { existing.setUpdatedBy(UUID.fromString(actorId)); } catch (IllegalArgumentException ignored) {}
@@ -331,9 +338,13 @@ public class BillingCatalogueService {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("graceDays", d.getGraceDays());
         m.put("suspensionDays", d.getSuspensionDays());
-        m.put("writeOffDays", d.getWriteOffDays());
+        m.put("deactivationDays", d.getDeactivationDays());
         m.put("autoSuspend", d.getAutoSuspend());
         m.put("autoWriteOff", d.getAutoWriteOff());
+        m.put("autoRemind", d.getAutoRemind());
+        m.put("reminderLeadDays", d.getReminderLeadDays());
+        m.put("reminderIntervalDays", d.getReminderIntervalDays());
+        m.put("reminderContinuePastSuspension", d.getReminderContinuePastSuspension());
         return m;
     }
 

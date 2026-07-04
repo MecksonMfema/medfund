@@ -62,7 +62,7 @@ class UserEventPublisherTest {
         when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
 
         StepVerifier.create(userEventPublisher.publishMemberLifecycle(
-                        "mbr-1", "suspended", null, "grp-1", "scheme-1"))
+                        "tnt-1", "mbr-1", "suspended", "OPERATOR", null, "grp-1", "scheme-1"))
                 .verifyComplete();
 
         verify(kafkaSender).send(senderRecordCaptor.capture());
@@ -72,6 +72,73 @@ class UserEventPublisherTest {
                     assertThat(record.topic()).isEqualTo("medfund.users.member-lifecycle");
                     assertThat(record.key()).isEqualTo("mbr-1");
                     assertThat(record.value()).contains("MEMBER_STATUS_CHANGED");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void publishMemberLifecycle_envelopeCarriesTenantAndReason() {
+        // Guards against arg-position drift on the 7-arg signature. Tightens
+        // the assertion beyond "topic + event name" so a swap of tenantId
+        // and reason (or a dropped arg) fails loudly instead of quietly
+        // publishing garbage into the topic.
+        when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
+
+        StepVerifier.create(userEventPublisher.publishMemberLifecycle(
+                        "tnt-42", "mbr-9", "suspended", "ARREARS_ESCALATION",
+                        "2026-07-01", "grp-2", "scheme-2"))
+                .verifyComplete();
+        verify(kafkaSender).send(senderRecordCaptor.capture());
+        StepVerifier.create(senderRecordCaptor.getValue())
+                .assertNext(record -> {
+                    assertThat(record.value())
+                            .contains("\"tenantId\":\"tnt-42\"")
+                            .contains("\"memberId\":\"mbr-9\"")
+                            .contains("\"status\":\"suspended\"")
+                            .contains("\"reason\":\"ARREARS_ESCALATION\"")
+                            .contains("\"terminationDate\":\"2026-07-01\"")
+                            .contains("\"groupId\":\"grp-2\"")
+                            .contains("\"schemeId\":\"scheme-2\"");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void publishGroupLifecycle_sendsCorrectTopicWithTenantAndReason() {
+        when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
+
+        StepVerifier.create(userEventPublisher.publishGroupLifecycle(
+                        "tnt-1", "grp-1", "deactivated", "ARREARS_ESCALATION"))
+                .verifyComplete();
+        verify(kafkaSender).send(senderRecordCaptor.capture());
+        StepVerifier.create(senderRecordCaptor.getValue())
+                .assertNext(record -> {
+                    assertThat(record.topic()).isEqualTo("medfund.users.group-lifecycle");
+                    assertThat(record.key()).isEqualTo("grp-1");
+                    assertThat(record.value())
+                            .contains("\"event\":\"GROUP_STATUS_CHANGED\"")
+                            .contains("\"tenantId\":\"tnt-1\"")
+                            .contains("\"groupId\":\"grp-1\"")
+                            .contains("\"status\":\"deactivated\"")
+                            .contains("\"reason\":\"ARREARS_ESCALATION\"");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void publishGroupLifecycle_nullReason_serializesAsEmptyString() {
+        when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
+
+        StepVerifier.create(userEventPublisher.publishGroupLifecycle(
+                        "tnt-1", "grp-1", "active", null))
+                .verifyComplete();
+        verify(kafkaSender).send(senderRecordCaptor.capture());
+        StepVerifier.create(senderRecordCaptor.getValue())
+                .assertNext(record -> {
+                    assertThat(record.value()).contains("\"reason\":\"\"");
                 })
                 .verifyComplete();
     }

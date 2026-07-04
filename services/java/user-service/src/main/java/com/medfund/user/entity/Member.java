@@ -76,6 +76,17 @@ public class Member {
     private String scheduledStatusReason;
 
     /**
+     * V043 — persisted "why is this row not active" reason. Written
+     * whenever the member transitions to any non-active status
+     * (suspended / terminated / deactivated), cleared on transition
+     * back to active. The arrears-escalation executor reads this to
+     * distinguish operator-suspended rows from arrears-suspended ones
+     * when deciding whether payment should auto-reactivate.
+     */
+    @Column("suspend_reason")
+    private String suspendReason;
+
+    /**
      * Canonical age bucket — derived from {@link #dateOfBirth} at enrolment
      * and maintained as the member crosses age-band boundaries. References
      * {@code age_groups(id)} on the member's scheme. Source of truth for
@@ -182,6 +193,9 @@ public class Member {
 
     public String getScheduledStatusReason() { return scheduledStatusReason; }
     public void setScheduledStatusReason(String scheduledStatusReason) { this.scheduledStatusReason = scheduledStatusReason; }
+
+    public String getSuspendReason() { return suspendReason; }
+    public void setSuspendReason(String suspendReason) { this.suspendReason = suspendReason; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

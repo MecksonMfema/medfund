@@ -131,4 +131,108 @@ class ContributionEventPublisherTest {
                 })
                 .verifyComplete();
     }
+
+    // ------------------------------------------------------------------
+    // publishTransactionRecorded — file-service consumes this for receipts,
+    // so every field on the wire is load-bearing. A silent field rename or
+    // a swap of memberId/groupId here has produced blank receipts in
+    // production before; these tests pin the envelope.
+    // ------------------------------------------------------------------
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void publishTransactionRecorded_groupPayload_carriesRecipientNameAndOmitsMemberId() {
+        when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
+        var payload = new ContributionEventPublisher.TransactionRecordedPayload(
+                "txn-uuid-1", "TXN-000042", "tnt-1",
+                "grp-1", null,           // group payment — memberId elided on the wire
+                "125.50", "USD",
+                "PAYMENT", "CASH", "REC-2026-07-42",
+                "2026-07-15", "Acme Corp");
+
+        StepVerifier.create(contributionEventPublisher.publishTransactionRecorded(payload))
+                .verifyComplete();
+
+        verify(kafkaSender).send(senderRecordCaptor.capture());
+        StepVerifier.create(senderRecordCaptor.getValue())
+                .assertNext(record -> {
+                    assertThat(record.topic()).isEqualTo("medfund.contributions.transaction-recorded");
+                    assertThat(record.key()).isEqualTo("txn-uuid-1");
+                    String body = record.value();
+                    assertThat(body)
+                            .contains("\"event\":\"TRANSACTION_RECORDED\"")
+                            .contains("\"transactionId\":\"txn-uuid-1\"")
+                            .contains("\"transactionNumber\":\"TXN-000042\"")
+                            .contains("\"tenantId\":\"tnt-1\"")
+                            .contains("\"groupId\":\"grp-1\"")
+                            // 2dp preserved on the wire; downstream receipt
+                            // templates render this verbatim.
+                            .contains("\"amount\":\"125.50\"")
+                            .contains("\"currencyCode\":\"USD\"")
+                            .contains("\"transactionType\":\"PAYMENT\"")
+                            .contains("\"paymentMethod\":\"CASH\"")
+                            .contains("\"reference\":\"REC-2026-07-42\"")
+                            .contains("\"transactionDate\":\"2026-07-15\"")
+                            // Friendly name — never a UUID on client artefacts.
+                            .contains("\"recipientName\":\"Acme Corp\"");
+                    // memberId must NOT appear on group payments —
+                    // recipient resolver picks its channel by which one
+                    // is present, and a stray value on the wrong side
+                    // routes the receipt to the wrong inbox.
+                    assertThat(body).doesNotContain("memberId");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void publishTransactionRecorded_memberPayload_omitsGroupId() {
+        when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
+        var payload = new ContributionEventPublisher.TransactionRecordedPayload(
+                "txn-uuid-2", "TXN-000043", "tnt-1",
+                null, "mbr-9",
+                "50.00", "USD", "PAYMENT", "MOMO", null,
+                "2026-07-15", "Jane Doe");
+
+        StepVerifier.create(contributionEventPublisher.publishTransactionRecorded(payload))
+                .verifyComplete();
+
+        verify(kafkaSender).send(senderRecordCaptor.capture());
+        StepVerifier.create(senderRecordCaptor.getValue())
+                .assertNext(record -> {
+                    String body = record.value();
+                    assertThat(body)
+                            .contains("\"memberId\":\"mbr-9\"")
+                            .contains("\"recipientName\":\"Jane Doe\"")
+                            .doesNotContain("groupId");
+                    // Optional fields absent → keys elided entirely, not
+                    // emitted as empty strings. That's what the file-service
+                    // receipt template branches on.
+                    assertThat(body).doesNotContain("\"reference\"");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void publishTransactionRecorded_blankRecipientName_isElided() {
+        // A blank recipientName must not land on the wire — file-service
+        // uses field-present as a signal to render the personal
+        // salutation. Blank would produce "Dear ," in the receipt PDF.
+        when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
+        var payload = new ContributionEventPublisher.TransactionRecordedPayload(
+                "txn-uuid-3", "TXN-000044", "tnt-1",
+                "grp-1", null,
+                "10.00", "USD", "PAYMENT", "CASH", null,
+                "2026-07-15", "   ");
+
+        StepVerifier.create(contributionEventPublisher.publishTransactionRecorded(payload))
+                .verifyComplete();
+
+        verify(kafkaSender).send(senderRecordCaptor.capture());
+        StepVerifier.create(senderRecordCaptor.getValue())
+                .assertNext(record -> assertThat(record.value())
+                        .doesNotContain("recipientName"))
+                .verifyComplete();
+    }
 }

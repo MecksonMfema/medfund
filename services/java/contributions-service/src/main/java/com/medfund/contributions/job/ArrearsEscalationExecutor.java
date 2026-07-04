@@ -1,9 +1,13 @@
 package com.medfund.contributions.job;
 
 import com.medfund.contributions.client.UserServiceClient;
+import com.medfund.contributions.dto.BadDebtRow;
 import com.medfund.contributions.entity.DunningConfig;
 import com.medfund.contributions.repository.DunningConfigRepository;
+import com.medfund.contributions.service.ArrearsNoticePublisher;
+import com.medfund.contributions.service.ArrearsNoticePublisher.ArrearsNoticePayload;
 import com.medfund.contributions.service.BalanceService;
+import com.medfund.shared.tenant.TenantContext;
 import com.medfund.shared.scheduler.JobExecutor;
 import com.medfund.shared.scheduler.JobType;
 import lombok.RequiredArgsConstructor;
@@ -34,13 +38,15 @@ import java.util.UUID;
  *   cascades group → members per the plan.</li>
  * </ul>
  *
- * <p>The "payment clears suspension" branch is a follow-up: it needs
- * a query for members/groups currently in {@code suspended} with
- * {@code scheduled_status_reason = 'ARREARS_ESCALATION'} whose aged
- * balance no longer meets the SUSPENDED threshold. Leaving a TODO
- * for the next iteration keeps this executor's scope tight for the
- * first ship — the "arrears → suspended → deactivated" ladder is
- * live now; auto-reactivation follows on the same cadence.
+ * <p><b>Auto-reactivate branch (V043):</b> after the escalation sweep,
+ * asks user-service for every row currently in
+ * {@code status = 'suspended'} with {@code suspend_reason =
+ * 'ARREARS_ESCALATION'} and reactivates any whose id is no longer in
+ * {@link BalanceService#currentlyAgedSubjectIds}. That covers the
+ * "payment settled the aged debt" case without touching operator-
+ * suspended rows (whose suspend_reason is something else).
+ * Deactivated rows are not checked here — reactivation from
+ * deactivated is a manual action per the plan.
  */
 @Slf4j
 @Component
@@ -50,6 +56,7 @@ public class ArrearsEscalationExecutor implements JobExecutor {
     private final DunningConfigRepository dunningRepo;
     private final BalanceService balanceService;
     private final UserServiceClient userClient;
+    private final ArrearsNoticePublisher arrearsPublisher;
     private final DatabaseClient db;
 
     @Override
@@ -69,16 +76,52 @@ public class ArrearsEscalationExecutor implements JobExecutor {
                                 tenantId);
                         return Mono.empty();
                     }
-                    // Query the tenant's active currencies then sweep each.
-                    return activeCurrencies()
+                    // Two phases:
+                    //  1. Escalate — walk currently-aged rows and push
+                    //     them up the SUSPENDED → DEACTIVATED ladder.
+                    //  2. Reactivate — walk suspended-by-arrears rows
+                    //     whose payment has since cleared the age
+                    //     threshold and flip them back to active.
+                    Mono<Void> escalate = activeCurrencies()
                             .flatMap(currency -> sweepCurrency(currency, config, autoSuspend, autoWriteOff))
                             .then();
+                    Mono<Void> reactivate = autoSuspend ? reactivateClearedArrears() : Mono.empty();
+                    return escalate.then(reactivate);
                 })
                 .switchIfEmpty(Mono.defer(() -> {
                     log.warn("No dunning_config row for tenant {}", tenantId);
                     return Mono.empty();
                 }))
                 .then();
+    }
+
+    /**
+     * Post-escalation sweep: reactivate members and groups that are
+     * currently suspended because of arrears and whose aged balance no
+     * longer meets the SUSPENDED threshold. "No longer meets" is
+     * decided by checking against
+     * {@link BalanceService#currentlyAgedSubjectIds} — a row that has
+     * paid down enough to drop out of the aged view has by definition
+     * cleared the threshold.
+     *
+     * <p>Deactivated rows are intentionally NOT included: the plan
+     * requires deactivation → active to be an explicit operator
+     * action, not a payment-triggered auto-flip.
+     */
+    private Mono<Void> reactivateClearedArrears() {
+        return balanceService.currentlyAgedSubjectIds().flatMap(aged -> {
+            Mono<Void> members = userClient.listMembersSuspendedForReason("ARREARS_ESCALATION")
+                    .filter(id -> !aged.contains(id))
+                    .flatMap(id -> userClient.reactivateMember(id, "ARREARS_CLEARED")
+                            .doOnSuccess(v -> log.info("Reactivated member {} — arrears cleared", id)))
+                    .then();
+            Mono<Void> groups = userClient.listGroupsSuspendedForReason("ARREARS_ESCALATION")
+                    .filter(id -> !aged.contains(id))
+                    .flatMap(id -> userClient.reactivateGroup(id, "ARREARS_CLEARED")
+                            .doOnSuccess(v -> log.info("Reactivated group {} — arrears cleared", id)))
+                    .then();
+            return members.then(groups);
+        });
     }
 
     private Flux<String> activeCurrencies() {
@@ -109,7 +152,7 @@ public class ArrearsEscalationExecutor implements JobExecutor {
                 .flatMap(pg -> {
                     if (pg.content().isEmpty()) return Mono.<Void>empty();
                     return Flux.fromIterable(pg.content())
-                            .flatMap(row -> escalateRow(row, autoSuspend, autoWriteOff))
+                            .flatMap(row -> processRow(row, config, autoSuspend, autoWriteOff))
                             .then(pg.content().size() < pageSize
                                     ? Mono.<Void>empty()
                                     : sweepPages(currency, config, autoSuspend, autoWriteOff,
@@ -117,21 +160,89 @@ public class ArrearsEscalationExecutor implements JobExecutor {
                 });
     }
 
-    private Mono<Void> escalateRow(com.medfund.contributions.dto.BadDebtRow row,
+    /**
+     * Per-row driver: decides whether today is a reminder tick,
+     * whether to escalate the status, and publishes the corresponding
+     * arrears-notice on either path. Every branch is a no-op if the
+     * corresponding tenant flag is off.
+     */
+    private Mono<Void> processRow(BadDebtRow row, DunningConfig config,
                                     boolean autoSuspend, boolean autoWriteOff) {
         String bucket = row.agingStatus();
-        String subjectType = row.subjectType();  // "MEMBER" or "GROUP"
         UUID subjectId = row.subjectId();
+        String subjectType = row.subjectType();
+        boolean isGroup = "GROUP".equals(subjectType);
+        long daysOverdue = row.daysSinceLastActivity() != null ? row.daysSinceLastActivity() : 0;
+        int suspensionDays = config.getSuspensionDays() != null ? config.getSuspensionDays() : 30;
+        int deactivationDays = config.getDeactivationDays() != null ? config.getDeactivationDays() : 90;
+
+        // Reminders are the ONLY event this executor publishes. The
+        // "your account has been suspended / deactivated" email is
+        // fired by the lifecycle consumer in notification-service when
+        // it sees the resulting MEMBER_STATUS_CHANGED /
+        // GROUP_STATUS_CHANGED event — that way arrears-triggered
+        // flips and operator-triggered flips share one email path.
+        Mono<Void> escalate = Mono.empty();
+        Mono<Void> reminder = Mono.empty();
+
         if ("SUSPENDED".equals(bucket) && autoSuspend) {
-            return "GROUP".equals(subjectType)
+            escalate = isGroup
                     ? userClient.suspendGroup(subjectId, null, "ARREARS_ESCALATION")
                     : userClient.suspendMember(subjectId, null, "ARREARS_ESCALATION");
-        }
-        if ("WRITE_OFF".equals(bucket) && autoWriteOff) {
-            return "GROUP".equals(subjectType)
+        } else if ("WRITE_OFF".equals(bucket) && autoWriteOff) {
+            escalate = isGroup
                     ? userClient.deactivateGroup(subjectId, null, "ARREARS_ESCALATION")
                     : userClient.deactivateMember(subjectId, null, "ARREARS_ESCALATION");
+        } else if (Boolean.TRUE.equals(config.getAutoRemind())
+                && shouldRemindToday(bucket, daysOverdue, suspensionDays, config)) {
+            String kind = "GRACE".equals(bucket)
+                    ? ArrearsNoticePublisher.KIND_REMINDER_PRE_SUSPENSION
+                    : ArrearsNoticePublisher.KIND_REMINDER_PRE_DEACTIVATION;
+            long daysUntilNext = "GRACE".equals(bucket)
+                    ? Math.max(suspensionDays - daysOverdue, 0)
+                    : Math.max(deactivationDays - daysOverdue, 0);
+            String nextStep = "GRACE".equals(bucket) ? "SUSPENSION" : "DEACTIVATION";
+            reminder = publishNotice(row, kind, daysUntilNext, nextStep);
         }
-        return Mono.empty();
+
+        return escalate.then(reminder);
+    }
+
+    /**
+     * True when today's daysOverdue lands on a reminder tick. Ticks
+     * begin at {@code suspensionDays - reminderLeadDays} and repeat
+     * every {@code reminderIntervalDays}. Post-suspension ticks
+     * (bucket == SUSPENDED) only fire if
+     * {@code reminderContinuePastSuspension} is on.
+     */
+    private static boolean shouldRemindToday(String bucket, long daysOverdue,
+                                              int suspensionDays, DunningConfig config) {
+        if ("WRITE_OFF".equals(bucket)) return false;  // no reminders after deactivation
+        boolean isPastSuspension = "SUSPENDED".equals(bucket);
+        if (isPastSuspension && !Boolean.TRUE.equals(config.getReminderContinuePastSuspension()))
+            return false;
+        int leadDays = config.getReminderLeadDays() != null ? config.getReminderLeadDays() : 7;
+        int interval = config.getReminderIntervalDays() != null ? config.getReminderIntervalDays() : 3;
+        if (interval < 1) interval = 1;
+        long firstTick = Math.max(suspensionDays - leadDays, 0);
+        if (daysOverdue < firstTick) return false;
+        return ((daysOverdue - firstTick) % interval) == 0;
+    }
+
+    private Mono<Void> publishNotice(BadDebtRow row, String kind,
+                                       Long daysUntilNextStep, String nextStep) {
+        return Mono.deferContextual(ctx -> {
+            String tenantId = TenantContext.get(ctx);
+            return arrearsPublisher.publish(new ArrearsNoticePayload(
+                    tenantId,
+                    kind,
+                    row.subjectType(),
+                    row.subjectId().toString(),
+                    row.currencyCode(),
+                    row.balance(),
+                    row.daysSinceLastActivity() != null ? row.daysSinceLastActivity() : 0L,
+                    daysUntilNextStep,
+                    nextStep));
+        });
     }
 }

@@ -235,6 +235,77 @@ func TestForGroup_tenantLookupFails_propagates(t *testing.T) {
 	}
 }
 
+// ── ForMember tests ──────────────────────────────────────────────────────
+
+// Happy path: existing member row with all three fields populated. The
+// member's own email is the delivery target and Kind flips to MEMBER so
+// downstream templates can pick the member-facing salutation.
+func TestForMember_readsMembersRow_populatesRecipient(t *testing.T) {
+	db := newFakeDB().
+		on("FROM public.tenants", "tenant_first_medfund").
+		on("FROM tenant_first_medfund.members",
+			"jane@acme.test", "Jane", "Doe")
+	r := NewResolverWithDB(db)
+
+	rcpt, err := r.ForMember(context.Background(), "tenant-uuid", "member-uuid")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rcpt.Email != "jane@acme.test" {
+		t.Errorf("expected jane@acme.test, got %q", rcpt.Email)
+	}
+	if rcpt.Kind != "MEMBER" {
+		t.Errorf("Kind must flip to MEMBER for member-scoped emails; got %q", rcpt.Kind)
+	}
+	if rcpt.DisplayName != "Jane Doe" {
+		t.Errorf("DisplayName must be 'Jane Doe'; got %q", rcpt.DisplayName)
+	}
+}
+
+// A member with no email on file must fail loudly rather than silently
+// silently sending to "" or dropping the notification. That failure mode
+// caused a real outage before ForGroup was tightened; the same guard on
+// ForMember prevents the equivalent silent-drop on the member path.
+func TestForMember_noEmailOnFile_errorsCleanly(t *testing.T) {
+	db := newFakeDB().
+		on("FROM public.tenants", "tenant_first_medfund").
+		on("FROM tenant_first_medfund.members",
+			"", "Jane", "Doe")
+	r := NewResolverWithDB(db)
+
+	_, err := r.ForMember(context.Background(), "tenant-uuid", "member-uuid")
+	if err == nil || !strings.Contains(err.Error(), "no email on file") {
+		t.Errorf("expected 'no email on file' error, got: %v", err)
+	}
+}
+
+// Row not found (unknown memberId) surfaces the underlying pgx.ErrNoRows
+// wrapped so operators can trace which member was missing.
+func TestForMember_rowNotFound_propagatesLookupError(t *testing.T) {
+	db := newFakeDB().
+		on("FROM public.tenants", "tenant_first_medfund").
+		onError("FROM tenant_first_medfund.members", pgx.ErrNoRows)
+	r := NewResolverWithDB(db)
+
+	_, err := r.ForMember(context.Background(), "tenant-uuid", "member-uuid")
+	if err == nil || !strings.Contains(err.Error(), "lookup member") {
+		t.Errorf("expected lookup member error, got: %v", err)
+	}
+}
+
+// Same schema-safety rule as ForGroup — unsafe identifiers refused
+// before SQL interpolation.
+func TestForMember_unsafeSchemaName_refused(t *testing.T) {
+	db := newFakeDB().
+		on("FROM public.tenants", "tenant_first_medfund; DROP TABLE members")
+	r := NewResolverWithDB(db)
+
+	_, err := r.ForMember(context.Background(), "tenant-uuid", "member-uuid")
+	if err == nil || !strings.Contains(err.Error(), "unsafe schema identifier") {
+		t.Errorf("expected unsafe-schema refusal, got: %v", err)
+	}
+}
+
 // ── helpers ──────────────────────────────────────────────────────────────
 
 func containsAny(haystack []string, needle string) bool {

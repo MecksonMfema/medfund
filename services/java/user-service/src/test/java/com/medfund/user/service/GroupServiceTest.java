@@ -60,6 +60,12 @@ class GroupServiceTest {
     @Mock
     private KeycloakSyncService keycloakSyncService;
 
+    @Mock
+    private MemberService memberService;
+
+    @Mock
+    private UserEventPublisher eventPublisher;
+
     @InjectMocks
     private GroupService groupService;
 
@@ -79,6 +85,12 @@ class GroupServiceTest {
         lenient().when(keycloakSyncService.ensureRealmRole(anyString(), anyString(), anyString()))
             .thenReturn(Mono.empty());
         lenient().when(keycloakSyncService.assignRealmRoles(anyString(), anyString(), any()))
+            .thenReturn(Mono.empty());
+        // Every immediate-flip path publishes GROUP_STATUS_CHANGED so the
+        // notification-service lifecycle consumer can email the liaison.
+        // Stub as no-op here — cascade + scheduled tests use verify(...)
+        // to assert exact args.
+        lenient().when(eventPublisher.publishGroupLifecycle(any(), any(), any(), any()))
             .thenReturn(Mono.empty());
     }
 
@@ -576,6 +588,138 @@ class GroupServiceTest {
                 assertThat(g.getLiaisonUserId()).isEqualTo(newStaffId);
             })
             .verifyComplete();
+    }
+
+    // ------------------------------------------------------------------
+    // Future-dated + cascade tests (V042/V043)
+    // ------------------------------------------------------------------
+
+    @Test
+    void deactivate_futureDate_persistsScheduledTrio_noPublishNoCascade() {
+        var group = createTestGroup();
+        var id = group.getId();
+        var effective = java.time.LocalDate.now().plusDays(10);
+
+        when(groupRepository.findById(id)).thenReturn(Mono.just(group));
+        when(groupRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            groupService.deactivate(id, effective, "PLANNED",
+                    UUID.randomUUID().toString(), "actor@test")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "tnt"))
+        )
+            .assertNext(g -> {
+                assertThat(g.getStatus()).isEqualTo("active"); // unchanged
+                assertThat(g.getScheduledStatus()).isEqualTo("deactivated");
+                assertThat(g.getScheduledStatusEffectiveFrom()).isEqualTo(effective);
+                assertThat(g.getScheduledStatusReason()).isEqualTo("PLANNED");
+            })
+            .verifyComplete();
+
+        // Scheduled flips are audit-only — no lifecycle event, no cascade.
+        verify(eventPublisher, never()).publishGroupLifecycle(any(), any(), any(), any());
+        verify(memberService, never()).deactivate(any(), any(), any(), any(), any());
+        verify(memberService, never()).terminate(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void deactivate_immediate_cascadesActiveAndSuspendedMembers_skipsTerminatedAndDeactivated() {
+        var group = createTestGroup();
+        var id = group.getId();
+
+        when(groupRepository.findById(id)).thenReturn(Mono.just(group));
+        when(groupRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        Member active = memberInGroup(id, "active");
+        Member suspended = memberInGroup(id, "suspended");
+        Member terminated = memberInGroup(id, "terminated");
+        Member alreadyDeactivated = memberInGroup(id, "deactivated");
+        when(memberRepository.findByGroupId(id))
+                .thenReturn(Flux.just(active, suspended, terminated, alreadyDeactivated));
+        when(memberService.deactivate(any(), any(), any(), any(), any()))
+                .thenAnswer(inv -> Mono.just(active));
+
+        StepVerifier.create(
+            groupService.deactivate(id, null, "ARREARS_ESCALATION",
+                    UUID.randomUUID().toString(), "actor@test")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "tnt"))
+        )
+            .assertNext(g -> assertThat(g.getStatus()).isEqualTo("deactivated"))
+            .verifyComplete();
+
+        // Guards:
+        //  - active + suspended → cascade fires
+        //  - terminated + already-deactivated → skipped per the plan
+        //  - publish carries tenantId + reason in the right slots
+        verify(memberService).deactivate(eq(active.getId()), org.mockito.ArgumentMatchers.isNull(),
+                eq("ARREARS_ESCALATION"), any(), any());
+        verify(memberService).deactivate(eq(suspended.getId()), org.mockito.ArgumentMatchers.isNull(),
+                eq("ARREARS_ESCALATION"), any(), any());
+        verify(memberService, never())
+                .deactivate(eq(terminated.getId()), any(), any(), any(), any());
+        verify(memberService, never())
+                .deactivate(eq(alreadyDeactivated.getId()), any(), any(), any(), any());
+        verify(eventPublisher).publishGroupLifecycle(eq("tnt"), eq(id.toString()),
+                eq("deactivated"), eq("ARREARS_ESCALATION"));
+    }
+
+    @Test
+    void suspend_immediate_doesNotCascadeToMembers() {
+        // suspend is not a cascading action — only deactivate and terminate cascade
+        // per the plan. Members keep their individual status.
+        var group = createTestGroup();
+        var id = group.getId();
+
+        when(groupRepository.findById(id)).thenReturn(Mono.just(group));
+        when(groupRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            groupService.suspend(id, null, "ARREARS_ESCALATION",
+                    UUID.randomUUID().toString(), "actor@test")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "tnt"))
+        )
+            .assertNext(g -> {
+                assertThat(g.getStatus()).isEqualTo("suspended");
+                assertThat(g.getSuspendReason()).isEqualTo("ARREARS_ESCALATION");
+            })
+            .verifyComplete();
+
+        verify(memberService, never()).suspend(any(), any(), any(), any(), any());
+        verify(memberService, never()).deactivate(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void activate_afterSuspend_clearsSuspendReason() {
+        var group = createTestGroup();
+        group.setStatus("suspended");
+        group.setSuspendReason("ARREARS_ESCALATION");
+        var id = group.getId();
+
+        when(groupRepository.findById(id)).thenReturn(Mono.just(group));
+        when(groupRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            groupService.activate(id, null, "ARREARS_CLEARED",
+                    UUID.randomUUID().toString(), "actor@test")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "tnt"))
+        )
+            .assertNext(g -> {
+                assertThat(g.getStatus()).isEqualTo("active");
+                assertThat(g.getSuspendReason()).isNull();
+            })
+            .verifyComplete();
+    }
+
+    private static Member memberInGroup(UUID groupId, String status) {
+        Member m = new Member();
+        m.setId(UUID.randomUUID());
+        m.setGroupId(groupId);
+        m.setStatus(status);
+        return m;
     }
 
     private Group createTestGroup() {

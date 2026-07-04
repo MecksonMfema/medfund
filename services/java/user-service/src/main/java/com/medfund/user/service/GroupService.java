@@ -43,6 +43,7 @@ public class GroupService {
     // Cascades group-lifecycle transitions to member rows. Split constructor
     // above stays unchanged — @RequiredArgsConstructor picks this up.
     private final MemberService memberService;
+    private final UserEventPublisher eventPublisher;
 
     public Flux<Group> findAll() {
         return groupRepository.findAllOrderByCreatedAtDesc();
@@ -314,6 +315,15 @@ public class GroupService {
                     existing.setScheduledStatus(null);
                     existing.setScheduledStatusEffectiveFrom(null);
                     existing.setScheduledStatusReason(null);
+                    // V043 — persist the reason for non-active transitions
+                    // so the arrears executor can find "arrears-suspended
+                    // groups" without walking the audit trail. Clear on
+                    // return to active.
+                    if ("active".equals(targetStatus)) {
+                        existing.setSuspendReason(null);
+                    } else if (reason != null && !reason.isBlank()) {
+                        existing.setSuspendReason(reason);
+                    }
                 }
                 existing.setUpdatedAt(Instant.now());
                 existing.setUpdatedBy(safeParseUuid(actorId));
@@ -334,6 +344,15 @@ public class GroupService {
                             UUID.randomUUID().toString()
                         );
                         Mono<Void> auditThenCascade = auditPublisher.publish(event);
+                        // Publish GROUP_STATUS_CHANGED for immediate flips so
+                        // notification-service can email the liaison. Skipped
+                        // for future-dated schedules — that event fires when
+                        // the daily roll actually applies it.
+                        if (!isFuture) {
+                            auditThenCascade = auditThenCascade
+                                .then(eventPublisher.publishGroupLifecycle(
+                                        tenantId, saved.getId().toString(), targetStatus, reason));
+                        }
                         if (!isFuture && shouldCascadeToMembers(targetStatus)) {
                             auditThenCascade = auditThenCascade.then(cascadeToMembers(
                                     saved.getId(), targetStatus, reason, actorId, actorEmail));

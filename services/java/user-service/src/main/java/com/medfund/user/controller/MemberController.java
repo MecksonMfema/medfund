@@ -29,9 +29,28 @@ import java.util.UUID;
 public class MemberController {
 
     private final MemberService memberService;
+    private final com.medfund.user.repository.MemberRepository memberRepository;
 
-    public MemberController(MemberService memberService) {
+    public MemberController(MemberService memberService,
+                             com.medfund.user.repository.MemberRepository memberRepository) {
         this.memberService = memberService;
+        this.memberRepository = memberRepository;
+    }
+
+    /**
+     * Lookup used by the arrears-escalation auto-reactivate sweep in
+     * contributions-service. Returns every member currently in
+     * {@code status = 'suspended'} whose {@code suspend_reason}
+     * matches. Kept scoped to arrears-shaped queries (no free-form
+     * status/reason combos) — new lookups will get their own endpoint.
+     */
+    @GetMapping("/suspended")
+    @Operation(summary = "List members currently suspended for a given reason",
+        description = "Internal lookup for auto-reactivation flows. Filter by suspend_reason " +
+                      "(e.g. ARREARS_ESCALATION).")
+    public Flux<MemberResponse> listSuspendedByReason(
+            @RequestParam(name = "reason") String reason) {
+        return memberRepository.findSuspendedByReason(reason).map(MemberResponse::from);
     }
 
     @GetMapping

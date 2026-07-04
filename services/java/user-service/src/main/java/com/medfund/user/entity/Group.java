@@ -63,6 +63,13 @@ public class Group {
     @Column("scheduled_status_reason")
     private String scheduledStatusReason;
 
+    /**
+     * V043 — persisted "why is this row not active" reason. See
+     * {@link Member#getSuspendReason()} for semantics.
+     */
+    @Column("suspend_reason")
+    private String suspendReason;
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;
@@ -109,6 +116,9 @@ public class Group {
 
     public String getScheduledStatusReason() { return scheduledStatusReason; }
     public void setScheduledStatusReason(String r) { this.scheduledStatusReason = r; }
+
+    public String getSuspendReason() { return suspendReason; }
+    public void setSuspendReason(String suspendReason) { this.suspendReason = suspendReason; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

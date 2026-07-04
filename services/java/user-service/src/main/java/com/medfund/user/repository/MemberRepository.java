@@ -22,6 +22,15 @@ public interface MemberRepository extends R2dbcRepository<Member, UUID> {
     @Query("SELECT * FROM members WHERE status = :status ORDER BY created_at DESC")
     Flux<Member> findByStatus(String status);
 
+    /**
+     * V043 lookup used by the arrears-escalation auto-reactivate sweep.
+     * Returns every member currently in {@code status = 'suspended'}
+     * whose {@code suspend_reason} matches. Small partial index at
+     * {@code idx_members_suspend_reason} covers this.
+     */
+    @Query("SELECT * FROM members WHERE status = 'suspended' AND suspend_reason = :reason")
+    Flux<Member> findSuspendedByReason(String reason);
+
     @Query("SELECT * FROM members WHERE keycloak_user_id = :keycloakUserId")
     Mono<Member> findByKeycloakUserId(String keycloakUserId);
 

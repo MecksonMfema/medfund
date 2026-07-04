@@ -3,8 +3,12 @@ package com.medfund.user.controller;
 import com.medfund.user.config.SecurityConfig;
 import com.medfund.user.entity.Group;
 import com.medfund.user.exception.GlobalExceptionHandler;
+import com.medfund.user.repository.GroupRepository;
 import com.medfund.user.service.GroupService;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import java.time.LocalDate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -30,6 +34,9 @@ class GroupControllerTest {
 
     @MockBean
     GroupService groupService;
+
+    @MockBean
+    GroupRepository groupRepository;
 
     @Test
     void findAll_returns200() {
@@ -129,6 +136,47 @@ class GroupControllerTest {
                 .header("X-Tenant-ID", "test-tenant")
                 .exchange()
                 .expectStatus().isBadRequest();
+    }
+
+    @Test
+    void action_deactivate_futureDate_passedThrough() {
+        UUID id = UUID.randomUUID();
+        Group group = createTestGroup();
+        group.setId(id);
+        when(groupService.deactivate(any(UUID.class), any(LocalDate.class), anyString(), any(), any()))
+                .thenReturn(Mono.just(group));
+
+        webTestClient.mutateWith(mockJwt())
+                .post().uri("/api/v1/groups/{id}/actions/deactivate", id)
+                .header("X-Tenant-ID", "test-tenant")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"effectiveDate\":\"2026-11-30\",\"reason\":\"OFFBOARDING\"}")
+                .exchange()
+                .expectStatus().isOk();
+
+        ArgumentCaptor<LocalDate> dateCap = ArgumentCaptor.forClass(LocalDate.class);
+        ArgumentCaptor<String> reasonCap = ArgumentCaptor.forClass(String.class);
+        org.mockito.Mockito.verify(groupService).deactivate(any(UUID.class),
+                dateCap.capture(), reasonCap.capture(), any(), any());
+        org.assertj.core.api.Assertions.assertThat(dateCap.getValue())
+                .isEqualTo(LocalDate.of(2026, 11, 30));
+        org.assertj.core.api.Assertions.assertThat(reasonCap.getValue())
+                .isEqualTo("OFFBOARDING");
+    }
+
+    @Test
+    void listSuspendedByReason_delegatesToRepository() {
+        Group g = createTestGroup();
+        when(groupRepository.findSuspendedByReason("ARREARS_ESCALATION"))
+                .thenReturn(Flux.just(g));
+
+        webTestClient.mutateWith(mockJwt())
+                .get().uri(uri -> uri.path("/api/v1/groups/suspended")
+                        .queryParam("reason", "ARREARS_ESCALATION").build())
+                .header("X-Tenant-ID", "test-tenant")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(Object.class).hasSize(1);
     }
 
     private Group createTestGroup() {

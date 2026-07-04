@@ -324,7 +324,7 @@ public class MemberService {
         LocalDate today = LocalDate.now();
         boolean isFuture = effectiveDate != null && effectiveDate.isAfter(today);
         if (!isFuture) {
-            return transitionStatus(id, targetStatus, actorId, actorEmail)
+            return transitionStatus(id, targetStatus, reason, actorId, actorEmail)
                 .flatMap(saved -> {
                     // Terminated rows also record the termination_date so the
                     // downstream MemberLifecycleConsumer can compute the
@@ -358,6 +358,11 @@ public class MemberService {
     }
 
     private Mono<Member> transitionStatus(UUID id, String newStatus, String actorId, String actorEmail) {
+        return transitionStatus(id, newStatus, null, actorId, actorEmail);
+    }
+
+    private Mono<Member> transitionStatus(UUID id, String newStatus, String reason,
+                                            String actorId, String actorEmail) {
         return memberRepository.findById(id)
             .switchIfEmpty(Mono.error(new MemberNotFoundException(id)))
             .flatMap(existing -> {
@@ -368,6 +373,14 @@ public class MemberService {
                 existing.setScheduledStatus(null);
                 existing.setScheduledStatusEffectiveFrom(null);
                 existing.setScheduledStatusReason(null);
+                // V043 — persist the reason for non-active transitions so
+                // the arrears executor can find "arrears-suspended rows"
+                // without walking the audit trail. Clear on return to active.
+                if ("active".equals(newStatus)) {
+                    existing.setSuspendReason(null);
+                } else if (reason != null && !reason.isBlank()) {
+                    existing.setSuspendReason(reason);
+                }
                 existing.setUpdatedAt(Instant.now());
                 existing.setUpdatedBy(safeParseUuid(actorId));
 
@@ -376,8 +389,10 @@ public class MemberService {
                         String tenantId = TenantContext.get(ctx);
                         return publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE")
                             .then(eventPublisher.publishMemberLifecycle(
+                                tenantId,
                                 saved.getId().toString(),
                                 newStatus,
+                                reason,
                                 saved.getTerminationDate() != null ? saved.getTerminationDate().toString() : null,
                                 saved.getGroupId()  != null ? saved.getGroupId().toString()  : null,
                                 saved.getSchemeId() != null ? saved.getSchemeId().toString() : null))

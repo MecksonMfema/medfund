@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
@@ -59,6 +60,34 @@ public class UserServiceClient {
 
     public Mono<Void> reactivateGroup(UUID groupId, String reason) {
         return callGroupAction(groupId, "activate", null, reason);
+    }
+
+    /**
+     * V043 auto-reactivate lookups. Each returns a stream of ids for
+     * rows currently in {@code status = 'suspended'} whose
+     * {@code suspend_reason} matches — the arrears executor uses these
+     * to find candidates whose aged balance may have been cleared.
+     */
+    public Flux<UUID> listMembersSuspendedForReason(String reason) {
+        return listSuspendedIds("/api/v1/members/suspended", reason);
+    }
+
+    public Flux<UUID> listGroupsSuspendedForReason(String reason) {
+        return listSuspendedIds("/api/v1/groups/suspended", reason);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Flux<UUID> listSuspendedIds(String path, String reason) {
+        return Mono.deferContextual(ctx -> Mono.just(TenantContext.get(ctx) != null ? TenantContext.get(ctx) : ""))
+            .flatMapMany(tenantId -> http.get()
+                .uri(uri -> uri.path(path).queryParam("reason", reason).build())
+                .header("X-Tenant-ID", tenantId)
+                .retrieve()
+                .bodyToFlux(Map.class)
+                .map(m -> UUID.fromString((String) ((Map<String, Object>) m).get("id")))
+                .doOnError(err -> log.warn("UserService list-suspended {} failed: {}",
+                        path, err.getMessage()))
+                .onErrorResume(err -> Flux.empty()));
     }
 
     private Mono<Void> callMemberAction(UUID id, String action, LocalDate effectiveDate, String reason) {

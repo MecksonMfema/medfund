@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8" /><title>{{.HeadlineShort}}</title></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1f2937;max-width:600px;margin:24px auto;padding:0 16px">
+  <p>Hi {{.DisplayName}},</p>
+  <p>{{.Lead}}</p>
+
+  <table style="width:100%;border-collapse:collapse;margin:24px 0;font-size:14px">
+    <tr><td style="padding:8px 0;color:#5b6371;width:45%">Amount outstanding</td>
+        <td style="padding:8px 0;font-weight:600">{{.CurrencyCode}} {{.Balance}}</td></tr>
+    <tr><td style="padding:8px 0;color:#5b6371">Days overdue</td>
+        <td style="padding:8px 0">{{.DaysOverdue}}</td></tr>
+    {{if .DaysUntilNextStep}}<tr>
+      <td style="padding:8px 0;color:#5b6371">Time until {{.NextStepLabel}}</td>
+      <td style="padding:8px 0">{{.DaysUntilNextStep}} day(s)</td>
+    </tr>{{end}}
+  </table>
+
+  <p>{{.CallToAction}}</p>
+
+  <p style="color:#5b6371;font-size:13px">If you've already paid, please ignore this reminder — payments can take up to 24 hours to reflect on your statement.</p>
+</body>
+</html>

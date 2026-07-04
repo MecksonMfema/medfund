@@ -74,14 +74,22 @@ public class LateAdjustmentService {
             return Mono.empty();
         }
         String reference = buildReference(sourceKey, monthsCovered, oldestMissedPeriodStart);
+        // Idempotency guard: hasElement returns TRUE when a prior post
+        // with this reference exists. Using flatMap(existing → empty())
+        // + switchIfEmpty here would fire switchIfEmpty on the empty
+        // Mono the flatMap produced — silently double-posting on every
+        // Kafka redelivery. Locked in by LateAdjustmentServiceTest.
         return transactionRepository.findFirstByReferenceAndTransactionType(reference, transactionType)
-                .flatMap((Transaction existing) -> {
-                    log.info("Late-adjustment already posted for source={} type={} (txn={}), skipping",
-                            sourceKey, transactionType, existing.getTransactionNumber());
-                    return Mono.<Void>empty();
+                .hasElement()
+                .flatMap(existed -> {
+                    if (existed) {
+                        log.info("Late-adjustment already posted for source={} type={}, skipping",
+                                sourceKey, transactionType);
+                        return Mono.<Void>empty();
+                    }
+                    return priceAndPost(memberId, groupId, schemeId, oldestMissedPeriodStart,
+                            monthsCovered, currencyCode, transactionType, reference);
                 })
-                .switchIfEmpty(Mono.defer(() -> priceAndPost(memberId, groupId, schemeId,
-                        oldestMissedPeriodStart, monthsCovered, currencyCode, transactionType, reference)))
                 .onErrorResume(err -> {
                     log.warn("Late-adjustment post failed for source={} type={}: {}",
                             sourceKey, transactionType, err.getMessage());
@@ -110,15 +118,19 @@ public class LateAdjustmentService {
             return Mono.empty();
         }
         String reference = buildReference(sourceKey, monthsCovered, periodStart);
+        // See postAggregate for why this uses hasElement rather than
+        // flatMap+switchIfEmpty.
         return transactionRepository.findFirstByReferenceAndTransactionType(reference, transactionType)
-                .flatMap(existing -> {
-                    log.info("Fixed-aggregate already posted for source={} type={} (txn={}), skipping",
-                            sourceKey, transactionType, existing.getTransactionNumber());
-                    return Mono.<Void>empty();
+                .hasElement()
+                .flatMap(existed -> {
+                    if (existed) {
+                        log.info("Fixed-aggregate already posted for source={} type={}, skipping",
+                                sourceKey, transactionType);
+                        return Mono.<Void>empty();
+                    }
+                    return recordAggregate(memberId, groupId, aggregateAmount, currencyCode,
+                            transactionType, reference, monthsCovered, schemeId, periodStart);
                 })
-                .switchIfEmpty(Mono.defer(() -> recordAggregate(memberId, groupId,
-                        aggregateAmount, currencyCode, transactionType, reference,
-                        monthsCovered, schemeId, periodStart)))
                 .onErrorResume(err -> {
                     log.warn("Fixed-aggregate post failed for source={} type={}: {}",
                             sourceKey, transactionType, err.getMessage());

@@ -3,6 +3,8 @@ package com.medfund.contributions.controller;
 import com.medfund.contributions.config.SecurityConfig;
 import com.medfund.contributions.entity.Contribution;
 import com.medfund.contributions.service.BillingService;
+import com.medfund.shared.scheduler.JobDispatcher;
+import com.medfund.shared.scheduler.ScheduledJobService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
@@ -31,6 +33,12 @@ class ContributionControllerTest {
 
     @MockBean
     private BillingService billingService;
+
+    @MockBean
+    private ScheduledJobService scheduledJobService;
+
+    @MockBean
+    private JobDispatcher jobDispatcher;
 
     @Test
     void findByMemberId_returns200() {
