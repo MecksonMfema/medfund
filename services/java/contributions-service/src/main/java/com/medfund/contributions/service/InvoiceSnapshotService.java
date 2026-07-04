@@ -128,25 +128,36 @@ public class InvoiceSnapshotService {
 
     /**
      * Sum payments + adjustments posted in {@code [priorCommittedAt, committedAt)}
-     * for this {@code (holder, currency)}. Transactions are joined to the
-     * holder via {@code contributions} since the transactions table has
-     * no holder column.
+     * for this {@code (holder, currency)}. Transactions attach to the
+     * holder via one of two paths:
+     * <ol>
+     *   <li>Their {@code contribution_id} points at a contribution row
+     *       whose {@code group_id} / {@code member_id} matches. This is
+     *       the classic per-invoice payment.</li>
+     *   <li>Their own {@code group_id} / {@code member_id} (V039 direct
+     *       owner columns) matches the holder — the "top of group"
+     *       payment case where an operator credits the group without
+     *       picking a specific contribution row.</li>
+     * </ol>
+     * LEFT JOIN so a transaction with {@code contribution_id IS NULL}
+     * doesn't get dropped by the inner join.
      */
-    private Mono<WindowSums> sumWindowedTransactions(Invoice invoice,
-                                                      Instant priorCommittedAt,
-                                                      Instant committedAt) {
+    /** Package-private for unit tests that capture the SQL predicate. */
+    Mono<WindowSums> sumWindowedTransactions(Invoice invoice,
+                                              Instant priorCommittedAt,
+                                              Instant committedAt) {
         String sql = """
                 SELECT
                   COALESCE(SUM(CASE WHEN tt.sign = '-' THEN t.amount ELSE 0 END), 0) AS payments,
                   COALESCE(SUM(CASE WHEN tt.sign = '+' THEN t.amount ELSE 0 END), 0) AS adjustments
                   FROM transactions t
-                  JOIN contributions c     ON c.id = t.contribution_id
+                  LEFT JOIN contributions c     ON c.id = t.contribution_id
                   LEFT JOIN transaction_types tt ON tt.code = t.transaction_type
                  WHERE t.currency_code = :currency
                    AND t.created_at <  :committedAt
                    AND (:lower IS NULL OR t.created_at >= :lower)
-                   AND ( (:groupId  IS NOT NULL AND c.group_id  = :groupId)
-                      OR (:memberId IS NOT NULL AND c.member_id = :memberId) )
+                   AND ( (:groupId  IS NOT NULL AND (c.group_id  = :groupId  OR t.group_id  = :groupId))
+                      OR (:memberId IS NOT NULL AND (c.member_id = :memberId OR t.member_id = :memberId)) )
                 """;
         var spec = db.sql(sql)
                 .bind("currency",    invoice.getCurrencyCode())
@@ -170,7 +181,8 @@ public class InvoiceSnapshotService {
         static final Prior EMPTY = new Prior(null, BigDecimal.ZERO, null);
     }
 
-    private record WindowSums(BigDecimal payments, BigDecimal adjustments) {
+    /** Package-private so unit tests can assert on the returned aggregates. */
+    record WindowSums(BigDecimal payments, BigDecimal adjustments) {
         static final WindowSums ZERO = new WindowSums(BigDecimal.ZERO, BigDecimal.ZERO);
     }
 }

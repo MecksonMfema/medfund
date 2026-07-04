@@ -75,6 +75,12 @@
                 name="targetQuery"
                 [placeholder]="targetType === 'GROUP' ? 'Search by group name…' : 'Search by member name…'"
                 autocomplete="off" />
+              @if (targetType === 'INDIVIDUAL') {
+                <p class="hint muted">
+                  Only ungrouped members appear here. Members affiliated to a group
+                  are billed through their group — record the payment against the group instead.
+                </p>
+              }
               @if (showMatches && targetQuery.trim()) {
                 <ul class="suggestions">
                   @if (targetSearching) {

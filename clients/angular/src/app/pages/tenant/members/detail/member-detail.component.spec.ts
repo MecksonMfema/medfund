@@ -92,6 +92,7 @@ function instantiate(id: string | null = 'm-1') {
   const contribs = new StubContribs();
   const toast = new StubToast();
   const router = new StubRouter();
+  const tenantSvc = { getTenant: () => ({ pricingModel: 'STANDARD' }) };
   const comp = new MemberDetailComponent(
     members as unknown as MembersService,
     groups as unknown as GroupsService,
@@ -99,6 +100,7 @@ function instantiate(id: string | null = 'm-1') {
     route,
     router as any,
     toast as unknown as ToastService,
+    tenantSvc as any,
   );
   return { comp, members, toast, router };
 }

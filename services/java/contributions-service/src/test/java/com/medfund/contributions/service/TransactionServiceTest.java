@@ -198,6 +198,151 @@ class TransactionServiceTest {
         verify(eventPublisher, org.mockito.Mockito.never()).publishTransactionRecorded(any());
     }
 
+    // ------------------------------------------------------------------
+    // Grouped-member payer rejection — see feedback_grouped_members_cannot_pay
+    // ------------------------------------------------------------------
+
+    @Test
+    void record_paymentAgainstUngroupedMember_succeeds() {
+        // Individual (no group_id) member pays their own balance. This is
+        // the ONLY legitimate path for a memberId on the payer leg.
+        UUID memberId = UUID.randomUUID();
+        var request = new RecordTransactionRequest(
+            null, memberId,
+            new BigDecimal("75.00"), "USD",
+            "PAYMENT", "cash", "REF-002", null
+        );
+        // db.sql routes to two separate specs — the group_id lookup first,
+        // then the recipient-name lookup on the receipt path. Stubs return
+        // the right shape per query.
+        stubMemberDbLookups(java.util.Optional.<UUID>empty(), "Jane Doe");
+
+        when(transactionRepository.save(any(Transaction.class)))
+            .thenAnswer(inv -> {
+                Transaction t = inv.getArgument(0);
+                if (t.getId() == null) t.setId(UUID.randomUUID());
+                return Mono.just(t);
+            });
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishTransactionRecorded(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(transactionService.record(request, actorId, actorEmail)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .assertNext(saved -> {
+                assertThat(saved.getMemberId()).isEqualTo(memberId);
+                assertThat(saved.getGroupId()).isNull();
+            })
+            .verifyComplete();
+
+        verify(transactionRepository).save(any(Transaction.class));
+    }
+
+    @Test
+    void record_paymentAgainstGroupedMember_returns422_beforeSave() {
+        // Grouped member — the group liaison is billed for the whole
+        // roster. A per-member payment would double-count. Reject BEFORE
+        // saving so no drift lands in the ledger.
+        UUID memberId = UUID.randomUUID();
+        UUID groupId = UUID.randomUUID();
+        var request = new RecordTransactionRequest(
+            null, memberId,
+            new BigDecimal("75.00"), "USD",
+            "PAYMENT", "cash", "REF-003", null
+        );
+        stubMemberDbLookups(java.util.Optional.of(groupId), null);
+
+        StepVerifier.create(transactionService.record(request, actorId, actorEmail)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .expectErrorSatisfies(err -> {
+                assertThat(err).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+                var rse = (org.springframework.web.server.ResponseStatusException) err;
+                assertThat(rse.getStatusCode().value()).isEqualTo(422);
+                assertThat(err.getMessage()).contains("affiliated to a group");
+            })
+            .verify();
+
+        verify(transactionRepository, org.mockito.Mockito.never()).save(any(Transaction.class));
+        verify(auditPublisher, org.mockito.Mockito.never()).publish(any());
+        verify(eventPublisher, org.mockito.Mockito.never()).publishTransactionRecorded(any());
+    }
+
+    @Test
+    void record_paymentAgainstUnknownMember_returns422() {
+        // Member row not found → reject rather than fall through and
+        // save an orphaned transaction whose memberId points nowhere.
+        UUID memberId = UUID.randomUUID();
+        var request = new RecordTransactionRequest(
+            null, memberId,
+            new BigDecimal("50.00"), "USD",
+            "PAYMENT", "cash", null, null
+        );
+        stubMemberGroupIdLookupEmpty();
+
+        StepVerifier.create(transactionService.record(request, actorId, actorEmail)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .expectErrorSatisfies(err -> {
+                assertThat(err).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+                assertThat(err.getMessage()).contains("not found");
+            })
+            .verify();
+
+        verify(transactionRepository, org.mockito.Mockito.never()).save(any(Transaction.class));
+    }
+
+    /**
+     * Two-query stub: (1) SELECT group_id FROM members (returns the
+     * given Optional&lt;UUID&gt;), (2) SELECT name FROM members / groups
+     * (returns the given name). The record path fires both when the
+     * payer is an ungrouped member.
+     */
+    @SuppressWarnings("unchecked")
+    private void stubMemberDbLookups(java.util.Optional<UUID> groupId, String recipientName) {
+        var groupIdSpec = org.mockito.Mockito.mock(
+                org.springframework.r2dbc.core.DatabaseClient.GenericExecuteSpec.class);
+        var groupIdFetch = org.mockito.Mockito.mock(
+                org.springframework.r2dbc.core.RowsFetchSpec.class);
+        var nameSpec = org.mockito.Mockito.mock(
+                org.springframework.r2dbc.core.DatabaseClient.GenericExecuteSpec.class);
+        var nameFetch = org.mockito.Mockito.mock(
+                org.springframework.r2dbc.core.RowsFetchSpec.class);
+
+        lenient().when(db.sql(org.mockito.ArgumentMatchers.argThat(
+                (String s) -> s != null && s.contains("group_id FROM members"))))
+                .thenReturn(groupIdSpec);
+        lenient().when(db.sql(org.mockito.ArgumentMatchers.argThat(
+                (String s) -> s != null && (s.contains("name FROM members")
+                        || s.contains("name FROM groups")))))
+                .thenReturn(nameSpec);
+        lenient().when(groupIdSpec.bind(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any())).thenReturn(groupIdSpec);
+        lenient().when(groupIdSpec.map(org.mockito.ArgumentMatchers.any(java.util.function.Function.class)))
+                .thenReturn(groupIdFetch);
+        lenient().when(groupIdFetch.one()).thenReturn(Mono.just(groupId));
+        lenient().when(nameSpec.bind(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any())).thenReturn(nameSpec);
+        lenient().when(nameSpec.map(org.mockito.ArgumentMatchers.any(java.util.function.Function.class)))
+                .thenReturn(nameFetch);
+        lenient().when(nameFetch.one()).thenReturn(recipientName != null
+                ? Mono.just(recipientName)
+                : Mono.empty());
+    }
+
+    /** Stubs the SELECT group_id query to return an empty Mono, mimicking
+     *  "member row not found" so the record path takes the 422 branch. */
+    @SuppressWarnings("unchecked")
+    private void stubMemberGroupIdLookupEmpty() {
+        var spec = org.mockito.Mockito.mock(
+                org.springframework.r2dbc.core.DatabaseClient.GenericExecuteSpec.class);
+        var fetch = org.mockito.Mockito.mock(
+                org.springframework.r2dbc.core.RowsFetchSpec.class);
+        lenient().when(db.sql(org.mockito.ArgumentMatchers.anyString())).thenReturn(spec);
+        lenient().when(spec.bind(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any())).thenReturn(spec);
+        lenient().when(spec.map(org.mockito.ArgumentMatchers.any(java.util.function.Function.class)))
+                .thenReturn(fetch);
+        lenient().when(fetch.one()).thenReturn(Mono.empty());
+    }
+
     /** Missing both group and member is a 422 — nothing to anchor the ledger to. */
     @Test
     void record_noOwner_returns422() {

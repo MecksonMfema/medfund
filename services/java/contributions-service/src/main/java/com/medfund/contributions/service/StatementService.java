@@ -107,9 +107,17 @@ public class StatementService {
                             .toList();
                     Set<UUID> contributionIds = matching.stream().map(Contribution::getId).collect(Collectors.toSet());
 
-                    Mono<List<Transaction>> txnsMono = contributionIds.isEmpty()
-                            ? Mono.just(List.of())
-                            : findTransactionsForContributions(contributionIds, resolvedCurrency).collectList();
+                    // Include BOTH transactions attributed to one of this
+                    // holder's contributions AND transactions posted
+                    // directly against the holder (V039 added the direct
+                    // owner columns on transactions; a top-of-group
+                    // payment carries group_id NOT NULL + contribution_id
+                    // NULL and would otherwise never surface). If there
+                    // are no contributions the direct-owner branch still
+                    // fires so ledger lines pre-billing are visible too.
+                    Mono<List<Transaction>> txnsMono = findTransactionsForHolder(
+                            targetType, targetId, contributionIds, resolvedCurrency)
+                            .collectList();
 
                     return txnsMono.map(txns -> assemble(
                             targetType, targetId, header, periodStart, periodEnd,
@@ -197,23 +205,47 @@ public class StatementService {
 
     // ── Lookups ──────────────────────────────────────────────────────────
 
-    private Flux<Transaction> findTransactionsForContributions(Set<UUID> contributionIds, String currency) {
-        return db.sql("""
+    /**
+     * Fetches every transaction attributable to the given holder — either
+     * because it's linked to one of the holder's contributions
+     * ({@code contribution_id ∈ ids}) OR because it was posted directly
+     * against the holder via V039's owner columns
+     * ({@code group_id = :targetId} for a GROUP,
+     * {@code member_id = :targetId} for a MEMBER). The latter case covers
+     * "top of group" payments where the operator credits the group
+     * without picking a specific contribution row.
+     */
+    /** Package-private for unit tests that capture the SQL predicate. */
+    Flux<Transaction> findTransactionsForHolder(String targetType, UUID targetId,
+                                                 Set<UUID> contributionIds, String currency) {
+        boolean isGroup = "GROUP".equalsIgnoreCase(targetType);
+        UUID[] ids = contributionIds.isEmpty()
+                ? new UUID[]{ new UUID(0L, 0L) }  // sentinel — matches nothing
+                : contributionIds.toArray(UUID[]::new);
+        String sql = """
                 SELECT id, transaction_number, contribution_id, invoice_id,
+                       group_id, member_id,
                        amount, currency_code, transaction_type, payment_method,
                        reference, status, transaction_date, created_at, created_by
                   FROM transactions
-                 WHERE contribution_id = ANY(:ids)
-                   AND currency_code = :currency
-                """)
-                .bind("ids", contributionIds.toArray(UUID[]::new))
+                 WHERE currency_code = :currency
+                   AND (
+                        contribution_id = ANY(:ids)
+                     OR %s
+                   )
+                """.formatted(isGroup ? "group_id = :targetId" : "member_id = :targetId");
+        return db.sql(sql)
+                .bind("ids", ids)
                 .bind("currency", currency)
+                .bind("targetId", targetId)
                 .map(row -> {
                     Transaction t = new Transaction();
                     t.setId((UUID) row.get("id"));
                     t.setTransactionNumber((String) row.get("transaction_number"));
                     t.setContributionId((UUID) row.get("contribution_id"));
                     t.setInvoiceId((UUID) row.get("invoice_id"));
+                    t.setGroupId((UUID) row.get("group_id"));
+                    t.setMemberId((UUID) row.get("member_id"));
                     t.setAmount((BigDecimal) row.get("amount"));
                     t.setCurrencyCode((String) row.get("currency_code"));
                     t.setTransactionType((String) row.get("transaction_type"));
@@ -304,21 +336,27 @@ public class StatementService {
         });
     }
 
-    private Flux<Transaction> windowedTransactions(Invoice inv, Instant lower) {
-        // Join transactions → contributions to scope by holder. Strict-less-than
-        // on the upper bound = exact-instant rule (no transaction appears on
-        // two invoices).
+    /** Package-private for unit tests that capture the SQL predicate. */
+    Flux<Transaction> windowedTransactions(Invoice inv, Instant lower) {
+        // LEFT JOIN so transactions with contribution_id NULL (a top-of-
+        // group payment posted directly against the holder) still surface.
+        // Predicate matches either the contribution's holder OR the
+        // transaction's own group_id/member_id — either path attributes
+        // the row to the invoice's holder. Strict-less-than on the upper
+        // bound = exact-instant rule (no transaction appears on two
+        // invoices).
         String sql = """
                 SELECT t.id, t.transaction_number, t.contribution_id, t.invoice_id,
+                       t.group_id, t.member_id,
                        t.amount, t.currency_code, t.transaction_type, t.payment_method,
                        t.reference, t.reason, t.status, t.transaction_date, t.created_at, t.created_by
                   FROM transactions t
-                  JOIN contributions c ON c.id = t.contribution_id
+                  LEFT JOIN contributions c ON c.id = t.contribution_id
                  WHERE t.currency_code = :currency
                    AND t.created_at <  :upper
                    AND (:lower IS NULL OR t.created_at >= :lower)
-                   AND ( (:groupId  IS NOT NULL AND c.group_id  = :groupId)
-                      OR (:memberId IS NOT NULL AND c.member_id = :memberId) )
+                   AND ( (:groupId  IS NOT NULL AND (c.group_id  = :groupId  OR t.group_id  = :groupId))
+                      OR (:memberId IS NOT NULL AND (c.member_id = :memberId OR t.member_id = :memberId)) )
                 """;
         var spec = db.sql(sql)
                 .bind("currency", inv.getCurrencyCode())
@@ -333,6 +371,8 @@ public class StatementService {
                     t.setTransactionNumber(row.get("transaction_number", String.class));
                     t.setContributionId(row.get("contribution_id", UUID.class));
                     t.setInvoiceId(row.get("invoice_id", UUID.class));
+                    t.setGroupId(row.get("group_id", UUID.class));
+                    t.setMemberId(row.get("member_id", UUID.class));
                     t.setAmount(row.get("amount", BigDecimal.class));
                     t.setCurrencyCode(row.get("currency_code", String.class));
                     t.setTransactionType(row.get("transaction_type", String.class));

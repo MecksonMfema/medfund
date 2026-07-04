@@ -147,11 +147,7 @@ export class TransactionFormComponent implements OnInit {
               )
             : this.membersService.searchByName(trimmed).pipe(
                 switchMap(rows => of<TargetOption[]>(
-                  rows.map((m: Member) => ({
-                    id: m.id,
-                    label: `${m.firstName} ${m.lastName}`.trim(),
-                    sublabel: m.memberNumber,
-                  }))
+                  TransactionFormComponent.toPayableMemberOptions(rows)
                 ))
               );
         }),
@@ -160,6 +156,25 @@ export class TransactionFormComponent implements OnInit {
         next: (matches) => { this.targetMatches = matches; this.targetSearching = false; },
         error: () => { this.targetMatches = []; this.targetSearching = false; },
       });
+  }
+
+  /**
+   * Filter + shape the member search results for the individual-target
+   * picker. Grouped members are dropped — their liaison is billed for
+   * the whole roster, so a per-member payment would double-count. The
+   * server rejects them too (TransactionService.record → 422); this
+   * mirror on the client just prevents the picker from surfacing
+   * unpickable options. Static so it can be unit-tested without the
+   * whole component's ngOnInit chain.
+   */
+  static toPayableMemberOptions(rows: Member[]): TargetOption[] {
+    return rows
+      .filter(m => !m.groupId)
+      .map(m => ({
+        id: m.id,
+        label: `${m.firstName} ${m.lastName}`.trim(),
+        sublabel: m.memberNumber,
+      }));
   }
 
   // ── Target picker handlers ─────────────────────────────────────────────

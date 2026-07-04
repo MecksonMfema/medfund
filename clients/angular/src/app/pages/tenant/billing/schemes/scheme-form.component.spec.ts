@@ -109,12 +109,33 @@ describe('SchemeFormComponent', () => {
     expect(component.form.schemeType).toBe('comprehensive');
   });
 
-  it('groups scheme types by insurance line in configured order', () => {
+  it('groups scheme types by insurance line label in the dropdown when multi-line', () => {
+    // The grouped-dropdown behaviour used to expose schemeTypeGroups +
+    // schemeTypesForLine helpers; both were folded into a single
+    // schemeTypeSelectOptions getter that stamps a `group` label on
+    // each option. Assert the group survives round-trip when more than
+    // one line is configured (label is the human-readable form —
+    // "Life Insurance" — not the raw enum).
     setup({ insuranceLines: ['LIFE', 'HEALTH'] });
     fixture.detectChanges();
 
-    expect(component.schemeTypeGroups).toEqual(['LIFE', 'HEALTH']);
-    expect(component.schemeTypesForLine('LIFE').every(t => t.line === 'LIFE')).toBe(true);
+    const opts = component.schemeTypeSelectOptions;
+    const groups = Array.from(new Set(opts.map(o => o.group).filter(Boolean)));
+    // Both lines must appear as group headings; ordering follows the
+    // tenant's insuranceLines config.
+    expect(groups.length).toBe(2);
+    // Every option carries its line's group when multi-line — no
+    // orphaned "group: undefined" options.
+    expect(opts.every(o => !!o.group)).toBe(true);
+  });
+
+  it('omits the group heading on single-line tenants so the dropdown stays clean', () => {
+    setup({ insuranceLines: ['HEALTH'] });
+    fixture.detectChanges();
+
+    // Single line → no need to visually separate; group is left off so
+    // the SelectComponent renders a flat list.
+    expect(component.schemeTypeSelectOptions.every(o => o.group === undefined)).toBe(true);
   });
 
   it('defaults form.currencyCode to the tenant default-currency config', () => {

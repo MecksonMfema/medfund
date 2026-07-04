@@ -112,6 +112,39 @@ public class TransactionService {
                 " adjustments — record why the ledger is being moved"));
         }
 
+        // Grouped members can't be payers on the individual leg — their
+        // group liaison is billed for the whole roster, so a per-member
+        // payment on the same period would double-count. Enforce here
+        // rather than trust the client picker. See
+        // feedback_grouped_members_cannot_pay for the full rationale.
+        Mono<Void> memberEligibilityCheck = request.memberId() == null
+                ? Mono.empty()
+                : rejectIfMemberIsGrouped(request.memberId());
+
+        return memberEligibilityCheck.then(Mono.defer(() -> doRecord(request, actorId, actorEmail)));
+    }
+
+    /**
+     * Loads the member row and errors with 422 when {@code group_id}
+     * is set — that member is billed through their group, so a direct
+     * payment to their individual balance is a routing mistake. Missing
+     * member rows also error so a stale/wrong id can't sneak past.
+     */
+    private Mono<Void> rejectIfMemberIsGrouped(UUID memberId) {
+        return db.sql("SELECT group_id FROM members WHERE id = :id")
+                .bind("id", memberId)
+                .map(row -> java.util.Optional.ofNullable(row.get("group_id", UUID.class)))
+                .one()
+                .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                        "Member " + memberId + " not found — cannot record a payment against them")))
+                .flatMap(groupIdOpt -> groupIdOpt.isPresent()
+                        ? Mono.<Void>error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                                "Member " + memberId + " is affiliated to a group — record the payment against " +
+                                "the group instead"))
+                        : Mono.empty());
+    }
+
+    private Mono<Transaction> doRecord(RecordTransactionRequest request, String actorId, String actorEmail) {
         String transactionNumber = "TXN-" + String.format("%08d", ThreadLocalRandom.current().nextInt(0, 99999999));
 
         var transaction = new Transaction();

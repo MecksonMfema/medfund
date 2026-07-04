@@ -48,6 +48,10 @@ class StubGroups {
 class StubMembers {
   members: Member[] = [makeMember()];
   getByGroupId = (_id: string) => of(this.members);
+  // GroupDetailComponent.loadLiaisonLabel resolves the display name of
+  // the group's liaison via getById; stub with a canned member so the
+  // afterAll assertion doesn't hit a TypeError.
+  getById = (_id: string) => of(makeMember());
 }
 
 class StubToast {
@@ -110,7 +114,11 @@ describe('GroupDetailComponent', () => {
     comp.form.liaisonUserId = null;
     comp.save();
     expect(groups.updateCalls.length).toBe(0);
-    expect(comp.errorMessage).toContain('liaison is required');
+    // Error copy was reworded from "liaison is required" to the current
+    // "either a liaison or a contact email" formulation when the email
+    // fallback landed. The invariant is that save is blocked and the
+    // user sees a message mentioning the liaison route.
+    expect(comp.errorMessage).toContain('liaison');
   });
 
   it('blocks save when name is empty', () => {
