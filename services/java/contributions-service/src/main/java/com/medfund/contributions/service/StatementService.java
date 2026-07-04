@@ -240,21 +240,25 @@ public class StatementService {
                 .bind("targetId", targetId)
                 .map(row -> {
                     Transaction t = new Transaction();
-                    t.setId((UUID) row.get("id"));
-                    t.setTransactionNumber((String) row.get("transaction_number"));
-                    t.setContributionId((UUID) row.get("contribution_id"));
-                    t.setInvoiceId((UUID) row.get("invoice_id"));
-                    t.setGroupId((UUID) row.get("group_id"));
-                    t.setMemberId((UUID) row.get("member_id"));
-                    t.setAmount((BigDecimal) row.get("amount"));
-                    t.setCurrencyCode((String) row.get("currency_code"));
-                    t.setTransactionType((String) row.get("transaction_type"));
-                    t.setPaymentMethod((String) row.get("payment_method"));
-                    t.setReference((String) row.get("reference"));
-                    t.setStatus((String) row.get("status"));
-                    t.setTransactionDate((Instant) row.get("transaction_date"));
-                    t.setCreatedAt((Instant) row.get("created_at"));
-                    t.setCreatedBy((UUID) row.get("created_by"));
+                    t.setId(row.get("id", UUID.class));
+                    t.setTransactionNumber(row.get("transaction_number", String.class));
+                    t.setContributionId(row.get("contribution_id", UUID.class));
+                    t.setInvoiceId(row.get("invoice_id", UUID.class));
+                    t.setGroupId(row.get("group_id", UUID.class));
+                    t.setMemberId(row.get("member_id", UUID.class));
+                    t.setAmount(row.get("amount", BigDecimal.class));
+                    t.setCurrencyCode(row.get("currency_code", String.class));
+                    t.setTransactionType(row.get("transaction_type", String.class));
+                    t.setPaymentMethod(row.get("payment_method", String.class));
+                    t.setReference(row.get("reference", String.class));
+                    t.setStatus(row.get("status", String.class));
+                    // R2DBC Postgres returns TIMESTAMPTZ as OffsetDateTime;
+                    // ask for Instant explicitly so the driver converts.
+                    // Raw casts here throw ClassCastException at runtime —
+                    // see the sibling pattern in windowedTransactions.
+                    t.setTransactionDate(row.get("transaction_date", Instant.class));
+                    t.setCreatedAt(row.get("created_at", Instant.class));
+                    t.setCreatedBy(row.get("created_by", UUID.class));
                     return t;
                 })
                 .all();
