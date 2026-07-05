@@ -402,6 +402,272 @@ public class BillingService {
                 });
     }
 
+    // ── Charge preview (per-subject live projection) ──────────────────────────
+
+    /**
+     * Live projection of what a single subject (one group or one
+     * individual) would owe in the next billing cycle. Reuses the same
+     * candidate resolver + pricing rules the real commit uses, so the
+     * projected amount matches what a run right now would post — but
+     * writes nothing.
+     *
+     * <p>Two subject-level filters layered on top of the resolver's
+     * standard status guard:
+     * <ul>
+     *   <li>Terminating members whose {@code termination_date} lands
+     *       before {@code periodStart} — they're on their last
+     *       serviced cycle and shouldn't be charged for the next
+     *       one.</li>
+     *   <li>Optional currency filter — a multi-currency tenant can
+     *       narrow the projection to one currency at a time. Omit to
+     *       return every currency.</li>
+     * </ul>
+     *
+     * <p>Future scheme upgrades/downgrades ({@code billing_age_group_id}
+     * + {@code billing_override_effective_from} <= periodEnd) and
+     * per-member custom pricing ({@code billing_override_amount}) are
+     * already honoured by the candidate resolver — no extra logic
+     * needed here.
+     *
+     * @param subjectType {@code "MEMBER"} or {@code "GROUP"}
+     * @param subjectId   the group id or member id
+     * @param currency    optional; null = every currency
+     */
+    public Mono<com.medfund.contributions.dto.ChargePreviewResponse> chargePreview(
+            String subjectType, UUID subjectId, String currency) {
+        LocalDate today = LocalDate.now();
+        LocalDate periodStart = today.plusMonths(1).withDayOfMonth(1);
+        LocalDate periodEnd   = periodStart.plusMonths(1).minusDays(1);
+
+        List<UUID> groupIds  = "GROUP".equalsIgnoreCase(subjectType)  ? List.of(subjectId) : null;
+        List<UUID> memberIds = "MEMBER".equalsIgnoreCase(subjectType) ? List.of(subjectId) : null;
+
+        // Resolve the subject's display name in parallel with the
+        // candidate pull. The client renders this in the result header
+        // so the operator confirms they're looking at the right subject.
+        Mono<String> subjectNameMono = "GROUP".equalsIgnoreCase(subjectType)
+                ? db.sql("SELECT name FROM groups WHERE id = :id")
+                        .bind("id", subjectId)
+                        .map(row -> row.get("name", String.class))
+                        .one().defaultIfEmpty("")
+                : db.sql("SELECT (first_name || ' ' || last_name) AS name FROM members WHERE id = :id")
+                        .bind("id", subjectId)
+                        .map(row -> row.get("name", String.class))
+                        .one().defaultIfEmpty("");
+
+        // Terminating-member id set for the selection. One query,
+        // keyed by the subject; a distinct SELECT rather than a bind
+        // to the resolver so the shared multi-line resolver interface
+        // stays untouched.
+        String terminatingSql = "GROUP".equalsIgnoreCase(subjectType)
+                ? """
+                        SELECT id FROM members
+                         WHERE group_id = :sid
+                           AND termination_date IS NOT NULL
+                           AND termination_date < :cutoff
+                        """
+                : """
+                        SELECT id FROM members
+                         WHERE id = :sid
+                           AND termination_date IS NOT NULL
+                           AND termination_date < :cutoff
+                        """;
+        Mono<java.util.Set<UUID>> terminatingIdsMono = db.sql(terminatingSql)
+                .bind("sid", subjectId)
+                .bind("cutoff", periodStart)
+                .map(row -> row.get("id", UUID.class))
+                .all()
+                .collect(java.util.stream.Collectors.toSet());
+
+        return Mono.deferContextual(ctx -> {
+            String tenantId = TenantContext.get(ctx);
+            Mono<String> pricingModelMono = getPricingModel(tenantId);
+
+            return Mono.zip(subjectNameMono, terminatingIdsMono, pricingModelMono)
+                    .flatMap(tuple -> {
+                        String subjectName = tuple.getT1();
+                        java.util.Set<UUID> terminatingIds = tuple.getT2();
+                        String pricingModel = tuple.getT3();
+
+                        return resolveCandidatesForTenant(groupIds, memberIds, periodStart, periodEnd)
+                                .filter(pc -> !terminatingIds.contains(pc.memberId()))
+                                .flatMap(pc -> applyPricing(pc, periodStart, periodEnd))
+                                // Currency filter is applied post-pricing
+                                // because the price row's currency drives
+                                // the final call (age-group price currency
+                                // > scheme currency > USD). A pre-filter
+                                // on scheme currency would over-filter in
+                                // tenants where the age-band overrides it.
+                                .filter(pc -> currency == null || currency.isBlank()
+                                        || currency.equalsIgnoreCase(pc.currencyCode()))
+                                .collectList()
+                                .flatMap(pricedList -> decorateWithOverrides(
+                                        pricedList, pricingModel, periodStart, periodEnd)
+                                        .map(lines -> buildResponse(
+                                                subjectType, subjectId, subjectName,
+                                                periodStart, periodEnd,
+                                                lines, terminatingIds.size())));
+                    });
+        });
+    }
+
+    /**
+     * Second-pass decoration: for every priced candidate, look up the
+     * per-member (or per-dependant) override fields and surface two
+     * flags on the response line —
+     * <ul>
+     *   <li>{@code isCustomPriced} — {@code billing_override_amount}
+     *       drove the amount for this cycle. Only true when the
+     *       tenant's pricing_model is {@code INDIVIDUAL} (the STANDARD
+     *       model's resolver ignores the override) and the override
+     *       has an effective_from that has been reached by
+     *       periodEnd.</li>
+     *   <li>{@code scheduledSchemeChangeFrom} — a future
+     *       {@code billing_age_group_id} is set but its effective_from
+     *       is still ahead of periodStart, so the age-band change
+     *       hasn't landed yet. The operator sees "change effective
+     *       [date]" and can plan.</li>
+     * </ul>
+     *
+     * <p>One SELECT per source table (members + dependants), keyed by
+     * the resolved id list from the candidate flux, so the total cost
+     * is two indexed lookups regardless of subject size.
+     */
+    private Mono<List<com.medfund.contributions.dto.ChargePreviewLine>> decorateWithOverrides(
+            List<PricedCandidate> priced, String pricingModel,
+            LocalDate periodStart, LocalDate periodEnd) {
+        if (priced.isEmpty()) {
+            return Mono.just(List.of());
+        }
+
+        List<UUID> memberIds = priced.stream()
+                .filter(p -> "MEMBER".equalsIgnoreCase(p.personType()))
+                .map(PricedCandidate::memberId)
+                .distinct()
+                .toList();
+        List<UUID> dependantIds = priced.stream()
+                .filter(p -> "DEPENDANT".equalsIgnoreCase(p.personType()))
+                .map(PricedCandidate::dependantId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+
+        Mono<java.util.Map<UUID, OverrideMeta>> memberMetaMono = memberIds.isEmpty()
+                ? Mono.just(java.util.Map.of())
+                : db.sql("""
+                        SELECT id AS pid,
+                               billing_override_amount AS override_amount,
+                               billing_override_effective_from AS effective_from,
+                               billing_age_group_id AS override_age_group
+                          FROM members
+                         WHERE id = ANY(:ids)
+                        """)
+                        .bind("ids", memberIds.toArray(UUID[]::new))
+                        .map(row -> new java.util.AbstractMap.SimpleEntry<>(
+                                row.get("pid", UUID.class),
+                                new OverrideMeta(
+                                        row.get("override_amount", java.math.BigDecimal.class),
+                                        row.get("effective_from", LocalDate.class),
+                                        row.get("override_age_group", UUID.class))))
+                        .all()
+                        .collectMap(java.util.Map.Entry::getKey, java.util.Map.Entry::getValue);
+
+        Mono<java.util.Map<UUID, OverrideMeta>> dependantMetaMono = dependantIds.isEmpty()
+                ? Mono.just(java.util.Map.of())
+                : db.sql("""
+                        SELECT id AS pid,
+                               billing_override_amount AS override_amount,
+                               billing_override_effective_from AS effective_from,
+                               billing_age_group_id AS override_age_group
+                          FROM dependants
+                         WHERE id = ANY(:ids)
+                        """)
+                        .bind("ids", dependantIds.toArray(UUID[]::new))
+                        .map(row -> new java.util.AbstractMap.SimpleEntry<>(
+                                row.get("pid", UUID.class),
+                                new OverrideMeta(
+                                        row.get("override_amount", java.math.BigDecimal.class),
+                                        row.get("effective_from", LocalDate.class),
+                                        row.get("override_age_group", UUID.class))))
+                        .all()
+                        .collectMap(java.util.Map.Entry::getKey, java.util.Map.Entry::getValue);
+
+        boolean individualModel = "INDIVIDUAL".equalsIgnoreCase(pricingModel);
+
+        return Mono.zip(memberMetaMono, dependantMetaMono)
+                .map(tuple -> {
+                    java.util.Map<UUID, OverrideMeta> byMember = tuple.getT1();
+                    java.util.Map<UUID, OverrideMeta> byDependant = tuple.getT2();
+                    List<com.medfund.contributions.dto.ChargePreviewLine> lines = new java.util.ArrayList<>(priced.size());
+                    for (PricedCandidate p : priced) {
+                        OverrideMeta meta = "DEPENDANT".equalsIgnoreCase(p.personType())
+                                ? byDependant.get(p.dependantId())
+                                : byMember.get(p.memberId());
+                        boolean custom = false;
+                        LocalDate scheduledFrom = null;
+                        if (meta != null) {
+                            // Custom pricing: only marked true when the
+                            // resolver would have actually picked the
+                            // override (INDIVIDUAL model + amount set +
+                            // effective_from reached by periodEnd).
+                            // Matches the resolver's COALESCE CASE
+                            // exactly so the flag never lies.
+                            custom = individualModel
+                                    && meta.overrideAmount() != null
+                                    && (meta.effectiveFrom() == null
+                                            || !meta.effectiveFrom().isAfter(periodEnd));
+
+                            // Scheduled scheme change: a future
+                            // billing_age_group_id whose effective_from
+                            // hasn't been reached yet. Surfaces the
+                            // "priced at old rate this cycle, moving
+                            // to new rate on [date]" narrative.
+                            if (meta.overrideAgeGroupId() != null
+                                    && meta.effectiveFrom() != null
+                                    && meta.effectiveFrom().isAfter(periodStart)) {
+                                scheduledFrom = meta.effectiveFrom();
+                            }
+                        }
+                        lines.add(new com.medfund.contributions.dto.ChargePreviewLine(
+                                p.memberId(), p.dependantId(), p.memberNumber(),
+                                p.personName(), p.personType(),
+                                p.schemeId(), p.schemeName(),
+                                p.groupId(), p.groupName(),
+                                p.ageGroupId(), p.ageBandName(),
+                                p.amount(), p.currencyCode(),
+                                custom, scheduledFrom));
+                    }
+                    return (List<com.medfund.contributions.dto.ChargePreviewLine>) lines;
+                });
+    }
+
+    /** Compose the response envelope from the decorated line list. */
+    private com.medfund.contributions.dto.ChargePreviewResponse buildResponse(
+            String subjectType, UUID subjectId, String subjectName,
+            LocalDate periodStart, LocalDate periodEnd,
+            List<com.medfund.contributions.dto.ChargePreviewLine> lines,
+            int excludedTerminating) {
+        java.util.Map<String, java.math.BigDecimal> totals = new java.util.LinkedHashMap<>();
+        for (com.medfund.contributions.dto.ChargePreviewLine l : lines) {
+            totals.merge(l.currencyCode(), l.amount(), java.math.BigDecimal::add);
+        }
+        return new com.medfund.contributions.dto.ChargePreviewResponse(
+                subjectType.toUpperCase(),
+                subjectId,
+                subjectName,
+                periodStart, periodEnd,
+                lines,
+                totals,
+                excludedTerminating,
+                java.time.Instant.now());
+    }
+
+    /** Per-subject override metadata used by {@link #decorateWithOverrides}. */
+    private record OverrideMeta(
+            java.math.BigDecimal overrideAmount,
+            LocalDate effectiveFrom,
+            UUID overrideAgeGroupId) {}
+
     /**
      * Persists contribution rows for the same selection. Honours
      * {@code billing_cycle_config.commit_cooldown_hours}; double-commits

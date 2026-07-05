@@ -264,10 +264,21 @@ export const BILLING_ROUTES: Routes = [
     data: { title: 'Bad Debts', sidebar: 'operational', fullbleed: true },
   },
   {
-    path: 'group-charge',
+    path: 'charge-preview',
     canActivate: [permissionGuard(['billing:view_creditors'])],
-    loadComponent: () => import('./group-charge/group-charge.component').then(m => m.GroupChargeComponent),
-    data: { title: 'Group Charge', sidebar: 'operational' },
+    loadComponent: () => import('./charge-preview/charge-preview.component').then(m => m.ChargePreviewComponent),
+    // fullbleed so the page-header banner + toolbar strip sit flush
+    // against the sidebar — matches /tenant/billing/ledger and the
+    // rest of the billing receivables surfaces.
+    data: { title: 'Charge Preview', sidebar: 'operational', fullbleed: true },
+  },
+  // Legacy /tenant/billing/group-charge → the newer, subject-agnostic
+  // charge-preview page. Kept as a redirect so bookmarks, emails, and
+  // audit-log deep links from the pre-rename era still resolve.
+  {
+    path: 'group-charge',
+    redirectTo: 'charge-preview',
+    pathMatch: 'full',
   },
 
   // ── Email campaigns ────────────────────────────────────────────────────────

@@ -79,7 +79,7 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
       { label: 'Ledger',         icon: 'file-text',      route: '/tenant/billing/ledger',       permissions: ['billing:view_statements'] },
       { label: 'Creditors',      icon: 'trending-down',  route: '/tenant/billing/creditors',    permissions: ['billing:view_creditors'] },
       { label: 'Bad Debts',      icon: 'alert-triangle', route: '/tenant/billing/bad-debts',    permissions: ['billing:manage_bad_debts'] },
-      { label: 'Group Charge',   icon: 'building',       route: '/tenant/billing/group-charge', permissions: ['billing:view_creditors'] },
+      { label: 'Charge Preview', icon: 'building',       route: '/tenant/billing/charge-preview', permissions: ['billing:view_creditors'] },
     ],
   },
   {

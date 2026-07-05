@@ -245,6 +245,36 @@ export interface BillingCommitResponse {
   membershipModel: string;
 }
 
+export interface ChargePreviewLine {
+  memberId: string;
+  dependantId: string | null;
+  memberNumber: string;
+  personName: string;
+  personType: 'MEMBER' | 'DEPENDANT';
+  schemeId: string;
+  schemeName: string;
+  groupId: string | null;
+  groupName: string | null;
+  ageGroupId: string | null;
+  ageBandName: string | null;
+  amount: string;             // BigDecimal serialised as string
+  currencyCode: string;
+  isCustomPriced: boolean;
+  scheduledSchemeChangeFrom: string | null;   // ISO date, populated when a future age-band kicks in during the projected cycle
+}
+
+export interface ChargePreviewResponse {
+  subjectType: 'GROUP' | 'MEMBER';
+  subjectId: string;
+  subjectName: string;
+  periodStart: string;                          // ISO date
+  periodEnd: string;                            // ISO date
+  lines: ChargePreviewLine[];
+  totals: Record<string, string>;               // currency → sum
+  excludedTerminating: number;                  // rows dropped due to termination_date < periodStart
+  asOf: string;                                 // ISO instant — surface as "as of HH:MM:SS" so the operator knows the number is live
+}
+
 export interface EnqueueBillingPayload extends BillingFilterPayload {
   kind: 'preview' | 'commit';
   /**
@@ -503,6 +533,24 @@ export class ContributionsService {
 
   previewBilling(filters: BillingFilterPayload): Observable<BillingPreviewResponse> {
     return this.api.post<BillingPreviewResponse>('/contributions/preview', filters);
+  }
+
+  /**
+   * Live per-subject charge projection for the next billing cycle.
+   * Server-side only per feedback_stats_serverside — the response is
+   * pre-aggregated so the client just renders. Backend excludes
+   * terminating members and applies the same pricing rules as a real
+   * commit; the projected amount matches what the next billing run
+   * would post.
+   */
+  chargePreview(
+    subjectType: 'GROUP' | 'MEMBER',
+    subjectId: string,
+    currency?: string,
+  ): Observable<ChargePreviewResponse> {
+    const params: Record<string, string> = { subjectType, subjectId };
+    if (currency) params['currency'] = currency;
+    return this.api.get<ChargePreviewResponse>('/contributions/charge-preview', params);
   }
 
   commitBilling(filters: BillingFilterPayload): Observable<BillingCommitResponse> {

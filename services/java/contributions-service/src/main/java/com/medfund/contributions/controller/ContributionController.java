@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.contributions.dto.BillingCommitResponse;
 import com.medfund.contributions.dto.BillingPreviewResponse;
+import com.medfund.contributions.dto.ChargePreviewResponse;
 import com.medfund.contributions.dto.CommitBillingRequest;
 import com.medfund.contributions.dto.ContributionResponse;
 import com.medfund.contributions.dto.EnqueueBillingRequest;
@@ -89,6 +90,26 @@ public class ContributionController {
     @ApiResponse(responseCode = "200", description = "Preview computed")
     public Mono<BillingPreviewResponse> previewBilling(@Valid @RequestBody PreviewBillingRequest request) {
         return billingService.previewBilling(request);
+    }
+
+    @GetMapping("/charge-preview")
+    @Operation(summary = "Live per-subject charge projection for the next billing cycle",
+        description = "Read-only projection of what a single group or individual would owe in the "
+                + "next billing cycle, itemized by member/dependant. Reuses the same candidate resolver + "
+                + "pricing rules the real commit uses, so future scheme upgrades/downgrades (via "
+                + "billing_age_group_id + billing_override_effective_from) and per-member custom pricing "
+                + "(billing_override_amount) are already reflected. Excludes members whose "
+                + "termination_date lands before the projected periodStart — those are on their last "
+                + "serviced cycle and shouldn't be charged for the next one. Never persists a row.")
+    @ApiResponse(responseCode = "200", description = "Projection computed")
+    public Mono<ChargePreviewResponse> chargePreview(
+            @io.swagger.v3.oas.annotations.Parameter(description = "GROUP or MEMBER")
+            @RequestParam String subjectType,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Group id (for GROUP) or member id (for MEMBER)")
+            @RequestParam UUID subjectId,
+            @io.swagger.v3.oas.annotations.Parameter(description = "Optional ISO-4217 filter; omit to include every currency")
+            @RequestParam(required = false) String currency) {
+        return billingService.chargePreview(subjectType, subjectId, currency);
     }
 
     @PostMapping("/commit")

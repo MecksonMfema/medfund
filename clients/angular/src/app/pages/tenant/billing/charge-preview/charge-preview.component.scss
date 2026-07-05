@@ -1,0 +1,332 @@
+// Layout mirrors /tenant/billing/ledger and the receivables pages:
+// full-bleed page-header banner, optional subject-type tab strip, flat
+// toolbar strip, then the result table. Kept in visual lockstep with
+// ledger.component.scss so the two forward/backward-looking financial
+// views feel like halves of one system.
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.page-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.page-header .page-sub {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  max-width: 70ch;
+}
+
+.as-of {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: var(--font-weight-medium);
+  align-self: center;
+}
+
+// ── Subject-type tabs ─────────────────────────────────────────────────
+
+.scheme-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.scheme-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 4px;
+  margin: 0 8px 0 0;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+
+  &:hover { color: var(--color-text-primary); }
+
+  &.is-active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+  }
+}
+
+// ── Filter strip ─────────────────────────────────────────────────────
+
+.tx-toolbar {
+  display: flex;
+  align-items: stretch;
+  min-height: 48px;
+  padding: 0 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+  gap: 0;
+  flex-wrap: nowrap;
+}
+
+.toolbar-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-right: 1px solid var(--color-border-light);
+  min-height: 48px;
+  background: transparent;
+
+  &:last-of-type { border-right: none; }
+
+  .cell-label {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+    font-weight: var(--font-weight-medium);
+  }
+
+  input[type="text"] {
+    flex: 1;
+    width: 100%;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: var(--font-family);
+    font-size: 14px;
+    color: var(--color-text-primary);
+    height: 32px;
+    padding: 0;
+    min-width: 0;
+
+    &::placeholder { color: var(--color-text-muted); }
+  }
+
+  app-icon { color: var(--color-text-muted); flex-shrink: 0; }
+}
+
+.toolbar-cell.cell-search {
+  position: relative;
+  flex: 1 1 360px;
+  min-width: 280px;
+  max-width: 520px;
+
+  .clear-btn {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    &:hover { color: var(--color-text-primary); }
+  }
+}
+
+.toolbar-cell.cell-currency {
+  flex: 0 0 auto;
+  min-width: 240px;
+
+  app-select { min-width: 180px; flex: 1; }
+
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+
+// ── Suggestions dropdown ──────────────────────────────────────────────
+
+.suggestions {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  padding: 4px;
+  list-style: none;
+  margin: 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.suggestion {
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+
+  &:hover,
+  &.highlight { background: var(--color-surface-alt, #f6f8fb); }
+  &.muted {
+    color: var(--color-text-muted);
+    font-style: italic;
+    cursor: default;
+    background: none;
+  }
+
+  strong { color: var(--color-text-primary); font-weight: 500; }
+  .muted { color: var(--color-text-muted); font-size: 13px; margin-left: 4px; }
+}
+
+// ── Error banner + empty states ───────────────────────────────────────
+
+.banner {
+  margin: 12px 24px 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.banner-error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.empty {
+  margin: 40px 24px;
+  padding: 24px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border-light);
+  border-radius: 12px;
+}
+
+// ── Result section ────────────────────────────────────────────────────
+
+.result {
+  margin: 20px 24px 24px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.result-title {
+  margin: 0 0 2px;
+  font-size: 1.05rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.muted { color: var(--color-text-muted); font-size: 0.85rem; }
+
+.excluded-pill {
+  color: #92400e;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-medium);
+}
+
+// ── Breakdown table (statement-style) ─────────────────────────────────
+
+.breakdown {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+
+  th,
+  td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--color-border-light);
+  }
+
+  th {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: var(--font-weight-medium);
+    background: var(--color-surface-alt, #f9fafb);
+  }
+
+  td.right,
+  th.right { text-align: right; }
+
+  tbody tr:hover { background: var(--color-surface-alt, #f9fafb); }
+
+  tfoot td {
+    background: var(--color-surface-alt, #f9fafb);
+    font-weight: var(--font-weight-semibold);
+    border-top: 2px solid var(--color-border);
+    border-bottom: none;
+  }
+
+  tfoot td.total { font-size: 1.05rem; }
+}
+
+.person-name { font-weight: var(--font-weight-medium); color: var(--color-text-primary); }
+.person-code { font-family: ui-monospace, monospace; font-size: 0.75rem; }
+
+.type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.type-member { background: #dbeafe; color: #1e40af; }
+.type-dependant { background: #ede9fe; color: #5b21b6; }
+
+.note-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: var(--font-weight-medium);
+  margin-right: 4px;
+}
+
+.note-custom { background: #fef3c7; color: #92400e; }
+.note-change { background: #d1fae5; color: #065f46; }

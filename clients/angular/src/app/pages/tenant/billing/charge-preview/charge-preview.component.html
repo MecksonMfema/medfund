@@ -1,0 +1,166 @@
+<header class="page-header">
+  <div>
+    <h1>Charge preview</h1>
+    <p class="page-sub">Live projection of what a group or individual would owe in the next billing cycle — itemised by member and dependant. Reuses the same pricing rules a real commit would; excludes members whose termination lands before the projected cycle starts.</p>
+  </div>
+  @if (preview) {
+    <span class="as-of">as of {{ asOfLabel(preview.asOf) }}</span>
+  }
+</header>
+
+@if (showTabs) {
+  <nav class="scheme-tabs" role="tablist" aria-label="Charge-preview subject type">
+    <button
+      type="button"
+      role="tab"
+      class="scheme-tab"
+      [class.is-active]="activeTab === 'GROUP'"
+      [attr.aria-selected]="activeTab === 'GROUP'"
+      (click)="selectTab('GROUP')">
+      Group
+    </button>
+    <button
+      type="button"
+      role="tab"
+      class="scheme-tab"
+      [class.is-active]="activeTab === 'MEMBER'"
+      [attr.aria-selected]="activeTab === 'MEMBER'"
+      (click)="selectTab('MEMBER')">
+      Individual
+    </button>
+  </nav>
+}
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-search">
+    <app-icon name="search" [size]="16"></app-icon>
+    <input
+      type="text"
+      autocomplete="off"
+      [(ngModel)]="targetQuery"
+      (ngModelChange)="onTargetQueryChange()"
+      (focus)="onTargetFocus()"
+      (blur)="onTargetBlur()"
+      (keydown)="onKeydown($event)"
+      name="targetQuery"
+      [placeholder]="activeTab === 'GROUP' ? 'Search group name or registration number…' : 'Search individual by name…'"
+      aria-label="Search subject"
+    />
+    @if (selectedTarget) {
+      <button type="button" class="clear-btn" (click)="clearTarget()" aria-label="Clear selection">×</button>
+    }
+    @if (showMatches && targetQuery.trim() && !selectedTarget) {
+      <ul class="suggestions" role="listbox">
+        @if (targetSearching) {
+          <li class="suggestion muted">Searching…</li>
+        } @else if (targetMatches.length === 0) {
+          <li class="suggestion muted">No matches</li>
+        } @else {
+          @for (opt of targetMatches; track opt.id; let i = $index) {
+            <li class="suggestion"
+                role="option"
+                [class.highlight]="i === highlightIndex"
+                (mousedown)="pickTarget(opt)">
+              <strong>{{ opt.label }}</strong>
+              @if (opt.sublabel) {
+                <span class="muted">— {{ opt.sublabel }}</span>
+              }
+            </li>
+          }
+        }
+      </ul>
+    }
+  </div>
+
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Currency</span>
+    <app-select
+      [(ngModel)]="selectedCurrency"
+      (selectionChange)="onCurrencyChange()"
+      name="currency"
+      [options]="currencyOptions"
+      placeholder="All currencies"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+</div>
+
+@if (loading && !preview) {
+  <div class="empty">Loading projection…</div>
+} @else if (!selectedTarget) {
+  <div class="empty">
+    Pick {{ activeTab === 'GROUP' ? 'a group' : 'an individual' }} above to see the projected charge for the next cycle.
+  </div>
+} @else if (preview) {
+  <section class="result">
+    <header class="result-header">
+      <div>
+        <h2 class="result-title">{{ preview.subjectName }}</h2>
+        <span class="muted">Projected cycle {{ preview.periodStart | date:'MMM d' }} — {{ preview.periodEnd | date:'MMM d, y' }}</span>
+      </div>
+      @if (preview.excludedTerminating > 0) {
+        <span class="excluded-pill" title="Members whose termination_date lands before the projected cycle starts — they're on their last serviced cycle.">
+          {{ preview.excludedTerminating }} excluded (terminating)
+        </span>
+      }
+    </header>
+
+    @if (preview.lines.length === 0) {
+      <div class="empty">No billable members in this projection.</div>
+    } @else {
+      <table class="breakdown">
+        <thead>
+          <tr>
+            <th>Member</th>
+            <th>Type</th>
+            <th>Scheme</th>
+            <th>Age band</th>
+            <th>Notes</th>
+            <th class="right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (line of preview.lines; track trackLine($index, line)) {
+            <tr>
+              <td>
+                <div class="person-name">{{ line.personName }}</div>
+                <div class="muted person-code">{{ line.memberNumber }}</div>
+              </td>
+              <td>
+                <span class="type-badge type-{{ line.personType.toLowerCase() }}">
+                  {{ line.personType === 'MEMBER' ? 'Member' : 'Dependant' }}
+                </span>
+              </td>
+              <td>{{ line.schemeName }}</td>
+              <td>{{ line.ageBandName || '—' }}</td>
+              <td>
+                @if (line.isCustomPriced) {
+                  <span class="note-pill note-custom">Custom price</span>
+                }
+                @if (line.scheduledSchemeChangeFrom) {
+                  <span class="note-pill note-change" [title]="'Age-band change effective ' + (line.scheduledSchemeChangeFrom | date:'mediumDate')">
+                    Change effective {{ line.scheduledSchemeChangeFrom | date:'MMM d' }}
+                  </span>
+                }
+              </td>
+              <td class="right">{{ line.amount | currencyFormat:line.currencyCode }}</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          @for (currency of totalKeys; track currency) {
+            <tr>
+              <td colspan="5" class="right">Total ({{ currency }})</td>
+              <td class="right total">{{ preview.totals[currency] | currencyFormat:currency }}</td>
+            </tr>
+          }
+        </tfoot>
+      </table>
+    }
+  </section>
+}
