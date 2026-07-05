@@ -158,6 +158,27 @@ class BillingServiceChargePreviewIT extends AbstractIntegrationTest {
                 .map(ChargePreviewLine::memberId)
                 .toList();
         assertThat(memberIds).containsExactlyInAnyOrder(activeMember, memberWithDep);
+
+        // Household ordering — memberWithDep's MEMBER row must sit
+        // immediately next to its DEPENDANT row, not scattered across
+        // the table. Scan for the (MEMBER, DEPENDANT) adjacency on the
+        // shared memberId; the resolver's UNION ALL order is otherwise
+        // undefined so we assert the invariant, not a specific slot.
+        int principalIdx = -1;
+        for (int i = 0; i < resp.lines().size(); i++) {
+            ChargePreviewLine l = resp.lines().get(i);
+            if (memberWithDep.equals(l.memberId())
+                    && "MEMBER".equalsIgnoreCase(l.personType())) {
+                principalIdx = i;
+                break;
+            }
+        }
+        assertThat(principalIdx)
+                .as("principal MEMBER row for memberWithDep should be present")
+                .isGreaterThanOrEqualTo(0);
+        ChargePreviewLine adjacent = resp.lines().get(principalIdx + 1);
+        assertThat(adjacent.memberId()).isEqualTo(memberWithDep);
+        assertThat(adjacent.personType()).isEqualTo("DEPENDANT");
     }
 
     // ------------------------------------------------------------------

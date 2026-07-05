@@ -126,9 +126,13 @@
         </thead>
         <tbody>
           @for (line of preview.lines; track trackLine($index, line)) {
-            <tr>
+            <tr [class.household-boundary]="isHouseholdStart($index)"
+                [class.household-dependant]="line.personType === 'DEPENDANT'">
               <td>
-                <div class="person-name">{{ line.personName }}</div>
+                @if (line.personType === 'DEPENDANT') {
+                  <span class="dependant-indent" aria-hidden="true">↳</span>
+                }
+                <span class="person-name">{{ line.personName }}</span>
                 <div class="muted person-code">{{ line.memberNumber }}</div>
               </td>
               <td>

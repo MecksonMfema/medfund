@@ -309,6 +309,66 @@ describe('ChargePreviewComponent', () => {
   // abandoned tabs. Lock down the teardown with a direct proof.
   // ------------------------------------------------------------------
 
+  // ------------------------------------------------------------------
+  // isHouseholdStart — visual boundary detection. Drives the CSS class
+  // that separates households; a false negative merges two families
+  // into one visual block. Backend clusters by memberId + MEMBER
+  // before DEPENDANT, so a row starts a new household iff its
+  // memberId differs from the previous row's.
+  // ------------------------------------------------------------------
+
+  describe('isHouseholdStart', () => {
+    beforeEach(() => component.ngOnInit());
+
+    function line(memberId: string, personType: 'MEMBER' | 'DEPENDANT'): any {
+      return {
+        memberId, personType,
+        dependantId: personType === 'DEPENDANT' ? memberId + '-d' : null,
+        // Everything else can stay as loose stubs — the helper only
+        // reads memberId + index.
+      };
+    }
+
+    it('index 0 always starts a household', () => {
+      component.preview = { ...emptyResponse, lines: [line('m1', 'MEMBER')] };
+      expect(component.isHouseholdStart(0)).toBeTrue();
+    });
+
+    it('same memberId as the previous row → same household', () => {
+      // Household of memberId m1: MEMBER + two DEPENDANT rows. Rows 1
+      // and 2 must NOT be boundaries — otherwise the CSS treats every
+      // dependant as its own family.
+      component.preview = {
+        ...emptyResponse,
+        lines: [line('m1', 'MEMBER'), line('m1', 'DEPENDANT'), line('m1', 'DEPENDANT')],
+      };
+      expect(component.isHouseholdStart(1)).toBeFalse();
+      expect(component.isHouseholdStart(2)).toBeFalse();
+    });
+
+    it('memberId transition → new household', () => {
+      // Two households back-to-back. Row 2 (the second household's
+      // MEMBER row) MUST be flagged so the visual boundary paints.
+      component.preview = {
+        ...emptyResponse,
+        lines: [
+          line('m1', 'MEMBER'),
+          line('m1', 'DEPENDANT'),
+          line('m2', 'MEMBER'),
+        ],
+      };
+      expect(component.isHouseholdStart(2)).toBeTrue();
+    });
+
+    it('no preview → treats index 0 as a boundary', () => {
+      // Guards against a null-ref regression if the helper runs before
+      // fetch resolves (shouldn't happen with the @if guard, but the
+      // helper must handle it gracefully anyway).
+      component.preview = null;
+      expect(component.isHouseholdStart(0)).toBeTrue();
+    });
+  });
+
   describe('ngOnDestroy tears down every subscription', () => {
     it('unsubscribes the tenant$, debounce, and interval subs', () => {
       component.ngOnInit();

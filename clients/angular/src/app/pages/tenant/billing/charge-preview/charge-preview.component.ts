@@ -324,4 +324,19 @@ export class ChargePreviewComponent implements OnInit, OnDestroy {
   trackLine(_i: number, line: ChargePreviewLine): string {
     return line.dependantId ?? line.memberId;
   }
+
+  /**
+   * True when a row starts a new household — the principal member's
+   * row. Drives the {@code .household-boundary} class so a subtle
+   * top-border visually separates families without cluttering the
+   * table with headers. Backend already clusters by memberId + puts
+   * MEMBER before DEPENDANT so we just have to detect the memberId
+   * transition; the first row always counts as a boundary.
+   */
+  isHouseholdStart(index: number): boolean {
+    if (!this.preview || index === 0) return true;
+    const prev = this.preview.lines[index - 1];
+    const curr = this.preview.lines[index];
+    return prev.memberId !== curr.memberId;
+  }
 }

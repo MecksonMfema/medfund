@@ -306,6 +306,26 @@
 .person-name { font-weight: var(--font-weight-medium); color: var(--color-text-primary); }
 .person-code { font-family: ui-monospace, monospace; font-size: 0.75rem; }
 
+// A stronger top-border on the first row of each household — the
+// backend clusters by memberId + MEMBER before DEPENDANT, so this line
+// gives the operator a clear visual boundary between families without
+// paying the density cost of an extra "Household" header row.
+.breakdown tr.household-boundary td {
+  border-top: 1px solid var(--color-border);
+}
+.breakdown tr:first-child.household-boundary td { border-top: none; }
+
+// Dependant rows sit slightly indented + softly tinted so it's obvious
+// they're under their principal. Uses --color-surface-alt to stay in the
+// app's palette rather than introduce a new colour.
+.breakdown tr.household-dependant td { background: var(--color-surface-alt, #f9fafb); }
+
+.dependant-indent {
+  color: var(--color-text-muted);
+  margin-right: 6px;
+  font-size: 0.85rem;
+}
+
 .type-badge {
   display: inline-block;
   padding: 2px 8px;

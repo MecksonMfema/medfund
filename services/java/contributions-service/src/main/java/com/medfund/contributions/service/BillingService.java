@@ -501,6 +501,7 @@ public class BillingService {
                                 .filter(pc -> currency == null || currency.isBlank()
                                         || currency.equalsIgnoreCase(pc.currencyCode()))
                                 .collectList()
+                                .map(BillingService::sortByHousehold)
                                 .flatMap(pricedList -> decorateWithOverrides(
                                         pricedList, pricingModel, periodStart, periodEnd)
                                         .map(lines -> buildResponse(
@@ -598,6 +599,52 @@ public class BillingService {
                 .map(tuple -> composeDecoratedLines(
                         priced, tuple.getT1(), tuple.getT2(),
                         individualModel, periodStart, periodEnd));
+    }
+
+    /**
+     * Group priced candidates into household clusters — every member's
+     * row is immediately followed by their dependants. Without this the
+     * resolver's {@code UNION ALL} returns MEMBER + DEPENDANT rows in an
+     * undefined Postgres order, so a group with 20 members + 40
+     * dependants renders as a scrambled table where a dependant can sit
+     * three rows away from their principal.
+     *
+     * <p>Sort key: {@code (memberId, personTypeRank)} where MEMBER
+     * ranks before DEPENDANT. memberId is chosen over memberNumber
+     * because it's guaranteed non-null on both MEMBER and DEPENDANT
+     * rows (the resolver copies the principal's member_id onto every
+     * dependant row for exactly this cluster-together purpose).
+     * Comparator stays a stable sort under Collections.sort so any
+     * within-household ordering the resolver already produced (e.g.
+     * dependant creation order) is preserved.
+     *
+     * <p>Kept static + package-private so the same-package IT can
+     * assert the ordering invariant without booting the Spring context.
+     */
+    static List<PricedCandidate> sortByHousehold(List<PricedCandidate> priced) {
+        List<PricedCandidate> sorted = new java.util.ArrayList<>(priced);
+        sorted.sort((a, b) -> {
+            int byMember = compareUuidsNullsLast(a.memberId(), b.memberId());
+            if (byMember != 0) return byMember;
+            // Within a household: MEMBER row first, DEPENDANT rows after.
+            // The resolver sets personType to the string literals
+            // 'MEMBER' or 'DEPENDANT' so a fixed rank map is precise
+            // and stable.
+            return Integer.compare(personTypeRank(a.personType()),
+                    personTypeRank(b.personType()));
+        });
+        return sorted;
+    }
+
+    private static int personTypeRank(String type) {
+        return "MEMBER".equalsIgnoreCase(type) ? 0 : 1;
+    }
+
+    private static int compareUuidsNullsLast(UUID a, UUID b) {
+        if (a == null && b == null) return 0;
+        if (a == null) return 1;
+        if (b == null) return -1;
+        return a.compareTo(b);
     }
 
     /**

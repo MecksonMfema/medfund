@@ -319,6 +319,114 @@ class BillingServiceChargePreviewDecorationTest {
                 new BigDecimal("50"), "USD");
     }
 
+    // ------------------------------------------------------------------
+    // sortByHousehold — every member's row is immediately followed by
+    // their dependants. Regression here would scatter dependants across
+    // the table so an operator can't visually cluster a household.
+    // ------------------------------------------------------------------
+
+    @Test
+    void sortByHousehold_memberComesBeforeItsDependants() {
+        // A single household with the resolver returning them in the
+        // "wrong" order (dependant before member). The sort must
+        // reorder so MEMBER lands ahead of DEPENDANT for the same
+        // household id.
+        UUID memberId = UUID.randomUUID();
+        UUID dependantId = UUID.randomUUID();
+        BillingService.PricedCandidate dep = dependantCandidate(memberId, dependantId);
+        BillingService.PricedCandidate mem = memberCandidate(memberId);
+
+        List<BillingService.PricedCandidate> sorted = BillingService.sortByHousehold(
+                List.of(dep, mem));
+
+        // MEMBER first, then DEPENDANT — the intra-household rank
+        // asserted directly. If someone reverses the comparator, this
+        // fails immediately.
+        assertThat(sorted.get(0).personType()).isEqualTo("MEMBER");
+        assertThat(sorted.get(0).memberId()).isEqualTo(memberId);
+        assertThat(sorted.get(1).personType()).isEqualTo("DEPENDANT");
+        assertThat(sorted.get(1).memberId()).isEqualTo(memberId);
+    }
+
+    @Test
+    void sortByHousehold_clustersHouseholdsTogether() {
+        // Two households, interleaved on input. Assert that all rows
+        // for a single memberId land contiguous in the output — the
+        // whole point of the sort. Uses a fixed UUID ordering so the
+        // test isn't flaky under random UUIDs.
+        UUID memberA = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID memberB = UUID.fromString("00000000-0000-0000-0000-000000000002");
+        UUID depA1 = UUID.randomUUID();
+        UUID depB1 = UUID.randomUUID();
+
+        // Scrambled input order — A member, B member, A's dependant, B's dependant.
+        List<BillingService.PricedCandidate> input = List.of(
+                memberCandidate(memberA),
+                memberCandidate(memberB),
+                dependantCandidate(memberA, depA1),
+                dependantCandidate(memberB, depB1));
+
+        List<BillingService.PricedCandidate> sorted = BillingService.sortByHousehold(input);
+
+        // memberA's household first (lower UUID), then memberB's. Each
+        // block is MEMBER → DEPENDANT.
+        assertThat(sorted.get(0).memberId()).isEqualTo(memberA);
+        assertThat(sorted.get(0).personType()).isEqualTo("MEMBER");
+        assertThat(sorted.get(1).memberId()).isEqualTo(memberA);
+        assertThat(sorted.get(1).personType()).isEqualTo("DEPENDANT");
+        assertThat(sorted.get(2).memberId()).isEqualTo(memberB);
+        assertThat(sorted.get(2).personType()).isEqualTo("MEMBER");
+        assertThat(sorted.get(3).memberId()).isEqualTo(memberB);
+        assertThat(sorted.get(3).personType()).isEqualTo("DEPENDANT");
+    }
+
+    @Test
+    void sortByHousehold_multipleDependants_stayAdjacent() {
+        // A member with two dependants — the two dependant rows must
+        // stay contiguous, both under their principal. Guards against
+        // a "sort by personType globally" regression that would list
+        // every MEMBER first, then every DEPENDANT.
+        UUID memberId = UUID.fromString("00000000-0000-0000-0000-00000000aaaa");
+        UUID otherMember = UUID.fromString("00000000-0000-0000-0000-00000000bbbb");
+        UUID dep1 = UUID.randomUUID();
+        UUID dep2 = UUID.randomUUID();
+
+        List<BillingService.PricedCandidate> sorted = BillingService.sortByHousehold(List.of(
+                dependantCandidate(memberId, dep1),
+                memberCandidate(otherMember),
+                dependantCandidate(memberId, dep2),
+                memberCandidate(memberId)));
+
+        // Assert: memberId's cluster is memberId MEMBER + 2 DEPENDANTs,
+        // then otherMember MEMBER standalone.
+        assertThat(sorted.get(0).memberId()).isEqualTo(memberId);
+        assertThat(sorted.get(0).personType()).isEqualTo("MEMBER");
+        assertThat(sorted.get(1).memberId()).isEqualTo(memberId);
+        assertThat(sorted.get(1).personType()).isEqualTo("DEPENDANT");
+        assertThat(sorted.get(2).memberId()).isEqualTo(memberId);
+        assertThat(sorted.get(2).personType()).isEqualTo("DEPENDANT");
+        assertThat(sorted.get(3).memberId()).isEqualTo(otherMember);
+    }
+
+    @Test
+    void sortByHousehold_emptyInput_returnsEmpty() {
+        assertThat(BillingService.sortByHousehold(List.of())).isEmpty();
+    }
+
+    @Test
+    void sortByHousehold_returnsANewList_doesNotMutateInput() {
+        // The caller passes a list from Flux.collectList() which is
+        // typically not the mutable copy — sorting it in-place could
+        // throw UnsupportedOperationException on some Mono impls.
+        // Guard: the returned list is a distinct instance.
+        UUID memberId = UUID.randomUUID();
+        List<BillingService.PricedCandidate> input = List.of(memberCandidate(memberId));
+
+        List<BillingService.PricedCandidate> sorted = BillingService.sortByHousehold(input);
+
+        assertThat(sorted).isNotSameAs(input);
+    }
+
     // Silence unused import warnings for the DTO import — kept in scope
     // so future line-shape assertions can reach for it without a re-
     // add pass.
