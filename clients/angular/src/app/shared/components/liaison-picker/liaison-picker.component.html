@@ -1,5 +1,9 @@
 <div class="liaison-picker">
-  <!-- Kind toggle -->
+  <!-- Kind toggle. MEMBER + STAFF are pure search — the entities have
+       their own admin sections for creation. LIAISON has an inline
+       collapsible "add new" mini-form so an operator mid-way through
+       a group create doesn't lose their draft when inviting a fresh
+       liaison. -->
   <div class="tabs" role="tablist">
     <button type="button" class="tab" role="tab"
             [class.active]="activeKind === 'MEMBER'"
@@ -12,153 +16,157 @@
             (click)="setKind('LIAISON')">Liaison only</button>
   </div>
 
-  <!-- Selected chip + change action -->
+  <!-- Selected chip + change action — mirrors transaction-form's
+       .selected-pill / .selected-info / .link-btn pattern so the two
+       search widgets read the same across the app. -->
   @if (picked) {
-    <div class="picked">
-      <span class="picked-label">{{ picked.label }}</span>
-      @if (picked.sublabel) { <span class="picked-sublabel">{{ picked.sublabel }}</span> }
-      <button type="button" class="picked-clear" (click)="clear()">Change</button>
+    <div class="selected-pill">
+      <div class="selected-info">
+        <strong>{{ picked.label }}</strong>
+        @if (picked.sublabel) { <span class="muted">{{ picked.sublabel }}</span> }
+      </div>
+      <button type="button" class="link-btn" (click)="clear()">Change</button>
     </div>
   }
 
-  <!-- Search input -->
-  @if (!picked) {
-    <div class="search-wrap">
+  <!-- Search input — mirrors /tenant/billing/transactions/add:
+       .search-wrapper anchor, .field-control input, .suggestions
+       dropdown, .suggestion rows. Same visual as the target picker
+       so operators recognise the pattern across forms. -->
+  @if (!picked && !showAddNew) {
+    <div class="search-wrapper">
       <input
+        class="field-control"
         type="text"
-        class="search"
         [(ngModel)]="query"
         (ngModelChange)="onQueryChange()"
+        (focus)="showMatches = true"
         (blur)="onBlur()"
-        [placeholder]="activeKind === 'MEMBER' ? 'Search by member name…' : activeKind === 'STAFF' ? 'Search by staff name or email…' : 'Search by liaison name or email…'" />
-      @if (showMatches && (searching || matches.length > 0)) {
-        <ul class="matches">
-          @if (searching) { <li class="match-state">Searching…</li> }
-          @for (m of matches; track m.id) {
-            <li class="match" (mousedown)="pick(m)">
-              <span class="match-label">{{ m.label }}</span>
-              @if (m.sublabel) { <span class="match-sublabel">{{ m.sublabel }}</span> }
-            </li>
+        [placeholder]="activeKind === 'MEMBER' ? 'Search by member name…' : activeKind === 'STAFF' ? 'Search by staff name or email…' : 'Search by liaison name or email…'"
+        autocomplete="off" />
+      @if (showMatches && (searching || matches.length > 0 || query.trim())) {
+        <ul class="suggestions">
+          @if (searching) {
+            <li class="suggestion muted">Searching…</li>
+          } @else if (matches.length === 0) {
+            <li class="suggestion muted">No matches</li>
+          } @else {
+            @for (m of matches; track m.id) {
+              <li class="suggestion" (mousedown)="pick(m)">
+                <strong>{{ m.label }}</strong>
+                @if (m.sublabel) { <span class="muted">— {{ m.sublabel }}</span> }
+              </li>
+            }
           }
         </ul>
       }
     </div>
 
-    @if (!showAddNew) {
+    <!-- MEMBER + STAFF: no inline add. Direct the operator to the
+         section that owns the record. -->
+    @if (activeKind === 'MEMBER') {
+      <p class="hint muted">
+        Members are enrolled under
+        <a class="link" routerLink="/tenant/members">Members</a>.
+        Come back here and search once they're enrolled.
+      </p>
+    }
+    @if (activeKind === 'STAFF') {
+      <p class="hint muted">
+        Staff users are added under
+        <a class="link" routerLink="/tenant/admin/staff">Staff Admin</a>.
+        Come back here and search once the account exists.
+      </p>
+    }
+
+    <!-- LIAISON: inline "add new" trigger. Expands to a collapsible
+         mini-form below so the parent group form's draft state
+         survives. -->
+    @if (activeKind === 'LIAISON') {
       <button type="button" class="add-new" (click)="openAddNew()">
-        + Add new {{ activeKind === 'MEMBER' ? 'member' : activeKind === 'STAFF' ? 'staff user' : 'liaison' }}
+        + Add new liaison
       </button>
     }
+  }
 
-    <!-- Inline add-new mini-form — Member kind -->
-    @if (showAddNew && activeKind === 'MEMBER') {
-      <div class="add-form">
-        <div class="add-form-grid">
-          <label class="field">
-            <span class="field-label">First name *</span>
-            <input type="text" [(ngModel)]="newMember.firstName" />
-          </label>
-          <label class="field">
-            <span class="field-label">Last name *</span>
-            <input type="text" [(ngModel)]="newMember.lastName" />
-          </label>
-          <label class="field">
-            <span class="field-label">Date of birth *</span>
-            <input type="date" [(ngModel)]="newMember.dateOfBirth" />
-          </label>
-          <label class="field">
-            <span class="field-label">Email</span>
-            <input type="email" [(ngModel)]="newMember.email" />
-          </label>
-          <label class="field span-2">
-            <span class="field-label">Phone</span>
-            <input type="tel" [(ngModel)]="newMember.phone" />
-          </label>
-        </div>
-        <div class="add-form-actions">
-          <button type="button" class="btn" (click)="cancelAddNew()" [disabled]="saving">Cancel</button>
-          <button type="button" class="btn primary" (click)="submitNew()" [disabled]="saving">
-            {{ saving ? 'Saving…' : 'Enrol & select' }}
-          </button>
-        </div>
-      </div>
-    }
-
-    <!-- Inline add-new mini-form — Pure liaison kind -->
-    @if (showAddNew && activeKind === 'LIAISON') {
-      <div class="add-form">
+  <!-- Inline collapsible add-new form (LIAISON only). Uses the
+       shared clean-UI grammar (.field-control inputs, .field-label
+       labels, .req / .optional badges) so it feels like a native
+       extension of the surrounding form. -->
+  @if (!picked && showAddNew) {
+    <div class="add-form">
+      <header class="add-form-head">
+        <h4 class="add-form-title">Invite a new liaison</h4>
         <p class="add-form-hint">
-          Creates a Keycloak account in this tenant's realm with the
-          <code>group_liaison</code> role and sends an invite email so the
-          person can set their password.
+          Creates a Keycloak account with the <code>group_liaison</code> role and
+          sends an invite email so the person can set their password. Your group
+          draft above is preserved — the new liaison will be pre-selected on save.
         </p>
-        <div class="add-form-grid">
-          <label class="field">
-            <span class="field-label">First name *</span>
-            <input type="text" [(ngModel)]="newLiaison.firstName" />
-          </label>
-          <label class="field">
-            <span class="field-label">Last name *</span>
-            <input type="text" [(ngModel)]="newLiaison.lastName" />
-          </label>
-          <label class="field">
-            <span class="field-label">Email *</span>
-            <input type="email" [(ngModel)]="newLiaison.email" />
-          </label>
-          <label class="field">
-            <span class="field-label">Phone</span>
-            <input type="tel" [(ngModel)]="newLiaison.phone" />
-          </label>
-          <label class="field span-2">
-            <span class="field-label">Address</span>
-            <input type="text" [(ngModel)]="newLiaison.address" />
-          </label>
-        </div>
-        <div class="add-form-actions">
-          <button type="button" class="btn" (click)="cancelAddNew()" [disabled]="saving">Cancel</button>
-          <button type="button" class="btn primary" (click)="submitNew()" [disabled]="saving">
-            {{ saving ? 'Saving…' : 'Invite & select' }}
-          </button>
-        </div>
-      </div>
-    }
+      </header>
 
-    <!-- Inline add-new mini-form — Staff kind -->
-    @if (showAddNew && activeKind === 'STAFF') {
-      <div class="add-form">
-        <div class="add-form-grid">
-          <label class="field">
-            <span class="field-label">First name *</span>
-            <input type="text" [(ngModel)]="newStaff.firstName" />
-          </label>
-          <label class="field">
-            <span class="field-label">Last name *</span>
-            <input type="text" [(ngModel)]="newStaff.lastName" />
-          </label>
-          <label class="field">
-            <span class="field-label">Email *</span>
-            <input type="email" [(ngModel)]="newStaff.email" />
-          </label>
-          <label class="field">
-            <span class="field-label">Phone</span>
-            <input type="tel" [(ngModel)]="newStaff.phone" />
-          </label>
-          <label class="field span-2">
-            <span class="field-label">Role</span>
-            <app-select
-              [(ngModel)]="newStaff.realmRole"
-              name="newStaffRealmRole"
-              [options]="staffRoleOptions"
-            ></app-select>
-          </label>
-        </div>
-        <div class="add-form-actions">
-          <button type="button" class="btn" (click)="cancelAddNew()" [disabled]="saving">Cancel</button>
-          <button type="button" class="btn primary" (click)="submitNew()" [disabled]="saving">
-            {{ saving ? 'Saving…' : 'Create & select' }}
-          </button>
-        </div>
+      <div class="add-form-grid">
+        <label class="field">
+          <span class="field-label">First name <span class="req">*</span></span>
+          <input
+            class="field-control"
+            type="text"
+            [(ngModel)]="newLiaison.firstName"
+            name="newLiaisonFirstName"
+            maxlength="100" />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Last name <span class="req">*</span></span>
+          <input
+            class="field-control"
+            type="text"
+            [(ngModel)]="newLiaison.lastName"
+            name="newLiaisonLastName"
+            maxlength="100" />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Email <span class="req">*</span></span>
+          <input
+            class="field-control"
+            type="email"
+            [(ngModel)]="newLiaison.email"
+            name="newLiaisonEmail"
+            maxlength="255"
+            placeholder="sarah@company.com" />
+          <small class="field-help">Invite lands here; the person sets their own password.</small>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Phone <span class="optional">(optional)</span></span>
+          <input
+            class="field-control"
+            type="tel"
+            [(ngModel)]="newLiaison.phone"
+            name="newLiaisonPhone"
+            maxlength="30"
+            placeholder="+263 …" />
+        </label>
+
+        <label class="field field-grid__full">
+          <span class="field-label">Address <span class="optional">(optional)</span></span>
+          <textarea
+            class="field-control"
+            [(ngModel)]="newLiaison.address"
+            name="newLiaisonAddress"
+            rows="2"
+            placeholder="Street, city, postcode"></textarea>
+        </label>
       </div>
-    }
+
+      <div class="add-form-actions">
+        <button type="button" class="btn btn-default" (click)="cancelAddNew()" [disabled]="saving">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" (click)="submitNew()" [disabled]="saving">
+          {{ saving ? 'Inviting…' : 'Invite & select' }}
+        </button>
+      </div>
+    </div>
   }
 </div>

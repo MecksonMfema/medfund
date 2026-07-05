@@ -1,99 +1,296 @@
+// Mirrors the search / selected-pill / suggestions grammar of
+// /tenant/billing/transactions/add so operators recognise the same
+// visual pattern across every picker in the app. Kept in visual
+// lockstep with transaction-form.component.scss (.search-wrapper,
+// .field-control, .suggestions, .suggestion, .selected-pill,
+// .selected-info, .link-btn).
+
 .liaison-picker {
-  display: flex; flex-direction: column; gap: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
+// ── Kind tabs (three kinds — Member / Staff / Liaison) ───────────────
+// Underlined-tab strip, same style as the app's other tab strips.
 .tabs {
-  display: flex; gap: 4px; border-bottom: 1px solid var(--border, #e5e7eb);
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .tab {
-  background: none; border: none; padding: 6px 12px;
-  cursor: pointer; font-size: 0.85rem; color: var(--text-muted, #6b7280);
+  background: none;
+  border: none;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
   border-bottom: 2px solid transparent;
-  &:hover { color: var(--text, #222); }
+  font-family: var(--font-family);
+  font-weight: var(--font-weight-medium);
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+
+  &:hover { color: var(--color-text-primary); }
+
   &.active {
-    color: var(--primary, #2563eb);
-    border-bottom-color: var(--primary, #2563eb);
-    font-weight: 500;
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
   }
 }
 
-.picked {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 10px;
-  background: var(--surface-alt, #eef2ff);
-  border: 1px solid var(--border, #d1d5db);
-  border-radius: 4px;
+// ── Search input + suggestions dropdown ───────────────────────────────
+// Same shape as transaction-form's target picker. .field-control gives
+// the pill-shaped input + focus ring; .suggestions is anchored to the
+// wrapper so long dropdowns don't shift the layout below.
+
+.search-wrapper {
+  position: relative;
+}
+
+.field-control {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  font-family: var(--font-family);
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &::placeholder { color: var(--color-text-muted); }
+  &:hover:not(:disabled) { border-color: var(--color-secondary); }
+  &:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-light);
+  }
+}
+
+.suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  max-height: 240px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.25rem 0;
+  list-style: none;
+  z-index: 20;
+}
+
+.suggestion {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.suggestion:hover { background: var(--color-bg); }
+
+.suggestion.muted {
+  cursor: default;
+  color: var(--color-text-muted);
+}
+
+.suggestion.muted:hover { background: transparent; }
+
+.muted {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+// ── Selected chip (post-pick) ─────────────────────────────────────────
+// Same visual as transaction-form's .selected-pill — light primary
+// wash, primary border, name on the left, "Change" link-button on the
+// right. Operators see the SAME chip on both surfaces.
+
+.selected-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--color-primary-light);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-lg);
   font-size: 0.9rem;
 }
-.picked-label { font-weight: 500; }
-.picked-sublabel { color: var(--text-muted, #6b7280); font-size: 0.8rem; }
-.picked-clear {
-  background: none; border: none; cursor: pointer;
-  color: var(--primary, #2563eb); margin-left: auto; font-size: 0.85rem;
+
+.selected-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
 }
 
-.search-wrap { position: relative; }
-.search {
-  width: 100%; padding: 0.5rem;
-  border: 1px solid var(--border, #d1d5db); border-radius: 4px;
-  font-size: 0.95rem;
+.selected-info strong {
+  color: var(--color-text-primary);
 }
 
-.matches {
-  list-style: none; margin: 4px 0 0; padding: 4px 0;
-  background: white; border: 1px solid var(--border, #d1d5db);
-  border-radius: 4px; max-height: 240px; overflow-y: auto;
-  position: absolute; top: 100%; left: 0; right: 0; z-index: 20;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+.link-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--color-primary);
+  padding: 0;
+  text-decoration: underline;
+  flex-shrink: 0;
 }
-.match {
-  padding: 8px 10px; cursor: pointer;
-  display: flex; flex-direction: column; gap: 2px;
-  &:hover { background: var(--row-hover, #f3f4f6); }
-}
-.match-label { font-size: 0.9rem; }
-.match-sublabel { color: var(--text-muted, #6b7280); font-size: 0.78rem; }
-.match-state { padding: 8px 10px; color: var(--text-muted, #6b7280); font-style: italic; font-size: 0.85rem; }
 
+.link-btn:hover { color: var(--color-primary-hover); }
+
+// ── "Add new liaison" affordance (LIAISON tab only) ───────────────────
+// Renders as an anchor; kept the dashed-border visual so operators
+// recognise it as the "add flow" from the pre-migration mini-form era.
 .add-new {
-  background: none; border: 1px dashed var(--border, #d1d5db);
-  padding: 6px 10px; border-radius: 4px;
-  color: var(--primary, #2563eb); font-size: 0.85rem;
-  cursor: pointer; text-align: left;
+  background: none;
+  border: 1px dashed var(--color-border);
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  color: var(--color-primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-align: left;
   align-self: flex-start;
-  &:hover { background: var(--surface-alt, #f9fafb); }
+  text-decoration: none;
+  display: inline-block;
+  transition: background var(--transition-fast);
+
+  &:hover { background: var(--color-surface-alt, #f9fafb); }
 }
+
+// ── Under-tab hints for MEMBER / STAFF (search-only) ──────────────────
+.hint {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  margin: 4px 2px 0;
+  line-height: 1.5;
+}
+
+.hint .link {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+}
+
+.hint .link:hover { text-decoration: underline; }
+
+// ── Inline "add new liaison" collapsible (LIAISON kind only) ─────────
+// Sits inside the parent form so the operator's group draft is
+// preserved. Uses the same field-control + field-label + req /
+// optional grammar as the surrounding clean-UI forms so the collapse
+// reads as a natural extension, not a foreign widget.
 
 .add-form {
-  border: 1px solid var(--border, #d1d5db);
-  border-radius: 4px; padding: 12px;
-  background: var(--surface-alt, #fafafa);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-alt, #f9fafb);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
+
+.add-form-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.add-form-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
 .add-form-hint {
-  margin: 0 0 10px; font-size: 0.78rem; color: var(--text-muted, #6b7280);
-  code { font-family: ui-monospace, monospace; background: rgba(0,0,0,0.05); padding: 1px 4px; border-radius: 3px; }
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85em;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-light);
+    border-radius: 4px;
+    padding: 1px 6px;
+  }
 }
+
 .add-form-grid {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  min-width: 0;
 }
-.field { display: flex; flex-direction: column; }
-.field-label { font-size: 0.78rem; color: var(--text-muted, #6b7280); margin-bottom: 4px; }
-.field input,
-.field select {
-  padding: 6px 8px; border: 1px solid var(--border, #d1d5db); border-radius: 4px;
-  font-size: 0.9rem; font-family: inherit;
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
 }
-.span-2 { grid-column: span 2; }
+
+.field-label {
+  font-weight: var(--font-weight-medium);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.field-help {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.req {
+  color: var(--color-error);
+  font-weight: var(--font-weight-bold);
+  font-size: 0.9em;
+}
+
+.optional {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+  font-size: 0.85em;
+}
+
+// Fields that should span every column of .add-form-grid (address
+// textarea sitting alone under the two-column identity/contact rows).
+.field-grid__full {
+  grid-column: 1 / -1;
+}
 
 .add-form-actions {
-  display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--color-border-light);
+  margin-top: 4px;
+  padding: 12px 0 0;
 }
 
-.btn {
-  padding: 6px 12px; border: 1px solid var(--border, #d1d5db);
-  background: white; border-radius: 4px; font-size: 0.85rem;
-  cursor: pointer;
-  &.primary { background: var(--primary, #2563eb); color: white; border-color: var(--primary, #2563eb); }
-  &:disabled { opacity: 0.6; cursor: not-allowed; }
+// ── Narrow-viewport collapse ──────────────────────────────────────────
+@media (max-width: 640px) {
+  .add-form-grid {
+    grid-template-columns: 1fr;
+  }
 }

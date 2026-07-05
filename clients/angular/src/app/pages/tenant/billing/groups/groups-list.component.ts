@@ -1,24 +1,30 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
-import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
+import { Subject, Subscription, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
 import { Group, GroupsService } from '../../../../core/services/groups.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
+import { HasPermissionDirective } from '../../../../shared/directives/has-permission.directive';
 
+/**
+ * Groups list — employer/organisation groups the tenant bills. Layout
+ * mirrors /tenant/billing/schemes: full-bleed page-header banner with
+ * a permission-gated primary action on the right, then the shared
+ * data-table (with its built-in search bar) for rows + pagination.
+ */
 @Component({
   selector: 'app-groups-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, IconComponent, DataTableComponent],
+  imports: [CommonModule, RouterLink, IconComponent, DataTableComponent, HasPermissionDirective],
   templateUrl: './groups-list.component.html',
   styleUrl: './groups-list.component.scss',
 })
-export class GroupsListComponent implements OnInit {
+export class GroupsListComponent implements OnInit, OnDestroy {
   rows: Group[] = [];
   loading = false;
   errorMessage: string | null = null;
   pendingId: string | null = null;
-  query = '';
 
   columns: TableColumn[] = [
     { key: 'name',               label: 'Name' },
@@ -36,32 +42,41 @@ export class GroupsListComponent implements OnInit {
     },
   ];
 
-  private query$ = new Subject<string>();
+  private searchInput$ = new Subject<string>();
+  private subs: Subscription[] = [];
 
   constructor(private groups: GroupsService, private router: Router) {}
 
   ngOnInit(): void {
     this.fetchAll();
-    this.query$
-      .pipe(
-        debounceTime(350),
-        distinctUntilChanged(),
-        switchMap((q) => (q.trim() ? this.groups.search(q.trim()) : this.groups.list())),
-      )
-      .subscribe({
-        next: (rows) => { this.rows = rows; this.loading = false; },
-        error: (err) => {
-          this.errorMessage = err?.error?.detail || 'Search failed';
-          this.loading = false;
-        },
-      });
+    // Debounced search — flips between /groups/search and /groups
+    // when the term is cleared. 350ms window matches the ledger's
+    // typeahead so the two feel like one system.
+    this.subs.push(
+      this.searchInput$
+        .pipe(
+          debounceTime(350),
+          distinctUntilChanged(),
+          switchMap((q) => (q.trim() ? this.groups.search(q.trim()) : this.groups.list())),
+        )
+        .subscribe({
+          next: (rows) => { this.rows = rows; this.loading = false; },
+          error: (err) => {
+            this.errorMessage = err?.error?.detail || 'Search failed';
+            this.loading = false;
+          },
+        }),
+    );
   }
 
-  onSearchChange(term: string): void {
-    this.query = term;
+  ngOnDestroy(): void {
+    this.subs.forEach(s => s.unsubscribe());
+  }
+
+  onSearch(term: string): void {
     this.loading = true;
     this.errorMessage = null;
-    this.query$.next(term);
+    this.searchInput$.next(term);
   }
 
   open(g: Group): void {

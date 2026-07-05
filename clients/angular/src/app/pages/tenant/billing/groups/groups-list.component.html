@@ -1,29 +1,26 @@
-<div class="page">
-  <header class="page-header">
-    <div>
-      <h1>Groups</h1>
-      <p class="page-sub">Employer groups participating in tenant schemes. Use Group Charge to post a one-off charge against any group balance.</p>
-    </div>
-    <a class="btn btn-primary" routerLink="/tenant/billing/groups/add">
-      <app-icon name="plus" [size]="14"></app-icon>
-      Add group
-    </a>
-  </header>
+<header class="page-header">
+  <div>
+    <h1>Groups</h1>
+    <p class="page-sub">Employer or organisation groups the tenant bills. Use the Charge Preview page to project a group's next-cycle charge; open a group here to see its liaison, member roster, and running balance.</p>
+  </div>
+  <a *hasPermission="'billing:manage_groups'" class="btn btn-primary" routerLink="/tenant/billing/groups/add">
+    <app-icon name="plus" [size]="14"></app-icon>
+    Add group
+  </a>
+</header>
 
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
 
-  <app-data-table
-    title="Groups"
-    [columns]="columns"
-    [data]="rows"
-    [loading]="loading"
-    [actions]="actions"
-    [serverSide]="true"
-    searchPlaceholder="Search by name…"
-    emptyMessage="No groups yet."
-    (rowClick)="open($event)"
-    (searchChange)="onSearchChange($event)">
-  </app-data-table>
-</div>
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [loading]="loading"
+  [actions]="actions"
+  [serverSide]="true"
+  searchPlaceholder="Search by group name…"
+  emptyMessage="No groups yet."
+  (rowClick)="open($event)"
+  (searchChange)="onSearch($event)">
+</app-data-table>

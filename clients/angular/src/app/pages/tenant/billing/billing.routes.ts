@@ -326,7 +326,10 @@ export const BILLING_ROUTES: Routes = [
     path: 'groups',
     canActivate: [permissionGuard(['billing:view', 'billing:manage_groups']), tenantGroupsEnabledGuard],
     loadComponent: () => import('./groups/groups-list.component').then(m => m.GroupsListComponent),
-    data: { title: 'Groups', sidebar: 'operational' },
+    // fullbleed so the page-header banner + toolbar strip sit flush
+    // against the sidebar — matches /tenant/billing/creditors and the
+    // rest of the billing list surfaces.
+    data: { title: 'Groups', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'groups/add',
@@ -342,4 +345,5 @@ export const BILLING_ROUTES: Routes = [
     loadComponent: () => import('./groups/detail/group-detail.component').then(m => m.GroupDetailComponent),
     data: { title: 'Group Detail', sidebar: 'operational' },
   },
+
 ];

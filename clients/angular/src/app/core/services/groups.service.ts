@@ -26,6 +26,12 @@ export interface Group {
 
 export interface UpsertGroupPayload {
   name: string;
+  /**
+   * @deprecated The backend issues registration numbers automatically
+   * per the tenant's configured shape (V125). Any value sent here is
+   * ignored on create and rejected on update. Kept on the type only
+   * for old serialised drafts; new forms no longer include it.
+   */
   registrationNumber?: string;
   address?: string;
   /** Required on create; optional on update. */

@@ -3,13 +3,13 @@ import {
   Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { Observable, Subject, debounceTime, distinctUntilChanged, of, switchMap } from 'rxjs';
 import { AdminService, StaffUser } from '../../../core/services/admin.service';
 import { GroupLiaison, GroupLiaisonsService } from '../../../core/services/group-liaisons.service';
 import { Member, MembersService } from '../../../core/services/members.service';
 import { TenantService } from '../../../core/services/tenant.service';
 import { ToastService } from '../toast/toast.service';
-import { SelectComponent, SelectOption } from '../select/select.component';
 
 export type LiaisonKind = 'MEMBER' | 'STAFF' | 'LIAISON';
 
@@ -26,22 +26,6 @@ interface Suggestion {
   sublabel?: string;
 }
 
-interface NewMemberForm {
-  firstName: string;
-  lastName: string;
-  dateOfBirth: string;
-  email: string;
-  phone: string;
-}
-
-interface NewStaffForm {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  realmRole: string;
-}
-
 interface NewLiaisonForm {
   firstName: string;
   lastName: string;
@@ -50,25 +34,24 @@ interface NewLiaisonForm {
   address: string;
 }
 
-const EMPTY_MEMBER: NewMemberForm = { firstName: '', lastName: '', dateOfBirth: '', email: '', phone: '' };
-const EMPTY_STAFF: NewStaffForm = { firstName: '', lastName: '', email: '', phone: '', realmRole: 'operations' };
 const EMPTY_LIAISON: NewLiaisonForm = { firstName: '', lastName: '', email: '', phone: '', address: '' };
 
 /**
- * Group-liaison picker. The liaison can be (a) an existing member,
- * (b) an existing tenant staff user, or (c) a brand-new person of either
- * kind. The component owns the kind toggle, the debounced search, and the
- * inline "add new" mini-form so the parent only sees a single
- * {@link LiaisonSelection} payload.
+ * Group-liaison picker. Search-only for MEMBER and STAFF — those
+ * entities live in their own admin sections. For the LIAISON kind
+ * (a standalone Keycloak account with the {@code group_liaison} role)
+ * the picker exposes an inline collapsible mini-form so an operator
+ * mid-way through a group create doesn't lose their draft when they
+ * need to invite a fresh liaison contact.
  *
- * The parent supplies prefill props (kind + id + label) for edit forms;
- * the component reflects them on first paint without doing its own
- * lookup-by-id.
+ * <p>The parent supplies prefill props (kind + id + label) for edit
+ * forms; the component reflects them on first paint without doing its
+ * own lookup-by-id.
  */
 @Component({
   selector: 'app-liaison-picker',
   standalone: true,
-  imports: [CommonModule, FormsModule, SelectComponent],
+  imports: [CommonModule, FormsModule, RouterLink],
   templateUrl: './liaison-picker.component.html',
   styleUrl: './liaison-picker.component.scss',
 })
@@ -90,22 +73,7 @@ export class LiaisonPickerComponent implements OnInit, OnChanges {
 
   showAddNew = false;
   saving = false;
-  newMember: NewMemberForm = { ...EMPTY_MEMBER };
-  newStaff: NewStaffForm = { ...EMPTY_STAFF };
   newLiaison: NewLiaisonForm = { ...EMPTY_LIAISON };
-
-  /** Realm role options for new-staff creation. Mirrors RoleService seeds. */
-  readonly STAFF_ROLES = [
-    { value: 'operations',      label: 'Operations Staff' },
-    { value: 'tenant_admin',    label: 'Tenant Administrator' },
-    { value: 'finance_officer', label: 'Finance Officer' },
-    { value: 'claims_officer',  label: 'Claims Officer' },
-  ];
-
-  /** Realm-role picker as SelectOption[] — used by the inline new-staff form. */
-  get staffRoleOptions(): SelectOption[] {
-    return this.STAFF_ROLES.map(r => ({ value: r.value, label: r.label }));
-  }
 
   private query$ = new Subject<string>();
 
@@ -166,6 +134,9 @@ export class LiaisonPickerComponent implements OnInit, OnChanges {
     this.matches = [];
     this.query = '';
     this.showMatches = false;
+    // Collapse the inline add-new form on a tab switch — it only
+    // applies to LIAISON, so leaving it open under MEMBER / STAFF
+    // would be confusing.
     this.showAddNew = false;
   }
 
@@ -199,12 +170,10 @@ export class LiaisonPickerComponent implements OnInit, OnChanges {
     setTimeout(() => { this.showMatches = false; }, 150);
   }
 
-  // ── Inline "add new" ────────────────────────────────────────────────────
+  // ── Inline "add new liaison" (LIAISON kind only) ────────────────────────
 
   openAddNew(): void {
     this.showAddNew = true;
-    this.newMember = { ...EMPTY_MEMBER };
-    this.newStaff = { ...EMPTY_STAFF };
     this.newLiaison = { ...EMPTY_LIAISON };
   }
 
@@ -212,82 +181,29 @@ export class LiaisonPickerComponent implements OnInit, OnChanges {
     this.showAddNew = false;
   }
 
+  /**
+   * Invite a fresh standalone liaison. Creates a Keycloak account in
+   * the tenant's realm with the {@code group_liaison} role and sends
+   * an invite email so the person can set their password. On success
+   * the picker auto-selects the new liaison so the parent form
+   * receives the {@link LiaisonSelection} event without any extra
+   * clicks — the operator's draft group data is preserved.
+   */
   submitNew(): void {
-    if (this.activeKind === 'MEMBER') {
-      if (!this.newMember.firstName.trim() || !this.newMember.lastName.trim() || !this.newMember.dateOfBirth) {
-        this.toast.error('First name, last name and date of birth are required.');
-        return;
-      }
-      this.saving = true;
-      this.membersService.enroll({
-        firstName: this.newMember.firstName.trim(),
-        lastName:  this.newMember.lastName.trim(),
-        dateOfBirth: this.newMember.dateOfBirth,
-        email: this.newMember.email.trim() || undefined,
-        phone: this.newMember.phone.trim() || undefined,
-      }).subscribe({
-        next: (m: Member) => {
-          this.saving = false;
-          this.showAddNew = false;
-          this.pick({
-            id: m.id,
-            label: `${m.firstName} ${m.lastName}`.trim(),
-            sublabel: m.memberNumber,
-          });
-        },
-        error: (err) => {
-          this.saving = false;
-          this.toast.error(err?.error?.detail || 'Enrolment failed');
-        },
-      });
-      return;
-    }
-
-    if (this.activeKind === 'STAFF') {
-      if (!this.newStaff.firstName.trim() || !this.newStaff.lastName.trim() || !this.newStaff.email.trim()) {
-        this.toast.error('First name, last name and email are required.');
-        return;
-      }
-      this.saving = true;
-      const tenantId = this.tenantService.getTenantId() || null;
-      this.adminService.createStaffUser({
-        firstName: this.newStaff.firstName.trim(),
-        lastName:  this.newStaff.lastName.trim(),
-        email:     this.newStaff.email.trim(),
-        jobTitle:  'Group Liaison',
-        realmRole: this.newStaff.realmRole,
-        tenantId,
-      }).subscribe({
-        next: (s: StaffUser) => {
-          this.saving = false;
-          this.showAddNew = false;
-          this.pick({
-            id: s.id,
-            label: `${s.firstName} ${s.lastName}`.trim(),
-            sublabel: s.email,
-          });
-        },
-        error: (err) => {
-          this.saving = false;
-          this.toast.error(err?.error?.detail || 'Failed to create staff user');
-        },
-      });
-      return;
-    }
-
-    // LIAISON — a pure liaison (Keycloak account in the tenant realm,
-    // group_liaison realm role, invite email sent by the backend).
-    if (!this.newLiaison.firstName.trim() || !this.newLiaison.lastName.trim() || !this.newLiaison.email.trim()) {
+    const first = this.newLiaison.firstName.trim();
+    const last  = this.newLiaison.lastName.trim();
+    const email = this.newLiaison.email.trim();
+    if (!first || !last || !email) {
       this.toast.error('First name, last name and email are required.');
       return;
     }
     this.saving = true;
     this.liaisonsService.create({
-      firstName: this.newLiaison.firstName.trim(),
-      lastName:  this.newLiaison.lastName.trim(),
-      email:     this.newLiaison.email.trim(),
-      phone:     this.newLiaison.phone.trim() || undefined,
-      address:   this.newLiaison.address.trim() || undefined,
+      firstName: first,
+      lastName:  last,
+      email,
+      phone:   this.newLiaison.phone.trim() || undefined,
+      address: this.newLiaison.address.trim() || undefined,
     }).subscribe({
       next: (l: GroupLiaison) => {
         this.saving = false;
@@ -297,10 +213,11 @@ export class LiaisonPickerComponent implements OnInit, OnChanges {
           label: `${l.firstName} ${l.lastName}`.trim(),
           sublabel: l.email,
         });
+        this.toast.success(`Liaison ${l.firstName} ${l.lastName} invited by email.`);
       },
       error: (err) => {
         this.saving = false;
-        this.toast.error(err?.error?.detail || 'Failed to create liaison');
+        this.toast.error(err?.error?.detail || err?.error?.title || 'Failed to create liaison');
       },
     });
   }

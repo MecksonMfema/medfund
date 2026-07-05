@@ -23,10 +23,15 @@ export class GroupFormComponent implements OnInit {
   loading = false;
   saving = false;
   errorMessage: string | null = null;
+  /**
+   * Server-issued registration number surfaced read-only on the edit
+   * form. On the create form this stays null until save; the server
+   * mints the value per the tenant's configured shape (V125).
+   */
+  registrationNumber: string | null = null;
 
   form: UpsertGroupPayload = {
     name: '',
-    registrationNumber: '',
     address: '',
     email: '',
     liaisonKind: null,
@@ -64,9 +69,9 @@ export class GroupFormComponent implements OnInit {
     this.loading = true;
     this.groups.findById(this.groupId).subscribe({
       next: (g: Group) => {
+        this.registrationNumber = g.registrationNumber ?? null;
         this.form = {
           name: g.name,
-          registrationNumber: g.registrationNumber ?? '',
           address: g.address ?? '',
           email: g.email ?? '',
           liaisonKind: g.liaisonKind ?? null,
@@ -96,7 +101,9 @@ export class GroupFormComponent implements OnInit {
     }
     const payload: UpsertGroupPayload = {
       name: this.form.name.trim(),
-      registrationNumber: this.form.registrationNumber?.trim() || undefined,
+      // registrationNumber deliberately omitted — the backend issues it
+      // per the tenant's configured shape (V125) and ignores any value
+      // in the payload. Leaving it off the wire keeps the intent clear.
       address: this.form.address?.trim() || undefined,
       email:         this.form.email?.trim() || undefined,
       liaisonKind:   this.form.liaisonKind   ?? undefined,

@@ -40,4 +40,16 @@ describe('BILLING_ROUTES', () => {
     expect(legacy?.redirectTo).toBe('ledger');
     expect(legacy?.pathMatch).toBe('full');
   });
+
+  it('does NOT expose a standalone /group-liaisons/add route', () => {
+    // The inline collapsible in the liaison-picker owns the "add new
+    // liaison" flow now — the standalone page was removed so a
+    // mid-flow "Add new" click no longer strands the operator's
+    // group draft. Guard against a well-meaning revert that would
+    // reintroduce the redirect + lost-state UX.
+    const liaisonAdd = BILLING_ROUTES.find(r => r.path === 'group-liaisons/add');
+    expect(liaisonAdd)
+      .withContext('the picker owns this flow inline; no separate route should exist')
+      .toBeUndefined();
+  });
 });

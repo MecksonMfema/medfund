@@ -1,49 +1,295 @@
-.form-page { padding: 1.5rem; }
+// Group form — mirrors the visual grammar of /tenant/billing/transactions/add:
+// page-header banner, .form-card with heading + underlined title,
+// .form-sections grid, section-head icons, .field-control inputs,
+// .form-actions footer. Kept independent from the transaction form's
+// SCSS because the two forms don't share their inner grids (transactions
+// runs a subgrid across three tall columns; groups has only a handful
+// of fields per section and fits a plain 2-col field grid instead).
+
+// ── Page chrome ──────────────────────────────────────────────────────────
+.group-form-page {
+  padding: 24px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  margin: 0 0 4px;
+  font-size: 1.5rem;
+  color: var(--color-text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
-.page-header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
-.page-sub { margin: 0; color: var(--text-muted, #6b7280); font-size: 0.9rem; max-width: 65ch; }
+// Read-only registration number pill on the edit form. Sized to sit
+// next to the h1 without dwarfing it; monospace font because it's a
+// value the operator may copy into another system.
+.reg-badge {
+  font-size: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: var(--font-weight-medium);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--color-surface-alt, #f6f8fb);
+  border: 1px solid var(--color-border-light);
+  color: var(--color-text-secondary);
+  cursor: default;
+  letter-spacing: 0.02em;
+}
 
+.page-sub {
+  margin: 0;
+  color: var(--color-text-muted);
+  max-width: 65ch;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+// ── Banners ──────────────────────────────────────────────────────────────
 .banner {
-  padding: 0.5rem 0.75rem;
-  border-radius: 4px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
   cursor: pointer;
-  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  border: 1px solid transparent;
 }
 
-.banner-error { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
+.banner-error {
+  background: var(--color-error-light);
+  color: var(--color-error);
+  border-color: rgba(231, 29, 54, 0.25);
+}
 
-.form-grid {
+// ── Form card ────────────────────────────────────────────────────────────
+.form-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: visible; // liaison picker's suggestions dropdown escapes the card
+}
+
+.form-card__heading {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-border-light);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.form-card__title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  position: relative;
+  padding-bottom: 6px;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    width: 40px;
+    height: 2px;
+    background: var(--color-primary);
+    border-radius: 2px;
+  }
+}
+
+.form-card__hint {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+// ── Sections ─────────────────────────────────────────────────────────────
+// Both sections span full width — groups only have a handful of fields
+// each, so the transaction form's tight 3-column subgrid would look
+// sparse here. Fields inside each section use their own 2-col grid so
+// short pairs (Name / Registration #, Email / Liaison) sit side by side.
+.form-sections {
   display: grid;
+  gap: 24px;
+  padding: 24px;
+}
+
+// Second section-block below the identity fields. Uses a top divider
+// so it visually reads as a distinct concern (the liaison config) from
+// the group's own identity fields above — mirrors how the transaction
+// form separates its Target section from Classification / Amount /
+// Reference below.
+.form-sections--liaison {
+  border-top: 1px solid var(--color-border-light);
+  padding-top: 20px;
+}
+
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.form-section--full {
+  width: 100%;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.section-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.section-hint {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+// ── Inner field grid ─────────────────────────────────────────────────────
+.field-grid {
+  display: grid;
+  gap: 16px 24px;
+  min-width: 0;
+}
+
+.field-grid--2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
 }
 
-.field { display: flex; flex-direction: column; }
-.field-label { font-weight: 500; font-size: 0.875rem; margin-bottom: 0.25rem; }
-.field input,
-.field select,
-.field textarea {
-  padding: 0.5rem;
-  border: 1px solid var(--border, #d1d5db);
-  border-radius: 4px;
-  font-size: 0.95rem;
-  font-family: inherit;
+// A field that should span every column of its parent .field-grid — used
+// for the address textarea sitting under the Name / Registration # row.
+.field-grid__full {
+  grid-column: 1 / -1;
 }
 
-.span-2 { grid-column: span 2; }
+// ── Fields ───────────────────────────────────────────────────────────────
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
 
+.field-label {
+  font-weight: var(--font-weight-medium);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.req {
+  color: var(--color-error);
+  font-weight: var(--font-weight-bold);
+  font-size: 0.9em;
+}
+
+.optional {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+  font-size: 0.85em;
+}
+
+.field-control {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  font-family: var(--font-family);
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &::placeholder { color: var(--color-text-muted); }
+
+  &:hover:not(:disabled) { border-color: var(--color-secondary); }
+
+  &:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-light);
+  }
+
+  &:disabled {
+    background: var(--color-bg);
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+  }
+}
+
+.field-help {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+// ── Footer / form actions ────────────────────────────────────────────────
 .form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--color-border-light);
+  background: var(--color-bg);
+}
+
+// ── Responsive ───────────────────────────────────────────────────────────
+@media (max-width: 640px) {
+  .field-grid--2 {
+    grid-template-columns: 1fr;
+  }
+
+  .form-sections {
+    padding: 20px;
+    gap: 20px;
+  }
+
+  .form-card__heading,
+  .form-actions {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .section-hint {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
 }

@@ -44,6 +44,10 @@ public class GroupService {
     // above stays unchanged — @RequiredArgsConstructor picks this up.
     private final MemberService memberService;
     private final UserEventPublisher eventPublisher;
+    // Auto-generates the group's registration_number per the tenant's
+    // configured shape (V125). Frontend no longer sends a user-supplied
+    // value on create; any incoming value is ignored.
+    private final GroupNumberService groupNumberService;
 
     public Flux<Group> findAll() {
         return groupRepository.findAllOrderByCreatedAtDesc();
@@ -79,11 +83,17 @@ public class GroupService {
         }
         return validateLiaison(request.liaisonKind(), request.liaisonUserId())
             .then(grantLiaisonRole(request.liaisonKind(), request.liaisonUserId()))
-            .then(Mono.defer(() -> {
+            .then(groupNumberService.nextRegistrationNumber())
+            .flatMap(registrationNumber -> {
                 var group = new Group();
                 // id NOT set — let PostgreSQL generate via DEFAULT gen_random_uuid()
                 group.setName(request.name());
-                group.setRegistrationNumber(request.registrationNumber());
+                // Registration number is issued server-side per the tenant's
+                // configured shape (V125). Any value on the incoming request
+                // is deliberately ignored — the frontend no longer collects
+                // one, and honouring a user-supplied number would let two
+                // operators land on the same string.
+                group.setRegistrationNumber(registrationNumber);
                 group.setAddress(request.address());
                 group.setEmail(request.email());
                 group.setLiaisonKind(request.liaisonKind());
@@ -95,7 +105,7 @@ public class GroupService {
                 group.setUpdatedBy(UUID.fromString(actorId));
 
                 return r2dbcTemplate.insert(group);
-            }))
+            })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
                 var event = AuditEvent.create(
@@ -118,7 +128,11 @@ public class GroupService {
             .flatMap(existing -> grantLiaisonRole(request.liaisonKind(), request.liaisonUserId()).thenReturn(existing))
             .flatMap(existing -> {
                 if (request.name() != null) existing.setName(request.name());
-                if (request.registrationNumber() != null) existing.setRegistrationNumber(request.registrationNumber());
+                // registration_number is server-issued and immutable —
+                // silently ignore any incoming value on update. A hard
+                // reject would break tenants whose old edit forms still
+                // POST the whole entity; ignoring lets them roll
+                // forward safely.
                 if (request.address() != null) existing.setAddress(request.address());
                 if (request.email() != null) existing.setEmail(request.email().isBlank() ? null : request.email());
                 // Post-update the group must still be reachable — liaison OR

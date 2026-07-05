@@ -66,11 +66,20 @@ class GroupServiceTest {
     @Mock
     private UserEventPublisher eventPublisher;
 
+    @Mock
+    private GroupNumberService groupNumberService;
+
     @InjectMocks
     private GroupService groupService;
 
     @BeforeEach
     void stubInsert() {
+        // Group creates always ask the number-service for a fresh
+        // registration_number now. Stub a deterministic value so the
+        // "create + audit publishes …" tests keep working without every
+        // test having to arrange the same mock.
+        lenient().when(groupNumberService.nextRegistrationNumber())
+                .thenReturn(Mono.just("GRP-000001"));
         // GroupService now inserts via r2dbcTemplate.insert(...) instead of repo.save().
         // In production Postgres stamps an id via DEFAULT gen_random_uuid() and r2dbc
         // populates it on the returned entity; mimic that here so saved.getId() is
@@ -140,8 +149,12 @@ class GroupServiceTest {
     void create_validRequest_createsGroup() {
         var actorId = UUID.randomUUID().toString();
         var liaisonId = UUID.randomUUID();
+        // The request still carries a registrationNumber field for
+        // backwards compatibility with old clients, but GroupService
+        // deliberately ignores it — the server-issued value from
+        // GroupNumberService wins. Assert both behaviours below.
         var request = new CreateGroupRequest(
-            "Acme Corp", "REG-001", null, "billing@acme.test", "MEMBER", liaisonId
+            "Acme Corp", "IGNORED-BY-SERVER", null, "billing@acme.test", "MEMBER", liaisonId
         );
 
         when(memberRepository.existsById(liaisonId)).thenReturn(Mono.just(true));
@@ -158,7 +171,10 @@ class GroupServiceTest {
             .assertNext(group -> {
                 assertThat(group.getStatus()).isEqualTo("active");
                 assertThat(group.getName()).isEqualTo("Acme Corp");
-                assertThat(group.getRegistrationNumber()).isEqualTo("REG-001");
+                // Server-issued number wins; the request field is
+                // discarded. GroupNumberService is stubbed to return
+                // GRP-000001 in the @BeforeEach setup.
+                assertThat(group.getRegistrationNumber()).isEqualTo("GRP-000001");
                 // Email is the fallback recipient when no liaison is assigned;
                 // it must survive the create path unchanged.
                 assertThat(group.getEmail()).isEqualTo("billing@acme.test");
@@ -167,6 +183,10 @@ class GroupServiceTest {
 
         verify(r2dbcTemplate).insert(any(Group.class));
         verify(auditPublisher).publish(any());
+        // Explicit proof the generator was consulted — a regression that
+        // wired the request value back in would still get the stubbed
+        // value on this test, so pin the interaction directly.
+        verify(groupNumberService).nextRegistrationNumber();
     }
 
     @Test
@@ -190,6 +210,41 @@ class GroupServiceTest {
                 assertThat(result.getName()).isEqualTo("Updated Corp");
                 assertThat(result.getRegistrationNumber()).isEqualTo("REG-001");
             })
+            .verifyComplete();
+    }
+
+    /**
+     * Locks the "registration_number is server-issued and immutable"
+     * contract on update. A regression that re-added
+     * {@code existing.setRegistrationNumber(request.registrationNumber())}
+     * would let an operator rewrite the number by sending a bogus
+     * value on PATCH — silently defeating the whole point of
+     * auto-generation (uniqueness under a tenant-defined shape).
+     */
+    @Test
+    void update_ignoresRegistrationNumberInRequest() {
+        var group = createTestGroup();   // starts with "REG-001" (from createTestGroup)
+        var id = group.getId();
+        var actorId = UUID.randomUUID().toString();
+        // Bogus registration number in the request. If the update
+        // path honoured it, the persisted group would end up as
+        // "HACKED-999" — pin the ignore behaviour explicitly.
+        var request = new UpdateGroupRequest(
+            null, "HACKED-999", null, null, null, null
+        );
+
+        when(groupRepository.findById(id)).thenReturn(Mono.just(group));
+        when(groupRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            groupService.update(id, request, actorId, "actor@test.example")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .assertNext(result ->
+                assertThat(result.getRegistrationNumber())
+                    .as("update must not overwrite the original registration number")
+                    .isEqualTo("REG-001"))
             .verifyComplete();
     }
 
