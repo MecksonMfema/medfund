@@ -1,75 +1,86 @@
-<div class="creditors-page">
-  <header class="page-header">
-    <div>
-      <h1>Creditors</h1>
-      <p class="page-sub">Members and groups with outstanding balances. Filter by currency, search by name / email / member number / registration number.</p>
-    </div>
-  </header>
+<header class="page-header">
+  <div>
+    <h1>Creditors</h1>
+    <p class="page-sub">Members and groups with an outstanding balance. Only currently-billable subjects (active or suspended) appear — deactivated and terminated rows sit on the bad-debts page instead. Individuals attached to a group are billed through their group and don't show here.</p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="!selectedCurrency || exporting"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
+</header>
 
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
+@if (showTabs) {
+  <nav class="scheme-tabs" role="tablist" aria-label="Filter creditors by subject type">
+    @for (tab of tabs; track tab.value) {
+      <button
+        type="button"
+        role="tab"
+        class="scheme-tab"
+        [class.is-active]="activeTab === tab.value"
+        [attr.aria-selected]="activeTab === tab.value"
+        (click)="selectTab(tab.value)"
+      >
+        {{ tab.label }}
+      </button>
+    }
+  </nav>
+}
 
-  <div class="filters">
-    <label class="field">
-      <span class="field-label">Currency</span>
-      <app-select
-        [(ngModel)]="selectedCurrency"
-        (selectionChange)="onCurrencyChange()"
-        name="currency"
-        size="sm"
-        [options]="currencyOptions"
-      ></app-select>
-    </label>
-    <label class="field grow">
-      <span class="field-label">Search</span>
-      <input type="search" [ngModel]="search" (ngModelChange)="onSearchChange($event)"
-             name="search" placeholder="Name, email, code…" />
-    </label>
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<!-- ── Filter strip ─────────────────────────────────────────────────
+     Same shape as /tenant/billing/transactions and /tenant/billing/ledger:
+     flat strip of column-like cells above the table. Search sits first
+     as the wide cell, then Currency. Data-table's built-in search is
+     disabled so we don't render two search inputs.
+     ─────────────────────────────────────────────────────────────── -->
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-search">
+    <app-icon name="search" [size]="16"></app-icon>
+    <input
+      type="search"
+      [ngModel]="searchTerm"
+      (ngModelChange)="onSearch($event)"
+      name="search"
+      placeholder="Search name, email or code…"
+      aria-label="Search creditors"
+    />
   </div>
 
-  @if (loading) {
-    <app-skeleton></app-skeleton>
-  } @else if (rows.length === 0) {
-    <p class="empty-state">No outstanding balances in {{ selectedCurrency || '—' }}.</p>
-  } @else {
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Name</th>
-          <th>Code</th>
-          <th>Email</th>
-          <th class="right">Outstanding</th>
-          <th>Last payment</th>
-          <th class="right">Days since</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of rows; track row.subjectId) {
-          <tr>
-            <td><span class="type-badge type-{{ row.subjectType.toLowerCase() }}">{{ row.subjectType | humanize }}</span></td>
-            <td>{{ row.subjectName || '—' }}</td>
-            <td><code>{{ row.subjectCode || '' }}</code></td>
-            <td>{{ row.subjectEmail || '' }}</td>
-            <td class="right"><strong>{{ row.balance | currencyFormat:row.currencyCode }}</strong></td>
-            <td>{{ row.lastPaymentAt ? (row.lastPaymentAt | date:'mediumDate') : '—' }}</td>
-            <td class="right">{{ row.daysSinceLastActivity ?? '—' }}</td>
-          </tr>
-        }
-      </tbody>
-    </table>
-
-    <footer class="page-footer">
-      <span class="muted">Page {{ page + 1 }} of {{ totalPages }} — {{ totalRows }} total</span>
-      <div class="pager">
-        <button class="btn btn-default" (click)="prevPage()" [disabled]="page === 0">
-          <app-icon name="chevron-left" [size]="14"></app-icon> Prev
-        </button>
-        <button class="btn btn-default" (click)="nextPage()" [disabled]="page >= totalPages - 1">
-          Next <app-icon name="chevron-right" [size]="14"></app-icon>
-        </button>
-      </div>
-    </footer>
-  }
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Currency</span>
+    <app-select
+      [(ngModel)]="selectedCurrency"
+      (selectionChange)="onCurrencyChange()"
+      name="currency"
+      [options]="currencyOptions"
+      placeholder="Auto"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
 </div>
+
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [showActions]="false"
+  [searchable]="false"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  [emptyMessage]="'No outstanding balances'"
+  [emptyDescription]="selectedCurrency ? ('Nothing outstanding in ' + selectedCurrency) : 'Pick a currency to view outstanding balances.'"
+  [emptyIcon]="'wallet'"
+  (pageChange)="onPageChange($event)">
+</app-data-table>

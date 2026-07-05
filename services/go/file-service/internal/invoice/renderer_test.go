@@ -34,8 +34,11 @@ func TestRender_groupPayload_HTMLContainsExpectedFields(t *testing.T) {
 		"150.00",
 		"2026-06-30",
 		"2026-07-30",
-		// Group default label uses first 8 chars of UUID
-		"Group 11111111",
+		// Default recipient label when RecipientLabel isn't set on the
+		// payload — the resolver falls back to "Valued group" for a
+		// group-scoped invoice. Was "Group <uuid-prefix>" in v0; the
+		// current defaultRecipientLabel returns the generic label.
+		"Valued group",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("rendered HTML missing %q\n---\n%s\n---", want, body)
@@ -57,7 +60,9 @@ func TestRender_individualPayload_HTMLLabelsMember(t *testing.T) {
 	if err != nil {
 		t.Fatalf("html: %v", err)
 	}
-	if !strings.Contains(string(html), "Member abcdef01") {
+	// Same default-recipient fallback as the group case — see
+	// defaultRecipientLabel for the current wording.
+	if !strings.Contains(string(html), "Valued member") {
 		t.Errorf("individual recipient label missing in HTML:\n%s", html)
 	}
 }
@@ -267,6 +272,88 @@ func TestBuildView_richPayload_populatesSnapshotSections(t *testing.T) {
 	}
 }
 
+// ─── Bookend row routing (double-entry ledger) ──────────────────────
+//
+// The contributions-service emits OPENING_BALANCE and CLOSING_BALANCE
+// marker rows so the PDF renders in proper b/f + c/f format. Tests
+// below pin the routing in buildView: bookends land in OpeningRow /
+// ClosingRow (rendered as visually-distinct bookend rows on the
+// template); they must NOT leak into the general Transactions list
+// (would double-render the balance on the row list AND on the summary).
+
+func TestBuildView_bookendLines_routeToOpeningAndClosingRow(t *testing.T) {
+	rd := sampleRenderData()
+	rd.Statement.Lines = append([]contributions.StatementLine{
+		{
+			Date:           "2026-08-01T00:00:00Z",
+			Type:           "OPENING_BALANCE",
+			Description:    "Balance brought forward",
+			RunningBalance: "125.0000",
+		},
+	}, rd.Statement.Lines...)
+	rd.Statement.Lines = append(rd.Statement.Lines, contributions.StatementLine{
+		Date:           "2026-08-31T12:00:00Z",
+		Type:           "CLOSING_BALANCE",
+		Description:    "Balance carried forward",
+		RunningBalance: "240.0000",
+	})
+
+	v := buildView(Payload{
+		InvoiceNumber: "INV-008873", CurrencyCode: "USD",
+		RenderData: rd,
+	})
+
+	if v.OpeningRow == nil {
+		t.Fatal("expected OpeningRow populated when OPENING_BALANCE line present")
+	}
+	if v.OpeningRow.Description != "Balance brought forward" {
+		t.Errorf("OpeningRow description = %q, want 'Balance brought forward'", v.OpeningRow.Description)
+	}
+	if v.OpeningRow.Balance != "125.00" {
+		t.Errorf("OpeningRow balance = %q, want '125.00'", v.OpeningRow.Balance)
+	}
+
+	if v.ClosingRow == nil {
+		t.Fatal("expected ClosingRow populated when CLOSING_BALANCE line present")
+	}
+	if v.ClosingRow.Balance != "240.00" {
+		t.Errorf("ClosingRow balance = %q, want '240.00'", v.ClosingRow.Balance)
+	}
+
+	// Bookend rows must NOT leak into Transactions — would double-render
+	// the balance on the row list AND as the bookend, which is what the
+	// pre-cleanup renderer accidentally did.
+	for _, tx := range v.Transactions {
+		if tx.Description == "Balance brought forward" || tx.Description == "Balance carried forward" {
+			t.Errorf("bookend row leaked into Transactions: %+v", tx)
+		}
+	}
+}
+
+func TestBuildView_noBookendLines_openingClosingRowsAreNil(t *testing.T) {
+	// Legacy payloads from an older contributions-service that hasn't
+	// been redeployed yet: no OPENING_BALANCE / CLOSING_BALANCE lines.
+	// buildView must NOT crash; template shows opening/closing from
+	// the header summary card instead (see OpeningBalance /
+	// ClosingBalance fields still set from Statement.Header).
+	rd := sampleRenderData()
+	v := buildView(Payload{
+		InvoiceNumber: "INV-008873", CurrencyCode: "USD",
+		RenderData: rd,
+	})
+
+	if v.OpeningRow != nil {
+		t.Errorf("OpeningRow should be nil for legacy payload without bookend lines, got %+v", v.OpeningRow)
+	}
+	if v.ClosingRow != nil {
+		t.Errorf("ClosingRow should be nil for legacy payload without bookend lines, got %+v", v.ClosingRow)
+	}
+	// Header fallback still populated.
+	if v.OpeningBalance != "0.00" || v.ClosingBalance != "115.00" {
+		t.Errorf("header fallback balances wrong: opening=%q closing=%q", v.OpeningBalance, v.ClosingBalance)
+	}
+}
+
 // Fallback path: without RenderData, HasSnapshot must be false so the
 // template renders the legacy single-line summary. This is what keeps
 // dev/test invocations of file-service usable when contributions-service
@@ -315,16 +402,21 @@ func TestRender_richPayload_HTMLHasAllSections(t *testing.T) {
 	body := string(html)
 
 	for _, want := range []string{
-		"Balance brought forward",     // opening balance section
-		"Contributions for",           // per-scheme section
+		// Header summary-grid labels — the standard-financial layout.
+		"Opening balance",
+		"Closing balance",
+		"Statement period",
+		// Per-scheme contribution detail
+		"Contributions",
 		"Test Scheme Edited",          // scheme header row
 		"Methuseli Mfema",             // member row
 		"James Hetfield",              // dependant row
 		"· dep",                       // dependant reference suffix
-		"Transactions in window",      // transaction section (has one non-CONTRIBUTION line)
+		// The ledger table + row content
+		"Ledger",
 		"opening deposit",             // transaction row description
 		"USD 65.00", "USD 50.00", "USD 115.00", // 2-decimal-place formatting
-		"Amount due",                  // grand-total label
+		"Amount due",                  // ledger-footer grand-total label
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("rendered HTML missing %q", want)

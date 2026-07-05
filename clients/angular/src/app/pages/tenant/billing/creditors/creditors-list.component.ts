@@ -1,38 +1,70 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import { Subject, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
+import { DataTableComponent, TableColumn } from '../../../../shared/components/data-table/data-table.component';
+import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { BalanceService, CreditorRow, PageResponse } from '../../../../core/services/balance.service';
 import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
 import { TenantService } from '../../../../core/services/tenant.service';
-import { IconComponent } from '../../../../shared/components/icon/icon.component';
-import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
-import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
-import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
-import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+
+type SubjectType = 'MEMBER' | 'GROUP';
+
+/**
+ * Tab keying — one tab per subjectType a tenant actually bills. For
+ * {@code BOTH}-model tenants the strip renders Individuals + Groups; for
+ * single-model tenants the strip is hidden and the subjectType filter is
+ * pinned to whichever half applies.
+ */
+interface SubjectTab {
+  value: SubjectType | null;   // null = show both halves (BOTH-model default)
+  label: string;
+}
 
 @Component({
   selector: 'app-creditors-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
+  imports: [CommonModule, FormsModule, DataTableComponent, IconComponent, SelectComponent],
   templateUrl: './creditors-list.component.html',
   styleUrl: './creditors-list.component.scss',
 })
-export class CreditorsListComponent implements OnInit {
-  currencies: TenantCurrencyConfig[] = [];
-  selectedCurrency: string = '';
-  search = '';
-  page = 0;
-  size = 20;
+export class CreditorsListComponent implements OnInit, OnDestroy {
+  rows: CreditorRow[] = [];
+
+  // Server-side pagination + search. Page is 1-indexed in the UI (matches
+  // the data-table's serverPage input) and 0-indexed in the API layer.
+  page = 1;
+  pageSize = 20;
+  totalCount = 0;
+  totalPages = 1;
   loading = false;
+  exporting = false;
+  searchTerm = '';
   errorMessage: string | null = null;
 
-  rows: CreditorRow[] = [];
-  totalRows = 0;
-  totalPages = 1;
+  // Currency filter — kept as a select rather than tabs because the
+  // subject-type dimension already claims the tab strip.
+  currencies: TenantCurrencyConfig[] = [];
+  selectedCurrency = '';
 
-  private searchInput$ = new Subject<string>();
+  // Subject-type tabs. Only rendered when the tenant runs BOTH billing
+  // models — a single-model tenant has nothing to disambiguate. See
+  // rebuildTabs() for the derivation.
+  tabs: SubjectTab[] = [];
+  activeTab: SubjectType | null = null;
+  showTabs = false;
+
+  columns: TableColumn[] = [
+    { key: 'subjectType',  label: 'Type',        type: 'status' },
+    { key: 'subjectName',  label: 'Name' },
+    { key: 'subjectCode',  label: 'Code' },
+    { key: 'subjectEmail', label: 'Email' },
+    { key: 'balance',      label: 'Outstanding', type: 'currency', class: 'right' },
+    { key: 'lastPaymentAt', label: 'Last payment', type: 'date' },
+    { key: 'daysSinceLastActivity', label: 'Days since', class: 'right' },
+  ];
 
   get currencyOptions(): SelectOption[] {
     return this.currencies.map(c => ({
@@ -41,60 +73,161 @@ export class CreditorsListComponent implements OnInit {
     }));
   }
 
+  private searchInput$ = new Subject<string>();
+  private subs: Subscription[] = [];
+
   constructor(
     private balanceService: BalanceService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
+    // Tabs are derived from tenant.membershipModel — subscribe so a
+    // tenant switch flips the strip without a reload.
+    this.subs.push(
+      this.tenantService.tenant$.subscribe(t => this.rebuildTabs(t?.membershipModel ?? 'BOTH')),
+    );
+
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
       this.errorMessage = 'No active tenant context';
       return;
     }
+
     this.currencyService.listForTenant(tenantId).subscribe({
       next: (configs) => {
         this.currencies = configs.filter(c => c.isActive && c.isBillingCurrency);
         const def = this.currencies.find(c => c.isDefault);
         this.selectedCurrency = (def ?? this.currencies[0])?.currencyCode ?? '';
-        if (this.selectedCurrency) this.refresh();
+        if (this.selectedCurrency) this.fetchPage();
       },
       error: (err) => { this.errorMessage = err?.error?.detail || 'Failed to load currencies'; },
     });
 
-    this.searchInput$.pipe(debounceTime(400), distinctUntilChanged())
-      .subscribe(() => { this.page = 0; this.refresh(); });
+    // Debounced search — server-side query fires 400ms after the last
+    // keystroke to avoid a request per character.
+    this.subs.push(
+      this.searchInput$.pipe(debounceTime(400), distinctUntilChanged()).subscribe(() => {
+        this.page = 1;
+        this.fetchPage();
+      }),
+    );
   }
 
-  onSearchChange(value: string): void {
-    this.search = value;
-    this.searchInput$.next(value);
+  ngOnDestroy(): void {
+    this.subs.forEach(s => s.unsubscribe());
   }
 
-  onCurrencyChange(): void {
-    this.page = 0;
-    this.refresh();
+  private rebuildTabs(model: 'INDIVIDUAL_ONLY' | 'GROUP_ONLY' | 'BOTH'): void {
+    switch (model) {
+      case 'INDIVIDUAL_ONLY':
+        this.tabs = [];
+        this.showTabs = false;
+        this.activeTab = 'MEMBER';   // pin server-side filter to individuals only
+        break;
+      case 'GROUP_ONLY':
+        this.tabs = [];
+        this.showTabs = false;
+        this.activeTab = 'GROUP';    // pin to groups only
+        break;
+      case 'BOTH':
+      default:
+        this.tabs = [
+          { value: null,     label: 'All' },
+          { value: 'MEMBER', label: 'Individuals' },
+          { value: 'GROUP',  label: 'Groups' },
+        ];
+        this.showTabs = true;
+        // Default to 'All' on the very first render so the operator
+        // sees the full receivables list before drilling in with a
+        // tab click. Preserve the current selection on subsequent
+        // rebuilds (tenant-model change while page is open).
+        if (this.activeTab === undefined) this.activeTab = null;
+        break;
+    }
+    if (this.selectedCurrency) this.fetchPage();
   }
 
-  refresh(): void {
+  selectTab(value: SubjectType | null): void {
+    if (this.activeTab === value) return;
+    this.activeTab = value;
+    this.page = 1;
+    this.fetchPage();
+  }
+
+  fetchPage(): void {
     if (!this.selectedCurrency) return;
     this.loading = true;
     this.errorMessage = null;
-    this.balanceService.listCreditors(this.selectedCurrency, this.search, this.page, this.size).subscribe({
+    this.balanceService.listCreditors(
+      this.selectedCurrency,
+      this.activeTab ?? undefined,
+      this.searchTerm || undefined,
+      this.page - 1,
+      this.pageSize,
+    ).subscribe({
       next: (resp: PageResponse<CreditorRow>) => {
-        this.rows = resp.content;
-        this.totalRows = resp.total;
+        this.rows       = resp.content;
+        this.totalCount = resp.total;
         this.totalPages = resp.totalPages;
-        this.loading = false;
+        this.loading    = false;
       },
       error: (err) => {
         this.errorMessage = err?.error?.detail || 'Failed to load creditors';
-        this.loading = false;
+        this.rows       = [];
+        this.totalCount = 0;
+        this.totalPages = 1;
+        this.loading    = false;
       },
     });
   }
 
-  prevPage(): void { if (this.page > 0) { this.page--; this.refresh(); } }
-  nextPage(): void { if (this.page < this.totalPages - 1) { this.page++; this.refresh(); } }
+  onCurrencyChange(): void {
+    this.page = 1;
+    this.fetchPage();
+  }
+
+  onSearch(term: string): void {
+    this.searchTerm = term;
+    this.searchInput$.next(term);
+  }
+
+  onPageChange(page: number): void {
+    this.page = page;
+    this.fetchPage();
+  }
+
+  /**
+   * Download the current filter (currency + tab + search) as .xlsx.
+   * Backend uses the same params as {@link fetchPage} so the sheet
+   * mirrors exactly what the operator sees on screen.
+   */
+  exportExcel(): void {
+    if (!this.selectedCurrency || this.exporting) return;
+    this.exporting = true;
+    this.balanceService.exportCreditorsExcel(
+      this.selectedCurrency,
+      this.activeTab ?? undefined,
+      this.searchTerm || undefined,
+    ).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const tabSlug = this.activeTab ? '-' + this.activeTab.toLowerCase() : '';
+        a.download = `creditors-${this.selectedCurrency}${tabSlug}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        this.exporting = false;
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.detail || 'Failed to export creditors');
+        this.exporting = false;
+      },
+    });
+  }
 }

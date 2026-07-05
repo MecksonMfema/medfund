@@ -9,7 +9,11 @@ import com.medfund.contributions.dto.MemberBalanceResponse;
 import com.medfund.contributions.dto.PageResponse;
 import com.medfund.contributions.service.BadDebtService;
 import com.medfund.contributions.service.BalanceService;
+import com.medfund.contributions.service.CreditorsExcelService;
 import com.medfund.shared.audit.AuditActor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -40,8 +44,12 @@ import java.util.UUID;
 @SecurityRequirement(name = "bearer-jwt")
 public class BalanceController {
 
+    private static final MediaType XLSX = MediaType.parseMediaType(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
     private final BalanceService balanceService;
     private final BadDebtService badDebtService;
+    private final CreditorsExcelService creditorsExcelService;
 
     @GetMapping("/members/{memberId}")
     @Operation(summary = "Get a member's running balance for a currency",
@@ -63,13 +71,36 @@ public class BalanceController {
 
     @GetMapping("/creditors")
     @Operation(summary = "List members and groups with outstanding balances",
-            description = "Server-side paginated; filters: currency (required), q (substring match on name/email/code).")
+            description = "Server-side paginated. Only currently-billable subjects "
+                    + "(status IN active/suspended) appear. Filters: currency (required), "
+                    + "subjectType (MEMBER = ungrouped individuals only; GROUP = groups only; "
+                    + "omit for both), q (substring match on name/email/code).")
     public Mono<PageResponse<CreditorRow>> listCreditors(
             @RequestParam String currency,
+            @RequestParam(required = false) String subjectType,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
-        return balanceService.listCreditors(currency, q, Math.max(page, 0), Math.min(Math.max(size, 1), 100));
+        return balanceService.listCreditors(currency, subjectType, q,
+                Math.max(page, 0), Math.min(Math.max(size, 1), 100));
+    }
+
+    @GetMapping("/creditors/export/excel")
+    @Operation(summary = "Download the creditors list as XLSX",
+            description = "Same filter shape as the JSON /creditors endpoint; returns an .xlsx workbook "
+                    + "with a header block (currency, subject-type filter, search term, export date, "
+                    + "row count) and a table of every matching row up to a 10,000-row ceiling.")
+    public Mono<ResponseEntity<byte[]>> exportCreditorsExcel(
+            @RequestParam String currency,
+            @RequestParam(required = false) String subjectType,
+            @RequestParam(required = false) String q) {
+        String filename = "creditors-" + currency + "-" + java.time.LocalDate.now() + ".xlsx";
+        return creditorsExcelService.generate(currency, subjectType, q)
+                .map(bytes -> ResponseEntity.ok()
+                        .contentType(XLSX)
+                        .header(HttpHeaders.CONTENT_DISPOSITION,
+                                "attachment; filename=\"" + filename + "\"")
+                        .body(bytes));
     }
 
     @GetMapping("/bad-debts")

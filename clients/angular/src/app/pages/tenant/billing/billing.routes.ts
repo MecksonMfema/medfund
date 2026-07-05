@@ -249,7 +249,10 @@ export const BILLING_ROUTES: Routes = [
     path: 'creditors',
     canActivate: [permissionGuard(['billing:view_creditors'])],
     loadComponent: () => import('./creditors/creditors-list.component').then(m => m.CreditorsListComponent),
-    data: { title: 'Creditors', sidebar: 'operational' },
+    // fullbleed matches /tenant/billing/schemes so the shared page-header
+    // banner + data-table live at the same visual scale as the rest of
+    // the billing tenant pages.
+    data: { title: 'Creditors', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'bad-debts',

@@ -5,30 +5,37 @@
   <title>Contribution statement {{.InvoiceNumber}}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1a1f2c; margin: 40px; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e3e7ee; padding-bottom: 24px; margin-bottom: 32px; }
-    .header h1 { margin: 0 0 4px 0; font-size: 28px; letter-spacing: 0.02em; }
-    .header .meta { color: #5b6371; font-size: 13px; line-height: 1.6; }
-    .recipient { background: #f6f8fb; border-radius: 8px; padding: 16px 20px; margin-bottom: 28px; }
-    .recipient .label { text-transform: uppercase; color: #5b6371; font-size: 11px; letter-spacing: 0.08em; }
-    .recipient .value { font-size: 16px; margin-top: 4px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e3e7ee; padding-bottom: 20px; margin-bottom: 24px; }
+    .header h1 { margin: 0 0 4px 0; font-size: 26px; letter-spacing: 0.02em; }
+    .header .meta { color: #5b6371; font-size: 12px; line-height: 1.6; }
 
-    .section-title { margin: 28px 0 10px 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: #5b6371; font-weight: 600; }
+    .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; margin: 0 0 28px 0; padding: 16px 20px; background: #f6f8fb; border-radius: 8px; font-size: 13px; }
+    .summary-grid .label { color: #5b6371; text-transform: uppercase; font-size: 10px; letter-spacing: 0.08em; }
+    .summary-grid .value { font-size: 14px; font-weight: 600; margin-top: 2px; }
+    .summary-grid .value.balance { font-family: "SF Mono", Menlo, monospace; }
+
+    .section-title { margin: 22px 0 8px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #5b6371; font-weight: 600; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
-    th { text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #5b6371; border-bottom: 1px solid #e3e7ee; padding: 10px 8px; }
-    td { padding: 10px 8px; border-bottom: 1px solid #f0f3f7; font-size: 13px; }
+    th { text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #5b6371; border-bottom: 1px solid #e3e7ee; padding: 8px; }
+    td { padding: 8px; border-bottom: 1px solid #f0f3f7; font-size: 13px; }
     .right { text-align: right; }
     .muted { color: #8a94a6; font-size: 12px; }
+    .num-cell { font-family: "SF Mono", Menlo, monospace; }
 
-    .scheme-header td { background: #f6f8fb; font-weight: 600; padding: 8px 8px; border-bottom: 1px solid #e3e7ee; color: #1a1f2c; }
+    .scheme-header td { background: #f6f8fb; font-weight: 600; padding: 6px 8px; border-bottom: 1px solid #e3e7ee; color: #1a1f2c; }
     .subtotal-row td { border-top: 1px solid #e3e7ee; border-bottom: 1px solid #e3e7ee; font-weight: 600; }
 
-    .summary { margin-top: 20px; margin-left: auto; width: 340px; }
-    .summary tr td { border: none; padding: 6px 8px; }
-    .summary .row-label { color: #5b6371; }
-    .summary .divider td { border-top: 1px solid #e3e7ee; padding-top: 10px; }
-    .summary .grand td { border-top: 2px solid #1a1f2c; font-size: 18px; font-weight: 700; padding-top: 14px; }
+    /* Bookend rows: double-entry b/f and c/f markers. Same table, softly
+       shaded so an operator can spot the period boundary at a glance. */
+    .bookend td { background: #eff3fa; border-top: 2px solid #cbd6e6; border-bottom: 2px solid #cbd6e6; font-weight: 600; }
+    .bookend .marker { color: #5b6371; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; margin-left: 6px; }
 
-    .footer { margin-top: 48px; font-size: 12px; color: #5b6371; text-align: center; }
+    .totals { margin: 20px 0 0 auto; width: 320px; font-size: 13px; }
+    .totals td { border: none; padding: 4px 8px; }
+    .totals .row-label { color: #5b6371; }
+    .totals .grand td { border-top: 2px solid #1a1f2c; font-size: 16px; font-weight: 700; padding-top: 12px; }
+
+    .footer { margin-top: 40px; font-size: 11px; color: #5b6371; text-align: center; }
   </style>
 </head>
 <body>
@@ -40,31 +47,41 @@
     <div class="meta" style="text-align:right">
       <div><strong>Issued:</strong> {{.IssuedDate}}</div>
       <div><strong>Due:</strong> {{.DueDate}}</div>
-      <div><strong>Period:</strong> {{.PeriodStart}} &mdash; {{.PeriodEnd}}</div>
     </div>
   </div>
 
-  <div class="recipient">
-    <div class="label">Bill to</div>
-    <div class="value">{{.Recipient}}</div>
+  <!-- Standard financial summary — the five fields a reader needs to
+       reconcile the ledger at a glance. Charges / payments / adjustments
+       live in the ledger footer below. -->
+  <div class="summary-grid">
+    <div>
+      <div class="label">Bill to</div>
+      <div class="value">{{.Recipient}}</div>
+    </div>
+    <div>
+      <div class="label">Statement period</div>
+      <div class="value">{{.PeriodStart}} &mdash; {{.PeriodEnd}}</div>
+    </div>
+    <div>
+      <div class="label">Currency</div>
+      <div class="value">{{.CurrencyCode}}</div>
+    </div>
+    {{if .HasSnapshot}}
+    <div>
+      <div class="label">Opening balance</div>
+      <div class="value balance">{{.CurrencyCode}} {{.OpeningBalance}}</div>
+    </div>
+    <div>
+      <div class="label">Closing balance</div>
+      <div class="value balance">{{.CurrencyCode}} {{.ClosingBalance}}</div>
+    </div>
+    {{end}}
   </div>
 
   {{if .HasSnapshot}}
 
-  {{if .OpeningBalance}}
-  <div class="section-title">Balance brought forward</div>
-  <table>
-    <tbody>
-      <tr>
-        <td>Opening balance as of period start</td>
-        <td class="right">{{.CurrencyCode}} {{.OpeningBalance}}</td>
-      </tr>
-    </tbody>
-  </table>
-  {{end}}
-
   {{if .Schemes}}
-  <div class="section-title">Contributions for {{.PeriodStart}} &mdash; {{.PeriodEnd}}</div>
+  <div class="section-title">Contributions</div>
   <table>
     <thead>
       <tr>
@@ -84,20 +101,23 @@
         <td>{{.Reference}}</td>
         <td>{{.Name}}</td>
         <td>{{if .AgeBand}}{{.AgeBand}}{{else}}<span class="muted">—</span>{{end}}</td>
-        <td class="right">{{$.CurrencyCode}} {{.Amount}}</td>
+        <td class="right num-cell">{{$.CurrencyCode}} {{.Amount}}</td>
       </tr>
       {{end}}
       <tr class="subtotal-row">
         <td colspan="3" class="right">Subtotal</td>
-        <td class="right">{{$.CurrencyCode}} {{.Subtotal}}</td>
+        <td class="right num-cell">{{$.CurrencyCode}} {{.Subtotal}}</td>
       </tr>
       {{end}}
     </tbody>
   </table>
   {{end}}
 
-  {{if .Transactions}}
-  <div class="section-title">Transactions in window</div>
+  <!-- Ledger: proper double-entry format. Balance b/f opens the period,
+       every debit/credit rolls the running balance, Balance c/f closes
+       it. Renders whether or not Transactions is empty — the bookends
+       are the point. -->
+  <div class="section-title">Ledger</div>
   <table>
     <thead>
       <tr>
@@ -110,34 +130,53 @@
       </tr>
     </thead>
     <tbody>
+      {{if .OpeningRow}}
+      <tr class="bookend">
+        <td>{{.OpeningRow.Date}}</td>
+        <td>{{.OpeningRow.Description}}<span class="marker">B/F</span></td>
+        <td></td>
+        <td class="right"></td>
+        <td class="right"></td>
+        <td class="right num-cell">{{.CurrencyCode}} {{.OpeningRow.Balance}}</td>
+      </tr>
+      {{end}}
       {{range .Transactions}}
       <tr>
         <td>{{.Date}}</td>
         <td>{{.Description}}</td>
         <td>{{.Reference}}</td>
-        <td class="right">{{if .Debit}}{{$.CurrencyCode}} {{.Debit}}{{end}}</td>
-        <td class="right">{{if .Credit}}{{$.CurrencyCode}} {{.Credit}}{{end}}</td>
-        <td class="right">{{if .Balance}}{{$.CurrencyCode}} {{.Balance}}{{end}}</td>
+        <td class="right num-cell">{{if .Debit}}{{$.CurrencyCode}} {{.Debit}}{{end}}</td>
+        <td class="right num-cell">{{if .Credit}}{{$.CurrencyCode}} {{.Credit}}{{end}}</td>
+        <td class="right num-cell">{{if .Balance}}{{$.CurrencyCode}} {{.Balance}}{{end}}</td>
+      </tr>
+      {{end}}
+      {{if .ClosingRow}}
+      <tr class="bookend">
+        <td>{{.ClosingRow.Date}}</td>
+        <td>{{.ClosingRow.Description}}<span class="marker">C/F · amount due</span></td>
+        <td></td>
+        <td class="right"></td>
+        <td class="right"></td>
+        <td class="right num-cell">{{.CurrencyCode}} {{.ClosingRow.Balance}}</td>
       </tr>
       {{end}}
     </tbody>
   </table>
-  {{end}}
 
-  <table class="summary">
-    {{if .OpeningBalance}}
-    <tr><td class="row-label">Balance brought forward</td><td class="right">{{.CurrencyCode}} {{.OpeningBalance}}</td></tr>
-    {{end}}
+  <!-- Ledger footer: the period's activity totals. Optional — only
+       renders lines with a non-zero value so a period with no payments
+       doesn't show a spurious "Payments received: 0.00". -->
+  <table class="totals">
     {{if .TotalCharges}}
-    <tr><td class="row-label">Contributions this period</td><td class="right">{{.CurrencyCode}} {{.TotalCharges}}</td></tr>
+    <tr><td class="row-label">Contributions this period</td><td class="right num-cell">{{.CurrencyCode}} {{.TotalCharges}}</td></tr>
     {{end}}
     {{if .TotalPayments}}
-    <tr><td class="row-label">Payments received</td><td class="right">&minus; {{.CurrencyCode}} {{.TotalPayments}}</td></tr>
+    <tr><td class="row-label">Payments received</td><td class="right num-cell">&minus; {{.CurrencyCode}} {{.TotalPayments}}</td></tr>
     {{end}}
     {{if .TotalAdjustments}}
-    <tr><td class="row-label">Adjustments</td><td class="right">{{.CurrencyCode}} {{.TotalAdjustments}}</td></tr>
+    <tr><td class="row-label">Adjustments</td><td class="right num-cell">{{.CurrencyCode}} {{.TotalAdjustments}}</td></tr>
     {{end}}
-    <tr class="grand"><td>Amount due</td><td class="right">{{.CurrencyCode}} {{.AmountDue}}</td></tr>
+    <tr class="grand"><td>Amount due</td><td class="right num-cell">{{.CurrencyCode}} {{.AmountDue}}</td></tr>
   </table>
 
   {{else}}
@@ -151,14 +190,14 @@
     <tbody>
       <tr>
         <td>Contributions for {{.PeriodStart}} &mdash; {{.PeriodEnd}}</td>
-        <td class="right">{{.CurrencyCode}} {{.SubtotalAmount}}</td>
+        <td class="right num-cell">{{.CurrencyCode}} {{.SubtotalAmount}}</td>
       </tr>
     </tbody>
   </table>
 
-  <table class="summary">
-    <tr><td class="row-label">Subtotal</td><td class="right">{{.CurrencyCode}} {{.SubtotalAmount}}</td></tr>
-    <tr class="grand"><td>Total due</td><td class="right">{{.CurrencyCode}} {{.AmountDue}}</td></tr>
+  <table class="totals">
+    <tr><td class="row-label">Subtotal</td><td class="right num-cell">{{.CurrencyCode}} {{.SubtotalAmount}}</td></tr>
+    <tr class="grand"><td>Total due</td><td class="right num-cell">{{.CurrencyCode}} {{.AmountDue}}</td></tr>
   </table>
   {{end}}
 

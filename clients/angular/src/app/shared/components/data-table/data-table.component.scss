@@ -383,6 +383,20 @@ tbody tr:hover {
   border-color: rgba(0, 150, 180, 0.25);
 }
 
+/* Subject-type badges — used by the creditors page's Type column to
+ * distinguish individual payers (ungrouped members) from group payers
+ * at a glance. Blue for members / individuals; violet for groups. */
+.badge-member {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: rgba(30, 64, 175, 0.25);
+}
+.badge-group {
+  background: #ede9fe;
+  color: #5b21b6;
+  border-color: rgba(91, 33, 182, 0.25);
+}
+
 /* Pagination */
 .table-footer {
   display: flex;

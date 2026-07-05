@@ -130,6 +130,20 @@ type templateView struct {
 
 	Schemes      []schemeGroup
 	Transactions []transactionRow
+
+	// Bookend ledger rows — the backend now emits OPENING_BALANCE and
+	// CLOSING_BALANCE marker lines at the start / end of statement.lines
+	// so PDF, Excel and Angular render the ledger in proper double-entry
+	// format. Split into their own fields here so the template can style
+	// them as visually-distinct rows without special-casing the loop.
+	OpeningRow *bookendRow
+	ClosingRow *bookendRow
+}
+
+type bookendRow struct {
+	Date        string
+	Description string
+	Balance     string
 }
 
 type schemeGroup struct {
@@ -215,21 +229,36 @@ func buildView(p Payload) templateView {
 		v.Schemes[i].Subtotal = fmt.Sprintf("%.2f", sum)
 	}
 
-	// Transactions: everything the statement page excludes from the
-	// contributions detail. We already show contributions in their
-	// own sections above, so filter CONTRIBUTION lines out here.
+	// Walk the statement lines once: bookend rows split into their
+	// own fields (rendered as visually-distinct b/f + c/f rows);
+	// CONTRIBUTION lines skipped (already rendered per-scheme above);
+	// everything else lands in the transactions ledger.
 	for _, ln := range rd.Statement.Lines {
-		if ln.Type == "CONTRIBUTION" {
+		switch ln.Type {
+		case "OPENING_BALANCE":
+			v.OpeningRow = &bookendRow{
+				Date:        formatDate(ln.Date),
+				Description: ln.Description,
+				Balance:     money2dpNum(ln.RunningBalance),
+			}
+		case "CLOSING_BALANCE":
+			v.ClosingRow = &bookendRow{
+				Date:        formatDate(ln.Date),
+				Description: ln.Description,
+				Balance:     money2dpNum(ln.RunningBalance),
+			}
+		case "CONTRIBUTION":
 			continue
+		default:
+			v.Transactions = append(v.Transactions, transactionRow{
+				Date:        formatDate(ln.Date),
+				Description: ln.Description,
+				Reference:   ln.Reference,
+				Debit:       money2dpNum(ln.Debit),
+				Credit:      money2dpNum(ln.Credit),
+				Balance:     money2dpNum(ln.RunningBalance),
+			})
 		}
-		v.Transactions = append(v.Transactions, transactionRow{
-			Date:        formatDate(ln.Date),
-			Description: ln.Description,
-			Reference:   ln.Reference,
-			Debit:       money2dpNum(ln.Debit),
-			Credit:      money2dpNum(ln.Credit),
-			Balance:     money2dpNum(ln.RunningBalance),
-		})
 	}
 
 	return v

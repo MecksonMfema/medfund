@@ -26,11 +26,20 @@ public class BalanceQueryRepository {
 
     private final DatabaseClient db;
 
-    /** Outstanding balances (positive only), unioned across members and groups. */
-    public Flux<BalanceRow> findCreditors(String currency, String q, int limit, int offset) {
+    /**
+     * Outstanding balances (positive only). Filter by subject side:
+     * {@code "MEMBER"} → ungrouped members only, {@code "GROUP"} →
+     * groups only, null → both. Only rows in {@code status IN
+     * ('active','suspended')} appear; terminated / deactivated
+     * subjects are excluded so the creditor list reflects
+     * currently-billable payers, not historical loss records.
+     */
+    public Flux<BalanceRow> findCreditors(String currency, String subjectType,
+                                            String q, int limit, int offset) {
         boolean hasSearch = q != null && !q.isBlank();
         String search = hasSearch ? "%" + q.toLowerCase() + "%" : null;
-        String sql = creditorBaseQuery(hasSearch) + " ORDER BY balance DESC LIMIT :limit OFFSET :offset";
+        String sql = creditorBaseQuery(hasSearch, subjectType)
+                + " ORDER BY balance DESC LIMIT :limit OFFSET :offset";
         var spec = db.sql(sql)
                 .bind("currency", currency)
                 .bind("limit", limit)
@@ -39,10 +48,10 @@ public class BalanceQueryRepository {
         return spec.map(this::toRow).all();
     }
 
-    public Mono<Long> countCreditors(String currency, String q) {
+    public Mono<Long> countCreditors(String currency, String subjectType, String q) {
         boolean hasSearch = q != null && !q.isBlank();
         String search = hasSearch ? "%" + q.toLowerCase() + "%" : null;
-        String sql = "SELECT COUNT(*) AS total FROM (" + creditorBaseQuery(hasSearch) + ") sub";
+        String sql = "SELECT COUNT(*) AS total FROM (" + creditorBaseQuery(hasSearch, subjectType) + ") sub";
         var spec = db.sql(sql).bind("currency", currency);
         if (hasSearch) spec = spec.bind("search", search);
         return spec.map(row -> ((Number) row.get("total")).longValue()).one();
@@ -76,14 +85,22 @@ public class BalanceQueryRepository {
 
     // ── SQL builders ──────────────────────────────────────────────────────
 
-    private String creditorBaseQuery(boolean hasSearch) {
+    private String creditorBaseQuery(boolean hasSearch, String subjectType) {
         String memberSearch = hasSearch
                 ? " AND (LOWER(m.first_name || ' ' || m.last_name) LIKE :search OR LOWER(COALESCE(m.email, '')) LIKE :search OR LOWER(COALESCE(m.member_number, '')) LIKE :search) "
                 : "";
         String groupSearch = hasSearch
                 ? " AND (LOWER(g.name) LIKE :search OR LOWER(COALESCE(g.registration_number, '')) LIKE :search) "
                 : "";
-        return """
+
+        // MEMBER half — ungrouped members only (group_id IS NULL); a
+        // grouped member is billed through their group, so surfacing
+        // them here would double-count with the GROUP row for that
+        // group. Status filter: only currently-billable subjects
+        // (active / suspended) appear on the operational creditors
+        // list — terminated / deactivated rows belong on the bad-debts
+        // page, not here.
+        String memberBlock = """
                 SELECT 'MEMBER' AS subject_type, m.id AS subject_id,
                        m.member_number AS subject_code,
                        (m.first_name || ' ' || m.last_name) AS subject_name,
@@ -92,9 +109,20 @@ public class BalanceQueryRepository {
                        mrb.last_charge_at, mrb.last_payment_at
                   FROM member_running_balance mrb JOIN members m ON m.id = mrb.member_id
                  WHERE mrb.currency_code = :currency AND mrb.balance > 0
-                """ + memberSearch + """
-                UNION ALL
-                """ + groupBlock("AND grb.balance > 0") + groupSearch;
+                   AND m.group_id IS NULL
+                   AND m.status IN ('active','suspended')
+                """ + memberSearch;
+
+        String groupBlockSql = groupBlock(
+                "AND grb.balance > 0 AND g.status IN ('active','suspended')")
+                + groupSearch;
+
+        // Route by subjectType. Null → both halves union'd (default).
+        boolean memberOnly = "MEMBER".equalsIgnoreCase(subjectType);
+        boolean groupOnly  = "GROUP".equalsIgnoreCase(subjectType);
+        if (memberOnly) return memberBlock;
+        if (groupOnly)  return groupBlockSql;
+        return memberBlock + " UNION ALL " + groupBlockSql;
     }
 
     private String agedBaseQuery(boolean hasSearch) {
@@ -125,17 +153,20 @@ public class BalanceQueryRepository {
     /**
      * Common GROUP-half of the union. The subject_email is the liaison's
      * email, COALESCEd across the three possible liaison sources (member,
-     * staff user, pure liaison). Staff users live in the platform-wide
-     * {@code public.staff_users} table; both other sources live in the
-     * tenant schema. The {@code extraWhere} expression is appended into the
-     * group block's WHERE clause so callers can layer balance/aging filters.
+     * staff user, pure liaison) with a final fallback to {@code g.email}
+     * (V038 — the group-level contact address that receives statements
+     * when no liaison is assigned). Staff users live in the platform-
+     * wide {@code public.staff_users} table; the other three sources
+     * live in the tenant schema. The {@code extraWhere} expression is
+     * appended into the group block's WHERE clause so callers can layer
+     * balance/aging filters.
      */
     private String groupBlock(String extraWhere) {
         return """
                 SELECT 'GROUP' AS subject_type, g.id AS subject_id,
                        g.registration_number AS subject_code,
                        g.name AS subject_name,
-                       COALESCE(m_lia.email, su_lia.email, gl_lia.email) AS subject_email,
+                       COALESCE(m_lia.email, su_lia.email, gl_lia.email, g.email) AS subject_email,
                        grb.currency_code, grb.balance,
                        grb.last_charge_at, grb.last_payment_at
                   FROM group_running_balance grb
@@ -149,14 +180,18 @@ public class BalanceQueryRepository {
 
     private BalanceRow toRow(io.r2dbc.spi.Readable row) {
         return new BalanceRow(
-                (String) row.get("subject_type"),
-                (UUID) row.get("subject_id"),
-                (String) row.get("subject_code"),
-                (String) row.get("subject_name"),
-                (String) row.get("subject_email"),
-                (String) row.get("currency_code"),
-                (BigDecimal) row.get("balance"),
-                (Instant) row.get("last_charge_at"),
-                (Instant) row.get("last_payment_at"));
+                row.get("subject_type",   String.class),
+                row.get("subject_id",     UUID.class),
+                row.get("subject_code",   String.class),
+                row.get("subject_name",   String.class),
+                row.get("subject_email",  String.class),
+                row.get("currency_code",  String.class),
+                row.get("balance",        BigDecimal.class),
+                // R2DBC-Postgres returns TIMESTAMPTZ as OffsetDateTime;
+                // ask for Instant explicitly so the driver converts.
+                // Raw casts here threw ClassCastException at runtime —
+                // same pattern as the StatementService fix.
+                row.get("last_charge_at",  Instant.class),
+                row.get("last_payment_at", Instant.class));
     }
 }

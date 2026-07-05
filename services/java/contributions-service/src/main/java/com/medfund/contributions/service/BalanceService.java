@@ -189,12 +189,26 @@ public class BalanceService {
                 .defaultIfEmpty(GroupBalanceResponse.zero(groupId, currency));
     }
 
-    public Mono<PageResponse<CreditorRow>> listCreditors(String currency, String q, int page, int size) {
+    /**
+     * List outstanding balances (payers with money owing).
+     *
+     * @param subjectType {@code "MEMBER"} → only ungrouped members with a
+     *                    payable balance; {@code "GROUP"} → only groups;
+     *                    {@code null} → both (renders the Individuals /
+     *                    Groups tabs collapsed into one list). Individual
+     *                    members attached to a group are excluded from the
+     *                    MEMBER side — they're billed through the group's
+     *                    liaison, so a per-member balance would double-
+     *                    count (mirrors the payer-rejection rule in
+     *                    feedback_grouped_members_cannot_pay).
+     */
+    public Mono<PageResponse<CreditorRow>> listCreditors(String currency, String subjectType,
+                                                          String q, int page, int size) {
         int offset = page * size;
-        return queryRepo.findCreditors(currency, q, size, offset)
+        return queryRepo.findCreditors(currency, subjectType, q, size, offset)
                 .map(CreditorRow::from)
                 .collectList()
-                .zipWith(queryRepo.countCreditors(currency, q))
+                .zipWith(queryRepo.countCreditors(currency, subjectType, q))
                 .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 

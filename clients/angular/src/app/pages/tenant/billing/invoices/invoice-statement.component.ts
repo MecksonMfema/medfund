@@ -128,9 +128,27 @@ export class InvoiceStatementComponent implements OnInit {
   }
 
   /** Transaction lines only — contributions are rendered via the per-
-   *  scheme breakdown above so we don't double-list them in the ledger. */
+   *  scheme breakdown above so we don't double-list them in the ledger.
+   *  Opening / closing bookend rows are also excluded here because they
+   *  render in their own dedicated table sections. */
   get transactionLines(): StatementLine[] {
-    return (this.statement?.lines ?? []).filter(l => l.type !== 'CONTRIBUTION');
+    return (this.statement?.lines ?? []).filter(l =>
+      l.type !== 'CONTRIBUTION'
+      && l.type !== 'OPENING_BALANCE'
+      && l.type !== 'CLOSING_BALANCE');
+  }
+
+  /** Opening balance ("Balance brought forward") row emitted by the
+   *  backend as the first ledger entry. Rendered as a bookend at the
+   *  top of the ledger — proper double-entry format. */
+  get openingBalanceLine(): StatementLine | null {
+    return (this.statement?.lines ?? []).find(l => l.type === 'OPENING_BALANCE') ?? null;
+  }
+
+  /** Closing balance ("Balance carried forward") row — bookend at the
+   *  bottom, and next period's opening. */
+  get closingBalanceLine(): StatementLine | null {
+    return (this.statement?.lines ?? []).find(l => l.type === 'CLOSING_BALANCE') ?? null;
   }
 
   /** Friendly name for the contribution row — member name on a member

@@ -25,6 +25,24 @@ interface TargetOption {
 }
 
 /**
+ * jsPDF's built-in Helvetica ships only the base 128 ASCII glyphs — no
+ * arrows, no en/em dashes, no smart quotes. Passing "→" through
+ * doc.text() silently renders as "!'" (or similar gibberish depending
+ * on the font-encoding fallback). Rather than embed a full Unicode
+ * font, we sanitise the common offenders to ASCII substitutes: → to
+ * "->", en/em dashes to "-", curly quotes to straight quotes.
+ * Applied uniformly to every string that hits jsPDF.
+ */
+function asciiSafe(s: string): string {
+  if (!s) return s;
+  return s
+    .replace(/[→⟶➔]/g, '->')  // arrows
+    .replace(/[–—]/g, '-')          // en/em dashes
+    .replace(/[‘’]/g, "'")          // curly single quotes
+    .replace(/[“”]/g, '"');         // curly double quotes
+}
+
+/**
  * Financial ledger for a member or a group. Layout mirrors
  * /tenant/billing/schemes and /tenant/billing/view:
  *   1. page-header banner (title + sub + export actions on the right)
@@ -236,6 +254,12 @@ export class LedgerComponent implements OnInit {
    * Client-side PDF fallback. The Excel export is the recommended path
    * (better for downstream Excel/CSV workflows) but we keep PDF for
    * operators who need a print-ready copy without going through Excel.
+   *
+   * jsPDF ships only the standard PDF 14 fonts (Helvetica / Times /
+   * Courier), none of which include U+2192 (→) or other multibyte
+   * glyphs — an arrow silently renders as gibberish ("!'"). Every
+   * string we hand to doc.text() / autoTable is therefore sanitised
+   * with {@link asciiSafe} to swap arrows for "->".
    */
   async exportPdf(): Promise<void> {
     if (!this.ledger) return;
@@ -247,48 +271,176 @@ export class LedgerComponent implements OnInit {
     const h = this.ledger.header;
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
     const margin = 36;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const contentWidth = pageWidth - margin * 2;
     let y = margin;
 
-    doc.setFontSize(16).setFont('helvetica', 'bold');
+    // ── Title with a thin rule underneath (visual anchor) ─────────
+    doc.setFontSize(20).setFont('helvetica', 'bold');
     doc.text('Ledger', margin, y);
-    y += 22;
+    y += 10;
+    doc.setDrawColor(220);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 18;
 
-    doc.setFontSize(11).setFont('helvetica', 'normal');
-    doc.text(`${h.targetType.charAt(0) + h.targetType.slice(1).toLowerCase()}: ${h.targetName ?? h.targetId}`, margin, y);
-    y += 14;
-    if (h.targetCode) { doc.text(`Code: ${h.targetCode}`, margin, y); y += 14; }
-    doc.text(`Period: ${h.periodStart} → ${h.periodEnd}    Currency: ${h.currencyCode}`, margin, y);
-    y += 14;
-    doc.text(`Opening: ${h.openingBalance}    Closing: ${h.closingBalance}`, margin, y);
-    y += 14;
-    doc.text(`Charges: ${h.totalCharges}    Payments: ${h.totalPayments}`, margin, y);
-    y += 14;
+    // ── Two-column info block ─────────────────────────────────────
+    //
+    // Left column: identifying details (holder, code).
+    // Right column: financial snapshot (period, currency, opening,
+    // closing). Labels in muted small caps; values in normal weight
+    // (balance values bold). Uses baseline math instead of tables so
+    // the fields stay tightly packed without autoTable's row padding.
+    const colWidth = contentWidth / 2;
+    const leftX = margin;
+    const rightX = margin + colWidth + 12;
+    const rightValX = rightX + 92; // fixed offset for values → right-column labels line up
+    const labelColor: [number, number, number] = [110, 122, 138];
+    const bodyColor: [number, number, number] = [30, 34, 44];
+    const labelFontSize = 8;
+    const valueFontSize = 11;
+    const lineHeight = 16;
 
-    const body = this.ledger.lines.map(l => [
-      l.date.slice(0, 10),
-      l.description,
-      l.reference ?? '—',
-      l.debit ?? '',
-      l.credit ?? '',
-      l.runningBalance,
-    ]);
+    const holderLabel = h.targetType.charAt(0) + h.targetType.slice(1).toLowerCase();
+    const holderValue = h.targetName ?? h.targetId;
+
+    // Left column
+    let ly = y;
+    ly = this.writePdfField(doc, leftX, ly, `${holderLabel.toUpperCase()}`, holderValue,
+                            labelColor, bodyColor, labelFontSize, valueFontSize, lineHeight);
+    if (h.targetCode) {
+      ly = this.writePdfField(doc, leftX, ly, 'CODE', h.targetCode,
+                              labelColor, bodyColor, labelFontSize, valueFontSize, lineHeight);
+    }
+
+    // Right column
+    let ry = y;
+    ry = this.writePdfField(doc, rightX, ry, 'STATEMENT PERIOD',
+                            asciiSafe(`${h.periodStart} to ${h.periodEnd}`),
+                            labelColor, bodyColor, labelFontSize, valueFontSize, lineHeight);
+    ry = this.writePdfField(doc, rightX, ry, 'CURRENCY', h.currencyCode,
+                            labelColor, bodyColor, labelFontSize, valueFontSize, lineHeight);
+    ry = this.writePdfField(doc, rightX, ry, 'OPENING BALANCE',
+                            `${h.currencyCode} ${this.money(h.openingBalance)}`,
+                            labelColor, bodyColor, labelFontSize, valueFontSize, lineHeight, true);
+    ry = this.writePdfField(doc, rightX, ry, 'CLOSING BALANCE',
+                            `${h.currencyCode} ${this.money(h.closingBalance)}`,
+                            labelColor, bodyColor, labelFontSize, valueFontSize, lineHeight, true);
+
+    y = Math.max(ly, ry) + 8;
+
+    // ── Ledger table ──────────────────────────────────────────────
+    //
+    // Every string sanitised so a stray arrow in a description
+    // (e.g. "Contribution 2026-08-01 → 2026-08-31" from the backend)
+    // doesn't render as "!'" in the PDF.
+    const currency = h.currencyCode;
+    const bookendType = new Set(['OPENING_BALANCE', 'CLOSING_BALANCE']);
+    const bookendRowIndices = new Set<number>();
+    const body = this.ledger.lines.map((l, idx) => {
+      if (bookendType.has(l.type)) bookendRowIndices.add(idx);
+      const suffix = l.type === 'OPENING_BALANCE' ? ' (B/F)'
+                   : l.type === 'CLOSING_BALANCE' ? ' (C/F)'
+                   : '';
+      return [
+        l.date.slice(0, 10),
+        asciiSafe(l.description + suffix),
+        asciiSafe(l.reference ?? '—'),
+        l.debit  ? `${currency} ${this.money(l.debit)}`  : '',
+        l.credit ? `${currency} ${this.money(l.credit)}` : '',
+        `${currency} ${this.money(l.runningBalance)}`,
+      ];
+    });
 
     (autoTable as (doc: unknown, opts: Record<string, unknown>) => void)(doc, {
-      startY: y + 8,
+      startY: y,
       head: [['Date', 'Description', 'Reference', 'Debit', 'Credit', 'Balance']],
       body,
-      styles: { fontSize: 9, cellPadding: 4 },
-      headStyles: { fillColor: [0, 119, 182], textColor: 255, fontStyle: 'bold' },
+      styles: { fontSize: 9, cellPadding: 4, textColor: bodyColor as unknown as number[] },
+      headStyles: { fillColor: [15, 25, 40], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+      alternateRowStyles: { fillColor: [248, 250, 253] },
       columnStyles: {
         3: { halign: 'right' },
         4: { halign: 'right' },
         5: { halign: 'right', fontStyle: 'bold' },
       },
       margin: { left: margin, right: margin },
+      didParseCell: (data: { section: string; row: { index: number }; cell: { styles: Record<string, unknown> } }) => {
+        // Highlight bookend rows so they read as ledger boundaries.
+        if (data.section === 'body' && bookendRowIndices.has(data.row.index)) {
+          data.cell.styles['fillColor'] = [235, 242, 251];
+          data.cell.styles['fontStyle'] = 'bold';
+          data.cell.styles['lineWidth'] = 0.5;
+          data.cell.styles['lineColor'] = [180, 200, 220];
+        }
+      },
     });
+
+    // ── Compact totals footer ─────────────────────────────────────
+    //
+    // The autoTable plugin stashes the drawn table's finalY on the doc
+    // (or on the plugin instance depending on the version). Read it
+    // defensively.
+    const finalY = ((doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY)
+                   ?? y + 200;
+    let fy = finalY + 24;
+    doc.setFontSize(9).setTextColor(...labelColor).setFont('helvetica', 'normal');
+    doc.text('Contributions this period', margin, fy);
+    doc.setTextColor(...bodyColor).setFont('helvetica', 'normal');
+    doc.text(`${currency} ${this.money(h.totalCharges)}`, pageWidth - margin, fy, { align: 'right' });
+    fy += 14;
+    doc.setTextColor(...labelColor);
+    doc.text('Payments received', margin, fy);
+    doc.setTextColor(...bodyColor);
+    doc.text(`- ${currency} ${this.money(h.totalPayments)}`, pageWidth - margin, fy, { align: 'right' });
+    fy += 8;
+    doc.setDrawColor(30).setLineWidth(1);
+    doc.line(pageWidth - margin - 140, fy, pageWidth - margin, fy);
+    fy += 14;
+    doc.setFontSize(11).setFont('helvetica', 'bold').setTextColor(...bodyColor);
+    doc.text('Amount due', margin, fy);
+    doc.text(`${currency} ${this.money(h.closingBalance)}`, pageWidth - margin, fy, { align: 'right' });
 
     const filename = this.exportFilename('pdf');
     doc.save(filename);
+  }
+
+  /**
+   * Draw a label-then-value field into the PDF at (x, y). Returns the
+   * new y after advancing by lineHeight × 2 (label + value line). Used
+   * by both info columns in the ledger export header so alignment
+   * stays consistent.
+   */
+  private writePdfField(
+    doc: import('jspdf').jsPDF,
+    x: number,
+    y: number,
+    label: string,
+    value: string,
+    labelColor: [number, number, number],
+    bodyColor: [number, number, number],
+    labelFontSize: number,
+    valueFontSize: number,
+    lineHeight: number,
+    boldValue = false,
+  ): number {
+    doc.setFontSize(labelFontSize).setFont('helvetica', 'normal').setTextColor(...labelColor);
+    doc.text(label, x, y);
+    doc.setFontSize(valueFontSize).setFont('helvetica', boldValue ? 'bold' : 'normal').setTextColor(...bodyColor);
+    doc.text(value, x, y + lineHeight - 4);
+    return y + lineHeight + 8;
+  }
+
+  /**
+   * Format a money value to 2 decimal places for the PDF. Handles the
+   * common BigDecimal.toString() shapes from the backend (raw "115" or
+   * scaled "115.0000") without pulling in a formatting library.
+   */
+  private money(value: string | number | null | undefined): string {
+    if (value === null || value === undefined || value === '') return '0.00';
+    const n = typeof value === 'number' ? value : parseFloat(value);
+    if (Number.isNaN(n)) return '0.00';
+    return n.toFixed(2);
   }
 
   exportExcel(): void {

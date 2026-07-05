@@ -141,8 +141,125 @@ class StatementServiceTest {
         lenient().when(db.sql(sqlCaptor.capture())).thenReturn(spec);
         lenient().when(spec.bind(anyString(), any())).thenReturn(spec);
         lenient().when(spec.bindNull(anyString(), any())).thenReturn(spec);
+        // StatementService uses BOTH map(Function<Row,T>) and
+        // map(BiFunction<Row,RowMetadata,T>) — the latter for the
+        // contribution query at :318. Both routes return the same
+        // fetch stub so all(.) and .one() short-circuit to empty.
         lenient().when(spec.map(any(java.util.function.Function.class))).thenAnswer(inv -> fetch);
+        lenient().when(spec.map(any(java.util.function.BiFunction.class))).thenAnswer(inv -> fetch);
         lenient().when(fetch.all()).thenReturn(Flux.empty());
         lenient().when(fetch.one()).thenReturn(Mono.empty());
+    }
+
+    // ------------------------------------------------------------------
+    // Double-entry bookend rows — regression guard for the ledger
+    // cleanup. If a future refactor drops the OPENING_BALANCE prefix
+    // or CLOSING_BALANCE suffix, the ledger reverts to a flat list
+    // with balances only in the header — the exact shape we just
+    // spent this ticket removing. Both assertions below fail loudly.
+    // ------------------------------------------------------------------
+
+    @Test
+    void generateForInvoice_emitsOpeningAndClosingBookendRows() {
+        UUID invoiceId = UUID.randomUUID();
+        UUID groupId = UUID.randomUUID();
+        Invoice inv = new Invoice();
+        inv.setId(invoiceId);
+        inv.setInvoiceNumber("CS-000001");
+        inv.setGroupId(groupId);
+        inv.setCurrencyCode("USD");
+        inv.setOpeningBalance(new BigDecimal("100.00"));
+        inv.setClosingBalance(new BigDecimal("250.00"));
+        inv.setCommittedAt(Instant.parse("2026-07-31T12:00:00Z"));
+        inv.setPeriodStart(java.time.LocalDate.of(2026, 7, 1));
+        inv.setPeriodEnd(java.time.LocalDate.of(2026, 7, 31));
+
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Mono.just(inv));
+        when(transactionTypeRepository.findAllOrdered()).thenReturn(Flux.empty());
+        stubDbFluxChain();
+
+        var resp = service.generateForInvoice(invoiceId).block();
+
+        assertThat(resp).isNotNull();
+        assertThat(resp.lines()).isNotEmpty();
+
+        // First line is the opening bookend — displays snapshot opening.
+        var first = resp.lines().get(0);
+        assertThat(first.type()).isEqualTo(com.medfund.contributions.dto.StatementLine.TYPE_OPENING_BALANCE);
+        assertThat(first.description()).isEqualTo("Balance brought forward");
+        assertThat(first.runningBalance()).isEqualByComparingTo("100.00");
+        assertThat(first.debit()).isNull();
+        assertThat(first.credit()).isNull();
+
+        // Last line is the closing bookend — displays snapshot closing
+        // (NOT the recomputed running total, which could drift on very
+        // late back-dated posts). Snapshot is authoritative.
+        var last = resp.lines().get(resp.lines().size() - 1);
+        assertThat(last.type()).isEqualTo(com.medfund.contributions.dto.StatementLine.TYPE_CLOSING_BALANCE);
+        assertThat(last.description()).isEqualTo("Balance carried forward");
+        assertThat(last.runningBalance()).isEqualByComparingTo("250.00");
+        assertThat(last.debit()).isNull();
+        assertThat(last.credit()).isNull();
+
+        // Header still carries opening + closing for the summary card.
+        assertThat(resp.header().openingBalance()).isEqualByComparingTo("100.00");
+        assertThat(resp.header().closingBalance()).isEqualByComparingTo("250.00");
+    }
+
+    @Test
+    void generateForInvoice_nullSnapshotFields_defaultToZeroBookends() {
+        // Robust to legacy invoices that never had their snapshot
+        // stamped (opening_balance / closing_balance NULL). Bookend
+        // rows still emitted so the PDF / Excel don't break; runningBalance
+        // falls through to zero.
+        UUID invoiceId = UUID.randomUUID();
+        Invoice inv = new Invoice();
+        inv.setId(invoiceId);
+        inv.setGroupId(UUID.randomUUID());
+        inv.setCurrencyCode("USD");
+        inv.setCommittedAt(Instant.now());
+        inv.setPeriodStart(java.time.LocalDate.of(2026, 7, 1));
+        inv.setPeriodEnd(java.time.LocalDate.of(2026, 7, 31));
+        // opening + closing intentionally null
+
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Mono.just(inv));
+        when(transactionTypeRepository.findAllOrdered()).thenReturn(Flux.empty());
+        stubDbFluxChain();
+
+        var resp = service.generateForInvoice(invoiceId).block();
+
+        assertThat(resp.lines().get(0).type())
+                .isEqualTo(com.medfund.contributions.dto.StatementLine.TYPE_OPENING_BALANCE);
+        assertThat(resp.lines().get(0).runningBalance()).isEqualByComparingTo("0.00");
+        var last = resp.lines().get(resp.lines().size() - 1);
+        assertThat(last.type())
+                .isEqualTo(com.medfund.contributions.dto.StatementLine.TYPE_CLOSING_BALANCE);
+        assertThat(last.runningBalance()).isEqualByComparingTo("0.00");
+    }
+
+    @Test
+    void generate_periodStatement_emitsBookendsWhenNoActivity() {
+        // Empty group / empty period — the ledger should still open
+        // with a b/f row (opening=0) and close with a c/f row (closing=0).
+        // Guards against "no lines" being interpreted as "no ledger" —
+        // an empty statement is still a valid statement with bookends.
+        UUID groupId = UUID.randomUUID();
+        when(contributionRepository.findByGroupId(groupId)).thenReturn(Flux.empty());
+        when(transactionTypeRepository.findAllOrdered()).thenReturn(Flux.empty());
+        stubDbFluxChain();
+
+        var resp = service.generate("GROUP", groupId,
+                java.time.LocalDate.of(2026, 7, 1),
+                java.time.LocalDate.of(2026, 7, 31),
+                "USD").block();
+
+        assertThat(resp).isNotNull();
+        // Exactly two lines — the opening bookend and the closing
+        // bookend. Nothing in between because there's no activity.
+        assertThat(resp.lines()).hasSize(2);
+        assertThat(resp.lines().get(0).type())
+                .isEqualTo(com.medfund.contributions.dto.StatementLine.TYPE_OPENING_BALANCE);
+        assertThat(resp.lines().get(1).type())
+                .isEqualTo(com.medfund.contributions.dto.StatementLine.TYPE_CLOSING_BALANCE);
     }
 }

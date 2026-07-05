@@ -20,13 +20,24 @@ export interface StatementHeader {
 
 export interface StatementLine {
   date: string;
-  type: 'CONTRIBUTION' | 'TRANSACTION' | 'CONTRIBUTION_PAID';
+  /**
+   * Row type — drives per-row rendering. OPENING_BALANCE and
+   * CLOSING_BALANCE are bookend rows emitted by the backend so the
+   * ledger renders in proper double-entry format (balance b/f at top,
+   * balance c/f at bottom). Their debit and credit are both null; the
+   * runningBalance carries the balance value.
+   */
+  type: 'OPENING_BALANCE'
+      | 'CONTRIBUTION'
+      | 'TRANSACTION'
+      | 'CONTRIBUTION_PAID'
+      | 'CLOSING_BALANCE';
   description: string;
   reference?: string;
   debit?: string;
   credit?: string;
   runningBalance: string;
-  sourceId: string;
+  sourceId?: string;
 }
 
 export interface StatementResponse {

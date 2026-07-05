@@ -182,6 +182,17 @@ public class StatementService {
         BigDecimal totalCharges = BigDecimal.ZERO;
         BigDecimal totalPayments = BigDecimal.ZERO;
         List<StatementLine> lines = new ArrayList<>();
+
+        // Double-entry ledger bookend: emit the opening balance as the
+        // first row so PDF / Excel / Angular render it uniformly instead
+        // of pulling it from the header. The row carries the balance in
+        // runningBalance; debit + credit are null so no column fires.
+        lines.add(new StatementLine(
+                periodStartInstant,
+                StatementLine.TYPE_OPENING_BALANCE,
+                "Balance brought forward",
+                null, null, null, opening, null));
+
         for (Event e : inPeriod) {
             BigDecimal delta = e.delta();
             running = running.add(delta);
@@ -193,6 +204,13 @@ public class StatementService {
                     debit, credit, running, e.sourceId()));
         }
         BigDecimal closing = running;
+
+        // Closing bookend — runningBalance is next period's opening.
+        lines.add(new StatementLine(
+                periodEndExclusive.minusNanos(1),
+                StatementLine.TYPE_CLOSING_BALANCE,
+                "Balance carried forward",
+                null, null, null, closing, null));
 
         StatementResponse.Header outHeader = new StatementResponse.Header(
                 targetType, targetId,
@@ -429,6 +447,19 @@ public class StatementService {
         List<StatementLine> lines = new ArrayList<>();
         BigDecimal totalCharges = BigDecimal.ZERO;
         BigDecimal totalPayments = BigDecimal.ZERO;
+
+        // Double-entry bookend: opening balance row anchored to the
+        // start of this invoice's period. Dated one nano before the
+        // first event so it sorts to the top of the ledger.
+        Instant periodStartInstant = inv.getPeriodStart() != null
+                ? inv.getPeriodStart().atStartOfDay().toInstant(ZoneOffset.UTC)
+                : (lower != null ? lower : Instant.EPOCH);
+        lines.add(new StatementLine(
+                periodStartInstant,
+                StatementLine.TYPE_OPENING_BALANCE,
+                "Balance brought forward",
+                null, null, null, opening, null));
+
         for (Event e : events) {
             running = running.add(e.delta());
             BigDecimal debit  = e.delta().signum() > 0 ? e.delta() : null;
@@ -447,6 +478,20 @@ public class StatementService {
             log.warn("[statement] invoice={} snapshot closing={} but running={} — investigate",
                     inv.getInvoiceNumber(), snapshotClosing, running);
         }
+
+        // Closing bookend anchored to the invoice commit instant. The
+        // snapshot's closing_balance is authoritative — used verbatim so
+        // the ledger reconciles with the header summary card.
+        Instant closingInstant = inv.getCommittedAt() != null
+                ? inv.getCommittedAt()
+                : (inv.getPeriodEnd() != null
+                        ? inv.getPeriodEnd().atStartOfDay().plusDays(1).toInstant(ZoneOffset.UTC).minusNanos(1)
+                        : Instant.now());
+        lines.add(new StatementLine(
+                closingInstant,
+                StatementLine.TYPE_CLOSING_BALANCE,
+                "Balance carried forward",
+                null, null, null, snapshotClosing, null));
 
         StatementResponse.Header outHeader = new StatementResponse.Header(
                 targetType, targetId,

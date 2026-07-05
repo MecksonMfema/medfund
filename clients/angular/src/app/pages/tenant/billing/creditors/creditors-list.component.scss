@@ -1,96 +1,173 @@
-.creditors-page {
-  padding: 1.5rem;
-}
+// Layout mirrors /tenant/billing/schemes: full-bleed page-header banner
+// (surface background, bottom rule), optional tab strip below, then the
+// shared data-table handling search / rows / pagination.
 
 .page-header {
-  margin-bottom: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
-.page-header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
-.page-sub { margin: 0; color: var(--text-muted, #6b7280); font-size: 0.9rem; max-width: 65ch; }
+.page-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.page-header .page-sub {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  max-width: 65ch;
+}
+
+// ── Filter strip ─────────────────────────────────────────────────────
+// Same shape as /tenant/billing/ledger's toolbar: full-width flat strip
+// above the table with column-like cells, 1px vertical dividers, search
+// first (bounded to a sensible width so it doesn't dominate the strip),
+// then the compact filter selects. Kept in sync with .ledger-toolbar /
+// .toolbar-cell rules on ledger.component.scss so both pages read as
+// one system.
+
+.tx-toolbar {
+  display: flex;
+  align-items: stretch;
+  min-height: 48px;
+  padding: 0 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+  gap: 0;
+  flex-wrap: nowrap;
+}
+
+.toolbar-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-right: 1px solid var(--color-border-light);
+  min-height: 48px;
+  background: transparent;
+
+  &:last-of-type { border-right: none; }
+
+  .cell-label {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+    font-weight: var(--font-weight-medium);
+  }
+}
+
+// Bounded search — grows to consume slack but doesn't dominate the
+// strip. Matches ledger's cell-search widths verbatim.
+.toolbar-cell.cell-search {
+  position: relative;
+  flex: 1 1 320px;
+  min-width: 240px;
+  max-width: 460px;
+
+  input[type="search"] {
+    flex: 1;
+    width: 100%;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: var(--font-family);
+    font-size: 14px;
+    color: var(--color-text-primary);
+
+    &::placeholder {
+      color: var(--color-text-muted);
+    }
+  }
+}
+
+.toolbar-cell.cell-currency {
+  flex: 0 0 auto;
+  min-width: 240px;
+
+  app-select { min-width: 180px; flex: 1; }
+
+  // Strip the app-select's default rounded border + hover/focus state
+  // so its trigger sits flush with the toolbar-cell divider rather
+  // than drawing a second border inside the cell. Matches ledger's
+  // cell-currency treatment for the same reason. ::ng-deep is
+  // deprecated but still supported and is the least invasive route
+  // for a one-off variant like this.
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+
+// ── Subject-type tabs ─────────────────────────────────────────────────
+// Rendered only when tenant.membershipModel === 'BOTH'. Style matches
+// the .scheme-tabs strip on the schemes page so both surfaces read the
+// same at a glance.
+
+.scheme-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.scheme-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 4px;
+  margin: 0 8px 0 0;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+
+  &.is-active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+  }
+}
+
+// ── Error banner (transient, above the table) ─────────────────────────
 
 .banner {
-  padding: 0.5rem 0.75rem;
-  border-radius: 4px;
+  margin: 12px 24px 0;
+  padding: 10px 14px;
+  border-radius: 6px;
   cursor: pointer;
-  margin-bottom: 1rem;
+  font-size: 0.875rem;
 }
 
 .banner-error {
-  background: var(--danger-bg, #fee2e2);
-  color: var(--danger-fg, #991b1b);
+  background: var(--color-error-light);
+  color: var(--color-error, #991b1b);
+  border: 1px solid rgba(196, 22, 45, 0.25);
 }
-
-.filters {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
-  align-items: flex-end;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  font-size: 0.875rem;
-  min-width: 160px;
-}
-
-.field.grow { flex: 1; }
-
-.field-label { font-weight: 500; margin-bottom: 0.25rem; }
-
-.field input,
-.field select {
-  padding: 0.5rem;
-  border: 1px solid var(--border, #d1d5db);
-  border-radius: 4px;
-}
-
-.empty-state {
-  color: var(--text-muted, #6b7280);
-  font-style: italic;
-  padding: 2rem 0;
-  text-align: center;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: var(--card-bg, white);
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.data-table th,
-.data-table td {
-  padding: 0.6rem 0.75rem;
-  text-align: left;
-  border-bottom: 1px solid var(--border, #e5e7eb);
-  font-size: 0.875rem;
-}
-
-.right { text-align: right; }
-
-.type-badge {
-  display: inline-block;
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.type-member { background: var(--info-bg, #dbeafe); color: var(--info-fg, #1e40af); }
-.type-group  { background: var(--accent-bg, #ede9fe); color: var(--accent-fg, #5b21b6); }
-
-.page-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 1rem;
-}
-
-.muted { color: var(--text-muted, #6b7280); font-size: 0.85rem; }
-
-.pager { display: flex; gap: 0.5rem; }
