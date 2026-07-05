@@ -88,3 +88,7 @@ credentials.json
 
 # ── Docker ────────────────────────────────────────────────────────
 docker-compose.override.yml
+
+# ── Claude Code ───────────────────────────────────────────────────
+# Local agent transcripts / debug logs; not source.
+.claude/logs/
