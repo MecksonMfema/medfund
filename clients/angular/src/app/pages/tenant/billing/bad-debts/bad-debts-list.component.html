@@ -1,111 +1,86 @@
-<div class="bad-debts-page">
-  <header class="page-header">
-    <div>
-      <h1>Bad debts</h1>
-      <p class="page-sub">Aged outstanding balances. Threshold defaults to dunning <strong>suspension_days</strong> from Settings → Billing → Dunning. Flag a contribution as bad debt to record the formal write-off decision.</p>
-    </div>
-  </header>
+<header class="page-header">
+  <div>
+    <h1>Bad debts</h1>
+    <p class="page-sub">Subjects that have already fallen off the billing roster (deactivated or terminated) but still owe money. Individuals attached to a group are billed through their group and don't show here. For the collections-lifecycle view of still-billable arrears, see the creditors page.</p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="!selectedCurrency || exporting"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
+</header>
 
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
-  @if (successMessage) {
-    <div class="banner banner-success">{{ successMessage }}</div>
-  }
+@if (showTabs) {
+  <nav class="scheme-tabs" role="tablist" aria-label="Filter bad debts by subject type">
+    @for (tab of tabs; track tab.value) {
+      <button
+        type="button"
+        role="tab"
+        class="scheme-tab"
+        [class.is-active]="activeTab === tab.value"
+        [attr.aria-selected]="activeTab === tab.value"
+        (click)="selectTab(tab.value)"
+      >
+        {{ tab.label }}
+      </button>
+    }
+  </nav>
+}
 
-  <div class="filters">
-    <label class="field">
-      <span class="field-label">Currency</span>
-      <app-select
-        [(ngModel)]="selectedCurrency"
-        (selectionChange)="onCurrencyChange()"
-        name="currency"
-        size="sm"
-        [options]="currencyOptions"
-      ></app-select>
-    </label>
-    <label class="field">
-      <span class="field-label">Min age (days)</span>
-      <input type="number" min="0" [(ngModel)]="minAgeDays" (change)="onMinAgeChange()" name="minAgeDays" />
-    </label>
-    <label class="field grow">
-      <span class="field-label">Search</span>
-      <input type="search" [ngModel]="search" (ngModelChange)="onSearchChange($event)"
-             name="search" placeholder="Name, email, code…" />
-    </label>
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<!-- ── Filter strip ─────────────────────────────────────────────────
+     Mirrors /tenant/billing/creditors: flat strip of column-like
+     cells above the table, search first (bounded), then Currency.
+     Data-table's built-in search is disabled so we don't render two
+     search inputs.
+     ─────────────────────────────────────────────────────────────── -->
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-search">
+    <app-icon name="search" [size]="16"></app-icon>
+    <input
+      type="search"
+      [ngModel]="searchTerm"
+      (ngModelChange)="onSearch($event)"
+      name="search"
+      placeholder="Search name, email or code…"
+      aria-label="Search bad debts"
+    />
   </div>
 
-  @if (loading) {
-    <app-skeleton></app-skeleton>
-  } @else if (rows.length === 0) {
-    <p class="empty-state">No aged balances above {{ minAgeDays ?? '—' }} days.</p>
-  } @else {
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Status</th>
-          <th>Type</th>
-          <th>Name</th>
-          <th>Code</th>
-          <th class="right">Outstanding</th>
-          <th>Last payment</th>
-          <th class="right">Days</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of rows; track row.subjectId) {
-          <tr>
-            <td><span class="status-badge status-{{ row.agingStatus.toLowerCase() }}">{{ row.agingStatus | humanize }}</span></td>
-            <td><span class="type-badge type-{{ row.subjectType.toLowerCase() }}">{{ row.subjectType | humanize }}</span></td>
-            <td>{{ row.subjectName || '—' }}</td>
-            <td><code>{{ row.subjectCode || '' }}</code></td>
-            <td class="right"><strong>{{ row.balance | currencyFormat:row.currencyCode }}</strong></td>
-            <td>{{ row.lastPaymentAt ? (row.lastPaymentAt | date:'mediumDate') : 'Never' }}</td>
-            <td class="right">{{ row.daysSinceLastActivity ?? '—' }}</td>
-            <td>
-              <button class="link-btn danger" (click)="startFlag(row)">Flag…</button>
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-
-    <footer class="page-footer">
-      <span class="muted">Page {{ page + 1 }} of {{ totalPages }} — {{ totalRows }} total</span>
-      <div class="pager">
-        <button class="btn btn-default" (click)="prevPage()" [disabled]="page === 0">
-          <app-icon name="chevron-left" [size]="14"></app-icon> Prev
-        </button>
-        <button class="btn btn-default" (click)="nextPage()" [disabled]="page >= totalPages - 1">
-          Next <app-icon name="chevron-right" [size]="14"></app-icon>
-        </button>
-      </div>
-    </footer>
-  }
-
-  @if (flagPendingRow) {
-    <div class="modal-backdrop" (click)="cancelFlag()">
-      <div class="modal" (click)="$event.stopPropagation()">
-        <h3>Flag as bad debt</h3>
-        <p class="modal-sub">
-          {{ flagPendingRow.subjectName }} owes
-          <strong>{{ flagPendingRow.balance | currencyFormat:flagPendingRow.currencyCode }}</strong>.
-          Provide the specific contribution id to flag (the bad-debts table is keyed by contribution).
-        </p>
-        <label class="field">
-          <span class="field-label">Contribution id</span>
-          <input [(ngModel)]="flagInputContributionId" name="cid" placeholder="UUID" />
-        </label>
-        <label class="field">
-          <span class="field-label">Reason (optional)</span>
-          <input [(ngModel)]="flagInputReason" name="reason" />
-        </label>
-        <div class="modal-actions">
-          <button class="btn btn-default" (click)="cancelFlag()">Cancel</button>
-          <button class="btn btn-primary" (click)="confirmFlag()">Flag</button>
-        </div>
-      </div>
-    </div>
-  }
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Currency</span>
+    <app-select
+      [(ngModel)]="selectedCurrency"
+      (selectionChange)="onCurrencyChange()"
+      name="currency"
+      [options]="currencyOptions"
+      placeholder="Auto"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
 </div>
+
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [showActions]="false"
+  [searchable]="false"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  [emptyMessage]="'No bad debts'"
+  [emptyDescription]="selectedCurrency ? ('No deactivated or terminated subjects owe in ' + selectedCurrency) : 'Pick a currency to view bad debts.'"
+  [emptyIcon]="'wallet'"
+  (pageChange)="onPageChange($event)">
+</app-data-table>

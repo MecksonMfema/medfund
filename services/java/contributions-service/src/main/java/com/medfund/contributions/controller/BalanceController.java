@@ -8,6 +8,7 @@ import com.medfund.contributions.dto.GroupBalanceResponse;
 import com.medfund.contributions.dto.MemberBalanceResponse;
 import com.medfund.contributions.dto.PageResponse;
 import com.medfund.contributions.service.BadDebtService;
+import com.medfund.contributions.service.BadDebtsExcelService;
 import com.medfund.contributions.service.BalanceService;
 import com.medfund.contributions.service.CreditorsExcelService;
 import com.medfund.shared.audit.AuditActor;
@@ -50,6 +51,7 @@ public class BalanceController {
     private final BalanceService balanceService;
     private final BadDebtService badDebtService;
     private final CreditorsExcelService creditorsExcelService;
+    private final BadDebtsExcelService badDebtsExcelService;
 
     @GetMapping("/members/{memberId}")
     @Operation(summary = "Get a member's running balance for a currency",
@@ -104,9 +106,47 @@ public class BalanceController {
     }
 
     @GetMapping("/bad-debts")
-    @Operation(summary = "List aged balances",
+    @Operation(summary = "List deactivated / terminated subjects with an outstanding balance",
+            description = "Server-side paginated. Only subjects that are no longer billable "
+                    + "(status IN deactivated/terminated) AND whose running balance is > 0 are returned "
+                    + "— i.e. money we're owed by someone we can no longer bill. Filters mirror /creditors: "
+                    + "currency (required), subjectType (MEMBER = ungrouped individuals only; GROUP = groups "
+                    + "only; omit for both), q (substring match on name/email/code).")
+    public Mono<PageResponse<CreditorRow>> listBadDebts(
+            @RequestParam String currency,
+            @RequestParam(required = false) String subjectType,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "20") int size) {
+        return balanceService.listBadDebts(currency, subjectType, q,
+                Math.max(page, 0), Math.min(Math.max(size, 1), 100));
+    }
+
+    @GetMapping("/bad-debts/export/excel")
+    @Operation(summary = "Download the bad-debts list as XLSX",
+            description = "Same filter shape as the JSON /bad-debts endpoint; returns an .xlsx workbook "
+                    + "with a header block (currency, subject-type filter, status filter description, search "
+                    + "term, export date, row count) and a table of every matching row up to a 10,000-row "
+                    + "ceiling.")
+    public Mono<ResponseEntity<byte[]>> exportBadDebtsExcel(
+            @RequestParam String currency,
+            @RequestParam(required = false) String subjectType,
+            @RequestParam(required = false) String q) {
+        String filename = "bad-debts-" + currency + "-" + java.time.LocalDate.now() + ".xlsx";
+        return badDebtsExcelService.generate(currency, subjectType, q)
+                .map(bytes -> ResponseEntity.ok()
+                        .contentType(XLSX)
+                        .header(HttpHeaders.CONTENT_DISPOSITION,
+                                "attachment; filename=\"" + filename + "\"")
+                        .body(bytes));
+    }
+
+    @GetMapping("/aged-balances")
+    @Operation(summary = "List aged balances (still-billable subjects)",
             description = "Returns balances older than minAgeDays (defaults to dunning_config.suspension_days). " +
-                    "Each row carries an aging classification (GRACE / SUSPENDED / WRITE_OFF).")
+                    "Each row carries an aging classification (GRACE / SUSPENDED / WRITE_OFF). " +
+                    "This is the collections-lifecycle view — for subjects that already fell off the billing " +
+                    "roster with money still owing, see /bad-debts.")
     public Mono<PageResponse<BadDebtRow>> listAged(
             @RequestParam String currency,
             @RequestParam(required = false) Integer minAgeDays,

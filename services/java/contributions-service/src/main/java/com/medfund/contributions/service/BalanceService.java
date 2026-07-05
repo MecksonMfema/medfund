@@ -212,6 +212,24 @@ public class BalanceService {
                 .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 
+    /**
+     * List bad debts — subjects with a positive running balance whose
+     * status is {@code deactivated} or {@code terminated}. Symmetric to
+     * {@link #listCreditors} in every other respect (same subjectType
+     * routing, same grouped-member exclusion, same page shape); the
+     * only difference is the status filter has flipped from
+     * currently-billable to no-longer-billable.
+     */
+    public Mono<PageResponse<CreditorRow>> listBadDebts(String currency, String subjectType,
+                                                          String q, int page, int size) {
+        int offset = page * size;
+        return queryRepo.findBadDebts(currency, subjectType, q, size, offset)
+                .map(CreditorRow::from)
+                .collectList()
+                .zipWith(queryRepo.countBadDebts(currency, subjectType, q))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
+    }
+
     public Mono<PageResponse<BadDebtRow>> listAged(String currency, Integer minAgeDays, String q, int page, int size) {
         return resolveMinAge(minAgeDays)
                 .flatMap(threshold -> queryRepo.findAged(currency, threshold, q, size, page * size)

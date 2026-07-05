@@ -258,7 +258,10 @@ export const BILLING_ROUTES: Routes = [
     path: 'bad-debts',
     canActivate: [permissionGuard(['billing:manage_bad_debts'])],
     loadComponent: () => import('./bad-debts/bad-debts-list.component').then(m => m.BadDebtsListComponent),
-    data: { title: 'Bad Debts', sidebar: 'operational' },
+    // fullbleed so the page-header banner + toolbar strip sit flush
+    // against the sidebar — matches /tenant/billing/creditors so the
+    // two receivables views read as halves of one system.
+    data: { title: 'Bad Debts', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'group-charge',

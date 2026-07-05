@@ -26,7 +26,10 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -248,5 +251,84 @@ class BalanceServiceTest {
                 "USD", new BigDecimal("100.00"),
                 Instant.now().minusSeconds(60L * 60L * 24L * 40L),
                 null);
+    }
+
+    // ------------------------------------------------------------------
+    // listBadDebts — bad-debts view (deactivated / terminated subjects
+    // that still owe money). Symmetrical to listCreditors but flipped on
+    // the status filter; the service layer's only real job is delegating
+    // to the repo pair and doing the page → offset arithmetic. These
+    // tests lock both in so a future refactor can't silently drop either.
+    // ------------------------------------------------------------------
+
+    @Test
+    void listBadDebts_delegatesToRepoWithFilters_andPagesFromZero() {
+        // First page (page=0, size=20 → offset=0). Verifies the service
+        // passes the currency, subjectType, and q through unmodified.
+        UUID id = UUID.randomUUID();
+        when(queryRepo.findBadDebts(eq("USD"), eq("GROUP"), eq("Acme"), eq(20), eq(0)))
+                .thenReturn(reactor.core.publisher.Flux.just(badDebtsRow(id)));
+        when(queryRepo.countBadDebts(eq("USD"), eq("GROUP"), eq("Acme")))
+                .thenReturn(Mono.just(1L));
+
+        StepVerifier.create(service.listBadDebts("USD", "GROUP", "Acme", 0, 20))
+                .assertNext(page -> {
+                    assertThat(page.total()).isEqualTo(1L);
+                    assertThat(page.content()).hasSize(1);
+                    assertThat(page.content().get(0).subjectId()).isEqualTo(id);
+                    assertThat(page.content().get(0).subjectType()).isEqualTo("GROUP");
+                })
+                .verifyComplete();
+
+        verify(queryRepo).findBadDebts("USD", "GROUP", "Acme", 20, 0);
+        verify(queryRepo).countBadDebts("USD", "GROUP", "Acme");
+    }
+
+    @Test
+    void listBadDebts_page2Size10_computesOffset20() {
+        // page * size = offset — a regression here would break every
+        // paginated bad-debts view silently. Guard the math directly.
+        when(queryRepo.findBadDebts(eq("ZAR"), isNull(), isNull(), eq(10), eq(20)))
+                .thenReturn(reactor.core.publisher.Flux.empty());
+        when(queryRepo.countBadDebts(eq("ZAR"), isNull(), isNull()))
+                .thenReturn(Mono.just(0L));
+
+        StepVerifier.create(service.listBadDebts("ZAR", null, null, 2, 10))
+                .assertNext(page -> {
+                    assertThat(page.content()).isEmpty();
+                    assertThat(page.total()).isZero();
+                    assertThat(page.page()).isEqualTo(2);
+                    assertThat(page.size()).isEqualTo(10);
+                })
+                .verifyComplete();
+
+        verify(queryRepo).findBadDebts("ZAR", null, null, 10, 20);
+    }
+
+    @Test
+    void listBadDebts_nullSubjectType_passesThroughAsNull() {
+        // Null subjectType is the "both individuals + groups" flavour of
+        // the query — the service must not coerce it to a default. If we
+        // accidentally defaulted to "MEMBER" here the Groups half of a
+        // BOTH-model tenant's bad-debts list would silently vanish.
+        when(queryRepo.findBadDebts(anyString(), isNull(), any(), anyInt(), anyInt()))
+                .thenReturn(reactor.core.publisher.Flux.empty());
+        when(queryRepo.countBadDebts(anyString(), isNull(), any()))
+                .thenReturn(Mono.just(0L));
+
+        StepVerifier.create(service.listBadDebts("USD", null, null, 0, 20))
+                .expectNextCount(1)
+                .verifyComplete();
+
+        verify(queryRepo).findBadDebts("USD", null, null, 20, 0);
+        verify(queryRepo).countBadDebts("USD", null, null);
+    }
+
+    private static com.medfund.contributions.dto.BalanceRow badDebtsRow(UUID id) {
+        return new com.medfund.contributions.dto.BalanceRow(
+                "GROUP", id, "GRP-01", "Acme Ltd", "billing@acme.example",
+                "USD", new BigDecimal("875.25"),
+                Instant.now().minusSeconds(60L * 60L * 24L * 90L),
+                Instant.now().minusSeconds(60L * 60L * 24L * 60L));
     }
 }

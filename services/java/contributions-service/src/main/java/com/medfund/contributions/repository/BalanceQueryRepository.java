@@ -57,6 +57,37 @@ public class BalanceQueryRepository {
         return spec.map(row -> ((Number) row.get("total")).longValue()).one();
     }
 
+    /**
+     * Bad debts — subjects that have been deactivated or terminated
+     * but still owe money. Symmetrical to {@link #findCreditors} in
+     * every other respect (same UNION shape, same subjectType routing,
+     * same COALESCEd group email including {@code g.email} fallback);
+     * the only difference is the status filter flips from
+     * {@code active/suspended} to {@code deactivated/terminated}.
+     */
+    public Flux<BalanceRow> findBadDebts(String currency, String subjectType,
+                                          String q, int limit, int offset) {
+        boolean hasSearch = q != null && !q.isBlank();
+        String search = hasSearch ? "%" + q.toLowerCase() + "%" : null;
+        String sql = badDebtBaseQuery(hasSearch, subjectType)
+                + " ORDER BY balance DESC LIMIT :limit OFFSET :offset";
+        var spec = db.sql(sql)
+                .bind("currency", currency)
+                .bind("limit", limit)
+                .bind("offset", offset);
+        if (hasSearch) spec = spec.bind("search", search);
+        return spec.map(this::toRow).all();
+    }
+
+    public Mono<Long> countBadDebts(String currency, String subjectType, String q) {
+        boolean hasSearch = q != null && !q.isBlank();
+        String search = hasSearch ? "%" + q.toLowerCase() + "%" : null;
+        String sql = "SELECT COUNT(*) AS total FROM (" + badDebtBaseQuery(hasSearch, subjectType) + ") sub";
+        var spec = db.sql(sql).bind("currency", currency);
+        if (hasSearch) spec = spec.bind("search", search);
+        return spec.map(row -> ((Number) row.get("total")).longValue()).one();
+    }
+
     /** Aged balances — last activity older than {@code minAgeDays}. */
     public Flux<BalanceRow> findAged(String currency, int minAgeDays, String q, int limit, int offset) {
         boolean hasSearch = q != null && !q.isBlank();
@@ -118,6 +149,46 @@ public class BalanceQueryRepository {
                 + groupSearch;
 
         // Route by subjectType. Null → both halves union'd (default).
+        boolean memberOnly = "MEMBER".equalsIgnoreCase(subjectType);
+        boolean groupOnly  = "GROUP".equalsIgnoreCase(subjectType);
+        if (memberOnly) return memberBlock;
+        if (groupOnly)  return groupBlockSql;
+        return memberBlock + " UNION ALL " + groupBlockSql;
+    }
+
+    /**
+     * Bad-debts base — mirrors {@link #creditorBaseQuery} but flips the
+     * status filter to {@code deactivated / terminated}. Same "balance
+     * > 0" guard so subjects that have been zero'd out (auto-write-off
+     * created a bad_debts row + BalanceService.writeOffBalance drained
+     * their running balance) don't clutter the list. Grouped members
+     * still excluded from the MEMBER half — they roll up to the group.
+     */
+    private String badDebtBaseQuery(boolean hasSearch, String subjectType) {
+        String memberSearch = hasSearch
+                ? " AND (LOWER(m.first_name || ' ' || m.last_name) LIKE :search OR LOWER(COALESCE(m.email, '')) LIKE :search OR LOWER(COALESCE(m.member_number, '')) LIKE :search) "
+                : "";
+        String groupSearch = hasSearch
+                ? " AND (LOWER(g.name) LIKE :search OR LOWER(COALESCE(g.registration_number, '')) LIKE :search) "
+                : "";
+
+        String memberBlock = """
+                SELECT 'MEMBER' AS subject_type, m.id AS subject_id,
+                       m.member_number AS subject_code,
+                       (m.first_name || ' ' || m.last_name) AS subject_name,
+                       m.email AS subject_email,
+                       mrb.currency_code, mrb.balance,
+                       mrb.last_charge_at, mrb.last_payment_at
+                  FROM member_running_balance mrb JOIN members m ON m.id = mrb.member_id
+                 WHERE mrb.currency_code = :currency AND mrb.balance > 0
+                   AND m.group_id IS NULL
+                   AND m.status IN ('deactivated','terminated')
+                """ + memberSearch;
+
+        String groupBlockSql = groupBlock(
+                "AND grb.balance > 0 AND g.status IN ('deactivated','terminated')")
+                + groupSearch;
+
         boolean memberOnly = "MEMBER".equalsIgnoreCase(subjectType);
         boolean groupOnly  = "GROUP".equalsIgnoreCase(subjectType);
         if (memberOnly) return memberBlock;
