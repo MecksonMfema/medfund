@@ -48,3 +48,31 @@ CREATE TABLE age_groups (
     currency_code         VARCHAR(3),
     created_at            TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
+
+-- ── Shims for shared/ infra that queries platform-wide tables on
+-- connection-acquisition or on a scheduled tick. This IT is a
+-- schemes-slice test and doesn't seed either table; both are here
+-- purely so the reactive connection factory + scheduler find a valid
+-- relation and fall through their empty paths instead of erroring
+-- with 42P01.
+
+-- Read by TenantAwareConnectionFactory.lookupSchemaName on every
+-- tenant-scoped connection acquisition. An empty result triggers the
+-- factory's documented fall-back to schema=public, which is what this
+-- test wants — SchemeServiceIT writes to public tables.
+CREATE TABLE tenants (
+    id           UUID         PRIMARY KEY,
+    schema_name  VARCHAR(63)  NOT NULL DEFAULT 'public'
+);
+
+-- Read by ScheduledJobRepository on the dispatcher's fixed-delay tick.
+-- Empty = no jobs enabled = the scheduler no-ops. Columns match the
+-- @Query WHERE-clause shape (is_enabled + next_execution_at) so the
+-- reactive R2DBC layer can bind and execute.
+CREATE TABLE scheduled_job_configs (
+    id                 UUID         PRIMARY KEY,
+    tenant_id          UUID,
+    job_type           VARCHAR(64),
+    is_enabled         BOOLEAN      NOT NULL DEFAULT false,
+    next_execution_at  TIMESTAMPTZ
+);
