@@ -435,9 +435,9 @@ public class BillingService {
      */
     public Mono<com.medfund.contributions.dto.ChargePreviewResponse> chargePreview(
             String subjectType, UUID subjectId, String currency) {
-        LocalDate today = LocalDate.now();
-        LocalDate periodStart = today.plusMonths(1).withDayOfMonth(1);
-        LocalDate periodEnd   = periodStart.plusMonths(1).minusDays(1);
+        java.time.LocalDate[] window = computeProjectedPeriod(LocalDate.now());
+        LocalDate periodStart = window[0];
+        LocalDate periodEnd   = window[1];
 
         List<UUID> groupIds  = "GROUP".equalsIgnoreCase(subjectType)  ? List.of(subjectId) : null;
         List<UUID> memberIds = "MEMBER".equalsIgnoreCase(subjectType) ? List.of(subjectId) : null;
@@ -598,6 +598,30 @@ public class BillingService {
                 .map(tuple -> composeDecoratedLines(
                         priced, tuple.getT1(), tuple.getT2(),
                         individualModel, periodStart, periodEnd));
+    }
+
+    /**
+     * Compute the projected billing cycle window for a charge preview.
+     * Returns {@code [periodStart, periodEnd]} where {@code periodStart}
+     * is the 1st of next month and {@code periodEnd} is the last day of
+     * that same month.
+     *
+     * <p>Extracted from {@link #chargePreview} so a targeted unit test
+     * locks the semantic — a well-meaning "fix" that flipped this to
+     * the *current* month would silently redefine the whole feature
+     * (operators would suddenly see the current cycle's already-billed
+     * numbers instead of the projection). The helper is package-private
+     * + static so the same-package test can call it without booting the
+     * Spring context.
+     *
+     * @param today anchor date (usually {@code LocalDate.now()}); passed
+     *              in so the test can drive edge cases like end-of-year
+     *              (Dec → Jan) and leap-year February deterministically.
+     */
+    static java.time.LocalDate[] computeProjectedPeriod(LocalDate today) {
+        LocalDate periodStart = today.plusMonths(1).withDayOfMonth(1);
+        LocalDate periodEnd   = periodStart.plusMonths(1).minusDays(1);
+        return new LocalDate[] { periodStart, periodEnd };
     }
 
     /**

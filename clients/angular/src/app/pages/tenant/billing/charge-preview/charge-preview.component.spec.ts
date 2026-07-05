@@ -299,6 +299,51 @@ describe('ChargePreviewComponent', () => {
       expect(label).toMatch(/\d{1,2}[:.]\d{2}[:.]\d{2}/);
     });
   });
+
+  // ------------------------------------------------------------------
+  // ngOnDestroy — subscription-teardown proof
+  //
+  // The 30s auto-refresh is wired via this.subs.push(interval(...)).
+  // If a refactor drops the .push wrapper, the interval will keep
+  // firing after navigation and the endpoint gets hit forever on
+  // abandoned tabs. Lock down the teardown with a direct proof.
+  // ------------------------------------------------------------------
+
+  describe('ngOnDestroy tears down every subscription', () => {
+    it('unsubscribes the tenant$, debounce, and interval subs', () => {
+      component.ngOnInit();
+      // Reach into the private field to enumerate — the point of the
+      // test is to prove the leak fix stays in place, so touching the
+      // implementation detail is fine here.
+      const subs: { closed: boolean }[] =
+        (component as unknown as { subs: { closed: boolean }[] }).subs;
+      expect(subs.length).toBeGreaterThanOrEqual(2);
+      subs.forEach(s => expect(s.closed).toBeFalse());
+
+      component.ngOnDestroy();
+
+      subs.forEach(s => expect(s.closed).toBeTrue());
+    });
+
+    it('interval stops firing after ngOnDestroy', fakeAsync(() => {
+      component.ngOnInit();
+      component.selectedTarget = { id: 'g1', label: 'Acme' };
+      contributions.chargePreview.calls.reset();
+
+      // Confirm it fires once while alive.
+      tick(30_000);
+      expect(contributions.chargePreview).toHaveBeenCalledTimes(1);
+
+      component.ngOnDestroy();
+      contributions.chargePreview.calls.reset();
+
+      // After destroy, no more ticks reach the service — otherwise
+      // an operator who navigates away silently keeps polling the
+      // endpoint from a torn-down component.
+      tick(60_000);
+      expect(contributions.chargePreview).not.toHaveBeenCalled();
+    }));
+  });
 });
 
 function makeMember(overrides: Partial<Member> = {}): Member {
