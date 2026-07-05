@@ -72,4 +72,16 @@ export class GroupsService {
   suspend(id: string): Observable<Group> {
     return this.api.post<Group>(`/groups/${id}/suspend`, {});
   }
+
+  /**
+   * Terminate a group with an optional effective date + reason.
+   * Backend cascades member statuses on the same run.
+   * Pass a null effectiveDate to default to today server-side.
+   */
+  terminate(id: string, effectiveDate: string | null, reason: string | null): Observable<Group> {
+    const body: Record<string, string> = {};
+    if (effectiveDate) body['effectiveDate'] = effectiveDate;
+    if (reason)        body['reason']        = reason;
+    return this.api.post<Group>(`/groups/${id}/actions/terminate`, body);
+  }
 }

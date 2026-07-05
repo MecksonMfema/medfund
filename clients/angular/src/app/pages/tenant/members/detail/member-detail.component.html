@@ -1,10 +1,6 @@
 <div class="member-detail-page">
   <header class="page-header">
     <div>
-      <a class="back-link" routerLink="/tenant/members">
-        <app-icon name="chevron-left" [size]="14"></app-icon>
-        Back to Members
-      </a>
       @if (member) {
         <h1>
           {{ member.firstName }} {{ member.lastName }}
@@ -23,14 +19,22 @@
         <h1>Loading…</h1>
       }
     </div>
-    @if (member) {
-      <div class="header-actions">
+    <!-- Right-side cluster: status actions on the far LEFT of the
+         group, Back-to-list pinned to the far RIGHT so it's the
+         last thing an operator's eye lands on when scanning the
+         header. Standard for pages with multiple buttons. -->
+    <div class="header-actions">
+      @if (member) {
         @if (canActivate())      { <button type="button" class="btn btn-default"  (click)="activate()">Activate</button> }
         @if (canSuspend())       { <button type="button" class="btn btn-warn"     (click)="suspend()">Suspend</button> }
         @if (canTerminate())     { <button type="button" class="btn btn-danger"   (click)="terminate()">Terminate</button> }
         @if (canClearOverride()) { <button type="button" class="btn btn-default"  (click)="clearBillingOverride()">Clear custom premium</button> }
-      </div>
-    }
+      }
+      <a class="btn btn-default" routerLink="/tenant/members">
+        <app-icon name="arrow-left" [size]="14"></app-icon>
+        Back to members
+      </a>
+    </div>
   </header>
 
   @if (errorMessage) {
@@ -477,6 +481,23 @@
         [(ngModel)]="dependantForm.nationalId"
         name="dependantNationalId"
         maxlength="50" />
+    </label>
+
+    <!-- Effective start-of-cover date (V047). Always snaps to the 1st
+         of the chosen month; back-dating triggers arrears on the
+         contributions side, same as member enrolment. -->
+    <label class="field">
+      <span class="field-label">
+        Effective from
+        <span class="optional">(defaults to this month)</span>
+      </span>
+      <input
+        class="field-control"
+        type="date"
+        [(ngModel)]="dependantForm.enrollmentDate"
+        (ngModelChange)="onDependantEnrollmentDateChange()"
+        name="dependantEnrollmentDate" />
+      <small class="field-help">Always anchored to the 1st of the chosen month. Back-dating posts arrears for the missed cycles.</small>
     </label>
 
     <!-- Custom-premium triple: only sent when the tenant is on

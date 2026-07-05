@@ -58,5 +58,21 @@ public record CreateDependantRequest(
      * pricing_model — every model honours it. Shares
      * {@link #billingOverrideEffectiveFrom} as the kick-in date.
      */
-    UUID billingAgeGroupId
-) {}
+    UUID billingAgeGroupId,
+
+    /**
+     * Effective date the dependant becomes a beneficiary (V047). Optional
+     * on the request — {@link com.medfund.user.service.DependantService#create}
+     * defaults to the 1st of the current month when null. Callers may
+     * back-date; the contributions side posts arrears for missed
+     * cycles. Always snapped to the 1st of a month by the service.
+     */
+    LocalDate enrollmentDate
+) {
+    /** Normalise any submitted date to the 1st of its month, matching
+     *  members.enrollment_date's constraint. Called by the service. */
+    public LocalDate enrollmentDateOrDefault() {
+        LocalDate raw = enrollmentDate != null ? enrollmentDate : LocalDate.now();
+        return raw.withDayOfMonth(1);
+    }
+}

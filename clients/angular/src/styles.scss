@@ -295,6 +295,34 @@ a.btn { text-decoration: none; }
   color: var(--color-text-secondary);
 }
 
+/* Cautionary action — Suspend, pause, freeze. Amber pill so it reads
+   as "not destructive but attention-worthy". Multiple pages previously
+   redefined this locally; the global here so Suspend looks the same
+   everywhere. */
+.btn-warn {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fbbf24;
+}
+.btn-warn:hover:not(:disabled) {
+  background: #fde68a;
+  color: #78350f;
+  border-color: #f59e0b;
+}
+
+/* Destructive action — Terminate, Delete, Deactivate. Solid red so
+   it stands out from the neutral cluster. Same reasoning as .btn-warn
+   above — promoted from a handful of local defs. */
+.btn-danger {
+  background: var(--color-error, #dc2626);
+  color: #fff;
+  border: 1px solid var(--color-error, #dc2626);
+}
+.btn-danger:hover:not(:disabled) {
+  filter: brightness(0.92);
+  color: #fff;
+}
+
 /* Generic disabled treatment — applies to every .btn variant.
    Dims the surface so it reads as inactive, freezes the cursor as
    not-allowed, and (combined with :not(:disabled) on each hover above)

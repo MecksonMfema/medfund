@@ -189,7 +189,7 @@
           <div class="chart-header">
             <div class="overview-title">
               <span class="overview-icon">$</span>
-              <h3>Total Revenue Overview</h3>
+              <h3>Received Payments</h3>
             </div>
             <div class="chart-period-toggle" role="tablist" aria-label="Chart granularity">
               @for (p of chartPeriods; track p) {
@@ -217,7 +217,7 @@
                 {{ primaryContribThisMonth.amount | currency: primaryContribThisMonth.currency : 'symbol' : '1.2-2' }}
               </div>
             }
-            <div class="overview-subtitle">Total revenue this month</div>
+            <div class="overview-subtitle">Received this month</div>
           </div>
           <div class="chart-body">
             <app-area-chart
@@ -258,8 +258,8 @@
 
           <app-stat-card
             label="Payments Requested"
-            [value]="loading ? '—' : stats.contributionsPending"
-            subtitle="Outstanding contributions"
+            [value]="loading ? '—' : stats.invoicesOutstanding"
+            subtitle="Outstanding invoices"
             color="orange"
             icon="clock">
           </app-stat-card>
@@ -296,61 +296,65 @@
         </div>
       </div>
 
-      <!-- Filter row + recent contributions table — mirrors the lower half
-           of the reference. Selects are visual-only placeholders; quick
-           filter chips are functional (client-side). -->
+      <!-- Recent invoices table.
+           Filter strip matches /tenant/billing/transactions: flat toolbar
+           with a search cell first (invoice # or holder name), then
+           Date range + Recipient cells; the data-table's own search is
+           disabled so we don't stack two search inputs. Status is a
+           column on the table itself, not a filter — the operator
+           scans it visually. -->
       <div class="chart-card contributions-table-card">
-        <div class="contributions-filters">
-          <div class="filter-controls">
-            <div class="filter-group">
-              <label>Date range</label>
-              <app-select
-                [ngModel]="dateRangeFilter"
-                (ngModelChange)="setDateRange($event)"
-                name="dateRangeFilter"
-                [options]="dateRangeFilterOptions"
-                size="sm"
-              ></app-select>
-            </div>
-            <div class="filter-group">
-              <label>Recipient</label>
-              <app-select
-                [ngModel]="recipientFilter ?? '__all__'"
-                (ngModelChange)="setRecipient($event)"
-                name="recipientFilter"
-                [options]="recipientFilterOptions"
-                size="sm"
-              ></app-select>
-            </div>
-            <div class="filter-group">
-              <label>Status</label>
-              <app-select
-                [ngModel]="contribStatusFilter ?? '__all__'"
-                (ngModelChange)="setStatusFromSelect($event)"
-                name="contribStatusFilter"
-                [options]="contribStatusFilterOptions"
-                size="sm"
-              ></app-select>
-            </div>
+        <div class="tx-toolbar">
+          <div class="toolbar-cell cell-search">
+            <app-icon name="search" [size]="16"></app-icon>
+            <input
+              type="search"
+              [ngModel]="invoiceSearch"
+              (ngModelChange)="onInvoiceSearchInput($event)"
+              name="invoiceSearch"
+              placeholder="Search invoice # or holder…"
+              aria-label="Search invoices"
+            />
           </div>
-          <a routerLink="/tenant/billing/schemes" class="download-btn">Open billing →</a>
-        </div>
 
-        <div class="quick-filters">
-          <span class="quick-label">Quick filters:</span>
-          @for (f of contribStatusFilters; track f) {
-            <button type="button"
-                    class="filter-chip"
-                    [class.active]="contribStatusFilter === f"
-                    (click)="setContribStatusFilter(f)">
-              {{ f | titlecase }}
-            </button>
-          }
+          <div class="toolbar-cell cell-select">
+            <span class="cell-label">Date range</span>
+            <app-select
+              [ngModel]="dateRangeFilter"
+              (ngModelChange)="setDateRange($event)"
+              name="dateRangeFilter"
+              size="sm"
+              [options]="dateRangeFilterOptions"
+              [searchable]="false"
+              [autoSearchThreshold]="9999"
+            ></app-select>
+          </div>
+
+          <div class="toolbar-cell cell-select">
+            <span class="cell-label">Recipient</span>
+            <app-select
+              [ngModel]="recipientFilter ?? '__all__'"
+              (ngModelChange)="setRecipient($event)"
+              name="recipientFilter"
+              size="sm"
+              [options]="recipientFilterOptions"
+              [searchable]="false"
+              [autoSearchThreshold]="9999"
+            ></app-select>
+          </div>
+
+          <div class="toolbar-cell cell-clear">
+            <a routerLink="/tenant/billing/schemes" class="clear-btn">
+              Open billing
+              <app-icon name="chevron-right" [size]="14"></app-icon>
+            </a>
+          </div>
         </div>
 
         <app-data-table
           [columns]="recentInvoiceColumns"
           [data]="filteredContributions"
+          [searchable]="false"
           (rowClick)="onInvoiceRowClick($event)"
           emptyMessage="No invoices issued yet."
         ></app-data-table>

@@ -41,6 +41,12 @@ interface DependantForm {
   relationship: string;
   nationalId: string;
   /**
+   * Effective date the dependant becomes a beneficiary (V047).
+   * Always the 1st of a month; the input snaps to day-1 on change.
+   * Defaults to the parent member's month on the add flow.
+   */
+  enrollmentDate: string;
+  /**
    * Custom-premium triple. Rendered + sent only when the tenant's
    * pricingModel === 'INDIVIDUAL' or 'AI_DRIVEN'. Same amount +
    * effective_from rule as the member override.
@@ -57,6 +63,7 @@ interface DependantForm {
 
 const EMPTY_DEPENDANT: DependantForm = {
   firstName: '', lastName: '', dateOfBirth: '', gender: '', relationship: '', nationalId: '',
+  enrollmentDate: '',
   billingOverrideAmount: null, billingOverrideReason: '', billingOverrideEffectiveFrom: '',
   billingAgeGroupId: '',
   smoker: false, hasChronicConditions: false, bmi: null,
@@ -431,7 +438,13 @@ export class MemberDetailComponent implements OnInit {
 
   startAddDependant(): void {
     this.editingDependantId = '__new__';
-    this.dependantForm = { ...EMPTY_DEPENDANT };
+    this.dependantForm = {
+      ...EMPTY_DEPENDANT,
+      // Default the effective-date to the 1st of the current month so
+      // billing starts this cycle. Operator can back-date to trigger
+      // arrears on the contributions side, same convention as members.
+      enrollmentDate: this.firstOfMonth(new Date().toISOString().slice(0, 10)),
+    };
   }
 
   editDependant(d: Dependant): void {
@@ -444,6 +457,7 @@ export class MemberDetailComponent implements OnInit {
       gender:      d.gender ?? '',
       relationship: d.relationship ?? '',
       nationalId:  d.nationalId ?? '',
+      enrollmentDate: d.enrollmentDate ?? '',
       billingOverrideAmount:        (d as any).billingOverrideAmount ?? null,
       billingOverrideReason:        (d as any).billingOverrideReason ?? '',
       billingOverrideEffectiveFrom: (d as any).billingOverrideEffectiveFrom ?? '',
@@ -452,6 +466,20 @@ export class MemberDetailComponent implements OnInit {
       // time the operator opens the edit collapsible.
       smoker: false, hasChronicConditions: false, bmi: null,
     };
+  }
+
+  /** Normalise an ISO YYYY-MM-DD date to the 1st of its month. Same
+   *  helper the member enrol form uses; kept private + inlined here to
+   *  avoid a shared-utility hop for one date. */
+  private firstOfMonth(iso: string): string {
+    if (!iso || iso.length < 7) return iso;
+    return iso.slice(0, 8) + '01';
+  }
+
+  /** Bound to (ngModelChange) on the dependant enrolment-date input so
+   *  any operator pick snaps to the 1st of the chosen month. */
+  onDependantEnrollmentDateChange(): void {
+    this.dependantForm.enrollmentDate = this.firstOfMonth(this.dependantForm.enrollmentDate);
   }
 
   cancelDependantEdit(): void {
@@ -494,6 +522,12 @@ export class MemberDetailComponent implements OnInit {
       relationship: this.dependantForm.relationship.trim(),
       nationalId:   this.dependantForm.nationalId.trim(),
     };
+    // Always the 1st of the chosen month (snapped by the input handler
+    // and defended here in case a stale draft made it through). Absent
+    // → let the backend default to today's 1st.
+    if (this.dependantForm.enrollmentDate) {
+      base.enrollmentDate = this.firstOfMonth(this.dependantForm.enrollmentDate);
+    }
     if (this.individualPricing && this.dependantForm.billingOverrideAmount != null) {
       base.billingOverrideAmount = this.dependantForm.billingOverrideAmount;
       base.billingOverrideReason = this.dependantForm.billingOverrideReason.trim() || undefined;

@@ -45,6 +45,32 @@ public class UserEventPublisher {
     }
 
     /**
+     * Dependant equivalent of {@link #publishMemberEnrolled} — fires
+     * after a dependant is created so the contributions consumer can
+     * decide whether the effective date lands in an already-billed
+     * period (→ auto-post a {@code LATE_ENROLMENT_CHARGE}).
+     *
+     * <p>Carries the PARENT MEMBER's groupId + schemeId so the consumer
+     * doesn't need to re-fetch — a dependant inherits both.
+     * Partitioning key is the parent's memberId (not the dependant's own)
+     * so events for the same household stay ordered.
+     */
+    public Mono<Void> publishDependantEnrolled(String dependantId, String memberNumber,
+                                                 String memberId,
+                                                 String groupId, String schemeId,
+                                                 String enrollmentDate) {
+        var payload = new java.util.LinkedHashMap<String, String>();
+        payload.put("event", "DEPENDANT_ENROLLED");
+        payload.put("dependantId", dependantId);
+        payload.put("memberNumber", memberNumber != null ? memberNumber : "");
+        payload.put("memberId", memberId);
+        payload.put("groupId",         groupId         != null ? groupId         : "");
+        payload.put("schemeId",        schemeId        != null ? schemeId        : "");
+        payload.put("enrollmentDate",  enrollmentDate  != null ? enrollmentDate  : "");
+        return publishEvent("medfund.users.dependant-enrolled", memberId, payload);
+    }
+
+    /**
      * Enriched with {@code terminationDate} + {@code groupId} +
      * {@code schemeId} so the contributions-service consumer can figure
      * out whether the termination window overlaps a period that was

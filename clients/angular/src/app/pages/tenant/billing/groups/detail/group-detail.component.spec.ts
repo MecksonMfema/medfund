@@ -34,7 +34,9 @@ class StubGroups {
   group = makeGroup();
   updateCalls: any[] = [];
   suspendCalls = 0;
+  terminateCalls: Array<{ id: string; effectiveDate: string | null; reason: string | null }> = [];
   shouldFailUpdate = false;
+  shouldFailTerminate = false;
   findById = (_id: string) => of(this.group);
   update = (id: string, data: any) => {
     this.updateCalls.push({ id, data });
@@ -43,6 +45,12 @@ class StubGroups {
       : of({ ...this.group, ...data });
   };
   suspend = (_id: string) => { this.suspendCalls++; return of({ ...this.group, status: 'SUSPENDED' }); };
+  terminate = (id: string, effectiveDate: string | null, reason: string | null) => {
+    this.terminateCalls.push({ id, effectiveDate, reason });
+    return this.shouldFailTerminate
+      ? throwError(() => ({ error: { detail: 'terminate 500' } }))
+      : of({ ...this.group, status: 'TERMINATED' });
+  };
 }
 
 class StubMembers {
@@ -152,5 +160,96 @@ describe('GroupDetailComponent', () => {
     comp.ngOnInit();
     comp.openMember(comp.members[0]);
     expect(router.navigated[0]).toEqual(['/tenant/members', 'm-1']);
+  });
+
+  // ------------------------------------------------------------------
+  // Terminate flow — mirrors the dependant deactivate prompt pattern:
+  //   Cancel = abort, empty = today, valid ISO = that date, garbled = toast.
+  //   Reason is captured via a second prompt; empty reason omits it.
+  // ------------------------------------------------------------------
+
+  describe('terminate flow', () => {
+    it('defaults the effective date to today when the operator hits Enter on the seeded value', () => {
+      const today = new Date().toISOString().slice(0, 10);
+      // First prompt = effective date (seeded today), second = reason (blank).
+      const promptSpy = spyOn(window, 'prompt').and.returnValues(today, '');
+      const { comp, groups } = instantiate();
+      comp.ngOnInit();
+      comp.terminate();
+      expect(promptSpy).toHaveBeenCalledTimes(2);
+      expect(groups.terminateCalls[0].id).toBe('g-1');
+      expect(groups.terminateCalls[0].effectiveDate).toBe(today);
+      // Reason blank → null, not empty string, so the backend audit
+      // trail doesn't fill with meaningless "" values.
+      expect(groups.terminateCalls[0].reason).toBeNull();
+      expect(comp.group?.status).toBe('TERMINATED');
+    });
+
+    it('aborts when the operator cancels the effective-date prompt', () => {
+      // First prompt returns null → operator hit Cancel.
+      spyOn(window, 'prompt').and.returnValue(null);
+      const { comp, groups } = instantiate();
+      comp.ngOnInit();
+      comp.terminate();
+      expect(groups.terminateCalls.length).toBe(0);
+      expect(comp.group?.status).toBe('ACTIVE');
+    });
+
+    it('rejects a garbled effective date with a toast (no service call)', () => {
+      spyOn(window, 'prompt').and.returnValue('yesterday');
+      const { comp, groups, toast } = instantiate();
+      comp.ngOnInit();
+      comp.terminate();
+      expect(groups.terminateCalls.length).toBe(0);
+      expect(toast.errors[0]).toContain('YYYY-MM-DD');
+    });
+
+    it('forwards a future date and operator-typed reason to the service', () => {
+      spyOn(window, 'prompt').and.returnValues('2026-12-15', 'Migrated to Alpha Group');
+      const { comp, groups } = instantiate();
+      comp.ngOnInit();
+      comp.terminate();
+      expect(groups.terminateCalls[0].effectiveDate).toBe('2026-12-15');
+      expect(groups.terminateCalls[0].reason).toBe('Migrated to Alpha Group');
+    });
+
+    it('surfaces backend errors via toast without mutating the group', () => {
+      const today = new Date().toISOString().slice(0, 10);
+      spyOn(window, 'prompt').and.returnValues(today, '');
+      const { comp, groups, toast } = instantiate();
+      comp.ngOnInit();
+      groups.shouldFailTerminate = true;
+      comp.terminate();
+      expect(toast.errors[0]).toBe('terminate 500');
+      // Group status unchanged on failure.
+      expect(comp.group?.status).toBe('ACTIVE');
+    });
+
+    it('canTerminate() is false when the group is already TERMINATED', () => {
+      const { comp, groups } = instantiate();
+      groups.group = makeGroup({ status: 'TERMINATED' });
+      comp.ngOnInit();
+      expect(comp.canTerminate()).toBeFalse();
+    });
+
+    it('canTerminate() is false when the group is DEACTIVATED', () => {
+      // DEACTIVATED is the terminal state after an arrears sweep — the
+      // operator can't re-terminate a group already out of the roster.
+      const { comp, groups } = instantiate();
+      groups.group = makeGroup({ status: 'DEACTIVATED' });
+      comp.ngOnInit();
+      expect(comp.canTerminate()).toBeFalse();
+    });
+
+    it('canTerminate() is true for an active or suspended group', () => {
+      const { comp, groups } = instantiate();
+      groups.group = makeGroup({ status: 'ACTIVE' });
+      comp.ngOnInit();
+      expect(comp.canTerminate()).toBeTrue();
+
+      groups.group = makeGroup({ status: 'SUSPENDED' });
+      comp.ngOnInit();
+      expect(comp.canTerminate()).toBeTrue();
+    });
   });
 });

@@ -153,3 +153,29 @@ Architecture documents live in `.claude/`:
 ## License
 
 Proprietary. All rights reserved.
+
+Using the following reference:
+  /home/methuseli-mfema/Documents/personal/MASCA-Backend we need to add member
+  operations. The one that I can think of is a group change, scheme upgrade, or
+  downgrade, currency change, assigning every member and dependant benefit balances
+  on creation and update, dependant and member swap, member number suffix
+  definition, check for other gaps from the reference. For now concentrate on
+  features that affect the billing section of the application the other sections
+  will be added later. Add a strong test
+  coverage as there is a lot of moving parts. Take note some of the member
+  operations do not take effect immediately, for example a member can change a
+  group and it will take effect the following month, when the month is reached this
+  will trigger the actual change. Some of the operations are back dated which
+  should trigger some financial adjustments. Another missing section in the application are waiting
+  periods which should be added to schemes similar to benefits.
+
+
+  The page /tenant/dashboard is broken, the data is incorrect, the payment requests should show number invoices not contributions.
+  Received payments are also not showing both the chart and payment received card. We also need to clean the invoice table in the page. Remove the Quick filters and status
+  Then move the filters and put them in the header of the table next to the search input. This should match the table in the page /tenant/billing/transactions 
+
+
+We are left with standardizing the group edit page. Make the Form match the rest
+  of the UI pattern in the application. Standardize the back button in the
+  following pages /tenant/billing/view/{id}, /tenant/members/{id}, and
+  /tenant/groups/{id}.

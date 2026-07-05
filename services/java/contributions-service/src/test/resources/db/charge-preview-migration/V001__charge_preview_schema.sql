@@ -118,6 +118,11 @@ CREATE TABLE members (
     last_name                       VARCHAR(120),
     email                           VARCHAR(200),
     member_number                   VARCHAR(50),
+    -- V048: the resolver's effective_age_group_id fallback walks the
+    -- scheme's bands by date_of_birth when the stamped age_group_id is
+    -- null. Default here is an arbitrary "adult" DOB so existing tests
+    -- that don't seed a specific age stay in the default band.
+    date_of_birth                   DATE          NOT NULL DEFAULT '1990-01-01',
     group_id                        UUID          REFERENCES groups(id),
     scheme_id                       UUID          REFERENCES schemes(id),
     status                          VARCHAR(20)   NOT NULL DEFAULT 'active',
@@ -134,6 +139,12 @@ CREATE TABLE dependants (
     member_id                       UUID          NOT NULL REFERENCES members(id) ON DELETE CASCADE,
     first_name                      VARCHAR(120),
     last_name                       VARCHAR(120),
+    -- V036/V120: per-tenant structured number; resolver COALESCEs onto
+    -- the parent's number for pre-V036 rows that lack their own.
+    member_number                   VARCHAR(50),
+    -- V048: same rationale as members.date_of_birth above — the
+    -- resolver's dynamic band lookup needs a DOB to walk.
+    date_of_birth                   DATE          NOT NULL DEFAULT '2015-01-01',
     status                          VARCHAR(20)   NOT NULL DEFAULT 'active',
     age_group_id                    UUID          REFERENCES age_groups(id),
     billing_age_group_id            UUID          REFERENCES age_groups(id),
@@ -143,6 +154,9 @@ CREATE TABLE dependants (
     -- WHERE clause includes 'deactivated' dependants whose date is
     -- still >= periodStart (billed up to and including that cycle).
     deactivation_effective_date     DATE,
+    -- V047 mirror: effective start-of-cover date. Resolver's dependant
+    -- filter switched from d.created_at::date to d.enrollment_date.
+    enrollment_date                 DATE          NOT NULL DEFAULT date_trunc('month', CURRENT_DATE)::date,
     created_at                      TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 

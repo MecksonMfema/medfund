@@ -19,6 +19,8 @@ public record DependantResponse(
     /** Present iff status = 'deactivated'. Billing stops from the
      *  cycle AFTER this date. See {@link Dependant#getDeactivationEffectiveDate}. */
     LocalDate deactivationEffectiveDate,
+    /** Effective start-of-cover date (V047). Always the 1st of a month. */
+    LocalDate enrollmentDate,
     Instant createdAt,
     Instant updatedAt
 ) {
@@ -28,6 +30,7 @@ public record DependantResponse(
             d.getDateOfBirth(), d.getGender(), d.getRelationship(),
             d.getNationalId(), d.getStatus(),
             d.getDeactivationEffectiveDate(),
+            d.getEnrollmentDate(),
             d.getCreatedAt(), d.getUpdatedAt()
         );
     }

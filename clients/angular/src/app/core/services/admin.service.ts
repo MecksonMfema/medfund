@@ -139,6 +139,11 @@ export interface TenantStats {
   // Billing — currency totals (BigDecimal serialised as number).
   schemesActive: number;
   contributionsPending: number;
+  /** Count of invoices at status 'issued' or 'overdue' — the real
+   *  "requests awaiting payment" that drives the dashboard's Payments
+   *  Requested card. Contributions are line items on an invoice; the
+   *  operator wants to see how many INVOICES they have outstanding. */
+  invoicesOutstanding: number;
   contributionsAmountThisMonth: number;
   contributionsAmountThisYear: number;
   // Finance — payment counts + currency totals.

@@ -64,7 +64,7 @@ public class TravelCandidateResolver implements CandidateResolver {
                   JOIN schemes s     ON s.id = tp.scheme_id
                   LEFT JOIN groups g ON g.id = tp.group_id
                  WHERE tp.status IN ('active', 'suspended')
-                   AND m.status IN ('active', 'suspended')
+                   AND m.status IN ('active', 'suspended', 'enrolled')
                    AND (tp.group_id IS NULL OR g.status = 'active')
                    AND tp.trip_start_date <= :periodEnd
                    AND tp.trip_end_date   >= :periodStart

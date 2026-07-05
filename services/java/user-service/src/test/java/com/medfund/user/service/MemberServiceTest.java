@@ -154,7 +154,7 @@ class MemberServiceTest {
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(member -> {
-                assertThat(member.getStatus()).isEqualTo("enrolled");
+                assertThat(member.getStatus()).isEqualTo("active");
                 assertThat(member.getMemberNumber()).startsWith("MBR-");
                 assertThat(member.getEnrollmentDate()).isNotNull();
                 assertThat(member.getFirstName()).isEqualTo("John");
@@ -193,7 +193,7 @@ class MemberServiceTest {
             .assertNext(member -> {
                 assertThat(member.getCreatedBy()).isNull();
                 assertThat(member.getUpdatedBy()).isNull();
-                assertThat(member.getStatus()).isEqualTo("enrolled");
+                assertThat(member.getStatus()).isEqualTo("active");
             })
             .verifyComplete();
     }
@@ -223,7 +223,7 @@ class MemberServiceTest {
             memberService.enroll(request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
-            .assertNext(member -> assertThat(member.getStatus()).isEqualTo("enrolled"))
+            .assertNext(member -> assertThat(member.getStatus()).isEqualTo("active"))
             .verifyComplete();
 
         verify(auditPublisher).publish(any());
@@ -254,7 +254,7 @@ class MemberServiceTest {
             memberService.enroll(request, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
-            .assertNext(member -> assertThat(member.getStatus()).isEqualTo("enrolled"))
+            .assertNext(member -> assertThat(member.getStatus()).isEqualTo("active"))
             .verifyComplete();
     }
 

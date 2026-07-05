@@ -1,72 +1,61 @@
-.group-detail { padding: 16px 0; }
+@use '../../../../../shared/styles/form-grammar';
 
-.page-head {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+.group-detail { padding: 24px; width: 100%; max-width: 1200px; margin: 0 auto; }
 
-  .back-link {
-    grid-column: 1 / -1;
-    display: inline-flex; align-items: center; gap: 4px;
-    color: var(--text-muted, #666); text-decoration: none; font-size: 0.85rem;
-    margin-bottom: 6px;
-    &:hover { color: var(--text, #222); }
-  }
-  .title-block h1 { margin: 0; }
-  .meta { display: flex; gap: 8px; margin-top: 6px; }
-  .actions { display: flex; gap: 8px; }
+// Stack the identity + liaison card and the members-roster card with
+// breathing room; the shared .form-card + .form-sections grammar owns
+// the internal padding.
+.form-card + .form-card,
+.form-card + .members-card { margin-top: 20px; }
+
+.title-block h1 { margin: 0; font-size: 1.5rem; color: var(--color-text-primary); }
+.title-block .meta { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+
+.section-loading {
+  padding: var(--spacing-lg);
+  color: var(--color-text-muted);
 }
 
-.error-banner {
-  background: #fdecea; color: #7f1d1d;
-  padding: 10px 14px; border-radius: 4px; margin-bottom: 12px; cursor: pointer;
-}
-
-.card {
-  background: #fff; border: 1px solid #e5e7eb; border-radius: 6px;
-  padding: 20px; margin-bottom: 16px;
-  > h2 { margin-top: 0; }
-}
-
-.form-grid {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;
-  .field { display: flex; flex-direction: column; gap: 4px; }
-  .field.span-2 { grid-column: 1 / -1; }
-  .field label { font-size: 0.8rem; color: var(--text-muted, #666); }
-  .field input {
-    padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem;
-  }
-}
-
-.form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-
-.btn {
-  padding: 8px 14px; border: 1px solid #d1d5db; background: #f9fafb;
-  border-radius: 4px; font-size: 0.85rem; cursor: pointer;
-  &.small   { padding: 4px 10px; font-size: 0.8rem; }
-  &.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
-  &.warn    { background: #f59e0b; color: #fff; border-color: #f59e0b; }
-  &:disabled { opacity: 0.6; cursor: not-allowed; }
-}
-
-.chip {
-  display: inline-block; padding: 2px 8px; border-radius: 999px;
-  font-size: 0.75rem; background: #eef2ff; color: #3730a3;
-  &.status[data-status='ACTIVE'],
-  &.status[data-status='active']    { background: #dcfce7; color: #166534; }
-  &.status[data-status='enrolled']  { background: #dbeafe; color: #1e40af; }
-  &.status[data-status='SUSPENDED'],
-  &.status[data-status='suspended'] { background: #fef3c7; color: #92400e; }
-  &.status[data-status='terminated'] { background: #fee2e2; color: #991b1b; }
-}
-
+// Members roster table — inherits the .form-card shell above; keep the
+// classic tabular reset so it reads like any other data table.
 .members-table {
-  width: 100%; border-collapse: collapse; font-size: 0.85rem;
-  th, td { padding: 8px 10px; border-bottom: 1px solid #eee; text-align: left; }
-  th { color: var(--text-muted, #666); font-weight: 500; }
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+
+  th, td {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--color-border-light);
+    text-align: left;
+  }
+  th {
+    color: var(--color-text-muted);
+    font-weight: var(--font-weight-medium);
+    background: var(--color-surface-alt, #f8fafc);
+  }
   tr.clickable { cursor: pointer; }
-  tr.clickable:hover td { background: #f9fafb; }
-  .muted { color: var(--text-muted, #888); }
+  tr.clickable:hover td { background: var(--color-bg); }
+  .muted { color: var(--color-text-muted); }
+}
+
+// Chip variants used inside the header meta + members table.
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  background: var(--color-surface-alt, #f6f8fb);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-light);
+
+  &.status[data-status='ACTIVE'],
+  &.status[data-status='active']    { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+  &.status[data-status='enrolled']  { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+  &.status[data-status='SUSPENDED'],
+  &.status[data-status='suspended'] { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+  &.status[data-status='TERMINATED'],
+  &.status[data-status='terminated'],
+  &.status[data-status='DEACTIVATED'],
+  &.status[data-status='deactivated'] { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
 }

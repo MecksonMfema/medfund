@@ -37,6 +37,13 @@ export interface Dependant {
   relationship: string;
   nationalId?: string;
   status: string;
+  /**
+   * Effective date the dependant became a beneficiary (V047). Always
+   * the 1st of a month. Absent on legacy rows that pre-date V047 (the
+   * migration backfills so this is only null for freshly-created rows
+   * still waiting on the server response).
+   */
+  enrollmentDate?: string;
   createdAt?: string;
   updatedAt?: string;
 }

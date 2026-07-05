@@ -135,7 +135,8 @@ class DependantServiceTest {
             memberId, "Sarah", "Doe", LocalDate.of(2015, 6, 20),
             "female", "child", null,
             null, null, null,  // billingOverrideAmount / reason / effectiveFrom
-            null               // billingAgeGroupId
+            null,              // billingAgeGroupId
+            null               // enrollmentDate (V047) — defaults to 1st of current month
         );
 
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
@@ -175,7 +176,8 @@ class DependantServiceTest {
             memberId, "Sarah", "Doe", LocalDate.of(2015, 6, 20),
             "female", "child", null,
             amount, "student rate", effectiveFrom,
-            null   // billingAgeGroupId
+            null,  // billingAgeGroupId
+            null   // enrollmentDate
         );
 
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
@@ -202,7 +204,8 @@ class DependantServiceTest {
             UUID.randomUUID(), "Sarah", "Doe", LocalDate.of(2015, 6, 20),
             "female", "child", null,
             new BigDecimal("40.00"), "student rate", /* effectiveFrom */ null,
-            null   // billingAgeGroupId
+            null,  // billingAgeGroupId
+            null   // enrollmentDate
         );
 
         StepVerifier.create(
@@ -226,7 +229,8 @@ class DependantServiceTest {
             memberId, "Sarah", "Doe", LocalDate.of(2015, 6, 20),
             "female", "child", null,
             null, null, null,
-            null   // billingAgeGroupId
+            null,  // billingAgeGroupId
+            null   // enrollmentDate
         );
 
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
@@ -248,7 +252,7 @@ class DependantServiceTest {
         var dependant = createTestDependant(UUID.randomUUID());
         var id = dependant.getId();
         var actorId = UUID.randomUUID().toString();
-        var request = new UpdateDependantRequest("Janet", null, null, null, "spouse", null, null, null, null, null);
+        var request = new UpdateDependantRequest("Janet", null, null, null, "spouse", null, null, null, null, null, null);
 
         when(dependantRepository.findById(id)).thenReturn(Mono.just(dependant));
         when(dependantRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
@@ -284,7 +288,8 @@ class DependantServiceTest {
         var request = new UpdateDependantRequest(
             null, null, null, null, null, null,
             null, null, null,
-            newAgeBand
+            newAgeBand,
+            null // enrollmentDate
         );
 
         when(dependantRepository.findById(id)).thenReturn(Mono.just(dependant));
@@ -313,7 +318,8 @@ class DependantServiceTest {
         var request = new UpdateDependantRequest(
             "Janet", null, null, null, "spouse", null,
             null, null, null,
-            null // billingAgeGroupId — omitted means "no change"
+            null, // billingAgeGroupId — omitted means "no change"
+            null  // enrollmentDate — omitted means "no change"
         );
 
         when(dependantRepository.findById(id)).thenReturn(Mono.just(dependant));
@@ -331,7 +337,7 @@ class DependantServiceTest {
     @Test
     void update_nonExisting_throwsNotFound() {
         var id = UUID.randomUUID();
-        var request = new UpdateDependantRequest("X", null, null, null, null, null, null, null, null, null);
+        var request = new UpdateDependantRequest("X", null, null, null, null, null, null, null, null, null, null);
         when(dependantRepository.findById(id)).thenReturn(Mono.empty());
 
         StepVerifier.create(

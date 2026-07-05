@@ -59,7 +59,7 @@ public class DisabilityCandidateResolver implements CandidateResolver {
                   JOIN schemes s     ON s.id = dp.scheme_id
                   LEFT JOIN groups g ON g.id = dp.group_id
                  WHERE dp.status IN ('active', 'suspended')
-                   AND m.status IN ('active', 'suspended')
+                   AND m.status IN ('active', 'suspended', 'enrolled')
                    AND (dp.group_id IS NULL OR g.status = 'active')
                    AND dp.created_at::date <= :periodEnd
                 """);

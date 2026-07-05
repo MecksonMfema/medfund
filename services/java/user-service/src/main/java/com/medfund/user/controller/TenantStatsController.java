@@ -128,12 +128,31 @@ public class TenantStatsController {
                 "SELECT " +
                 "  (SELECT COUNT(*) FROM \"" + schema + "\".schemes WHERE status = 'active') AS schemes_active, " +
                 "  (SELECT COUNT(*) FROM \"" + schema + "\".contributions WHERE status = 'pending') AS contrib_pending, " +
-                "  (SELECT COALESCE(SUM(amount),0) FROM \"" + schema + "\".contributions WHERE status = 'paid' AND created_at >= date_trunc('month', NOW())) AS contrib_amt_month, " +
-                "  (SELECT COALESCE(SUM(amount),0) FROM \"" + schema + "\".contributions WHERE status = 'paid' AND created_at >= date_trunc('year',  NOW())) AS contrib_amt_year")
+                // invoicesOutstanding: the operator's real "requests awaiting
+                // payment" — invoices at status 'issued' or 'overdue' (paid
+                // invoices flip to 'paid' via V035 lifecycle). This drives
+                // the dashboard's "Payments Requested" card, which used to
+                // count contribution rows and misled operators (contributions
+                // are line items on an invoice, not the requests themselves).
+                "  (SELECT COUNT(*) FROM \"" + schema + "\".invoices WHERE status IN ('issued','overdue')) AS invoices_outstanding, " +
+                // Received payments — read from the transactions ledger
+                // (transaction_type='PAYMENT', status='completed'), NOT
+                // from contributions.status='paid'. A cash payment posted
+                // to a member without a linked contribution_id still lands
+                // on transactions and represents real money-in; querying
+                // contributions.status would miss it. See tenant
+                // transaction_types row 'PAYMENT' = "Payment received".
+                "  (SELECT COALESCE(SUM(amount),0) FROM \"" + schema + "\".transactions " +
+                "     WHERE transaction_type = 'PAYMENT' AND status = 'completed' " +
+                "       AND created_at >= date_trunc('month', NOW())) AS contrib_amt_month, " +
+                "  (SELECT COALESCE(SUM(amount),0) FROM \"" + schema + "\".transactions " +
+                "     WHERE transaction_type = 'PAYMENT' AND status = 'completed' " +
+                "       AND created_at >= date_trunc('year',  NOW())) AS contrib_amt_year")
                 .map(row -> {
                     var m = new java.util.LinkedHashMap<String, Object>();
                     m.put("schemesActive",                   orZero(row.get("schemes_active", Long.class)));
                     m.put("contributionsPending",            orZero(row.get("contrib_pending", Long.class)));
+                    m.put("invoicesOutstanding",             orZero(row.get("invoices_outstanding", Long.class)));
                     m.put("contributionsAmountThisMonth",    orZeroBig(row.get("contrib_amt_month", java.math.BigDecimal.class)));
                     m.put("contributionsAmountThisYear",     orZeroBig(row.get("contrib_amt_year",  java.math.BigDecimal.class)));
                     return (Map<String, Object>) m;
@@ -141,6 +160,7 @@ public class TenantStatsController {
                 .one()
                 .onErrorReturn(Map.of(
                         "schemesActive", 0L, "contributionsPending", 0L,
+                        "invoicesOutstanding", 0L,
                         "contributionsAmountThisMonth", java.math.BigDecimal.ZERO,
                         "contributionsAmountThisYear",  java.math.BigDecimal.ZERO));
 
@@ -191,12 +211,22 @@ public class TenantStatsController {
 
         // ── Per-currency amount breakdowns ──────────────────────────────────
         // Tenants in multiple currencies (e.g. USD + ZAR) get one entry per
-        // active currency code; single-currency tenants get one entry. The
-        // existing blended SUM() fields stay populated for backward compat.
+        // active currency code; single-currency tenants get one entry.
+        //
+        // Received-payment amounts come from the transactions ledger for
+        // the same reason as billingCounts.contrib_amt_month — a cash
+        // payment posted without a linked contribution still moves real
+        // money and must show up on the dashboard. The JSON field names
+        // stay `contributionsAmount*` for frontend backwards-compat; the
+        // *source* is what changed.
         Mono<Map<String, java.math.BigDecimal>> contribAmtMonthByCcy = sumByCurrency(
-                schema, "contributions", "status = 'paid' AND created_at >= date_trunc('month', NOW())");
+                schema, "transactions",
+                "transaction_type = 'PAYMENT' AND status = 'completed' " +
+                "AND created_at >= date_trunc('month', NOW())");
         Mono<Map<String, java.math.BigDecimal>> contribAmtYearByCcy  = sumByCurrency(
-                schema, "contributions", "status = 'paid' AND created_at >= date_trunc('year',  NOW())");
+                schema, "transactions",
+                "transaction_type = 'PAYMENT' AND status = 'completed' " +
+                "AND created_at >= date_trunc('year',  NOW())");
         Mono<Map<String, java.math.BigDecimal>> paymentsAmtMonthByCcy = sumByCurrency(
                 schema, "payments",     "status = 'completed' AND created_at >= date_trunc('month', NOW())");
         Mono<Map<String, java.math.BigDecimal>> paymentsAmtYearByCcy  = sumByCurrency(
@@ -349,12 +379,17 @@ public class TenantStatsController {
         // Contributions trend also follows ?period — same CTE + label format
         // as the claims trend so the dashboard's chart-period toggle controls
         // both consistently.
+        // Blended (single-series) received-payments trend. Same pivot as
+        // the per-currency variant: source is the transactions ledger.
+        // Response key stays `contributionsAmountByMonth` for
+        // frontend backwards-compat.
         Mono<List<Map<String, Object>>> contributionsTrend = db.sql(periodCte +
                 "SELECT to_char(b.bucket, '" + claimsLabel + "') AS bucket_label, " +
-                "       COALESCE(SUM(c.amount), 0)               AS value " +
+                "       COALESCE(SUM(tx.amount), 0)              AS value " +
                 "FROM buckets b " +
-                "LEFT JOIN \"" + schema + "\".contributions c " +
-                "  ON date_trunc('" + period + "', c.created_at) = b.bucket AND c.status = 'paid' " +
+                "LEFT JOIN \"" + schema + "\".transactions tx " +
+                "  ON date_trunc('" + period + "', tx.created_at) = b.bucket " +
+                "  AND tx.transaction_type = 'PAYMENT' AND tx.status = 'completed' " +
                 "GROUP BY b.bucket ORDER BY b.bucket")
                 .map(row -> point(row.get("bucket_label", String.class),
                                   row.get("value", java.math.BigDecimal.class)))
@@ -424,16 +459,22 @@ public class TenantStatsController {
                 .map(TenantStatsController::groupByCurrency)
                 .onErrorReturn(Map.of());
 
+        // Received-payment trend — same pivot as the stats blocks: read
+        // from transactions (transaction_type='PAYMENT', status='completed')
+        // so a cash payment shows up on the Billing tab chart. The
+        // response key stays `contributionsAmountByMonthByCurrency` for
+        // frontend backwards-compat.
         Mono<Map<String, List<Map<String, Object>>>> contributionsByCurrency = db.sql(bucketsAndCodesCte +
                 "SELECT to_char(b.bucket, '" + claimsLabel + "') AS bucket_label, " +
                 "       cc.currency_code            AS code, " +
-                "       COALESCE(SUM(c.amount), 0)  AS value " +
+                "       COALESCE(SUM(tx.amount), 0) AS value " +
                 "FROM buckets b " +
                 "CROSS JOIN codes cc " +
-                "LEFT JOIN \"" + schema + "\".contributions c " +
-                "  ON date_trunc('" + period + "', c.created_at) = b.bucket " +
-                "  AND c.status = 'paid' " +
-                "  AND c.currency_code = cc.currency_code " +
+                "LEFT JOIN \"" + schema + "\".transactions tx " +
+                "  ON date_trunc('" + period + "', tx.created_at) = b.bucket " +
+                "  AND tx.transaction_type = 'PAYMENT' " +
+                "  AND tx.status = 'completed' " +
+                "  AND tx.currency_code = cc.currency_code " +
                 "GROUP BY b.bucket, cc.currency_code, cc.is_default " +
                 "ORDER BY cc.is_default DESC, cc.currency_code, b.bucket")
                 .bind("tenantId", tenantId)
@@ -1020,6 +1061,7 @@ public class TenantStatsController {
         m.put("claimsNewTasks", 0L); m.put("claimsThisMonth", 0L);
         m.put("claimsAcceptedThisMonth", 0L); m.put("claimsRejectedThisMonth", 0L);
         m.put("schemesActive", 0L); m.put("contributionsPending", 0L);
+        m.put("invoicesOutstanding", 0L);
         m.put("contributionsAmountThisMonth", java.math.BigDecimal.ZERO);
         m.put("contributionsAmountThisYear",  java.math.BigDecimal.ZERO);
         m.put("paymentsPending", 0L);

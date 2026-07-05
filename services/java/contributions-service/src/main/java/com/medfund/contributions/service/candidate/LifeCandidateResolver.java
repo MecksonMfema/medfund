@@ -69,7 +69,7 @@ public class LifeCandidateResolver implements CandidateResolver {
                   JOIN schemes s     ON s.id = lp.scheme_id
                   LEFT JOIN groups g ON g.id = lp.group_id
                  WHERE lp.status IN ('active', 'suspended')
-                   AND m.status IN ('active', 'suspended')
+                   AND m.status IN ('active', 'suspended', 'enrolled')
                    AND (lp.group_id IS NULL OR g.status = 'active')
                    AND lp.created_at::date <= :periodEnd
                 """);

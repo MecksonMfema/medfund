@@ -438,6 +438,82 @@ class BillingServiceChargePreviewIT extends AbstractIntegrationTest {
     }
 
     // ------------------------------------------------------------------
+    // V047: dependant enrollment_date drives billability. The resolver's
+    // dependant filter is `d.enrollment_date <= :periodEnd`. A dependant
+    // enrolled AFTER the projected cycle should not appear; one enrolled
+    // BEFORE it should.
+    // ------------------------------------------------------------------
+
+    @Test
+    @WithTenant(TENANT_ID)
+    void dependant_futureEnrollmentDate_notBillableForCurrentCycle() {
+        // Seed a dependant with enrollment_date = 2 months after the
+        // projected cycle. Resolver must drop them off — the parent
+        // member still bills.
+        LocalDate projectedStart = LocalDate.now().plusMonths(1).withDayOfMonth(1);
+        LocalDate futureEnrolment = projectedStart.plusMonths(2);
+
+        UUID schemeId = seedScheme("USD");
+        UUID band = seedAgeGroup(schemeId, "Adult", new BigDecimal("100"), "USD");
+        UUID groupId = seedGroup("Future-enrolled Ltd");
+        UUID memberId = seedMember(schemeId, groupId, band, "active", null, null, null, null);
+        seedDependantWithEnrollmentDate(memberId, band, "active", futureEnrolment);
+
+        ChargePreviewResponse resp = block(billingService.chargePreview("GROUP", groupId, null));
+
+        // Only the member — dependant hasn't started cover yet.
+        assertThat(resp.lines()).hasSize(1);
+        assertThat(resp.lines().get(0).personType()).isEqualTo("MEMBER");
+    }
+
+    @Test
+    @WithTenant(TENANT_ID)
+    void dependant_pastEnrollmentDate_billsForCurrentCycle() {
+        // Seed a dependant enrolled 3 months ago — well before the
+        // projected cycle. Resolver includes them alongside the
+        // parent member.
+        LocalDate pastEnrolment = LocalDate.now().minusMonths(3).withDayOfMonth(1);
+
+        UUID schemeId = seedScheme("USD");
+        UUID band = seedAgeGroup(schemeId, "Adult", new BigDecimal("100"), "USD");
+        UUID groupId = seedGroup("Past-enrolled Ltd");
+        UUID memberId = seedMember(schemeId, groupId, band, "active", null, null, null, null);
+        seedDependantWithEnrollmentDate(memberId, band, "active", pastEnrolment);
+
+        ChargePreviewResponse resp = block(billingService.chargePreview("GROUP", groupId, null));
+
+        // Two lines — member + dependant. Both at Adult (100).
+        assertThat(resp.lines()).hasSize(2);
+    }
+
+    @Test
+    @WithTenant(TENANT_ID)
+    void dependant_futureEnrolled_appearsOnProjectedStatement() {
+        // V048: A dependant that today is still 'enrolled' (their
+        // effective date is 1st of the projected cycle) MUST show up on
+        // the statement for that cycle. Prior to V048 the resolver
+        // filtered them out because 'enrolled' wasn't in the status
+        // allowlist — the operator would see the statement without them
+        // and only discover the gap after the daily
+        // SCHEDULED_STATUS_ROLL job flipped them mid-cycle.
+        LocalDate projectedStart = LocalDate.now().plusMonths(1).withDayOfMonth(1);
+
+        UUID schemeId = seedScheme("USD");
+        UUID band = seedAgeGroup(schemeId, "Adult", new BigDecimal("100"), "USD");
+        UUID groupId = seedGroup("Future-enrolled dependant Ltd");
+        UUID memberId = seedMember(schemeId, groupId, band, "active", null, null, null, null);
+        // Enrolled dependant with enrollment_date landing on the
+        // projected cycle's 1st — the state a fresh future-dated add
+        // sits in before the daily job.
+        seedEnrolledDependantWithDate(memberId, band, projectedStart);
+
+        ChargePreviewResponse resp = block(billingService.chargePreview("GROUP", groupId, null));
+
+        // Member + dependant both bill for this projected cycle.
+        assertThat(resp.lines()).hasSize(2);
+    }
+
+    // ------------------------------------------------------------------
     // Scheduled scheme change — future billing_age_group_id.
     // ------------------------------------------------------------------
 
@@ -601,6 +677,31 @@ class BillingServiceChargePreviewIT extends AbstractIntegrationTest {
 
     private UUID seedDependant(UUID memberId, UUID ageGroupId, String status) {
         return seedDependant(memberId, ageGroupId, status, null);
+    }
+
+    /** Seed a dependant sitting at status='enrolled' with a future-dated
+     *  enrollment_date — the state a fresh add lands in when the
+     *  operator picks a future effective date. Used by V048 tests. */
+    private UUID seedEnrolledDependantWithDate(UUID memberId, UUID ageGroupId, LocalDate enrollmentDate) {
+        return seedDependantWithEnrollmentDate(memberId, ageGroupId, "enrolled", enrollmentDate);
+    }
+
+    /** Seed a dependant with an explicit enrollment_date. Used by the
+     *  V047 tests to exercise the resolver's `d.enrollment_date <= :periodEnd`
+     *  filter (future dependants drop off, past ones bill). */
+    private UUID seedDependantWithEnrollmentDate(UUID memberId, UUID ageGroupId,
+                                                  String status, LocalDate enrollmentDate) {
+        UUID id = UUID.randomUUID();
+        db.sql("""
+                INSERT INTO dependants (id, member_id, first_name, last_name, status, age_group_id,
+                                        enrollment_date, created_at)
+                VALUES (:id, :mid, 'Dep', 'Endent', :status, :agid, :enrol, now() - INTERVAL '90 days')
+                """)
+                .bind("id", id).bind("mid", memberId)
+                .bind("status", status).bind("agid", ageGroupId)
+                .bind("enrol", enrollmentDate)
+                .then().block();
+        return id;
     }
 
     /** Seed a dependant already in the terminal deactivated state, with

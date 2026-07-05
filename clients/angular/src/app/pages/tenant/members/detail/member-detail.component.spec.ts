@@ -174,7 +174,7 @@ describe('MemberDetailComponent', () => {
     comp.startAddDependant();
     comp.dependantForm = {
       firstName: 'Joe', lastName: 'Doe', dateOfBirth: '2020-05-01',
-      gender: 'male', relationship: 'child', nationalId: '63-1234567', billingOverrideAmount: null, billingOverrideReason: '', billingOverrideEffectiveFrom: '', billingAgeGroupId: '', smoker: false, hasChronicConditions: false, bmi: null,
+      gender: 'male', relationship: 'child', nationalId: '63-1234567', enrollmentDate: '', billingOverrideAmount: null, billingOverrideReason: '', billingOverrideEffectiveFrom: '', billingAgeGroupId: '', smoker: false, hasChronicConditions: false, bmi: null,
     };
     comp.saveDependant();
     expect(members.addDependantCalls[0].memberId).toBe('m-1');
@@ -189,7 +189,7 @@ describe('MemberDetailComponent', () => {
     comp.dependantForm = {
       firstName: 'A', lastName: 'B', dateOfBirth: '2020-01-01',
       gender: 'male', relationship: 'child', nationalId: '',
-      billingOverrideAmount: null, billingOverrideReason: '', billingOverrideEffectiveFrom: '', billingAgeGroupId: '', smoker: false, hasChronicConditions: false, bmi: null,
+      enrollmentDate: '', billingOverrideAmount: null, billingOverrideReason: '', billingOverrideEffectiveFrom: '', billingAgeGroupId: '', smoker: false, hasChronicConditions: false, bmi: null,
     };
     comp.saveDependant();
     expect(members.addDependantCalls.length).toBe(0);
@@ -271,7 +271,7 @@ describe('MemberDetailComponent', () => {
     comp.dependantForm = {
       firstName: 'A', lastName: 'B', dateOfBirth: '2020-01-01',
       gender: '', relationship: 'child', nationalId: '63-1234567',
-      billingOverrideAmount: null, billingOverrideReason: '', billingOverrideEffectiveFrom: '', billingAgeGroupId: '', smoker: false, hasChronicConditions: false, bmi: null,
+      enrollmentDate: '', billingOverrideAmount: null, billingOverrideReason: '', billingOverrideEffectiveFrom: '', billingAgeGroupId: '', smoker: false, hasChronicConditions: false, bmi: null,
     };
     comp.saveDependant();
     expect(members.addDependantCalls.length).toBe(0);
@@ -305,7 +305,7 @@ describe('MemberDetailComponent', () => {
     comp.dependantForm = {
       firstName: 'A', lastName: 'B', dateOfBirth: '2020-01-01',
       gender: '', relationship: 'child', nationalId: '',
-      billingOverrideAmount: null, billingOverrideReason: '', billingOverrideEffectiveFrom: '', billingAgeGroupId: '', smoker: false, hasChronicConditions: false, bmi: null,
+      enrollmentDate: '', billingOverrideAmount: null, billingOverrideReason: '', billingOverrideEffectiveFrom: '', billingAgeGroupId: '', smoker: false, hasChronicConditions: false, bmi: null,
     };
     comp.saveDependant();
     expect(toast.errors[0]).toContain('Required fields missing');
@@ -332,7 +332,7 @@ describe('MemberDetailComponent', () => {
         firstName: 'Joe', lastName: 'Doe', dateOfBirth: '2020-05-01',
         gender: 'male', relationship: 'child', nationalId: '63-1234567',
         // Stale draft state — should not travel.
-        billingOverrideAmount: 40, billingOverrideReason: 'discount',
+        enrollmentDate: '', billingOverrideAmount: 40, billingOverrideReason: 'discount',
         billingOverrideEffectiveFrom: '2026-08-01', billingAgeGroupId: '', smoker: false, hasChronicConditions: false, bmi: null,
       };
 
@@ -351,7 +351,7 @@ describe('MemberDetailComponent', () => {
       comp.dependantForm = {
         firstName: 'Joe', lastName: 'Doe', dateOfBirth: '2020-05-01',
         gender: 'male', relationship: 'child', nationalId: '63-1234567',
-        billingOverrideAmount: 40, billingOverrideReason: 'student rate',
+        enrollmentDate: '', billingOverrideAmount: 40, billingOverrideReason: 'student rate',
         billingOverrideEffectiveFrom: '2026-08-01', billingAgeGroupId: '', smoker: false, hasChronicConditions: false, bmi: null,
       };
 
@@ -370,7 +370,7 @@ describe('MemberDetailComponent', () => {
       comp.dependantForm = {
         firstName: 'Joe', lastName: 'Doe', dateOfBirth: '2020-05-01',
         gender: 'male', relationship: 'child', nationalId: '63-1234567',
-        billingOverrideAmount: 40, billingOverrideReason: 'student rate',
+        enrollmentDate: '', billingOverrideAmount: 40, billingOverrideReason: 'student rate',
         billingOverrideEffectiveFrom: '', billingAgeGroupId: '', smoker: false, hasChronicConditions: false, bmi: null,
       };
 
@@ -489,7 +489,7 @@ describe('MemberDetailComponent', () => {
       comp.dependantForm = {
         firstName: 'Joe', lastName: 'Doe', dateOfBirth: '2020-05-01',
         gender: 'male', relationship: 'child', nationalId: '63-1234567',
-        billingOverrideAmount: null, billingOverrideReason: '', billingOverrideEffectiveFrom: '',
+        enrollmentDate: '', billingOverrideAmount: null, billingOverrideReason: '', billingOverrideEffectiveFrom: '',
         billingAgeGroupId: 'ag-child',
         smoker: false, hasChronicConditions: false, bmi: null,
       };
@@ -509,6 +509,75 @@ describe('MemberDetailComponent', () => {
       };
       comp.saveDependant();
       expect(members.updateDependantCalls[0].data.billingAgeGroupId).toBe('ag-senior');
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // Dependant enrolment date (V047)
+  //
+  // Every dependant needs an explicit start-of-cover date. The form
+  // snaps mid-month picks to the 1st, defaults to the 1st of the
+  // current month on add, and travels on both the add + update
+  // payloads. Back-dating triggers arrears on the contributions side —
+  // covered by DependantEnrolledConsumer, not this spec.
+  // ------------------------------------------------------------------
+
+  describe('dependant enrolment date (V047)', () => {
+    it('startAddDependant() seeds enrollmentDate to the 1st of the current month', () => {
+      const { comp } = instantiate();
+      comp.ngOnInit();
+      comp.startAddDependant();
+      const today = new Date();
+      const expectedFirstOfMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+      expect(comp.dependantForm.enrollmentDate).toBe(expectedFirstOfMonth);
+    });
+
+    it('editDependant() copies the row\'s enrollmentDate into the form', () => {
+      const { comp, members } = instantiate();
+      members.dependants = [makeDependant({ id: 'd-1', enrollmentDate: '2026-03-01' })];
+      comp.ngOnInit();
+      comp.editDependant(comp.dependants[0]);
+      expect(comp.dependantForm.enrollmentDate).toBe('2026-03-01');
+    });
+
+    it('onDependantEnrollmentDateChange() snaps a mid-month pick to day 1', () => {
+      const { comp } = instantiate();
+      comp.startAddDependant();
+      comp.dependantForm.enrollmentDate = '2026-09-17';
+      comp.onDependantEnrollmentDateChange();
+      expect(comp.dependantForm.enrollmentDate).toBe('2026-09-01');
+    });
+
+    it('sends enrollmentDate on the addDependant payload when set', () => {
+      const { comp, members } = instantiate();
+      comp.ngOnInit();
+      comp.startAddDependant();
+      comp.dependantForm = {
+        firstName: 'Joe', lastName: 'Doe', dateOfBirth: '2020-05-01',
+        gender: 'male', relationship: 'child', nationalId: '63-1234567',
+        enrollmentDate: '2026-08-01',
+        billingOverrideAmount: null, billingOverrideReason: '', billingOverrideEffectiveFrom: '',
+        billingAgeGroupId: '', smoker: false, hasChronicConditions: false, bmi: null,
+      };
+      comp.saveDependant();
+      expect(members.addDependantCalls[0].enrollmentDate).toBe('2026-08-01');
+    });
+
+    it('omits enrollmentDate from the payload when blank (backend defaults to today)', () => {
+      const { comp, members } = instantiate();
+      comp.ngOnInit();
+      comp.startAddDependant();
+      // Overwrite the default seeded by startAddDependant so we can
+      // prove the "blank → omitted" path.
+      comp.dependantForm = {
+        firstName: 'Joe', lastName: 'Doe', dateOfBirth: '2020-05-01',
+        gender: 'male', relationship: 'child', nationalId: '63-1234567',
+        enrollmentDate: '',
+        billingOverrideAmount: null, billingOverrideReason: '', billingOverrideEffectiveFrom: '',
+        billingAgeGroupId: '', smoker: false, hasChronicConditions: false, bmi: null,
+      };
+      comp.saveDependant();
+      expect('enrollmentDate' in members.addDependantCalls[0]).toBeFalse();
     });
   });
 

@@ -2,7 +2,7 @@ import { of } from 'rxjs';
 import { TenantOperationalDashboardComponent } from './dashboard.component';
 import {
   AdminService, TenantStats, TenantCharts,
-  ClaimsStatusDistribution, RecentClaim, AdjudicatorWorkload, RecentContribution,
+  ClaimsStatusDistribution, RecentClaim, AdjudicatorWorkload, RecentContribution, RecentInvoice,
   PaymentsStatusDistribution, RecentPayment, TopPayee, PaymentMethodDistribution,
 } from '../../../core/services/admin.service';
 import { MockPermissionService } from '../../../_test-utils/mock-permission.service';
@@ -23,6 +23,7 @@ function buildAdminService(): jasmine.SpyObj<AdminService> {
   const svc = jasmine.createSpyObj<AdminService>('AdminService', [
     'getTenantStats', 'getTenantCharts', 'getClaimsStatusDistribution',
     'getRecentClaims', 'getAdjudicatorWorkload', 'getRecentContributions',
+    'getRecentInvoices',
     'getPaymentsStatusDistribution', 'getRecentPayments', 'getTopPayees',
     'getPaymentMethodDistribution',
   ]);
@@ -40,6 +41,7 @@ function buildAdminService(): jasmine.SpyObj<AdminService> {
   svc.getRecentClaims.and.returnValue(of<RecentClaim[]>([]));
   svc.getAdjudicatorWorkload.and.returnValue(of<AdjudicatorWorkload>({ unassigned: 0, adjudicators: [] }));
   svc.getRecentContributions.and.returnValue(of<RecentContribution[]>([]));
+  svc.getRecentInvoices.and.returnValue(of<RecentInvoice[]>([]));
   svc.getPaymentsStatusDistribution.and.returnValue(
     of<PaymentsStatusDistribution>({ total: 0, buckets: [] }));
   svc.getRecentPayments.and.returnValue(of<RecentPayment[]>([]));
@@ -199,6 +201,91 @@ describe('TenantOperationalDashboardComponent', () => {
     // deleted so a future re-introduction of the field can restore them.
     xit('filters by recipient when set', () => {});
     xit('extracts unique recipient names in sorted order', () => {});
+  });
+
+  // ------------------------------------------------------------------
+  // Invoice table — search + filter pipeline. Guards the transactions-
+  // list-style toolbar the dashboard adopted for /tenant/dashboard.
+  // ------------------------------------------------------------------
+
+  describe('invoice table toolbar', () => {
+    const invoiceStub = (overrides: Partial<RecentInvoice> = {}): RecentInvoice => ({
+      id: 'i-1', invoiceNumber: 'INV-0001', holderType: 'GROUP', holderName: 'Acme Ltd',
+      holderNumber: null, totalAmount: '100', currencyCode: 'USD',
+      openingBalance: '0', closingBalance: '100',
+      periodStart: '2026-06-01', periodEnd: '2026-06-30', dueDate: '2026-07-15',
+      issuedAt: '2026-06-30T00:00:00Z', committedAt: null,
+      status: 'issued', pdfReady: true, insuranceLines: [], contributionCount: 1,
+      ...overrides,
+    });
+
+    it('filters by invoice number substring (case-insensitive)', () => {
+      const { comp } = instantiate();
+      comp.recentInvoices = [
+        invoiceStub({ id: 'i-1', invoiceNumber: 'INV-0001', holderName: 'Acme Ltd' }),
+        invoiceStub({ id: 'i-2', invoiceNumber: 'INV-0002', holderName: 'Beta Co' }),
+        invoiceStub({ id: 'i-3', invoiceNumber: 'REC-0003', holderName: 'Gamma' }),
+      ];
+      comp.invoiceSearch = 'inv-0002';
+      // Case-insensitive substring match on invoice # or holder name.
+      const filtered = comp.filteredContributions;
+      expect(filtered.length).toBe(1);
+      expect(filtered[0].id).toBe('i-2');
+    });
+
+    it('filters by holder name substring', () => {
+      const { comp } = instantiate();
+      comp.recentInvoices = [
+        invoiceStub({ id: 'i-1', invoiceNumber: 'INV-0001', holderName: 'Acme Ltd' }),
+        invoiceStub({ id: 'i-2', invoiceNumber: 'INV-0002', holderName: 'Beta Co' }),
+      ];
+      comp.invoiceSearch = 'beta';
+      const filtered = comp.filteredContributions;
+      expect(filtered.length).toBe(1);
+      expect(filtered[0].holderName).toBe('Beta Co');
+    });
+
+    it('returns every invoice when the search is empty (whitespace-tolerant)', () => {
+      const { comp } = instantiate();
+      comp.recentInvoices = [
+        invoiceStub({ id: 'i-1' }),
+        invoiceStub({ id: 'i-2' }),
+      ];
+      comp.invoiceSearch = '   '; // whitespace-only counts as empty
+      expect(comp.filteredContributions.length).toBe(2);
+    });
+
+    it('onInvoiceSearchInput handles null defensively', () => {
+      // A datalist / autofill quirk can hand back null; the setter must
+      // coerce to '' so the getter doesn't crash on .trim().
+      const { comp } = instantiate();
+      comp.onInvoiceSearchInput(null as any);
+      expect(comp.invoiceSearch).toBe('');
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // Payments Requested card — wired to the new invoicesOutstanding
+  // stat field (V035). Regression: reverting to contributionsPending
+  // would silently mislead operators about the true request count.
+  // ------------------------------------------------------------------
+
+  describe('invoicesOutstanding stat wiring', () => {
+    it('captures stats.invoicesOutstanding after the combineLatest fetch fires', () => {
+      const { comp, admin, perms, tenant } = instantiate({ initialPerms: ['billing:view'] });
+      admin.getTenantStats.and.returnValue(of<TenantStats>({
+        // Only the fields we care about are set; the rest default to
+        // 0/empty on the component's EMPTY_STATS merge.
+        invoicesOutstanding: 7,
+      } as unknown as TenantStats));
+      comp.ngOnInit();
+      // Push a tenant so combineLatest emits and the fetch fires.
+      tenant.setTenant(buildTenant({ id: 'tenant-1' }));
+      perms.emit(['billing:view']);
+
+      expect(comp.stats.invoicesOutstanding).toBe(7);
+      comp.ngOnDestroy();
+    });
   });
 
   describe('utility helpers', () => {

@@ -48,5 +48,14 @@ public record UpdateDependantRequest(
      * the child rate). Not gated on the tenant's pricing_model.
      * Shares {@link #billingOverrideEffectiveFrom} as the kick-in date.
      */
-    UUID billingAgeGroupId
+    UUID billingAgeGroupId,
+
+    /**
+     * Effective date the dependant becomes a beneficiary. Optional; the
+     * update path snaps any supplied date to the 1st of its month.
+     * Sending null on an update leaves the existing value alone
+     * (partial-update semantics — matches every other field on this
+     * DTO).
+     */
+    LocalDate enrollmentDate
 ) {}

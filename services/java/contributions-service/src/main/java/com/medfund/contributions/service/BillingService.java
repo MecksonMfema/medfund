@@ -368,6 +368,13 @@ public class BillingService {
                         req.periodStart(), req.periodEnd(), req.insuranceLine())
                 .flatMap(candidate -> applyPricing(candidate, req.periodStart(), req.periodEnd()))
                 .collectList()
+                // Cluster households before the sample slice so the
+                // wizard's up-to-25-row preview shows principal members
+                // next to their dependants — same shape chargePreview
+                // uses. Without this the flatMap chain above returns
+                // rows in arrival order and dependants end up scattered
+                // across the sample.
+                .map(BillingService::sortByHousehold)
                 .zipWith(billingCycleConfigRepository.findById(BillingCycleConfig.SINGLETON_ID)
                         .defaultIfEmpty(defaultCycleConfig()))
                 .flatMap(tuple -> {
@@ -645,11 +652,23 @@ public class BillingService {
         return "MEMBER".equalsIgnoreCase(type) ? 0 : 1;
     }
 
+    /**
+     * Compare UUIDs by their canonical string form (lexicographic hex)
+     * rather than Java's built-in signed-long comparison. Java's
+     * {@link UUID#compareTo} treats the most-significant-bits as a
+     * signed long — so a UUID whose MSB starts with 0x9… sorts BEFORE
+     * one starting with 0x1… because the former is a "negative" long.
+     * That produces the visually-confusing ordering operators complained
+     * about ("MBR-856182" cluster splitting around a "MBR-371118"
+     * cluster). Sorting by {@code toString()} matches Postgres's UUID
+     * bytewise sort — households cluster together in operator-friendly
+     * order.
+     */
     private static int compareUuidsNullsLast(UUID a, UUID b) {
         if (a == null && b == null) return 0;
         if (a == null) return 1;
         if (b == null) return -1;
-        return a.compareTo(b);
+        return a.toString().compareTo(b.toString());
     }
 
     /**
@@ -1295,6 +1314,38 @@ public class BillingService {
                 .flatMap(scheme -> {
                     String line = scheme.getInsuranceLine() != null ? scheme.getInsuranceLine() : "HEALTH";
                     return resolveCandidatesForTenant(null, List.of(memberId), periodStart, periodEnd, line)
+                            // Filter to the MEMBER row only — the resolver's
+                            // UNION ALL returns dependants too and .next()
+                            // would non-deterministically pick one.
+                            .filter(pc -> pc.dependantId() == null)
+                            .next()
+                            .flatMap(pc -> applyPricing(pc, periodStart, periodEnd))
+                            .map(PricedCandidate::amount)
+                            .defaultIfEmpty(BigDecimal.ZERO);
+                })
+                .defaultIfEmpty(BigDecimal.ZERO);
+    }
+
+    /**
+     * Price a single dependant for a period, mirroring
+     * {@link #priceOneMember} but returning the dependant's own
+     * premium (child rate vs the member's adult rate). Used by the
+     * V047 {@code DependantEnrolledConsumer} to compute the arrears
+     * amount for a back-dated dependant enrolment.
+     */
+    public Mono<BigDecimal> priceOneDependant(UUID dependantId, UUID memberId, UUID schemeId,
+                                    LocalDate periodStart, LocalDate periodEnd) {
+        if (dependantId == null || memberId == null || schemeId == null
+                || periodStart == null || periodEnd == null) {
+            return Mono.just(BigDecimal.ZERO);
+        }
+        return schemeRepository.findById(schemeId)
+                .flatMap(scheme -> {
+                    String line = scheme.getInsuranceLine() != null ? scheme.getInsuranceLine() : "HEALTH";
+                    // Resolver takes memberIds and emits both the parent
+                    // row and every dependant; filter to the one we want.
+                    return resolveCandidatesForTenant(null, List.of(memberId), periodStart, periodEnd, line)
+                            .filter(pc -> dependantId.equals(pc.dependantId()))
                             .next()
                             .flatMap(pc -> applyPricing(pc, periodStart, periodEnd))
                             .map(PricedCandidate::amount)

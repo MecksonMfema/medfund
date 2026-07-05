@@ -92,6 +92,13 @@ public class Dependant {
     @Column("deactivation_effective_date")
     private LocalDate deactivationEffectiveDate;
 
+    /** Effective date the dependant became a beneficiary (V047).
+     *  Always the 1st of a month; back-dating is allowed and the
+     *  contributions side posts arrears for missed cycles. Mirrors
+     *  {@link Member#getEnrollmentDate()}. */
+    @Column("enrollment_date")
+    private LocalDate enrollmentDate;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
@@ -151,4 +158,7 @@ public class Dependant {
 
     public LocalDate getDeactivationEffectiveDate() { return deactivationEffectiveDate; }
     public void setDeactivationEffectiveDate(LocalDate deactivationEffectiveDate) { this.deactivationEffectiveDate = deactivationEffectiveDate; }
+
+    public LocalDate getEnrollmentDate() { return enrollmentDate; }
+    public void setEnrollmentDate(LocalDate enrollmentDate) { this.enrollmentDate = enrollmentDate; }
 }

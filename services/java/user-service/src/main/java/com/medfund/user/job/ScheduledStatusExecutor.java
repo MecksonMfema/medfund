@@ -5,8 +5,10 @@ import com.medfund.shared.scheduler.JobExecutor;
 import com.medfund.shared.scheduler.JobType;
 import com.medfund.user.entity.Group;
 import com.medfund.user.entity.Member;
+import com.medfund.user.repository.DependantRepository;
 import com.medfund.user.repository.GroupRepository;
 import com.medfund.user.repository.MemberRepository;
+import com.medfund.user.service.DependantService;
 import com.medfund.user.service.GroupService;
 import com.medfund.user.service.MemberService;
 import lombok.RequiredArgsConstructor;
@@ -49,8 +51,10 @@ public class ScheduledStatusExecutor implements JobExecutor {
 
     private final MemberService memberService;
     private final GroupService groupService;
+    private final DependantService dependantService;
     private final MemberRepository memberRepository;
     private final GroupRepository groupRepository;
+    private final DependantRepository dependantRepository;
     // Reserved for future direct SQL touch-ups (bulk clear scheduled
     // trio on already-transitioned rows, health-check reports, …).
     private final DatabaseClient db;
@@ -81,6 +85,20 @@ public class ScheduledStatusExecutor implements JobExecutor {
                             return Mono.empty();
                         }));
 
+        // V048: same shape for dependants — a future-dated dependant
+        // sits at 'enrolled' until the day arrives, then flips to
+        // 'active' here so the resolver includes them from that cycle.
+        Flux<Void> dependantEnrolments = dependantRepository.findAll()
+                .filter(d -> "enrolled".equals(d.getStatus()))
+                .filter(d -> d.getEnrollmentDate() != null && !d.getEnrollmentDate().isAfter(today))
+                .flatMap(d -> dependantService.activate(d.getId(), actorId, actorEmail)
+                        .doOnNext(saved -> log.info("Rolled enrolled → active for dependant {}", saved.getId()))
+                        .then(Mono.<Void>empty())
+                        .onErrorResume(err -> {
+                            log.warn("Enrolment roll failed for dependant {}: {}", d.getId(), err.getMessage());
+                            return Mono.empty();
+                        }));
+
         Flux<Void> memberSchedules = memberRepository.findAll()
                 .filter(m -> m.getScheduledStatus() != null
                         && m.getScheduledStatusEffectiveFrom() != null
@@ -101,7 +119,7 @@ public class ScheduledStatusExecutor implements JobExecutor {
                             return Mono.empty();
                         }));
 
-        return Flux.concat(enrolments, memberSchedules, groupSchedules).then();
+        return Flux.concat(enrolments, dependantEnrolments, memberSchedules, groupSchedules).then();
     }
 
     /**

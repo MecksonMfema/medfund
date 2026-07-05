@@ -34,6 +34,7 @@ public class DependantService {
     private final MemberSchemeLookup memberSchemeLookup;
     private final AgeGroupResolver ageGroupResolver;
     private final MemberNumberService memberNumberService;
+    private final UserEventPublisher eventPublisher;
 
     public Flux<Dependant> findByMemberId(UUID memberId) {
         return dependantRepository.findByMemberId(memberId);
@@ -55,7 +56,18 @@ public class DependantService {
         dependant.setGender(request.gender());
         dependant.setRelationship(request.relationship());
         dependant.setNationalId(request.nationalId());
-        dependant.setStatus("active");
+        // Status derives from the enrolment date (V048), mirroring the
+        // member enrol flow:
+        //   * enrollmentDate <= today → cover has started → 'active'.
+        //   * enrollmentDate > today → 'enrolled' until the daily
+        //     SCHEDULED_STATUS_ROLL job flips them on-date. The resolver
+        //     also gates on d.enrollment_date so a stray 'active' would
+        //     not bill early, but the status here is what the operator
+        //     sees on the roster — showing 'active' before cover starts
+        //     misleads them.
+        java.time.LocalDate enrollment = request.enrollmentDateOrDefault();
+        dependant.setEnrollmentDate(enrollment);
+        dependant.setStatus(enrollment.isAfter(java.time.LocalDate.now()) ? "enrolled" : "active");
         // Custom-premium triple at creation (V030). Same amount +
         // effective_from consistency rule as the update path. STANDARD-
         // model tenants never send these fields; the frontend gates
@@ -115,7 +127,26 @@ public class DependantService {
                     new String[]{"firstName", "lastName", "relationship"},
                     UUID.randomUUID().toString()
                 );
-                return auditPublisher.publish(event).thenReturn(saved);
+                // Fire a DEPENDANT_ENROLLED event so the contributions
+                // service can post a LATE_ENROLMENT_CHARGE when the
+                // effective date lands in an already-billed period.
+                // Best-effort — a failed publish shouldn't roll the
+                // insert back; the daily arrears sweep is the safety
+                // net if the event never gets consumed.
+                Mono<Void> emitEnrolled = memberRepository.findById(saved.getMemberId())
+                        .flatMap(parent -> eventPublisher.publishDependantEnrolled(
+                                saved.getId().toString(),
+                                saved.getMemberNumber(),
+                                saved.getMemberId().toString(),
+                                parent.getGroupId()  != null ? parent.getGroupId().toString()  : null,
+                                parent.getSchemeId() != null ? parent.getSchemeId().toString() : null,
+                                saved.getEnrollmentDate() != null ? saved.getEnrollmentDate().toString() : null))
+                        .onErrorResume(e -> {
+                            log.warn("DependantEnrolled publish failed for {}: {}",
+                                    saved.getId(), e.getMessage());
+                            return Mono.empty();
+                        });
+                return auditPublisher.publish(event).then(emitEnrolled).thenReturn(saved);
             }));
     }
 
@@ -156,6 +187,12 @@ public class DependantService {
                 // /clear-billing-override endpoint.
                 if (request.billingAgeGroupId() != null) {
                     existing.setBillingAgeGroupId(request.billingAgeGroupId());
+                }
+                // Enrollment date on update (V047). Partial-update
+                // semantics: null request means "no change". Any
+                // supplied date is snapped to the 1st of its month.
+                if (request.enrollmentDate() != null) {
+                    existing.setEnrollmentDate(request.enrollmentDate().withDayOfMonth(1));
                 }
 
                 existing.setUpdatedAt(Instant.now());
@@ -251,6 +288,41 @@ public class DependantService {
                             Map.of("status", "deactivated",
                                    "deactivationEffectiveDate", resolved.toString()),
                             new String[]{"status", "deactivationEffectiveDate"},
+                            UUID.randomUUID().toString()
+                        );
+                        return auditPublisher.publish(event).thenReturn(saved);
+                    }));
+            });
+    }
+
+    /**
+     * Flip a dependant from {@code enrolled} to {@code active}. Called
+     * by the daily {@code SCHEDULED_STATUS_ROLL} job when a
+     * future-dated enrolment reaches its effective date. No-op when
+     * the row isn't in {@code enrolled} state.
+     */
+    @Transactional
+    public Mono<Dependant> activate(UUID id, String actorId, String actorEmail) {
+        return dependantRepository.findById(id)
+            .switchIfEmpty(Mono.error(new DependantNotFoundException(id)))
+            .flatMap(existing -> {
+                if (!"enrolled".equals(existing.getStatus())) {
+                    return Mono.just(existing); // already active / suspended / deactivated
+                }
+                String previousStatus = existing.getStatus();
+                existing.setStatus("active");
+                existing.setUpdatedAt(Instant.now());
+                existing.setUpdatedBy(UUID.fromString(actorId));
+                return dependantRepository.save(existing)
+                    .flatMap(saved -> Mono.deferContextual(ctx -> {
+                        String tenantId = TenantContext.get(ctx);
+                        var event = AuditEvent.create(
+                            tenantId != null ? tenantId : "unknown", "Dependant", saved.getId().toString(),
+                            saved.getFirstName() + " " + saved.getLastName(),
+                            "UPDATE", actorId, actorEmail,
+                            Map.of("status", previousStatus),
+                            Map.of("status", "active"),
+                            new String[]{"status"},
                             UUID.randomUUID().toString()
                         );
                         return auditPublisher.publish(event).thenReturn(saved);

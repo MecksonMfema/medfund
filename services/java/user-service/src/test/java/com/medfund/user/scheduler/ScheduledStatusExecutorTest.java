@@ -4,8 +4,10 @@ import com.medfund.shared.scheduler.JobType;
 import com.medfund.user.entity.Group;
 import com.medfund.user.entity.Member;
 import com.medfund.user.job.ScheduledStatusExecutor;
+import com.medfund.user.repository.DependantRepository;
 import com.medfund.user.repository.GroupRepository;
 import com.medfund.user.repository.MemberRepository;
+import com.medfund.user.service.DependantService;
 import com.medfund.user.service.GroupService;
 import com.medfund.user.service.MemberService;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,16 +36,21 @@ class ScheduledStatusExecutorTest {
 
     @Mock MemberService memberService;
     @Mock GroupService groupService;
+    @Mock DependantService dependantService;
     @Mock MemberRepository memberRepository;
     @Mock GroupRepository groupRepository;
+    @Mock DependantRepository dependantRepository;
     @Mock DatabaseClient databaseClient;
 
     private ScheduledStatusExecutor executor;
 
     @BeforeEach
     void setUp() {
-        executor = new ScheduledStatusExecutor(memberService, groupService,
-                memberRepository, groupRepository, databaseClient);
+        executor = new ScheduledStatusExecutor(memberService, groupService, dependantService,
+                memberRepository, groupRepository, dependantRepository, databaseClient);
+        // Default: no dependants in the sweep unless the test says otherwise.
+        org.mockito.Mockito.lenient().when(dependantRepository.findAll())
+                .thenReturn(Flux.empty());
     }
 
     @Test

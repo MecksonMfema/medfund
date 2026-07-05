@@ -337,18 +337,12 @@ export class GenerateBillingWizardComponent implements OnInit, OnDestroy {
       if (Number.isFinite(amt)) bucket.total += amt;
     }
 
-    // Sort each card's lines so families stay together: order by
-    // memberNumber first (groups all rows belonging to one member),
-    // then put the member's own line before its dependants. Keeps a
-    // group invoice readable when N members live on the same card.
-    for (const invoice of buckets.values()) {
-      invoice.lines.sort((a, b) => {
-        const byNumber = (a.memberNumber || '').localeCompare(b.memberNumber || '');
-        if (byNumber !== 0) return byNumber;
-        if (a.personType === b.personType) return 0;
-        return a.personType === 'MEMBER' ? -1 : 1;
-      });
-    }
+    // Backend sortByHousehold (BillingService) already clusters lines
+    // by memberId with MEMBER before DEPENDANT. Re-sorting here by
+    // memberNumber would split households when a dependant has its own
+    // INDEPENDENT DEP-XXXXXX number (V036) — Jane Doe's DEP-381091
+    // sorts before Methuseli's MBR-856182 and pulls her ahead of the
+    // parent. Trust the backend order.
     return Array.from(buckets.values());
   }
 

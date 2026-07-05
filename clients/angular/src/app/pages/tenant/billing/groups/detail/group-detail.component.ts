@@ -142,6 +142,46 @@ export class GroupDetailComponent implements OnInit {
     });
   }
 
+  /**
+   * Group terminate = deactivate. Cascades to members on the backend.
+   * Effective-date prompt matches the dependant deactivate flow:
+   * Cancel = abort, empty = today, valid ISO = that date. Reason is
+   * captured too so the audit event has context.
+   */
+  canTerminate(): boolean {
+    return !!this.group
+      && this.group.status !== 'TERMINATED'
+      && this.group.status !== 'DEACTIVATED';
+  }
+
+  terminate(): void {
+    if (!this.group || !this.canTerminate()) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const dateAnswer = prompt(
+      `Terminate group "${this.group.name}".\n\n` +
+      `Effective date (YYYY-MM-DD). Members are cascaded on the same run; empty = today.`,
+      today,
+    );
+    if (dateAnswer === null) return; // Cancel
+    const effectiveDate = dateAnswer.trim() || today;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) {
+      this.toast.error(`Invalid date "${effectiveDate}". Use YYYY-MM-DD.`);
+      return;
+    }
+    const reasonAnswer = prompt(
+      `Reason for terminating "${this.group?.name}" (optional).`,
+      '',
+    );
+    const reason = reasonAnswer?.trim() || null;
+    this.groups.terminate(this.groupId, effectiveDate, reason).subscribe({
+      next: (updated) => {
+        this.group = updated;
+        this.toast.success(`Group terminated effective ${effectiveDate}`);
+      },
+      error: (err) => this.toast.error(err?.error?.detail || 'Terminate failed'),
+    });
+  }
+
   openMember(m: Member): void {
     if (m?.id) this.router.navigate(['/tenant/members', m.id]);
   }

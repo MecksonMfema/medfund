@@ -301,6 +301,46 @@ class BillingServiceChargePreviewDecorationTest {
     // Fixtures
     // ------------------------------------------------------------------
 
+    /**
+     * Regression case using the actual UUIDs from the "Test group"
+     * charge preview where the ordering was reported broken. Under
+     * the lexicographic comparator (V048 fix), Methuseli's household
+     * (id starts with "129b…") clusters together and sorts before
+     * Joshua ("9859…"). Prior signed-long comparison split Methuseli
+     * from her dependants because Joshua's UUID has bit 63 set
+     * (negative signed long) and sorted first — that's the confusing
+     * "Jane, Joshua, Methuseli, James" pattern the operator saw.
+     */
+    @Test
+    void sortByHousehold_reproducesTestGroupOrdering() {
+        UUID methuseli = UUID.fromString("129b8567-5750-4f4c-828f-d8d8f3495cbe");
+        UUID joshua    = UUID.fromString("9859ddd0-da3f-4896-8431-eb0923c8d90a");
+        UUID jane      = UUID.fromString("ec3c1c75-e6bf-4630-b831-ede302fb469e");
+        UUID james     = UUID.fromString("45ff0d6a-a488-4951-8bab-c4d48be87d3b");
+
+        // Scrambled input mirroring what the resolver's flatMap chain
+        // emits (unordered).
+        List<BillingService.PricedCandidate> input = List.of(
+                dependantCandidate(methuseli, jane),
+                memberCandidate(joshua),
+                memberCandidate(methuseli),
+                dependantCandidate(methuseli, james)
+        );
+
+        List<BillingService.PricedCandidate> sorted = BillingService.sortByHousehold(input);
+
+        // Lex compareTo: "129b…" < "9859…" so Methuseli's household first.
+        assertThat(sorted.get(0).memberId()).isEqualTo(methuseli);
+        assertThat(sorted.get(0).personType()).isEqualTo("MEMBER");
+        assertThat(sorted.get(1).memberId()).isEqualTo(methuseli);
+        assertThat(sorted.get(1).personType()).isEqualTo("DEPENDANT");
+        assertThat(sorted.get(2).memberId()).isEqualTo(methuseli);
+        assertThat(sorted.get(2).personType()).isEqualTo("DEPENDANT");
+        // Then Joshua's cluster (solo).
+        assertThat(sorted.get(3).memberId()).isEqualTo(joshua);
+        assertThat(sorted.get(3).personType()).isEqualTo("MEMBER");
+    }
+
     private static BillingService.PricedCandidate memberCandidate(UUID memberId) {
         return new BillingService.PricedCandidate(
                 memberId, null, "M-001", "Jane Doe", "MEMBER",

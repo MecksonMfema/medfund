@@ -1,8 +1,4 @@
 <div class="page">
-  <a class="back-link" routerLink="/tenant/billing/view">
-    <app-icon name="chevron-left" [size]="16"></app-icon> Back to Contribution statements
-  </a>
-
   @if (errorMessage) {
     <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
   }
@@ -25,9 +21,16 @@
           @if (invoice.committedAt || invoice.issuedAt) { · Committed {{ (invoice.committedAt || invoice.issuedAt) | date:'dd MMM yyyy, HH:mm' }} }
         </p>
       </div>
+      <!-- Right-side cluster: primary action(s) first, Back-to-list
+           pinned to the far RIGHT. Standard for pages with multiple
+           buttons. -->
       <div class="header-actions">
         <a class="btn btn-primary" [href]="pdfUrl()" target="_blank" rel="noopener">
           <app-icon name="download" [size]="14"></app-icon> Download PDF
+        </a>
+        <a class="btn btn-default" routerLink="/tenant/billing/view">
+          <app-icon name="arrow-left" [size]="14"></app-icon>
+          Back to statements
         </a>
       </div>
     </section>

@@ -56,13 +56,29 @@ public class HealthCandidateResolver implements CandidateResolver {
                        g.name              AS group_name,
                        s.name              AS scheme_name,
                        s.currency_code     AS scheme_currency,
-                       CASE
-                           WHEN m.billing_age_group_id IS NOT NULL
-                                AND (m.billing_override_effective_from IS NULL
-                                     OR m.billing_override_effective_from <= :periodStart)
-                           THEN m.billing_age_group_id
-                           ELSE m.age_group_id
-                       END                 AS effective_age_group_id,
+                       -- effective_age_group_id precedence (V048):
+                       --   1. billing_age_group_id (manual override, if the
+                       --      override's effective_from has been reached).
+                       --   2. age_group_id stamped at enrolment/insert.
+                       --   3. Dynamic lookup by DOB against the scheme's
+                       --      current bands. Load-bearing for members
+                       --      created BEFORE a band was added to the
+                       --      scheme — their stamp is null, and without
+                       --      this fallback they'd fail "no band matched"
+                       --      forever until the operator manually re-
+                       --      stamped every row.
+                       COALESCE(
+                           CASE WHEN m.billing_age_group_id IS NOT NULL
+                                     AND (m.billing_override_effective_from IS NULL
+                                          OR m.billing_override_effective_from <= :periodStart)
+                                THEN m.billing_age_group_id END,
+                           m.age_group_id,
+                           (SELECT ag_dyn.id FROM age_groups ag_dyn
+                             WHERE ag_dyn.scheme_id = m.scheme_id
+                               AND EXTRACT(YEAR FROM AGE(:periodStart, m.date_of_birth))::int
+                                   BETWEEN ag_dyn.min_age AND ag_dyn.max_age
+                             LIMIT 1)
+                       )                    AS effective_age_group_id,
                        ag.name              AS age_band_name,
                        COALESCE(
                            -- Per-member override wins on both INDIVIDUAL and
@@ -81,13 +97,18 @@ public class HealthCandidateResolver implements CandidateResolver {
                   FROM members m
                   JOIN schemes s     ON s.id = m.scheme_id
                   LEFT JOIN groups g ON g.id = m.group_id
-                  LEFT JOIN age_groups ag ON ag.id = CASE
-                           WHEN m.billing_age_group_id IS NOT NULL
-                                AND (m.billing_override_effective_from IS NULL
-                                     OR m.billing_override_effective_from <= :periodStart)
-                           THEN m.billing_age_group_id
-                           ELSE m.age_group_id
-                       END
+                  LEFT JOIN age_groups ag ON ag.id = COALESCE(
+                           CASE WHEN m.billing_age_group_id IS NOT NULL
+                                     AND (m.billing_override_effective_from IS NULL
+                                          OR m.billing_override_effective_from <= :periodStart)
+                                THEN m.billing_age_group_id END,
+                           m.age_group_id,
+                           (SELECT ag_dyn.id FROM age_groups ag_dyn
+                             WHERE ag_dyn.scheme_id = m.scheme_id
+                               AND EXTRACT(YEAR FROM AGE(:periodStart, m.date_of_birth))::int
+                                   BETWEEN ag_dyn.min_age AND ag_dyn.max_age
+                             LIMIT 1)
+                       )
                   LEFT JOIN LATERAL (
                        SELECT contribution_amount, currency_code
                          FROM age_group_prices
@@ -97,7 +118,14 @@ public class HealthCandidateResolver implements CandidateResolver {
                         ORDER BY effective_from DESC
                         LIMIT 1
                   ) p ON TRUE
-                 WHERE m.status IN ('active', 'suspended')
+                 -- Include 'enrolled' rows whose effective date lands in or
+                 -- before the projected period (V048). Statements are
+                 -- period-anchored: a member enrolling on Aug 1 should
+                 -- appear on the August statement even while they're still
+                 -- sitting at 'enrolled' during the July preview. The
+                 -- enrollment_date guard below prevents any bill before
+                 -- their cover starts.
+                 WHERE m.status IN ('active', 'suspended', 'enrolled')
                    AND (m.group_id IS NULL OR g.status = 'active')
                    AND m.enrollment_date <= :periodEnd
                 """);
@@ -110,7 +138,13 @@ public class HealthCandidateResolver implements CandidateResolver {
 
                 SELECT m.id                AS member_id,
                        d.id                AS dependant_id,
-                       m.member_number     AS member_number,
+                       -- Prefer the dependant's own member_number (V036/V120 —
+                       -- issued as "MBR-XXXXXX-02", "-03", …, or an
+                       -- independent "DEP-XXXXXX" depending on the tenant's
+                       -- scheme). Fall back to the parent's number only for
+                       -- legacy pre-V036 rows where dependants weren't
+                       -- issued a number at all.
+                       COALESCE(d.member_number, m.member_number) AS member_number,
                        (d.first_name || ' ' || d.last_name) AS person_name,
                        'DEPENDANT'         AS person_type,
                        m.scheme_id         AS scheme_id,
@@ -118,13 +152,23 @@ public class HealthCandidateResolver implements CandidateResolver {
                        g.name              AS group_name,
                        s.name              AS scheme_name,
                        s.currency_code     AS scheme_currency,
-                       CASE
-                           WHEN d.billing_age_group_id IS NOT NULL
-                                AND (d.billing_override_effective_from IS NULL
-                                     OR d.billing_override_effective_from <= :periodStart)
-                           THEN d.billing_age_group_id
-                           ELSE d.age_group_id
-                       END                 AS effective_age_group_id,
+                       -- V048 fallback (same rationale as the member half —
+                       -- see the comment above). Applies when the Child
+                       -- band gets added to the scheme after the dependant
+                       -- was created; the stamp is null, but the dynamic
+                       -- lookup now finds the band and prices correctly.
+                       COALESCE(
+                           CASE WHEN d.billing_age_group_id IS NOT NULL
+                                     AND (d.billing_override_effective_from IS NULL
+                                          OR d.billing_override_effective_from <= :periodStart)
+                                THEN d.billing_age_group_id END,
+                           d.age_group_id,
+                           (SELECT ag_dyn.id FROM age_groups ag_dyn
+                             WHERE ag_dyn.scheme_id = m.scheme_id
+                               AND EXTRACT(YEAR FROM AGE(:periodStart, d.date_of_birth))::int
+                                   BETWEEN ag_dyn.min_age AND ag_dyn.max_age
+                             LIMIT 1)
+                       )                    AS effective_age_group_id,
                        ag.name              AS age_band_name,
                        COALESCE(
                            -- Same INDIVIDUAL/AI_DRIVEN gate as the member half.
@@ -139,13 +183,18 @@ public class HealthCandidateResolver implements CandidateResolver {
                   JOIN members m     ON m.id = d.member_id
                   JOIN schemes s     ON s.id = m.scheme_id
                   LEFT JOIN groups g ON g.id = m.group_id
-                  LEFT JOIN age_groups ag ON ag.id = CASE
-                           WHEN d.billing_age_group_id IS NOT NULL
-                                AND (d.billing_override_effective_from IS NULL
-                                     OR d.billing_override_effective_from <= :periodStart)
-                           THEN d.billing_age_group_id
-                           ELSE d.age_group_id
-                       END
+                  LEFT JOIN age_groups ag ON ag.id = COALESCE(
+                           CASE WHEN d.billing_age_group_id IS NOT NULL
+                                     AND (d.billing_override_effective_from IS NULL
+                                          OR d.billing_override_effective_from <= :periodStart)
+                                THEN d.billing_age_group_id END,
+                           d.age_group_id,
+                           (SELECT ag_dyn.id FROM age_groups ag_dyn
+                             WHERE ag_dyn.scheme_id = m.scheme_id
+                               AND EXTRACT(YEAR FROM AGE(:periodStart, d.date_of_birth))::int
+                                   BETWEEN ag_dyn.min_age AND ag_dyn.max_age
+                             LIMIT 1)
+                       )
                   LEFT JOIN LATERAL (
                        SELECT contribution_amount, currency_code
                          FROM age_group_prices
@@ -155,16 +204,22 @@ public class HealthCandidateResolver implements CandidateResolver {
                         ORDER BY effective_from DESC
                         LIMIT 1
                   ) p ON TRUE
+                 -- Dependant status filter mirrors the member half —
+                 -- 'enrolled' rows are included when their effective date
+                 -- lands in or before the projected period (V048). Both
+                 -- guards (enrollment_date on the row, enrollment_date on
+                 -- the parent member) still stop the bill from firing
+                 -- before cover starts.
                  WHERE (
-                       d.status IN ('active', 'suspended')
+                       d.status IN ('active', 'suspended', 'enrolled')
                        OR (d.status = 'deactivated'
                            AND (d.deactivation_effective_date IS NULL
                                 OR d.deactivation_effective_date >= :periodStart))
                        )
-                   AND m.status IN ('active', 'suspended')
+                   AND m.status IN ('active', 'suspended', 'enrolled')
                    AND (m.group_id IS NULL OR g.status = 'active')
                    AND m.enrollment_date <= :periodEnd
-                   AND d.created_at::date <= :periodEnd
+                   AND d.enrollment_date <= :periodEnd
                 """);
         if (groupIds  != null && !groupIds.isEmpty())  sql.append(" AND m.group_id = ANY(:groupIds) ");
         if (memberIds != null && !memberIds.isEmpty()) sql.append(" AND m.id       = ANY(:memberIds) ");

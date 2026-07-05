@@ -159,6 +159,79 @@ public class LateAdjustmentService {
                 .then();
     }
 
+    /**
+     * Dependant variant of {@link #postAggregate} (V047). Prices the
+     * dependant's own premium (their age band) rather than the parent
+     * member's. Ledger side still routes the charge to the parent
+     * member (or their group) — dependants don't hold their own
+     * running balance; the household pays.
+     */
+    public Mono<Void> postDependantAggregate(UUID dependantId, UUID memberId, UUID groupId,
+                                              UUID schemeId,
+                                              LocalDate oldestMissedPeriodStart,
+                                              int monthsCovered, String currencyCode,
+                                              String transactionType, String sourceKey) {
+        if (dependantId == null || memberId == null || schemeId == null
+                || transactionType == null || sourceKey == null) {
+            log.debug("Skipping late-adjustment dependant post: missing required field(s)");
+            return Mono.empty();
+        }
+        if (monthsCovered <= 0) {
+            log.debug("No months to adjust for dependant source={} type={}, skipping",
+                    sourceKey, transactionType);
+            return Mono.empty();
+        }
+        String reference = buildReference(sourceKey, monthsCovered, oldestMissedPeriodStart);
+        return transactionRepository.findFirstByReferenceAndTransactionType(reference, transactionType)
+                .hasElement()
+                .flatMap(existed -> {
+                    if (existed) {
+                        log.info("Late-adjustment (dependant) already posted for source={} type={}, skipping",
+                                sourceKey, transactionType);
+                        return Mono.<Void>empty();
+                    }
+                    return priceAndPostDependant(dependantId, memberId, groupId, schemeId,
+                            oldestMissedPeriodStart, monthsCovered, currencyCode,
+                            transactionType, reference);
+                })
+                .onErrorResume(err -> {
+                    log.warn("Dependant late-adjustment post failed for source={} type={}: {}",
+                            sourceKey, transactionType, err.getMessage());
+                    return Mono.empty();
+                });
+    }
+
+    private Mono<Void> priceAndPostDependant(UUID dependantId, UUID memberId, UUID groupId,
+                                              UUID schemeId, LocalDate periodStart,
+                                              int monthsCovered, String currencyCode,
+                                              String transactionType, String reference) {
+        LocalDate periodEnd = periodStart.withDayOfMonth(periodStart.lengthOfMonth());
+        return billingService.priceOneDependant(dependantId, memberId, schemeId, periodStart, periodEnd)
+                .flatMap(unit -> {
+                    BigDecimal total = unit.multiply(BigDecimal.valueOf(monthsCovered));
+                    if (total.signum() <= 0) {
+                        log.debug("Priced dependant amount is zero for dependant={} member={} — skipping",
+                                dependantId, memberId);
+                        return Mono.<Void>empty();
+                    }
+                    var request = new RecordTransactionRequest(
+                            groupId,
+                            groupId == null ? memberId : null,
+                            total,
+                            currencyCode,
+                            transactionType,
+                            "SYSTEM",
+                            reference,
+                            null);
+                    return transactionService.record(request, AuditActor.SYSTEM_ID, AuditActor.SYSTEM_EMAIL)
+                            .doOnNext(saved -> log.info(
+                                    "Auto-posted {} for dependant={} member={} group={} months={} amount={} {} (txn={})",
+                                    transactionType, dependantId, memberId, groupId,
+                                    monthsCovered, total, currencyCode, saved.getTransactionNumber()))
+                            .then();
+                });
+    }
+
     private Mono<Void> priceAndPost(UUID memberId, UUID groupId, UUID schemeId,
                                      LocalDate periodStart, int monthsCovered,
                                      String currencyCode, String transactionType,

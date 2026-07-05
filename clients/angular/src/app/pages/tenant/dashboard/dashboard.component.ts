@@ -34,7 +34,7 @@ const EMPTY_STATS: TenantStats = {
   newMembersThisMonth: 0, newGroupsThisMonth: 0,
   claimsNewTasks: 0, claimsThisMonth: 0,
   claimsAcceptedThisMonth: 0, claimsRejectedThisMonth: 0,
-  schemesActive: 0, contributionsPending: 0,
+  schemesActive: 0, contributionsPending: 0, invoicesOutstanding: 0,
   contributionsAmountThisMonth: 0, contributionsAmountThisYear: 0,
   paymentsPending: 0, paymentsAmountThisMonth: 0, paymentsAmountThisYear: 0,
   paymentsAdvanceCount: 0, paymentsAdvanceAmount: 0, paymentsFailedCount: 0,
@@ -170,9 +170,11 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
     { key: 'status',         label: 'Status',        type: 'status' as const },
   ];
 
-  /** Quick-filter chip state for the invoices table (client-side filter). */
-  contribStatusFilter: string | null = null;
-  readonly contribStatusFilters = ['issued', 'paid', 'overdue'];
+  /** Free-text search over invoice # and holder name. Client-side —
+   *  the recent-invoices endpoint returns a small fixed set, so the
+   *  filter runs in the browser without a re-fetch. Matches the
+   *  transactions-list search cell pattern. */
+  invoiceSearch = '';
 
   /** Date-range select state. Values are filter keys; labels live in the template. */
   dateRangeFilter: 'all' | 'thisMonth' | 'last30' | 'last90' | 'thisYear' = 'all';
@@ -205,8 +207,12 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
       const d = new Date();
       from = new Date(d.getFullYear(), 0, 1).getTime();
     }
+    const q = this.invoiceSearch.trim().toLowerCase();
     return this.recentInvoices.filter(inv => {
-      if (this.contribStatusFilter && inv.status !== this.contribStatusFilter) return false;
+      if (q) {
+        const hay = `${inv.invoiceNumber ?? ''} ${inv.holderName ?? ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       if (this.recipientFilter && inv.holderName !== this.recipientFilter) return false;
       if (from > 0) {
         const issued = new Date(inv.issuedAt).getTime();
@@ -214,6 +220,10 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
       }
       return true;
     });
+  }
+
+  onInvoiceSearchInput(value: string): void {
+    this.invoiceSearch = value ?? '';
   }
 
   /** Row-click → invoice statement page. */
@@ -236,19 +246,6 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
       ...this.recipientOptions.map(r => ({ value: r, label: r })),
     ];
   }
-  readonly contribStatusFilterOptions: SelectOption[] = [
-    { value: '__all__',  label: 'All Statuses' },
-    { value: 'paid',     label: 'Paid' },
-    { value: 'pending',  label: 'Pending' },
-    { value: 'overdue',  label: 'Overdue' },
-    { value: 'failed',   label: 'Failed' },
-    { value: 'refunded', label: 'Refunded' },
-  ];
-
-  setContribStatusFilter(s: string | null): void {
-    this.contribStatusFilter = this.contribStatusFilter === s ? null : s;
-  }
-
   setDateRange(value: string): void {
     if (['all', 'thisMonth', 'last30', 'last90', 'thisYear'].includes(value)) {
       this.dateRangeFilter = value as typeof this.dateRangeFilter;
@@ -257,10 +254,6 @@ export class TenantOperationalDashboardComponent implements OnInit, OnDestroy {
 
   setRecipient(value: string): void {
     this.recipientFilter = value === '__all__' ? null : value;
-  }
-
-  setStatusFromSelect(value: string): void {
-    this.contribStatusFilter = value === '__all__' ? null : value;
   }
 
   /** Flatten a Record<currency, amount> into a sorted array, dropping zeros.

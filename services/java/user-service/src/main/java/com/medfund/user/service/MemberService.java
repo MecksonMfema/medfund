@@ -132,8 +132,26 @@ public class MemberService {
                 member.setAddress(request.address());
                 member.setGroupId(request.groupId());
                 member.setSchemeId(request.schemeId());
-                member.setStatus("enrolled");
-                member.setEnrollmentDate(request.enrollmentDateOrDefault());
+                // Status derives from the enrolment date:
+                //   * Past / today → cover has begun → 'active' immediately.
+                //     Anything else stalls billing (the resolver filters on
+                //     status IN ('active','suspended')) and leaves the
+                //     member stuck on 'enrolled' even when the operator
+                //     picked a past effective date.
+                //   * Future → 'enrolled' + stash the promotion on the
+                //     scheduled_status trio so the daily
+                //     SCHEDULED_STATUS_ROLL job flips them on-date. Reason
+                //     is fixed so the audit trail is self-explaining.
+                LocalDate enrollment = request.enrollmentDateOrDefault();
+                member.setEnrollmentDate(enrollment);
+                if (!enrollment.isAfter(LocalDate.now())) {
+                    member.setStatus("active");
+                } else {
+                    member.setStatus("enrolled");
+                    member.setScheduledStatus("active");
+                    member.setScheduledStatusEffectiveFrom(enrollment);
+                    member.setScheduledStatusReason("Auto-activate on enrolment date");
+                }
                 // Custom-premium triple at enrolment (V030). Same
                 // amount+effective_from consistency rule as the update
                 // path; throws IllegalArgumentException with a clear

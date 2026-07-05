@@ -54,7 +54,13 @@ class CandidateResolverStatusFilterTest {
     }
 
     @Test
-    void healthResolver_billsOnlyActiveOrSuspendedMembers() {
+    void healthResolver_billsActiveSuspendedOrFutureEnrolled() {
+        // V048: 'enrolled' is included in the allowlist so a
+        // future-effective member/dependant appears on the projected
+        // statement covering their enrolment date. The enrollment_date
+        // guard on the same WHERE still blocks the bill before cover
+        // starts — this widening only affects projections that reach
+        // into the enrolment period.
         HealthCandidateResolver resolver = new HealthCandidateResolver(db);
         resolver.resolveCandidates(List.of(), List.of(),
                 LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31), "STANDARD")
@@ -63,13 +69,14 @@ class CandidateResolverStatusFilterTest {
         verify(db).sql(sqlCaptor.capture());
         String sql = sqlCaptor.getValue();
         assertThat(sql)
-                .as("Member row must be filtered to active/suspended — deactivated + terminated rows must NOT bill")
-                .contains("m.status IN ('active', 'suspended')");
-        // Dependant filter is broader than member filter (V046): active
-        // + suspended dependants always bill; a 'deactivated' dependant
-        // continues to bill up to and including the cycle that contains
-        // its deactivation_effective_date, then drops off.
-        assertThat(sql).contains("d.status IN ('active', 'suspended')");
+                .as("Member row must include active/suspended/enrolled — deactivated + terminated rows must NOT bill")
+                .contains("m.status IN ('active', 'suspended', 'enrolled')");
+        // Dependant filter is broader than member filter (V046 + V048): active,
+        // suspended, and future-enrolled dependants bill for the cycle their
+        // effective date lands on; a 'deactivated' dependant continues to
+        // bill up to and including the cycle that contains its
+        // deactivation_effective_date, then drops off.
+        assertThat(sql).contains("d.status IN ('active', 'suspended', 'enrolled')");
         assertThat(sql)
                 .as("Deactivated dependants must remain billable through their effective date (V046)")
                 .contains("d.status = 'deactivated'")
@@ -97,7 +104,14 @@ class CandidateResolverStatusFilterTest {
                 .collectList().block();
 
         verify(db).sql(sqlCaptor.capture());
-        assertThat(sqlCaptor.getValue()).contains("m.enrollment_date <= :periodEnd");
+        String sql = sqlCaptor.getValue();
+        assertThat(sql).contains("m.enrollment_date <= :periodEnd");
+        // V047: dependant candidacy is now gated on the same
+        // enrollment_date shape as the member — not on the row's
+        // audit-timestamp `created_at`. Guards against a silent revert
+        // that would recover the old proxy filter.
+        assertThat(sql).contains("d.enrollment_date <= :periodEnd");
+        assertThat(sql).doesNotContain("d.created_at::date <= :periodEnd");
     }
 
     @Test
@@ -112,7 +126,9 @@ class CandidateResolverStatusFilterTest {
         // Policy row filter (dp.status), member row filter (m.status), and
         // group cascade — all three must exclude deactivated / terminated.
         assertThat(sql).contains("dp.status IN ('active', 'suspended')");
-        assertThat(sql).contains("m.status IN ('active', 'suspended')");
+        // Member filter widened by V048 for future-enrolled coverage on
+        // projected statements — same shape as the health resolver.
+        assertThat(sql).contains("m.status IN ('active', 'suspended', 'enrolled')");
         assertThat(sql).contains("g.status = 'active'");
         assertThat(sql).doesNotContain("'deactivated'");
         assertThat(sql).doesNotContain("'terminated'");
