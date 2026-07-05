@@ -595,50 +595,66 @@ public class BillingService {
         boolean individualModel = "INDIVIDUAL".equalsIgnoreCase(pricingModel);
 
         return Mono.zip(memberMetaMono, dependantMetaMono)
-                .map(tuple -> {
-                    java.util.Map<UUID, OverrideMeta> byMember = tuple.getT1();
-                    java.util.Map<UUID, OverrideMeta> byDependant = tuple.getT2();
-                    List<com.medfund.contributions.dto.ChargePreviewLine> lines = new java.util.ArrayList<>(priced.size());
-                    for (PricedCandidate p : priced) {
-                        OverrideMeta meta = "DEPENDANT".equalsIgnoreCase(p.personType())
-                                ? byDependant.get(p.dependantId())
-                                : byMember.get(p.memberId());
-                        boolean custom = false;
-                        LocalDate scheduledFrom = null;
-                        if (meta != null) {
-                            // Custom pricing: only marked true when the
-                            // resolver would have actually picked the
-                            // override (INDIVIDUAL model + amount set +
-                            // effective_from reached by periodEnd).
-                            // Matches the resolver's COALESCE CASE
-                            // exactly so the flag never lies.
-                            custom = individualModel
-                                    && meta.overrideAmount() != null
-                                    && (meta.effectiveFrom() == null
-                                            || !meta.effectiveFrom().isAfter(periodEnd));
+                .map(tuple -> composeDecoratedLines(
+                        priced, tuple.getT1(), tuple.getT2(),
+                        individualModel, periodStart, periodEnd));
+    }
 
-                            // Scheduled scheme change: a future
-                            // billing_age_group_id whose effective_from
-                            // hasn't been reached yet. Surfaces the
-                            // "priced at old rate this cycle, moving
-                            // to new rate on [date]" narrative.
-                            if (meta.overrideAgeGroupId() != null
-                                    && meta.effectiveFrom() != null
-                                    && meta.effectiveFrom().isAfter(periodStart)) {
-                                scheduledFrom = meta.effectiveFrom();
-                            }
-                        }
-                        lines.add(new com.medfund.contributions.dto.ChargePreviewLine(
-                                p.memberId(), p.dependantId(), p.memberNumber(),
-                                p.personName(), p.personType(),
-                                p.schemeId(), p.schemeName(),
-                                p.groupId(), p.groupName(),
-                                p.ageGroupId(), p.ageBandName(),
-                                p.amount(), p.currencyCode(),
-                                custom, scheduledFrom));
-                    }
-                    return (List<com.medfund.contributions.dto.ChargePreviewLine>) lines;
-                });
+    /**
+     * Pure decoration step — kept package-private + static so it can be
+     * unit-tested without a DB. Given priced candidates + already-
+     * fetched override metadata + pricing-model flag + projected
+     * period bounds, produces the final response lines with
+     * {@code isCustomPriced} and {@code scheduledSchemeChangeFrom}
+     * set. The two-flag matrix here is the whole "custom pricing"
+     * surface an operator sees on the breakdown table, so a test on
+     * this method locks the behaviour without paying for a full
+     * Testcontainers schema fixture.
+     */
+    static List<com.medfund.contributions.dto.ChargePreviewLine> composeDecoratedLines(
+            List<PricedCandidate> priced,
+            java.util.Map<UUID, OverrideMeta> byMember,
+            java.util.Map<UUID, OverrideMeta> byDependant,
+            boolean individualModel,
+            LocalDate periodStart, LocalDate periodEnd) {
+        List<com.medfund.contributions.dto.ChargePreviewLine> lines = new java.util.ArrayList<>(priced.size());
+        for (PricedCandidate p : priced) {
+            OverrideMeta meta = "DEPENDANT".equalsIgnoreCase(p.personType())
+                    ? byDependant.get(p.dependantId())
+                    : byMember.get(p.memberId());
+            boolean custom = false;
+            LocalDate scheduledFrom = null;
+            if (meta != null) {
+                // Custom pricing: only marked true when the resolver
+                // would have actually picked the override (INDIVIDUAL
+                // model + amount set + effective_from reached by
+                // periodEnd). Matches the resolver's COALESCE CASE
+                // exactly so the flag never lies.
+                custom = individualModel
+                        && meta.overrideAmount() != null
+                        && (meta.effectiveFrom() == null
+                                || !meta.effectiveFrom().isAfter(periodEnd));
+
+                // Scheduled scheme change: a future
+                // billing_age_group_id whose effective_from hasn't
+                // been reached yet. Surfaces the "priced at old rate
+                // this cycle, moving to new rate on [date]" narrative.
+                if (meta.overrideAgeGroupId() != null
+                        && meta.effectiveFrom() != null
+                        && meta.effectiveFrom().isAfter(periodStart)) {
+                    scheduledFrom = meta.effectiveFrom();
+                }
+            }
+            lines.add(new com.medfund.contributions.dto.ChargePreviewLine(
+                    p.memberId(), p.dependantId(), p.memberNumber(),
+                    p.personName(), p.personType(),
+                    p.schemeId(), p.schemeName(),
+                    p.groupId(), p.groupName(),
+                    p.ageGroupId(), p.ageBandName(),
+                    p.amount(), p.currencyCode(),
+                    custom, scheduledFrom));
+        }
+        return lines;
     }
 
     /** Compose the response envelope from the decorated line list. */
@@ -662,8 +678,13 @@ public class BillingService {
                 java.time.Instant.now());
     }
 
-    /** Per-subject override metadata used by {@link #decorateWithOverrides}. */
-    private record OverrideMeta(
+    /**
+     * Per-subject override metadata used by
+     * {@link #decorateWithOverrides}. Package-visible so the pure
+     * {@link #composeDecoratedLines} helper can be tested from the
+     * same package without exposing the DB fetch.
+     */
+    record OverrideMeta(
             java.math.BigDecimal overrideAmount,
             LocalDate effectiveFrom,
             UUID overrideAgeGroupId) {}
@@ -1319,7 +1340,11 @@ public class BillingService {
     // construct it. The aliased import at the top of this file keeps the
     // existing call-sites readable.
 
-    private record PricedCandidate(
+    // Package-visible so the pure decoration helper
+    // (composeDecoratedLines) can accept it without an @Internal marker
+    // and so a targeted unit test in the same package can construct
+    // fixtures without reflection.
+    record PricedCandidate(
             UUID memberId, UUID dependantId, String memberNumber, String personName, String personType,
             UUID schemeId, String schemeName, UUID groupId, String groupName,
             UUID ageGroupId, String ageBandName,
