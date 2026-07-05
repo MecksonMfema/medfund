@@ -56,6 +56,25 @@ public class DependantService {
         dependant.setRelationship(request.relationship());
         dependant.setNationalId(request.nationalId());
         dependant.setStatus("active");
+        // Custom-premium triple at creation (V030). Same amount +
+        // effective_from consistency rule as the update path. STANDARD-
+        // model tenants never send these fields; the frontend gates
+        // the section on tenant.pricingModel.
+        if (request.billingOverrideAmount() != null) {
+            if (request.billingOverrideEffectiveFrom() == null) {
+                return Mono.error(new IllegalArgumentException(
+                        "billingOverrideEffectiveFrom is required when billingOverrideAmount is set"));
+            }
+            dependant.setBillingOverrideAmount(request.billingOverrideAmount());
+            dependant.setBillingOverrideReason(request.billingOverrideReason());
+            dependant.setBillingOverrideEffectiveFrom(request.billingOverrideEffectiveFrom());
+        }
+        // Manual age-group override at creation — accepted for every
+        // pricing_model. Applies whenever set (resolver checks it
+        // unconditionally, see HealthCandidateResolver).
+        if (request.billingAgeGroupId() != null) {
+            dependant.setBillingAgeGroupId(request.billingAgeGroupId());
+        }
         dependant.setCreatedAt(Instant.now());
         dependant.setUpdatedAt(Instant.now());
         dependant.setCreatedBy(UUID.fromString(actorId));
@@ -132,6 +151,13 @@ public class DependantService {
                     existing.setBillingOverrideEffectiveFrom(request.billingOverrideEffectiveFrom());
                 }
 
+                // Manual age-group override. Null on the request means
+                // "no change"; clearing goes through the dedicated
+                // /clear-billing-override endpoint.
+                if (request.billingAgeGroupId() != null) {
+                    existing.setBillingAgeGroupId(request.billingAgeGroupId());
+                }
+
                 existing.setUpdatedAt(Instant.now());
                 existing.setUpdatedBy(UUID.fromString(actorId));
 
@@ -188,29 +214,48 @@ public class DependantService {
             });
     }
 
+    /**
+     * Deactivate a dependant with an effective date (V046). Dependants
+     * are never hard-deleted — this is the terminal soft-transition.
+     *
+     * <p>Billing continues UP TO AND INCLUDING the cycle that contains
+     * {@code effectiveDate} — the resolver's dependant WHERE clause
+     * excludes rows where {@code deactivation_effective_date < periodStart}.
+     * So a dependant deactivated 2026-07-15 is billed for July, dropped
+     * from August.
+     *
+     * <p>{@code effectiveDate} defaults to today when null so the
+     * operator can hit the button without a picker and get immediate
+     * semantics.
+     */
     @Transactional
-    public Mono<Dependant> remove(UUID id, String actorId, String actorEmail) {
+    public Mono<Dependant> deactivate(UUID id, java.time.LocalDate effectiveDate,
+                                       String actorId, String actorEmail) {
+        java.time.LocalDate resolved = effectiveDate != null ? effectiveDate : java.time.LocalDate.now();
         return dependantRepository.findById(id)
             .switchIfEmpty(Mono.error(new DependantNotFoundException(id)))
             .flatMap(existing -> {
-                existing.setStatus("removed");
+                String previousStatus = existing.getStatus();
+                existing.setStatus("deactivated");
+                existing.setDeactivationEffectiveDate(resolved);
                 existing.setUpdatedAt(Instant.now());
                 existing.setUpdatedBy(UUID.fromString(actorId));
-                return dependantRepository.save(existing);
-            })
-            .flatMap(saved -> Mono.deferContextual(ctx -> {
-                String tenantId = TenantContext.get(ctx);
-                var event = AuditEvent.create(
-                    tenantId != null ? tenantId : "unknown", "Dependant", saved.getId().toString(),
-                    saved.getFirstName() + " " + saved.getLastName(),
-                    "UPDATE", actorId, actorEmail,
-                    Map.of("status", "active"),
-                    Map.of("status", "removed"),
-                    new String[]{"status"},
-                    UUID.randomUUID().toString()
-                );
-                return auditPublisher.publish(event).thenReturn(saved);
-            }));
+                return dependantRepository.save(existing)
+                    .flatMap(saved -> Mono.deferContextual(ctx -> {
+                        String tenantId = TenantContext.get(ctx);
+                        var event = AuditEvent.create(
+                            tenantId != null ? tenantId : "unknown", "Dependant", saved.getId().toString(),
+                            saved.getFirstName() + " " + saved.getLastName(),
+                            "UPDATE", actorId, actorEmail,
+                            Map.of("status", previousStatus != null ? previousStatus : "active"),
+                            Map.of("status", "deactivated",
+                                   "deactivationEffectiveDate", resolved.toString()),
+                            new String[]{"status", "deactivationEffectiveDate"},
+                            UUID.randomUUID().toString()
+                        );
+                        return auditPublisher.publish(event).thenReturn(saved);
+                    }));
+            });
     }
 
     public Mono<Void> flagOverAgeDependants() {

@@ -33,7 +33,10 @@ export const MEMBERS_ROUTES: Routes = [
     path: '',
     canActivate: [permissionGuard(['members:view'])],
     loadComponent: () => import('../../members/members.component').then(m => m.MembersComponent),
-    data: { title: 'Members', sidebar: 'operational' },
+    // fullbleed so the page-header banner + data-table sit flush with
+    // the sidebar — matches /tenant/billing/schemes and the rest of
+    // the tenant list surfaces.
+    data: { title: 'Members', sidebar: 'operational', fullbleed: true },
   },
 
   // Enrolment form — real component, gated by members:create.
@@ -49,7 +52,9 @@ export const MEMBERS_ROUTES: Routes = [
     path: ':id',
     canActivate: [permissionGuard(['members:view'])],
     loadComponent: () => import('./detail/member-detail.component').then(m => m.MemberDetailComponent),
-    data: { title: 'Member Detail', sidebar: 'operational' },
+    // fullbleed so the page-header banner sits flush with the sidebar
+    // like the other tenant surfaces (schemes, groups, members list).
+    data: { title: 'Member Detail', sidebar: 'operational', fullbleed: true },
   },
 
   // Legacy edit URL — redirects to the unified detail page.

@@ -1,10 +1,12 @@
 package com.medfund.user.dto;
 
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -31,5 +33,30 @@ public record CreateDependantRequest(
     String relationship,
 
     @NotBlank @Size(max = 50)
-    String nationalId
+    String nationalId,
+
+    /**
+     * Optional custom-premium triple. Same INDIVIDUAL-model gating as
+     * the parent member's override (V030): honoured only when the
+     * tenant's {@code pricing_model = 'INDIVIDUAL'}; frontend gates
+     * the section on the tenant model so STANDARD tenants never send
+     * these fields. If {@code amount} is present, {@code effectiveFrom}
+     * is required — enforced in {@code DependantService.create} with
+     * an early 400 rather than a downstream CHECK-constraint failure.
+     */
+    @DecimalMin(value = "0.01", message = "billingOverrideAmount must be positive")
+    BigDecimal billingOverrideAmount,
+
+    @Size(max = 40)
+    String billingOverrideReason,
+
+    LocalDate billingOverrideEffectiveFrom,
+
+    /**
+     * Manual age-group override. Points the billing lookup at a
+     * different age-band on the parent member's scheme. Not gated on
+     * pricing_model — every model honours it. Shares
+     * {@link #billingOverrideEffectiveFrom} as the kick-in date.
+     */
+    UUID billingAgeGroupId
 ) {}

@@ -1,8 +1,8 @@
-<div class="form-page">
+<div class="member-form-page">
   <header class="page-header">
     <div>
       <h1>Enrol a new member</h1>
-      <p class="page-sub">Creates the member record, generates a member number, and syncs the account to Keycloak. Fields marked * are required.</p>
+      <p class="page-sub">Creates the member record, generates a member number per the tenant's issuance scheme, and syncs the account to Keycloak. Enrolment date is always anchored to the 1st of the chosen month; back-dating triggers arrears on the contributions side.</p>
     </div>
     <a class="btn btn-default" routerLink="/tenant/members">
       <app-icon name="arrow-left" [size]="14"></app-icon>
@@ -14,82 +14,301 @@
     <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
   }
 
-  <form (ngSubmit)="submit()" class="form-grid">
-    <label class="field">
-      <span class="field-label">First name *</span>
-      <input type="text" [(ngModel)]="form.firstName" name="firstName" required maxlength="100" />
-    </label>
-
-    <label class="field">
-      <span class="field-label">Last name *</span>
-      <input type="text" [(ngModel)]="form.lastName" name="lastName" required maxlength="100" />
-    </label>
-
-    <label class="field">
-      <span class="field-label">Date of birth *</span>
-      <input type="date" [(ngModel)]="form.dateOfBirth" name="dateOfBirth" required />
-    </label>
-
-    <label class="field">
-      <span class="field-label">Gender *</span>
-      <app-select
-        [(ngModel)]="form.gender"
-        name="gender"
-        [options]="genderOptions"
-        placeholder="Select…"
-      ></app-select>
-    </label>
-
-    <label class="field">
-      <span class="field-label">National ID *</span>
-      <input type="text" [(ngModel)]="form.nationalId" name="nationalId" required maxlength="50" />
-    </label>
-
-    <label class="field">
-      <span class="field-label">Email *</span>
-      <input type="email" [(ngModel)]="form.email" name="email" required maxlength="255" />
-    </label>
-
-    <label class="field">
-      <span class="field-label">Phone</span>
-      <input type="tel" [(ngModel)]="form.phone" name="phone" maxlength="50" />
-    </label>
-
-    <label class="field">
-      <span class="field-label">Enrolment date</span>
-      <input type="date" [(ngModel)]="form.enrollmentDate" name="enrollmentDate"
-             (ngModelChange)="onEnrollmentDateChange()" />
-      <span class="field-hint">Always anchored to the 1st of the chosen month.</span>
-    </label>
-
-    <div class="field">
-      <span class="field-label">Group</span>
-      <app-entity-picker
-        kind="group"
-        [(value)]="form.groupId"
-        placeholder="Search by group name…">
-      </app-entity-picker>
+  <form (submit)="$event.preventDefault(); submit()" class="form-card">
+    <div class="form-card__heading">
+      <h2 class="form-card__title">Member details</h2>
+      <span class="form-card__hint">Fields marked with * are required.</span>
     </div>
 
-    <div class="field">
-      <span class="field-label">Scheme *</span>
-      <app-entity-picker
-        kind="scheme"
-        [(value)]="form.schemeId"
-        placeholder="Search by scheme name…">
-      </app-entity-picker>
+    <div class="form-sections">
+      <!-- ── Identity ─────────────────────────────────────────────────── -->
+      <section class="form-section form-section--full">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="user" [size]="18"></app-icon></span>
+          <h3 class="section-title">Identity</h3>
+        </header>
+
+        <div class="field-grid field-grid--2">
+          <label class="field">
+            <span class="field-label">First name <span class="req">*</span></span>
+            <input
+              class="field-control"
+              type="text"
+              [(ngModel)]="form.firstName"
+              name="firstName"
+              required
+              maxlength="100"
+              placeholder="e.g. Sarah" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Last name <span class="req">*</span></span>
+            <input
+              class="field-control"
+              type="text"
+              [(ngModel)]="form.lastName"
+              name="lastName"
+              required
+              maxlength="100"
+              placeholder="e.g. Nkomo" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Date of birth <span class="req">*</span></span>
+            <input
+              class="field-control"
+              type="date"
+              [(ngModel)]="form.dateOfBirth"
+              name="dateOfBirth"
+              required />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Gender <span class="req">*</span></span>
+            <app-select
+              [(ngModel)]="form.gender"
+              name="gender"
+              [options]="genderOptions"
+              placeholder="Select…"
+            ></app-select>
+          </label>
+
+          <label class="field field-grid__full">
+            <span class="field-label">National ID <span class="req">*</span></span>
+            <input
+              class="field-control"
+              type="text"
+              [(ngModel)]="form.nationalId"
+              name="nationalId"
+              required
+              maxlength="50"
+              placeholder="e.g. 63-1234567X13" />
+          </label>
+        </div>
+      </section>
+
+      <!-- ── Contact ─────────────────────────────────────────────────── -->
+      <section class="form-section form-section--full">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="mail" [size]="18"></app-icon></span>
+          <h3 class="section-title">Contact</h3>
+        </header>
+
+        <div class="field-grid field-grid--2">
+          <label class="field">
+            <span class="field-label">Email <span class="req">*</span></span>
+            <input
+              class="field-control"
+              type="email"
+              [(ngModel)]="form.email"
+              name="email"
+              required
+              maxlength="255"
+              placeholder="sarah@company.com" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Phone <span class="optional">(optional)</span></span>
+            <input
+              class="field-control"
+              type="tel"
+              [(ngModel)]="form.phone"
+              name="phone"
+              maxlength="50"
+              placeholder="+263 …" />
+          </label>
+
+          <label class="field field-grid__full">
+            <span class="field-label">Address <span class="optional">(optional)</span></span>
+            <textarea
+              class="field-control"
+              [(ngModel)]="form.address"
+              name="address"
+              rows="3"
+              placeholder="Street, city, postcode"></textarea>
+          </label>
+        </div>
+      </section>
+
+      <!-- ── Enrolment ───────────────────────────────────────────────── -->
+      <section class="form-section form-section--full">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="briefcase" [size]="18"></app-icon></span>
+          <h3 class="section-title">Enrolment</h3>
+          <span class="section-hint">Scheme drives pricing; group ties this member to a corporate roster if applicable.</span>
+        </header>
+
+        <div class="field-grid field-grid--2">
+          <div class="field">
+            <span class="field-label">Scheme <span class="req">*</span></span>
+            <app-entity-picker
+              kind="scheme"
+              [(value)]="form.schemeId"
+              placeholder="Search by scheme name…">
+            </app-entity-picker>
+          </div>
+
+          <div class="field">
+            <span class="field-label">Group <span class="optional">(optional)</span></span>
+            <app-entity-picker
+              kind="group"
+              [(value)]="form.groupId"
+              placeholder="Search by group name…">
+            </app-entity-picker>
+            <small class="field-help">Leave blank for an individual; picking a group makes this member billable through the group's liaison.</small>
+          </div>
+
+          <label class="field field-grid__full">
+            <span class="field-label">Enrolment date</span>
+            <input
+              class="field-control"
+              type="date"
+              [(ngModel)]="form.enrollmentDate"
+              (ngModelChange)="onEnrollmentDateChange()"
+              name="enrollmentDate" />
+            <small class="field-help">Always anchored to the 1st of the chosen month. Back-dating triggers arrears on the contributions side.</small>
+          </label>
+        </div>
+      </section>
+
+      <!-- ── Custom premium (INDIVIDUAL pricing model only) ──────────── -->
+      @if (!individualPricing) {
+        <!-- Discoverability hint: STANDARD / AI_DRIVEN tenants don't
+             see the Custom premium section. Explain why and where to
+             flip the switch so operators aren't left wondering. -->
+        <div class="pricing-mode-hint">
+          <app-icon name="info" [size]="14"></app-icon>
+          <span>
+            Custom pricing is disabled for this tenant (mode:
+            <code>{{ tenantPricingModel }}</code>). Enable per-member
+            overrides under
+            <a routerLink="/tenant/admin/settings" [queryParams]="{ tab: 'billing' }">
+              Tenant Admin → Billing
+            </a>
+            → Pricing model → <em>Individual</em>.
+          </span>
+        </div>
+      } @else {
+        <section class="form-section form-section--full">
+          <header class="section-head">
+            <span class="section-icon"><app-icon name="dollar-sign" [size]="18"></app-icon></span>
+            <h3 class="section-title">Custom premium <span class="optional">(optional)</span></h3>
+            <span class="section-hint">Overrides the age-group price with a personal amount from the chosen effective date.</span>
+          </header>
+
+          <div class="field-grid field-grid--2">
+            <label class="field">
+              <span class="field-label">Override amount</span>
+              <input
+                class="field-control"
+                type="number"
+                min="0.01"
+                step="0.01"
+                [(ngModel)]="form.billingOverrideAmount"
+                name="overrideAmount"
+                placeholder="0.00" />
+              <small class="field-help">Leave blank to bill at the age-group default.</small>
+            </label>
+
+            <label class="field">
+              <span class="field-label">Effective from
+                @if (form.billingOverrideAmount != null) { <span class="req">*</span> }
+                @else { <span class="optional">(required when amount is set)</span> }
+              </span>
+              <input
+                class="field-control"
+                type="date"
+                [(ngModel)]="form.billingOverrideEffectiveFrom"
+                name="overrideEffectiveFrom" />
+            </label>
+
+            <label class="field field-grid__full">
+              <span class="field-label">Reason <span class="optional">(max 40 chars)</span></span>
+              <input
+                class="field-control"
+                type="text"
+                maxlength="40"
+                [(ngModel)]="form.billingOverrideReason"
+                name="overrideReason"
+                placeholder="e.g. corporate discount, hardship rate" />
+            </label>
+          </div>
+
+          <!-- AI suggest — only for AI_DRIVEN tenants. Takes the
+               scheme's age-band guideline as the base and layers the
+               risk signals below; pre-fills the amount so the operator
+               accepts with one keystroke. Sits below the amount fields
+               so the operator sees the manual entry as the default and
+               reaches for AI as an assist. -->
+          @if (aiSuggestionsEnabled) {
+            <div class="ai-suggest">
+              <header class="ai-suggest__head">
+                <div>
+                  <h4 class="ai-suggest__title">
+                    <app-icon name="zap" [size]="14"></app-icon>
+                    AI-assisted price
+                  </h4>
+                  <p class="ai-suggest__hint">Combines the scheme guideline with the applicant's risk signals below. Fully editable after suggestion.</p>
+                </div>
+                <button type="button" class="btn btn-secondary" (click)="suggestPremium()" [disabled]="aiRequesting">
+                  {{ aiRequesting ? 'Thinking…' : 'Suggest with AI' }}
+                </button>
+              </header>
+
+              <div class="field-grid field-grid--2">
+                <label class="field">
+                  <span class="field-label">BMI <span class="optional">(optional)</span></span>
+                  <input
+                    class="field-control"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    [(ngModel)]="form.bmi"
+                    name="riskBmi"
+                    placeholder="e.g. 24.5" />
+                </label>
+
+                <label class="field ai-toggle-cell">
+                  <input type="checkbox" [(ngModel)]="form.smoker" name="riskSmoker" />
+                  <span>Smoker</span>
+                </label>
+
+                <label class="field ai-toggle-cell field-grid__full">
+                  <input type="checkbox" [(ngModel)]="form.hasChronicConditions" name="riskChronic" />
+                  <span>Declared chronic condition(s)</span>
+                </label>
+              </div>
+
+              @if (aiSuggestion) {
+                <div class="ai-suggest__result">
+                  <div class="ai-suggest__amount">
+                    <span class="ai-badge" [class.ai-badge--stub]="aiSuggestion.stub">
+                      {{ aiSuggestion.stub ? 'STUB' : 'AI' }}
+                    </span>
+                    Suggested: <strong>{{ aiSuggestion.suggestedAmount }} {{ aiSuggestion.currencyCode }}</strong>
+                    <button type="button" class="link-btn" (click)="clearAiSuggestion()">Dismiss</button>
+                  </div>
+                  <p class="ai-suggest__rationale">{{ aiSuggestion.rationale }}</p>
+                  @if (aiSuggestion.factors.length) {
+                    <ul class="ai-suggest__factors">
+                      @for (f of aiSuggestion.factors; track f) {
+                        <li>{{ f }}</li>
+                      }
+                    </ul>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </section>
+      }
     </div>
 
-    <label class="field span-2">
-      <span class="field-label">Address</span>
-      <textarea [(ngModel)]="form.address" name="address" rows="3"></textarea>
-    </label>
-
-    <div class="form-actions span-2">
+    <footer class="form-actions">
       <a class="btn btn-default" routerLink="/tenant/members">Cancel</a>
       <button type="submit" class="btn btn-primary" [disabled]="saving">
         {{ saving ? 'Enrolling…' : 'Enrol member' }}
       </button>
-    </div>
+    </footer>
   </form>
 </div>

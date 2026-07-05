@@ -103,8 +103,13 @@ export class MembersService {
     return this.api.put<Dependant>(`/dependants/${id}`, data);
   }
 
-  /** Soft-remove a dependant. Backend flips status to 'removed'. */
-  removeDependant(id: string): Observable<Dependant> {
-    return this.api.post<Dependant>(`/dependants/${id}/remove`, {});
+  /** Deactivate a dependant with an effective date (V046). Dependants
+   *  are never hard-deleted — this is the terminal soft-transition.
+   *  Backend bills up to and including the cycle that contains the
+   *  effective date; from the next cycle the resolver drops them off.
+   *  Pass null to default to today. */
+  deactivateDependant(id: string, effectiveDate: string | null): Observable<Dependant> {
+    const body = effectiveDate ? { effectiveDate } : {};
+    return this.api.post<Dependant>(`/dependants/${id}/deactivate`, body);
   }
 }

@@ -72,11 +72,24 @@ public class DependantController {
         return dependantService.update(id, request, AuditActor.id(jwt), AuditActor.email(jwt)).map(DependantResponse::from);
     }
 
-    @PostMapping("/{id}/remove")
-    @Operation(summary = "Remove a dependant", description = "Soft-removes dependant by setting status to 'removed'")
-    public Mono<DependantResponse> remove(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-        return dependantService.remove(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(DependantResponse::from);
+    @PostMapping("/{id}/deactivate")
+    @Operation(summary = "Deactivate a dependant with an effective date",
+        description = "Marks the dependant as deactivated. Billing continues UP TO AND INCLUDING the cycle that " +
+                      "contains the effective date; from the next cycle the resolver drops them off. " +
+                      "Dependants are never hard-deleted — this is the terminal soft-transition. " +
+                      "Body accepts { effectiveDate: 'YYYY-MM-DD' }; omit or send null for today.")
+    public Mono<DependantResponse> deactivate(@PathVariable UUID id,
+                                               @RequestBody(required = false) DeactivateDependantRequest body,
+                                               @AuthenticationPrincipal Jwt jwt) {
+        java.time.LocalDate effectiveDate = body != null ? body.effectiveDate() : null;
+        return dependantService.deactivate(id, effectiveDate,
+                        AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(DependantResponse::from);
     }
+
+    /** Inline body record — no separate DTO file since it's a single
+     *  optional field used only by this endpoint. */
+    public record DeactivateDependantRequest(java.time.LocalDate effectiveDate) {}
 
     @PostMapping("/{id}/clear-billing-override")
     @Operation(summary = "Clear the dependant's per-person pricing override",

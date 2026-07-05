@@ -65,16 +65,21 @@ class CandidateResolverStatusFilterTest {
         assertThat(sql)
                 .as("Member row must be filtered to active/suspended — deactivated + terminated rows must NOT bill")
                 .contains("m.status IN ('active', 'suspended')");
-        // Same guard on dependants — a dependant of an active member can
-        // still be terminated on their own and must drop out.
+        // Dependant filter is broader than member filter (V046): active
+        // + suspended dependants always bill; a 'deactivated' dependant
+        // continues to bill up to and including the cycle that contains
+        // its deactivation_effective_date, then drops off.
         assertThat(sql).contains("d.status IN ('active', 'suspended')");
+        assertThat(sql)
+                .as("Deactivated dependants must remain billable through their effective date (V046)")
+                .contains("d.status = 'deactivated'")
+                .contains("d.deactivation_effective_date >= :periodStart");
         // Group cascade: a deactivated group's members must fall out
         // even if the member's own row is still active.
         assertThat(sql).contains("g.status = 'active'");
-        // Explicit exclusion — deactivated / terminated must not appear
-        // in the status allowlist under any circumstance. Guards a
-        // refactor that "generalises" the filter by adding them back.
-        assertThat(sql).doesNotContain("'deactivated'");
+        // Member-side terminated rows must never bill under any
+        // circumstance. Guards a refactor that "generalises" the filter
+        // by adding them back to the member allowlist.
         assertThat(sql).doesNotContain("'terminated'");
     }
 

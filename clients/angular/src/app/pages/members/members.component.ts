@@ -6,12 +6,20 @@ import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 import { DataTableComponent } from '../../shared/components/data-table/data-table.component';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { HasPermissionDirective } from '../../shared/directives/has-permission.directive';
 import { MembersService, Member } from '../../core/services/members.service';
 
+/**
+ * Members list — mirrors the schemes-page shape (/tenant/billing/schemes):
+ * full-bleed page-header banner with a permission-gated primary action,
+ * then the shared data-table with its built-in search bar. Cursor-based
+ * pagination survives the redesign (the members endpoint is a cursor
+ * feed, not an offset one).
+ */
 @Component({
   selector: 'app-members',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, DataTableComponent, IconComponent],
+  imports: [CommonModule, FormsModule, RouterLink, DataTableComponent, IconComponent, HasPermissionDirective],
   templateUrl: './members.component.html',
   styleUrl: './members.component.scss',
 })
@@ -19,6 +27,7 @@ export class MembersComponent implements OnInit, OnDestroy {
   members: Member[] = [];
   loading = false;
   searchQuery = '';
+  errorMessage: string | null = null;
 
   cursors: string[] = [];
   nextCursor: string | null = null;
@@ -49,6 +58,7 @@ export class MembersComponent implements OnInit, OnDestroy {
 
   load(cursor?: string): void {
     this.loading = true;
+    this.errorMessage = null;
     this.membersService.getPage({ q: this.searchQuery || undefined, cursor, limit: 20 }).subscribe({
       next: (raw: any) => {
         const content: Member[] = Array.isArray(raw) ? raw : (raw?.content ?? []);
@@ -56,11 +66,17 @@ export class MembersComponent implements OnInit, OnDestroy {
         this.nextCursor = Array.isArray(raw) ? null : (raw?.nextCursor ?? null);
         this.loading = false;
       },
-      error: () => { this.loading = false; },
+      error: (err) => {
+        this.errorMessage = err?.error?.detail || 'Failed to load members';
+        this.loading = false;
+      },
     });
   }
 
-  onSearch(): void { this.search$.next(this.searchQuery); }
+  onSearch(term: string): void {
+    this.searchQuery = term;
+    this.search$.next(term);
+  }
 
   onRowClick(row: Member): void {
     if (row?.id) this.router.navigate(['/tenant/members', row.id]);

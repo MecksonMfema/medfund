@@ -86,6 +86,12 @@ public class Dependant {
     @Column("billing_override_amount")
     private java.math.BigDecimal billingOverrideAmount;
 
+    /** Date the deactivation takes effect (V046). Billing continues
+     *  UP TO AND INCLUDING the cycle that contains this date. Rows
+     *  where status = 'active' or 'suspended' leave this null. */
+    @Column("deactivation_effective_date")
+    private LocalDate deactivationEffectiveDate;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
@@ -142,4 +148,7 @@ public class Dependant {
 
     public java.math.BigDecimal getBillingOverrideAmount() { return billingOverrideAmount; }
     public void setBillingOverrideAmount(java.math.BigDecimal billingOverrideAmount) { this.billingOverrideAmount = billingOverrideAmount; }
+
+    public LocalDate getDeactivationEffectiveDate() { return deactivationEffectiveDate; }
+    public void setDeactivationEffectiveDate(LocalDate deactivationEffectiveDate) { this.deactivationEffectiveDate = deactivationEffectiveDate; }
 }

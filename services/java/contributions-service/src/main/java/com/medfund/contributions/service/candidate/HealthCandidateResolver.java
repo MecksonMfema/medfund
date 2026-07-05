@@ -65,7 +65,13 @@ public class HealthCandidateResolver implements CandidateResolver {
                        END                 AS effective_age_group_id,
                        ag.name              AS age_band_name,
                        COALESCE(
-                           CASE WHEN :pricingModel = 'INDIVIDUAL'
+                           -- Per-member override wins on both INDIVIDUAL and
+                           -- AI_DRIVEN. AI_DRIVEN is a hybrid: same override
+                           -- semantics as INDIVIDUAL, plus an AI suggestion
+                           -- helper the operator uses at enrolment time to
+                           -- pre-fill the amount. STANDARD tenants stay on
+                           -- the age-band price (no override honoured).
+                           CASE WHEN :pricingModel IN ('INDIVIDUAL', 'AI_DRIVEN')
                                      AND m.billing_override_amount IS NOT NULL
                                      AND (m.billing_override_effective_from IS NULL
                                           OR m.billing_override_effective_from <= :periodEnd)
@@ -121,7 +127,8 @@ public class HealthCandidateResolver implements CandidateResolver {
                        END                 AS effective_age_group_id,
                        ag.name              AS age_band_name,
                        COALESCE(
-                           CASE WHEN :pricingModel = 'INDIVIDUAL'
+                           -- Same INDIVIDUAL/AI_DRIVEN gate as the member half.
+                           CASE WHEN :pricingModel IN ('INDIVIDUAL', 'AI_DRIVEN')
                                      AND d.billing_override_amount IS NOT NULL
                                      AND (d.billing_override_effective_from IS NULL
                                           OR d.billing_override_effective_from <= :periodEnd)
@@ -148,7 +155,12 @@ public class HealthCandidateResolver implements CandidateResolver {
                         ORDER BY effective_from DESC
                         LIMIT 1
                   ) p ON TRUE
-                 WHERE d.status IN ('active', 'suspended')
+                 WHERE (
+                       d.status IN ('active', 'suspended')
+                       OR (d.status = 'deactivated'
+                           AND (d.deactivation_effective_date IS NULL
+                                OR d.deactivation_effective_date >= :periodStart))
+                       )
                    AND m.status IN ('active', 'suspended')
                    AND (m.group_id IS NULL OR g.status = 'active')
                    AND m.enrollment_date <= :periodEnd

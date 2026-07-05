@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 /**
  * Partial update of an existing dependant. All fields are optional —
@@ -38,5 +39,14 @@ public record UpdateDependantRequest(
 
     @Size(max = 40) String billingOverrideReason,
 
-    LocalDate billingOverrideEffectiveFrom
+    LocalDate billingOverrideEffectiveFrom,
+
+    /**
+     * Manual age-group override. Points the billing lookup at a
+     * different age-band on the parent member's scheme (typical use:
+     * a dependant with a disability who can't age out — keep them on
+     * the child rate). Not gated on the tenant's pricing_model.
+     * Shares {@link #billingOverrideEffectiveFrom} as the kick-in date.
+     */
+    UUID billingAgeGroupId
 ) {}

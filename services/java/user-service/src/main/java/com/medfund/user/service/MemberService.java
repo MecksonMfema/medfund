@@ -134,6 +134,17 @@ public class MemberService {
                 member.setSchemeId(request.schemeId());
                 member.setStatus("enrolled");
                 member.setEnrollmentDate(request.enrollmentDateOrDefault());
+                // Custom-premium triple at enrolment (V030). Same
+                // amount+effective_from consistency rule as the update
+                // path; throws IllegalArgumentException with a clear
+                // message rather than let the DB CHECK surface as an
+                // opaque 500. STANDARD-model tenants never send these
+                // fields — the frontend gates the section on
+                // tenant.pricingModel.
+                applyOverride(member,
+                        request.billingOverrideAmount(),
+                        request.billingOverrideReason(),
+                        request.billingOverrideEffectiveFrom());
                 member.setCreatedAt(Instant.now());
                 member.setUpdatedAt(Instant.now());
                 // actorId comes from the JWT subject — usually the Keycloak

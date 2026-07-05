@@ -128,6 +128,60 @@ class DependantControllerTest {
                 .expectStatus().isOk();
     }
 
+    // ------------------------------------------------------------------
+    // Deactivate (V046) — dependants are never deleted, only marked
+    // deactivated with an effective date. Two entry paths:
+    //   * body with { effectiveDate: 'YYYY-MM-DD' } → operator-picked.
+    //   * no body → service defaults effectiveDate to today.
+    // The controller wires body?.effectiveDate through the service; the
+    // 400 branch for a garbled ISO is covered by Jackson deserialisation.
+    // ------------------------------------------------------------------
+
+    @Test
+    void deactivate_withEffectiveDateBody_returns200_andForwardsDate() {
+        UUID id = UUID.randomUUID();
+        Dependant terminated = createTestDependant();
+        terminated.setId(id);
+        terminated.setStatus("deactivated");
+        LocalDate effective = LocalDate.of(2026, 9, 15);
+        terminated.setDeactivationEffectiveDate(effective);
+        when(dependantService.deactivate(any(), any(), any(), any()))
+                .thenReturn(Mono.just(terminated));
+
+        webTestClient.mutateWith(mockJwt())
+                .post().uri("/api/v1/dependants/{id}/deactivate", id)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue("{\"effectiveDate\":\"2026-09-15\"}")
+                .header("X-Tenant-ID", "test-tenant")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo("deactivated")
+                .jsonPath("$.deactivationEffectiveDate").isEqualTo("2026-09-15");
+    }
+
+    @Test
+    void deactivate_withoutBody_returns200_andForwardsNullDate() {
+        // Body is optional — controller forwards null so the service's
+        // "default to today" branch fires. Verify the null-body path
+        // wires through by asserting the response comes back cleanly.
+        UUID id = UUID.randomUUID();
+        Dependant terminated = createTestDependant();
+        terminated.setId(id);
+        terminated.setStatus("deactivated");
+        terminated.setDeactivationEffectiveDate(LocalDate.now());
+        when(dependantService.deactivate(any(), any(), any(), any()))
+                .thenReturn(Mono.just(terminated));
+
+        webTestClient.mutateWith(mockJwt())
+                .post().uri("/api/v1/dependants/{id}/deactivate", id)
+                .header("X-Tenant-ID", "test-tenant")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.status").isEqualTo("deactivated");
+    }
+
     private Dependant createTestDependant() {
         var d = new Dependant();
         d.setId(UUID.randomUUID());

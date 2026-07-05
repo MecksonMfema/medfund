@@ -72,7 +72,17 @@ class PlanServiceTest {
                 new BigDecimal("99.99"), "USD", "MONTHLY"
         );
 
-        when(planRepository.save(any(Plan.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        // Mirror production: PlanRepository.save relies on the DB's
+        // DEFAULT gen_random_uuid() to stamp the id (Plan.setId is
+        // never called in the service). PlanService.create then reads
+        // saved.getId().toString() to build the AuditEvent, so a mock
+        // that returns the plain input NPEs at the audit step. Stamp
+        // an id on the returned Plan to keep the mock faithful.
+        when(planRepository.save(any(Plan.class))).thenAnswer(inv -> {
+            Plan p = inv.getArgument(0);
+            if (p.getId() == null) p.setId(UUID.randomUUID());
+            return Mono.just(p);
+        });
         when(auditPublisher.publish(any(AuditEvent.class))).thenReturn(Mono.empty());
 
         StepVerifier.create(planService.create(request, "actor-123", "actor@test.example"))

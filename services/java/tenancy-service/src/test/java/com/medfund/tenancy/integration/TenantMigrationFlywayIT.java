@@ -73,6 +73,121 @@ class TenantMigrationFlywayIT {
                     "reminder_lead_days",
                     "reminder_interval_days",
                     "reminder_continue_past_suspension"));
+
+            // V046 — dependant deactivation column exists.
+            assertColumns(conn, "tenant_it", "dependants",
+                    List.of("deactivation_effective_date"));
+        }
+    }
+
+    /**
+     * V046 backfill: rows already at status='removed' must be migrated
+     * to status='deactivated' with deactivation_effective_date =
+     * updated_at::date. The intermediate step is fragile — a subtle
+     * typo in the SQL (missing WHERE, wrong column) would either miss
+     * the rows entirely or wipe active dependants. Boot a fresh
+     * container, stop at V045 so we can seed the 'removed' fixture on
+     * the pre-V046 schema, then run V046 and inspect the result.
+     */
+    @Test
+    void v046_backfillsRemovedRowsToDeactivated_withEffectiveDateFromUpdatedAt() throws Exception {
+        String schema = "tenant_v046_backfill_it";
+
+        // Stage 1 — migrate up to V045 so 'dependants' exists but the
+        // deactivation column doesn't.
+        Flyway upToV045 = Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .locations("classpath:db/migration/tenant")
+                .schemas(schema)
+                .createSchemas(true)
+                .target("45")
+                .load();
+        upToV045.migrate();
+
+        // Seed a 'removed' row + a control 'active' row (to prove the
+        // WHERE clause is scoped correctly and doesn't clobber active
+        // dependants).
+        java.time.LocalDateTime historicUpdatedAt =
+                java.time.LocalDateTime.of(2026, 3, 12, 9, 30);
+        try (Connection conn = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
+
+            // dependants requires a member. Insert the tree minimally.
+            // Seed a scheme first — members.scheme_id is NOT NULL.
+            String schemeId;
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO " + schema + ".schemes " +
+                    "  (id, name, insurance_line, status, currency_code, effective_date) " +
+                    "  VALUES (gen_random_uuid(), 'IT Scheme', 'HEALTH', 'active', 'USD', CURRENT_DATE) " +
+                    "  RETURNING id")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    schemeId = rs.getString(1);
+                }
+            }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO " + schema + ".members " +
+                    "  (id, first_name, last_name, member_number, date_of_birth, national_id, gender, email," +
+                    "   scheme_id, status, enrollment_date, created_at, updated_at) " +
+                    "  VALUES (gen_random_uuid(), 'Parent', 'One', 'MBR-100001', '1980-01-01', '63-1', 'male', 'p@e', " +
+                    "          ?::uuid, 'active', date_trunc('month', CURRENT_DATE)::date, now(), now()) " +
+                    "  RETURNING id")) {
+                ps.setString(1, schemeId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    String memberId = rs.getString(1);
+
+                    try (PreparedStatement dep = conn.prepareStatement(
+                            "INSERT INTO " + schema + ".dependants " +
+                            "  (id, member_id, first_name, last_name, date_of_birth, gender, relationship, national_id," +
+                            "   status, created_at, updated_at) " +
+                            "  VALUES (gen_random_uuid(), ?::uuid, 'Rem', 'Oved', '2015-05-01', 'female', 'child', '63-r-01', 'removed', now(), ?), " +
+                            "         (gen_random_uuid(), ?::uuid, 'Act', 'Ive', '2018-03-01', 'male',   'child', '63-a-02', 'active',  now(), now())")) {
+                        dep.setString(1, memberId);
+                        dep.setTimestamp(2, java.sql.Timestamp.valueOf(historicUpdatedAt));
+                        dep.setString(3, memberId);
+                        dep.executeUpdate();
+                    }
+                }
+            }
+        }
+
+        // Stage 2 — run migrations all the way. V046 fires the backfill.
+        Flyway toLatest = Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .locations("classpath:db/migration/tenant")
+                .schemas(schema)
+                .load();
+        toLatest.migrate();
+
+        // Assert: removed → deactivated with effective_date = updated_at::date.
+        // Active row untouched.
+        try (Connection conn = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT status, deactivation_effective_date " +
+                    "  FROM " + schema + ".dependants WHERE first_name = 'Rem'")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getString("status")).isEqualTo("deactivated");
+                    assertThat(rs.getDate("deactivation_effective_date"))
+                            .as("Effective date backfilled from updated_at::date")
+                            .isEqualTo(java.sql.Date.valueOf(historicUpdatedAt.toLocalDate()));
+                }
+            }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT status, deactivation_effective_date " +
+                    "  FROM " + schema + ".dependants WHERE first_name = 'Act'")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getString("status"))
+                            .as("Active dependants must NOT be touched by the backfill")
+                            .isEqualTo("active");
+                    assertThat(rs.getDate("deactivation_effective_date"))
+                            .as("Active rows keep effective_date null")
+                            .isNull();
+                }
+            }
         }
     }
 

@@ -324,6 +324,119 @@ class BillingServiceChargePreviewIT extends AbstractIntegrationTest {
         assertThat(resp.lines().get(0).isCustomPriced()).isFalse();
     }
 
+    @Test
+    @WithTenant(TENANT_ID)
+    void customPricing_aiDrivenModel_overridesAmount_asHybridWithIndividual() {
+        // AI_DRIVEN is a hybrid: the operator (with the AI stub's help)
+        // sets a per-member override, then the resolver honours it the
+        // same way it does for INDIVIDUAL. If the CASE ever reverts to
+        // = 'INDIVIDUAL' alone, AI_DRIVEN tenants would silently price
+        // at the age-band and every operator-set override would go dead.
+        setPricingModel("AI_DRIVEN");
+        UUID schemeId = seedScheme("USD");
+        UUID ageGroupId = seedAgeGroup(schemeId, "Adult", new BigDecimal("100"), "USD");
+        UUID groupId = seedGroup("AI-driven Ltd");
+        seedMember(schemeId, groupId, ageGroupId, "active", null,
+                new BigDecimal("250"), null, null);
+
+        ChargePreviewResponse resp = block(billingService.chargePreview("GROUP", groupId, null));
+
+        assertThat(resp.lines()).hasSize(1);
+        assertThat(resp.lines().get(0).amount()).isEqualByComparingTo("250");
+        assertThat(resp.lines().get(0).isCustomPriced()).isTrue();
+    }
+
+    // ------------------------------------------------------------------
+    // Universal age-band override — the "active-today" branch of the
+    // billing_age_group_id CASE. Complements the scheduled-future test
+    // below which only covers the not-yet-active side.
+    // ------------------------------------------------------------------
+
+    @Test
+    @WithTenant(TENANT_ID)
+    void dependant_billingAgeGroup_setWithNullEffectiveFrom_picksAlternateBandImmediately() {
+        // Age-band override is a dependant-only feature. Canonical use:
+        // a dependant with a disability who ages out of the child band
+        // by DoB but should stay on the child rate. The resolver's
+        // dependant-half CASE picks billing_age_group_id whenever it's
+        // set with a null (or past) effective_from — this test proves
+        // the "active-today" branch. Complements the scheduled-future
+        // case below which only exercises the not-yet-active side.
+        //
+        // Gate: this applies for STANDARD too. billing_age_group_id is
+        // a categorical decision (which band this dependant belongs
+        // to), not a per-member custom price — so it is not gated on
+        // pricing_model.
+        UUID schemeId = seedScheme("USD");
+        UUID adultBand = seedAgeGroup(schemeId, "Adult", new BigDecimal("100"), "USD");
+        UUID childBand = seedAgeGroup(schemeId, "Child", new BigDecimal("40"), "USD");
+        UUID groupId = seedGroup("Age-band-override Ltd");
+        UUID memberId = seedMember(schemeId, groupId, adultBand, "active", null,
+                null, null, null);
+        // dependant canonical age = Adult (aged out), billing_age_group_id = Child
+        seedDependant(memberId, adultBand, "active", childBand);
+
+        ChargePreviewResponse resp = block(billingService.chargePreview("GROUP", groupId, null));
+
+        // Two lines: member (Adult 100) + dependant (Child 40 via override).
+        assertThat(resp.lines()).hasSize(2);
+        BigDecimal dependantAmount = resp.lines().stream()
+                .filter(l -> "DEPENDANT".equals(l.personType()))
+                .findFirst().orElseThrow().amount();
+        assertThat(dependantAmount).isEqualByComparingTo("40");
+    }
+
+    // ------------------------------------------------------------------
+    // Dependant deactivation (V046) — bill up to and including the
+    // effective month, drop off from the next cycle.
+    // ------------------------------------------------------------------
+
+    @Test
+    @WithTenant(TENANT_ID)
+    void dependant_deactivated_withEffectiveDateInProjectedCycle_stillBills() {
+        // chargePreview projects next month's cycle. The resolver's
+        // dependant WHERE clause:
+        //   d.status IN ('active','suspended')
+        //   OR (d.status='deactivated'
+        //       AND (d.deactivation_effective_date IS NULL
+        //            OR d.deactivation_effective_date >= :periodStart))
+        // If the effective_date lands INSIDE the projected month, the
+        // dependant is still billable for that month.
+        LocalDate projectedStart = LocalDate.now().plusMonths(1).withDayOfMonth(1);
+        LocalDate insideProjected = projectedStart.plusDays(15);
+
+        UUID schemeId = seedScheme("USD");
+        UUID band = seedAgeGroup(schemeId, "Adult", new BigDecimal("100"), "USD");
+        UUID groupId = seedGroup("Deactivation-window Ltd (still billing)");
+        UUID memberId = seedMember(schemeId, groupId, band, "active", null, null, null, null);
+        seedDeactivatedDependant(memberId, band, insideProjected);
+
+        ChargePreviewResponse resp = block(billingService.chargePreview("GROUP", groupId, null));
+
+        // Member + dependant both bill for this cycle.
+        assertThat(resp.lines()).hasSize(2);
+    }
+
+    @Test
+    @WithTenant(TENANT_ID)
+    void dependant_deactivated_withEffectiveDateBeforeProjectedStart_dropsOff() {
+        // Same shape but the effective_date is BEFORE periodStart —
+        // resolver drops the dependant off. Only the member bills.
+        LocalDate projectedStart = LocalDate.now().plusMonths(1).withDayOfMonth(1);
+        LocalDate beforeProjected = projectedStart.minusDays(1);
+
+        UUID schemeId = seedScheme("USD");
+        UUID band = seedAgeGroup(schemeId, "Adult", new BigDecimal("100"), "USD");
+        UUID groupId = seedGroup("Deactivation-window Ltd (dropped)");
+        UUID memberId = seedMember(schemeId, groupId, band, "active", null, null, null, null);
+        seedDeactivatedDependant(memberId, band, beforeProjected);
+
+        ChargePreviewResponse resp = block(billingService.chargePreview("GROUP", groupId, null));
+
+        assertThat(resp.lines()).hasSize(1);
+        assertThat(resp.lines().get(0).personType()).isEqualTo("MEMBER");
+    }
+
     // ------------------------------------------------------------------
     // Scheduled scheme change — future billing_age_group_id.
     // ------------------------------------------------------------------
@@ -487,13 +600,40 @@ class BillingServiceChargePreviewIT extends AbstractIntegrationTest {
     }
 
     private UUID seedDependant(UUID memberId, UUID ageGroupId, String status) {
+        return seedDependant(memberId, ageGroupId, status, null);
+    }
+
+    /** Seed a dependant already in the terminal deactivated state, with
+     *  the given deactivation_effective_date. Used by the V046
+     *  bill-through-cycle tests. */
+    private UUID seedDeactivatedDependant(UUID memberId, UUID ageGroupId, LocalDate effectiveDate) {
         UUID id = UUID.randomUUID();
         db.sql("""
-                INSERT INTO dependants (id, member_id, first_name, last_name, status, age_group_id, created_at)
-                VALUES (:id, :mid, 'Dep', 'Endent', :status, :agid, now() - INTERVAL '90 days')
+                INSERT INTO dependants (id, member_id, first_name, last_name, status, age_group_id,
+                                        deactivation_effective_date, created_at)
+                VALUES (:id, :mid, 'Dep', 'Endent', 'deactivated', :agid, :eff, now() - INTERVAL '90 days')
+                """)
+                .bind("id", id).bind("mid", memberId).bind("agid", ageGroupId)
+                .bind("eff", effectiveDate)
+                .then().block();
+        return id;
+    }
+
+    /** Seed a dependant with a nullable billing_age_group_id override. Used
+     *  by the age-band-override IT to prove the resolver picks the alternate
+     *  band immediately when set. */
+    private UUID seedDependant(UUID memberId, UUID ageGroupId, String status,
+                                UUID billingAgeGroupId) {
+        UUID id = UUID.randomUUID();
+        db.sql("""
+                INSERT INTO dependants (id, member_id, first_name, last_name, status, age_group_id,
+                                        billing_age_group_id, created_at)
+                VALUES (:id, :mid, 'Dep', 'Endent', :status, :agid, :bagid, now() - INTERVAL '90 days')
                 """)
                 .bind("id", id).bind("mid", memberId)
                 .bind("status", status).bind("agid", ageGroupId)
+                .bind("bagid", billingAgeGroupId == null ? io.r2dbc.spi.Parameters.in(UUID.class)
+                                                         : io.r2dbc.spi.Parameters.in(billingAgeGroupId))
                 .then().block();
         return id;
     }

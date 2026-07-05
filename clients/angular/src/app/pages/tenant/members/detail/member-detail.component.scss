@@ -1,91 +1,590 @@
-.member-detail { padding: 16px 0; }
+// Member detail — mirrors the member-form + group-form + transaction-
+// form clean-UI grammar. Full-bleed page-header banner with title +
+// chips + status actions, then stacked .form-card sections for
+// Profile / Custom premium / Dependants. Dependants use inline
+// collapsible add/edit forms so the operator's context stays intact
+// mid-edit (same UX motivation as the liaison-picker's inline flow).
 
-.page-head {
-  display: grid;
-  grid-template-columns: 1fr auto;
+// ── Page chrome ──────────────────────────────────────────────────────────
+.member-detail-page {
+  padding: 24px;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.back-link {
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  font-size: 0.8125rem;
   margin-bottom: 16px;
 
-  .back-link {
-    grid-column: 1 / -1;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--text-muted, #666);
-    text-decoration: none;
-    font-size: 0.85rem;
-    margin-bottom: 6px;
-    &:hover { color: var(--text, #222); }
-  }
-
-  .title-block h1 { margin: 0; }
-  .meta { display: flex; gap: 8px; margin-top: 6px; }
-  .actions { display: flex; gap: 8px; }
+  &:hover { color: var(--color-text-primary); }
 }
 
-.error-banner {
-  background: #fdecea; color: #7f1d1d;
-  padding: 10px 14px; border-radius: 4px; margin-bottom: 12px; cursor: pointer;
+.page-header h1 {
+  margin: 0 0 8px;
+  font-size: 1.5rem;
+  color: var(--color-text-primary);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.card {
-  background: #fff; border: 1px solid #e5e7eb; border-radius: 6px;
-  padding: 20px; margin-bottom: 16px;
-
-  > h2 { margin-top: 0; }
-  .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-  .card-head h2 { margin: 0; }
+.member-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-medium);
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--color-surface-alt, #f6f8fb);
+  border: 1px solid var(--color-border-light);
+  color: var(--color-text-secondary);
+  letter-spacing: 0.02em;
 }
 
-.form-grid {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px;
-
-  .field { display: flex; flex-direction: column; gap: 4px; }
-  .field.span-2 { grid-column: 1 / -1; }
-  .field label { font-size: 0.8rem; color: var(--text-muted, #666); }
-  .field input,
-  .field select {
-    padding: 8px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem;
-    font-family: inherit; background: white;
-  }
-  .field.readonly span {
-    padding: 8px 10px; background: #f9fafb; border-radius: 4px; color: var(--text-muted, #555);
-  }
+.header-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
-.form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-
-.btn {
-  padding: 8px 14px; border: 1px solid #d1d5db; background: #f9fafb;
-  border-radius: 4px; font-size: 0.85rem; cursor: pointer;
-  display: inline-flex; align-items: center; gap: 4px;
-  &.small   { padding: 4px 10px; font-size: 0.8rem; }
-  &.primary { background: #2563eb; color: #fff; border-color: #2563eb; }
-  &.warn    { background: #f59e0b; color: #fff; border-color: #f59e0b; }
-  &.danger  { background: #dc2626; color: #fff; border-color: #dc2626; }
-  &:disabled { opacity: 0.6; cursor: not-allowed; }
+.header-actions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
+// ── Chips (status + read-only meta) ──────────────────────────────────────
 .chip {
-  display: inline-block; padding: 2px 8px; border-radius: 999px;
-  font-size: 0.75rem; background: #eef2ff; color: #3730a3;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.02em;
+
+  &.muted {
+    background: var(--color-surface-alt, #f6f8fb);
+    border: 1px solid var(--color-border-light);
+    color: var(--color-text-secondary);
+  }
+
   &.status[data-status='active']    { background: #dcfce7; color: #166534; }
   &.status[data-status='enrolled']  { background: #dbeafe; color: #1e40af; }
   &.status[data-status='suspended'] { background: #fef3c7; color: #92400e; }
+  &.status[data-status='over_age']  { background: #fef3c7; color: #92400e; }
   &.status[data-status='terminated'],
   &.status[data-status='removed']   { background: #fee2e2; color: #991b1b; }
-  &.status[data-status='over_age']  { background: #fef3c7; color: #92400e; }
 }
 
-.dependants-table {
-  width: 100%; border-collapse: collapse; font-size: 0.85rem;
+// ── Banners + empty states ───────────────────────────────────────────────
+.banner {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  border: 1px solid transparent;
+}
 
-  th, td { padding: 8px 10px; border-bottom: 1px solid #eee; text-align: left; vertical-align: top; }
-  th { color: var(--text-muted, #666); font-weight: 500; }
-  .row-actions { display: flex; gap: 6px; }
+.banner-error {
+  background: var(--color-error-light);
+  color: var(--color-error);
+  border-color: rgba(231, 29, 54, 0.25);
+}
 
-  tr.edit-row td { background: #fffbea; }
-  tr.edit-row input { width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 3px; }
-  tr.edit-row td:first-child input + input { margin-top: 4px; }
+.empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border-light);
+  border-radius: var(--radius-lg);
+}
+
+// ── Form card (Profile / Custom premium / Dependants) ────────────────────
+.form-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: visible;   // entity-picker suggestions escape the card
+  margin-bottom: 20px;
+
+  &:last-child { margin-bottom: 0; }
+}
+
+.form-card__heading {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-border-light);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.form-card__title {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  position: relative;
+  padding-bottom: 6px;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    width: 40px;
+    height: 2px;
+    background: var(--color-primary);
+    border-radius: 2px;
+  }
+}
+
+.form-card__hint {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+// ── Sections ─────────────────────────────────────────────────────────────
+.form-sections {
+  display: grid;
+  gap: 24px;
+  padding: 24px;
+}
+
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.form-section--full { width: 100%; }
+
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.section-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.section-hint {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+// ── Inner field grid ─────────────────────────────────────────────────────
+.field-grid {
+  display: grid;
+  gap: 16px 24px;
+  min-width: 0;
+}
+
+.field-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.field-grid__full { grid-column: 1 / -1; }
+
+// ── Fields ───────────────────────────────────────────────────────────────
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field-label {
+  font-weight: var(--font-weight-medium);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.req {
+  color: var(--color-error);
+  font-weight: var(--font-weight-bold);
+  font-size: 0.9em;
+}
+
+.optional {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+  font-size: 0.85em;
+}
+
+.field-control {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  font-family: var(--font-family);
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &::placeholder { color: var(--color-text-muted); }
+  &:hover:not(:disabled) { border-color: var(--color-secondary); }
+  &:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-light);
+  }
+  &:disabled {
+    background: var(--color-bg);
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+  }
+}
+
+.field-help {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+// Read-only rail sitting inside the Identity section — surfaces the
+// server-issued values (member number, DOB, enrolled) as a subtle
+// 3-column grid so the operator sees them without another card.
+.field-readonly .readonly-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 24px;
+  padding: 12px 16px;
+  background: var(--color-surface-alt, #f6f8fb);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+}
+
+.readonly-label {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+
+.readonly-value {
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+// ── Form-actions footer ─────────────────────────────────────────────────
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--color-border-light);
+  background: var(--color-bg);
+}
+
+// ── Dependants list + collapsible edit form ─────────────────────────────
+.dependant-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dependant-item + .dependant-item { margin-top: 0; }
+
+.dependant-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  flex-wrap: wrap;
+}
+
+.dependant-summary__lead {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 260px;
+}
+
+.dependant-name {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-size: 0.95rem;
+}
+
+.dependant-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.dependant-id {
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.dependant-summary__actions {
+  display: inline-flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+// Inline collapsible form — same visual as the liaison-picker's inline
+// add flow so operators see a consistent "expanded editor" idiom.
+.dependant-form {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-alt, #f6f8fb);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+
+.dependant-form__head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dependant-form__title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.dependant-form__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.dependant-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border-light);
+}
+
+// Custom-premium sub-section divider inside the dependant collapsible.
+// Signals the boundary between core dependant fields and the optional
+// billing override, without introducing another card level.
+.custom-premium-divider {
+  border-top: 1px dashed var(--color-border-light);
+  padding-top: 12px;
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  .field-label { display: inline-flex; align-items: center; gap: 6px; }
+}
+
+// AI-assist panel — same visual as the member ADD form. Kept
+// duplicated here rather than hoisted to a shared partial because the
+// two forms have distinct grid contexts and the panel needs to sit
+// inside a field cell on the dependant collapsible.
+.ai-suggest {
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt, #f6f8fb);
+  padding: 16px;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ai-suggest__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ai-suggest__title {
+  margin: 0 0 4px;
+  font-size: 0.9375rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  app-icon { color: var(--color-primary); }
+}
+
+.ai-suggest__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  max-width: 55ch;
+}
+
+.ai-toggle-cell {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+
+  input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--color-primary);
+  }
+}
+
+.ai-suggest__result {
+  border-top: 1px dashed var(--color-border-light);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ai-suggest__amount {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  flex-wrap: wrap;
+
+  strong { color: var(--color-text-primary); }
+}
+
+.ai-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  font-weight: var(--font-weight-bold);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.ai-badge--stub {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--color-primary);
+  text-decoration: underline;
+
+  &:hover { color: var(--color-primary-hover); }
+}
+
+.ai-suggest__rationale {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.ai-suggest__factors {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+
+  li { line-height: 1.5; }
+}
+
+.field-help.muted {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+// ── Buttons (leans on global .btn / .btn-primary; local variants) ───────
+.btn-warn {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fbbf24;
+
+  &:hover:not(:disabled) { background: #fde68a; }
+}
+
+.btn-danger {
+  background: var(--color-error);
+  color: #fff;
+  border: 1px solid var(--color-error);
+
+  &:hover:not(:disabled) { filter: brightness(0.95); }
+}
+
+// ── Responsive ───────────────────────────────────────────────────────────
+@media (max-width: 640px) {
+  .field-grid--2 { grid-template-columns: 1fr; }
+  .field-readonly .readonly-grid { grid-template-columns: 1fr; }
+
+  .form-sections { padding: 20px; gap: 20px; }
+
+  .form-card__heading,
+  .form-actions { padding-left: 20px; padding-right: 20px; }
+
+  .section-hint { margin-left: 0; flex-basis: 100%; }
+
+  .dependant-summary { flex-direction: column; align-items: stretch; }
+  .dependant-summary__actions { justify-content: flex-end; }
 }

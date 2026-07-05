@@ -7,6 +7,8 @@ import { EntityPickerComponent } from '../../../../shared/components/entity-pick
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { TenantService } from '../../../../core/services/tenant.service';
+import { PricingSuggestionResponse, PricingSuggestionService } from '../../../../core/services/pricing-suggestion.service';
 
 interface AddMemberForm {
   firstName: string;
@@ -20,6 +22,19 @@ interface AddMemberForm {
   groupId: string;
   schemeId: string;
   enrollmentDate: string;
+  /**
+   * Custom-premium triple (V030). Rendered + sent only when the tenant's
+   * pricingModel === 'INDIVIDUAL' or 'AI_DRIVEN' (both honour overrides).
+   * The backend enforces that effectiveFrom is required whenever amount
+   * is set — mirrored client-side so we surface the constraint inline.
+   */
+  billingOverrideAmount: number | null;
+  billingOverrideReason: string;
+  billingOverrideEffectiveFrom: string;
+  // ── AI risk signals (only sent to the suggestion endpoint) ──────
+  smoker: boolean;
+  hasChronicConditions: boolean;
+  bmi: number | null;
 }
 
 @Component({
@@ -46,13 +61,51 @@ export class MemberFormComponent {
     // Default to the 1st of the current month — enrollment dates are
     // always month-anchored.
     enrollmentDate: new Date().toISOString().slice(0, 8) + '01',
+    billingOverrideAmount: null,
+    billingOverrideReason: '',
+    billingOverrideEffectiveFrom: '',
+    smoker: false,
+    hasChronicConditions: false,
+    bmi: null,
   };
+
+  /** Latest AI suggestion. Held on the component so the rationale +
+   *  factors list stay visible after the operator clicks "Suggest"
+   *  and until they clear or re-request. */
+  aiSuggestion: PricingSuggestionResponse | null = null;
+  aiRequesting = false;
 
   constructor(
     private members: MembersService,
     private router: Router,
     private toast: ToastService,
+    private tenantSvc: TenantService,
+    private pricingSuggestion: PricingSuggestionService,
   ) {}
+
+  /** Whether the Custom-premium section renders. AI_DRIVEN is a
+   *  hybrid mode: same per-member override semantics as INDIVIDUAL,
+   *  plus an AI-suggestion helper at enrolment. STANDARD is the only
+   *  mode without overrides. Matches the backend resolver's gate. */
+  get individualPricing(): boolean {
+    const mode = this.tenantSvc.getTenant()?.pricingModel;
+    return mode === 'INDIVIDUAL' || mode === 'AI_DRIVEN';
+  }
+
+  /** Whether the "Suggest with AI" button renders. Only true for
+   *  AI_DRIVEN — an INDIVIDUAL tenant enabled overrides but hasn't
+   *  opted into the AI-assist workflow. */
+  get aiSuggestionsEnabled(): boolean {
+    return this.tenantSvc.getTenant()?.pricingModel === 'AI_DRIVEN';
+  }
+
+  /** The tenant's current pricing model, surfaced in the discoverability
+   *  hint on STANDARD tenants so the operator sees exactly which
+   *  mode is in force. Defaults to 'STANDARD' to match the backend
+   *  fallback when the column is null. */
+  get tenantPricingModel(): string {
+    return this.tenantSvc.getTenant()?.pricingModel ?? 'STANDARD';
+  }
 
   /** Normalise an ISO YYYY-MM-DD date to the 1st of its month. */
   private firstOfMonth(iso: string): string {
@@ -64,6 +117,54 @@ export class MemberFormComponent {
    *  pick snaps to the 1st of the chosen month before it sits in form state. */
   onEnrollmentDateChange(): void {
     this.form.enrollmentDate = this.firstOfMonth(this.form.enrollmentDate);
+  }
+
+  /** Ask the AI stub for a suggested premium and pre-fill the amount
+   *  field. Only wired when tenant.pricingModel === 'AI_DRIVEN'.
+   *  Requires the scheme + DoB (the two backend-required inputs);
+   *  everything else is optional risk-signal enrichment. */
+  suggestPremium(): void {
+    if (!this.form.schemeId) {
+      this.toast.error('Pick a scheme first — the AI needs it to compute a baseline.');
+      return;
+    }
+    if (!this.form.dateOfBirth) {
+      this.toast.error('Enter a date of birth — the AI uses it to pick the age-band.');
+      return;
+    }
+    this.aiRequesting = true;
+    this.pricingSuggestion.suggest({
+      schemeId: this.form.schemeId,
+      dateOfBirth: this.form.dateOfBirth,
+      gender: this.form.gender || undefined,
+      smoker: this.form.smoker || undefined,
+      hasChronicConditions: this.form.hasChronicConditions || undefined,
+      bmi: this.form.bmi ?? undefined,
+    }).subscribe({
+      next: (resp) => {
+        this.aiSuggestion = resp;
+        // Pre-fill the amount so the operator can accept the number
+        // with one keystroke (Save). They can still edit before save.
+        this.form.billingOverrideAmount = Number(resp.suggestedAmount);
+        // Default the effective-from to the enrolment date so the
+        // half-filled-triple validation doesn't fire on a fresh
+        // suggestion. Operator can pull it back if they want.
+        if (!this.form.billingOverrideEffectiveFrom) {
+          this.form.billingOverrideEffectiveFrom = this.form.enrollmentDate;
+        }
+        this.aiRequesting = false;
+      },
+      error: (err) => {
+        this.aiRequesting = false;
+        this.toast.error(err?.error?.detail || 'Failed to fetch AI suggestion');
+      },
+    });
+  }
+
+  /** Discard the current suggestion without touching the amount so the
+   *  operator can keep their manually-entered override. */
+  clearAiSuggestion(): void {
+    this.aiSuggestion = null;
   }
 
   submit(): void {
@@ -79,9 +180,20 @@ export class MemberFormComponent {
       this.errorMessage = `Required field${missing.length > 1 ? 's' : ''} missing: ${missing.join(', ')}.`;
       return;
     }
+    // Custom-premium consistency: amount without an effective_from would
+    // trip the DB CHECK. Guard inline for a friendly message rather
+    // than a 400 round-trip. Only relevant when the tenant is on
+    // INDIVIDUAL pricing (STANDARD tenants ignore per-member overrides).
+    if (this.individualPricing
+        && this.form.billingOverrideAmount != null
+        && !this.form.billingOverrideEffectiveFrom) {
+      this.errorMessage = 'Custom premium: effective_from is required when an override amount is set.';
+      this.toast.error(this.errorMessage);
+      return;
+    }
     this.saving = true;
     this.errorMessage = null;
-    const payload = {
+    const payload: any = {
       firstName:      this.form.firstName.trim(),
       lastName:       this.form.lastName.trim(),
       dateOfBirth:    this.form.dateOfBirth,
@@ -97,6 +209,11 @@ export class MemberFormComponent {
       // enrolment date is in a past period (deferred to a follow-up).
       enrollmentDate: this.firstOfMonth(this.form.enrollmentDate),
     };
+    if (this.individualPricing && this.form.billingOverrideAmount != null) {
+      payload.billingOverrideAmount = this.form.billingOverrideAmount;
+      payload.billingOverrideReason = this.form.billingOverrideReason.trim() || undefined;
+      payload.billingOverrideEffectiveFrom = this.form.billingOverrideEffectiveFrom;
+    }
     this.members.enroll(payload).subscribe({
       next: (saved) => {
         this.saving = false;

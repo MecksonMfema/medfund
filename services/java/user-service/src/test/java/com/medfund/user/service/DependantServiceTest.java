@@ -17,6 +17,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -24,6 +25,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -131,7 +133,9 @@ class DependantServiceTest {
         var memberId = UUID.randomUUID();
         var request = new CreateDependantRequest(
             memberId, "Sarah", "Doe", LocalDate.of(2015, 6, 20),
-            "female", "child", null
+            "female", "child", null,
+            null, null, null,  // billingOverrideAmount / reason / effectiveFrom
+            null               // billingAgeGroupId
         );
 
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
@@ -153,12 +157,98 @@ class DependantServiceTest {
         verify(auditPublisher).publish(any());
     }
 
+    // ------------------------------------------------------------------
+    // Custom-premium on create (V030 INDIVIDUAL model).
+    //
+    // Backend must accept the override triple on the dependant-create
+    // path so operators can capture it in one round-trip from the
+    // inline collapsible on the member detail page.
+    // ------------------------------------------------------------------
+
+    @Test
+    void create_withCustomPremium_persistsOverrideTriple() {
+        var actorId = UUID.randomUUID().toString();
+        var memberId = UUID.randomUUID();
+        BigDecimal amount = new BigDecimal("40.00");
+        LocalDate effectiveFrom = LocalDate.of(2026, 8, 1);
+        var request = new CreateDependantRequest(
+            memberId, "Sarah", "Doe", LocalDate.of(2015, 6, 20),
+            "female", "child", null,
+            amount, "student rate", effectiveFrom,
+            null   // billingAgeGroupId
+        );
+
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            dependantService.create(request, actorId, "actor@test.example")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .assertNext(dependant -> {
+                assertThat(dependant.getBillingOverrideAmount()).isEqualByComparingTo(amount);
+                assertThat(dependant.getBillingOverrideReason()).isEqualTo("student rate");
+                assertThat(dependant.getBillingOverrideEffectiveFrom()).isEqualTo(effectiveFrom);
+            })
+            .verifyComplete();
+    }
+
+    @Test
+    void create_amountWithoutEffectiveFrom_failsFastWith400() {
+        // Half-filled triple must fail cleanly. Same gate as the member
+        // enrolment path — a DB CHECK violation would surface as an
+        // opaque 500 otherwise.
+        var actorId = UUID.randomUUID().toString();
+        var request = new CreateDependantRequest(
+            UUID.randomUUID(), "Sarah", "Doe", LocalDate.of(2015, 6, 20),
+            "female", "child", null,
+            new BigDecimal("40.00"), "student rate", /* effectiveFrom */ null,
+            null   // billingAgeGroupId
+        );
+
+        StepVerifier.create(
+            dependantService.create(request, actorId, "actor@test.example")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .expectErrorSatisfies(err -> {
+                assertThat(err).isInstanceOf(IllegalArgumentException.class);
+                assertThat(err.getMessage()).contains("billingOverrideEffectiveFrom");
+            })
+            .verify();
+
+        verify(r2dbcTemplate, never()).insert(any(Dependant.class));
+    }
+
+    @Test
+    void create_withoutCustomPremium_leavesOverrideFieldsNull() {
+        var actorId = UUID.randomUUID().toString();
+        var memberId = UUID.randomUUID();
+        var request = new CreateDependantRequest(
+            memberId, "Sarah", "Doe", LocalDate.of(2015, 6, 20),
+            "female", "child", null,
+            null, null, null,
+            null   // billingAgeGroupId
+        );
+
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            dependantService.create(request, actorId, "actor@test.example")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .assertNext(dependant -> {
+                assertThat(dependant.getBillingOverrideAmount()).isNull();
+                assertThat(dependant.getBillingOverrideReason()).isNull();
+                assertThat(dependant.getBillingOverrideEffectiveFrom()).isNull();
+            })
+            .verifyComplete();
+    }
+
     @Test
     void update_changesOnlyProvidedFields_andEmitsAudit() {
         var dependant = createTestDependant(UUID.randomUUID());
         var id = dependant.getId();
         var actorId = UUID.randomUUID().toString();
-        var request = new UpdateDependantRequest("Janet", null, null, null, "spouse", null, null, null, null);
+        var request = new UpdateDependantRequest("Janet", null, null, null, "spouse", null, null, null, null, null);
 
         when(dependantRepository.findById(id)).thenReturn(Mono.just(dependant));
         when(dependantRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
@@ -181,9 +271,67 @@ class DependantServiceTest {
     }
 
     @Test
+    void update_setsBillingAgeGroupId_whenProvided() {
+        // Dependant-side twin of the member test — DependantService.update
+        // line 157-159 has no positive assertion. Regression here
+        // would silently drop every age-band override set post-add on a
+        // dependant (typical use: child with disability moved to a
+        // different band after their birthday should have aged them out).
+        var dependant = createTestDependant(UUID.randomUUID());
+        var id = dependant.getId();
+        var actorId = UUID.randomUUID().toString();
+        UUID newAgeBand = UUID.randomUUID();
+        var request = new UpdateDependantRequest(
+            null, null, null, null, null, null,
+            null, null, null,
+            newAgeBand
+        );
+
+        when(dependantRepository.findById(id)).thenReturn(Mono.just(dependant));
+        when(dependantRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            dependantService.update(id, request, actorId, "actor@test.example")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .assertNext(saved -> assertThat(saved.getBillingAgeGroupId()).isEqualTo(newAgeBand))
+            .verifyComplete();
+    }
+
+    @Test
+    void update_leavesBillingAgeGroupId_whenRequestIsNull() {
+        // "null means no change" — the update path must not clobber an
+        // existing override with null. A regression flipping this to
+        // unconditional set would erase every existing age-band
+        // override on an unrelated update (e.g. gender/relationship).
+        var dependant = createTestDependant(UUID.randomUUID());
+        UUID existingBand = UUID.randomUUID();
+        dependant.setBillingAgeGroupId(existingBand);
+        var id = dependant.getId();
+        var actorId = UUID.randomUUID().toString();
+        var request = new UpdateDependantRequest(
+            "Janet", null, null, null, "spouse", null,
+            null, null, null,
+            null // billingAgeGroupId — omitted means "no change"
+        );
+
+        when(dependantRepository.findById(id)).thenReturn(Mono.just(dependant));
+        when(dependantRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            dependantService.update(id, request, actorId, "actor@test.example")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .assertNext(saved -> assertThat(saved.getBillingAgeGroupId()).isEqualTo(existingBand))
+            .verifyComplete();
+    }
+
+    @Test
     void update_nonExisting_throwsNotFound() {
         var id = UUID.randomUUID();
-        var request = new UpdateDependantRequest("X", null, null, null, null, null, null, null, null);
+        var request = new UpdateDependantRequest("X", null, null, null, null, null, null, null, null, null);
         when(dependantRepository.findById(id)).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -195,23 +343,77 @@ class DependantServiceTest {
     }
 
     @Test
-    void remove_existingDependant_setsStatusRemoved() {
+    void deactivate_withOperatorPickedDate_setsStatusAndEffectiveDate() {
+        // V046 replaces the old remove() flow. Dependants are never
+        // deleted — this is the terminal soft-transition. Operator
+        // picks the effective date; billing continues up to and
+        // including that cycle (resolver enforces).
         var dependant = createTestDependant(UUID.randomUUID());
         var id = dependant.getId();
         var actorId = UUID.randomUUID().toString();
+        LocalDate effectiveDate = LocalDate.of(2026, 7, 15);
 
         when(dependantRepository.findById(id)).thenReturn(Mono.just(dependant));
         when(dependantRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            dependantService.remove(id, actorId, "actor@test.example")
+            dependantService.deactivate(id, effectiveDate, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
-            .assertNext(result -> assertThat(result.getStatus()).isEqualTo("removed"))
+            .assertNext(result -> {
+                assertThat(result.getStatus()).isEqualTo("deactivated");
+                assertThat(result.getDeactivationEffectiveDate()).isEqualTo(effectiveDate);
+            })
             .verifyComplete();
 
         verify(auditPublisher).publish(any());
+    }
+
+    @Test
+    void deactivate_nonExisting_throwsNotFound() {
+        // Parallel to update_nonExisting_throwsNotFound — the
+        // switchIfEmpty(...) branch must fire cleanly rather than
+        // NPE inside the flatMap. Critical because deactivation is
+        // a destructive-looking action; a 500 here would leave the
+        // operator uncertain whether the row was mutated.
+        var id = UUID.randomUUID();
+        when(dependantRepository.findById(id)).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            dependantService.deactivate(id, LocalDate.of(2026, 7, 15),
+                    UUID.randomUUID().toString(), "actor@test.example")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .expectError(DependantNotFoundException.class)
+            .verify();
+
+        // No write, no audit — cleanly bail.
+        verify(dependantRepository, never()).save(any());
+        verify(auditPublisher, never()).publish(any());
+    }
+
+    @Test
+    void deactivate_nullEffectiveDate_defaultsToToday() {
+        // The controller allows an omitted body — service defaults to
+        // today so the operator can hit deactivate without a date.
+        var dependant = createTestDependant(UUID.randomUUID());
+        var id = dependant.getId();
+
+        when(dependantRepository.findById(id)).thenReturn(Mono.just(dependant));
+        when(dependantRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+            dependantService.deactivate(id, null,
+                    UUID.randomUUID().toString(), "actor@test.example")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .assertNext(result -> {
+                assertThat(result.getStatus()).isEqualTo("deactivated");
+                assertThat(result.getDeactivationEffectiveDate()).isEqualTo(LocalDate.now());
+            })
+            .verifyComplete();
     }
 
     private Dependant createTestDependant(UUID memberId) {

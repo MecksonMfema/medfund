@@ -593,7 +593,12 @@ public class BillingService {
                         .all()
                         .collectMap(java.util.Map.Entry::getKey, java.util.Map.Entry::getValue);
 
-        boolean individualModel = "INDIVIDUAL".equalsIgnoreCase(pricingModel);
+        // AI_DRIVEN is a hybrid mode: per-member overrides win exactly
+        // like INDIVIDUAL, plus an AI-suggestion helper is available at
+        // enrolment. Both models honour the override on the charge
+        // preview, so the "custom priced" pill lights up for either.
+        boolean individualModel = "INDIVIDUAL".equalsIgnoreCase(pricingModel)
+                || "AI_DRIVEN".equalsIgnoreCase(pricingModel);
 
         return Mono.zip(memberMetaMono, dependantMetaMono)
                 .map(tuple -> composeDecoratedLines(

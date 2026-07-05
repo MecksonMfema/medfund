@@ -16,6 +16,9 @@ public record DependantResponse(
     String relationship,
     String nationalId,
     String status,
+    /** Present iff status = 'deactivated'. Billing stops from the
+     *  cycle AFTER this date. See {@link Dependant#getDeactivationEffectiveDate}. */
+    LocalDate deactivationEffectiveDate,
     Instant createdAt,
     Instant updatedAt
 ) {
@@ -23,7 +26,9 @@ public record DependantResponse(
         return new DependantResponse(
             d.getId(), d.getMemberId(), d.getFirstName(), d.getLastName(),
             d.getDateOfBirth(), d.getGender(), d.getRelationship(),
-            d.getNationalId(), d.getStatus(), d.getCreatedAt(), d.getUpdatedAt()
+            d.getNationalId(), d.getStatus(),
+            d.getDeactivationEffectiveDate(),
+            d.getCreatedAt(), d.getUpdatedAt()
         );
     }
 }

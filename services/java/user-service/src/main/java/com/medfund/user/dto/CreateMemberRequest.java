@@ -1,11 +1,13 @@
 package com.medfund.user.dto;
 
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -41,7 +43,24 @@ public record CreateMemberRequest(
     @NotNull
     UUID schemeId,
 
-    LocalDate enrollmentDate
+    LocalDate enrollmentDate,
+
+    /**
+     * Optional custom-premium triple, honoured only when the tenant's
+     * {@code pricing_model = 'INDIVIDUAL'} (V030). Same semantics as the
+     * update path — {@code amount != null} requires {@code effectiveFrom}
+     * to be set, otherwise MemberService throws a 400 rather than let a
+     * SQL CHECK produce a mystery constraint violation. Frontend gates
+     * the section on {@code tenant.pricingModel} so tenants on STANDARD
+     * never send these fields.
+     */
+    @DecimalMin(value = "0.01", message = "billingOverrideAmount must be positive")
+    BigDecimal billingOverrideAmount,
+
+    @Size(max = 40)
+    String billingOverrideReason,
+
+    LocalDate billingOverrideEffectiveFrom
 ) {
     /**
      * Enrolment dates are always the first of a month. Callers may pass any

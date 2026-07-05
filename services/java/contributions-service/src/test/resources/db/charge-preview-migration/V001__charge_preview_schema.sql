@@ -139,6 +139,10 @@ CREATE TABLE dependants (
     billing_age_group_id            UUID          REFERENCES age_groups(id),
     billing_override_amount         NUMERIC(18,2),
     billing_override_effective_from DATE,
+    -- V046 mirror: dependant deactivation effective date; the resolver
+    -- WHERE clause includes 'deactivated' dependants whose date is
+    -- still >= periodStart (billed up to and including that cycle).
+    deactivation_effective_date     DATE,
     created_at                      TIMESTAMPTZ   NOT NULL DEFAULT now()
 );
 

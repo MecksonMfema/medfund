@@ -16,6 +16,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -138,7 +139,8 @@ class MemberServiceTest {
         var actorId = UUID.randomUUID().toString();
         var request = new CreateMemberRequest(
             "John", "Doe", LocalDate.of(1990, 1, 15), "male",
-            null, "john@example.com", null, null, null, null, null
+            null, "john@example.com", null, null, null, null, null,
+            null, null, null  // billingOverrideAmount / reason / effectiveFrom
         );
 
         lenient().when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
@@ -174,7 +176,8 @@ class MemberServiceTest {
         var legacyActorId = "legacy-username";
         var request = new CreateMemberRequest(
             "John", "Doe", LocalDate.of(1990, 1, 15), "male",
-            "63-1234567", "john@example.com", null, null, null, UUID.randomUUID(), null
+            "63-1234567", "john@example.com", null, null, null, UUID.randomUUID(), null,
+            null, null, null  // billingOverrideAmount / reason / effectiveFrom
         );
 
         lenient().when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
@@ -203,7 +206,8 @@ class MemberServiceTest {
         var actorId = UUID.randomUUID().toString();
         var request = new CreateMemberRequest(
             "John", "Doe", LocalDate.of(1990, 1, 15), "male",
-            "63-1234567", "john@example.com", null, null, null, UUID.randomUUID(), null
+            "63-1234567", "john@example.com", null, null, null, UUID.randomUUID(), null,
+            null, null, null  // billingOverrideAmount / reason / effectiveFrom
         );
 
         lenient().when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
@@ -234,7 +238,8 @@ class MemberServiceTest {
         var actorId = UUID.randomUUID().toString();
         var request = new CreateMemberRequest(
             "John", "Doe", LocalDate.of(1990, 1, 15), "male",
-            "63-1234567", "john@example.com", null, null, null, UUID.randomUUID(), null
+            "63-1234567", "john@example.com", null, null, null, UUID.randomUUID(), null,
+            null, null, null  // billingOverrideAmount / reason / effectiveFrom
         );
 
         lenient().when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
@@ -253,6 +258,107 @@ class MemberServiceTest {
             .verifyComplete();
     }
 
+    // ------------------------------------------------------------------
+    // Custom-premium at enrolment (V030 INDIVIDUAL model).
+    //
+    // Backend must accept the override triple on the enrol path so an
+    // operator on the "Add member" form can capture it in one round-trip
+    // — same UX motivation that already drove the update-path override.
+    // Frontend gates the fields on tenant.pricingModel = INDIVIDUAL, but
+    // the service should still refuse a half-filled triple defensively.
+    // ------------------------------------------------------------------
+
+    @Test
+    void enroll_withCustomPremium_persistsOverrideTriple() {
+        // Full triple set → member row lands with all three fields.
+        var actorId = UUID.randomUUID().toString();
+        BigDecimal amount = new BigDecimal("125.50");
+        LocalDate effectiveFrom = LocalDate.of(2026, 8, 1);
+        String reason = "corporate discount";
+        var request = new CreateMemberRequest(
+            "Jane", "Doe", LocalDate.of(1990, 1, 15), "female",
+            "63-9999999", "jane@example.com", null, null, null,
+            UUID.randomUUID(), null,
+            amount, reason, effectiveFrom
+        );
+
+        lenient().when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
+        lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
+        when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
+
+        StepVerifier.create(
+            memberService.enroll(request, actorId, "actor@test.example")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .assertNext(member -> {
+                assertThat(member.getBillingOverrideAmount()).isEqualByComparingTo(amount);
+                assertThat(member.getBillingOverrideReason()).isEqualTo(reason);
+                assertThat(member.getBillingOverrideEffectiveFrom()).isEqualTo(effectiveFrom);
+            })
+            .verifyComplete();
+    }
+
+    @Test
+    void enroll_amountWithoutEffectiveFrom_failsFastWith400() {
+        // Half-filled triple must fail cleanly with a friendly message —
+        // otherwise the DB CHECK produces an opaque constraint violation
+        // that surfaces as a 500.
+        var actorId = UUID.randomUUID().toString();
+        var request = new CreateMemberRequest(
+            "Jane", "Doe", LocalDate.of(1990, 1, 15), "female",
+            "63-9999999", "jane@example.com", null, null, null,
+            UUID.randomUUID(), null,
+            new BigDecimal("125.50"), "corporate discount", /* effectiveFrom */ null
+        );
+
+        StepVerifier.create(
+            memberService.enroll(request, actorId, "actor@test.example")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .expectErrorSatisfies(err -> {
+                assertThat(err).isInstanceOf(IllegalArgumentException.class);
+                assertThat(err.getMessage()).contains("billingOverrideEffectiveFrom");
+            })
+            .verify();
+
+        // No DB write happened — the guard fires before the insert.
+        verify(r2dbcTemplate, never()).insert(any());
+    }
+
+    @Test
+    void enroll_withoutCustomPremium_leavesOverrideFieldsNull() {
+        // Regression guard: an omitted triple on the request must leave
+        // all three override fields null on the persisted row. Silent
+        // stamping of a default would break arrears calculations for
+        // every enrolment.
+        var actorId = UUID.randomUUID().toString();
+        var request = new CreateMemberRequest(
+            "Jane", "Doe", LocalDate.of(1990, 1, 15), "female",
+            "63-9999999", "jane@example.com", null, null, null,
+            UUID.randomUUID(), null,
+            null, null, null
+        );
+
+        lenient().when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
+        lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
+        when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
+
+        StepVerifier.create(
+            memberService.enroll(request, actorId, "actor@test.example")
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+            .assertNext(member -> {
+                assertThat(member.getBillingOverrideAmount()).isNull();
+                assertThat(member.getBillingOverrideReason()).isNull();
+                assertThat(member.getBillingOverrideEffectiveFrom()).isNull();
+            })
+            .verifyComplete();
+    }
+
     @Test
     void enroll_normalisesEnrollmentDateToFirstOfMonth() {
         // Operators may submit any day within the target month — the DTO
@@ -261,7 +367,8 @@ class MemberServiceTest {
         var midMonth = LocalDate.of(2026, 6, 19);
         var request = new CreateMemberRequest(
             "John", "Doe", LocalDate.of(1990, 1, 15), "male",
-            "63-1234567", "john@example.com", null, null, null, UUID.randomUUID(), midMonth
+            "63-1234567", "john@example.com", null, null, null, UUID.randomUUID(), midMonth,
+            null, null, null  // billingOverrideAmount / reason / effectiveFrom
         );
 
         lenient().when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));

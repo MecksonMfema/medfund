@@ -2,9 +2,10 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { ContributionsService } from '../../../../core/services/contributions.service';
+import { AgeGroup, ContributionsService } from '../../../../core/services/contributions.service';
 import { GroupsService } from '../../../../core/services/groups.service';
 import { Dependant, Member, MembersService } from '../../../../core/services/members.service';
+import { PricingSuggestionResponse, PricingSuggestionService } from '../../../../core/services/pricing-suggestion.service';
 import { EntityPickerComponent } from '../../../../shared/components/entity-picker/entity-picker.component';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
@@ -39,10 +40,26 @@ interface DependantForm {
   gender: string;
   relationship: string;
   nationalId: string;
+  /**
+   * Custom-premium triple. Rendered + sent only when the tenant's
+   * pricingModel === 'INDIVIDUAL' or 'AI_DRIVEN'. Same amount +
+   * effective_from rule as the member override.
+   */
+  billingOverrideAmount: number | null;
+  billingOverrideReason: string;
+  billingOverrideEffectiveFrom: string;
+  billingAgeGroupId: string;
+  // Risk signals used by the AI suggestion for a dependant.
+  smoker: boolean;
+  hasChronicConditions: boolean;
+  bmi: number | null;
 }
 
 const EMPTY_DEPENDANT: DependantForm = {
   firstName: '', lastName: '', dateOfBirth: '', gender: '', relationship: '', nationalId: '',
+  billingOverrideAmount: null, billingOverrideReason: '', billingOverrideEffectiveFrom: '',
+  billingAgeGroupId: '',
+  smoker: false, hasChronicConditions: false, bmi: null,
 };
 
 @Component({
@@ -64,6 +81,28 @@ export class MemberDetailComponent implements OnInit {
     email: '', phone: '', address: '', groupId: '', schemeId: '',
     billingOverrideAmount: null, billingOverrideReason: '', billingOverrideEffectiveFrom: '',
   };
+
+  /** Age-band options loaded for the member's current scheme. Consumed
+   *  only by the dependant collapsible — dependants can be re-classified
+   *  to a different band (e.g. a child with a disability who ages out
+   *  of the child band by DoB but should stay on the child rate).
+   *  Members themselves don't have an age-band override: their band is
+   *  resolved from DoB and any per-member price change goes through the
+   *  Custom-premium override instead. */
+  ageGroupOptions: SelectOption[] = [];
+  ageGroupsLoading = false;
+
+  /** Most recent AI suggestion for the member's custom premium. */
+  memberAiSuggestion: PricingSuggestionResponse | null = null;
+  memberAiRequesting = false;
+
+  /** Risk signals for the member's AI suggestion. Not persisted — just
+   *  drive the suggest call. */
+  memberRiskSignals = { smoker: false, hasChronicConditions: false, bmi: null as number | null };
+
+  /** Most recent AI suggestion for the dependant's custom premium. */
+  dependantAiSuggestion: PricingSuggestionResponse | null = null;
+  dependantAiRequesting = false;
 
   dependants: Dependant[] = [];
   dependantsLoading = false;
@@ -105,11 +144,22 @@ export class MemberDetailComponent implements OnInit {
     private router: Router,
     private toast: ToastService,
     private tenantSvc: TenantService,
+    private pricingSuggestion: PricingSuggestionService,
   ) {}
 
-  /** Whether the Custom-premium section + Clear-override button render. */
+  /** Whether the "Suggest with AI" button renders. Only true for
+   *  AI_DRIVEN. INDIVIDUAL enables overrides but not the AI helper. */
+  get aiSuggestionsEnabled(): boolean {
+    return this.tenantSvc.getTenant()?.pricingModel === 'AI_DRIVEN';
+  }
+
+  /** Whether the Custom-premium section + Clear-override button render.
+   *  AI_DRIVEN is a hybrid mode: same override semantics as INDIVIDUAL,
+   *  plus the AI suggestion helper. STANDARD is the only mode without
+   *  overrides. Matches the backend resolver's gate. */
   get individualPricing(): boolean {
-    return this.tenantSvc.getTenant()?.pricingModel === 'INDIVIDUAL';
+    const mode = this.tenantSvc.getTenant()?.pricingModel;
+    return mode === 'INDIVIDUAL' || mode === 'AI_DRIVEN';
   }
 
   ngOnInit(): void {
@@ -145,6 +195,7 @@ export class MemberDetailComponent implements OnInit {
         };
         this.loading = false;
         this.loadPrefillLabels(m);
+        if (m.schemeId) this.loadAgeGroups(m.schemeId);
       },
       error: (err) => {
         this.errorMessage = err?.error?.detail || 'Failed to load member';
@@ -181,6 +232,108 @@ export class MemberDetailComponent implements OnInit {
       this.schemeSublabel = null;
     }
   }
+
+  /** Load the scheme's age-bands into the picker. Called on member
+   *  load and whenever the operator switches the scheme. */
+  private loadAgeGroups(schemeId: string): void {
+    this.ageGroupsLoading = true;
+    this.contributions.getAgeGroupsByScheme(schemeId).subscribe({
+      next: (rows) => {
+        this.ageGroupOptions = rows.map((g: AgeGroup) => ({
+          value: g.id,
+          label: `${g.name} (ages ${g.minAge}–${g.maxAge})`,
+        }));
+        this.ageGroupsLoading = false;
+      },
+      error: () => {
+        this.ageGroupOptions = [];
+        this.ageGroupsLoading = false;
+      },
+    });
+  }
+
+  /** Bound to (valueChange) on the scheme picker. The scheme change
+   *  refreshes the dependant collapsible's age-band options — a
+   *  different scheme carries different bands, so a stale option list
+   *  would let the operator pick a band that doesn't belong to the
+   *  new scheme. */
+  onSchemeChange(schemeId: string | null): void {
+    this.ageGroupOptions = [];
+    if (schemeId) this.loadAgeGroups(schemeId);
+  }
+
+  /** Ask the AI stub for a suggested premium for the member. Only
+   *  wired when tenant.pricingModel === 'AI_DRIVEN'. */
+  suggestMemberPremium(): void {
+    if (!this.member || !this.form.schemeId || !this.member.dateOfBirth) {
+      this.toast.error('Missing scheme or date of birth — the AI needs both to compute a baseline.');
+      return;
+    }
+    this.memberAiRequesting = true;
+    this.pricingSuggestion.suggest({
+      schemeId: this.form.schemeId,
+      dateOfBirth: this.member.dateOfBirth,
+      gender: this.form.gender || undefined,
+      smoker: this.memberRiskSignals.smoker || undefined,
+      hasChronicConditions: this.memberRiskSignals.hasChronicConditions || undefined,
+      bmi: this.memberRiskSignals.bmi ?? undefined,
+    }).subscribe({
+      next: (resp) => {
+        this.memberAiSuggestion = resp;
+        this.form.billingOverrideAmount = Number(resp.suggestedAmount);
+        // Default effective_from to next-cycle's start (1st of next
+        // month) if not already set — mirrors real billing anchors.
+        if (!this.form.billingOverrideEffectiveFrom) {
+          const now = new Date();
+          const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          this.form.billingOverrideEffectiveFrom = next.toISOString().slice(0, 10);
+        }
+        this.memberAiRequesting = false;
+      },
+      error: (err) => {
+        this.memberAiRequesting = false;
+        this.toast.error(err?.error?.detail || 'Failed to fetch AI suggestion');
+      },
+    });
+  }
+
+  clearMemberAiSuggestion(): void { this.memberAiSuggestion = null; }
+
+  /** Same flow as suggestMemberPremium but for the currently-editing
+   *  dependant. Requires the parent member's schemeId + the
+   *  dependant's DoB from the collapsible form. */
+  suggestDependantPremium(): void {
+    if (!this.form.schemeId || !this.dependantForm.dateOfBirth) {
+      this.toast.error('Missing scheme or dependant date of birth.');
+      return;
+    }
+    this.dependantAiRequesting = true;
+    this.pricingSuggestion.suggest({
+      schemeId: this.form.schemeId,
+      dateOfBirth: this.dependantForm.dateOfBirth,
+      gender: this.dependantForm.gender || undefined,
+      smoker: this.dependantForm.smoker || undefined,
+      hasChronicConditions: this.dependantForm.hasChronicConditions || undefined,
+      bmi: this.dependantForm.bmi ?? undefined,
+    }).subscribe({
+      next: (resp) => {
+        this.dependantAiSuggestion = resp;
+        this.dependantForm.billingOverrideAmount = Number(resp.suggestedAmount);
+        if (!this.dependantForm.billingOverrideEffectiveFrom) {
+          const now = new Date();
+          const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          this.dependantForm.billingOverrideEffectiveFrom = next.toISOString().slice(0, 10);
+        }
+        this.dependantAiRequesting = false;
+      },
+      error: (err) => {
+        this.dependantAiRequesting = false;
+        this.toast.error(err?.error?.detail || 'Failed to fetch AI suggestion');
+      },
+    });
+  }
+
+  clearDependantAiSuggestion(): void { this.dependantAiSuggestion = null; }
 
   save(): void {
     this.saving = true;
@@ -283,6 +436,7 @@ export class MemberDetailComponent implements OnInit {
 
   editDependant(d: Dependant): void {
     this.editingDependantId = d.id;
+    this.dependantAiSuggestion = null;
     this.dependantForm = {
       firstName:   d.firstName ?? '',
       lastName:    d.lastName ?? '',
@@ -290,6 +444,13 @@ export class MemberDetailComponent implements OnInit {
       gender:      d.gender ?? '',
       relationship: d.relationship ?? '',
       nationalId:  d.nationalId ?? '',
+      billingOverrideAmount:        (d as any).billingOverrideAmount ?? null,
+      billingOverrideReason:        (d as any).billingOverrideReason ?? '',
+      billingOverrideEffectiveFrom: (d as any).billingOverrideEffectiveFrom ?? '',
+      billingAgeGroupId:            (d as any).billingAgeGroupId ?? '',
+      // Risk signals aren't persisted on the dependant; reset each
+      // time the operator opens the edit collapsible.
+      smoker: false, hasChronicConditions: false, bmi: null,
     };
   }
 
@@ -315,8 +476,17 @@ export class MemberDetailComponent implements OnInit {
       this.toast.error(`Required field${missing.length > 1 ? 's' : ''} missing: ${missing.join(', ')}.`);
       return;
     }
+    // Custom-premium consistency: amount without effective_from is
+    // rejected by the backend's early guard. Mirror it client-side
+    // for a friendly toast rather than a 400 round-trip.
+    if (this.individualPricing
+        && this.dependantForm.billingOverrideAmount != null
+        && !this.dependantForm.billingOverrideEffectiveFrom) {
+      this.toast.error('Custom premium: effective_from is required when an override amount is set.');
+      return;
+    }
     this.dependantSaving = true;
-    const base = {
+    const base: any = {
       firstName:    this.dependantForm.firstName.trim(),
       lastName:     this.dependantForm.lastName.trim(),
       dateOfBirth:  this.dependantForm.dateOfBirth || undefined,
@@ -324,6 +494,15 @@ export class MemberDetailComponent implements OnInit {
       relationship: this.dependantForm.relationship.trim(),
       nationalId:   this.dependantForm.nationalId.trim(),
     };
+    if (this.individualPricing && this.dependantForm.billingOverrideAmount != null) {
+      base.billingOverrideAmount = this.dependantForm.billingOverrideAmount;
+      base.billingOverrideReason = this.dependantForm.billingOverrideReason.trim() || undefined;
+      base.billingOverrideEffectiveFrom = this.dependantForm.billingOverrideEffectiveFrom;
+    }
+    // Manual age-band override — applies for every pricing model.
+    if (this.dependantForm.billingAgeGroupId) {
+      base.billingAgeGroupId = this.dependantForm.billingAgeGroupId;
+    }
     const stream = isNew
       ? this.members.addDependant({ memberId: this.memberId, ...base })
       : this.members.updateDependant(this.editingDependantId!, base);
@@ -345,18 +524,38 @@ export class MemberDetailComponent implements OnInit {
     });
   }
 
-  removeDependant(d: Dependant): void {
-    if (!confirm(`Remove dependant ${d.firstName} ${d.lastName}?`)) return;
+  /**
+   * Deactivate a dependant. V046: dependants are never deleted, only
+   * deactivated with an effective date. Billing continues up to and
+   * including the cycle that contains the effective date. Operator
+   * picks the date via a lightweight prompt seeded with today (Cancel
+   * = abort, empty answer = today, valid ISO = that date).
+   */
+  deactivateDependant(d: Dependant): void {
+    const today = new Date().toISOString().slice(0, 10);
+    const answer = prompt(
+      `Terminate dependant ${d.firstName} ${d.lastName}.\n\n` +
+      `Effective date (YYYY-MM-DD). Billing continues up to and including that month; empty = today.`,
+      today,
+    );
+    if (answer === null) return; // Cancel
+    const effectiveDate = answer.trim() || today;
+    // Guard against a garbled ISO string — the backend would 400 but a
+    // friendly toast is nicer than a round-trip.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) {
+      this.toast.error(`Invalid date "${effectiveDate}". Use YYYY-MM-DD.`);
+      return;
+    }
     this.removingId = d.id;
-    this.members.removeDependant(d.id).subscribe({
+    this.members.deactivateDependant(d.id, effectiveDate).subscribe({
       next: (saved) => {
         this.dependants = this.dependants.map(x => x.id === saved.id ? saved : x);
         this.removingId = null;
-        this.toast.success('Dependant removed');
+        this.toast.success(`Dependant terminated effective ${effectiveDate}`);
       },
       error: (err) => {
         this.removingId = null;
-        this.toast.error(err?.error?.detail || 'Remove failed');
+        this.toast.error(err?.error?.detail || 'Termination failed');
       },
     });
   }
