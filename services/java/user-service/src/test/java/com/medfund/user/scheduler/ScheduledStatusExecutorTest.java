@@ -6,12 +6,14 @@ import com.medfund.user.entity.Member;
 import com.medfund.user.job.ScheduledStatusExecutor;
 import com.medfund.user.repository.DependantRepository;
 import com.medfund.user.repository.GroupRepository;
+import com.medfund.user.repository.MemberDependantSwapRepository;
 import com.medfund.user.repository.MemberRepository;
 import com.medfund.user.repository.PendingGroupChangeRepository;
 import com.medfund.user.service.DependantService;
 import com.medfund.user.service.GroupChangeService;
 import com.medfund.user.service.GroupService;
 import com.medfund.user.service.MemberService;
+import com.medfund.user.service.MemberSwapService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,10 +42,12 @@ class ScheduledStatusExecutorTest {
     @Mock GroupService groupService;
     @Mock DependantService dependantService;
     @Mock GroupChangeService groupChangeService;
+    @Mock MemberSwapService memberSwapService;
     @Mock MemberRepository memberRepository;
     @Mock GroupRepository groupRepository;
     @Mock DependantRepository dependantRepository;
     @Mock PendingGroupChangeRepository pendingGroupChangeRepository;
+    @Mock MemberDependantSwapRepository memberDependantSwapRepository;
     @Mock DatabaseClient databaseClient;
 
     private ScheduledStatusExecutor executor;
@@ -51,14 +55,17 @@ class ScheduledStatusExecutorTest {
     @BeforeEach
     void setUp() {
         executor = new ScheduledStatusExecutor(memberService, groupService, dependantService,
-                groupChangeService, memberRepository, groupRepository, dependantRepository,
-                pendingGroupChangeRepository, databaseClient);
+                groupChangeService, memberSwapService, memberRepository, groupRepository,
+                dependantRepository, pendingGroupChangeRepository, memberDependantSwapRepository,
+                databaseClient);
         // Default: no dependants in the sweep unless the test says otherwise.
         org.mockito.Mockito.lenient().when(dependantRepository.findAll())
                 .thenReturn(Flux.empty());
-        // Default: no ready group changes in the sweep. Individual tests
-        // override for the V048 group-change apply case.
+        // Default: no ready group changes or swaps in the sweep. Individual
+        // tests override for the V048 group-change / swap apply cases.
         org.mockito.Mockito.lenient().when(pendingGroupChangeRepository.findReadyToApply(any()))
+                .thenReturn(Flux.empty());
+        org.mockito.Mockito.lenient().when(memberDependantSwapRepository.findReadyToApply(any()))
                 .thenReturn(Flux.empty());
     }
 
@@ -200,6 +207,29 @@ class ScheduledStatusExecutorTest {
         StepVerifier.create(executor.execute("tnt", "{}")).verifyComplete();
 
         verify(groupChangeService).apply(eq(bad.getId()), any(), any());
+    }
+
+    @Test
+    void pendingSwap_dueToday_appliedThroughService() {
+        // V048 — an APPROVED member_dependant_swaps row whose
+        // effective_date has arrived must call MemberSwapService.apply.
+        when(memberRepository.findAll()).thenReturn(Flux.empty());
+        when(groupRepository.findAll()).thenReturn(Flux.empty());
+        com.medfund.user.entity.MemberDependantSwap swap =
+                new com.medfund.user.entity.MemberDependantSwap();
+        swap.setId(UUID.randomUUID());
+        swap.setOldMemberId(UUID.randomUUID());
+        swap.setDependantId(UUID.randomUUID());
+        swap.setStatus("APPROVED");
+        swap.setEffectiveDate(LocalDate.now().withDayOfMonth(1));
+        when(memberDependantSwapRepository.findReadyToApply(any()))
+                .thenReturn(Flux.just(swap));
+        when(memberSwapService.apply(eq(swap.getId()), any(), any()))
+                .thenReturn(Mono.just(swap));
+
+        StepVerifier.create(executor.execute("tnt", "{}")).verifyComplete();
+
+        verify(memberSwapService).apply(eq(swap.getId()), any(), any());
     }
 
     private static Member member(UUID id, String status, LocalDate enrollmentDate,

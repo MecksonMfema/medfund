@@ -119,4 +119,95 @@ export class MembersService {
     const body = effectiveDate ? { effectiveDate } : {};
     return this.api.post<Dependant>(`/dependants/${id}/deactivate`, body);
   }
+
+  /**
+   * Book a group change (V048). Back-dated effectiveDate applies
+   * immediately and posts arrears/rebate on the group ledger;
+   * forward-dated stashes a PENDING row for approval.
+   */
+  requestGroupChange(memberId: string,
+                     payload: { targetGroupId: string; effectiveDate: string; reason?: string }
+                    ): Observable<GroupChangeResponse> {
+    return this.api.post<GroupChangeResponse>(
+      `/members/${memberId}/group-changes`, payload);
+  }
+
+  listGroupChanges(memberId: string): Observable<GroupChangeResponse[]> {
+    return this.api.get<GroupChangeResponse[]>(`/members/${memberId}/group-changes`);
+  }
+
+  approveGroupChange(memberId: string, id: string): Observable<GroupChangeResponse> {
+    return this.api.post<GroupChangeResponse>(
+      `/members/${memberId}/group-changes/${id}/approve`, {});
+  }
+
+  rejectGroupChange(memberId: string, id: string, reason: string): Observable<GroupChangeResponse> {
+    return this.api.post<GroupChangeResponse>(
+      `/members/${memberId}/group-changes/${id}/reject`, { reason });
+  }
+
+  /**
+   * Book a role-swap between a member and one of their dependants
+   * (V048). Same PENDING/APPLIED semantics as group change. On apply
+   * the dependant is promoted, the old principal is demoted, sibling
+   * dependants re-parent onto the new principal, and both old rows
+   * are marked status='swapped' with the swapped_to_id pointer set.
+   */
+  requestSwap(memberId: string,
+              payload: { dependantId: string; effectiveDate: string; reason?: string }
+             ): Observable<MemberSwapResponse> {
+    return this.api.post<MemberSwapResponse>(`/members/${memberId}/swaps`, payload);
+  }
+
+  listSwaps(memberId: string): Observable<MemberSwapResponse[]> {
+    return this.api.get<MemberSwapResponse[]>(`/members/${memberId}/swaps`);
+  }
+
+  approveSwap(memberId: string, id: string): Observable<MemberSwapResponse> {
+    return this.api.post<MemberSwapResponse>(`/members/${memberId}/swaps/${id}/approve`, {});
+  }
+
+  rejectSwap(memberId: string, id: string, reason: string): Observable<MemberSwapResponse> {
+    return this.api.post<MemberSwapResponse>(`/members/${memberId}/swaps/${id}/reject`, { reason });
+  }
+}
+
+/**
+ * V048 group-change response. `backdated=true` means the flip
+ * happened immediately and arrears/rebate is being posted
+ * asynchronously by contributions-service; forward-dated requests
+ * stay `PENDING` until the executor promotes them on the effective
+ * date.
+ */
+export interface GroupChangeResponse {
+  id: string;
+  memberId: string;
+  fromGroupId: string | null;
+  toGroupId: string;
+  status: string;
+  requestedDate: string;
+  effectiveDate: string;
+  reason?: string | null;
+  rejectionReason?: string | null;
+  appliedAt?: string | null;
+  backdated: boolean;
+}
+
+/** V048 swap response. Once applied, `newMemberId` points at the
+ *  promoted member's row and `oldDependantId` at the demoted
+ *  principal's new dependant row. Historical claims/contributions
+ *  still point at the original member; the members.swapped_to_id
+ *  pointer lets reporting follow the redirect. */
+export interface MemberSwapResponse {
+  id: string;
+  oldMemberId: string;
+  dependantId: string;
+  newMemberId: string | null;
+  oldDependantId: string | null;
+  status: string;
+  requestedDate: string;
+  effectiveDate: string;
+  reason?: string | null;
+  rejectionReason?: string | null;
+  appliedAt?: string | null;
 }

@@ -29,6 +29,8 @@
         @if (canSuspend())       { <button type="button" class="btn btn-warn"     (click)="suspend()">Suspend</button> }
         @if (canTerminate())     { <button type="button" class="btn btn-danger"   (click)="terminate()">Terminate</button> }
         @if (canClearOverride()) { <button type="button" class="btn btn-default"  (click)="clearBillingOverride()">Clear custom premium</button> }
+        <!-- V048 group change: back-dated posts arrears/rebate; forward-dated stashes PENDING for approval. -->
+        <button type="button" class="btn btn-default" (click)="changeGroup()">Change group</button>
       }
       <a class="btn btn-default" routerLink="/tenant/members">
         <app-icon name="arrow-left" [size]="14"></app-icon>
@@ -396,9 +398,14 @@
                         }
                       </div>
                       <div class="dependant-summary__actions">
-                        @if (d.status !== 'deactivated' && d.status !== 'removed') {
+                        @if (d.status !== 'deactivated' && d.status !== 'removed' && d.status !== 'swapped') {
                           <button type="button" class="btn btn-default" (click)="editDependant(d)" [disabled]="!!removingId">
                             Edit
+                          </button>
+                          <!-- V048 role swap: promote this dependant to principal; current member becomes their dependant. -->
+                          <button type="button" class="btn btn-default" (click)="swapWithDependant(d)"
+                                  [disabled]="!!removingId">
+                            Swap
                           </button>
                           <button type="button" class="btn btn-danger" (click)="deactivateDependant(d)"
                                   [disabled]="removingId === d.id">

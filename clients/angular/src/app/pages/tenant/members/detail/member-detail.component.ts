@@ -595,4 +595,96 @@ export class MemberDetailComponent implements OnInit {
   }
 
   back(): void { this.router.navigate(['/tenant/members']); }
+
+  /**
+   * Book a group change (V048). Prompts for the target group's ID
+   * and an effective date, then hits POST /members/{id}/group-changes.
+   * Back-dated dates apply immediately and trigger arrears/rebate on
+   * the group ledger via GroupChangedConsumer; forward-dated stays
+   * PENDING until an operator approves it.
+   *
+   * <p>The lightweight prompt trades UX polish for tight code —
+   * matches the existing dependant-deactivation flow. A dedicated
+   * modal with a group picker (per feedback_no_raw_id_inputs) is a
+   * follow-up.
+   */
+  changeGroup(): void {
+    if (!this.member) return;
+    const targetGroupId = prompt(
+      `Target group ID for member ${this.member.firstName} ${this.member.lastName}:`,
+      '');
+    if (targetGroupId === null) return;
+    const targetTrim = targetGroupId.trim();
+    if (!/^[0-9a-f-]{36}$/i.test(targetTrim)) {
+      this.toast.error('Target group ID must be a UUID.');
+      return;
+    }
+    const nextMonth = this.firstOfMonthOffset(1);
+    const answer = prompt(
+      'Effective date (YYYY-MM-DD, 1st of a month). Back-dated posts arrears/rebate; forward-dated stays PENDING.',
+      nextMonth);
+    if (answer === null) return;
+    const effectiveDate = answer.trim() || nextMonth;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) {
+      this.toast.error(`Invalid date "${effectiveDate}". Use YYYY-MM-DD.`);
+      return;
+    }
+    const reason = prompt('Reason (optional):', '') || undefined;
+    this.members.requestGroupChange(this.member.id, {
+      targetGroupId: targetTrim,
+      effectiveDate,
+      reason,
+    }).subscribe({
+      next: (saved) => {
+        const label = saved.status === 'APPLIED' || saved.backdated
+          ? `Group change applied immediately (back-dated); arrears/rebate posting…`
+          : `Group change booked ${saved.status} — effective ${effectiveDate}`;
+        this.toast.success(label);
+      },
+      error: (err) => this.toast.error(err?.error?.detail || 'Group change failed'),
+    });
+  }
+
+  /**
+   * Book a role-swap between the current member and one of their
+   * dependants (V048). On apply the dependant becomes the principal;
+   * the current member becomes a dependant of the new principal.
+   */
+  swapWithDependant(d: Dependant): void {
+    if (!this.member) return;
+    const nextMonth = this.firstOfMonthOffset(1);
+    const answer = prompt(
+      `Swap ${this.member.firstName} ${this.member.lastName} with dependant ` +
+      `${d.firstName} ${d.lastName}.\n\n` +
+      `Effective date (YYYY-MM-DD, 1st of a month). Back-dated applies immediately.`,
+      nextMonth);
+    if (answer === null) return;
+    const effectiveDate = answer.trim() || nextMonth;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) {
+      this.toast.error(`Invalid date "${effectiveDate}". Use YYYY-MM-DD.`);
+      return;
+    }
+    const reason = prompt('Reason (optional):', '') || undefined;
+    this.members.requestSwap(this.member.id, {
+      dependantId: d.id,
+      effectiveDate,
+      reason,
+    }).subscribe({
+      next: (saved) => {
+        const label = saved.status === 'APPLIED'
+          ? `Swap applied — ${d.firstName} is now the principal.`
+          : `Swap booked ${saved.status} — effective ${effectiveDate}`;
+        this.toast.success(label);
+      },
+      error: (err) => this.toast.error(err?.error?.detail || 'Swap failed'),
+    });
+  }
+
+  /** Snap to the 1st of the current month + `offsetMonths` months. */
+  private firstOfMonthOffset(offsetMonths: number): string {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + offsetMonths);
+    return d.toISOString().slice(0, 10);
+  }
 }
