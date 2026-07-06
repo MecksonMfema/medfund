@@ -1,0 +1,46 @@
+@if (open) {
+  <div class="modal-backdrop" (click)="onCancel()">
+    <div class="modal-card" (click)="$event.stopPropagation()"
+         role="dialog" aria-modal="true" aria-label="Change group">
+      <h3 class="modal-title">Change group</h3>
+      <p class="modal-message">
+        Move <strong>{{ memberName || 'this member' }}</strong>
+        @if (currentGroupName) { from <em>{{ currentGroupName }}</em> } to a new group.
+        Back-dated effective dates apply immediately and post arrears/rebate on the group ledger;
+        forward-dated stays PENDING until an operator approves it.
+      </p>
+
+      <div class="field">
+        <label>Target group</label>
+        <app-entity-picker kind="group"
+                           [(value)]="targetGroupId"
+                           placeholder="Search groups by name…"></app-entity-picker>
+      </div>
+
+      <div class="field">
+        <label>Effective date</label>
+        <input type="date" [(ngModel)]="effectiveDate" (blur)="onEffectiveDateChange()" />
+        @if (isBackdated()) {
+          <div class="hint hint--warn">
+            Back-dated — applies immediately and posts arrears/rebate on the group ledger.
+          </div>
+        }
+      </div>
+
+      <div class="field">
+        <label>Reason (optional)</label>
+        <textarea [(ngModel)]="reason" rows="2" maxlength="500"
+                  placeholder="Why this change?"></textarea>
+      </div>
+
+      @if (error) { <div class="error">{{ error }}</div> }
+
+      <div class="actions">
+        <button type="button" class="btn btn-default" (click)="onCancel()">Cancel</button>
+        <button type="button" class="btn btn-primary" (click)="onSubmit()">
+          Book change
+        </button>
+      </div>
+    </div>
+  </div>
+}

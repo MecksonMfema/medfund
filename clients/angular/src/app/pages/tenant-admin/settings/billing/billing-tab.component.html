@@ -362,8 +362,66 @@
           <p class="muted">
             <strong>Switching only affects new enrolments.</strong> Existing member + dependant numbers keep their current format.
           </p>
+
+          <!-- V126 shape knobs. Prefix + padding are what a paper-record tenant
+               typically wants configurable so their auto-generated numbers
+               match the shape of their legacy manual numbers. -->
+          <div class="cfg-grid">
+            <label class="field">
+              <span class="field-label">Member prefix</span>
+              <input type="text" name="memberPrefix"
+                     [(ngModel)]="memberNumberConfigDraft.memberNumberPrefix"
+                     maxlength="20" />
+            </label>
+            <label class="field">
+              <span class="field-label">Dependant prefix
+                <small class="muted">(only used in Independent mode)</small></span>
+              <input type="text" name="dependantPrefix"
+                     [(ngModel)]="memberNumberConfigDraft.dependantNumberPrefix"
+                     maxlength="20"
+                     [disabled]="memberNumberSchemeDraft === 'SHARED_WITH_SUFFIX'" />
+            </label>
+            <label class="field">
+              <span class="field-label">Random digits (3-12)</span>
+              <input type="number" name="randomLength"
+                     [(ngModel)]="memberNumberConfigDraft.memberNumberRandomLength"
+                     min="3" max="12" />
+            </label>
+            @if (memberNumberSchemeDraft === 'SHARED_WITH_SUFFIX') {
+              <label class="field">
+                <span class="field-label">Suffix separator</span>
+                <input type="text" name="suffixSeparator"
+                       [(ngModel)]="memberNumberConfigDraft.memberNumberSuffixSeparator"
+                       maxlength="4" />
+              </label>
+              <label class="field">
+                <span class="field-label">Suffix padding (1-4)</span>
+                <input type="number" name="suffixPadding"
+                       [(ngModel)]="memberNumberConfigDraft.memberNumberSuffixPadding"
+                       min="1" max="4" />
+              </label>
+              <label class="field">
+                <span class="field-label">Suffix start</span>
+                <input type="number" name="suffixStart"
+                       [(ngModel)]="memberNumberConfigDraft.memberNumberSuffixStart"
+                       min="0" />
+              </label>
+            }
+          </div>
+
+          <div class="preview-block">
+            <div class="preview-row">
+              <span class="preview-label">Next member number preview</span>
+              <code class="preview-value">{{ memberNumberPreview() }}</code>
+            </div>
+            <div class="preview-row">
+              <span class="preview-label">Next dependant number preview</span>
+              <code class="preview-value">{{ dependantNumberPreview() }}</code>
+            </div>
+          </div>
+
           <div class="form-actions">
-            <button type="submit" class="btn btn-primary" [disabled]="saving">Save member-number scheme</button>
+            <button type="submit" class="btn btn-primary" [disabled]="saving">Save member-number config</button>
           </div>
         </form>
       </section>

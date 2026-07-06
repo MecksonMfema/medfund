@@ -11,6 +11,8 @@ import { IconComponent } from '../../../../shared/components/icon/icon.component
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
 import { TenantService } from '../../../../core/services/tenant.service';
+import { ChangeGroupModalComponent, ChangeGroupPayload } from '../../../../shared/components/change-group-modal/change-group-modal.component';
+import { SwapDependantModalComponent, SwapDependantPayload } from '../../../../shared/components/swap-dependant-modal/swap-dependant-modal.component';
 
 interface MemberForm {
   firstName: string;
@@ -72,7 +74,8 @@ const EMPTY_DEPENDANT: DependantForm = {
 @Component({
   selector: 'app-member-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, EntityPickerComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, EntityPickerComponent, SelectComponent,
+            ChangeGroupModalComponent, SwapDependantModalComponent],
   templateUrl: './member-detail.component.html',
   styleUrl: './member-detail.component.scss',
 })
@@ -596,84 +599,54 @@ export class MemberDetailComponent implements OnInit {
 
   back(): void { this.router.navigate(['/tenant/members']); }
 
-  /**
-   * Book a group change (V048). Prompts for the target group's ID
-   * and an effective date, then hits POST /members/{id}/group-changes.
-   * Back-dated dates apply immediately and trigger arrears/rebate on
-   * the group ledger via GroupChangedConsumer; forward-dated stays
-   * PENDING until an operator approves it.
-   *
-   * <p>The lightweight prompt trades UX polish for tight code —
-   * matches the existing dependant-deactivation flow. A dedicated
-   * modal with a group picker (per feedback_no_raw_id_inputs) is a
-   * follow-up.
-   */
-  changeGroup(): void {
+  // ── V048 group change (modal-based) ─────────────────────────────
+
+  changeGroupModalOpen = false;
+
+  openChangeGroupModal(): void {
     if (!this.member) return;
-    const targetGroupId = prompt(
-      `Target group ID for member ${this.member.firstName} ${this.member.lastName}:`,
-      '');
-    if (targetGroupId === null) return;
-    const targetTrim = targetGroupId.trim();
-    if (!/^[0-9a-f-]{36}$/i.test(targetTrim)) {
-      this.toast.error('Target group ID must be a UUID.');
-      return;
-    }
-    const nextMonth = this.firstOfMonthOffset(1);
-    const answer = prompt(
-      'Effective date (YYYY-MM-DD, 1st of a month). Back-dated posts arrears/rebate; forward-dated stays PENDING.',
-      nextMonth);
-    if (answer === null) return;
-    const effectiveDate = answer.trim() || nextMonth;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) {
-      this.toast.error(`Invalid date "${effectiveDate}". Use YYYY-MM-DD.`);
-      return;
-    }
-    const reason = prompt('Reason (optional):', '') || undefined;
-    this.members.requestGroupChange(this.member.id, {
-      targetGroupId: targetTrim,
-      effectiveDate,
-      reason,
-    }).subscribe({
+    this.changeGroupModalOpen = true;
+  }
+
+  onChangeGroupCancel(): void {
+    this.changeGroupModalOpen = false;
+  }
+
+  onChangeGroupSubmit(payload: ChangeGroupPayload): void {
+    if (!this.member) return;
+    this.members.requestGroupChange(this.member.id, payload).subscribe({
       next: (saved) => {
+        this.changeGroupModalOpen = false;
         const label = saved.status === 'APPLIED' || saved.backdated
           ? `Group change applied immediately (back-dated); arrears/rebate posting…`
-          : `Group change booked ${saved.status} — effective ${effectiveDate}`;
+          : `Group change booked ${saved.status} — effective ${payload.effectiveDate}`;
         this.toast.success(label);
       },
       error: (err) => this.toast.error(err?.error?.detail || 'Group change failed'),
     });
   }
 
-  /**
-   * Book a role-swap between the current member and one of their
-   * dependants (V048). On apply the dependant becomes the principal;
-   * the current member becomes a dependant of the new principal.
-   */
-  swapWithDependant(d: Dependant): void {
+  // ── V048 dependant/member swap (modal-based) ────────────────────
+
+  swapModalOpen = false;
+
+  openSwapModal(): void {
     if (!this.member) return;
-    const nextMonth = this.firstOfMonthOffset(1);
-    const answer = prompt(
-      `Swap ${this.member.firstName} ${this.member.lastName} with dependant ` +
-      `${d.firstName} ${d.lastName}.\n\n` +
-      `Effective date (YYYY-MM-DD, 1st of a month). Back-dated applies immediately.`,
-      nextMonth);
-    if (answer === null) return;
-    const effectiveDate = answer.trim() || nextMonth;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) {
-      this.toast.error(`Invalid date "${effectiveDate}". Use YYYY-MM-DD.`);
-      return;
-    }
-    const reason = prompt('Reason (optional):', '') || undefined;
-    this.members.requestSwap(this.member.id, {
-      dependantId: d.id,
-      effectiveDate,
-      reason,
-    }).subscribe({
+    this.swapModalOpen = true;
+  }
+
+  onSwapCancel(): void {
+    this.swapModalOpen = false;
+  }
+
+  onSwapSubmit(payload: SwapDependantPayload): void {
+    if (!this.member) return;
+    this.members.requestSwap(this.member.id, payload).subscribe({
       next: (saved) => {
+        this.swapModalOpen = false;
         const label = saved.status === 'APPLIED'
-          ? `Swap applied — ${d.firstName} is now the principal.`
-          : `Swap booked ${saved.status} — effective ${effectiveDate}`;
+          ? `Swap applied — promoted dependant is now the principal.`
+          : `Swap booked ${saved.status} — effective ${payload.effectiveDate}`;
         this.toast.success(label);
       },
       error: (err) => this.toast.error(err?.error?.detail || 'Swap failed'),

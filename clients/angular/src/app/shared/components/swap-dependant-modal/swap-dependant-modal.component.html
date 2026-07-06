@@ -1,0 +1,70 @@
+@if (open) {
+  <div class="modal-backdrop" (click)="onCancel()">
+    <div class="modal-card" (click)="$event.stopPropagation()"
+         role="dialog" aria-modal="true" aria-label="Swap dependant with member">
+      <h3 class="modal-title">Swap principal and dependant</h3>
+      <p class="modal-message">
+        Promote a dependant to principal.
+        <strong>{{ memberName || 'The current member' }}</strong>
+        becomes a dependant under the new principal; sibling dependants re-parent
+        automatically. Historical claims/contributions stay attached to the
+        original rows — reporting queries follow the redirect via
+        <code>swapped_to_id</code>.
+      </p>
+
+      <div class="field">
+        <label>Dependant to promote</label>
+        @if (eligible().length === 0) {
+          <div class="empty">No eligible dependants — swap requires an active or suspended dependant.</div>
+        } @else {
+          <div class="dep-list" role="listbox">
+            @for (d of eligible(); track d.id) {
+              <label class="dep-row" [class.dep-row--selected]="d.id === selectedDependantId">
+                <input type="radio" name="dependant"
+                       [value]="d.id"
+                       [(ngModel)]="selectedDependantId" />
+                <span class="dep-name">{{ d.firstName }} {{ d.lastName }}</span>
+                <span class="dep-meta">
+                  {{ d.relationship }} · {{ d.status }}
+                </span>
+              </label>
+            }
+          </div>
+        }
+      </div>
+
+      @if (selected()) {
+        <div class="preview">
+          After swap: <strong>{{ selected()?.firstName }} {{ selected()?.lastName }}</strong>
+          becomes principal.
+        </div>
+      }
+
+      <div class="field">
+        <label>Effective date</label>
+        <input type="date" [(ngModel)]="effectiveDate" (blur)="onEffectiveDateChange()" />
+        @if (isBackdated()) {
+          <div class="hint hint--warn">
+            Back-dated — the swap applies immediately at submit time.
+          </div>
+        }
+      </div>
+
+      <div class="field">
+        <label>Reason (optional)</label>
+        <textarea [(ngModel)]="reason" rows="2" maxlength="500"
+                  placeholder="e.g. principal deceased, spouse taking over"></textarea>
+      </div>
+
+      @if (error) { <div class="error">{{ error }}</div> }
+
+      <div class="actions">
+        <button type="button" class="btn btn-default" (click)="onCancel()">Cancel</button>
+        <button type="button" class="btn btn-primary" (click)="onSubmit()"
+                [disabled]="eligible().length === 0">
+          Book swap
+        </button>
+      </div>
+    </div>
+  </div>
+}

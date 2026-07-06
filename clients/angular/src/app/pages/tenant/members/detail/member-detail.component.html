@@ -30,7 +30,9 @@
         @if (canTerminate())     { <button type="button" class="btn btn-danger"   (click)="terminate()">Terminate</button> }
         @if (canClearOverride()) { <button type="button" class="btn btn-default"  (click)="clearBillingOverride()">Clear custom premium</button> }
         <!-- V048 group change: back-dated posts arrears/rebate; forward-dated stashes PENDING for approval. -->
-        <button type="button" class="btn btn-default" (click)="changeGroup()">Change group</button>
+        <button type="button" class="btn btn-default" (click)="openChangeGroupModal()">Change group</button>
+        <!-- V048 swap: promote a dependant to principal + demote current member; modal handles picking. -->
+        <button type="button" class="btn btn-default" (click)="openSwapModal()">Swap with dependant</button>
       }
       <a class="btn btn-default" routerLink="/tenant/members">
         <app-icon name="arrow-left" [size]="14"></app-icon>
@@ -402,11 +404,6 @@
                           <button type="button" class="btn btn-default" (click)="editDependant(d)" [disabled]="!!removingId">
                             Edit
                           </button>
-                          <!-- V048 role swap: promote this dependant to principal; current member becomes their dependant. -->
-                          <button type="button" class="btn btn-default" (click)="swapWithDependant(d)"
-                                  [disabled]="!!removingId">
-                            Swap
-                          </button>
                           <button type="button" class="btn btn-danger" (click)="deactivateDependant(d)"
                                   [disabled]="removingId === d.id">
                             {{ removingId === d.id ? 'Terminating…' : 'Terminate' }}
@@ -637,3 +634,21 @@
     }
   </div>
 </ng-template>
+
+<!-- V048 modal: change group. Standalone component with EntityPicker for group selection. -->
+<app-change-group-modal
+  [open]="changeGroupModalOpen"
+  [memberName]="member ? member.firstName + ' ' + member.lastName : ''"
+  (cancel)="onChangeGroupCancel()"
+  (submit)="onChangeGroupSubmit($event)">
+</app-change-group-modal>
+
+<!-- V048 modal: swap principal with dependant. Dependant list is passed in so the modal
+     doesn't have to re-query, matching the "parent owns the data" pattern. -->
+<app-swap-dependant-modal
+  [open]="swapModalOpen"
+  [memberName]="member ? member.firstName + ' ' + member.lastName : ''"
+  [dependants]="dependants"
+  (cancel)="onSwapCancel()"
+  (submit)="onSwapSubmit($event)">
+</app-swap-dependant-modal>
