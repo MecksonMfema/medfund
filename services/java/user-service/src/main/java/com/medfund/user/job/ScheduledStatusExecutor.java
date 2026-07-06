@@ -8,7 +8,9 @@ import com.medfund.user.entity.Member;
 import com.medfund.user.repository.DependantRepository;
 import com.medfund.user.repository.GroupRepository;
 import com.medfund.user.repository.MemberRepository;
+import com.medfund.user.repository.PendingGroupChangeRepository;
 import com.medfund.user.service.DependantService;
+import com.medfund.user.service.GroupChangeService;
 import com.medfund.user.service.GroupService;
 import com.medfund.user.service.MemberService;
 import lombok.RequiredArgsConstructor;
@@ -52,9 +54,11 @@ public class ScheduledStatusExecutor implements JobExecutor {
     private final MemberService memberService;
     private final GroupService groupService;
     private final DependantService dependantService;
+    private final GroupChangeService groupChangeService;
     private final MemberRepository memberRepository;
     private final GroupRepository groupRepository;
     private final DependantRepository dependantRepository;
+    private final PendingGroupChangeRepository pendingGroupChangeRepository;
     // Reserved for future direct SQL touch-ups (bulk clear scheduled
     // trio on already-transitioned rows, health-check reports, …).
     private final DatabaseClient db;
@@ -119,7 +123,21 @@ public class ScheduledStatusExecutor implements JobExecutor {
                             return Mono.empty();
                         }));
 
-        return Flux.concat(enrolments, dependantEnrolments, memberSchedules, groupSchedules).then();
+        // V048: pending group-change requests whose effective_date has
+        // arrived. Sweeps every APPROVED row; skipped rows (PENDING /
+        // REJECTED / APPLIED) stay behind for the next tick or archival.
+        Flux<Void> groupChanges = pendingGroupChangeRepository.findReadyToApply(today)
+                .flatMap(pc -> groupChangeService.apply(pc.getId(), actorId, actorEmail)
+                        .doOnNext(saved -> log.info(
+                                "Applied group change {} for member {} → group {}",
+                                saved.getId(), saved.getMemberId(), saved.getToGroupId()))
+                        .then(Mono.<Void>empty())
+                        .onErrorResume(err -> {
+                            log.warn("Group change apply failed for {}: {}", pc.getId(), err.getMessage());
+                            return Mono.empty();
+                        }));
+
+        return Flux.concat(enrolments, dependantEnrolments, memberSchedules, groupSchedules, groupChanges).then();
     }
 
     /**

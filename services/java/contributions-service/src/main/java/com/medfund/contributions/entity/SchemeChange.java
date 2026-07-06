@@ -55,6 +55,21 @@ public class SchemeChange {
     @Column("created_by")
     private UUID createdBy;
 
+    /**
+     * V048 classification for adjustment routing:
+     * <ul>
+     *   <li>UPGRADE — new scheme's absolute benefit sum &gt; old scheme's
+     *       → SchemeChangedConsumer posts SCHEME_UPGRADE_ARREARS.</li>
+     *   <li>DOWNGRADE — new sum &lt; old sum → SCHEME_DOWNGRADE_REBATE.</li>
+     *   <li>CURRENCY_CHANGE — schemes carry different currency codes
+     *       → CURRENCY_CHANGE_ADJUSTMENT with FX-aware delta.</li>
+     *   <li>CROSS_GRADE — same currency, comparable benefits → no
+     *       automatic ledger post (default for historical rows).</li>
+     * </ul>
+     */
+    @Column("change_kind")
+    private String changeKind = "CROSS_GRADE";
+
     // Getters and setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -97,4 +112,7 @@ public class SchemeChange {
 
     public UUID getCreatedBy() { return createdBy; }
     public void setCreatedBy(UUID createdBy) { this.createdBy = createdBy; }
+
+    public String getChangeKind() { return changeKind; }
+    public void setChangeKind(String changeKind) { this.changeKind = changeKind; }
 }
