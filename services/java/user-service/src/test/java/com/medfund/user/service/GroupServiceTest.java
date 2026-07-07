@@ -653,7 +653,11 @@ class GroupServiceTest {
     void deactivate_futureDate_persistsScheduledTrio_noPublishNoCascade() {
         var group = createTestGroup();
         var id = group.getId();
-        var effective = java.time.LocalDate.now().plusDays(10);
+        // Deactivate is a termination — feedback_effective_date_snap snaps
+        // to end-of-month. Anchor 60 days out so the snapped date lands in
+        // the future regardless of when the test runs.
+        var effective = java.time.LocalDate.now().plusDays(60);
+        var expectedSnapped = effective.withDayOfMonth(effective.lengthOfMonth());
 
         when(groupRepository.findById(id)).thenReturn(Mono.just(group));
         when(groupRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
@@ -667,7 +671,7 @@ class GroupServiceTest {
             .assertNext(g -> {
                 assertThat(g.getStatus()).isEqualTo("active"); // unchanged
                 assertThat(g.getScheduledStatus()).isEqualTo("deactivated");
-                assertThat(g.getScheduledStatusEffectiveFrom()).isEqualTo(effective);
+                assertThat(g.getScheduledStatusEffectiveFrom()).isEqualTo(expectedSnapped);
                 assertThat(g.getScheduledStatusReason()).isEqualTo("PLANNED");
             })
             .verifyComplete();

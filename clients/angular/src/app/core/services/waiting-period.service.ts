@@ -8,6 +8,10 @@ export interface WaitingPeriod {
   conditionType: string;
   waitingDays: number;
   description?: string;
+  /** V052 age-band scope. Null = universal. When set, this rule applies only
+   *  to members whose age at claim time falls in [minAge, maxAge]. */
+  minAge?: number;
+  maxAge?: number;
   createdAt?: string;
 }
 
@@ -16,6 +20,8 @@ export interface UpsertWaitingPeriodPayload {
   conditionType: string;
   waitingDays: number;
   description?: string;
+  minAge?: number;
+  maxAge?: number;
 }
 
 export interface SchemeChangeWaitingPeriod {

@@ -10,11 +10,12 @@ import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { LiaisonPickerComponent, LiaisonSelection } from '../../../../../shared/components/liaison-picker/liaison-picker.component';
 import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { TerminateGroupModalComponent, TerminateGroupPayload } from '../../../../../shared/components/terminate-group-modal/terminate-group-modal.component';
 
 @Component({
   selector: 'app-group-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, LiaisonPickerComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, LiaisonPickerComponent, TerminateGroupModalComponent],
   templateUrl: './group-detail.component.html',
   styleUrl: './group-detail.component.scss',
 })
@@ -24,6 +25,9 @@ export class GroupDetailComponent implements OnInit {
   loading = false;
   saving = false;
   errorMessage: string | null = null;
+
+  /** Terminate-modal open flag. */
+  terminateModalOpen = false;
 
   form: UpsertGroupPayload = {
     name: '',
@@ -154,29 +158,27 @@ export class GroupDetailComponent implements OnInit {
       && this.group.status !== 'DEACTIVATED';
   }
 
+  /**
+   * Open the terminate modal. Replaces the old browser-prompt flow —
+   * the modal snaps the effective date to end-of-month so the outgoing
+   * group stays billable through the whole cycle it ends in
+   * (feedback_effective_date_snap).
+   */
   terminate(): void {
     if (!this.group || !this.canTerminate()) return;
-    const today = new Date().toISOString().slice(0, 10);
-    const dateAnswer = prompt(
-      `Terminate group "${this.group.name}".\n\n` +
-      `Effective date (YYYY-MM-DD). Members are cascaded on the same run; empty = today.`,
-      today,
-    );
-    if (dateAnswer === null) return; // Cancel
-    const effectiveDate = dateAnswer.trim() || today;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) {
-      this.toast.error(`Invalid date "${effectiveDate}". Use YYYY-MM-DD.`);
-      return;
-    }
-    const reasonAnswer = prompt(
-      `Reason for terminating "${this.group?.name}" (optional).`,
-      '',
-    );
-    const reason = reasonAnswer?.trim() || null;
-    this.groups.terminate(this.groupId, effectiveDate, reason).subscribe({
+    this.terminateModalOpen = true;
+  }
+
+  onTerminateCancel(): void {
+    this.terminateModalOpen = false;
+  }
+
+  onTerminateSubmit(payload: TerminateGroupPayload): void {
+    this.terminateModalOpen = false;
+    this.groups.terminate(this.groupId, payload.effectiveDate, payload.reason ?? null).subscribe({
       next: (updated) => {
         this.group = updated;
-        this.toast.success(`Group terminated effective ${effectiveDate}`);
+        this.toast.success(`Group terminated effective ${payload.effectiveDate}`);
       },
       error: (err) => this.toast.error(err?.error?.detail || 'Terminate failed'),
     });

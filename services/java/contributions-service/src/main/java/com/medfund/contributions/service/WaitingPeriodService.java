@@ -62,6 +62,9 @@ public class WaitingPeriodService {
         rule.setConditionType(req.conditionType());
         rule.setWaitingDays(req.waitingDays());
         rule.setDescription(req.description());
+        // V052 age-band scoping. Null = universal (legacy behaviour).
+        rule.setMinAge(req.minAge());
+        rule.setMaxAge(req.maxAge());
         rule.setCreatedAt(Instant.now());
         return r2dbcTemplate.insert(rule)
                 .flatMap(saved -> publishAudit("WaitingPeriodRule", saved.getId(),
@@ -80,6 +83,8 @@ public class WaitingPeriodService {
                     existing.setConditionType(req.conditionType());
                     existing.setWaitingDays(req.waitingDays());
                     existing.setDescription(req.description());
+                    existing.setMinAge(req.minAge());
+                    existing.setMaxAge(req.maxAge());
                     return waitingRepo.save(existing)
                             .flatMap(saved -> publishAudit("WaitingPeriodRule", saved.getId(),
                                     saved.getConditionType(), "UPDATE", oldMap, waitingMap(saved),

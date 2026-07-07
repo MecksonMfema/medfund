@@ -179,9 +179,15 @@ public class SchemeService {
                 scheme.setSchemeType(request.schemeTypeOrDefault());
                 scheme.setInsuranceLine(resolveInsuranceLine(request.insuranceLine()));
                 scheme.setStatus("active");
-                scheme.setEffectiveDate(request.effectiveDate());
-                scheme.setEndDate(request.endDate());
+                // Belt-and-braces snap (feedback_effective_date_snap): start
+                // → 1st, end → last day. Annotations on the DTO reject
+                // mis-shaped input; this normalizes legacy callers.
+                scheme.setEffectiveDate(com.medfund.shared.validation.DateSnaps.toFirstOfMonth(request.effectiveDate()));
+                scheme.setEndDate(com.medfund.shared.validation.DateSnaps.toEndOfMonth(request.endDate()));
                 scheme.setCurrencyCode(normalizeCurrency(request.currencyCode()));
+                // V050 age-eligibility gate. Nullable → null-safe pass-through.
+                scheme.setMinAge(request.minAge());
+                scheme.setMaxAge(request.maxAge());
                 scheme.setCreatedAt(Instant.now());
                 scheme.setUpdatedAt(Instant.now());
                 scheme.setCreatedBy(UUID.fromString(actorId));
@@ -224,11 +230,15 @@ public class SchemeService {
                     scheme.setInsuranceLine(resolveInsuranceLine(request.insuranceLine()));
                 }
                 if (request.endDate() != null) {
-                    scheme.setEndDate(request.endDate());
+                    // Snap to end-of-month (feedback_effective_date_snap).
+                    scheme.setEndDate(com.medfund.shared.validation.DateSnaps.toEndOfMonth(request.endDate()));
                 }
                 if (request.currencyCode() != null && !request.currencyCode().isBlank()) {
                     scheme.setCurrencyCode(normalizeCurrency(request.currencyCode()));
                 }
+                // V050 — null means "no change" per patch semantics.
+                if (request.minAge() != null) scheme.setMinAge(request.minAge());
+                if (request.maxAge() != null) scheme.setMaxAge(request.maxAge());
                 scheme.setUpdatedAt(Instant.now());
                 scheme.setUpdatedBy(UUID.fromString(actorId));
 
@@ -307,6 +317,13 @@ public class SchemeService {
                 benefit.setCurrencyCode(resolvedCurrency);
                 benefit.setWaitingPeriodDays(request.waitingPeriodDays());
                 benefit.setDescription(request.description());
+                // V051 age gate + payout-mode flag. Null-safe pass-through; entity
+                // default keeps cashClaimAllowed=true when the request omits it.
+                benefit.setMinAge(request.minAge());
+                benefit.setMaxAge(request.maxAge());
+                if (request.cashClaimAllowed() != null) {
+                    benefit.setCashClaimAllowed(request.cashClaimAllowed());
+                }
                 benefit.setCreatedAt(Instant.now());
                 benefit.setUpdatedAt(Instant.now());
 
@@ -347,6 +364,10 @@ public class SchemeService {
                     existing.setCurrencyCode(resolvedCurrency);
                     existing.setWaitingPeriodDays(request.waitingPeriodDays());
                     existing.setDescription(request.description());
+                    // V051 age gate + payout-mode flag. Null on update = no change.
+                    if (request.minAge() != null) existing.setMinAge(request.minAge());
+                    if (request.maxAge() != null) existing.setMaxAge(request.maxAge());
+                    if (request.cashClaimAllowed() != null) existing.setCashClaimAllowed(request.cashClaimAllowed());
                     existing.setUpdatedAt(Instant.now());
 
                     return schemeBenefitRepository.save(existing)

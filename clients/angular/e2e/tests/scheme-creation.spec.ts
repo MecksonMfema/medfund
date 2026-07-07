@@ -36,7 +36,10 @@ test.describe('Scheme creation', () => {
     // /tenants/:id/currencies stub in the default API set (USD, default).
     await page.locator('input[name="name"]').fill('Gold E2E Plan');
     await page.locator('textarea[name="description"]').fill('Created from Playwright');
-    await page.locator('select[name="currencyCode"]').selectOption('USD');
+    // The scheme-form currency picker moved from a native <select> to
+    // <app-select> — open the trigger and pick USD from the panel.
+    await page.locator('app-select[name="currencyCode"] .select-trigger').click();
+    await page.locator('.select-option .option-label', { hasText: /^USD$/ }).first().click();
 
     await page.getByRole('button', { name: /create scheme/i }).click();
 

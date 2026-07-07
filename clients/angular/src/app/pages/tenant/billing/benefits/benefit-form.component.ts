@@ -24,6 +24,11 @@ interface BenefitForm {
   eventLimit: string;
   waitingPeriodDays: number | null;
   description: string;
+  /** V051 benefit-age gate. Null = unbounded. */
+  minAge: number | null;
+  maxAge: number | null;
+  /** V051 payout-mode flag. Default true (backwards-compat). */
+  cashClaimAllowed: boolean;
 }
 
 @Component({
@@ -50,6 +55,9 @@ export class BenefitFormComponent implements OnInit {
     eventLimit: '',
     waitingPeriodDays: 0,
     description: '',
+    minAge: null,
+    maxAge: null,
+    cashClaimAllowed: true,
   };
 
   constructor(
@@ -87,6 +95,9 @@ export class BenefitFormComponent implements OnInit {
             eventLimit: existing.eventLimit ?? '',
             waitingPeriodDays: existing.waitingPeriodDays ?? 0,
             description: existing.description ?? '',
+            minAge: (existing as any).minAge ?? null,
+            maxAge: (existing as any).maxAge ?? null,
+            cashClaimAllowed: (existing as any).cashClaimAllowed ?? true,
           };
         }
         this.loading = false;
@@ -129,6 +140,9 @@ export class BenefitFormComponent implements OnInit {
       waitingPeriodDays: this.form.waitingPeriodDays ?? 0,
       description: this.form.description.trim() || undefined,
       currencyCode: this.scheme?.currencyCode,
+      minAge: this.form.minAge ?? undefined,
+      maxAge: this.form.maxAge ?? undefined,
+      cashClaimAllowed: this.form.cashClaimAllowed,
     };
 
     this.saving = true;

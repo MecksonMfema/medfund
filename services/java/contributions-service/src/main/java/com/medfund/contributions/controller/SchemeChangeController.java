@@ -82,4 +82,17 @@ public class SchemeChangeController {
         return schemeChangeService.reject(id, reason, AuditActor.id(jwt), AuditActor.email(jwt))
                 .map(SchemeChangeResponse::from);
     }
+
+    @PostMapping("/{id}/apply")
+    @Operation(summary = "Force-apply an APPROVED scheme change ahead of the scheduled sweep",
+        description = "Normally the daily SCHEME_CHANGE_ROLL executor runs this on the effective date. Exposed so operations can flip a stuck row manually.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Scheme change applied"),
+        @ApiResponse(responseCode = "404", description = "Scheme change not found"),
+        @ApiResponse(responseCode = "400", description = "Scheme change is not in APPROVED status")
+    })
+    public Mono<SchemeChangeResponse> apply(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return schemeChangeService.makeEffective(id, AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(SchemeChangeResponse::from);
+    }
 }

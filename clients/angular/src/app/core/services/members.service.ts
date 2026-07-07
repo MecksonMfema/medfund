@@ -170,6 +170,41 @@ export class MembersService {
   rejectSwap(memberId: string, id: string, reason: string): Observable<MemberSwapResponse> {
     return this.api.post<MemberSwapResponse>(`/members/${memberId}/swaps/${id}/reject`, { reason });
   }
+
+  /**
+   * Book a scheme change (contributions-service). The kind is
+   * auto-classified server-side by comparing scheme currencies and
+   * benefit annual_limit sums; waiting-period rules may push the
+   * effective date forward. Back-dated dates apply immediately and
+   * post arrears/rebate on the member's ledger.
+   */
+  requestSchemeChange(payload: {
+    memberId: string;
+    fromSchemeId: string;
+    toSchemeId: string;
+    effectiveDate: string;
+    reason?: string;
+    changeKind?: string;
+  }): Observable<SchemeChangeResponse> {
+    return this.api.post<SchemeChangeResponse>('/scheme-changes', payload);
+  }
+
+  listSchemeChanges(memberId: string): Observable<SchemeChangeResponse[]> {
+    return this.api.get<SchemeChangeResponse[]>(`/scheme-changes/member/${memberId}`);
+  }
+
+  approveSchemeChange(id: string): Observable<SchemeChangeResponse> {
+    return this.api.post<SchemeChangeResponse>(`/scheme-changes/${id}/approve`, {});
+  }
+
+  rejectSchemeChange(id: string, reason: string): Observable<SchemeChangeResponse> {
+    return this.api.post<SchemeChangeResponse>(
+      `/scheme-changes/${id}/reject?reason=${encodeURIComponent(reason)}`, {});
+  }
+
+  applySchemeChange(id: string): Observable<SchemeChangeResponse> {
+    return this.api.post<SchemeChangeResponse>(`/scheme-changes/${id}/apply`, {});
+  }
 }
 
 /**
@@ -210,4 +245,27 @@ export interface MemberSwapResponse {
   reason?: string | null;
   rejectionReason?: string | null;
   appliedAt?: string | null;
+}
+
+/**
+ * Scheme-change response. `status` runs PENDING → APPROVED → EFFECTIVE
+ * (plus REJECTED / CANCELLED). `changeKind` is one of UPGRADE,
+ * DOWNGRADE, CURRENCY_CHANGE, or CROSS_GRADE and routes which ledger
+ * adjustment SchemeChangedConsumer posts when the row applies.
+ */
+export interface SchemeChangeResponse {
+  id: string;
+  memberId: string;
+  fromSchemeId: string;
+  toSchemeId: string;
+  status: string;
+  requestedDate: string;
+  effectiveDate: string;
+  reason?: string | null;
+  rejectionReason?: string | null;
+  changeKind?: string | null;
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }

@@ -39,6 +39,27 @@ public class SchemeBenefit {
     @Column("waiting_period_days")
     private Integer waitingPeriodDays;
 
+    /**
+     * V051 benefit-level age gate. AdjudicationPipeline Stage 3 rejects
+     * claims whose member.age is outside [min_age, max_age] with
+     * AGE_OUT_OF_RANGE. Null = unbounded. Common patterns:
+     *   - "Preventive care 40+" → minAge=40
+     *   - "Youth dental tops at 17" → maxAge=17
+     */
+    @Column("min_age")
+    private Short minAge;
+
+    @Column("max_age")
+    private Short maxAge;
+
+    /**
+     * V051 payout-mode flag. When false, adjudication rejects CASH-payout
+     * claims for this benefit with IN_KIND_ONLY (must pay provider directly).
+     * Defaults to true so existing benefits keep their behaviour.
+     */
+    @Column("cash_claim_allowed")
+    private Boolean cashClaimAllowed = Boolean.TRUE;
+
     private String description;
 
     private String status = "active";
@@ -81,6 +102,15 @@ public class SchemeBenefit {
 
     public Integer getWaitingPeriodDays() { return waitingPeriodDays; }
     public void setWaitingPeriodDays(Integer waitingPeriodDays) { this.waitingPeriodDays = waitingPeriodDays; }
+
+    public Short getMinAge() { return minAge; }
+    public void setMinAge(Short minAge) { this.minAge = minAge; }
+
+    public Short getMaxAge() { return maxAge; }
+    public void setMaxAge(Short maxAge) { this.maxAge = maxAge; }
+
+    public Boolean getCashClaimAllowed() { return cashClaimAllowed; }
+    public void setCashClaimAllowed(Boolean cashClaimAllowed) { this.cashClaimAllowed = cashClaimAllowed; }
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }

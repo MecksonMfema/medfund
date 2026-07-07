@@ -1,5 +1,7 @@
 package com.medfund.contributions.dto;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -23,5 +25,9 @@ public record UpdateSchemeBenefitRequest(
         String currencyCode,
 
         Integer waitingPeriodDays,
-        String description
+        String description,
+
+        @Min(0) @Max(120) Short minAge,
+        @Min(0) @Max(120) Short maxAge,
+        Boolean cashClaimAllowed
 ) {}

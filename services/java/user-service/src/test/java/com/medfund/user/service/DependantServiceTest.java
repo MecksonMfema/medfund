@@ -349,27 +349,29 @@ class DependantServiceTest {
     }
 
     @Test
-    void deactivate_withOperatorPickedDate_setsStatusAndEffectiveDate() {
-        // V046 replaces the old remove() flow. Dependants are never
-        // deleted — this is the terminal soft-transition. Operator
-        // picks the effective date; billing continues up to and
-        // including that cycle (resolver enforces).
+    void deactivate_withOperatorPickedDate_snapsToEndOfMonth() {
+        // V046 + feedback_effective_date_snap: dependants are never deleted
+        // — this is the terminal soft-transition. The service snaps the
+        // operator's effective date to end-of-month so the dependant stays
+        // billable through the whole cycle it ends in (belt-and-braces with
+        // @EndOfMonth on the DTO).
         var dependant = createTestDependant(UUID.randomUUID());
         var id = dependant.getId();
         var actorId = UUID.randomUUID().toString();
-        LocalDate effectiveDate = LocalDate.of(2026, 7, 15);
+        LocalDate midMonth = LocalDate.of(2026, 7, 15);
+        LocalDate expectedSnapped = LocalDate.of(2026, 7, 31);
 
         when(dependantRepository.findById(id)).thenReturn(Mono.just(dependant));
         when(dependantRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
-            dependantService.deactivate(id, effectiveDate, actorId, "actor@test.example")
+            dependantService.deactivate(id, midMonth, actorId, "actor@test.example")
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
             .assertNext(result -> {
                 assertThat(result.getStatus()).isEqualTo("deactivated");
-                assertThat(result.getDeactivationEffectiveDate()).isEqualTo(effectiveDate);
+                assertThat(result.getDeactivationEffectiveDate()).isEqualTo(expectedSnapped);
             })
             .verifyComplete();
 
@@ -400,11 +402,15 @@ class DependantServiceTest {
     }
 
     @Test
-    void deactivate_nullEffectiveDate_defaultsToToday() {
+    void deactivate_nullEffectiveDate_defaultsToEndOfMonth() {
         // The controller allows an omitted body — service defaults to
-        // today so the operator can hit deactivate without a date.
+        // today, then snaps to end-of-month per
+        // feedback_effective_date_snap so the dependant stays billable
+        // through the whole current cycle.
         var dependant = createTestDependant(UUID.randomUUID());
         var id = dependant.getId();
+        var today = LocalDate.now();
+        var expectedEom = today.withDayOfMonth(today.lengthOfMonth());
 
         when(dependantRepository.findById(id)).thenReturn(Mono.just(dependant));
         when(dependantRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
@@ -417,7 +423,7 @@ class DependantServiceTest {
         )
             .assertNext(result -> {
                 assertThat(result.getStatus()).isEqualTo("deactivated");
-                assertThat(result.getDeactivationEffectiveDate()).isEqualTo(LocalDate.now());
+                assertThat(result.getDeactivationEffectiveDate()).isEqualTo(expectedEom);
             })
             .verifyComplete();
     }

@@ -181,3 +181,10 @@
     </section>
   }
 </div>
+
+<app-terminate-group-modal
+  [open]="terminateModalOpen"
+  [groupName]="group?.name || ''"
+  (cancel)="onTerminateCancel()"
+  (submit)="onTerminateSubmit($event)">
+</app-terminate-group-modal>

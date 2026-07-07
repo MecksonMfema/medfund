@@ -32,7 +32,26 @@ public class EligibilityTemplates implements TemplateProvider {
                  "Reject claims older than 90 days from the date of service.",
                  RuleCategory.ELIGIBILITY, 90,
                  all(cond("claim.daysSinceService", "GREATER_THAN", "90")),
-                 reject("R15", "Claim rejected: submitted more than 90 days after date of service"))
+                 reject("R15", "Claim rejected: submitted more than 90 days after date of service")),
+
+            // ── Senior-citizen starter rules (2026-07-07). Complement the
+            //    schema-level scheme.min_age/max_age gate: use these when the
+            //    tenant wants the cutoff limited to one insurance line or
+            //    tied to a soft condition rather than a hard schema bound. ──
+
+            rule("R50 - HEALTH cutoff at 65",
+                 "Reject HEALTH claims from members over 65 (typical health-line pattern). Adjust the threshold to match the scheme's underwriting policy.",
+                 RuleCategory.ELIGIBILITY, 88,
+                 all(cond("member.age",             "GREATER_THAN", "65"),
+                     cond("scheme.insuranceLine",   "EQUALS",       "HEALTH")),
+                 reject("R50", "Claim rejected: member is above the health-scheme age cutoff")),
+
+            rule("R51 - Cash claims blocked for seniors",
+                 "Block cash payouts to members aged 65+; direct-to-provider only. Common for funeral / long-term-care benefits.",
+                 RuleCategory.ELIGIBILITY, 87,
+                 all(cond("member.age",         "GREATER_THAN_OR_EQUALS", "65"),
+                     cond("claim.payoutMode",   "EQUALS",                 "CASH")),
+                 reject("R51", "Cash claims not permitted for seniors — provider will be paid directly"))
         );
     }
 }

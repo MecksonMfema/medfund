@@ -23,14 +23,15 @@ class ScheduledJobServiceTest {
     @InjectMocks ScheduledJobService scheduledJobService;
 
     @Test
-    void seedDefaults_creates6Jobs() {
+    void seedDefaults_creates7Jobs() {
+        // Grew from 6 to 7 when SCHEME_CHANGE_ROLL was added (V048 member ops).
         when(jobRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         UUID tenantId = UUID.randomUUID();
 
         StepVerifier.create(scheduledJobService.seedDefaults(tenantId, "system"))
             .verifyComplete();
 
-        verify(jobRepository, times(6)).save(any(ScheduledJobConfig.class));
+        verify(jobRepository, times(7)).save(any(ScheduledJobConfig.class));
     }
 
     @Test
@@ -42,7 +43,7 @@ class ScheduledJobServiceTest {
             .verifyComplete();
 
         var captor = org.mockito.ArgumentCaptor.forClass(ScheduledJobConfig.class);
-        verify(jobRepository, times(6)).save(captor.capture());
+        verify(jobRepository, times(7)).save(captor.capture());
         captor.getAllValues().forEach(c ->
             assertThat(c.getTenantId()).isEqualTo(tenantId));
     }

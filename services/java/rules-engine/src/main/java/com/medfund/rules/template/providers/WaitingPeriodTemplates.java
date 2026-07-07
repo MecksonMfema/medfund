@@ -36,7 +36,18 @@ public class WaitingPeriodTemplates implements TemplateProvider {
                  RuleCategory.WAITING_PERIOD, 83,
                  all(cond("claim.benefitCategory",         "EQUALS",    "DENTAL_PROSTHETICS"),
                      cond("member.daysSinceEnrollment",    "LESS_THAN", "180")),
-                 reject("R02", "Claim rejected: dental prosthetics waiting period of 180 days not met"))
+                 reject("R02", "Claim rejected: dental prosthetics waiting period of 180 days not met")),
+
+            // Senior late-joiner extended wait (2026-07-07). Common on
+            // FUNERAL / LIFE where the scheme accepts older joiners with a
+            // longer general wait. Complements the schema-level
+            // waiting_period_rules.min_age/max_age band.
+            rule("R02-SR - Senior late-joiner extended wait (24 months)",
+                 "Members joining at 65+ face a 24-month general waiting period. Adjust the threshold + days to fit your line (FUNERAL/LIFE often use 730 days).",
+                 RuleCategory.WAITING_PERIOD, 82,
+                 all(cond("member.ageAtEnrollment",     "GREATER_THAN_OR_EQUALS", "65"),
+                     cond("member.daysSinceEnrollment", "LESS_THAN",              "730")),
+                 reject("R02-SR", "Claim rejected: extended senior late-joiner waiting period (24 months) not met"))
         );
     }
 }

@@ -1,5 +1,7 @@
 package com.medfund.contributions.dto;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -21,5 +23,11 @@ public record CreateSchemeBenefitRequest(
         String currencyCode,
 
         Integer waitingPeriodDays,
-        String description
+        String description,
+
+        /** V051 age gate — AdjudicationPipeline Stage 3 rejects outside range. Null = unbounded. */
+        @Min(0) @Max(120) Short minAge,
+        @Min(0) @Max(120) Short maxAge,
+        /** V051 payout gate — when false, CASH claims for this benefit reject with IN_KIND_ONLY. Null = true. */
+        Boolean cashClaimAllowed
 ) {}

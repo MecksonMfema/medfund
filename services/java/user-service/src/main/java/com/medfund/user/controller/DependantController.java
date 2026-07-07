@@ -79,7 +79,7 @@ public class DependantController {
                       "Dependants are never hard-deleted — this is the terminal soft-transition. " +
                       "Body accepts { effectiveDate: 'YYYY-MM-DD' }; omit or send null for today.")
     public Mono<DependantResponse> deactivate(@PathVariable UUID id,
-                                               @RequestBody(required = false) DeactivateDependantRequest body,
+                                               @jakarta.validation.Valid @RequestBody(required = false) DeactivateDependantRequest body,
                                                @AuthenticationPrincipal Jwt jwt) {
         java.time.LocalDate effectiveDate = body != null ? body.effectiveDate() : null;
         return dependantService.deactivate(id, effectiveDate,
@@ -89,7 +89,8 @@ public class DependantController {
 
     /** Inline body record — no separate DTO file since it's a single
      *  optional field used only by this endpoint. */
-    public record DeactivateDependantRequest(java.time.LocalDate effectiveDate) {}
+    public record DeactivateDependantRequest(
+            @com.medfund.shared.validation.EndOfMonth java.time.LocalDate effectiveDate) {}
 
     @PostMapping("/{id}/clear-billing-override")
     @Operation(summary = "Clear the dependant's per-person pricing override",

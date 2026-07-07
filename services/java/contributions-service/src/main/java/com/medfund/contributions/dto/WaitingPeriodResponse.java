@@ -11,11 +11,15 @@ public record WaitingPeriodResponse(
         String conditionType,
         Integer waitingDays,
         String description,
+        Short minAge,
+        Short maxAge,
         Instant createdAt
 ) {
     public static WaitingPeriodResponse from(WaitingPeriodRule r) {
         return new WaitingPeriodResponse(
                 r.getId(), r.getSchemeId(), r.getConditionType(),
-                r.getWaitingDays(), r.getDescription(), r.getCreatedAt());
+                r.getWaitingDays(), r.getDescription(),
+                r.getMinAge(), r.getMaxAge(),
+                r.getCreatedAt());
     }
 }

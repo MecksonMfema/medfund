@@ -127,6 +127,33 @@
         </label>
       </section>
 
+      <!-- ── Age gate + payout mode (V051) ───────────────────────────── -->
+      <section class="form-section form-section--full">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="users" [size]="18"></app-icon></span>
+          <h3 class="section-title">Age & payout</h3>
+        </header>
+        <div class="field-grid field-grid--2">
+          <label class="field">
+            <span class="field-label">Minimum age <span class="optional">(optional)</span></span>
+            <input class="field-control" type="number" min="0" max="120"
+                   [(ngModel)]="form.minAge" name="benefitMinAge" />
+            <small class="field-help">Adjudication rejects claims for members below this age (e.g. preventive-care 40+).</small>
+          </label>
+          <label class="field">
+            <span class="field-label">Maximum age <span class="optional">(optional)</span></span>
+            <input class="field-control" type="number" min="0" max="120"
+                   [(ngModel)]="form.maxAge" name="benefitMaxAge" />
+            <small class="field-help">Adjudication rejects claims for members above this age (e.g. youth-dental up to 17).</small>
+          </label>
+          <label class="field field-grid__full checkbox-field">
+            <input type="checkbox" [(ngModel)]="form.cashClaimAllowed" name="cashClaimAllowed" />
+            <span class="field-label">Allow cash claims</span>
+            <small class="field-help">Uncheck for benefits that must pay the provider directly (funeral, long-term care). Rules-engine template R51 enforces this at claim time.</small>
+          </label>
+        </div>
+      </section>
+
       <!-- ── Description (full width) ──────────────────────────────────── -->
       <section class="form-section form-section--full">
         <header class="section-head">

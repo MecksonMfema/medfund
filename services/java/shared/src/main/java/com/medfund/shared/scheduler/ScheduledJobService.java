@@ -202,6 +202,9 @@ public class ScheduledJobService {
                 "{}"),
             createDefault(tenantId, JobType.TARIFF_ACTIVATION, "Daily Tariff Activation",
                 "0 0 0 * * *", // daily midnight
+                "{}"),
+            createDefault(tenantId, JobType.SCHEME_CHANGE_ROLL, "Daily Scheme Change Roll",
+                "0 30 0 * * *", // daily 00:30 — after TARIFF_ACTIVATION so today's tariffs are live
                 "{}")
         ).flatMap(config -> jobRepository.save(config))
         .then();

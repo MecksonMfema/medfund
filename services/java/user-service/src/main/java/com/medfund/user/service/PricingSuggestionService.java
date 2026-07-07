@@ -133,6 +133,19 @@ public class PricingSuggestionService {
             factors.add("BMI " + req.bmi() + " > 30 (×1.15)");
         }
 
+        // V050 Layer 5: continuous tenure gives a small discount, capped at 15%
+        // total. 1 percentage point per year, 15 max. Feature discovers the
+        // "long-service member" pattern the user asked for without a
+        // grandfathered-rate schema.
+        if (req.tenureYears() != null && req.tenureYears() > 0) {
+            int capped = Math.min(15, req.tenureYears());
+            BigDecimal factor = BigDecimal.ONE.subtract(new BigDecimal(capped)
+                    .movePointLeft(2)); // capped/100
+            amount = amount.multiply(factor);
+            factors.add("Continuous tenure " + req.tenureYears() + " year(s) (×"
+                    + factor.setScale(2, RoundingMode.HALF_UP) + ")");
+        }
+
         amount = amount.setScale(2, RoundingMode.HALF_UP);
 
         String rationale = "Stub AI suggestion — awaiting production model. "

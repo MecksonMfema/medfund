@@ -37,6 +37,18 @@ public class Scheme {
     @Column("currency_code")
     private String currencyCode;
 
+    /**
+     * V050 age-eligibility gate. When either bound is set, MemberService.enroll
+     * rejects new members whose age at enrolment falls outside the range with
+     * 422 AGE_OUT_OF_RANGE. Null = unbounded. Populated only for person-centric
+     * lines (HEALTH, LIFE, FUNERAL, GROUP, TRAVEL, DISABILITY).
+     */
+    @Column("min_age")
+    private Short minAge;
+
+    @Column("max_age")
+    private Short maxAge;
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;
@@ -78,6 +90,12 @@ public class Scheme {
 
     public String getCurrencyCode() { return currencyCode; }
     public void setCurrencyCode(String currencyCode) { this.currencyCode = currencyCode; }
+
+    public Short getMinAge() { return minAge; }
+    public void setMinAge(Short minAge) { this.minAge = minAge; }
+
+    public Short getMaxAge() { return maxAge; }
+    public void setMaxAge(Short maxAge) { this.maxAge = maxAge; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

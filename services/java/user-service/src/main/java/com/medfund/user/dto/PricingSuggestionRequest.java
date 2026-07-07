@@ -1,6 +1,8 @@
 package com.medfund.user.dto;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -41,5 +43,14 @@ public record PricingSuggestionRequest(
 
     /** Body-mass index — the stub only cares about {@code > 30}. */
     @DecimalMin(value = "0.0", message = "bmi must be non-negative")
-    BigDecimal bmi
+    BigDecimal bmi,
+
+    /**
+     * V050 Layer 5: continuous full years since the member joined the tenant.
+     * Fed to the AI as a risk-reducing feature so long-service seniors can
+     * offset an age loading without a dedicated grandfathered-rate schema.
+     * Null / 0 = fresh joiner; the AI treats it as neutral.
+     */
+    @Min(0) @Max(120)
+    Integer tenureYears
 ) {}

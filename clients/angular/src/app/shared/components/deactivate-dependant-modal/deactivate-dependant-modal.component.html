@@ -1,0 +1,37 @@
+@if (open) {
+  <div class="modal-backdrop" (click)="onCancel()">
+    <div class="modal-card" (click)="$event.stopPropagation()"
+         role="dialog" aria-modal="true" aria-label="Terminate dependant">
+      <h3 class="modal-title">Terminate dependant</h3>
+      <p class="modal-message">
+        Deactivate <strong>{{ dependantName || 'this dependant' }}</strong>.
+        Billing continues up to and including the cycle that contains
+        the effective date; from the next cycle the resolver drops the
+        dependant off. Dependants are never hard-deleted — this is the
+        terminal soft-transition.
+      </p>
+
+      <div class="field">
+        <label>Effective date</label>
+        <input type="date"
+               [(ngModel)]="effectiveDate"
+               (blur)="onEffectiveDateChange()"
+               data-testid="deactivate-dependant-effective-date" />
+        <div class="hint">
+          Snaps to the last day of the chosen month — the dependant
+          stays billable through that whole cycle.
+        </div>
+      </div>
+
+      @if (error) { <div class="error">{{ error }}</div> }
+
+      <div class="actions">
+        <button type="button" class="btn btn-default" (click)="onCancel()">Cancel</button>
+        <button type="button" class="btn btn-danger" (click)="onSubmit()"
+                data-testid="deactivate-dependant-submit">
+          Terminate dependant
+        </button>
+      </div>
+    </div>
+  </div>
+}

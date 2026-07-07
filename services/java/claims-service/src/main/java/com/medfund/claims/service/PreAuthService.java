@@ -99,7 +99,9 @@ public class PreAuthService {
                 preAuth.setStatus("APPROVED");
                 preAuth.setApprovedAmount(approvedAmount);
                 preAuth.setDecisionDate(LocalDate.now());
-                preAuth.setExpiryDate(expiryDate);
+                // Snap expiry to end-of-month (feedback_effective_date_snap)
+                // — the auth stays valid through the whole cycle it expires in.
+                preAuth.setExpiryDate(com.medfund.shared.validation.DateSnaps.toEndOfMonth(expiryDate));
                 preAuth.setDecisionBy(UUID.fromString(actorId));
                 preAuth.setUpdatedAt(Instant.now());
 

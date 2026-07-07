@@ -1,0 +1,43 @@
+@if (open) {
+  <div class="modal-backdrop" (click)="onCancel()">
+    <div class="modal-card" (click)="$event.stopPropagation()"
+         role="dialog" aria-modal="true" aria-label="Terminate group">
+      <h3 class="modal-title">Terminate group</h3>
+      <p class="modal-message">
+        Terminate <strong>{{ groupName || 'this group' }}</strong>.
+        Members are cascaded on the same run — any in <em>active</em> or
+        <em>suspended</em> land at <em>terminated</em>. Contributions and
+        claims already recorded for this group stay intact.
+      </p>
+
+      <div class="field">
+        <label>Effective date</label>
+        <input type="date"
+               [(ngModel)]="effectiveDate"
+               (blur)="onEffectiveDateChange()"
+               data-testid="terminate-group-effective-date" />
+        <div class="hint">
+          Snaps to the last day of the chosen month — the group stays
+          billable through that whole cycle.
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Reason (optional)</label>
+        <textarea [(ngModel)]="reason" rows="2" maxlength="500"
+                  placeholder="e.g. contract ended, corporate insolvency"
+                  data-testid="terminate-group-reason"></textarea>
+      </div>
+
+      @if (error) { <div class="error">{{ error }}</div> }
+
+      <div class="actions">
+        <button type="button" class="btn btn-default" (click)="onCancel()">Cancel</button>
+        <button type="button" class="btn btn-danger" (click)="onSubmit()"
+                data-testid="terminate-group-submit">
+          Terminate group
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -77,6 +77,11 @@ class ScoreRequest(BaseModel):
     smoking_status: Optional[str] = Field(None)
     bmi: Optional[float] = Field(None)
     medication_count: int = Field(0)
+    # V050 Layer 5: continuous years the member has been enrolled with the
+    # tenant. Feeds the model as a risk-reducing signal so long-service
+    # seniors can offset an age loading without a dedicated grandfathered
+    # rate schema. Fresh joiners send 0; the scorer treats 0 as neutral.
+    tenure_years: Optional[int] = Field(None, ge=0, le=120)
 
 
 class ScoreResponse(BaseModel):
@@ -229,6 +234,16 @@ def _score_health(req: ScoreRequest) -> ScoreResponse:
     if meds >= 5:
         multiplier *= 1.10
         rationale.append(f"{meds} active medications → +10% (polypharmacy)")
+
+    # V050 Layer 5 — continuous tenure discount (long-service member offset).
+    # 1 pp per year of enrolment, capped at 15%. Matches the Java stub in
+    # PricingSuggestionService so both scorers agree on the multiplier
+    # direction; magnitude may drift as the production model tunes it.
+    tenure = _as_int(_attr(req, "tenure_years", req.tenure_years)) or 0
+    if tenure > 0:
+        capped = min(15, tenure)
+        multiplier *= (1.0 - capped / 100.0)
+        rationale.append(f"Continuous tenure {tenure} year(s) → −{capped}%")
 
     multiplier = _clamp(multiplier, rationale)
     if not rationale:

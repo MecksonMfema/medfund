@@ -6,6 +6,7 @@ import com.medfund.contributions.entity.Scheme;
 import com.medfund.contributions.entity.SchemeChange;
 import com.medfund.contributions.entity.SchemeChangeWaitingPeriodRule;
 import com.medfund.contributions.repository.CurrencyChangeWaitingPeriodRuleRepository;
+import com.medfund.contributions.repository.SchemeBenefitRepository;
 import com.medfund.contributions.repository.SchemeChangeRepository;
 import com.medfund.contributions.repository.SchemeChangeWaitingPeriodRuleRepository;
 import com.medfund.contributions.repository.SchemeRepository;
@@ -21,6 +22,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -53,6 +55,7 @@ class SchemeChangeServiceTest {
 
     @Mock SchemeChangeRepository schemeChangeRepository;
     @Mock SchemeRepository schemeRepository;
+    @Mock SchemeBenefitRepository schemeBenefitRepository;
     @Mock SchemeChangeWaitingPeriodRuleRepository waitingPeriodRuleRepository;
     @Mock CurrencyChangeWaitingPeriodRuleRepository currencyWaitingRuleRepository;
     @Mock AuditPublisher auditPublisher;
@@ -64,6 +67,7 @@ class SchemeChangeServiceTest {
     @BeforeEach
     void setUp() {
         service = new SchemeChangeService(schemeChangeRepository, schemeRepository,
+                schemeBenefitRepository,
                 waitingPeriodRuleRepository, currencyWaitingRuleRepository,
                 auditPublisher, eventPublisher, db);
         lenient().when(auditPublisher.publish(any())).thenReturn(Mono.empty());
@@ -71,6 +75,11 @@ class SchemeChangeServiceTest {
         // Default: no upgrade/downgrade rules — request tests without
         // explicit stubs get the "no wait" path.
         lenient().when(waitingPeriodRuleRepository.findAllOrdered()).thenReturn(Flux.empty());
+        // Default: both schemes have zero active benefit annual_limit
+        // → equal sums → classifier returns CROSS_GRADE for same-currency
+        // changes. Tests that want UPGRADE / DOWNGRADE override the stub.
+        lenient().when(schemeBenefitRepository.sumAnnualLimit(any(UUID.class), anyString()))
+                .thenReturn(Mono.just(BigDecimal.ZERO));
     }
 
     // ------------------------------------------------------------------
@@ -182,6 +191,98 @@ class SchemeChangeServiceTest {
 
         // Same-currency change → currency waiting lookup is skipped.
         verify(currencyWaitingRuleRepository, never()).findActive(anyString(), anyString());
+    }
+
+    // ------------------------------------------------------------------
+    // Classification — UPGRADE / DOWNGRADE via benefit annual_limit sums
+    // ------------------------------------------------------------------
+
+    @Test
+    void request_sameCurrency_higherBenefitSum_classifiesAsUpgrade() {
+        UUID memberId = UUID.randomUUID();
+        UUID fromScheme = UUID.randomUUID();
+        UUID toScheme = UUID.randomUUID();
+        LocalDate effective = LocalDate.now().withDayOfMonth(1).plusMonths(1);
+
+        stubSchemes(fromScheme, "USD", toScheme, "USD");
+        when(schemeBenefitRepository.sumAnnualLimit(eq(fromScheme), eq("USD")))
+                .thenReturn(Mono.just(new BigDecimal("50000.00")));
+        when(schemeBenefitRepository.sumAnnualLimit(eq(toScheme), eq("USD")))
+                .thenReturn(Mono.just(new BigDecimal("75000.00")));
+        stubSchemeChangeSave();
+
+        var req = new SchemeChangeRequest(memberId, fromScheme, toScheme, effective, "moving up", null);
+
+        StepVerifier.create(service.request(req, UUID.randomUUID().toString(), "op@medfund.com"))
+                .assertNext(saved -> assertThat(saved.getChangeKind()).isEqualTo("UPGRADE"))
+                .verifyComplete();
+    }
+
+    @Test
+    void request_sameCurrency_lowerBenefitSum_classifiesAsDowngrade() {
+        UUID memberId = UUID.randomUUID();
+        UUID fromScheme = UUID.randomUUID();
+        UUID toScheme = UUID.randomUUID();
+        LocalDate effective = LocalDate.now().withDayOfMonth(1).plusMonths(1);
+
+        stubSchemes(fromScheme, "USD", toScheme, "USD");
+        when(schemeBenefitRepository.sumAnnualLimit(eq(fromScheme), eq("USD")))
+                .thenReturn(Mono.just(new BigDecimal("80000.00")));
+        when(schemeBenefitRepository.sumAnnualLimit(eq(toScheme), eq("USD")))
+                .thenReturn(Mono.just(new BigDecimal("40000.00")));
+        stubSchemeChangeSave();
+
+        var req = new SchemeChangeRequest(memberId, fromScheme, toScheme, effective, "downshift", null);
+
+        StepVerifier.create(service.request(req, UUID.randomUUID().toString(), "op@medfund.com"))
+                .assertNext(saved -> assertThat(saved.getChangeKind()).isEqualTo("DOWNGRADE"))
+                .verifyComplete();
+    }
+
+    @Test
+    void request_sameCurrency_equalBenefitSums_classifiesAsCrossGrade() {
+        // Non-zero equal sums (equivalent tiers) should stay CROSS_GRADE
+        // — no automatic waiting-period push, no arrears/rebate.
+        UUID memberId = UUID.randomUUID();
+        UUID fromScheme = UUID.randomUUID();
+        UUID toScheme = UUID.randomUUID();
+        LocalDate effective = LocalDate.now().withDayOfMonth(1).plusMonths(1);
+
+        stubSchemes(fromScheme, "USD", toScheme, "USD");
+        when(schemeBenefitRepository.sumAnnualLimit(eq(fromScheme), eq("USD")))
+                .thenReturn(Mono.just(new BigDecimal("60000.00")));
+        when(schemeBenefitRepository.sumAnnualLimit(eq(toScheme), eq("USD")))
+                .thenReturn(Mono.just(new BigDecimal("60000.00")));
+        stubSchemeChangeSave();
+
+        var req = new SchemeChangeRequest(memberId, fromScheme, toScheme, effective, "sideways", null);
+
+        StepVerifier.create(service.request(req, UUID.randomUUID().toString(), "op@medfund.com"))
+                .assertNext(saved -> assertThat(saved.getChangeKind()).isEqualTo("CROSS_GRADE"))
+                .verifyComplete();
+    }
+
+    @Test
+    void request_callerSuppliedChangeKind_bypassesAutoClassification() {
+        // Explicit UPGRADE override wins even when benefit sums would
+        // put it in DOWNGRADE — the manual-override path is used by
+        // migration/admin tooling.
+        UUID memberId = UUID.randomUUID();
+        UUID fromScheme = UUID.randomUUID();
+        UUID toScheme = UUID.randomUUID();
+        LocalDate effective = LocalDate.now().withDayOfMonth(1).plusMonths(1);
+
+        stubSchemes(fromScheme, "USD", toScheme, "USD");
+        stubSchemeChangeSave();
+
+        var req = new SchemeChangeRequest(memberId, fromScheme, toScheme, effective, "explicit", "UPGRADE");
+
+        StepVerifier.create(service.request(req, UUID.randomUUID().toString(), "op@medfund.com"))
+                .assertNext(saved -> assertThat(saved.getChangeKind()).isEqualTo("UPGRADE"))
+                .verifyComplete();
+
+        // sumAnnualLimit is never consulted when the caller supplied a kind.
+        verify(schemeBenefitRepository, never()).sumAnnualLimit(any(UUID.class), anyString());
     }
 
     // ------------------------------------------------------------------

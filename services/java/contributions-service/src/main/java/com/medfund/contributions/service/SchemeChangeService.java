@@ -5,6 +5,7 @@ import com.medfund.contributions.entity.Scheme;
 import com.medfund.contributions.entity.SchemeChange;
 import com.medfund.contributions.entity.SchemeChangeWaitingPeriodRule;
 import com.medfund.contributions.repository.CurrencyChangeWaitingPeriodRuleRepository;
+import com.medfund.contributions.repository.SchemeBenefitRepository;
 import com.medfund.contributions.repository.SchemeChangeRepository;
 import com.medfund.contributions.repository.SchemeChangeWaitingPeriodRuleRepository;
 import com.medfund.contributions.repository.SchemeRepository;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Map;
@@ -31,6 +33,7 @@ public class SchemeChangeService {
 
     private final SchemeChangeRepository schemeChangeRepository;
     private final SchemeRepository schemeRepository;
+    private final SchemeBenefitRepository schemeBenefitRepository;
     private final SchemeChangeWaitingPeriodRuleRepository waitingPeriodRuleRepository;
     private final CurrencyChangeWaitingPeriodRuleRepository currencyWaitingRuleRepository;
     private final AuditPublisher auditPublisher;
@@ -39,6 +42,7 @@ public class SchemeChangeService {
 
     public SchemeChangeService(SchemeChangeRepository schemeChangeRepository,
                                SchemeRepository schemeRepository,
+                               SchemeBenefitRepository schemeBenefitRepository,
                                SchemeChangeWaitingPeriodRuleRepository waitingPeriodRuleRepository,
                                CurrencyChangeWaitingPeriodRuleRepository currencyWaitingRuleRepository,
                                AuditPublisher auditPublisher,
@@ -46,6 +50,7 @@ public class SchemeChangeService {
                                DatabaseClient db) {
         this.schemeChangeRepository = schemeChangeRepository;
         this.schemeRepository = schemeRepository;
+        this.schemeBenefitRepository = schemeBenefitRepository;
         this.waitingPeriodRuleRepository = waitingPeriodRuleRepository;
         this.currencyWaitingRuleRepository = currencyWaitingRuleRepository;
         this.auditPublisher = auditPublisher;
@@ -65,11 +70,12 @@ public class SchemeChangeService {
      * Book a scheme change. V048 semantics:
      * <ul>
      *   <li>Classifies the change kind (UPGRADE / DOWNGRADE / CURRENCY_CHANGE
-     *       / CROSS_GRADE) by comparing the from/to schemes' currency
-     *       and — for same-currency changes — a placeholder for future
-     *       benefit-sum comparison. Callers may override via
-     *       {@link SchemeChangeRequest#changeKind()}; the auto-classifier
-     *       only runs when the caller left it null.</li>
+     *       / CROSS_GRADE) by comparing the from/to schemes' currency and,
+     *       for same-currency changes, the sum of active benefit
+     *       {@code annual_limit}s per scheme (higher new total → UPGRADE,
+     *       lower → DOWNGRADE, equal → CROSS_GRADE). Callers may override
+     *       via {@link SchemeChangeRequest#changeKind()}; the
+     *       auto-classifier only runs when the caller left it null.</li>
      *   <li>Applies the tenant's {@code scheme_change_waiting_period_rules}
      *       by auto-pushing the requested effective_date forward when a
      *       rule for the classified kind exists. The DTO carries the
@@ -224,32 +230,53 @@ public class SchemeChangeService {
         return Mono.zip(
                 schemeRepository.findById(req.fromSchemeId()),
                 schemeRepository.findById(req.toSchemeId()))
-                .map(t -> {
+                .flatMap(t -> {
                     Scheme from = t.getT1();
                     Scheme to = t.getT2();
                     // Caller-supplied override wins the KIND classification;
                     // the resolved schemes still ride along so
                     // resolveEffectiveDate can do its currency lookup.
                     if (req.changeKind() != null && !req.changeKind().isBlank()) {
-                        return new Classification(req.changeKind(), from, to);
+                        return Mono.just(new Classification(req.changeKind(), from, to));
                     }
-                    return new Classification(classifyByCurrency(from, to), from, to);
+                    return classifyByCurrency(from, to)
+                            .map(kind -> new Classification(kind, from, to));
                 })
                 .defaultIfEmpty(new Classification(
                         req.changeKind() != null ? req.changeKind() : "CROSS_GRADE",
                         null, null));
     }
 
-    private static String classifyByCurrency(Scheme from, Scheme to) {
+    /**
+     * Same currency → distinguish UPGRADE vs DOWNGRADE by comparing the
+     * sum of active benefit {@code annual_limit}s per scheme (higher new
+     * total → UPGRADE, lower → DOWNGRADE, equal → CROSS_GRADE). Different
+     * currency → CURRENCY_CHANGE regardless of totals. Callers can still
+     * force a classification via
+     * {@link SchemeChangeRequest#changeKind()} — this method only runs
+     * when they didn't.
+     */
+    private Mono<String> classifyByCurrency(Scheme from, Scheme to) {
         String fromCur = from.getCurrencyCode();
         String toCur = to.getCurrencyCode();
         if (fromCur != null && toCur != null && !fromCur.equalsIgnoreCase(toCur)) {
-            return "CURRENCY_CHANGE";
+            return Mono.just("CURRENCY_CHANGE");
         }
-        // Same currency — deeper UPGRADE/DOWNGRADE classification would
-        // compare SchemeBenefit annual_limit sums. Deferred; falls
-        // through to CROSS_GRADE so no automatic ledger post fires.
-        return "CROSS_GRADE";
+        // Currencies match (or one side is null — treat as the other's).
+        // Use whichever we have as the sum filter.
+        String currency = fromCur != null ? fromCur : toCur;
+        if (currency == null) return Mono.just("CROSS_GRADE");
+        return Mono.zip(
+                schemeBenefitRepository.sumAnnualLimit(from.getId(), currency)
+                        .defaultIfEmpty(BigDecimal.ZERO),
+                schemeBenefitRepository.sumAnnualLimit(to.getId(), currency)
+                        .defaultIfEmpty(BigDecimal.ZERO))
+                .map(sums -> {
+                    int cmp = sums.getT2().compareTo(sums.getT1());
+                    if (cmp > 0) return "UPGRADE";
+                    if (cmp < 0) return "DOWNGRADE";
+                    return "CROSS_GRADE";
+                });
     }
 
     // ── Waiting-period auto-push ─────────────────────────────────────

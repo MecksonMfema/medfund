@@ -27,12 +27,20 @@
 
     <label class="field">
       <span class="field-label">Effective from *</span>
-      <input type="date" [(ngModel)]="form.effectiveDate" name="effectiveDate" required />
+      <input type="date"
+             [(ngModel)]="form.effectiveDate"
+             (blur)="onEffectiveDateBlur()"
+             name="effectiveDate" required />
+      <small class="muted">Snaps to the 1st of the chosen month.</small>
     </label>
 
     <label class="field">
       <span class="field-label">End date</span>
-      <input type="date" [(ngModel)]="form.endDate" name="endDate" />
+      <input type="date"
+             [(ngModel)]="form.endDate"
+             (blur)="onEndDateBlur()"
+             name="endDate" />
+      <small class="muted">Snaps to the last day of the chosen month.</small>
     </label>
 
     <label class="field span-2">

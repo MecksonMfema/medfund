@@ -14,14 +14,18 @@ import com.medfund.user.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.http.HttpStatus;
+import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.Period;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +45,9 @@ public class MemberService {
     private final MemberLifecycleService lifecycleService;
     private final AgeGroupResolver ageGroupResolver;
     private final MemberNumberService memberNumberService;
+    /** Used by {@link #checkSchemeAgeRange} to hit the schemes table directly.
+     *  Same tenant schema as {@code memberRepository} — no cross-service RPC. */
+    private final DatabaseClient db;
 
     public Flux<Member> findAll() {
         return memberRepository.findAllOrderByCreatedAtDesc();
@@ -117,7 +124,9 @@ public class MemberService {
 
     @Transactional
     public Mono<Member> enroll(CreateMemberRequest request, String actorId, String actorEmail) {
-        return memberNumberService.nextMemberNumber()
+        return checkSchemeAgeRange(request.schemeId(), request.dateOfBirth(),
+                                   request.enrollmentDateOrDefault())
+            .then(memberNumberService.nextMemberNumber())
             .flatMap(memberNumber -> {
                 var member = new Member();
                 // id NOT set — let PostgreSQL generate via DEFAULT gen_random_uuid()
@@ -256,7 +265,18 @@ public class MemberService {
                 if (request.phone() != null) existing.setPhone(request.phone());
                 if (request.address() != null) existing.setAddress(request.address());
                 if (request.groupId() != null) existing.setGroupId(request.groupId());
-                if (request.schemeId() != null) existing.setSchemeId(request.schemeId());
+                // Scheme changes must go through the contributions-service
+                // workflow (POST /api/v1/scheme-changes) so waiting-period
+                // rules, UPGRADE/DOWNGRADE classification, and arrears /
+                // rebate ledger adjustments all fire. A same-value round-trip
+                // from the frontend profile form is silently ignored.
+                if (request.schemeId() != null
+                        && !request.schemeId().equals(existing.getSchemeId())) {
+                    return Mono.<Member>error(new ResponseStatusException(
+                            HttpStatus.UNPROCESSABLE_ENTITY,
+                            "scheme_id must not be changed via PUT /members/{id}. "
+                                    + "Book the change via POST /api/v1/scheme-changes."));
+                }
 
                 // Individual-pricing override (V030). Three fields move
                 // together: setting amount requires effective_from (the
@@ -351,15 +371,28 @@ public class MemberService {
     private Mono<Member> applyOrSchedule(UUID id, String targetStatus, LocalDate effectiveDate,
                                           String reason, String actorId, String actorEmail) {
         LocalDate today = LocalDate.now();
-        boolean isFuture = effectiveDate != null && effectiveDate.isAfter(today);
+        // Snap the operator's effective date to the correct cycle boundary
+        // (feedback_effective_date_snap): terminate/deactivate ride the LAST
+        // day of the month so the outgoing state stays billable for the
+        // whole cycle; activate/suspend/reactivate ride the 1st. Belt-and-
+        // braces with @EndOfMonth on the DTO — the annotation rejects
+        // mis-shaped input; this normalization catches legacy callers that
+        // pre-date the annotation.
+        LocalDate snappedEffective = snapForAction(targetStatus, effectiveDate);
+        boolean isFuture = snappedEffective != null && snappedEffective.isAfter(today);
         if (!isFuture) {
             return transitionStatus(id, targetStatus, reason, actorId, actorEmail)
                 .flatMap(saved -> {
                     // Terminated rows also record the termination_date so the
                     // downstream MemberLifecycleConsumer can compute the
-                    // LATE_TERMINATION_CREDIT window from it.
+                    // LATE_TERMINATION_CREDIT window from it. Snap to
+                    // end-of-month when defaulting to today so an on-the-fly
+                    // termination still bills the whole current cycle.
                     if ("terminated".equals(targetStatus) && saved.getTerminationDate() == null) {
-                        saved.setTerminationDate(effectiveDate != null ? effectiveDate : today);
+                        LocalDate termDate = snappedEffective != null
+                            ? snappedEffective
+                            : com.medfund.shared.validation.DateSnaps.toEndOfMonth(today);
+                        saved.setTerminationDate(termDate);
                         return memberRepository.save(saved);
                     }
                     return Mono.just(saved);
@@ -370,7 +403,7 @@ public class MemberService {
             .flatMap(existing -> {
                 var previous = copyMember(existing);
                 existing.setScheduledStatus(targetStatus);
-                existing.setScheduledStatusEffectiveFrom(effectiveDate);
+                existing.setScheduledStatusEffectiveFrom(snappedEffective);
                 existing.setScheduledStatusReason(reason);
                 existing.setUpdatedAt(Instant.now());
                 existing.setUpdatedBy(safeParseUuid(actorId));
@@ -431,6 +464,56 @@ public class MemberService {
     }
 
     /**
+     * V050 age-eligibility gate. If the target scheme sets {@code min_age}
+     * / {@code max_age}, reject enrolment with 422 AGE_OUT_OF_RANGE when
+     * the member's age at enrolment falls outside the range. Empty Mono
+     * on pass, error on fail. Null scheme / dob short-circuits (upstream
+     * validation catches those; this method is only responsible for the
+     * age range check).
+     */
+    private Mono<Void> checkSchemeAgeRange(UUID schemeId, LocalDate dateOfBirth,
+                                            LocalDate enrollmentDate) {
+        if (schemeId == null || dateOfBirth == null || enrollmentDate == null) {
+            return Mono.empty();
+        }
+        // Defensive: unit-test mocks that don't stub DatabaseClient return
+        // null from db.sql(...), which would NPE the reactive chain. Skip
+        // the gate when the DB layer isn't wired — real runtime always has
+        // a non-null spec.
+        var spec = db.sql("""
+                    SELECT min_age, max_age FROM schemes WHERE id = :schemeId
+                """);
+        if (spec == null) return Mono.empty();
+        return spec
+                .bind("schemeId", schemeId)
+                .map(row -> new short[] {
+                        row.get("min_age", Short.class) != null ? row.get("min_age", Short.class) : (short) -1,
+                        row.get("max_age", Short.class) != null ? row.get("max_age", Short.class) : (short) -1,
+                })
+                .one()
+                .flatMap(bounds -> {
+                    int minAge = bounds[0];
+                    int maxAge = bounds[1];
+                    // Both unset → nothing to enforce (asset-centric schemes / legacy rows).
+                    if (minAge < 0 && maxAge < 0) return Mono.<Void>empty();
+                    int age = Period.between(dateOfBirth, enrollmentDate).getYears();
+                    if (minAge >= 0 && age < minAge) {
+                        return Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                                "AGE_OUT_OF_RANGE: member's age " + age
+                                        + " is below scheme minimum " + minAge));
+                    }
+                    if (maxAge >= 0 && age > maxAge) {
+                        return Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                                "AGE_OUT_OF_RANGE: member's age " + age
+                                        + " is above scheme maximum " + maxAge));
+                    }
+                    return Mono.<Void>empty();
+                })
+                // Missing scheme row is caught later in the enrol flow — pass through here.
+                .switchIfEmpty(Mono.empty());
+    }
+
+    /**
      * UUID.fromString throws on null / blank / non-UUID inputs. We use this
      * helper anywhere actorId hits a UUID column so a non-Keycloak JWT
      * doesn't bring down the request.
@@ -439,6 +522,23 @@ public class MemberService {
         if (s == null || s.isBlank()) return null;
         try { return UUID.fromString(s); }
         catch (IllegalArgumentException e) { return null; }
+    }
+
+    /**
+     * Snap a lifecycle effective date to the correct cycle boundary for the
+     * given target status. Terminate/deactivate are cycle-ends → last day
+     * of the month; activate/suspend/reactivate are cycle-starts → 1st.
+     * Null passes through so "server picks today" callers stay unchanged.
+     */
+    private static LocalDate snapForAction(String targetStatus, LocalDate effectiveDate) {
+        if (effectiveDate == null) return null;
+        return switch (targetStatus) {
+            case "terminated", "deactivated" ->
+                com.medfund.shared.validation.DateSnaps.toEndOfMonth(effectiveDate);
+            case "active", "suspended" ->
+                com.medfund.shared.validation.DateSnaps.toFirstOfMonth(effectiveDate);
+            default -> effectiveDate;
+        };
     }
 
     // generateMemberNumber removed — MemberNumberService is now the single

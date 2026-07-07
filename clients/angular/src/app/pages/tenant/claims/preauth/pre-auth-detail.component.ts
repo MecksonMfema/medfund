@@ -10,6 +10,7 @@ import { IconComponent } from '../../../../shared/components/icon/icon.component
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
+import { endOfMonth } from '../../../../shared/utils/date-snap';
 
 @Component({
   selector: 'app-pre-auth-detail',
@@ -44,10 +45,12 @@ export class PreAuthDetailComponent implements OnInit {
       next: (p) => {
         this.preAuth = p;
         this.approvedAmount = p.requestedAmount; // sensible default
-        // Default expiry: +90 days from today (typical clinical pre-auth window).
+        // Default expiry: end of month, +90 days out from today (typical
+        // clinical pre-auth window snapped to a cycle boundary — see
+        // feedback_effective_date_snap).
         const d = new Date();
         d.setDate(d.getDate() + 90);
-        this.expiryDate = d.toISOString().slice(0, 10);
+        this.expiryDate = endOfMonth(d.toISOString().slice(0, 10));
         this.loading = false;
       },
       error: (err) => {
@@ -57,16 +60,25 @@ export class PreAuthDetailComponent implements OnInit {
     });
   }
 
+  /** feedback_effective_date_snap: pre-auth stays valid through the whole
+   *  cycle it expires in, so the picker snaps to the last day of the month. */
+  onExpiryDateBlur(): void {
+    this.expiryDate = endOfMonth(this.expiryDate);
+  }
+
   approve(): void {
     if (!this.preAuth) return;
     if (!this.approvedAmount || !this.expiryDate) {
       this.errorMessage = 'Approved amount and expiry date are required';
       return;
     }
-    if (!confirm(`Approve ${this.preAuth.authNumber} for ${this.approvedAmount} ${this.preAuth.currencyCode} until ${this.expiryDate}?`)) return;
+    // Belt-and-braces snap at approve time (typed value bypasses blur).
+    const snappedExpiry = endOfMonth(this.expiryDate);
+    this.expiryDate = snappedExpiry;
+    if (!confirm(`Approve ${this.preAuth.authNumber} for ${this.approvedAmount} ${this.preAuth.currencyCode} until ${snappedExpiry}?`)) return;
     this.busy = true;
     this.errorMessage = null;
-    this.service.approve(this.preAuth.id, this.approvedAmount, this.expiryDate).subscribe({
+    this.service.approve(this.preAuth.id, this.approvedAmount, snappedExpiry).subscribe({
       next: (updated) => {
         this.preAuth = updated;
         this.busy = false;

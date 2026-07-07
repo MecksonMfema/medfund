@@ -108,7 +108,11 @@ class PreAuthServiceTest {
         preAuth.setStatus("PENDING");
 
         BigDecimal approvedAmount = new BigDecimal("800.00");
+        // feedback_effective_date_snap: PreAuthService snaps expiryDate to
+        // end-of-month so the auth stays valid through the whole cycle it
+        // expires in.
         LocalDate expiryDate = LocalDate.now().plusMonths(3);
+        LocalDate expectedExpiry = expiryDate.withDayOfMonth(expiryDate.lengthOfMonth());
 
         when(preAuthorizationRepository.findById(preAuth.getId())).thenReturn(Mono.just(preAuth));
         when(preAuthorizationRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
@@ -123,7 +127,7 @@ class PreAuthServiceTest {
                     assertThat(approved.getStatus()).isEqualTo("APPROVED");
                     assertThat(approved.getApprovedAmount()).isEqualByComparingTo(approvedAmount);
                     assertThat(approved.getDecisionDate()).isEqualTo(LocalDate.now());
-                    assertThat(approved.getExpiryDate()).isEqualTo(expiryDate);
+                    assertThat(approved.getExpiryDate()).isEqualTo(expectedExpiry);
                 })
                 .verifyComplete();
 
