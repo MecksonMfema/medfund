@@ -143,7 +143,10 @@ class DependantControllerTest {
         Dependant terminated = createTestDependant();
         terminated.setId(id);
         terminated.setStatus("deactivated");
-        LocalDate effective = LocalDate.of(2026, 9, 15);
+        // Termination dates snap to end-of-month
+        // (feedback_effective_date_snap) — enforced by @EndOfMonth on the
+        // request DTO. A mid-month payload would 400.
+        LocalDate effective = LocalDate.of(2026, 9, 30);
         terminated.setDeactivationEffectiveDate(effective);
         when(dependantService.deactivate(any(), any(), any(), any()))
                 .thenReturn(Mono.just(terminated));
@@ -151,13 +154,13 @@ class DependantControllerTest {
         webTestClient.mutateWith(mockJwt())
                 .post().uri("/api/v1/dependants/{id}/deactivate", id)
                 .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue("{\"effectiveDate\":\"2026-09-15\"}")
+                .bodyValue("{\"effectiveDate\":\"2026-09-30\"}")
                 .header("X-Tenant-ID", "test-tenant")
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
                 .jsonPath("$.status").isEqualTo("deactivated")
-                .jsonPath("$.deactivationEffectiveDate").isEqualTo("2026-09-15");
+                .jsonPath("$.deactivationEffectiveDate").isEqualTo("2026-09-30");
     }
 
     @Test

@@ -233,6 +233,18 @@ public class AdjudicationPipeline {
             return checkOverallBenefitLimit(claim);
         }
 
+        // V051 age gate — reject before the limit check when the benefit
+        // carries a min_age/max_age and the member falls outside. The
+        // cash_claim_allowed flag is enforced separately by the rules
+        // engine (see EligibilityTemplates R51) because the platform does
+        // not yet carry a claim-level payout_mode field.
+        return checkBenefitAgeRange(claim)
+                .flatMap(ageResult -> ageResult.passed()
+                        ? benefitLimitCheck(claim)
+                        : Mono.just(ageResult));
+    }
+
+    private Mono<StageResult> benefitLimitCheck(Claim claim) {
         // Check specific benefit limit
         Mono<BigDecimal> benefitLimitMono = databaseClient
             .sql("SELECT annual_limit FROM scheme_benefits WHERE id = :benefitId")
@@ -305,6 +317,59 @@ public class AdjudicationPipeline {
             })
             .defaultIfEmpty(new StageResult("BenefitLimits", true,
                 "No benefit usage data found — passed"));
+    }
+
+    /**
+     * V051 benefit-age gate. When the referenced benefit sets min_age or
+     * max_age and the member's age at claim time falls outside the range,
+     * reject with AGE_OUT_OF_RANGE. Passes cleanly (null-safe) when the
+     * benefit doesn't set either bound, or when member DoB is missing.
+     */
+    private Mono<StageResult> checkBenefitAgeRange(Claim claim) {
+        if (claim.getBenefitId() == null || claim.getMemberId() == null) {
+            return Mono.just(new StageResult("BenefitLimits", true,
+                    "Age gate skipped — missing benefit or member reference"));
+        }
+        return databaseClient
+                .sql("""
+                        SELECT b.min_age, b.max_age, m.date_of_birth
+                          FROM scheme_benefits b, members m
+                         WHERE b.id = :benefitId AND m.id = :memberId
+                        """)
+                .bind("benefitId", claim.getBenefitId())
+                .bind("memberId", claim.getMemberId())
+                .fetch().one()
+                .map(row -> {
+                    Object minObj = row.get("min_age");
+                    Object maxObj = row.get("max_age");
+                    Object dobObj = row.get("date_of_birth");
+                    Short minAge = minObj == null ? null : ((Number) minObj).shortValue();
+                    Short maxAge = maxObj == null ? null : ((Number) maxObj).shortValue();
+                    java.time.LocalDate dob = dobObj instanceof java.time.LocalDate d ? d : null;
+                    if ((minAge == null && maxAge == null) || dob == null) {
+                        return new StageResult("BenefitLimits", true,
+                                "No benefit age gate to enforce");
+                    }
+                    // Age at service date, not today — preserves fairness on
+                    // late-submitted claims where the member has since aged.
+                    java.time.LocalDate asOf = claim.getServiceDate() != null
+                            ? claim.getServiceDate() : java.time.LocalDate.now();
+                    int age = java.time.Period.between(dob, asOf).getYears();
+                    if (minAge != null && age < minAge) {
+                        return new StageResult("BenefitLimits", false,
+                                "AGE_OUT_OF_RANGE: member age " + age
+                                        + " below benefit minimum " + minAge);
+                    }
+                    if (maxAge != null && age > maxAge) {
+                        return new StageResult("BenefitLimits", false,
+                                "AGE_OUT_OF_RANGE: member age " + age
+                                        + " above benefit maximum " + maxAge);
+                    }
+                    return new StageResult("BenefitLimits", true,
+                            "Benefit age gate passed (age " + age + ")");
+                })
+                .defaultIfEmpty(new StageResult("BenefitLimits", true,
+                        "Benefit or member row missing — age gate skipped"));
     }
 
     // ---- Stage 4: Pre-Authorization ----

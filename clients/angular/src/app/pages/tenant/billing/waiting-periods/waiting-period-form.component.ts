@@ -34,11 +34,21 @@ export class WaitingPeriodFormComponent implements OnInit {
   saving = false;
   errorMessage: string | null = null;
 
-  form = {
+  form: {
+    schemeId: string;
+    conditionType: string;
+    waitingDays: number;
+    description: string;
+    /** V052 age-band scoping. Null = universal. */
+    minAge: number | null;
+    maxAge: number | null;
+  } = {
     schemeId: '',
     conditionType: '',
     waitingDays: 30,
     description: '',
+    minAge: null,
+    maxAge: null,
   };
 
   get schemeOptions(): SelectOption[] {
@@ -74,6 +84,8 @@ export class WaitingPeriodFormComponent implements OnInit {
               conditionType: found.conditionType,
               waitingDays: found.waitingDays,
               description: found.description ?? '',
+              minAge: (found as any).minAge ?? null,
+              maxAge: (found as any).maxAge ?? null,
             };
           } else {
             this.errorMessage = 'Waiting period rule not found';
@@ -100,6 +112,8 @@ export class WaitingPeriodFormComponent implements OnInit {
       conditionType: this.form.conditionType.trim(),
       waitingDays: this.form.waitingDays,
       description: this.form.description.trim() || undefined,
+      minAge: this.form.minAge ?? undefined,
+      maxAge: this.form.maxAge ?? undefined,
     };
     this.saving = true;
     this.errorMessage = null;

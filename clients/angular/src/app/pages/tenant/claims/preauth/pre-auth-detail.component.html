@@ -70,7 +70,11 @@
           </label>
           <label class="field">
             <span class="field-label">Expiry date</span>
-            <input type="date" [(ngModel)]="expiryDate" name="expiryDate" />
+            <input type="date"
+                   [(ngModel)]="expiryDate"
+                   (blur)="onExpiryDateBlur()"
+                   name="expiryDate" />
+            <small class="muted">Snaps to the last day of the chosen month — the auth stays valid through that whole cycle.</small>
           </label>
         </div>
         <div class="decision-actions">

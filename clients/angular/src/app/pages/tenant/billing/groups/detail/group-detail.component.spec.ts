@@ -163,65 +163,55 @@ describe('GroupDetailComponent', () => {
   });
 
   // ------------------------------------------------------------------
-  // Terminate flow — mirrors the dependant deactivate prompt pattern:
-  //   Cancel = abort, empty = today, valid ISO = that date, garbled = toast.
-  //   Reason is captured via a second prompt; empty reason omits it.
+  // Terminate flow — moved from a prompt() sequence to the shared
+  // terminate-group-modal. terminate() now only opens the modal; the
+  // real work happens in onTerminateSubmit() with the modal's snapped
+  // payload (feedback_effective_date_snap).
   // ------------------------------------------------------------------
 
   describe('terminate flow', () => {
-    it('defaults the effective date to today when the operator hits Enter on the seeded value', () => {
-      const today = new Date().toISOString().slice(0, 10);
-      // First prompt = effective date (seeded today), second = reason (blank).
-      const promptSpy = spyOn(window, 'prompt').and.returnValues(today, '');
+    it('terminate() opens the modal but does not call the service yet', () => {
       const { comp, groups } = instantiate();
       comp.ngOnInit();
       comp.terminate();
-      expect(promptSpy).toHaveBeenCalledTimes(2);
+      expect(comp.terminateModalOpen).toBeTrue();
+      expect(groups.terminateCalls.length).toBe(0);
+    });
+
+    it('onTerminateSubmit forwards the modal payload to the service and flips status', () => {
+      const { comp, groups } = instantiate();
+      comp.ngOnInit();
+      comp.terminate();
+      comp.onTerminateSubmit({ effectiveDate: '2026-12-31', reason: 'Migrated to Alpha' });
+      expect(comp.terminateModalOpen).toBeFalse();
       expect(groups.terminateCalls[0].id).toBe('g-1');
-      expect(groups.terminateCalls[0].effectiveDate).toBe(today);
-      // Reason blank → null, not empty string, so the backend audit
-      // trail doesn't fill with meaningless "" values.
-      expect(groups.terminateCalls[0].reason).toBeNull();
+      expect(groups.terminateCalls[0].effectiveDate).toBe('2026-12-31');
+      expect(groups.terminateCalls[0].reason).toBe('Migrated to Alpha');
       expect(comp.group?.status).toBe('TERMINATED');
     });
 
-    it('aborts when the operator cancels the effective-date prompt', () => {
-      // First prompt returns null → operator hit Cancel.
-      spyOn(window, 'prompt').and.returnValue(null);
+    it('onTerminateSubmit maps a missing reason to null', () => {
+      const { comp, groups } = instantiate();
+      comp.ngOnInit();
+      comp.onTerminateSubmit({ effectiveDate: '2026-12-31' });
+      expect(groups.terminateCalls[0].reason).toBeNull();
+    });
+
+    it('onTerminateCancel just closes the modal', () => {
       const { comp, groups } = instantiate();
       comp.ngOnInit();
       comp.terminate();
+      comp.onTerminateCancel();
+      expect(comp.terminateModalOpen).toBeFalse();
       expect(groups.terminateCalls.length).toBe(0);
-      expect(comp.group?.status).toBe('ACTIVE');
-    });
-
-    it('rejects a garbled effective date with a toast (no service call)', () => {
-      spyOn(window, 'prompt').and.returnValue('yesterday');
-      const { comp, groups, toast } = instantiate();
-      comp.ngOnInit();
-      comp.terminate();
-      expect(groups.terminateCalls.length).toBe(0);
-      expect(toast.errors[0]).toContain('YYYY-MM-DD');
-    });
-
-    it('forwards a future date and operator-typed reason to the service', () => {
-      spyOn(window, 'prompt').and.returnValues('2026-12-15', 'Migrated to Alpha Group');
-      const { comp, groups } = instantiate();
-      comp.ngOnInit();
-      comp.terminate();
-      expect(groups.terminateCalls[0].effectiveDate).toBe('2026-12-15');
-      expect(groups.terminateCalls[0].reason).toBe('Migrated to Alpha Group');
     });
 
     it('surfaces backend errors via toast without mutating the group', () => {
-      const today = new Date().toISOString().slice(0, 10);
-      spyOn(window, 'prompt').and.returnValues(today, '');
       const { comp, groups, toast } = instantiate();
       comp.ngOnInit();
       groups.shouldFailTerminate = true;
-      comp.terminate();
+      comp.onTerminateSubmit({ effectiveDate: '2026-12-31' });
       expect(toast.errors[0]).toBe('terminate 500');
-      // Group status unchanged on failure.
       expect(comp.group?.status).toBe('ACTIVE');
     });
 

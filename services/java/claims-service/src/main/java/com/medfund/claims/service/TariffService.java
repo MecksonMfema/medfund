@@ -60,8 +60,10 @@ public class TariffService {
                                                  String actorId, String actorEmail) {
         var schedule = new TariffSchedule();
         schedule.setName(request.name());
-        schedule.setEffectiveDate(request.effectiveDate());
-        schedule.setEndDate(request.endDate());
+        // Belt-and-braces snap (feedback_effective_date_snap): start → 1st,
+        // end → last day. Annotations on the DTO reject mis-shaped input.
+        schedule.setEffectiveDate(com.medfund.shared.validation.DateSnaps.toFirstOfMonth(request.effectiveDate()));
+        schedule.setEndDate(com.medfund.shared.validation.DateSnaps.toEndOfMonth(request.endDate()));
         schedule.setSource(request.source());
         schedule.setStatus("ACTIVE");
         schedule.setCreatedAt(Instant.now());

@@ -122,7 +122,7 @@ class SchemeServiceTest {
 
     @Test
     void create_validRequest_createsScheme() {
-        var request = new CreateSchemeRequest("Gold Plan", "Premium plan", null, null, LocalDate.now(), null, null);
+        var request = new CreateSchemeRequest("Gold Plan", "Premium plan", null, null, LocalDate.now(), null, null, null, null);
 
         when(schemeRepository.existsByName("Gold Plan")).thenReturn(Mono.just(false));
         when(schemeRepository.save(any(Scheme.class))).thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
@@ -134,7 +134,9 @@ class SchemeServiceTest {
                 assertThat(saved.getName()).isEqualTo("Gold Plan");
                 assertThat(saved.getStatus()).isEqualTo("active");
                 assertThat(saved.getSchemeType()).isEqualTo("medical_aid");
-                assertThat(saved.getEffectiveDate()).isEqualTo(request.effectiveDate());
+                // feedback_effective_date_snap: SchemeService snaps
+                // effectiveDate to the 1st of the month.
+                assertThat(saved.getEffectiveDate()).isEqualTo(request.effectiveDate().withDayOfMonth(1));
                 assertThat(saved.getId()).isNotNull();
                 assertThat(saved.getCreatedAt()).isNotNull();
                 assertThat(saved.getCreatedBy()).isEqualTo(UUID.fromString(actorId));
@@ -148,7 +150,7 @@ class SchemeServiceTest {
 
     @Test
     void create_duplicateName_throwsConflict() {
-        var request = new CreateSchemeRequest("Gold Plan", "Premium plan", null, null, LocalDate.now(), null, null);
+        var request = new CreateSchemeRequest("Gold Plan", "Premium plan", null, null, LocalDate.now(), null, null, null, null);
 
         when(schemeRepository.existsByName("Gold Plan")).thenReturn(Mono.just(true));
 
@@ -188,7 +190,7 @@ class SchemeServiceTest {
         var request = new CreateSchemeBenefitRequest(
             schemeId, "Outpatient", "outpatient",
             new BigDecimal("5000.00"), new BigDecimal("500.00"), new BigDecimal("1000.00"),
-            "USD", 30, "Outpatient benefit"
+            "USD", 30, "Outpatient benefit", null, null, null
         );
 
         var parentScheme = new Scheme();
@@ -255,7 +257,7 @@ class SchemeServiceTest {
 
     @Test
     void create_leavesIdNullSoSaveTakesInsertPath() {
-        var request = new CreateSchemeRequest("Bronze Plan", null, null, null, LocalDate.now(), null, null);
+        var request = new CreateSchemeRequest("Bronze Plan", null, null, null, LocalDate.now(), null, null, null, null);
 
         when(schemeRepository.existsByName("Bronze Plan")).thenReturn(Mono.just(false));
         // Snapshot the @Id at the moment save() is invoked. We can't use
@@ -287,7 +289,7 @@ class SchemeServiceTest {
 
     @Test
     void create_blankCurrency_defaultsToUSD() {
-        var request = new CreateSchemeRequest("Plan A", null, null, null, LocalDate.now(), null, null);
+        var request = new CreateSchemeRequest("Plan A", null, null, null, LocalDate.now(), null, null, null, null);
 
         when(schemeRepository.existsByName("Plan A")).thenReturn(Mono.just(false));
         var captor = ArgumentCaptor.forClass(Scheme.class);
@@ -314,7 +316,7 @@ class SchemeServiceTest {
             .thenAnswer(inv -> Mono.just(assignIdIfMissing(inv.getArgument(0))));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
-        var request = new UpdateSchemeRequest(null, null, null, null, null, "EUR");
+        var request = new UpdateSchemeRequest(null, null, null, null, null, "EUR", null, null);
 
         StepVerifier.create(schemeService.update(existing.getId(), request, actorId, actorEmail)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
@@ -338,7 +340,7 @@ class SchemeServiceTest {
         var request = new CreateSchemeBenefitRequest(
             schemeId, "Outpatient", "outpatient",
             new BigDecimal("5000.00"), null, null,
-            "EUR", 30, null
+            "EUR", 30, null, null, null, null
         );
 
         StepVerifier.create(schemeService.createBenefit(request, actorId, actorEmail)
@@ -371,7 +373,7 @@ class SchemeServiceTest {
         var request = new CreateSchemeBenefitRequest(
             schemeId, "Outpatient", "outpatient",
             new BigDecimal("5000.00"), null, null,
-            null, 30, null
+            null, 30, null, null, null, null
         );
 
         StepVerifier.create(schemeService.createBenefit(request, actorId, actorEmail)
@@ -407,7 +409,7 @@ class SchemeServiceTest {
 
     @Test
     void create_publishesAuditEventWithCorrectShape() {
-        var request = new CreateSchemeRequest("Audit Plan", "desc", "hmo", null, LocalDate.now(), null, "usd");
+        var request = new CreateSchemeRequest("Audit Plan", "desc", "hmo", null, LocalDate.now(), null, "usd", null, null);
 
         when(schemeRepository.existsByName("Audit Plan")).thenReturn(Mono.just(false));
         when(schemeRepository.save(any(Scheme.class)))
@@ -461,7 +463,7 @@ class SchemeServiceTest {
         // If a downstream caller forgets to set TENANT_ID on the context, the
         // audit envelope still emits with a sentinel tenant so the audit
         // trail is never silently dropped.
-        var request = new CreateSchemeRequest("Headless", null, null, null, LocalDate.now(), null, null);
+        var request = new CreateSchemeRequest("Headless", null, null, null, LocalDate.now(), null, null, null, null);
 
         when(schemeRepository.existsByName("Headless")).thenReturn(Mono.just(false));
         when(schemeRepository.save(any(Scheme.class)))
@@ -481,7 +483,7 @@ class SchemeServiceTest {
     @Test
     void create_persistsInsuranceLine_whenProvided() {
         var request = new CreateSchemeRequest("Life Plan", null, "term_life", "LIFE",
-                LocalDate.now(), null, null);
+                LocalDate.now(), null, null, null, null);
 
         when(schemeRepository.existsByName("Life Plan")).thenReturn(Mono.just(false));
         var captor = ArgumentCaptor.forClass(Scheme.class);
@@ -500,7 +502,7 @@ class SchemeServiceTest {
     @Test
     void create_defaultsToHEALTH_whenLineOmitted() {
         var request = new CreateSchemeRequest("Default Plan", null, null, null,
-                LocalDate.now(), null, null);
+                LocalDate.now(), null, null, null, null);
 
         when(schemeRepository.existsByName("Default Plan")).thenReturn(Mono.just(false));
         var captor = ArgumentCaptor.forClass(Scheme.class);
@@ -519,7 +521,7 @@ class SchemeServiceTest {
     @Test
     void create_unknownInsuranceLine_returns422() {
         var request = new CreateSchemeRequest("Bad Plan", null, null, "BANANA",
-                LocalDate.now(), null, null);
+                LocalDate.now(), null, null, null, null);
 
         when(schemeRepository.existsByName("Bad Plan")).thenReturn(Mono.just(false));
 
@@ -549,7 +551,7 @@ class SchemeServiceTest {
         var request = new CreateSchemeBenefitRequest(
             schemeId, "Anything", "x",
             new BigDecimal("1000.00"), null, null,
-            "USD", 0, null
+            "USD", 0, null, null, null, null
         );
 
         StepVerifier.create(schemeService.createBenefit(request, actorId, actorEmail)
@@ -611,7 +613,7 @@ class SchemeServiceTest {
         var request = new CreateSchemeBenefitRequest(
             schemeId, "Sum Assured", "lump_sum",
             new BigDecimal("100000.00"), null, null,
-            "USD", 90, null
+            "USD", 90, null, null, null, null
         );
 
         StepVerifier.create(schemeService.createBenefit(request, actorId, actorEmail)

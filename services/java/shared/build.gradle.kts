@@ -27,6 +27,11 @@ dependencies {
     api("javax.money:money-api:1.1")
     api("org.javamoney:moneta:1.4.4")
 
+    // Jakarta Validation — hosts shared JSR-303 annotations (@FirstOfMonth,
+    // @EndOfMonth) so every downstream DTO can use them without pulling
+    // the starter itself.
+    api("org.springframework.boot:spring-boot-starter-validation")
+
     // ── Test fixtures (java-test-fixtures plugin) ─────────────────────────
     // Downstream services pull these via:
     //   testImplementation(testFixtures(project(":shared")))

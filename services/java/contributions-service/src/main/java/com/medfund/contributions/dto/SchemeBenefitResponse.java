@@ -18,6 +18,9 @@ public record SchemeBenefitResponse(
         Integer waitingPeriodDays,
         String description,
         String status,
+        Short minAge,
+        Short maxAge,
+        Boolean cashClaimAllowed,
         Instant createdAt,
         Instant updatedAt
 ) {
@@ -34,6 +37,9 @@ public record SchemeBenefitResponse(
                 benefit.getWaitingPeriodDays(),
                 benefit.getDescription(),
                 benefit.getStatus(),
+                benefit.getMinAge(),
+                benefit.getMaxAge(),
+                benefit.getCashClaimAllowed(),
                 benefit.getCreatedAt(),
                 benefit.getUpdatedAt()
         );

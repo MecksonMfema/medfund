@@ -144,8 +144,16 @@
             <app-entity-picker
               kind="scheme"
               [(value)]="form.schemeId"
+              (valueChange)="onSchemeChange($event)"
               placeholder="Search by scheme name…">
             </app-entity-picker>
+            <!-- V050: warn on age-out-of-range vs picked scheme. Backend is
+                 the final arbiter — this is a discoverability nudge only. -->
+            @if (ageOutOfRangeWarning) {
+              <div class="banner banner-warning" style="margin-top:.5rem">
+                {{ ageOutOfRangeWarning }}
+              </div>
+            }
           </div>
 
           <div class="field">

@@ -211,47 +211,37 @@ describe('MemberDetailComponent', () => {
     expect(members.updateDependantCalls[0].data.relationship).toBe('spouse');
   });
 
-  it('deactivates a dependant with today as the default effective date', () => {
-    // V046: the prompt is seeded with today. Cancel = abort;
-    // empty answer = today; a valid ISO = that date. Here we simulate
-    // the operator hitting Enter on the seeded value.
-    const today = new Date().toISOString().slice(0, 10);
-    const promptSpy = spyOn(window, 'prompt').and.returnValue(today);
+  it('deactivateDependant opens the modal without calling the service', () => {
+    // V046 + feedback_effective_date_snap: deactivateDependant() now
+    // opens the shared deactivate-dependant-modal. The modal owns the
+    // date-picker + end-of-month snap; the service is only called on
+    // onDeactivateSubmit.
     const { comp, members } = instantiate();
     comp.ngOnInit();
     comp.deactivateDependant(comp.dependants[0]);
-    expect(promptSpy).toHaveBeenCalled();
+    expect(comp.deactivateModalOpen).toBeTrue();
+    expect(comp.deactivateModalName).toBe(`${comp.dependants[0].firstName} ${comp.dependants[0].lastName}`.trim());
+    expect(members.deactivateCalls.length).toBe(0);
+  });
+
+  it('onDeactivateSubmit forwards the modal payload and flips the row', () => {
+    const { comp, members } = instantiate();
+    comp.ngOnInit();
+    comp.deactivateDependant(comp.dependants[0]);
+    comp.onDeactivateSubmit({ effectiveDate: '2026-09-30' });
+    expect(comp.deactivateModalOpen).toBeFalse();
     expect(members.deactivateCalls[0].id).toBe('d-1');
-    expect(members.deactivateCalls[0].effectiveDate).toBe(today);
+    expect(members.deactivateCalls[0].effectiveDate).toBe('2026-09-30');
     expect(comp.dependants[0].status).toBe('deactivated');
   });
 
-  it('aborts the deactivation when the operator cancels the prompt', () => {
-    // Cancel returns null — no service call, no state change.
-    spyOn(window, 'prompt').and.returnValue(null);
+  it('onDeactivateCancel just closes the modal', () => {
     const { comp, members } = instantiate();
     comp.ngOnInit();
     comp.deactivateDependant(comp.dependants[0]);
+    comp.onDeactivateCancel();
+    expect(comp.deactivateModalOpen).toBeFalse();
     expect(members.deactivateCalls.length).toBe(0);
-    expect(comp.dependants[0].status).toBe('active');
-  });
-
-  it('rejects a garbled ISO date with a toast (no service call)', () => {
-    // Malformed date → friendly toast instead of a 400 round-trip.
-    spyOn(window, 'prompt').and.returnValue('yesterday');
-    const { comp, members, toast } = instantiate();
-    comp.ngOnInit();
-    comp.deactivateDependant(comp.dependants[0]);
-    expect(members.deactivateCalls.length).toBe(0);
-    expect(toast.errors[0]).toContain('YYYY-MM-DD');
-  });
-
-  it('accepts an operator-picked future date and forwards it to the service', () => {
-    spyOn(window, 'prompt').and.returnValue('2026-09-15');
-    const { comp, members } = instantiate();
-    comp.ngOnInit();
-    comp.deactivateDependant(comp.dependants[0]);
-    expect(members.deactivateCalls[0].effectiveDate).toBe('2026-09-15');
   });
 
   it('rejects dependant save when required fields are missing', () => {

@@ -29,6 +29,12 @@
         @if (canSuspend())       { <button type="button" class="btn btn-warn"     (click)="suspend()">Suspend</button> }
         @if (canTerminate())     { <button type="button" class="btn btn-danger"   (click)="terminate()">Terminate</button> }
         @if (canClearOverride()) { <button type="button" class="btn btn-default"  (click)="clearBillingOverride()">Clear custom premium</button> }
+        <!-- V048 group change: back-dated posts arrears/rebate; forward-dated stashes PENDING for approval. -->
+        <button type="button" class="btn btn-default" (click)="openChangeGroupModal()">Change group</button>
+        <!-- Scheme change: goes through contributions-service so waiting-period rules and UPGRADE/DOWNGRADE classification apply. -->
+        <button type="button" class="btn btn-default" (click)="openChangeSchemeModal()">Change scheme</button>
+        <!-- V048 swap: promote a dependant to principal + demote current member; modal handles picking. -->
+        <button type="button" class="btn btn-default" (click)="openSwapModal()">Swap with dependant</button>
       }
       <a class="btn btn-default" routerLink="/tenant/members">
         <app-icon name="arrow-left" [size]="14"></app-icon>
@@ -183,14 +189,20 @@
 
             <div class="field">
               <span class="field-label">Scheme</span>
+              <!-- Read-only display. Scheme changes must go through the
+                   "Change scheme" button in the page header so
+                   waiting-period rules, UPGRADE/DOWNGRADE
+                   classification, and arrears/rebate all fire via
+                   contributions-service. -->
               <app-entity-picker
                 kind="scheme"
                 [(value)]="form.schemeId"
-                (valueChange)="onSchemeChange($event)"
+                [disabled]="true"
                 [prefillLabel]="schemeLabel"
                 [prefillSublabel]="schemeSublabel"
                 placeholder="Search by scheme name…">
               </app-entity-picker>
+              <small class="field-help">Use <strong>Change scheme</strong> above to move this member to a different scheme.</small>
             </div>
 
           </div>
@@ -396,7 +408,7 @@
                         }
                       </div>
                       <div class="dependant-summary__actions">
-                        @if (d.status !== 'deactivated' && d.status !== 'removed') {
+                        @if (d.status !== 'deactivated' && d.status !== 'removed' && d.status !== 'swapped') {
                           <button type="button" class="btn btn-default" (click)="editDependant(d)" [disabled]="!!removingId">
                             Edit
                           </button>
@@ -630,3 +642,39 @@
     }
   </div>
 </ng-template>
+
+<!-- V048 modal: change group. Standalone component with EntityPicker for group selection. -->
+<app-change-group-modal
+  [open]="changeGroupModalOpen"
+  [memberName]="member ? member.firstName + ' ' + member.lastName : ''"
+  (cancel)="onChangeGroupCancel()"
+  (submit)="onChangeGroupSubmit($event)">
+</app-change-group-modal>
+
+<!-- Scheme change modal. Routes through contributions-service; the
+     kind is auto-classified server-side. -->
+<app-change-scheme-modal
+  [open]="changeSchemeModalOpen"
+  [memberName]="member ? member.firstName + ' ' + member.lastName : ''"
+  [currentSchemeName]="schemeLabel"
+  [currentSchemeId]="member?.schemeId ?? null"
+  (cancel)="onChangeSchemeCancel()"
+  (submit)="onChangeSchemeSubmit($event)">
+</app-change-scheme-modal>
+
+<!-- V048 modal: swap principal with dependant. Dependant list is passed in so the modal
+     doesn't have to re-query, matching the "parent owns the data" pattern. -->
+<app-swap-dependant-modal
+  [open]="swapModalOpen"
+  [memberName]="member ? member.firstName + ' ' + member.lastName : ''"
+  [dependants]="dependants"
+  (cancel)="onSwapCancel()"
+  (submit)="onSwapSubmit($event)">
+</app-swap-dependant-modal>
+
+<app-deactivate-dependant-modal
+  [open]="deactivateModalOpen"
+  [dependantName]="deactivateModalName"
+  (cancel)="onDeactivateCancel()"
+  (submit)="onDeactivateSubmit($event)">
+</app-deactivate-dependant-modal>

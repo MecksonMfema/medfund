@@ -57,7 +57,7 @@ class PricingSuggestionServiceTest {
         var req = new PricingSuggestionRequest(
                 UUID.randomUUID(),
                 LocalDate.of(1990, 5, 15),
-                "male", false, false, null);
+                "male", false, false, null, null);
 
         StepVerifier.create(svc.suggest(req))
                 .assertNext(resp -> {
@@ -83,7 +83,7 @@ class PricingSuggestionServiceTest {
         var req = new PricingSuggestionRequest(
                 UUID.randomUUID(),
                 LocalDate.of(1990, 5, 15),
-                "male", false, false, null);
+                "male", false, false, null, null);
 
         StepVerifier.create(svc.suggest(req))
                 .assertNext(resp -> {
@@ -223,6 +223,6 @@ class PricingSuggestionServiceTest {
         return new PricingSuggestionRequest(
                 UUID.randomUUID(),
                 LocalDate.of(1990, 5, 15),
-                gender, chronic, smoker, bmi);
+                gender, chronic, smoker, bmi, null);
     }
 }

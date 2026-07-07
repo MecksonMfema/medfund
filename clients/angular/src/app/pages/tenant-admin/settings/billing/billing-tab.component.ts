@@ -18,6 +18,7 @@ import { SkeletonComponent } from '../../../../shared/components/skeleton/skelet
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { AdminService } from '../../../../core/services/admin.service';
 import { TenantService } from '../../../../core/services/tenant.service';
+import { MemberNumberConfig, MemberNumberConfigService } from '../../../../core/services/member-number-config.service';
 
 type SubSection = 'benefit-types' | 'payment-methods' | 'transaction-types' | 'dunning' | 'cycle' | 'pricing-mode' | 'member-number-scheme';
 type PricingMode = 'STANDARD' | 'INDIVIDUAL' | 'AI_DRIVEN';
@@ -116,10 +117,29 @@ export class TenantBillingTabComponent implements OnInit {
   ];
   memberNumberSchemeDraft: MemberNumberScheme = 'INDEPENDENT';
 
+  /**
+   * V126 shape knobs — populated from the tenancy-service dedicated
+   * config endpoint (GET /tenants/{id}/member-number-config). Byte-for-byte
+   * defaults on tenants that never touched the knobs so the preview
+   * still renders sensibly before the first GET completes.
+   */
+  memberNumberConfigDraft: MemberNumberConfig = {
+    tenantId: '',
+    memberNumberScheme: 'INDEPENDENT',
+    memberNumberPrefix: 'MBR-',
+    dependantNumberPrefix: 'DEP-',
+    memberNumberRandomLength: 6,
+    memberNumberSuffixSeparator: '-',
+    memberNumberSuffixPadding: 2,
+    memberNumberSuffixStart: 1,
+  };
+  memberNumberConfigLoading = false;
+
   constructor(
     private svc: BillingCatalogueService,
     private admin: AdminService,
     private tenantSvc: TenantService,
+    private mnc: MemberNumberConfigService,
   ) {}
 
   ngOnInit(): void {
@@ -130,6 +150,51 @@ export class TenantBillingTabComponent implements OnInit {
     const t = this.tenantSvc.getTenant();
     this.pricingModeDraft = (t?.pricingModel as PricingMode) || 'STANDARD';
     this.memberNumberSchemeDraft = (t?.memberNumberScheme as MemberNumberScheme) || 'INDEPENDENT';
+    if (t?.id) this.loadMemberNumberConfig(t.id);
+  }
+
+  /** Fetch the V126 shape knobs (prefix, padding, separator, …).
+   *  Failure falls through to defaults so the UI still renders. */
+  private loadMemberNumberConfig(tenantId: string): void {
+    this.memberNumberConfigLoading = true;
+    this.mnc.get(tenantId).subscribe({
+      next: (cfg) => {
+        this.memberNumberConfigDraft = { ...cfg };
+        this.memberNumberSchemeDraft = (cfg.memberNumberScheme as MemberNumberScheme) || 'INDEPENDENT';
+        this.memberNumberConfigLoading = false;
+      },
+      error: () => {
+        this.memberNumberConfigLoading = false;
+      },
+    });
+  }
+
+  /** Client-side preview of what the next number will look like given
+   *  the current draft values. Mirrors MemberNumberService.randomBlock
+   *  — uses a static seed (100000-style) so the preview is stable
+   *  rather than jittering on every keystroke. */
+  memberNumberPreview(): string {
+    const cfg = this.memberNumberConfigDraft;
+    const digits = Math.max(3, Math.min(12, cfg.memberNumberRandomLength || 6));
+    const sample = '1' + '0'.repeat(digits - 1); // 100000-style stable seed
+    if (cfg.memberNumberScheme === 'SHARED_WITH_SUFFIX') {
+      const pad = Math.max(1, Math.min(4, cfg.memberNumberSuffixPadding || 2));
+      const suffix = String(cfg.memberNumberSuffixStart ?? 1).padStart(pad, '0');
+      return `${cfg.memberNumberPrefix}${sample}${cfg.memberNumberSuffixSeparator}${suffix}`;
+    }
+    return `${cfg.memberNumberPrefix}${sample}`;
+  }
+
+  dependantNumberPreview(): string {
+    const cfg = this.memberNumberConfigDraft;
+    const digits = Math.max(3, Math.min(12, cfg.memberNumberRandomLength || 6));
+    const sample = '1' + '0'.repeat(digits - 1);
+    if (cfg.memberNumberScheme === 'SHARED_WITH_SUFFIX') {
+      const pad = Math.max(1, Math.min(4, cfg.memberNumberSuffixPadding || 2));
+      const suffix = String((cfg.memberNumberSuffixStart ?? 1) + 1).padStart(pad, '0');
+      return `${cfg.memberNumberPrefix}${sample}${cfg.memberNumberSuffixSeparator}${suffix}`;
+    }
+    return `${cfg.dependantNumberPrefix}${sample}`;
   }
 
   loadAll(): void {
@@ -311,13 +376,26 @@ export class TenantBillingTabComponent implements OnInit {
       return;
     }
     this.saving = true;
-    this.admin.updateTenant(t.id, { memberNumberScheme: this.memberNumberSchemeDraft }).subscribe({
-      next: () => {
+    // Sync the draft's scheme with the segmented control before we
+    // send — the SelectComponent binds to `memberNumberSchemeDraft`,
+    // the config draft carries every other knob.
+    const payload = {
+      memberNumberScheme: this.memberNumberSchemeDraft,
+      memberNumberPrefix: this.memberNumberConfigDraft.memberNumberPrefix,
+      dependantNumberPrefix: this.memberNumberConfigDraft.dependantNumberPrefix,
+      memberNumberRandomLength: this.memberNumberConfigDraft.memberNumberRandomLength,
+      memberNumberSuffixSeparator: this.memberNumberConfigDraft.memberNumberSuffixSeparator,
+      memberNumberSuffixPadding: this.memberNumberConfigDraft.memberNumberSuffixPadding,
+      memberNumberSuffixStart: this.memberNumberConfigDraft.memberNumberSuffixStart,
+    };
+    this.mnc.update(t.id, payload).subscribe({
+      next: (updated) => {
         this.saving = false;
+        this.memberNumberConfigDraft = { ...updated };
         // Refresh cached snapshot so subsequent enrolments + dependant
         // adds see the new scheme without a logout/login cycle.
         this.tenantSvc.setTenant({ ...t, memberNumberScheme: this.memberNumberSchemeDraft });
-        this.flash('Member-number scheme saved');
+        this.flash('Member-number config saved');
       },
       error: (err) => { this.saving = false; this.errorMessage = err?.error?.detail || 'Save failed'; },
     });

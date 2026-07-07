@@ -268,7 +268,12 @@ public class DependantService {
     @Transactional
     public Mono<Dependant> deactivate(UUID id, java.time.LocalDate effectiveDate,
                                        String actorId, String actorEmail) {
-        java.time.LocalDate resolved = effectiveDate != null ? effectiveDate : java.time.LocalDate.now();
+        // Snap to end-of-month (feedback_effective_date_snap) so the
+        // dependant remains billable for the whole current cycle when the
+        // operator defaults to today. Belt-and-braces with @EndOfMonth on
+        // the DeactivateDependantRequest DTO.
+        java.time.LocalDate rawResolved = effectiveDate != null ? effectiveDate : java.time.LocalDate.now();
+        java.time.LocalDate resolved = com.medfund.shared.validation.DateSnaps.toEndOfMonth(rawResolved);
         return dependantRepository.findById(id)
             .switchIfEmpty(Mono.error(new DependantNotFoundException(id)))
             .flatMap(existing -> {

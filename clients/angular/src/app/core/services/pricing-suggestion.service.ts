@@ -9,6 +9,15 @@ export interface PricingSuggestionRequest {
   hasChronicConditions?: boolean;
   smoker?: boolean;
   bmi?: number;
+  /**
+   * V050 escape-hatch for the "grandfathered continuous member" case
+   * (see feedback_effective_date_snap / plan Layer 5): number of full years
+   * the member has been continuously enrolled with the tenant. Feeds the
+   * AI as a risk-reducing feature so long-service seniors can land on a
+   * lower premium despite an age loading. Compute at enrolment time as
+   * `today − enrollmentDate` in years; on the add-member form pass 0.
+   */
+  tenureYears?: number;
 }
 
 export interface PricingSuggestionResponse {

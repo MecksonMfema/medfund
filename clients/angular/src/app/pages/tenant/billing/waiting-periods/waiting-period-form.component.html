@@ -45,6 +45,19 @@
       <input type="number" min="0" [(ngModel)]="form.waitingDays" name="waitingDays" required />
     </label>
 
+    <!-- V052 age-band scoping — when either bound is set, adjudication Stage 2
+         prefers this rule over the default per-scheme rule for members whose
+         age at claim time falls in the band. Leave both blank for the legacy
+         "applies to everyone" behaviour. -->
+    <label class="field">
+      <span class="field-label">Min age <span class="muted">(optional)</span></span>
+      <input type="number" min="0" max="120" [(ngModel)]="form.minAge" name="waitingMinAge" />
+    </label>
+    <label class="field">
+      <span class="field-label">Max age <span class="muted">(optional)</span></span>
+      <input type="number" min="0" max="120" [(ngModel)]="form.maxAge" name="waitingMaxAge" />
+    </label>
+
     <label class="field span-2">
       <span class="field-label">Description (optional)</span>
       <textarea rows="3" [(ngModel)]="form.description" name="description"></textarea>

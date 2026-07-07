@@ -11,6 +11,8 @@ public enum JobType {
     TARIFF_ACTIVATION("Tariff Activation", "Activate/deactivate tariff schedules by effective date"),
     SCHEDULED_STATUS_ROLL("Scheduled Status Roll",
         "Roll enrolled → active on the enrolment date; apply due scheduled status changes on members and groups"),
+    SCHEME_CHANGE_ROLL("Scheme Change Roll",
+        "Apply APPROVED scheme_changes rows whose effective_date has arrived (flip members.scheme_id, publish SCHEME_CHANGED)"),
     ARREARS_ESCALATION("Arrears Escalation",
         "Auto-suspend / deactivate members and groups based on dunning_config thresholds");
 

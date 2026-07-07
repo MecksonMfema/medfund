@@ -15,6 +15,9 @@ export interface Scheme {
   effectiveDate: string;
   endDate?: string;
   currencyCode?: string;
+  /** V050 age-eligibility gate — see {@link UpsertSchemePayload}. */
+  minAge?: number;
+  maxAge?: number;
 }
 
 export interface SchemesPage {
@@ -62,6 +65,13 @@ export interface SchemeBenefit {
   waitingPeriodDays?: number;
   description?: string;
   status?: string;
+  /** V051 benefit-age gate. Null = unbounded. AdjudicationPipeline Stage 3
+   *  rejects with AGE_OUT_OF_RANGE when member.age (at service date) falls outside. */
+  minAge?: number;
+  maxAge?: number;
+  /** V051 payout-mode flag. When false, rules-engine template R51 rejects
+   *  CASH-payout claims for this benefit (must pay provider directly). */
+  cashClaimAllowed?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -76,6 +86,9 @@ export interface UpsertBenefitPayload {
   currencyCode?: string;
   waitingPeriodDays?: number;
   description?: string;
+  minAge?: number;
+  maxAge?: number;
+  cashClaimAllowed?: boolean;
 }
 
 export interface Contribution {
@@ -184,6 +197,11 @@ export interface UpsertSchemePayload {
   effectiveDate: string;
   endDate?: string;
   currencyCode?: string;
+  /** V050 enrolment age-eligibility gate. Backend rejects enrolments whose
+   *  age at enrolment falls outside [minAge, maxAge]. Null / omitted = unbounded.
+   *  Only sent for person-centric insurance lines. */
+  minAge?: number;
+  maxAge?: number;
 }
 
 export interface UpsertAgeGroupPayload {

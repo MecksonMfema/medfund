@@ -113,6 +113,43 @@ public class UserEventPublisher {
         return publishEvent("medfund.users.group-lifecycle", groupId, payload);
     }
 
+    /**
+     * Fires on non-status field changes to a member (group swap,
+     * scheme swap, dependant↔member swap). Consumers such as
+     * {@code GroupChangedConsumer} in the contributions-service decide
+     * whether to post arrears / rebate based on the effective date.
+     *
+     * <p>Envelope is a single flat map so the wire schema stays
+     * uniform with other topics — the {@code changeKind} field carries
+     * the discriminator ({@code GROUP_CHANGE}, {@code SWAP_APPLIED}
+     * etc.); {@code oldValue} / {@code newValue} hold the affected IDs.
+     * Partitioning key is the memberId so ordering per household is
+     * preserved.
+     *
+     * @param backdated {@code true} when effectiveDate lies in the
+     *                  past — the consumer's arrears walk is only
+     *                  meaningful in that case.
+     */
+    public Mono<Void> publishMemberChanged(String tenantId, String memberId,
+                                            String changeKind,
+                                            String oldValue, String newValue,
+                                            String effectiveDate,
+                                            boolean backdated,
+                                            String actorId, String actorEmail) {
+        var payload = new java.util.LinkedHashMap<String, String>();
+        payload.put("event", "MEMBER_CHANGED");
+        payload.put("tenantId",       tenantId       != null ? tenantId       : "");
+        payload.put("memberId", memberId);
+        payload.put("changeKind", changeKind);
+        payload.put("oldValue",       oldValue       != null ? oldValue       : "");
+        payload.put("newValue",       newValue       != null ? newValue       : "");
+        payload.put("effectiveDate",  effectiveDate  != null ? effectiveDate  : "");
+        payload.put("backdated", Boolean.toString(backdated));
+        payload.put("actorId",        actorId        != null ? actorId        : "");
+        payload.put("actorEmail",     actorEmail     != null ? actorEmail     : "");
+        return publishEvent("medfund.users.member-changed", memberId, payload);
+    }
+
     public Mono<Void> publishProviderOnboarded(String providerId, String name) {
         return publishEvent("medfund.users.provider-onboarded", providerId, Map.of(
             "event", "PROVIDER_ONBOARDED",

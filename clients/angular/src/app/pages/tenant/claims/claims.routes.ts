@@ -270,10 +270,13 @@ export const CLAIMS_ROUTES: Routes = [
     data: { title: 'Tariff Lookup', sidebar: 'operational' },
   },
   // Group charge lives under billing — same employer-balance lookup is
-  // surfaced here so claims clerks don't have to switch sections.
+  // surfaced here so claims clerks don't have to switch sections. Angular
+  // rejects a route that mixes `redirectTo` with `canActivate` (NG04014 —
+  // redirects fire BEFORE guards, so the guard can never run). The billing
+  // side of the redirect already enforces `billing:view_creditors`, so
+  // this side just redirects unconditionally.
   {
     path: 'group-charge',
-    canActivate: [permissionGuard(['billing:view_creditors'])],
     redirectTo: '/tenant/billing/group-charge',
     pathMatch: 'full' as const,
   },

@@ -6,10 +6,14 @@ import com.medfund.user.entity.Member;
 import com.medfund.user.job.ScheduledStatusExecutor;
 import com.medfund.user.repository.DependantRepository;
 import com.medfund.user.repository.GroupRepository;
+import com.medfund.user.repository.MemberDependantSwapRepository;
 import com.medfund.user.repository.MemberRepository;
+import com.medfund.user.repository.PendingGroupChangeRepository;
 import com.medfund.user.service.DependantService;
+import com.medfund.user.service.GroupChangeService;
 import com.medfund.user.service.GroupService;
 import com.medfund.user.service.MemberService;
+import com.medfund.user.service.MemberSwapService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,9 +41,13 @@ class ScheduledStatusExecutorTest {
     @Mock MemberService memberService;
     @Mock GroupService groupService;
     @Mock DependantService dependantService;
+    @Mock GroupChangeService groupChangeService;
+    @Mock MemberSwapService memberSwapService;
     @Mock MemberRepository memberRepository;
     @Mock GroupRepository groupRepository;
     @Mock DependantRepository dependantRepository;
+    @Mock PendingGroupChangeRepository pendingGroupChangeRepository;
+    @Mock MemberDependantSwapRepository memberDependantSwapRepository;
     @Mock DatabaseClient databaseClient;
 
     private ScheduledStatusExecutor executor;
@@ -47,9 +55,17 @@ class ScheduledStatusExecutorTest {
     @BeforeEach
     void setUp() {
         executor = new ScheduledStatusExecutor(memberService, groupService, dependantService,
-                memberRepository, groupRepository, dependantRepository, databaseClient);
+                groupChangeService, memberSwapService, memberRepository, groupRepository,
+                dependantRepository, pendingGroupChangeRepository, memberDependantSwapRepository,
+                databaseClient);
         // Default: no dependants in the sweep unless the test says otherwise.
         org.mockito.Mockito.lenient().when(dependantRepository.findAll())
+                .thenReturn(Flux.empty());
+        // Default: no ready group changes or swaps in the sweep. Individual
+        // tests override for the V048 group-change / swap apply cases.
+        org.mockito.Mockito.lenient().when(pendingGroupChangeRepository.findReadyToApply(any()))
+                .thenReturn(Flux.empty());
+        org.mockito.Mockito.lenient().when(memberDependantSwapRepository.findReadyToApply(any()))
                 .thenReturn(Flux.empty());
     }
 
@@ -144,6 +160,76 @@ class ScheduledStatusExecutorTest {
 
         verify(memberService).suspend(eq(bad.getId()), isNull(), any(), any(), any());
         verify(memberService).terminate(eq(good.getId()), isNull(), any(), any(), any());
+    }
+
+    @Test
+    void pendingGroupChange_dueToday_appliedThroughService() {
+        // V048 — ScheduledChangesExecutor sweep: an APPROVED
+        // pending_group_change row whose effective_date has arrived
+        // must call GroupChangeService.apply so the member's group
+        // flips + a MEMBER_CHANGED event fires.
+        when(memberRepository.findAll()).thenReturn(Flux.empty());
+        when(groupRepository.findAll()).thenReturn(Flux.empty());
+        com.medfund.user.entity.PendingGroupChange pc = new com.medfund.user.entity.PendingGroupChange();
+        pc.setId(UUID.randomUUID());
+        pc.setMemberId(UUID.randomUUID());
+        pc.setToGroupId(UUID.randomUUID());
+        pc.setStatus("APPROVED");
+        pc.setEffectiveDate(LocalDate.now().withDayOfMonth(1));
+        when(pendingGroupChangeRepository.findReadyToApply(any()))
+                .thenReturn(Flux.just(pc));
+        when(groupChangeService.apply(eq(pc.getId()), any(), any()))
+                .thenReturn(Mono.just(pc));
+
+        StepVerifier.create(executor.execute("tnt", "{}")).verifyComplete();
+
+        verify(groupChangeService).apply(eq(pc.getId()), any(), any());
+    }
+
+    @Test
+    void pendingGroupChange_applyErrors_areSwallowed_soOtherSweepsFinish() {
+        // A broken group-change row must NOT block downstream sweeps
+        // or subsequent group-change rows. Same swallow-and-continue
+        // idiom as the member-status sweep.
+        when(memberRepository.findAll()).thenReturn(Flux.empty());
+        when(groupRepository.findAll()).thenReturn(Flux.empty());
+        com.medfund.user.entity.PendingGroupChange bad = new com.medfund.user.entity.PendingGroupChange();
+        bad.setId(UUID.randomUUID());
+        bad.setMemberId(UUID.randomUUID());
+        bad.setToGroupId(UUID.randomUUID());
+        bad.setStatus("APPROVED");
+        bad.setEffectiveDate(LocalDate.now().withDayOfMonth(1));
+        when(pendingGroupChangeRepository.findReadyToApply(any()))
+                .thenReturn(Flux.just(bad));
+        when(groupChangeService.apply(eq(bad.getId()), any(), any()))
+                .thenReturn(Mono.error(new RuntimeException("boom")));
+
+        StepVerifier.create(executor.execute("tnt", "{}")).verifyComplete();
+
+        verify(groupChangeService).apply(eq(bad.getId()), any(), any());
+    }
+
+    @Test
+    void pendingSwap_dueToday_appliedThroughService() {
+        // V048 — an APPROVED member_dependant_swaps row whose
+        // effective_date has arrived must call MemberSwapService.apply.
+        when(memberRepository.findAll()).thenReturn(Flux.empty());
+        when(groupRepository.findAll()).thenReturn(Flux.empty());
+        com.medfund.user.entity.MemberDependantSwap swap =
+                new com.medfund.user.entity.MemberDependantSwap();
+        swap.setId(UUID.randomUUID());
+        swap.setOldMemberId(UUID.randomUUID());
+        swap.setDependantId(UUID.randomUUID());
+        swap.setStatus("APPROVED");
+        swap.setEffectiveDate(LocalDate.now().withDayOfMonth(1));
+        when(memberDependantSwapRepository.findReadyToApply(any()))
+                .thenReturn(Flux.just(swap));
+        when(memberSwapService.apply(eq(swap.getId()), any(), any()))
+                .thenReturn(Mono.just(swap));
+
+        StepVerifier.create(executor.execute("tnt", "{}")).verifyComplete();
+
+        verify(memberSwapService).apply(eq(swap.getId()), any(), any());
     }
 
     private static Member member(UUID id, String status, LocalDate enrollmentDate,

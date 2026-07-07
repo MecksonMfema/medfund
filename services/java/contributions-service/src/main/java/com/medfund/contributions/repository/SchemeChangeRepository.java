@@ -6,6 +6,7 @@ import org.springframework.data.r2dbc.repository.R2dbcRepository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 public interface SchemeChangeRepository extends R2dbcRepository<SchemeChange, UUID> {
@@ -18,4 +19,11 @@ public interface SchemeChangeRepository extends R2dbcRepository<SchemeChange, UU
 
     @Query("SELECT * FROM scheme_changes WHERE member_id = :memberId AND status = :status")
     Mono<SchemeChange> findByMemberIdAndStatus(UUID memberId, String status);
+
+    /**
+     * Approved rows whose effective_date has arrived. Driven by
+     * {@code SchemeChangeExecutor} on the daily SCHEME_CHANGE_ROLL sweep.
+     */
+    @Query("SELECT * FROM scheme_changes WHERE status = 'APPROVED' AND effective_date <= :today ORDER BY effective_date")
+    Flux<SchemeChange> findReadyToApply(LocalDate today);
 }

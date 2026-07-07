@@ -11,6 +11,10 @@ import { IconComponent } from '../../../../shared/components/icon/icon.component
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
 import { TenantService } from '../../../../core/services/tenant.service';
+import { ChangeGroupModalComponent, ChangeGroupPayload } from '../../../../shared/components/change-group-modal/change-group-modal.component';
+import { ChangeSchemeModalComponent, ChangeSchemePayload } from '../../../../shared/components/change-scheme-modal/change-scheme-modal.component';
+import { SwapDependantModalComponent, SwapDependantPayload } from '../../../../shared/components/swap-dependant-modal/swap-dependant-modal.component';
+import { DeactivateDependantModalComponent, DeactivateDependantPayload } from '../../../../shared/components/deactivate-dependant-modal/deactivate-dependant-modal.component';
 
 interface MemberForm {
   firstName: string;
@@ -72,7 +76,8 @@ const EMPTY_DEPENDANT: DependantForm = {
 @Component({
   selector: 'app-member-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, EntityPickerComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, EntityPickerComponent, SelectComponent,
+            ChangeGroupModalComponent, ChangeSchemeModalComponent, SwapDependantModalComponent, DeactivateDependantModalComponent],
   templateUrl: './member-detail.component.html',
   styleUrl: './member-detail.component.scss',
 })
@@ -129,6 +134,11 @@ export class MemberDetailComponent implements OnInit {
 
   /** Per-row pending flag — gates Remove buttons during the soft-delete call. */
   removingId: string | null = null;
+
+  /** Backing state for the terminate-dependant modal. */
+  deactivateModalOpen = false;
+  private dependantPendingDeactivation: Dependant | null = null;
+  deactivateModalName = '';
 
   readonly genderOptions: SelectOption[] = [
     { value: '', label: 'Not specified' },
@@ -284,6 +294,9 @@ export class MemberDetailComponent implements OnInit {
       smoker: this.memberRiskSignals.smoker || undefined,
       hasChronicConditions: this.memberRiskSignals.hasChronicConditions || undefined,
       bmi: this.memberRiskSignals.bmi ?? undefined,
+      // V050 Layer 5: continuous years since enrolment. Feeds the AI as a
+      // risk-reducing feature so long-service seniors can offset a loading.
+      tenureYears: this.tenureYears(this.member.enrollmentDate),
     }).subscribe({
       next: (resp) => {
         this.memberAiSuggestion = resp;
@@ -306,6 +319,22 @@ export class MemberDetailComponent implements OnInit {
 
   clearMemberAiSuggestion(): void { this.memberAiSuggestion = null; }
 
+  /**
+   * Continuous full years between {@code enrollmentDate} and today. Fed to
+   * the AI-pricing endpoint as {@code tenureYears} (V050 Layer 5). Missing
+   * or malformed dates → 0 so the AI treats the member as a fresh joiner.
+   */
+  private tenureYears(enrollmentDate: string | undefined | null): number {
+    if (!enrollmentDate) return 0;
+    const start = new Date(enrollmentDate);
+    if (Number.isNaN(start.getTime())) return 0;
+    const now = new Date();
+    let years = now.getFullYear() - start.getFullYear();
+    const m = now.getMonth() - start.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < start.getDate())) years -= 1;
+    return Math.max(0, years);
+  }
+
   /** Same flow as suggestMemberPremium but for the currently-editing
    *  dependant. Requires the parent member's schemeId + the
    *  dependant's DoB from the collapsible form. */
@@ -322,6 +351,8 @@ export class MemberDetailComponent implements OnInit {
       smoker: this.dependantForm.smoker || undefined,
       hasChronicConditions: this.dependantForm.hasChronicConditions || undefined,
       bmi: this.dependantForm.bmi ?? undefined,
+      // Dependant inherits parent-member tenure (they share the household).
+      tenureYears: this.member ? this.tenureYears(this.member.enrollmentDate) : 0,
     }).subscribe({
       next: (resp) => {
         this.dependantAiSuggestion = resp;
@@ -356,6 +387,12 @@ export class MemberDetailComponent implements OnInit {
       this.toast.error(this.errorMessage);
       return;
     }
+    // schemeId is intentionally NOT sent — scheme changes must go
+    // through the contributions-service workflow (Change scheme modal
+    // → POST /api/v1/scheme-changes) so waiting-period rules,
+    // UPGRADE/DOWNGRADE classification, and arrears/rebate ledger
+    // adjustments all fire. The backend rejects a differing schemeId
+    // via PUT /members/{id} with a 422.
     const payload: any = {
       firstName:  this.form.firstName.trim()  || undefined,
       lastName:   this.form.lastName.trim()   || undefined,
@@ -365,7 +402,6 @@ export class MemberDetailComponent implements OnInit {
       phone:      this.form.phone.trim()      || undefined,
       address:    this.form.address.trim()    || undefined,
       groupId:    this.form.groupId           || undefined,
-      schemeId:   this.form.schemeId          || undefined,
     };
     if (this.individualPricing && this.form.billingOverrideAmount != null) {
       payload.billingOverrideAmount = this.form.billingOverrideAmount;
@@ -559,40 +595,134 @@ export class MemberDetailComponent implements OnInit {
   }
 
   /**
-   * Deactivate a dependant. V046: dependants are never deleted, only
-   * deactivated with an effective date. Billing continues up to and
-   * including the cycle that contains the effective date. Operator
-   * picks the date via a lightweight prompt seeded with today (Cancel
-   * = abort, empty answer = today, valid ISO = that date).
+   * Open the terminate-dependant modal. V046: dependants are never
+   * deleted, only deactivated with an effective date. The modal snaps
+   * to end-of-month on blur so the dependant stays billable through
+   * the whole cycle it ends in (feedback_effective_date_snap).
    */
   deactivateDependant(d: Dependant): void {
-    const today = new Date().toISOString().slice(0, 10);
-    const answer = prompt(
-      `Terminate dependant ${d.firstName} ${d.lastName}.\n\n` +
-      `Effective date (YYYY-MM-DD). Billing continues up to and including that month; empty = today.`,
-      today,
-    );
-    if (answer === null) return; // Cancel
-    const effectiveDate = answer.trim() || today;
-    // Guard against a garbled ISO string — the backend would 400 but a
-    // friendly toast is nicer than a round-trip.
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) {
-      this.toast.error(`Invalid date "${effectiveDate}". Use YYYY-MM-DD.`);
-      return;
-    }
+    this.dependantPendingDeactivation = d;
+    this.deactivateModalName = `${d.firstName} ${d.lastName}`.trim();
+    this.deactivateModalOpen = true;
+  }
+
+  onDeactivateCancel(): void {
+    this.deactivateModalOpen = false;
+    this.dependantPendingDeactivation = null;
+  }
+
+  onDeactivateSubmit(payload: DeactivateDependantPayload): void {
+    const d = this.dependantPendingDeactivation;
+    this.deactivateModalOpen = false;
+    if (!d) return;
     this.removingId = d.id;
-    this.members.deactivateDependant(d.id, effectiveDate).subscribe({
+    this.members.deactivateDependant(d.id, payload.effectiveDate).subscribe({
       next: (saved) => {
         this.dependants = this.dependants.map(x => x.id === saved.id ? saved : x);
         this.removingId = null;
-        this.toast.success(`Dependant terminated effective ${effectiveDate}`);
+        this.dependantPendingDeactivation = null;
+        this.toast.success(`Dependant terminated effective ${payload.effectiveDate}`);
       },
       error: (err) => {
         this.removingId = null;
+        this.dependantPendingDeactivation = null;
         this.toast.error(err?.error?.detail || 'Termination failed');
       },
     });
   }
 
   back(): void { this.router.navigate(['/tenant/members']); }
+
+  // ── V048 group change (modal-based) ─────────────────────────────
+
+  changeGroupModalOpen = false;
+
+  openChangeGroupModal(): void {
+    if (!this.member) return;
+    this.changeGroupModalOpen = true;
+  }
+
+  onChangeGroupCancel(): void {
+    this.changeGroupModalOpen = false;
+  }
+
+  onChangeGroupSubmit(payload: ChangeGroupPayload): void {
+    if (!this.member) return;
+    this.members.requestGroupChange(this.member.id, payload).subscribe({
+      next: (saved) => {
+        this.changeGroupModalOpen = false;
+        const label = saved.status === 'APPLIED' || saved.backdated
+          ? `Group change applied immediately (back-dated); arrears/rebate posting…`
+          : `Group change booked ${saved.status} — effective ${payload.effectiveDate}`;
+        this.toast.success(label);
+      },
+      error: (err) => this.toast.error(err?.error?.detail || 'Group change failed'),
+    });
+  }
+
+  // ── Scheme change (modal-based) ─────────────────────────────────
+  // Routes through contributions-service so waiting-period rules and
+  // UPGRADE/DOWNGRADE classification apply; the profile form's scheme
+  // picker is read-only precisely so operators can't sidestep this.
+
+  changeSchemeModalOpen = false;
+
+  openChangeSchemeModal(): void {
+    if (!this.member) return;
+    this.changeSchemeModalOpen = true;
+  }
+
+  onChangeSchemeCancel(): void {
+    this.changeSchemeModalOpen = false;
+  }
+
+  onChangeSchemeSubmit(payload: ChangeSchemePayload): void {
+    if (!this.member) return;
+    this.members.requestSchemeChange({ memberId: this.member.id, ...payload }).subscribe({
+      next: (saved) => {
+        this.changeSchemeModalOpen = false;
+        const kind = saved.changeKind ? ` (${saved.changeKind})` : '';
+        const label = saved.status === 'EFFECTIVE'
+          ? `Scheme change applied immediately${kind}; arrears/rebate posting…`
+          : `Scheme change booked ${saved.status}${kind} — effective ${saved.effectiveDate}`;
+        this.toast.success(label);
+      },
+      error: (err) => this.toast.error(err?.error?.detail || 'Scheme change failed'),
+    });
+  }
+
+  // ── V048 dependant/member swap (modal-based) ────────────────────
+
+  swapModalOpen = false;
+
+  openSwapModal(): void {
+    if (!this.member) return;
+    this.swapModalOpen = true;
+  }
+
+  onSwapCancel(): void {
+    this.swapModalOpen = false;
+  }
+
+  onSwapSubmit(payload: SwapDependantPayload): void {
+    if (!this.member) return;
+    this.members.requestSwap(this.member.id, payload).subscribe({
+      next: (saved) => {
+        this.swapModalOpen = false;
+        const label = saved.status === 'APPLIED'
+          ? `Swap applied — promoted dependant is now the principal.`
+          : `Swap booked ${saved.status} — effective ${payload.effectiveDate}`;
+        this.toast.success(label);
+      },
+      error: (err) => this.toast.error(err?.error?.detail || 'Swap failed'),
+    });
+  }
+
+  /** Snap to the 1st of the current month + `offsetMonths` months. */
+  private firstOfMonthOffset(offsetMonths: number): string {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + offsetMonths);
+    return d.toISOString().slice(0, 10);
+  }
 }

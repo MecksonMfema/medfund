@@ -9,11 +9,13 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.medfund.shared.validation.EndOfMonth;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -26,6 +28,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/pre-authorizations")
 @Tag(name = "Pre-Authorizations", description = "Pre-authorization request and approval workflow")
 @SecurityRequirement(name = "bearer-jwt")
+@Validated
 public class PreAuthController {
 
     private final PreAuthService preAuthService;
@@ -79,7 +82,7 @@ public class PreAuthController {
     @Operation(summary = "Approve pre-authorization")
     public Mono<PreAuthResponse> approve(@PathVariable UUID id,
                                           @RequestParam BigDecimal approvedAmount,
-                                          @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate expiryDate,
+                                          @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) @EndOfMonth LocalDate expiryDate,
                                           @AuthenticationPrincipal Jwt jwt) {
         return preAuthService.approve(id, approvedAmount, expiryDate, AuditActor.id(jwt), AuditActor.email(jwt))
                 .map(PreAuthResponse::from);

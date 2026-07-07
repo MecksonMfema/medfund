@@ -7,6 +7,7 @@ import {
   CreateTariffSchedulePayload,
 } from '../../../../core/services/claims-config.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { endOfMonth, firstOfMonth } from '../../../../shared/utils/date-snap';
 
 @Component({
   selector: 'app-tariff-schedule-form',
@@ -28,15 +29,28 @@ export class TariffScheduleFormComponent {
 
   constructor(private config: ClaimsConfigService, private router: Router) {}
 
+  /** feedback_effective_date_snap: start dates ride the 1st of the month. */
+  onEffectiveDateBlur(): void {
+    this.form.effectiveDate = firstOfMonth(this.form.effectiveDate);
+  }
+
+  /** feedback_effective_date_snap: end dates ride the last day of the month
+   *  so the tariff stays valid through the whole cycle it ends in. */
+  onEndDateBlur(): void {
+    this.form.endDate = endOfMonth(this.form.endDate);
+  }
+
   submit(): void {
     if (!this.form.name.trim() || !this.form.effectiveDate) {
       this.errorMessage = 'Name and effective date are required';
       return;
     }
+    // Belt-and-braces snap at submit — in case the operator typed instead of
+    // blurring out of the input.
     const payload: CreateTariffSchedulePayload = {
       name: this.form.name.trim(),
-      effectiveDate: this.form.effectiveDate,
-      endDate: this.form.endDate || undefined,
+      effectiveDate: firstOfMonth(this.form.effectiveDate),
+      endDate: this.form.endDate ? endOfMonth(this.form.endDate) : undefined,
       source: this.form.source?.trim() || undefined,
     };
     this.saving = true;

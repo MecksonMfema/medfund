@@ -2,9 +2,11 @@ package com.medfund.user.service;
 
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.user.dto.CreateMemberRequest;
+import com.medfund.user.dto.UpdateMemberRequest;
 import com.medfund.user.entity.Member;
 import com.medfund.user.exception.MemberNotFoundException;
 import com.medfund.user.repository.MemberRepository;
+import org.springframework.web.server.ResponseStatusException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,6 +14,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.r2dbc.core.DatabaseClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -52,6 +55,12 @@ class MemberServiceTest {
 
     @Mock
     private MemberNumberService memberNumberService;
+
+    /** V050 scheme-age gate lookup uses DatabaseClient directly. Left as a
+     *  bare @Mock without behavior — the age-gate helper is null-safe against
+     *  an unstubbed {@code db.sql(...)} return so existing tests bypass it. */
+    @Mock
+    private DatabaseClient db;
 
     @InjectMocks
     private MemberService memberService;
@@ -463,7 +472,11 @@ class MemberServiceTest {
         var member = createTestMember();
         member.setStatus("active");
         var id = member.getId();
-        var effective = LocalDate.now().plusDays(5);
+        // Suspend is a cycle-start action — feedback_effective_date_snap
+        // snaps to the 1st of the month. Anchor next month to keep the
+        // snapped date in the future.
+        var effective = LocalDate.now().plusMonths(1).withDayOfMonth(1);
+        var expectedSnapped = effective; // already first-of-month
 
         when(memberRepository.findById(id)).thenReturn(Mono.just(member));
         when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
@@ -476,7 +489,7 @@ class MemberServiceTest {
             .assertNext(saved -> {
                 assertThat(saved.getStatus()).isEqualTo("active");
                 assertThat(saved.getScheduledStatus()).isEqualTo("suspended");
-                assertThat(saved.getScheduledStatusEffectiveFrom()).isEqualTo(effective);
+                assertThat(saved.getScheduledStatusEffectiveFrom()).isEqualTo(expectedSnapped);
                 assertThat(saved.getScheduledStatusReason()).isEqualTo("OPERATOR");
             })
             .verifyComplete();
@@ -554,7 +567,11 @@ class MemberServiceTest {
         var member = createTestMember();
         member.setStatus("suspended");
         var id = member.getId();
-        var effective = LocalDate.now().plusDays(30);
+        // Deactivate is a termination — feedback_effective_date_snap
+        // requires end-of-month. Anchor 60 days out so the snapped date
+        // still lands in the future (avoids test flakiness near month-end).
+        var effective = LocalDate.now().plusDays(60);
+        var expectedSnapped = effective.withDayOfMonth(effective.lengthOfMonth());
 
         when(memberRepository.findById(id)).thenReturn(Mono.just(member));
         when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
@@ -568,9 +585,69 @@ class MemberServiceTest {
             .assertNext(saved -> {
                 assertThat(saved.getStatus()).isEqualTo("suspended"); // unchanged
                 assertThat(saved.getScheduledStatus()).isEqualTo("deactivated");
-                assertThat(saved.getScheduledStatusEffectiveFrom()).isEqualTo(effective);
+                assertThat(saved.getScheduledStatusEffectiveFrom()).isEqualTo(expectedSnapped);
             })
             .verifyComplete();
+    }
+
+    // ── update() — scheme_id workflow guard ─────────────────────────
+    // Scheme changes must go through POST /api/v1/scheme-changes so
+    // waiting-period rules, UPGRADE/DOWNGRADE classification, and
+    // arrears/rebate ledger adjustments fire. A same-value round-trip
+    // from the profile form is a no-op; a differing value is a 422
+    // pointing the caller at the workflow endpoint.
+
+    @org.junit.jupiter.api.Test
+    void update_rejectsDifferingSchemeIdWith422() {
+        Member existing = createTestMember();
+        existing.setSchemeId(UUID.randomUUID());
+        when(memberRepository.findById(existing.getId())).thenReturn(Mono.just(existing));
+
+        UUID differentScheme = UUID.randomUUID();
+        var req = new UpdateMemberRequest(null, null, null, null, null, null, null,
+                null, differentScheme, null, null, null);
+
+        StepVerifier.create(
+                memberService.update(existing.getId(), req,
+                        UUID.randomUUID().toString(), "op@medfund.com")
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "tnt"))
+        )
+                .expectErrorSatisfies(err -> {
+                    assertThat(err).isInstanceOf(ResponseStatusException.class);
+                    ResponseStatusException rse = (ResponseStatusException) err;
+                    assertThat(rse.getStatusCode().value()).isEqualTo(422);
+                    assertThat(rse.getReason()).contains("/api/v1/scheme-changes");
+                })
+                .verify();
+        verify(memberRepository, never()).save(any(Member.class));
+    }
+
+    @org.junit.jupiter.api.Test
+    void update_sameSchemeIdIsNoOp_persistsOtherFieldChanges() {
+        Member existing = createTestMember();
+        UUID schemeId = UUID.randomUUID();
+        existing.setSchemeId(schemeId);
+        when(memberRepository.findById(existing.getId())).thenReturn(Mono.just(existing));
+        when(memberRepository.save(any(Member.class)))
+                .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        lenient().when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        // Same schemeId + a real change to firstName. The service must
+        // accept the payload, keep scheme_id untouched, and update the
+        // name.
+        var req = new UpdateMemberRequest("Jane", null, null, null, null, null, null,
+                null, schemeId, null, null, null);
+
+        StepVerifier.create(
+                memberService.update(existing.getId(), req,
+                        UUID.randomUUID().toString(), "op@medfund.com")
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "tnt"))
+        )
+                .assertNext(saved -> {
+                    assertThat(saved.getFirstName()).isEqualTo("Jane");
+                    assertThat(saved.getSchemeId()).isEqualTo(schemeId);
+                })
+                .verifyComplete();
     }
 
     private Member createTestMember() {

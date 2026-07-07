@@ -79,6 +79,7 @@ public class SchemeChangedConsumer {
             String toStr      = optText(node, "toSchemeId");
             String effDate    = optText(node, "effectiveDate");
             String tenantId   = optText(node, "tenantId");
+            String changeKind = optText(node, "changeKind"); // may be null on pre-V048 events
             if (fromStr == null || toStr == null || effDate == null) {
                 log.debug("SchemeChanged event missing from/to/effectiveDate — skipping");
                 return Mono.empty();
@@ -92,7 +93,7 @@ public class SchemeChangedConsumer {
                 log.debug("Scheme change effective {} is in a future month — no adjustment", effective);
                 return Mono.empty();
             }
-            Mono<Void> work = maybePostSchemeDelta(scId, memberId, fromScheme, toScheme, effective);
+            Mono<Void> work = maybePostSchemeDelta(scId, memberId, fromScheme, toScheme, effective, changeKind);
             return tenantId != null && !tenantId.isBlank()
                     ? work.contextWrite(Context.of(TenantContext.KEY, tenantId))
                     : work;
@@ -104,18 +105,19 @@ public class SchemeChangedConsumer {
 
     private Mono<Void> maybePostSchemeDelta(String scId, UUID memberId,
                                              UUID fromScheme, UUID toScheme,
-                                             LocalDate effective) {
+                                             LocalDate effective, String changeKind) {
         return schemeRepository.findById(toScheme)
                 .flatMap(newScheme -> countBilledMonthsFrom(effective, newScheme)
                         .flatMap(months -> months <= 0
                                 ? Mono.<Void>empty()
                                 : postDelta(scId, memberId, fromScheme, toScheme, effective, months,
-                                        currencyOf(newScheme))))
+                                        currencyOf(newScheme), changeKind)))
                 .then();
     }
 
     private Mono<Void> postDelta(String scId, UUID memberId, UUID fromScheme, UUID toScheme,
-                                   LocalDate effective, int months, String currency) {
+                                   LocalDate effective, int months, String currency,
+                                   String changeKind) {
         return lookupMemberGroupId(memberId).flatMap(groupIdOpt -> {
             UUID groupId = groupIdOpt.orElse(null);
             LocalDate start = effective.withDayOfMonth(1);
@@ -129,7 +131,17 @@ public class SchemeChangedConsumer {
                     log.debug("Scheme change {} has zero delta — no adjustment", scId);
                     return Mono.<Void>empty();
                 }
-                String type = sign > 0 ? "SCHEME_UPGRADE_ARREARS" : "SCHEME_DOWNGRADE_REBATE";
+                // V048 routing: CURRENCY_CHANGE gets its own transaction
+                // code so ledger + statement rendering can distinguish
+                // FX-driven swings from same-currency upgrades. Absent
+                // changeKind on legacy events → fall back to sign-based
+                // classification for backward compatibility.
+                String type;
+                if ("CURRENCY_CHANGE".equalsIgnoreCase(changeKind)) {
+                    type = "CURRENCY_CHANGE_ADJUSTMENT";
+                } else {
+                    type = sign > 0 ? "SCHEME_UPGRADE_ARREARS" : "SCHEME_DOWNGRADE_REBATE";
+                }
                 BigDecimal totalUnit = delta.abs();
                 // LateAdjustmentService prices via billingService.priceOneMember,
                 // but here we want to override with the delta amount rather than

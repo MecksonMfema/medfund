@@ -65,14 +65,40 @@
 
         <label class="field">
           <span class="field-label">Effective from <span class="req">*</span></span>
-          <input class="field-control" type="date" [(ngModel)]="form.effectiveDate" name="effectiveDate" required />
+          <input class="field-control" type="date"
+                 [(ngModel)]="form.effectiveDate"
+                 (blur)="onEffectiveDateBlur()"
+                 name="effectiveDate" required />
+          <small class="field-help">Snaps to the 1st of the chosen month.</small>
         </label>
 
         <label class="field">
           <span class="field-label">Effective until <span class="optional">(optional)</span></span>
-          <input class="field-control" type="date" [(ngModel)]="form.endDate" name="endDate" />
-          <small class="field-help">Leave blank for an open-ended scheme.</small>
+          <input class="field-control" type="date"
+                 [(ngModel)]="form.endDate"
+                 (blur)="onEndDateBlur()"
+                 name="endDate" />
+          <small class="field-help">Leave blank for an open-ended scheme. Snaps to the last day of the chosen month so the scheme stays billable through that cycle.</small>
         </label>
+
+        <!-- V050: age-eligibility gate. Only rendered for person-centric lines
+             (HEALTH/LIFE/FUNERAL/GROUP/TRAVEL/DISABILITY); asset lines have no
+             concept of member age. When either bound is set, enrolments outside
+             the range are rejected 422 AGE_OUT_OF_RANGE by the backend. -->
+        @if (personCentric) {
+          <label class="field">
+            <span class="field-label">Minimum age at enrolment <span class="optional">(optional)</span></span>
+            <input class="field-control" type="number" min="0" max="120"
+                   [(ngModel)]="form.minAge" name="minAge" />
+            <small class="field-help">Reject enrolments below this age. Leave blank for no lower bound.</small>
+          </label>
+          <label class="field">
+            <span class="field-label">Maximum age at enrolment <span class="optional">(optional)</span></span>
+            <input class="field-control" type="number" min="0" max="120"
+                   [(ngModel)]="form.maxAge" name="maxAge" />
+            <small class="field-help">Reject enrolments above this age (e.g. 65 for HEALTH cutoff). Leave blank for no upper bound. See rule templates for softer patterns (premium loading, extended waiting).</small>
+          </label>
+        }
       </section>
 
       <!-- ── Pricing ───────────────────────────────────────────────────── -->

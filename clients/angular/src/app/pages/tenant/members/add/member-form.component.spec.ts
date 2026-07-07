@@ -80,12 +80,19 @@ function instantiate(pricingModel: string | null = 'STANDARD') {
   const toast = new StubToast();
   const tenant = new StubTenant().setPricingModel(pricingModel);
   const pricing = new StubPricingSuggestion();
+  // V050: MemberFormComponent gained a ContributionsService dep to load the
+  // picked scheme's age-range for the warning banner. Stub with a getSchemeById
+  // that yields Mono.empty()-ish; specs never exercise the scheme lookup.
+  const contributions = {
+    getSchemeById: () => ({ subscribe: (obs: any) => { obs?.error?.(new Error('stub')); } }),
+  };
   const comp = new MemberFormComponent(
     members as unknown as MembersService,
     router as any,
     toast as unknown as ToastService,
     tenant as unknown as TenantService,
     pricing as any,
+    contributions as any,
   );
   return { comp, members, router, toast, tenant, pricing };
 }

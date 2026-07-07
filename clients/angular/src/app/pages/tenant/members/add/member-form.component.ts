@@ -9,6 +9,7 @@ import { SelectComponent, SelectOption } from '../../../../shared/components/sel
 import { ToastService } from '../../../../shared/components/toast/toast.service';
 import { TenantService } from '../../../../core/services/tenant.service';
 import { PricingSuggestionResponse, PricingSuggestionService } from '../../../../core/services/pricing-suggestion.service';
+import { ContributionsService, Scheme } from '../../../../core/services/contributions.service';
 
 interface AddMemberForm {
   firstName: string;
@@ -75,13 +76,59 @@ export class MemberFormComponent {
   aiSuggestion: PricingSuggestionResponse | null = null;
   aiRequesting = false;
 
+  /** Loaded whenever the operator picks a scheme so the age-range
+   *  warning banner (V050) can render. Null until first pick. */
+  selectedScheme: Scheme | null = null;
+
   constructor(
     private members: MembersService,
     private router: Router,
     private toast: ToastService,
     private tenantSvc: TenantService,
     private pricingSuggestion: PricingSuggestionService,
+    private contributions: ContributionsService,
   ) {}
+
+  /** Load the scheme's age-range when the entity-picker selects one so
+   *  the enrolment form can warn ahead of the backend 422. */
+  onSchemeChange(schemeId: string | null): void {
+    if (!schemeId) { this.selectedScheme = null; return; }
+    this.contributions.getSchemeById(schemeId).subscribe({
+      next: (s) => { this.selectedScheme = s; },
+      error: () => { this.selectedScheme = null; },
+    });
+  }
+
+  /**
+   * Computed age at enrolment if DoB is set, else null. Used by the age
+   * banner + the AI tenure feature (which sends 0 for a fresh joiner).
+   */
+  get ageAtEnrolment(): number | null {
+    if (!this.form.dateOfBirth || !this.form.enrollmentDate) return null;
+    const dob = new Date(this.form.dateOfBirth);
+    const enrol = new Date(this.form.enrollmentDate);
+    if (Number.isNaN(dob.getTime()) || Number.isNaN(enrol.getTime())) return null;
+    let age = enrol.getFullYear() - dob.getFullYear();
+    const m = enrol.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && enrol.getDate() < dob.getDate())) age -= 1;
+    return age;
+  }
+
+  /** Non-null message when DoB implies an age outside the picked scheme's
+   *  min_age / max_age gate; null when fine. Backend is still authoritative;
+   *  this just surfaces the constraint pre-submit. */
+  get ageOutOfRangeWarning(): string | null {
+    const s = this.selectedScheme;
+    const age = this.ageAtEnrolment;
+    if (!s || age === null) return null;
+    if (s.minAge != null && age < s.minAge) {
+      return `Member is ${age} at enrolment; scheme "${s.name}" requires at least ${s.minAge}. Backend will reject.`;
+    }
+    if (s.maxAge != null && age > s.maxAge) {
+      return `Member is ${age} at enrolment; scheme "${s.name}" caps at ${s.maxAge}. Backend will reject.`;
+    }
+    return null;
+  }
 
   /** Whether the Custom-premium section renders. AI_DRIVEN is a
    *  hybrid mode: same per-member override semantics as INDIVIDUAL,
@@ -140,6 +187,10 @@ export class MemberFormComponent {
       smoker: this.form.smoker || undefined,
       hasChronicConditions: this.form.hasChronicConditions || undefined,
       bmi: this.form.bmi ?? undefined,
+      // V050 Layer 5: fresh joiners have 0 tenure; the AI treats it as a
+      // neutral feature. The member-detail form (edit) computes real
+      // tenure from `today − enrollmentDate`.
+      tenureYears: 0,
     }).subscribe({
       next: (resp) => {
         this.aiSuggestion = resp;

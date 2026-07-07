@@ -190,19 +190,39 @@ public class ContributionEventPublisher {
         fields.put("fromSchemeId",   nullSafe(p.fromSchemeId()));
         fields.put("toSchemeId",     nullSafe(p.toSchemeId()));
         fields.put("effectiveDate",  nullSafe(p.effectiveDate()));
+        // V048 fields — routing hints for the consumer. Omitted from
+        // pre-V048 events; consumer falls back to sign-based
+        // classification for backward compatibility.
+        fields.put("changeKind",     nullSafe(p.changeKind()));
+        fields.put("backdated",      Boolean.toString(p.backdated()));
         return publishEvent("medfund.contributions.scheme-changed",
                 p.schemeChangeId(), fields);
     }
 
     /** Payload for {@link #publishSchemeChanged}. Consumer resolves the
-     *  member's group_id at consume time so this stays a lean domain event. */
+     *  member's group_id at consume time so this stays a lean domain event.
+     *
+     *  <p>V048 added {@code changeKind} (UPGRADE / DOWNGRADE / CURRENCY_CHANGE
+     *  / CROSS_GRADE) and {@code backdated} to let the consumer route
+     *  currency-change adjustments to CURRENCY_CHANGE_ADJUSTMENT and skip
+     *  forward-dated changes entirely.
+     */
     public record SchemeChangedPayload(
             String schemeChangeId,
             String memberId,
             String tenantId,
             String fromSchemeId,
             String toSchemeId,
-            String effectiveDate) {}
+            String effectiveDate,
+            String changeKind,
+            boolean backdated) {
+        /** Backwards-compat constructor used by pre-V048 call sites. */
+        public SchemeChangedPayload(String schemeChangeId, String memberId, String tenantId,
+                                     String fromSchemeId, String toSchemeId, String effectiveDate) {
+            this(schemeChangeId, memberId, tenantId, fromSchemeId, toSchemeId, effectiveDate,
+                    "CROSS_GRADE", false);
+        }
+    }
 
     private static String nullSafe(String v) { return v == null ? "" : v; }
 

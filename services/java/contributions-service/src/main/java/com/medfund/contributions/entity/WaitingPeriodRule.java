@@ -34,6 +34,19 @@ public class WaitingPeriodRule {
     @Column("waiting_days")
     private Integer waitingDays;
 
+    /**
+     * V052 age-band scoping. When either bound is set, this rule applies
+     * only to members whose age at claim time falls in [minAge, maxAge].
+     * AdjudicationPipeline Stage 2 prefers an age-scoped rule over the
+     * default per-(scheme, condition_type) rule when the member matches.
+     * Null = applies to everyone in the scheme (legacy behaviour).
+     */
+    @Column("min_age")
+    private Short minAge;
+
+    @Column("max_age")
+    private Short maxAge;
+
     private String description;
 
     @Column("created_at")

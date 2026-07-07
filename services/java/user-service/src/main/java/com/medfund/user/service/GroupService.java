@@ -315,14 +315,19 @@ public class GroupService {
                                               String reason,
                                               String actorId, String actorEmail) {
         java.time.LocalDate today = java.time.LocalDate.now();
-        boolean isFuture = effectiveDate != null && effectiveDate.isAfter(today);
+        // Snap to the cycle boundary that fits the target status
+        // (feedback_effective_date_snap): terminate/deactivate → end of
+        // month; activate/suspend/reactivate → 1st. Belt-and-braces with
+        // @EndOfMonth/@FirstOfMonth on the request DTO.
+        java.time.LocalDate snappedEffective = snapForAction(targetStatus, effectiveDate);
+        boolean isFuture = snappedEffective != null && snappedEffective.isAfter(today);
         return groupRepository.findById(id)
             .switchIfEmpty(Mono.error(new GroupNotFoundException(id)))
             .flatMap(existing -> {
                 String previousStatus = existing.getStatus();
                 if (isFuture) {
                     existing.setScheduledStatus(targetStatus);
-                    existing.setScheduledStatusEffectiveFrom(effectiveDate);
+                    existing.setScheduledStatusEffectiveFrom(snappedEffective);
                     existing.setScheduledStatusReason(reason);
                 } else {
                     existing.setStatus(targetStatus);
@@ -347,7 +352,7 @@ public class GroupService {
                         Map<String, Object> oldVal = Map.of("status", previousStatus != null ? previousStatus : "?");
                         Map<String, Object> newVal = isFuture
                             ? Map.of("scheduledStatus", targetStatus,
-                                     "scheduledEffective", effectiveDate.toString())
+                                     "scheduledEffective", snappedEffective.toString())
                             : Map.of("status", targetStatus);
                         var event = AuditEvent.create(
                             tenantId != null ? tenantId : "unknown", "Group", saved.getId().toString(),
@@ -411,5 +416,22 @@ public class GroupService {
         if (s == null || s.isBlank()) return null;
         try { return UUID.fromString(s); }
         catch (IllegalArgumentException e) { return null; }
+    }
+
+    /**
+     * Snap a lifecycle effective date to the correct cycle boundary for the
+     * given target status. Terminate/deactivate → end-of-month;
+     * activate/suspend → 1st. Mirrors {@code MemberService.snapForAction}
+     * so both services agree on the semantics.
+     */
+    private static java.time.LocalDate snapForAction(String targetStatus, java.time.LocalDate effectiveDate) {
+        if (effectiveDate == null) return null;
+        return switch (targetStatus) {
+            case "terminated", "deactivated" ->
+                com.medfund.shared.validation.DateSnaps.toEndOfMonth(effectiveDate);
+            case "active", "suspended" ->
+                com.medfund.shared.validation.DateSnaps.toFirstOfMonth(effectiveDate);
+            default -> effectiveDate;
+        };
     }
 }

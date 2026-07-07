@@ -5,10 +5,11 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ContributionsService, Scheme, UpsertSchemePayload } from '../../../../core/services/contributions.service';
 import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
 import { TenantService } from '../../../../core/services/tenant.service';
-import { SchemeTypeOption, schemeTypesForLines, insuranceLineLabel, lineForSchemeType } from '../../../../core/models/insurance-lines';
+import { SchemeTypeOption, schemeTypesForLines, insuranceLineLabel, isPersonCentricLine, lineForSchemeType } from '../../../../core/models/insurance-lines';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { endOfMonth, firstOfMonth } from '../../../../shared/utils/date-snap';
 
 interface SchemeForm {
   name: string;
@@ -17,6 +18,9 @@ interface SchemeForm {
   effectiveDate: string;
   endDate: string;
   currencyCode: string;
+  /** V050 enrolment eligibility gate — inclusive. Null = unbounded. */
+  minAge: number | null;
+  maxAge: number | null;
 }
 
 @Component({
@@ -42,7 +46,16 @@ export class SchemeFormComponent implements OnInit {
     effectiveDate: new Date().toISOString().slice(0, 10),
     endDate: '',
     currencyCode: '',
+    minAge: null,
+    maxAge: null,
   };
+
+  /** True when the currently-selected scheme type maps to a person-centric
+   *  insurance line (HEALTH, LIFE, FUNERAL, GROUP, TRAVEL, DISABILITY).
+   *  Asset-centric schemes hide the age range fieldset entirely. */
+  get personCentric(): boolean {
+    return isPersonCentricLine(lineForSchemeType(this.form.schemeType));
+  }
 
   /** Snapshot of the form right after the existing scheme loads — used to
    *  disable the Save button when nothing has actually been edited. */
@@ -61,7 +74,9 @@ export class SchemeFormComponent implements OnInit {
       f.schemeType    !== o.schemeType ||
       f.effectiveDate !== o.effectiveDate ||
       f.endDate       !== o.endDate ||
-      f.currencyCode  !== o.currencyCode
+      f.currencyCode  !== o.currencyCode ||
+      f.minAge        !== o.minAge ||
+      f.maxAge        !== o.maxAge
     );
   }
 
@@ -138,6 +153,8 @@ export class SchemeFormComponent implements OnInit {
             effectiveDate: s.effectiveDate,
             endDate: s.endDate ?? '',
             currencyCode: s.currencyCode ?? '',
+            minAge: (s as any).minAge ?? null,
+            maxAge: (s as any).maxAge ?? null,
           };
           // Take a copy so isDirty can compare current vs original.
           this.originalForm = { ...this.form };
@@ -151,6 +168,19 @@ export class SchemeFormComponent implements OnInit {
     }
   }
 
+  /** Snap `effectiveDate` to the 1st of the month on blur — start dates
+   *  ride the beginning of the cycle. See feedback_effective_date_snap. */
+  onEffectiveDateBlur(): void {
+    this.form.effectiveDate = firstOfMonth(this.form.effectiveDate);
+  }
+
+  /** Snap `endDate` to the last day of the month on blur — a scheme's
+   *  validity ends at the close of the cycle it ends in, so the outgoing
+   *  scheme stays billable through that cycle. */
+  onEndDateBlur(): void {
+    this.form.endDate = endOfMonth(this.form.endDate);
+  }
+
   submit(): void {
     if (!this.form.name.trim()) {
       this.errorMessage = 'Name is required';
@@ -160,6 +190,10 @@ export class SchemeFormComponent implements OnInit {
       this.errorMessage = 'Pick a currency for this scheme';
       return;
     }
+    // Belt-and-braces snap at submit time as well, in case the operator
+    // typed rather than blurred out of the date input.
+    const effectiveDate = firstOfMonth(this.form.effectiveDate);
+    const endDate = this.form.endDate ? endOfMonth(this.form.endDate) : undefined;
     const payload: UpsertSchemePayload = {
       name: this.form.name.trim(),
       description: this.form.description.trim() || undefined,
@@ -168,9 +202,13 @@ export class SchemeFormComponent implements OnInit {
       // derive the insurance line from that pick so Age Groups / Benefits
       // gating downstream knows whether they apply to this scheme.
       insuranceLine: lineForSchemeType(this.form.schemeType),
-      effectiveDate: this.form.effectiveDate,
-      endDate: this.form.endDate || undefined,
+      effectiveDate,
+      endDate,
       currencyCode: this.form.currencyCode,
+      // V050 age-eligibility. Only send bounds for person-centric schemes;
+      // asset lines send undefined so the backend keeps null.
+      minAge: this.personCentric ? (this.form.minAge ?? undefined) : undefined,
+      maxAge: this.personCentric ? (this.form.maxAge ?? undefined) : undefined,
     };
     this.saving = true;
     this.errorMessage = null;
