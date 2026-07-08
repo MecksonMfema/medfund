@@ -20,6 +20,15 @@ public enum ActionType {
     /** Apply a percentage or fixed-amount co-pay to a claim line. */
     APPLY_COPAY,
 
+    // ── Benefit-limit proration ──────────────────────────────────────────────
+    /**
+     * Route a scheme-change proration decision to a specific
+     * {@code ProrationStrategy} (e.g. CALENDAR, DELTA_CREDIT, RESET). The
+     * strategy name is passed via {@code RuleAction.value}. Consumed by
+     * {@code ProrationService} after firing rules in agenda-group BENEFIT_PRORATION.
+     */
+    APPLY_PRORATION_STRATEGY,
+
     // ── Member lifecycle outputs ─────────────────────────────────────────────
     /** Assign an age-group label (e.g. "CHILD", "ADULT", "SENIOR") to a member. */
     SET_AGE_GROUP,

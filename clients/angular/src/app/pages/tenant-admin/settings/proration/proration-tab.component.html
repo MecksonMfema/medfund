@@ -1,0 +1,96 @@
+<div class="proration-tab">
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+  }
+
+  <section class="section">
+    <header class="section-header">
+      <div>
+        <h3 class="section-title">Benefit-limit proration</h3>
+        <p class="section-sub">
+          When a member changes scheme mid-year, this strategy decides how their remaining benefit
+          limit is computed. Absent config falls back to <strong>NONE</strong> — the new scheme's raw
+          annual limit is used, matching pre-feature behaviour. Rule authors can override any of
+          these on a per-benefit basis via the <em>BENEFIT_PRORATION</em> rule category.
+        </p>
+      </div>
+      <button type="button" class="btn btn-default" (click)="refresh()" [disabled]="loading || saving">
+        <app-icon name="refresh-cw" [size]="16"></app-icon>
+        Refresh
+      </button>
+    </header>
+
+    @if (loading) {
+      <app-skeleton></app-skeleton>
+    } @else {
+      <form class="form" (submit)="save(); $event.preventDefault()">
+        <div class="form-row">
+          <label class="form-label">
+            <span>Default strategy</span>
+            <app-select
+              [options]="defaultStrategyOptions"
+              [(ngModel)]="defaultStrategy"
+              name="defaultStrategy"></app-select>
+          </label>
+        </div>
+
+        @if (isHybrid()) {
+          <fieldset class="form-fieldset">
+            <legend>Per-direction overrides (used when the default is HYBRID_BY_DIRECTION)</legend>
+            <div class="form-row">
+              <label class="form-label">
+                <span>Upgrade</span>
+                <app-select
+                  [options]="directionalStrategyOptions"
+                  [(ngModel)]="upgradeStrategy"
+                  name="upgradeStrategy"></app-select>
+              </label>
+              <label class="form-label">
+                <span>Downgrade</span>
+                <app-select
+                  [options]="directionalStrategyOptions"
+                  [(ngModel)]="downgradeStrategy"
+                  name="downgradeStrategy"></app-select>
+              </label>
+              <label class="form-label">
+                <span>Currency change</span>
+                <app-select
+                  [options]="directionalStrategyOptions"
+                  [(ngModel)]="currencyStrategy"
+                  name="currencyStrategy"></app-select>
+              </label>
+            </div>
+          </fieldset>
+        }
+
+        @if (needsWaitDays()) {
+          <div class="form-row">
+            <label class="form-label">
+              <span>Increment wait days</span>
+              <input
+                type="number"
+                min="0"
+                [(ngModel)]="incrementWaitDays"
+                name="incrementWaitDays"
+                placeholder="e.g. 90" />
+              <small class="hint">
+                Number of days after the effective date before the limit increase unlocks.
+                Only used by <code>WAITING_PERIOD_ON_INCREMENT</code>.
+              </small>
+            </label>
+          </div>
+        }
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary" [disabled]="saving">
+            <app-icon name="save" [size]="16"></app-icon>
+            {{ saving ? 'Saving…' : 'Save' }}
+          </button>
+        </div>
+      </form>
+    }
+  </section>
+</div>

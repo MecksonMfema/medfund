@@ -74,6 +74,7 @@ public class AdjudicationPipeline {
     private final ObjectMapper objectMapper;
     private final AiServiceClient aiServiceClient;
     private final AdjudicationDecisionEngine decisionEngine;
+    private final ProrationService prorationService;
 
     public AdjudicationPipeline(TariffCodeRepository tariffCodeRepository,
                                 TariffModifierRepository tariffModifierRepository,
@@ -87,7 +88,8 @@ public class AdjudicationPipeline {
                                 DatabaseClient databaseClient,
                                 ObjectMapper objectMapper,
                                 AiServiceClient aiServiceClient,
-                                AdjudicationDecisionEngine decisionEngine) {
+                                AdjudicationDecisionEngine decisionEngine,
+                                ProrationService prorationService) {
         this.tariffCodeRepository = tariffCodeRepository;
         this.tariffModifierRepository = tariffModifierRepository;
         this.icdCodeRepository = icdCodeRepository;
@@ -101,6 +103,7 @@ public class AdjudicationPipeline {
         this.objectMapper = objectMapper;
         this.aiServiceClient = aiServiceClient;
         this.decisionEngine = decisionEngine;
+        this.prorationService = prorationService;
     }
 
     public Mono<AdjudicationResult> execute(Claim claim, List<ClaimLine> lines) {
@@ -245,59 +248,65 @@ public class AdjudicationPipeline {
     }
 
     private Mono<StageResult> benefitLimitCheck(Claim claim) {
-        // Check specific benefit limit
-        Mono<BigDecimal> benefitLimitMono = databaseClient
-            .sql("SELECT annual_limit FROM scheme_benefits WHERE id = :benefitId")
+        // Load the benefit's raw limit + name + currency in one shot. Name feeds
+        // ProrationService's "same-benefit-under-old-scheme" lookup; currency
+        // gates the cross-currency fallback.
+        Mono<BenefitLookup> benefitMono = databaseClient
+            .sql("SELECT annual_limit, name, currency_code FROM scheme_benefits WHERE id = :benefitId")
             .bind("benefitId", claim.getBenefitId())
             .fetch().one()
-            .map(row -> {
-                Object limit = row.get("annual_limit");
-                return limit != null ? new BigDecimal(limit.toString()) : BigDecimal.ZERO;
-            })
-            .defaultIfEmpty(BigDecimal.ZERO);
+            .map(row -> new BenefitLookup(
+                    row.get("annual_limit") != null ? new BigDecimal(row.get("annual_limit").toString()) : BigDecimal.ZERO,
+                    row.get("name") != null ? row.get("name").toString() : null,
+                    row.get("currency_code") != null ? row.get("currency_code").toString() : null))
+            .defaultIfEmpty(new BenefitLookup(BigDecimal.ZERO, null, null));
 
-        // Sum already approved claims for this member + benefit this year
-        Mono<BigDecimal> usedYTDMono = databaseClient
-            .sql("SELECT COALESCE(SUM(approved_amount), 0) as used FROM claims " +
-                 "WHERE member_id = :memberId AND benefit_id = :benefitId " +
-                 "AND status IN ('ADJUDICATED', 'COMMITTED', 'PAID') " +
-                 "AND EXTRACT(YEAR FROM service_date) = EXTRACT(YEAR FROM CURRENT_DATE)")
-            .bind("memberId", claim.getMemberId())
-            .bind("benefitId", claim.getBenefitId())
-            .fetch().one()
-            .map(row -> new BigDecimal(row.get("used").toString()))
-            .defaultIfEmpty(BigDecimal.ZERO);
-
-        return Mono.zip(benefitLimitMono, usedYTDMono)
-            .map(tuple -> {
-                BigDecimal limit = tuple.getT1();
-                BigDecimal used = tuple.getT2();
-
-                if (limit.compareTo(BigDecimal.ZERO) == 0) {
-                    return new StageResult("BenefitLimits", true,
-                        "No annual limit set for this benefit — passed");
+        return Mono.deferContextual(ctx -> {
+            UUID tenantId = parseTenant(TenantContext.get(ctx));
+            return benefitMono.flatMap(benefit -> {
+                if (benefit.annualLimit().compareTo(BigDecimal.ZERO) == 0) {
+                    return Mono.just(new StageResult("BenefitLimits", true,
+                            "No annual limit set for this benefit — passed"));
                 }
-
-                BigDecimal remaining = limit.subtract(used);
-                BigDecimal claimed = claim.getClaimedAmount();
-
-                if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
-                    return new StageResult("BenefitLimits", false,
-                        "R03: Benefit limit exhausted (limit: " + limit
-                        + ", used: " + used + ", remaining: 0)");
-                }
-
-                if (claimed.compareTo(remaining) > 0) {
-                    return new StageResult("BenefitLimits", false,
-                        "R03: Claimed amount " + claimed + " exceeds remaining benefit balance "
-                        + remaining + " (limit: " + limit + ", used YTD: " + used + ")");
-                }
-
-                return new StageResult("BenefitLimits", true,
-                    "Benefit limit check passed (claimed: " + claimed
-                    + ", remaining: " + remaining + " of " + limit + ")");
+                // Delegate the effective-limit resolution to ProrationService.
+                // Absent tenant context → tenantId null → service falls through to NONE,
+                // preserving the pre-feature behaviour exactly.
+                return prorationService.resolveEffectiveLimit(
+                        tenantId, claim,
+                        benefit.annualLimit(), benefit.name(), benefit.currencyCode())
+                    .map(decision -> evaluateWithDecision(claim, benefit.annualLimit(), decision));
             });
+        });
     }
+
+    private StageResult evaluateWithDecision(Claim claim, BigDecimal rawLimit, ProrationDecision decision) {
+        BigDecimal effective = decision.effectiveLimit();
+        BigDecimal used = decision.totalConsumed();
+        BigDecimal remaining = effective.subtract(used);
+        BigDecimal claimed = claim.getClaimedAmount();
+        String rejectCode = "R03-" + decision.strategy();
+
+        if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
+            return new StageResult("BenefitLimits", false,
+                    rejectCode + ": Benefit limit exhausted (rawLimit=" + rawLimit
+                    + ", effective=" + effective + ", used=" + used
+                    + ", remaining=0; " + decision.note() + ")");
+        }
+
+        if (claimed.compareTo(remaining) > 0) {
+            return new StageResult("BenefitLimits", false,
+                    rejectCode + ": Claimed amount " + claimed + " exceeds remaining benefit balance "
+                    + remaining + " (rawLimit=" + rawLimit + ", effective=" + effective
+                    + ", used YTD=" + used + "; " + decision.note() + ")");
+        }
+
+        return new StageResult("BenefitLimits", true,
+                "Benefit limit check passed (claimed=" + claimed + ", remaining=" + remaining
+                + " of effective=" + effective + " [rawLimit=" + rawLimit + ", strategy="
+                + decision.strategy() + "])");
+    }
+
+    private record BenefitLookup(BigDecimal annualLimit, String name, String currencyCode) {}
 
     private Mono<StageResult> checkOverallBenefitLimit(Claim claim) {
         // Check total approved claims for this member this year against any scheme-level limit

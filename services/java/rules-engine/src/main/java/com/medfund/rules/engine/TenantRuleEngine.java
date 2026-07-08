@@ -121,6 +121,27 @@ public class TenantRuleEngine {
      * @return list of rule results; empty if no rules loaded or no results produced
      */
     public List<RuleResult> evaluate(String tenantId, Object... facts) {
+        return fire(tenantId, null, facts);
+    }
+
+    /**
+     * Evaluate facts against the tenant's loaded rules, scoped to a single
+     * agenda-gated category ({@code agendaGroup} matches the group name
+     * emitted by {@code DrlCompiler} for gated categories — currently only
+     * {@code BENEFIT_PRORATION}). Only rules tagged with that agenda-group
+     * fire; MAIN rules stay dormant.
+     *
+     * <p>This is how {@code ProrationService} runs BENEFIT_PRORATION rules in
+     * stage 3 without them also firing during the stage-7 tenant-rules sweep.
+     * Kept as a separate method (not an overload of {@link #evaluate}) so
+     * Mockito {@code any()} matchers on the existing single-arg tests remain
+     * unambiguous.
+     */
+    public List<RuleResult> evaluateInGroup(String tenantId, String agendaGroup, Object... facts) {
+        return fire(tenantId, agendaGroup, facts);
+    }
+
+    private List<RuleResult> fire(String tenantId, String agendaGroup, Object... facts) {
         KieContainer container = tenantContainers.get(tenantId);
         if (container == null) {
             log.debug("No rules loaded for tenant {} — pass-through", tenantId);
@@ -140,8 +161,12 @@ public class TenantRuleEngine {
                 }
             }
 
+            if (agendaGroup != null) {
+                session.getAgenda().getAgendaGroup(agendaGroup).setFocus();
+            }
+
             int rulesFired = session.fireAllRules();
-            log.debug("Fired {} rules for tenant {}", rulesFired, tenantId);
+            log.debug("Fired {} rules for tenant {} (agendaGroup={})", rulesFired, tenantId, agendaGroup);
 
             if (claimFact != null) {
                 return claimFact.getResults();

@@ -97,4 +97,16 @@ public class RuleEvaluationService {
         return Mono.fromCallable(() -> tenantRuleEngine.evaluate(tenantId, facts))
                 .subscribeOn(Schedulers.boundedElastic());
     }
+
+    /**
+     * Category-scoped evaluation. Only rules tagged with the given agenda-group
+     * fire — everything else stays dormant. Used by claims-service
+     * {@code ProrationService} to run BENEFIT_PRORATION rules in adjudication
+     * stage 3 without triggering the stage-7 tenant-rules sweep.
+     */
+    public Mono<List<RuleResult>> evaluateInGroup(String tenantId, String agendaGroup,
+                                                  Object... facts) {
+        return Mono.fromCallable(() -> tenantRuleEngine.evaluateInGroup(tenantId, agendaGroup, facts))
+                .subscribeOn(Schedulers.boundedElastic());
+    }
 }

@@ -13,6 +13,7 @@ import {
 import { TenantRolesTabComponent } from './roles/roles-tab.component';
 import { TenantCurrenciesTabComponent } from './currencies/currencies-tab.component';
 import { TenantBillingTabComponent } from './billing/billing-tab.component';
+import { TenantProrationTabComponent } from './proration/proration-tab.component';
 import { TenantService } from '../../../core/services/tenant.service';
 import {
   BrandingService,
@@ -47,7 +48,7 @@ const MEMBERSHIP_MODELS = [
   { value: 'BOTH',            label: 'Both individual and group' },
 ];
 
-type TabId = 'general' | 'branding' | 'insurance-lines' | 'currencies' | 'billing' | 'email-templates' | 'roles';
+type TabId = 'general' | 'branding' | 'insurance-lines' | 'currencies' | 'billing' | 'proration' | 'email-templates' | 'roles';
 
 interface Tab {
   id: TabId;
@@ -65,7 +66,7 @@ interface Tab {
 @Component({
   selector: 'app-tenant-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, EditorComponent, TenantRolesTabComponent, TenantCurrenciesTabComponent, TenantBillingTabComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, EditorComponent, TenantRolesTabComponent, TenantCurrenciesTabComponent, TenantBillingTabComponent, TenantProrationTabComponent, SelectComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
 })
@@ -78,6 +79,7 @@ export class TenantSettingsComponent implements OnInit {
     { id: 'insurance-lines', label: 'Insurance Lines',        icon: 'briefcase' },
     { id: 'currencies',      label: 'Currencies',             icon: 'dollar-sign' },
     { id: 'billing',         label: 'Billing',                icon: 'banknote' },
+    { id: 'proration',       label: 'Proration',              icon: 'divide' },
     { id: 'email-templates', label: 'Email Templates',        icon: 'file-text' },
     { id: 'roles',           label: 'Roles & Permissions',    icon: 'shield' },
   ];

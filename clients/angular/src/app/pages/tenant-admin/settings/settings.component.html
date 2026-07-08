@@ -503,6 +503,15 @@
   </div>
 }
 
+<!-- Proration -->
+@if (activeTab === 'proration') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <app-tenant-proration-tab></app-tenant-proration-tab>
+    </div>
+  </div>
+}
+
 <!-- Roles & Permissions -->
 @if (activeTab === 'roles') {
   <div class="settings-section">

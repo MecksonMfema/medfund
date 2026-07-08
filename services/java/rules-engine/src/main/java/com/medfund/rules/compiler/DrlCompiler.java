@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -42,8 +43,18 @@ public class DrlCompiler {
             "import com.medfund.rules.fact.ContributionFact;\n",
             "import com.medfund.rules.fact.MemberLifecycleFact;\n",
             "import com.medfund.rules.fact.PaymentRunFact;\n",
+            "import com.medfund.rules.fact.SchemeChangeContext;\n",
             "import com.medfund.rules.fact.TimeFact;\n",
             "import java.math.BigDecimal;\n");
+
+    /**
+     * Categories whose rules are gated behind a Drools agenda-group with the same
+     * name. They only fire when the caller explicitly {@code setFocus}es on the
+     * group — this is how {@code ProrationService} invokes BENEFIT_PRORATION
+     * rules in stage 3 without them also firing during the stage-7 tenant-rules
+     * sweep. All other categories stay in MAIN and fire by default.
+     */
+    private static final Set<String> AGENDA_GATED_CATEGORIES = Set.of("BENEFIT_PRORATION");
 
     private static final Map<String, FactMapping> FACT_MAPPINGS;
     static {
@@ -57,6 +68,7 @@ public class DrlCompiler {
         m.put("contribution", new FactMapping("$contribution", "ContributionFact"));
         m.put("lifecycle",    new FactMapping("$lifecycle",    "MemberLifecycleFact"));
         m.put("paymentRun",   new FactMapping("$paymentRun",   "PaymentRunFact"));
+        m.put("schemeChange", new FactMapping("$schemeChange", "SchemeChangeContext"));
         m.put("time",         new FactMapping("$time",         "TimeFact"));
         FACT_MAPPINGS = Map.copyOf(m);
     }
@@ -98,6 +110,10 @@ public class DrlCompiler {
     private void appendRule(StringBuilder drl, RuleDefinition rule) {
         drl.append("rule \"").append(escapeQuotes(rule.getName())).append("\"\n");
         drl.append("  salience ").append(rule.getPriority()).append("\n");
+        String cat = rule.getCategory();
+        if (cat != null && AGENDA_GATED_CATEGORIES.contains(cat.toUpperCase())) {
+            drl.append("  agenda-group \"").append(cat.toUpperCase()).append("\"\n");
+        }
         drl.append("  when\n");
         appendConditions(drl, rule.getConditions(),
                 rule.getAction() == null ? null : rule.getAction().getType());
@@ -151,7 +167,8 @@ public class DrlCompiler {
     private String factForAction(String type) {
         if (type == null) return null;
         return switch (type.toUpperCase()) {
-            case "REJECT", "FLAG_FOR_REVIEW", "WARN", "APPLY_COPAY"          -> "claim";
+            case "REJECT", "FLAG_FOR_REVIEW", "WARN", "APPLY_COPAY",
+                 "APPLY_PRORATION_STRATEGY"                                   -> "claim";
             case "CAP_TO_TARIFF"                                              -> "claimDetail";
             case "SET_AGE_GROUP", "AUTO_RENEW", "TERMINATE_MEMBERSHIP",
                  "REQUIRE_UNDERWRITING"                                       -> "lifecycle";

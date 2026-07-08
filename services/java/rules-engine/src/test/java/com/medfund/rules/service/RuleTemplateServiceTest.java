@@ -14,6 +14,7 @@ import com.medfund.rules.template.providers.MemberLifecycleTemplates;
 import com.medfund.rules.template.providers.PreAuthorizationTemplates;
 import com.medfund.rules.template.providers.ProviderPaymentTemplates;
 import com.medfund.rules.template.providers.ReconciliationTemplates;
+import com.medfund.rules.template.providers.SchemeChangeProrationTemplates;
 import com.medfund.rules.template.providers.TariffPricingTemplates;
 import com.medfund.rules.template.providers.UnderwritingTemplates;
 import com.medfund.rules.template.providers.WaitingPeriodTemplates;
@@ -41,6 +42,7 @@ class RuleTemplateServiceTest {
                 new EligibilityTemplates(),
                 new WaitingPeriodTemplates(),
                 new BenefitLimitTemplates(),
+                new SchemeChangeProrationTemplates(),
                 new PreAuthorizationTemplates(),
                 new TariffPricingTemplates(),
                 new ClinicalValidationTemplates(),

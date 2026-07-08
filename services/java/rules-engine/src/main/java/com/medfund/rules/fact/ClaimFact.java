@@ -33,6 +33,14 @@ public class ClaimFact {
     private int procedureCount;
     private List<ClaimDetailFact> details;
     private List<RuleResult> results = new ArrayList<>();
+    /**
+     * Set by a BENEFIT_PRORATION rule via {@link #setProrationStrategy(String)}.
+     * Read back by {@code ProrationService} to route the arithmetic. Null when
+     * no rule fired — service falls through to tenant config then platform default.
+     */
+    private String prorationStrategy;
+    /** Populated by ClaimFactBuilder when the member has an effective scheme change on or before dateOfService. */
+    private SchemeChangeContext schemeChange;
 
     public ClaimFact() {
     }
@@ -253,5 +261,21 @@ public class ClaimFact {
 
     public void setResults(List<RuleResult> results) {
         this.results = results;
+    }
+
+    public String getProrationStrategy() {
+        return prorationStrategy;
+    }
+
+    public void setProrationStrategy(String prorationStrategy) {
+        this.prorationStrategy = prorationStrategy;
+    }
+
+    public SchemeChangeContext getSchemeChange() {
+        return schemeChange;
+    }
+
+    public void setSchemeChange(SchemeChangeContext schemeChange) {
+        this.schemeChange = schemeChange;
     }
 }

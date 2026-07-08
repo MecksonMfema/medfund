@@ -73,6 +73,20 @@ public final class ActionEmitters {
     }
 
     @Component
+    public static class ApplyProrationStrategyEmitter implements ActionEmitter {
+        public String type() { return "APPLY_PRORATION_STRATEGY"; }
+        public void emit(StringBuilder drl, RuleAction action) {
+            // Value is the strategy name (e.g. "CALENDAR"). We uppercase and
+            // pass through as a plain string — ProrationService validates it
+            // against the ProrationStrategy enum before applying arithmetic.
+            String raw = action.getValue() == null ? "NONE" : action.getValue().toString().trim();
+            drl.append("    $claim.setProrationStrategy(")
+               .append(quoted(raw.toUpperCase()))
+               .append(");\n");
+        }
+    }
+
+    @Component
     public static class ApplyCopayEmitter implements ActionEmitter {
         public String type() { return "APPLY_COPAY"; }
         public void emit(StringBuilder drl, RuleAction action) {

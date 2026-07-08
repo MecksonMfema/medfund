@@ -45,6 +45,7 @@ export type RuleCategory =
   | 'ELIGIBILITY'
   | 'WAITING_PERIOD'
   | 'BENEFIT_LIMIT'
+  | 'BENEFIT_PRORATION'
   | 'CO_PAYMENT'
   | 'PRE_AUTHORIZATION'
   | 'TARIFF_PRICING'
@@ -70,6 +71,7 @@ export const RULE_CATEGORIES: { id: RuleCategory; label: string; icon: string }[
   { id: 'ELIGIBILITY',          label: 'Eligibility',          icon: 'check-circle' },
   { id: 'WAITING_PERIOD',       label: 'Waiting Period',       icon: 'clock' },
   { id: 'BENEFIT_LIMIT',        label: 'Benefit Limit',        icon: 'briefcase' },
+  { id: 'BENEFIT_PRORATION',    label: 'Benefit Proration',    icon: 'divide' },
   { id: 'CO_PAYMENT',           label: 'Co-Payment',           icon: 'dollar' },
   { id: 'PRE_AUTHORIZATION',    label: 'Pre-Authorisation',    icon: 'file-text' },
   { id: 'TARIFF_PRICING',       label: 'Tariff Pricing',       icon: 'trending-up' },

@@ -28,6 +28,13 @@ public enum RuleCategory {
     ELIGIBILITY,
     WAITING_PERIOD,
     BENEFIT_LIMIT,
+    /**
+     * How a member's per-benefit annual limit is prorated when they change scheme
+     * mid-year. Rules in this category are agenda-gated — they only fire when
+     * {@code ProrationService} sets focus during stage 3 of adjudication, not
+     * during the normal stage-7 tenant-rule sweep.
+     */
+    BENEFIT_PRORATION,
     /** Percentage / fixed co-pays and out-of-pocket caps. */
     CO_PAYMENT,
     PRE_AUTHORIZATION,

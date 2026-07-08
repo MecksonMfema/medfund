@@ -25,6 +25,7 @@ class DrlCompilerTest {
                 new ActionEmitters.WarnEmitter(),
                 new ActionEmitters.CapToTariffEmitter(),
                 new ActionEmitters.ApplyCopayEmitter(),
+                new ActionEmitters.ApplyProrationStrategyEmitter(),
                 new ActionEmitters.SetAgeGroupEmitter(),
                 new ActionEmitters.AutoRenewEmitter(),
                 new ActionEmitters.TerminateEmitter(),
@@ -81,6 +82,46 @@ class DrlCompilerTest {
         assertThat(drl).contains("daysSinceEnrollment < 90");
         assertThat(drl).contains("$claim : ClaimFact(");
         assertThat(drl).contains("$member : MemberFact(");
+    }
+
+    @Test
+    void compile_benefitProrationRule_addsAgendaGroupAndSetsStrategy() {
+        RuleDefinition rule = new RuleDefinition();
+        rule.setName("Dental fresh limit");
+        rule.setCategory("BENEFIT_PRORATION");
+        rule.setPriority(80);
+        rule.setEnabled(true);
+        rule.setConditions(conditions("AND",
+                condition("claim.benefitCategory", "EQUALS", "DENTAL")));
+        RuleAction action = new RuleAction();
+        action.setType("APPLY_PRORATION_STRATEGY");
+        action.setValue("CALENDAR");
+        action.setMessage("Prorate by calendar");
+        rule.setAction(action);
+
+        String drl = compiler.compile(rule);
+
+        // Agenda-group gate must be present — otherwise the rule would fire during
+        // the stage-7 tenant-rules sweep instead of the stage-3 proration invocation.
+        assertThat(drl).contains("agenda-group \"BENEFIT_PRORATION\"");
+        assertThat(drl).contains("$claim.setProrationStrategy(\"CALENDAR\")");
+        assertThat(drl).contains("benefitCategory == \"DENTAL\"");
+    }
+
+    @Test
+    void compile_nonProrationRule_hasNoAgendaGroup() {
+        RuleDefinition rule = new RuleDefinition();
+        rule.setName("Ordinary Eligibility");
+        rule.setCategory("ELIGIBILITY");
+        rule.setPriority(100);
+        rule.setEnabled(true);
+        rule.setConditions(conditions("AND",
+                condition("member.status", "EQUALS", "SUSPENDED")));
+        rule.setAction(rejectAction("R01", "Suspended"));
+
+        String drl = compiler.compile(rule);
+
+        assertThat(drl).doesNotContain("agenda-group");
     }
 
     @Test

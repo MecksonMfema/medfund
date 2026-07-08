@@ -47,6 +47,11 @@ const FACT_SEEDS: FactSeed[] = [
     member: { memberId: 'MEM-DEMO', benefitRemaining: 0 },
   },
   {
+    category: 'BENEFIT_PRORATION',
+    claim: { benefitCategory: 'DENTAL', schemeId: 'SCH-DEMO', amount: 500, currencyCode: 'USD' },
+    member: { memberId: 'MEM-DEMO', daysSinceSchemeChange: 30, benefitLimit: 10000 },
+  },
+  {
     category: 'CO_PAYMENT',
     claim: { benefitCategory: 'OPTICAL', amount: 800, currencyCode: 'USD' },
     provider: { providerId: 'PRV-DEMO', inNetwork: false },

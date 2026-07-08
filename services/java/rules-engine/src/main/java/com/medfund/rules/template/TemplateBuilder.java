@@ -95,6 +95,14 @@ public final class TemplateBuilder {
         return a;
     }
 
+    public static RuleAction applyProrationStrategy(String strategyName, String message) {
+        RuleAction a = new RuleAction();
+        a.setType("APPLY_PRORATION_STRATEGY");
+        a.setValue(strategyName);
+        a.setMessage(message);
+        return a;
+    }
+
     public static RuleAction action(String type, Object value, String message) {
         RuleAction a = new RuleAction();
         a.setType(type);

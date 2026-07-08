@@ -73,8 +73,9 @@ public class ClaimFactBuilder {
     // ── MemberFact ───────────────────────────────────────────────────────────
 
     private Mono<MemberFact> fetchMember(String memberId) {
-        return db.sql("SELECT status, enrollment_date, date_of_birth, gender FROM members WHERE id = :id")
-                .bind("id", java.util.UUID.fromString(memberId))
+        java.util.UUID memberUuid = java.util.UUID.fromString(memberId);
+        Mono<MemberFact> baseMono = db.sql("SELECT status, enrollment_date, date_of_birth, gender FROM members WHERE id = :id")
+                .bind("id", memberUuid)
                 .fetch().one()
                 .map(row -> {
                     MemberFact m = new MemberFact();
@@ -98,6 +99,33 @@ public class ClaimFactBuilder {
                     log.debug("[fact-builder] member lookup failed for {}: {}", memberId, err.getMessage());
                     return Mono.just(emptyMember(memberId));
                 });
+
+        return baseMono.flatMap(m -> latestSchemeChangeDate(memberUuid)
+                .map(effective -> {
+                    m.setDaysSinceSchemeChange((int) ChronoUnit.DAYS.between(effective, LocalDate.now()));
+                    return m;
+                })
+                .defaultIfEmpty(m)
+                .onErrorResume(err -> {
+                    log.debug("[fact-builder] scheme-change lookup failed for {}: {}", memberId, err.getMessage());
+                    return Mono.just(m);
+                }));
+    }
+
+    /** Most recent EFFECTIVE scheme change on or before today. Empty when member is on their first scheme. */
+    private Mono<LocalDate> latestSchemeChangeDate(java.util.UUID memberId) {
+        return db.sql("""
+                SELECT effective_date
+                  FROM scheme_changes
+                 WHERE member_id = :id
+                   AND status = 'EFFECTIVE'
+                   AND effective_date <= CURRENT_DATE
+                 ORDER BY effective_date DESC
+                 LIMIT 1
+                """)
+                .bind("id", memberId)
+                .map(row -> row.get("effective_date", LocalDate.class))
+                .one();
     }
 
     private MemberFact emptyMember(String memberId) {

@@ -43,6 +43,9 @@ const ACTION_TYPES: { id: string; label: string; description: string; valueHint?
   { id: 'CAP_TO_TARIFF',        label: 'Cap to tariff',        description: 'Reduce the billed amount to the tariff schedule rate.' },
   { id: 'APPLY_COPAY',          label: 'Apply co-pay',         description: 'Record a percentage or fixed-amount co-pay against the claim.', valueHint: '20  or  FIXED:25' },
 
+  // Benefit-limit proration
+  { id: 'APPLY_PRORATION_STRATEGY', label: 'Apply proration strategy', description: 'Route the scheme-change proration decision to a specific strategy. Fires only when the rule is in BENEFIT_PRORATION and stage 3 asks the rules engine to focus that agenda-group.', valueHint: 'CALENDAR / DELTA_CREDIT / RATIO_CARRY / SPLIT_YEAR / WAITING_PERIOD_ON_INCREMENT / NONE' },
+
   // Member lifecycle
   { id: 'SET_AGE_GROUP',        label: 'Set age group',        description: 'Tag the member with a tenant-defined age band label.', valueHint: 'CHILD / ADULT / SENIOR' },
   { id: 'AUTO_RENEW',           label: 'Auto-renew',           description: 'Mark the membership as eligible for auto-renewal.' },

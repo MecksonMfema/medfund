@@ -52,6 +52,7 @@ class AdjudicationPipelineTest {
     @Mock private ClaimFactBuilder factBuilder;
     @Mock private DatabaseClient databaseClient;
     @Mock private AiServiceClient aiServiceClient;
+    @Mock private ProrationService prorationService;
 
     private AdjudicationPipeline adjudicationPipeline;
 
@@ -64,8 +65,21 @@ class AdjudicationPipelineTest {
                 preAuthorizationRepository, rejectionReasonRepository,
                 ruleEvaluationService, tenantRuleLoader, factBuilder,
                 databaseClient, new ObjectMapper(),
-                aiServiceClient, new AdjudicationDecisionEngine()
+                aiServiceClient, new AdjudicationDecisionEngine(),
+                prorationService
         );
+
+        // Default proration: NONE, effective = benefit raw limit, nothing consumed.
+        // Individual tests can override by re-stubbing with specific decisions.
+        when(prorationService.resolveEffectiveLimit(any(), any(), any(), any(), any()))
+                .thenAnswer(inv -> {
+                    java.math.BigDecimal rawLimit = inv.getArgument(2);
+                    return Mono.just(new ProrationDecision(
+                            com.medfund.rules.model.ProrationStrategy.NONE.name(),
+                            rawLimit,
+                            java.math.BigDecimal.ZERO,
+                            "test default"));
+                });
 
         // Default AI mock: empty signal — equivalent to fail-open behavior in
         // the decision engine. Tests that need to assert AI-influenced paths
@@ -203,6 +217,97 @@ class AdjudicationPipelineTest {
                     assertThat(result.decision()).isEqualTo("MANUAL_REVIEW");
                     assertThat(result.stageResults()).anyMatch(
                         s -> "WaitingPeriod".equals(s.stageName()) && !s.passed());
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void benefitLimitCheck_delegatesToProrationService_whenBenefitIdPresent() {
+        Claim claim = createTestClaim();
+        claim.setBenefitId(UUID.randomUUID());
+        ClaimLine line = createTestClaimLine(claim.getId(), "TC001");
+        when(tariffCodeRepository.findByCode("TC001")).thenReturn(Mono.just(createTestTariffCode("TC001", false)));
+
+        // Return a non-zero annual_limit so the benefit-limit stage does NOT skip; then
+        // Proration returns a CALENDAR decision — effective 1500 with 800 already used
+        // → remaining 700 → claim of 500 fits → stage passes.
+        DatabaseClient.GenericExecuteSpec spec = mock(DatabaseClient.GenericExecuteSpec.class);
+        FetchSpec<Map<String, Object>> fetch = mock(FetchSpec.class);
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        when(spec.fetch()).thenReturn(fetch);
+        when(fetch.one()).thenReturn(Mono.just(Map.<String, Object>of(
+            "status", "active",
+            "enrollment_date", LocalDate.now().minusDays(365),
+            "used", BigDecimal.ZERO,
+            "annual_limit", new BigDecimal("3000"),
+            "name", "Consultation",
+            "currency_code", "USD"
+        )));
+        when(fetch.all()).thenReturn(Flux.empty());
+
+        when(prorationService.resolveEffectiveLimit(any(), any(), any(), any(), any()))
+                .thenReturn(Mono.just(new ProrationDecision(
+                        com.medfund.rules.model.ProrationStrategy.CALENDAR.name(),
+                        new BigDecimal("1500"),
+                        new BigDecimal("800"),
+                        "Tenant-config CALENDAR")));
+
+        StepVerifier.create(adjudicationPipeline.execute(claim, List.of(line)))
+                .assertNext(result -> {
+                    assertThat(result.stageResults()).anyMatch(s ->
+                            "BenefitLimits".equals(s.stageName())
+                                    && s.passed()
+                                    && s.details().contains("strategy=CALENDAR"));
+                })
+                .verifyComplete();
+
+        // Verify ProrationService was actually called with the raw limit we returned above
+        org.mockito.Mockito.verify(prorationService)
+                .resolveEffectiveLimit(any(), any(), eq(new BigDecimal("3000")), eq("Consultation"), eq("USD"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void benefitLimitCheck_prorationReturnsExhaustedLimit_stageRejectsWithStrategySuffix() {
+        Claim claim = createTestClaim();
+        claim.setBenefitId(UUID.randomUUID());
+        ClaimLine line = createTestClaimLine(claim.getId(), "TC001");
+        when(tariffCodeRepository.findByCode("TC001")).thenReturn(Mono.just(createTestTariffCode("TC001", false)));
+
+        DatabaseClient.GenericExecuteSpec spec = mock(DatabaseClient.GenericExecuteSpec.class);
+        FetchSpec<Map<String, Object>> fetch = mock(FetchSpec.class);
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        when(spec.fetch()).thenReturn(fetch);
+        when(fetch.one()).thenReturn(Mono.just(Map.<String, Object>of(
+            "status", "active",
+            "enrollment_date", LocalDate.now().minusDays(365),
+            "used", BigDecimal.ZERO,
+            "annual_limit", new BigDecimal("1000"),
+            "name", "Consultation",
+            "currency_code", "USD"
+        )));
+        when(fetch.all()).thenReturn(Flux.empty());
+
+        // DELTA_CREDIT: effective = 1000 − 1000 = 0 → immediate exhaustion
+        when(prorationService.resolveEffectiveLimit(any(), any(), any(), any(), any()))
+                .thenReturn(Mono.just(new ProrationDecision(
+                        com.medfund.rules.model.ProrationStrategy.DELTA_CREDIT.name(),
+                        BigDecimal.ZERO,
+                        new BigDecimal("1000"),
+                        "Tenant-config DELTA_CREDIT")));
+
+        StepVerifier.create(adjudicationPipeline.execute(claim, List.of(line)))
+                .assertNext(result -> {
+                    // The overall pipeline decision folds in AI + all stages; the stage-level
+                    // assertion is what this test guards. The R03 code carries the strategy
+                    // name for audit traceability.
+                    assertThat(result.stageResults()).anyMatch(s ->
+                            "BenefitLimits".equals(s.stageName())
+                                    && !s.passed()
+                                    && s.details().contains("R03-DELTA_CREDIT"));
                 })
                 .verifyComplete();
     }
