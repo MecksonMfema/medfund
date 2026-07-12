@@ -184,13 +184,13 @@ textarea.input { resize: vertical; min-height: 60px; line-height: 1.4; }
   padding-top: var(--spacing-lg);
   margin-top: var(--spacing-lg);
 }
+// .section-header layout is global (styles.scss); rule-editor centers
+// its heading against action buttons and uses the compact spacing
+// scale. Nested h3 stays local — page-specific typography.
 .section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-base);
-  flex-wrap: wrap;
-  gap: var(--spacing-sm);
+  --section-header-align: center;
+  --section-header-gap: var(--spacing-sm);
+  --section-header-margin-bottom: var(--spacing-base);
 
   h3 { font-size: var(--font-size-md); margin: 0; }
 }

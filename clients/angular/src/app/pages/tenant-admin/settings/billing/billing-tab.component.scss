@@ -56,8 +56,11 @@
   padding: 1.25rem;
 }
 
+// .section-header layout is global (styles.scss); billing-tab only
+// tightens the bottom margin — heading + description sit alone in
+// this tab so the flex row has a single child anyway.
 .section-header {
-  margin-bottom: 1rem;
+  --section-header-margin-bottom: 1rem;
 }
 
 .section-title {

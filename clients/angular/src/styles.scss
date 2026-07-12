@@ -105,6 +105,16 @@
   --section-icon-radius: var(--radius-md);
   --section-icon-bg: var(--color-primary-light);
   --section-icon-fg: var(--color-primary);
+
+  /* ── Section-header layout row ────────────────────────────────────
+   * Flex row that spaces a page/panel heading against action buttons or
+   * a description. Every tenant-admin / settings / admin / finance panel
+   * used to redeclare this locally with slightly different spacing —
+   * seven copies of the same flexbox. Now one rule with three CSS-var
+   * knobs (align / gap / margin) so a page just tunes what it needs. */
+  --section-header-align: flex-start;
+  --section-header-gap: var(--spacing-lg);
+  --section-header-margin-bottom: var(--spacing-xl);
 }
 
 /* Global section-icon utility. Use with:
@@ -125,6 +135,16 @@
 /* Smaller variant for tighter section-heads inside detail cards. */
 .section-icon--sm {
   --section-icon-size: 26px;
+}
+
+/* Section-header layout — see the block-comment on the variables above. */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: var(--section-header-align);
+  gap: var(--section-header-gap);
+  margin-bottom: var(--section-header-margin-bottom);
+  flex-wrap: wrap;
 }
 
 /* Global Reset */

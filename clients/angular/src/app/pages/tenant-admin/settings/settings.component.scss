@@ -77,14 +77,8 @@
   padding: var(--spacing-xl);
 }
 
-.section-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--spacing-lg);
-  margin-bottom: var(--spacing-xl);
-  flex-wrap: wrap;
-}
+// .section-header lives globally (styles.scss). Defaults already match:
+// flex-start / spacing-lg / spacing-xl. Nothing to override here.
 
 .section-title {
   font-size: var(--font-size-lg);

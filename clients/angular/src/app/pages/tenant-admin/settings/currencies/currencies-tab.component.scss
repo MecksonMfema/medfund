@@ -11,13 +11,11 @@
   padding: 1.5rem;
 }
 
+// .section-header layout is global (styles.scss); this tab tightens
+// the two vars it wants smaller than the settings/admin default.
 .section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 1rem;
-  flex-wrap: wrap;
+  --section-header-gap: 1rem;
+  --section-header-margin-bottom: 1rem;
 }
 
 .section-title {

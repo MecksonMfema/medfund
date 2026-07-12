@@ -4,13 +4,11 @@
   gap: var(--spacing-base);
 }
 
+// .section-header layout is global (styles.scss); roles wants a
+// slightly tighter gap + margin than the default.
 .section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--spacing-md);
-  flex-wrap: wrap;
-  margin-bottom: var(--spacing-base);
+  --section-header-gap: var(--spacing-md);
+  --section-header-margin-bottom: var(--spacing-base);
 }
 
 .section-title {

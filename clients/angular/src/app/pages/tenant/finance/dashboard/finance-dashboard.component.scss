@@ -80,11 +80,11 @@
   font-size: 0.875rem;
 }
 
+// .section-header layout is global (styles.scss); the dashboard's
+// section rows are centered and sit tight against the next section.
 .section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 0 0 0.75rem;
+  --section-header-align: center;
+  --section-header-margin-bottom: 0.75rem;
 }
 
 .section-header h2 {

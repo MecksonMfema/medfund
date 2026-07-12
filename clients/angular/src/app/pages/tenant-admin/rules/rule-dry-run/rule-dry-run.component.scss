@@ -92,17 +92,15 @@
 .section {
   margin-bottom: var(--spacing-xl);
 }
+// .section-header layout is global (styles.scss); rule-dry-run mirrors
+// rule-editor's centered header with an even tighter bottom margin.
+// Nested h3 stays local — page-specific typography.
 .section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-sm);
-  gap: var(--spacing-sm);
+  --section-header-align: center;
+  --section-header-gap: var(--spacing-sm);
+  --section-header-margin-bottom: var(--spacing-sm);
 
-  h3 {
-    font-size: var(--font-size-md);
-    margin: 0;
-  }
+  h3 { font-size: var(--font-size-md); margin: 0; }
 }
 
 .input {
