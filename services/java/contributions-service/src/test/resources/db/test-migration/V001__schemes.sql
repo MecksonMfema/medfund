@@ -8,19 +8,24 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE schemes (
-    id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    name            VARCHAR(200) NOT NULL UNIQUE,
-    description     TEXT,
-    scheme_type     VARCHAR(50)  NOT NULL DEFAULT 'medical_aid',
-    insurance_line  VARCHAR(32)  NOT NULL DEFAULT 'HEALTH',
-    status          VARCHAR(20)  NOT NULL DEFAULT 'active',
-    effective_date  DATE,
-    end_date        DATE,
-    currency_code   VARCHAR(3),
-    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    created_by      UUID,
-    updated_by      UUID
+    id                     UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    name                   VARCHAR(200) NOT NULL UNIQUE,
+    description            TEXT,
+    scheme_type            VARCHAR(50)  NOT NULL DEFAULT 'medical_aid',
+    insurance_line         VARCHAR(32)  NOT NULL DEFAULT 'HEALTH',
+    status                 VARCHAR(20)  NOT NULL DEFAULT 'active',
+    effective_date         DATE,
+    end_date               DATE,
+    currency_code          VARCHAR(3),
+    -- V050 age gates + V061 product-level ledger opt-out. Kept inline
+    -- so the IT's baseline mirrors the production schema shape.
+    min_age                SMALLINT,
+    max_age                SMALLINT,
+    tracks_member_balances BOOLEAN      NOT NULL DEFAULT TRUE,
+    created_at             TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at             TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    created_by             UUID,
+    updated_by             UUID
 );
 
 CREATE TABLE scheme_benefits (
@@ -34,6 +39,12 @@ CREATE TABLE scheme_benefits (
     currency_code        VARCHAR(3),
     waiting_period_days  INTEGER,
     description          TEXT,
+    status               VARCHAR(20)  NOT NULL DEFAULT 'active',
+    -- V051 age gate + payout-mode flag; V061 usage classification.
+    min_age              SMALLINT,
+    max_age              SMALLINT,
+    cash_claim_allowed   BOOLEAN      NOT NULL DEFAULT TRUE,
+    usage_mode           VARCHAR(32)  NOT NULL DEFAULT 'RUNNING_BALANCE',
     created_at           TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at           TIMESTAMPTZ  NOT NULL DEFAULT now()
 );

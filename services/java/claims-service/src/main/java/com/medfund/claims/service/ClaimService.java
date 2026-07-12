@@ -20,6 +20,7 @@ import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
@@ -81,6 +82,7 @@ public class ClaimService {
     private final AdjudicationPipeline adjudicationPipeline;
     private final SchemeClient schemeClient;
     private final com.medfund.claims.repository.BeneficiaryBenefitRepository beneficiaryBenefitRepository;
+    private final DatabaseClient databaseClient;
 
     public ClaimService(ClaimRepository claimRepository,
                         ClaimLineRepository claimLineRepository,
@@ -88,7 +90,8 @@ public class ClaimService {
                         ClaimEventPublisher eventPublisher,
                         AdjudicationPipeline adjudicationPipeline,
                         SchemeClient schemeClient,
-                        com.medfund.claims.repository.BeneficiaryBenefitRepository beneficiaryBenefitRepository) {
+                        com.medfund.claims.repository.BeneficiaryBenefitRepository beneficiaryBenefitRepository,
+                        DatabaseClient databaseClient) {
         this.claimRepository = claimRepository;
         this.claimLineRepository = claimLineRepository;
         this.auditPublisher = auditPublisher;
@@ -96,6 +99,7 @@ public class ClaimService {
         this.adjudicationPipeline = adjudicationPipeline;
         this.schemeClient = schemeClient;
         this.beneficiaryBenefitRepository = beneficiaryBenefitRepository;
+        this.databaseClient = databaseClient;
     }
 
     public Flux<Claim> findAll() {
@@ -292,30 +296,41 @@ public class ClaimService {
     }
 
     /**
-     * Add {@code delta} to the beneficiary's benefit-year utilization
-     * row and bump {@code consumed_count} by the number of accepted
-     * lines. Silently no-ops when:
-     *   • the claim has no benefit_id (nothing to attribute to)
-     *   • delta is zero (no accepted lines this batch)
-     *   • no row exists yet (new member enrolled after V060's backfill
-     *     — flag for the deferred enrolment hook, but never let it
-     *     500 the adjudication)
+     * V061: idempotent, usage_mode-aware increment.
+     *
+     * <p>Adds {@code delta} to the beneficiary's ledger row and bumps
+     * {@code consumed_count} by the number of accepted lines. Each accepted
+     * line is first written to {@code claim_line_consumption_log} so that
+     * a replay of the same adjudication (operator toggles ACCEPTED→REJECTED
+     * →ACCEPTED, retry after a partial failure) does NOT double-count.
+     *
+     * <p>Branches on the benefit's {@code usage_mode}:
+     * <ul>
+     *   <li>{@code NO_TRACKING} → no-op (matches Stage 3 pass-through).</li>
+     *   <li>{@code ONE_TIME_PER_BENEFICIARY} → policy_year=0 sentinel so
+     *       the annual rollover never resets it.</li>
+     *   <li>Everything else → current calendar year.</li>
+     * </ul>
      */
-    private Mono<Void> incrementBeneficiaryBenefit(Claim claim, java.math.BigDecimal delta, int acceptedCount) {
-        if (delta.signum() == 0 || acceptedCount == 0 || claim.getBenefitId() == null) {
+    private Mono<Void> incrementBeneficiaryBenefit(Claim claim,
+                                                     java.util.List<UUID> acceptedLineIds,
+                                                     java.math.BigDecimal delta) {
+        if (delta.signum() == 0 || acceptedLineIds.isEmpty() || claim.getBenefitId() == null) {
             return Mono.empty();
         }
-        int year = java.time.LocalDate.now().getYear();
-        return beneficiaryBenefitRepository.findOne(
-                claim.getMemberId(), claim.getDependantId(),
-                claim.getBenefitId(), year)
-            .flatMap(row -> {
-                var current = row.getConsumedAmount() != null
-                        ? row.getConsumedAmount() : java.math.BigDecimal.ZERO;
-                row.setConsumedAmount(current.add(delta));
-                row.setConsumedCount((row.getConsumedCount() != null ? row.getConsumedCount() : 0) + acceptedCount);
-                row.setUpdatedAt(Instant.now());
-                return beneficiaryBenefitRepository.save(row).then();
+        return loadBenefitUsageMode(claim.getBenefitId())
+            .flatMap(mode -> {
+                if ("NO_TRACKING".equals(mode)) return Mono.<Void>empty();
+                int year = "ONE_TIME_PER_BENEFICIARY".equals(mode)
+                        ? 0
+                        : java.time.LocalDate.now().getYear();
+                return logAppliedLines(claim.getId(), claim.getBenefitId(), claim.getMemberId(),
+                                        claim.getDependantId(), year, acceptedLineIds, delta)
+                        .flatMap(freshCount -> freshCount == 0
+                                // Every line was already logged → this is a
+                                // replay; skip the counter update.
+                                ? Mono.<Void>empty()
+                                : applyLedgerIncrement(claim, year, delta, freshCount));
             })
             .onErrorResume(e -> {
                 log.warn("Failed to increment beneficiary benefit utilization for claim {}: {}",
@@ -323,6 +338,74 @@ public class ClaimService {
                 return Mono.empty();
             })
             .then();
+    }
+
+    /** Loads the benefit's usage_mode; defaults to RUNNING_BALANCE when missing. */
+    private Mono<String> loadBenefitUsageMode(UUID benefitId) {
+        return databaseClient
+                .sql("SELECT usage_mode FROM scheme_benefits WHERE id = :id")
+                .bind("id", benefitId)
+                .fetch().one()
+                .map(row -> row.get("usage_mode") != null
+                        ? row.get("usage_mode").toString()
+                        : "RUNNING_BALANCE")
+                .defaultIfEmpty("RUNNING_BALANCE");
+    }
+
+    /**
+     * Insert one row into {@code claim_line_consumption_log} per accepted
+     * line ID. Duplicate-key errors are swallowed so replays are no-ops.
+     * Returns the number of rows that were actually inserted (i.e. the
+     * count of previously-unapplied lines).
+     */
+    private Mono<Integer> logAppliedLines(UUID claimId, UUID benefitId, UUID memberId, UUID dependantId,
+                                            int policyYear, java.util.List<UUID> lineIds,
+                                            java.math.BigDecimal totalDelta) {
+        // Each line gets a proportional slice of the aggregate delta. Precise
+        // per-line amount is not tracked at the claim level today (ClaimLine
+        // doesn't carry benefitId), so we split evenly for audit; the ledger
+        // still increments by the full delta once.
+        java.math.BigDecimal perLine = totalDelta.divide(
+                new java.math.BigDecimal(lineIds.size()), 4, java.math.RoundingMode.HALF_UP);
+        return Flux.fromIterable(lineIds)
+                .flatMap(lineId -> databaseClient
+                        .sql("""
+                                INSERT INTO claim_line_consumption_log
+                                    (claim_line_id, benefit_id, member_id, dependant_id, policy_year, applied_delta)
+                                VALUES
+                                    (:claimLineId, :benefitId, :memberId, :dependantId, :policyYear, :delta)
+                                ON CONFLICT (claim_line_id) DO NOTHING
+                                """)
+                        .bind("claimLineId", lineId)
+                        .bind("benefitId", benefitId)
+                        .bind("memberId", memberId)
+                        .bind("dependantId", dependantId != null ? dependantId : (UUID) null)
+                        .bind("policyYear", policyYear)
+                        .bind("delta", perLine)
+                        .fetch().rowsUpdated())
+                .reduce(0L, Long::sum)
+                .map(Long::intValue);
+    }
+
+    /**
+     * Apply the counter increment to the existing ledger row. Missing row
+     * is treated as a no-op — the enrolment seeder should have created it,
+     * but a missing row must not fail the adjudication.
+     */
+    private Mono<Void> applyLedgerIncrement(Claim claim, int policyYear,
+                                              java.math.BigDecimal delta, int acceptedCount) {
+        return beneficiaryBenefitRepository.findOne(
+                        claim.getMemberId(), claim.getDependantId(),
+                        claim.getBenefitId(), policyYear)
+                .flatMap(row -> {
+                    var current = row.getConsumedAmount() != null
+                            ? row.getConsumedAmount() : java.math.BigDecimal.ZERO;
+                    row.setConsumedAmount(current.add(delta));
+                    row.setConsumedCount((row.getConsumedCount() != null ? row.getConsumedCount() : 0)
+                            + acceptedCount);
+                    row.setUpdatedAt(Instant.now());
+                    return beneficiaryBenefitRepository.save(row).then();
+                });
     }
 
     /**
@@ -471,7 +554,11 @@ public class ClaimService {
                         saved.getProviderId() != null ? saved.getProviderId().toString() : null,
                         saved.getApprovedAmount() != null ? saved.getApprovedAmount().toPlainString() : null,
                         saved.getCurrencyCode(),
-                        saved.getInsuranceLine()))
+                        saved.getInsuranceLine(),
+                        saved.getMemberId()    != null ? saved.getMemberId().toString()    : null,
+                        saved.getDependantId() != null ? saved.getDependantId().toString() : null,
+                        saved.getBenefitId()   != null ? saved.getBenefitId().toString()   : null,
+                        String.valueOf(java.time.LocalDate.now().getYear())))
                     .thenReturn(saved);
             }));
     }
@@ -553,8 +640,113 @@ public class ClaimService {
                         return Mono.error(new IllegalArgumentException(
                                 "None of the supplied lineIds belong to this claim"));
                     }
-                    // Persist line updates, then recompute the claim aggregate.
-                    return Flux.fromIterable(updates)
+                    // V061 save-time guard: sum the amounts the adjudicator wants
+                    // to accept and reject the whole save with 422 if the ledger
+                    // can't absorb it. Runs BEFORE anything is persisted so a
+                    // breach leaves the claim exactly as the operator found it.
+                    java.math.BigDecimal proposedDelta = updates.stream()
+                            .filter(l -> "ACCEPTED".equalsIgnoreCase(l.getStatus()))
+                            .map(l -> l.getApprovedAmount() != null
+                                    ? l.getApprovedAmount() : java.math.BigDecimal.ZERO)
+                            .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+                    return validateSaveTimeBalance(claim, proposedDelta)
+                            .then(persistDecisions(claim, lines, updates, decisions, actorId, actorEmail));
+                }));
+    }
+
+    /**
+     * V061 save-time balance check for {@link #applyLineDecisions}. Runs
+     * once at submit time so the whole approval either succeeds atomically
+     * or fails cleanly with {@link org.springframework.http.HttpStatus#UNPROCESSABLE_ENTITY}.
+     *
+     * <p>Branches on the benefit's {@code usage_mode}:
+     * <ul>
+     *   <li>{@code NO_TRACKING} → always pass.</li>
+     *   <li>{@code ONE_TIME_PER_BENEFICIARY} / {@code ONE_TIME_PER_PERIOD}
+     *       → reject if the row's {@code consumed_count > 0} and any
+     *       ACCEPTED line is present.</li>
+     *   <li>{@code RUNNING_BALANCE} / {@code PER_EVENT_COUNTER} →
+     *       reject if {@code consumed_amount + proposedDelta > annual_limit}.</li>
+     * </ul>
+     */
+    private Mono<Void> validateSaveTimeBalance(Claim claim, java.math.BigDecimal proposedDelta) {
+        if (proposedDelta.signum() == 0 || claim.getBenefitId() == null) {
+            return Mono.empty();
+        }
+        return databaseClient
+                .sql("""
+                        SELECT b.usage_mode, b.annual_limit, s.tracks_member_balances
+                          FROM scheme_benefits b
+                          JOIN schemes s ON s.id = b.scheme_id
+                         WHERE b.id = :benefitId
+                        """)
+                .bind("benefitId", claim.getBenefitId())
+                .fetch().one()
+                .flatMap(row -> {
+                    String mode = row.get("usage_mode") != null
+                            ? row.get("usage_mode").toString() : "RUNNING_BALANCE";
+                    boolean tracks = row.get("tracks_member_balances") == null
+                            || Boolean.parseBoolean(row.get("tracks_member_balances").toString());
+                    if (!tracks || "NO_TRACKING".equals(mode)) return Mono.<Void>empty();
+                    java.math.BigDecimal annual = row.get("annual_limit") != null
+                            ? new java.math.BigDecimal(row.get("annual_limit").toString())
+                            : null;
+                    int year = "ONE_TIME_PER_BENEFICIARY".equals(mode)
+                            ? 0
+                            : java.time.LocalDate.now().getYear();
+                    return databaseClient
+                            .sql("""
+                                    SELECT COALESCE(consumed_amount, 0) AS ca,
+                                           COALESCE(consumed_count, 0)  AS cc
+                                      FROM beneficiary_benefits
+                                     WHERE member_id = :memberId
+                                       AND ((:dependantId IS NULL AND dependant_id IS NULL)
+                                            OR dependant_id = :dependantId)
+                                       AND benefit_id = :benefitId
+                                       AND policy_year = :policyYear
+                                    """)
+                            .bind("memberId", claim.getMemberId())
+                            .bind("dependantId", claim.getDependantId() != null ? claim.getDependantId() : (UUID) null)
+                            .bind("benefitId", claim.getBenefitId())
+                            .bind("policyYear", year)
+                            .fetch().one()
+                            .flatMap(led -> {
+                                java.math.BigDecimal consumed = new java.math.BigDecimal(led.get("ca").toString());
+                                int count = ((Number) led.get("cc")).intValue();
+                                if ("ONE_TIME_PER_BENEFICIARY".equals(mode) || "ONE_TIME_PER_PERIOD".equals(mode)) {
+                                    if (count > 0) {
+                                        return Mono.<Void>error(new org.springframework.web.server.ResponseStatusException(
+                                                org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY,
+                                                "R03-ONE_TIME_EXHAUSTED: benefit already used"));
+                                    }
+                                    return Mono.<Void>empty();
+                                }
+                                if (annual != null && annual.signum() > 0
+                                        && consumed.add(proposedDelta).compareTo(annual) > 0) {
+                                    java.math.BigDecimal remaining = annual.subtract(consumed);
+                                    if (remaining.signum() < 0) remaining = java.math.BigDecimal.ZERO;
+                                    return Mono.<Void>error(new org.springframework.web.server.ResponseStatusException(
+                                            org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY,
+                                            "R03-BALANCE_INSUFFICIENT: proposed " + proposedDelta
+                                                    + " exceeds remaining " + remaining
+                                                    + " (annual_limit=" + annual + ", consumed=" + consumed + ")"));
+                                }
+                                return Mono.<Void>empty();
+                            })
+                            .defaultIfEmpty(null)
+                            .then();
+                })
+                .defaultIfEmpty(null)
+                .then();
+    }
+
+    /** Persistence phase of {@link #applyLineDecisions} — factored out so the
+     *  save-time balance check can gate it. Body of the original inline
+     *  save-and-recompute flow. */
+    private Mono<Claim> persistDecisions(Claim claim, List<ClaimLine> lines, List<ClaimLine> updates,
+                                          List<com.medfund.claims.dto.LineDecisionRequest> decisions,
+                                          String actorId, String actorEmail) {
+        return Flux.fromIterable(updates)
                             .flatMap(claimLineRepository::save)
                             .collectList()
                             .flatMap(savedLines -> {
@@ -577,8 +769,11 @@ public class ClaimService {
                                 // count — an already-accepted line being edited
                                 // (amount tweak or code override) has already been
                                 // credited and shouldn't be double-counted.
+                                // V061: per-line idempotency via claim_line_consumption_log
+                                // takes over the "don't double-count" job; we now pass the
+                                // line IDs through and let the log table dedup.
                                 java.math.BigDecimal delta = java.math.BigDecimal.ZERO;
-                                int acceptedNow = 0;
+                                java.util.List<UUID> acceptedLineIds = new java.util.ArrayList<>();
                                 for (var d : decisions) {
                                     if (!"ACCEPTED".equalsIgnoreCase(d.status())) continue;
                                     // Match the persisted line to see its final approved amount.
@@ -588,10 +783,10 @@ public class ClaimService {
                                     if (matched == null) continue;
                                     delta = delta.add(matched.getApprovedAmount() != null
                                             ? matched.getApprovedAmount() : java.math.BigDecimal.ZERO);
-                                    acceptedNow++;
+                                    acceptedLineIds.add(matched.getId());
                                 }
                                 final java.math.BigDecimal deltaFinal = delta;
-                                final int acceptedNowFinal = acceptedNow;
+                                final java.util.List<UUID> acceptedLineIdsFinal = acceptedLineIds;
 
                                 return claimRepository.save(claim)
                                         .flatMap(saved -> Mono.deferContextual(ctx -> {
@@ -614,12 +809,15 @@ public class ClaimService {
                                                         saved.getProviderId() != null ? saved.getProviderId().toString() : null,
                                                         aggregate.toPlainString(),
                                                         saved.getCurrencyCode(),
-                                                        saved.getInsuranceLine()))
-                                                .then(incrementBeneficiaryBenefit(saved, deltaFinal, acceptedNowFinal))
+                                                        saved.getInsuranceLine(),
+                                                        saved.getMemberId()    != null ? saved.getMemberId().toString()    : null,
+                                                        saved.getDependantId() != null ? saved.getDependantId().toString() : null,
+                                                        saved.getBenefitId()   != null ? saved.getBenefitId().toString()   : null,
+                                                        String.valueOf(java.time.LocalDate.now().getYear())))
+                                                .then(incrementBeneficiaryBenefit(saved, acceptedLineIdsFinal, deltaFinal))
                                                 .thenReturn(saved);
                                         }));
                             });
-                }));
     }
 
     @Transactional

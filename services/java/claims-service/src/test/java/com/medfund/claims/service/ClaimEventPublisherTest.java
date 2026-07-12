@@ -87,7 +87,9 @@ class ClaimEventPublisherTest {
     void publishClaimAdjudicated_sendsToCorrectTopic() {
         when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
 
-        StepVerifier.create(claimEventPublisher.publishClaimAdjudicated("clm-1", "CLM-123", "APPROVED", "prov-1", "500.00", "USD", "HEALTH"))
+        StepVerifier.create(claimEventPublisher.publishClaimAdjudicated("clm-1", "CLM-123", "APPROVED",
+                        "prov-1", "500.00", "USD", "HEALTH",
+                        "mbr-1", null, "bnf-1", "2026"))
                 .verifyComplete();
 
         verify(kafkaSender).send(senderRecordCaptor.capture());

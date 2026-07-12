@@ -1,5 +1,6 @@
 package com.medfund.contributions.dto;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -29,5 +30,18 @@ public record UpdateSchemeBenefitRequest(
 
         @Min(0) @Max(120) Short minAge,
         @Min(0) @Max(120) Short maxAge,
-        Boolean cashClaimAllowed
-) {}
+        Boolean cashClaimAllowed,
+
+        /** V061 usage classification. Null on update = no change. */
+        String usageMode
+) {
+    @AssertTrue(message = "usageMode must be RUNNING_BALANCE, ONE_TIME_PER_BENEFICIARY, ONE_TIME_PER_PERIOD, PER_EVENT_COUNTER, or NO_TRACKING")
+    public boolean isUsageModeValid() {
+        return usageMode == null
+                || usageMode.equals("RUNNING_BALANCE")
+                || usageMode.equals("ONE_TIME_PER_BENEFICIARY")
+                || usageMode.equals("ONE_TIME_PER_PERIOD")
+                || usageMode.equals("PER_EVENT_COUNTER")
+                || usageMode.equals("NO_TRACKING");
+    }
+}

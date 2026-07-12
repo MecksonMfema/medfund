@@ -155,7 +155,7 @@ class MemberServiceTest {
         lenient().when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
         lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any(), any())).thenReturn(Mono.empty());
         when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
 
         StepVerifier.create(
@@ -192,7 +192,7 @@ class MemberServiceTest {
         lenient().when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
         lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any(), any())).thenReturn(Mono.empty());
         when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
 
         StepVerifier.create(
@@ -222,7 +222,7 @@ class MemberServiceTest {
         lenient().when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
         lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any(), any())).thenReturn(Mono.empty());
         when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
         // Override the lenient no-op from @BeforeEach
         when(lifecycleService.evaluateOnEnrollment(any()))
@@ -256,7 +256,7 @@ class MemberServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.error(new RuntimeException("Kafka down")));
         // The .then() arg is evaluated eagerly even though it's never subscribed
         // once audit errors — stub it to keep Mockito from returning null.
-        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any(), any())).thenReturn(Mono.empty());
         when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
 
         StepVerifier.create(
@@ -294,7 +294,7 @@ class MemberServiceTest {
         lenient().when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
         lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any(), any())).thenReturn(Mono.empty());
         when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
 
         StepVerifier.create(
@@ -353,7 +353,7 @@ class MemberServiceTest {
         lenient().when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
         lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any(), any())).thenReturn(Mono.empty());
         when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
 
         StepVerifier.create(
@@ -383,7 +383,7 @@ class MemberServiceTest {
         lenient().when(memberRepository.existsByMemberNumber(any())).thenReturn(Mono.just(false));
         lenient().when(memberRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any())).thenReturn(Mono.empty());
+        lenient().when(eventPublisher.publishMemberEnrolled(any(), any(), any(), any(), any(), any())).thenReturn(Mono.empty());
         when(keycloakSyncService.createUser(any(), any(), any(), any(), any())).thenReturn(Mono.just("kc-user-id"));
 
         StepVerifier.create(

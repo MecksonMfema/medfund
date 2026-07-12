@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.contributions.entity.Scheme;
 import com.medfund.contributions.repository.ContributionRepository;
 import com.medfund.contributions.repository.SchemeRepository;
+import com.medfund.contributions.service.BeneficiaryBenefitSeeder;
 import com.medfund.contributions.service.LateAdjustmentService;
 import com.medfund.shared.tenant.TenantContext;
 import jakarta.annotation.PostConstruct;
@@ -58,6 +59,7 @@ public class MemberEnrolledConsumer {
     private final ContributionRepository contributionRepository;
     private final SchemeRepository schemeRepository;
     private final LateAdjustmentService lateAdjustmentService;
+    private final BeneficiaryBenefitSeeder beneficiaryBenefitSeeder;
 
     @PostConstruct
     public void consume() {
@@ -97,17 +99,24 @@ public class MemberEnrolledConsumer {
             UUID groupId  = groupIdStr != null ? UUID.fromString(groupIdStr) : null;
             UUID schemeId = UUID.fromString(schemeIdStr);
             LocalDate enrollment = LocalDate.parse(enrollDate);
+            String dobStr = optText(node, "dateOfBirth");
+            LocalDate dateOfBirth = dobStr != null ? LocalDate.parse(dobStr) : null;
             LocalDate currentMonth = LocalDate.now().withDayOfMonth(1);
+            // V061: seed the beneficiary_benefits ledger for the new member.
+            // Runs regardless of whether the enrolment is in a past or
+            // current period — the seeder only cares about schemeId +
+            // enrolmentDate.
+            Mono<Void> seed = beneficiaryBenefitSeeder.seed(memberId, null, schemeId,
+                                                            enrollment, dateOfBirth);
             // Skip only strictly-future enrolments — the regular
             // billing cycle covers them. Current-month enrolments still
             // need the arrears check because the tenant may already
             // have committed this cycle's contributions before the
             // new member existed (V048).
-            if (enrollment.isAfter(currentMonth)) {
-                log.debug("Enrolment {} is in a future month — normal billing covers it", enrollment);
-                return Mono.empty();
-            }
-            Mono<Void> work = maybePostLateEnrolment(memberId, groupId, schemeId, enrollment);
+            Mono<Void> lateCharge = enrollment.isAfter(currentMonth)
+                    ? Mono.empty()
+                    : maybePostLateEnrolment(memberId, groupId, schemeId, enrollment);
+            Mono<Void> work = seed.then(lateCharge);
             return tenantId != null && !tenantId.isBlank()
                     ? work.contextWrite(Context.of(TenantContext.KEY, tenantId))
                     : work;

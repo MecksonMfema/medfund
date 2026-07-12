@@ -18,7 +18,40 @@ export interface Scheme {
   /** V050 age-eligibility gate — see {@link UpsertSchemePayload}. */
   minAge?: number;
   maxAge?: number;
+  /** V061 product-level ledger opt-out. Null defaults to true. When false
+   *  no per-member beneficiary_benefits rows are seeded and Stage 3
+   *  skips the balance check (indemnity model). */
+  tracksMemberBalances?: boolean;
 }
+
+/**
+ * V061 — combined scheme + per-benefit usage-mode snapshot. Used by the
+ * claim-detail page to decide whether to render the utilization card
+ * and how each row should look (progress bar vs one-time chip vs
+ * per-event counter). One call, no N+1 fetches.
+ */
+export interface SchemeProductProfile {
+  schemeId: string;
+  insuranceLine: string | null;
+  schemeType: string | null;
+  tracksMemberBalances: boolean;
+  benefitUsageModes: SchemeBenefitUsageMode[];
+}
+
+export interface SchemeBenefitUsageMode {
+  benefitId: string;
+  name: string;
+  benefitType: string | null;
+  usageMode: BenefitUsageMode;
+}
+
+/** V061 benefit-level usage classification. See scheme_benefits.usage_mode. */
+export type BenefitUsageMode =
+  | 'RUNNING_BALANCE'
+  | 'ONE_TIME_PER_BENEFICIARY'
+  | 'ONE_TIME_PER_PERIOD'
+  | 'PER_EVENT_COUNTER'
+  | 'NO_TRACKING';
 
 export interface SchemesPage {
   content: Scheme[];
@@ -66,6 +99,10 @@ export interface BeneficiaryBenefitUtilization {
   benefitId: string;
   benefitName: string | null;
   benefitType: string | null;
+  /** V061 usage classification. Drives conditional rendering on the
+   *  claim-detail utilization card (progress bar vs. one-time chip
+   *  vs. per-event counter). Defaults to RUNNING_BALANCE server-side. */
+  usageMode: BenefitUsageMode;
   policyYear: number;
   annualLimit?: string | null;
   eventLimit?: string | null;
@@ -73,6 +110,12 @@ export interface BeneficiaryBenefitUtilization {
   waitingPeriodDays?: number | null;
   consumedAmount: string;
   consumedCount: number;
+  /** V061 pre-computed remaining amount for RUNNING_BALANCE /
+   *  PER_EVENT_COUNTER benefits. Null when the benefit is untracked
+   *  or has no annual limit. */
+  remaining?: string | null;
+  /** V061 status hint: available | exhausted | unlimited | untracked. */
+  status: 'available' | 'exhausted' | 'unlimited' | 'untracked';
   currencyCode: string;
 }
 
@@ -95,6 +138,8 @@ export interface SchemeBenefit {
   /** V051 payout-mode flag. When false, rules-engine template R51 rejects
    *  CASH-payout claims for this benefit (must pay provider directly). */
   cashClaimAllowed?: boolean;
+  /** V061 usage classification. Defaults to RUNNING_BALANCE server-side. */
+  usageMode?: BenefitUsageMode;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -444,6 +489,16 @@ export class ContributionsService {
 
   getSchemeById(id: string): Observable<Scheme> {
     return this.api.get<Scheme>(`/schemes/${id}`);
+  }
+
+  /**
+   * V061 — product profile for a scheme. Returns scheme-level
+   * tracks_member_balances plus the usage_mode of every active benefit
+   * on the scheme. Powers the claim-detail header product-type badge and
+   * the utilization card's branch logic without an N+1 fetch.
+   */
+  getSchemeProductProfile(id: string): Observable<SchemeProductProfile> {
+    return this.api.get<SchemeProductProfile>(`/schemes/${id}/product-profile`);
   }
 
   /** Free-text scheme search — feeds the operational scheme picker. */

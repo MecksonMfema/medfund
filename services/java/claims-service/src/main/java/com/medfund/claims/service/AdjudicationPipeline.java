@@ -252,35 +252,154 @@ public class AdjudicationPipeline {
     }
 
     private Mono<StageResult> benefitLimitCheck(Claim claim) {
-        // Load the benefit's raw limit + name + currency in one shot. Name feeds
-        // ProrationService's "same-benefit-under-old-scheme" lookup; currency
-        // gates the cross-currency fallback.
+        // V061: load usage_mode and tracks_member_balances alongside the
+        // classic limit/name/currency triple so Stage 3 can branch per
+        // product classification instead of assuming running-balance.
         Mono<BenefitLookup> benefitMono = databaseClient
-            .sql("SELECT annual_limit, name, currency_code FROM scheme_benefits WHERE id = :benefitId")
+            .sql("""
+                    SELECT b.annual_limit, b.name, b.currency_code, b.usage_mode, b.event_limit,
+                           s.tracks_member_balances
+                      FROM scheme_benefits b
+                      JOIN schemes s ON s.id = b.scheme_id
+                     WHERE b.id = :benefitId
+                    """)
             .bind("benefitId", claim.getBenefitId())
             .fetch().one()
             .map(row -> new BenefitLookup(
                     row.get("annual_limit") != null ? new BigDecimal(row.get("annual_limit").toString()) : BigDecimal.ZERO,
                     row.get("name") != null ? row.get("name").toString() : null,
-                    row.get("currency_code") != null ? row.get("currency_code").toString() : null))
-            .defaultIfEmpty(new BenefitLookup(BigDecimal.ZERO, null, null));
+                    row.get("currency_code") != null ? row.get("currency_code").toString() : null,
+                    row.get("usage_mode") != null ? row.get("usage_mode").toString() : "RUNNING_BALANCE",
+                    row.get("event_limit") != null ? new BigDecimal(row.get("event_limit").toString()) : null,
+                    row.get("tracks_member_balances") != null
+                            ? Boolean.parseBoolean(row.get("tracks_member_balances").toString())
+                            : Boolean.TRUE))
+            .defaultIfEmpty(new BenefitLookup(BigDecimal.ZERO, null, null, "RUNNING_BALANCE", null, Boolean.TRUE));
 
         return Mono.deferContextual(ctx -> {
             UUID tenantId = parseTenant(TenantContext.get(ctx));
             return benefitMono.flatMap(benefit -> {
-                if (benefit.annualLimit().compareTo(BigDecimal.ZERO) == 0) {
+                // V061 branch 1: scheme opts out of per-member ledgers entirely
+                // (typical for indemnity products — VEHICLE, PROPERTY). Stage 3
+                // stays silent so the ledger read isn't consulted.
+                if (Boolean.FALSE.equals(benefit.tracksMemberBalances())) {
                     return Mono.just(new StageResult("BenefitLimits", true,
-                            "No annual limit set for this benefit — passed"));
+                            "Scheme opts out of per-member balance tracking"));
                 }
-                // Delegate the effective-limit resolution to ProrationService.
-                // Absent tenant context → tenantId null → service falls through to NONE,
-                // preserving the pre-feature behaviour exactly.
-                return prorationService.resolveEffectiveLimit(
-                        tenantId, claim,
-                        benefit.annualLimit(), benefit.name(), benefit.currencyCode())
-                    .map(decision -> evaluateWithDecision(claim, benefit.annualLimit(), decision));
+                // V061 branch 2: benefit-level opt-out.
+                if ("NO_TRACKING".equals(benefit.usageMode())) {
+                    return Mono.just(new StageResult("BenefitLimits", true,
+                            "Benefit usage_mode=NO_TRACKING — passed"));
+                }
+                // V061 branch 3: one-time benefits (per-beneficiary or per-period).
+                // ONE_TIME_PER_BENEFICIARY uses policy_year=0 sentinel so it
+                // never rolls over. ONE_TIME_PER_PERIOD uses the current year.
+                if ("ONE_TIME_PER_BENEFICIARY".equals(benefit.usageMode())
+                        || "ONE_TIME_PER_PERIOD".equals(benefit.usageMode())) {
+                    return checkOneTimeExhaustion(claim, benefit.usageMode());
+                }
+                // V061 branch 4: per-event counter — reject when consumed_count
+                // has hit event_limit even if the amount cap is untouched.
+                if ("PER_EVENT_COUNTER".equals(benefit.usageMode())) {
+                    return checkPerEventCounter(claim, benefit)
+                            .flatMap(res -> res.passed()
+                                    ? runningBalanceCheck(tenantId, claim, benefit)
+                                    : Mono.just(res));
+                }
+                // Default: RUNNING_BALANCE — existing ProrationService flow.
+                return runningBalanceCheck(tenantId, claim, benefit);
             });
         });
+    }
+
+    /** RUNNING_BALANCE evaluation — kept as its own method so the per-event
+     *  counter branch can chain into it after passing the count check. */
+    private Mono<StageResult> runningBalanceCheck(UUID tenantId, Claim claim, BenefitLookup benefit) {
+        if (benefit.annualLimit().compareTo(BigDecimal.ZERO) == 0) {
+            return Mono.just(new StageResult("BenefitLimits", true,
+                    "No annual limit set for this benefit — passed"));
+        }
+        return prorationService.resolveEffectiveLimit(
+                tenantId, claim,
+                benefit.annualLimit(), benefit.name(), benefit.currencyCode())
+            .map(decision -> evaluateWithDecision(claim, benefit.annualLimit(), decision));
+    }
+
+    /**
+     * V061 one-time exhaustion check. Uses policy_year=0 sentinel for
+     * ONE_TIME_PER_BENEFICIARY (lifetime); current year for ONE_TIME_PER_PERIOD.
+     * Reject when consumed_count > 0 — a single successful claim exhausts.
+     */
+    private Mono<StageResult> checkOneTimeExhaustion(Claim claim, String usageMode) {
+        int year = "ONE_TIME_PER_BENEFICIARY".equals(usageMode) ? 0 : java.time.LocalDate.now().getYear();
+        return databaseClient
+                .sql("""
+                        SELECT COALESCE(consumed_count, 0) AS cc
+                          FROM beneficiary_benefits
+                         WHERE member_id = :memberId
+                           AND ((:dependantId IS NULL AND dependant_id IS NULL)
+                                OR dependant_id = :dependantId)
+                           AND benefit_id  = :benefitId
+                           AND policy_year = :policyYear
+                        """)
+                .bind("memberId", claim.getMemberId())
+                .bind("dependantId", claim.getDependantId() != null ? claim.getDependantId() : (UUID) null)
+                .bind("benefitId", claim.getBenefitId())
+                .bind("policyYear", year)
+                .fetch().one()
+                .map(row -> {
+                    int count = row.get("cc") != null ? ((Number) row.get("cc")).intValue() : 0;
+                    if (count > 0) {
+                        return new StageResult("BenefitLimits", false,
+                                "R03-ONE_TIME_EXHAUSTED: " + usageMode + " benefit already used"
+                                + " (consumed_count=" + count + ")");
+                    }
+                    return new StageResult("BenefitLimits", true,
+                            "One-time benefit available — passed");
+                })
+                .defaultIfEmpty(new StageResult("BenefitLimits", true,
+                        "No beneficiary ledger row yet — treating as available"));
+    }
+
+    /**
+     * V061 per-event counter check. Rejects when the beneficiary has already
+     * hit the {@code event_limit} count for the current year, independent
+     * of remaining amount. Runs BEFORE the running-balance amount check.
+     */
+    private Mono<StageResult> checkPerEventCounter(Claim claim, BenefitLookup benefit) {
+        if (benefit.eventLimit() == null || benefit.eventLimit().signum() <= 0) {
+            return Mono.just(new StageResult("BenefitLimits", true,
+                    "PER_EVENT_COUNTER benefit has no event_limit set — count skipped"));
+        }
+        int cap = benefit.eventLimit().intValueExact();
+        int year = java.time.LocalDate.now().getYear();
+        return databaseClient
+                .sql("""
+                        SELECT COALESCE(consumed_count, 0) AS cc
+                          FROM beneficiary_benefits
+                         WHERE member_id = :memberId
+                           AND ((:dependantId IS NULL AND dependant_id IS NULL)
+                                OR dependant_id = :dependantId)
+                           AND benefit_id  = :benefitId
+                           AND policy_year = :policyYear
+                        """)
+                .bind("memberId", claim.getMemberId())
+                .bind("dependantId", claim.getDependantId() != null ? claim.getDependantId() : (UUID) null)
+                .bind("benefitId", claim.getBenefitId())
+                .bind("policyYear", year)
+                .fetch().one()
+                .map(row -> {
+                    int count = row.get("cc") != null ? ((Number) row.get("cc")).intValue() : 0;
+                    if (count >= cap) {
+                        return new StageResult("BenefitLimits", false,
+                                "R03-EVENT_COUNTER_EXHAUSTED: consumed " + count
+                                + " of " + cap + " permitted events");
+                    }
+                    return new StageResult("BenefitLimits", true,
+                            "Event counter " + count + "/" + cap + " — passed");
+                })
+                .defaultIfEmpty(new StageResult("BenefitLimits", true,
+                        "No beneficiary ledger row yet — event counter starts at 0"));
     }
 
     private StageResult evaluateWithDecision(Claim claim, BigDecimal rawLimit, ProrationDecision decision) {
@@ -310,7 +429,9 @@ public class AdjudicationPipeline {
                 + decision.strategy() + "])");
     }
 
-    private record BenefitLookup(BigDecimal annualLimit, String name, String currencyCode) {}
+    private record BenefitLookup(BigDecimal annualLimit, String name, String currencyCode,
+                                  String usageMode, BigDecimal eventLimit,
+                                  Boolean tracksMemberBalances) {}
 
     private Mono<StageResult> checkOverallBenefitLimit(Claim claim) {
         // Check total approved claims for this member this year against any scheme-level limit

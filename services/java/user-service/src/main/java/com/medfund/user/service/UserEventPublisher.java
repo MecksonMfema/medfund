@@ -33,7 +33,8 @@ public class UserEventPublisher {
      */
     public Mono<Void> publishMemberEnrolled(String memberId, String memberNumber,
                                              String groupId, String schemeId,
-                                             String enrollmentDate) {
+                                             String enrollmentDate,
+                                             String dateOfBirth) {
         var payload = new java.util.LinkedHashMap<String, String>();
         payload.put("event", "MEMBER_ENROLLED");
         payload.put("memberId", memberId);
@@ -41,6 +42,9 @@ public class UserEventPublisher {
         payload.put("groupId",         groupId         != null ? groupId         : "");
         payload.put("schemeId",        schemeId        != null ? schemeId        : "");
         payload.put("enrollmentDate",  enrollmentDate  != null ? enrollmentDate  : "");
+        // V061: consumed by BeneficiaryBenefitSeeder to honor per-benefit
+        // min_age / max_age gates without a synchronous user-service lookup.
+        payload.put("dateOfBirth",     dateOfBirth     != null ? dateOfBirth     : "");
         return publishEvent("medfund.users.member-enrolled", memberId, payload);
     }
 
@@ -58,7 +62,8 @@ public class UserEventPublisher {
     public Mono<Void> publishDependantEnrolled(String dependantId, String memberNumber,
                                                  String memberId,
                                                  String groupId, String schemeId,
-                                                 String enrollmentDate) {
+                                                 String enrollmentDate,
+                                                 String dateOfBirth) {
         var payload = new java.util.LinkedHashMap<String, String>();
         payload.put("event", "DEPENDANT_ENROLLED");
         payload.put("dependantId", dependantId);
@@ -67,6 +72,9 @@ public class UserEventPublisher {
         payload.put("groupId",         groupId         != null ? groupId         : "");
         payload.put("schemeId",        schemeId        != null ? schemeId        : "");
         payload.put("enrollmentDate",  enrollmentDate  != null ? enrollmentDate  : "");
+        // V061: consumed by BeneficiaryBenefitSeeder to honor per-benefit
+        // min_age / max_age gates without a synchronous user-service lookup.
+        payload.put("dateOfBirth",     dateOfBirth     != null ? dateOfBirth     : "");
         return publishEvent("medfund.users.dependant-enrolled", memberId, payload);
     }
 

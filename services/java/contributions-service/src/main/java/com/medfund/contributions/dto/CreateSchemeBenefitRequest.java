@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.AssertTrue;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -29,5 +30,22 @@ public record CreateSchemeBenefitRequest(
         @Min(0) @Max(120) Short minAge,
         @Min(0) @Max(120) Short maxAge,
         /** V051 payout gate — when false, CASH claims for this benefit reject with IN_KIND_ONLY. Null = true. */
-        Boolean cashClaimAllowed
-) {}
+        Boolean cashClaimAllowed,
+
+        /**
+         * V061 usage classification. One of RUNNING_BALANCE (default),
+         * ONE_TIME_PER_BENEFICIARY, ONE_TIME_PER_PERIOD, PER_EVENT_COUNTER,
+         * NO_TRACKING. Null defaults to RUNNING_BALANCE at persist time.
+         */
+        String usageMode
+) {
+    @AssertTrue(message = "usageMode must be RUNNING_BALANCE, ONE_TIME_PER_BENEFICIARY, ONE_TIME_PER_PERIOD, PER_EVENT_COUNTER, or NO_TRACKING")
+    public boolean isUsageModeValid() {
+        return usageMode == null
+                || usageMode.equals("RUNNING_BALANCE")
+                || usageMode.equals("ONE_TIME_PER_BENEFICIARY")
+                || usageMode.equals("ONE_TIME_PER_PERIOD")
+                || usageMode.equals("PER_EVENT_COUNTER")
+                || usageMode.equals("NO_TRACKING");
+    }
+}

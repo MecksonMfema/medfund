@@ -160,6 +160,21 @@
   color: var(--color-primary, #0077b6);
 }
 
+// V061 product-type badges in the header. `tag--product` is the
+// insurance-line chip; the tracked / untracked chips are the ledger flag.
+.tag--product {
+  background: var(--color-primary-light, rgba(0,119,182,0.1));
+  color: var(--color-primary, #0077b6);
+}
+.tag--tracked {
+  background: var(--success-bg, #d1fae5);
+  color: var(--success-fg, #065f46);
+}
+.tag--untracked {
+  background: var(--warning-bg, #fef3c7);
+  color: var(--warning-fg, #92400e);
+}
+
 // ── Status badge ──────────────────────────────────────────────────────
 .status-badge {
   display: inline-block;
@@ -458,6 +473,59 @@
   border-top: 1px dashed var(--color-border-light, #e5e7eb);
   flex-wrap: wrap;
 }
+
+// V061 inline 422 breach banner. Sits under the save bar so the
+// adjudicator sees the reason and stays inside the same card to fix it —
+// no modal or drawer per project convention.
+.save-breach-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  margin-top: 0.75rem;
+  border-radius: var(--radius-md, 6px);
+  background: var(--danger-bg, #fee2e2);
+  color: var(--danger-fg, #991b1b);
+  border: 1px solid var(--danger-fg, #991b1b);
+  strong { display: block; margin-bottom: 0.15rem; }
+  p      { margin: 0.1rem 0 0; }
+}
+
+// V061 usage-mode chip on utilization rows. Palette hints at whether
+// the benefit accumulates a balance (blue-teal), is one-time (amber),
+// or is a per-event counter (violet).
+.usage-mode-chip {
+  display: inline-block;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.45rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  background: var(--color-primary-light, rgba(0,119,182,0.1));
+  color: var(--color-primary, #0077b6);
+}
+.usage-mode-chip.usage-mode-one_time_per_beneficiary,
+.usage-mode-chip.usage-mode-one_time_per_period {
+  background: var(--warning-bg, #fef3c7);
+  color: var(--warning-fg, #92400e);
+}
+.usage-mode-chip.usage-mode-per_event_counter {
+  background: rgba(139, 92, 246, 0.12);
+  color: #6d28d9;
+}
+
+// V061 exhausted-row highlight and status-chip colour extensions.
+.util-row--exhausted { opacity: 0.85; }
+.util-figures--onetime {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  grid-column: figures / span 2;
+}
+.status-badge.status-available { background: var(--success-bg, #d1fae5); color: var(--success-fg, #065f46); }
+.status-badge.status-exhausted { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
 
 .total-label  { font-weight: 600; padding-top: 0.6rem; }
 .total-amount { font-weight: 700; padding-top: 0.6rem; font-size: 1rem; }

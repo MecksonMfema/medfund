@@ -239,7 +239,8 @@ public class MemberService {
                             saved.getMemberNumber(),
                             saved.getGroupId()  != null ? saved.getGroupId().toString()  : null,
                             saved.getSchemeId() != null ? saved.getSchemeId().toString() : null,
-                            saved.getEnrollmentDate() != null ? saved.getEnrollmentDate().toString() : null
+                            saved.getEnrollmentDate() != null ? saved.getEnrollmentDate().toString() : null,
+                            saved.getDateOfBirth() != null ? saved.getDateOfBirth().toString() : null
                         ))
                         .onErrorResume(e -> {
                             log.warn("Audit/event publish failed for member {}: {}", saved.getMemberNumber(), e.getMessage());

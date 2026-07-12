@@ -14,7 +14,9 @@ public enum JobType {
     SCHEME_CHANGE_ROLL("Scheme Change Roll",
         "Apply APPROVED scheme_changes rows whose effective_date has arrived (flip members.scheme_id, publish SCHEME_CHANGED)"),
     ARREARS_ESCALATION("Arrears Escalation",
-        "Auto-suspend / deactivate members and groups based on dunning_config thresholds");
+        "Auto-suspend / deactivate members and groups based on dunning_config thresholds"),
+    BENEFIT_ROLLOVER("Benefit Rollover",
+        "V061 — seed next-year beneficiary_benefits rows for RUNNING_BALANCE / ONE_TIME_PER_PERIOD / PER_EVENT_COUNTER benefits.");
 
     private final String displayName;
     private final String description;

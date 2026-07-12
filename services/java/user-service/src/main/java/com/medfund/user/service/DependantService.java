@@ -140,7 +140,8 @@ public class DependantService {
                                 saved.getMemberId().toString(),
                                 parent.getGroupId()  != null ? parent.getGroupId().toString()  : null,
                                 parent.getSchemeId() != null ? parent.getSchemeId().toString() : null,
-                                saved.getEnrollmentDate() != null ? saved.getEnrollmentDate().toString() : null))
+                                saved.getEnrollmentDate() != null ? saved.getEnrollmentDate().toString() : null,
+                                saved.getDateOfBirth() != null ? saved.getDateOfBirth().toString() : null))
                         .onErrorResume(e -> {
                             log.warn("DependantEnrolled publish failed for {}: {}",
                                     saved.getId(), e.getMessage());

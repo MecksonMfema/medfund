@@ -133,6 +133,19 @@ public class SchemeController {
         return schemeService.findBenefitsBySchemeId(schemeId).map(SchemeBenefitResponse::from);
     }
 
+    @GetMapping("/{schemeId}/product-profile")
+    @Operation(summary = "Scheme product profile — tracks_member_balances + per-benefit usage modes",
+        description = "Single call the claim-detail page uses to decide whether to render the utilization card " +
+                "and how each row should look. Returns tracksMemberBalances plus the usage_mode of every active " +
+                "benefit on the scheme. Skips inactive benefits so the payload matches what Stage 3 enforces.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Product profile returned"),
+        @ApiResponse(responseCode = "404", description = "Scheme not found")
+    })
+    public Mono<SchemeProductProfileResponse> findProductProfile(@PathVariable UUID schemeId) {
+        return schemeService.findProductProfile(schemeId);
+    }
+
     @GetMapping("/{schemeId}/benefits/page")
     @Operation(summary = "Server-side paginated, sortable, filterable benefits list",
         description = "Feeds the operational benefits list for a scheme. Sortable keys: " +

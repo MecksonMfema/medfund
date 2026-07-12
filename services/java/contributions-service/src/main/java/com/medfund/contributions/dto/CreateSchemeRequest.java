@@ -30,7 +30,15 @@ public record CreateSchemeRequest(
         /** V050 enrolment eligibility gate — inclusive lower bound. Null = unbounded. */
         @Min(0) @Max(120) Short minAge,
         /** V050 enrolment eligibility gate — inclusive upper bound. Null = unbounded. */
-        @Min(0) @Max(120) Short maxAge
+        @Min(0) @Max(120) Short maxAge,
+
+        /**
+         * V061 product-level opt-out. Null defaults to TRUE. Set FALSE for
+         * indemnity products (typical for VEHICLE / PROPERTY) so enrolment
+         * does not seed per-member ledger rows and Stage 3 adjudication
+         * skips the per-member balance check.
+         */
+        Boolean tracksMemberBalances
 ) {
     public String schemeTypeOrDefault() {
         return (schemeType == null || schemeType.isBlank()) ? "medical_aid" : schemeType;

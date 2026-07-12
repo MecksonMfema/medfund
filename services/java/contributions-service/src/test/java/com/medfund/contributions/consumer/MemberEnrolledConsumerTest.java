@@ -33,13 +33,17 @@ class MemberEnrolledConsumerTest {
     @Mock ContributionRepository contributionRepository;
     @Mock SchemeRepository schemeRepository;
     @Mock LateAdjustmentService lateAdjustmentService;
+    @Mock com.medfund.contributions.service.BeneficiaryBenefitSeeder beneficiaryBenefitSeeder;
 
     private MemberEnrolledConsumer consumer;
 
     @BeforeEach
     void setUp() {
         consumer = new MemberEnrolledConsumer(null, objectMapper,
-                contributionRepository, schemeRepository, lateAdjustmentService);
+                contributionRepository, schemeRepository, lateAdjustmentService,
+                beneficiaryBenefitSeeder);
+        lenient().when(beneficiaryBenefitSeeder.seed(any(), any(), any(), any(), any()))
+                .thenReturn(Mono.empty());
         lenient().when(lateAdjustmentService.postAggregate(any(), any(), any(), any(),
                 anyInt(), anyString(), anyString(), anyString())).thenReturn(Mono.empty());
         // Default: current cycle not billed yet → currentMonth doesn't

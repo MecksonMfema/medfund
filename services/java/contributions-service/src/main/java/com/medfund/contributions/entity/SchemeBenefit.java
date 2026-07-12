@@ -60,6 +60,15 @@ public class SchemeBenefit {
     @Column("cash_claim_allowed")
     private Boolean cashClaimAllowed = Boolean.TRUE;
 
+    /**
+     * V061 benefit usage classification. Drives the per-member ledger:
+     * running-balance benefits accrue amount; one-time benefits are
+     * exhausted after a single successful claim; per-event benefits are
+     * capped by count AND amount; NO_TRACKING skips the ledger entirely.
+     */
+    @Column("usage_mode")
+    private String usageMode = "RUNNING_BALANCE";
+
     private String description;
 
     private String status = "active";
@@ -111,6 +120,9 @@ public class SchemeBenefit {
 
     public Boolean getCashClaimAllowed() { return cashClaimAllowed; }
     public void setCashClaimAllowed(Boolean cashClaimAllowed) { this.cashClaimAllowed = cashClaimAllowed; }
+
+    public String getUsageMode() { return usageMode; }
+    public void setUsageMode(String usageMode) { this.usageMode = usageMode; }
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }

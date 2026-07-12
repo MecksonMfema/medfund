@@ -21,6 +21,7 @@ public record SchemeBenefitResponse(
         Short minAge,
         Short maxAge,
         Boolean cashClaimAllowed,
+        String usageMode,
         Instant createdAt,
         Instant updatedAt
 ) {
@@ -40,6 +41,7 @@ public record SchemeBenefitResponse(
                 benefit.getMinAge(),
                 benefit.getMaxAge(),
                 benefit.getCashClaimAllowed(),
+                benefit.getUsageMode(),
                 benefit.getCreatedAt(),
                 benefit.getUpdatedAt()
         );

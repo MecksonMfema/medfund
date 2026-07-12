@@ -55,17 +55,27 @@ public class ClaimEventPublisher {
 
     public Mono<Void> publishClaimAdjudicated(String claimId, String claimNumber, String decision,
                                                 String providerId, String approvedAmount, String currencyCode,
-                                                String insuranceLine) {
-        return publishEvent("medfund.claims.adjudicated", claimId, Map.of(
-            "event", "CLAIM_ADJUDICATED",
-            "claimId", claimId,
-            "claimNumber", claimNumber,
-            "decision", decision,
-            "providerId", providerId != null ? providerId : "",
-            "approvedAmount", approvedAmount != null ? approvedAmount : "0",
-            "currencyCode", currencyCode != null ? currencyCode : "USD",
-            "insuranceLine", nz(insuranceLine)
-        ));
+                                                String insuranceLine,
+                                                String memberId, String dependantId,
+                                                String benefitId, String policyYear) {
+        var payload = new java.util.LinkedHashMap<String, String>();
+        payload.put("event", "CLAIM_ADJUDICATED");
+        payload.put("claimId", claimId);
+        payload.put("claimNumber", claimNumber);
+        payload.put("decision", decision);
+        payload.put("providerId", providerId != null ? providerId : "");
+        payload.put("approvedAmount", approvedAmount != null ? approvedAmount : "0");
+        payload.put("currencyCode", currencyCode != null ? currencyCode : "USD");
+        payload.put("insuranceLine", nz(insuranceLine));
+        // V061: informational fields for downstream consumers (audit,
+        // notifications, analytics). The authoritative balance decrement
+        // happens synchronously in ClaimService.applyLineDecisions —
+        // consumers must NOT decrement the ledger.
+        payload.put("memberId",     nz(memberId));
+        payload.put("dependantId",  nz(dependantId));
+        payload.put("benefitId",    nz(benefitId));
+        payload.put("policyYear",   nz(policyYear));
+        return publishEvent("medfund.claims.adjudicated", claimId, payload);
     }
 
     public Mono<Void> publishClaimStatusChanged(String claimId, String status, String insuranceLine) {

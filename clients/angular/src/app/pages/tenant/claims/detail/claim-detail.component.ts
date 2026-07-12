@@ -17,9 +17,11 @@ import {
 } from '../../../../core/services/claims-config.service';
 import {
   BeneficiaryBenefitUtilization,
+  BenefitUsageMode,
   ContributionsService,
   Scheme,
   SchemeBenefit,
+  SchemeProductProfile,
 } from '../../../../core/services/contributions.service';
 import { Dependant, Member, MembersService } from '../../../../core/services/members.service';
 import { Provider, ProvidersService } from '../../../../core/services/providers.service';
@@ -84,6 +86,13 @@ export class ClaimDetailComponent implements OnInit {
   /** Fetched alongside benefits so the member card can show the scheme
    *  name + line without needing the operator to hop to the schemes page. */
   scheme: Scheme | null = null;
+  /** V061 — scheme + per-benefit usage-mode snapshot. Drives the header
+   *  badge and whether the utilization card renders at all. */
+  productProfile: SchemeProductProfile | null = null;
+  /** V061 save-time balance breach reason, set from a 422 on
+   *  applyLineDecisions. Rendered as an inline red banner in the
+   *  service-lines card; cleared on the next save attempt. */
+  saveBreachError: string | null = null;
 
   /** Convenience getters for the template so it doesn't repeatedly
    *  optional-chain through {@link scheme}. */
@@ -196,6 +205,9 @@ export class ClaimDetailComponent implements OnInit {
       this.contributions.getBenefitsByScheme(claim.schemeId)
         .pipe(catchError(() => of([] as SchemeBenefit[])))
         .subscribe(bs => { this.benefits = bs; });
+      this.contributions.getSchemeProductProfile(claim.schemeId)
+        .pipe(catchError(() => of(null as SchemeProductProfile | null)))
+        .subscribe(p => { this.productProfile = p; });
     }
 
     // Per-beneficiary utilization — used vs. limit per benefit for the
@@ -378,6 +390,7 @@ export class ClaimDetailComponent implements OnInit {
     if (!ok) return;
 
     this.busy = true;
+    this.saveBreachError = null;
     this.claims.applyLineDecisions(this.claim.id, decisions).subscribe({
       next: (updated) => {
         this.claim = updated;
@@ -391,10 +404,25 @@ export class ClaimDetailComponent implements OnInit {
             this.seedLineDrafts();
           },
         });
+        // Utilization row(s) just changed on the server — refresh so
+        // the running-balance progress bar advances on the same page.
+        if (this.claim) {
+          this.contributions.getBeneficiaryUtilization(this.claim.memberId, this.claim.dependantId)
+            .pipe(catchError(() => of([] as BeneficiaryBenefitUtilization[])))
+            .subscribe(rows => { this.utilization = rows; });
+        }
       },
       error: (err) => {
         this.busy = false;
-        this.toast.error(err?.error?.detail || 'Failed to save line decisions');
+        // V061 — surface a 422 save-time breach as an inline banner in
+        // the service-lines card so the adjudicator can lower amounts
+        // and retry without navigating away.
+        if (err?.status === 422) {
+          this.saveBreachError = err?.error?.detail || err?.error?.message
+                                || 'Approved total exceeds the beneficiary\'s remaining balance for this benefit.';
+        } else {
+          this.toast.error(err?.error?.detail || 'Failed to save line decisions');
+        }
       },
     });
   }
@@ -433,6 +461,31 @@ export class ClaimDetailComponent implements OnInit {
     if (!limit || limit <= 0) return null;
     const used = Number(row.consumedAmount) || 0;
     return Math.min(100, Math.round((used / limit) * 100));
+  }
+
+  /** V061 — whether the utilization card should render at all. Hidden
+   *  when the scheme opts out of per-member ledger tracking. */
+  get showUtilization(): boolean {
+    return this.productProfile?.tracksMemberBalances !== false;
+  }
+
+  /** V061 — filter NO_TRACKING benefits out of the utilization list so
+   *  the operator only sees rows that actually enforce a limit. */
+  get visibleUtilization(): BeneficiaryBenefitUtilization[] {
+    return this.utilization.filter(row => row.usageMode !== 'NO_TRACKING');
+  }
+
+  /** V061 — reasonable defaults for pre-V061 responses that don't
+   *  populate usageMode. Falls back to RUNNING_BALANCE so the UI keeps
+   *  its existing behaviour. */
+  usageModeOf(row: BeneficiaryBenefitUtilization): BenefitUsageMode {
+    return row.usageMode ?? 'RUNNING_BALANCE';
+  }
+
+  /** V061 — humanized label for the header product-type chip. */
+  productTypeLabel(): string {
+    if (!this.productProfile) return '';
+    return this.productProfile.tracksMemberBalances ? 'Ledger tracked' : 'Scheme-level only';
   }
 
   displayCodes(raw: string | null | undefined): string {

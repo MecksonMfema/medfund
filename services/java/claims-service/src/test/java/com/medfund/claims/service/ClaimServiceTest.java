@@ -46,6 +46,8 @@ class ClaimServiceTest {
     @Mock private ClaimEventPublisher eventPublisher;
     @Mock private AdjudicationPipeline adjudicationPipeline;
     @Mock private SchemeClient schemeClient;
+    @Mock private com.medfund.claims.repository.BeneficiaryBenefitRepository beneficiaryBenefitRepository;
+    @Mock private org.springframework.r2dbc.core.DatabaseClient databaseClient;
 
     @InjectMocks
     private ClaimService claimService;
@@ -437,7 +439,8 @@ class ClaimServiceTest {
         when(claimLineRepository.findByClaimId(claim.getId())).thenReturn(Flux.just(testClaimLine));
         when(adjudicationPipeline.execute(any(), any())).thenReturn(Mono.just(adjudicationResult));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        when(eventPublisher.publishClaimAdjudicated(any(), any(), any(), any(), any(), any(), any()))
+        when(eventPublisher.publishClaimAdjudicated(any(), any(), any(), any(), any(), any(), any(),
+                        any(), any(), any(), any()))
                 .thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -451,7 +454,8 @@ class ClaimServiceTest {
                 .verifyComplete();
 
         verify(adjudicationPipeline).execute(any(Claim.class), anyList());
-        verify(eventPublisher).publishClaimAdjudicated(any(), any(), any(), any(), any(), any(), eq("HEALTH"));
+        verify(eventPublisher).publishClaimAdjudicated(any(), any(), any(), any(), any(), any(), eq("HEALTH"),
+                any(), any(), any(), any());
     }
 
     // ── Fixtures ─────────────────────────────────────────────────────

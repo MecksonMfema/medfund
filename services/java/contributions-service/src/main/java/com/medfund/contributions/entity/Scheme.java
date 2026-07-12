@@ -49,6 +49,15 @@ public class Scheme {
     @Column("max_age")
     private Short maxAge;
 
+    /**
+     * V061 product-level ledger opt-out. When false, no per-member
+     * beneficiary_benefits rows are seeded on enrolment and adjudication
+     * Stage 3 skips the balance check — the product uses scheme-level
+     * limits only (indemnity model, typical for VEHICLE / PROPERTY).
+     */
+    @Column("tracks_member_balances")
+    private Boolean tracksMemberBalances = Boolean.TRUE;
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;
@@ -96,6 +105,9 @@ public class Scheme {
 
     public Short getMaxAge() { return maxAge; }
     public void setMaxAge(Short maxAge) { this.maxAge = maxAge; }
+
+    public Boolean getTracksMemberBalances() { return tracksMemberBalances; }
+    public void setTracksMemberBalances(Boolean tracksMemberBalances) { this.tracksMemberBalances = tracksMemberBalances; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

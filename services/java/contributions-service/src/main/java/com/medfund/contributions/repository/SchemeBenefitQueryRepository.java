@@ -66,7 +66,8 @@ public class SchemeBenefitQueryRepository {
         StringBuilder sb = new StringBuilder("""
                 SELECT id, scheme_id, name, benefit_type,
                        annual_limit, daily_limit, event_limit, currency_code,
-                       waiting_period_days, description, status,
+                       waiting_period_days, description, status, usage_mode,
+                       min_age, max_age, cash_claim_allowed,
                        created_at, updated_at
                   FROM scheme_benefits
                  WHERE 1 = 1
@@ -118,6 +119,14 @@ public class SchemeBenefitQueryRepository {
         b.setWaitingPeriodDays(row.get("waiting_period_days", Integer.class));
         b.setDescription(row.get("description", String.class));
         b.setStatus(row.get("status", String.class));
+        String mode = row.get("usage_mode", String.class);
+        b.setUsageMode(mode != null ? mode : "RUNNING_BALANCE");
+        Short min = row.get("min_age", Short.class);
+        Short max = row.get("max_age", Short.class);
+        b.setMinAge(min);
+        b.setMaxAge(max);
+        Boolean cash = row.get("cash_claim_allowed", Boolean.class);
+        if (cash != null) b.setCashClaimAllowed(cash);
         // scheme_benefits.created_at / updated_at are TIMESTAMPTZ, which
         // r2dbc-postgres returns as OffsetDateTime by default. Ask for
         // Instant explicitly so the driver converts cleanly.

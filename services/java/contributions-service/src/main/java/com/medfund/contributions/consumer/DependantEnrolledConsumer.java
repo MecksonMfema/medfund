@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.contributions.entity.Scheme;
 import com.medfund.contributions.repository.ContributionRepository;
 import com.medfund.contributions.repository.SchemeRepository;
+import com.medfund.contributions.service.BeneficiaryBenefitSeeder;
 import com.medfund.contributions.service.LateAdjustmentService;
 import com.medfund.shared.tenant.TenantContext;
 import jakarta.annotation.PostConstruct;
@@ -58,6 +59,7 @@ public class DependantEnrolledConsumer {
     private final ContributionRepository contributionRepository;
     private final SchemeRepository schemeRepository;
     private final LateAdjustmentService lateAdjustmentService;
+    private final BeneficiaryBenefitSeeder beneficiaryBenefitSeeder;
 
     @PostConstruct
     public void consume() {
@@ -95,16 +97,21 @@ public class DependantEnrolledConsumer {
             UUID groupId     = groupIdStr != null ? UUID.fromString(groupIdStr) : null;
             UUID schemeId    = UUID.fromString(schemeIdStr);
             LocalDate enrollment = LocalDate.parse(enrollDate);
+            String dobStr = optText(node, "dateOfBirth");
+            LocalDate dateOfBirth = dobStr != null ? LocalDate.parse(dobStr) : null;
             LocalDate currentMonth = LocalDate.now().withDayOfMonth(1);
+            // V061: seed the beneficiary_benefits ledger for the new dependant.
+            // Runs regardless of enrolment being past/current — the seeder
+            // is only concerned with schemeId + enrollmentDate.
+            Mono<Void> seed = beneficiaryBenefitSeeder.seed(memberId, dependantId, schemeId,
+                                                             enrollment, dateOfBirth);
             // Skip only future enrolments. Current-month falls through
             // so countArrearsMonths can probe for an already-billed
             // current cycle (V048).
-            if (enrollment.isAfter(currentMonth)) {
-                log.debug("Dependant enrolment {} is in a future month — normal billing covers it",
-                        enrollment);
-                return Mono.empty();
-            }
-            Mono<Void> work = maybePostLateEnrolment(dependantId, memberId, groupId, schemeId, enrollment);
+            Mono<Void> lateCharge = enrollment.isAfter(currentMonth)
+                    ? Mono.empty()
+                    : maybePostLateEnrolment(dependantId, memberId, groupId, schemeId, enrollment);
+            Mono<Void> work = seed.then(lateCharge);
             return tenantId != null && !tenantId.isBlank()
                     ? work.contextWrite(Context.of(TenantContext.KEY, tenantId))
                     : work;

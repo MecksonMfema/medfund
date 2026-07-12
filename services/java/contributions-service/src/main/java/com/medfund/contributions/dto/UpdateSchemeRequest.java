@@ -23,5 +23,8 @@ public record UpdateSchemeRequest(
 
         /** V050 age-eligibility bounds. Null = "no change" per patch semantics. */
         @Min(0) @Max(120) Short minAge,
-        @Min(0) @Max(120) Short maxAge
+        @Min(0) @Max(120) Short maxAge,
+
+        /** V061 product-level ledger opt-out. Null = "no change" per patch semantics. */
+        Boolean tracksMemberBalances
 ) {}

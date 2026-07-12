@@ -188,6 +188,10 @@ public class SchemeService {
                 // V050 age-eligibility gate. Nullable → null-safe pass-through.
                 scheme.setMinAge(request.minAge());
                 scheme.setMaxAge(request.maxAge());
+                // V061 product-level ledger opt-out.
+                if (request.tracksMemberBalances() != null) {
+                    scheme.setTracksMemberBalances(request.tracksMemberBalances());
+                }
                 scheme.setCreatedAt(Instant.now());
                 scheme.setUpdatedAt(Instant.now());
                 scheme.setCreatedBy(UUID.fromString(actorId));
@@ -239,6 +243,9 @@ public class SchemeService {
                 // V050 — null means "no change" per patch semantics.
                 if (request.minAge() != null) scheme.setMinAge(request.minAge());
                 if (request.maxAge() != null) scheme.setMaxAge(request.maxAge());
+                if (request.tracksMemberBalances() != null) {
+                    scheme.setTracksMemberBalances(request.tracksMemberBalances());
+                }
                 scheme.setUpdatedAt(Instant.now());
                 scheme.setUpdatedBy(UUID.fromString(actorId));
 
@@ -292,6 +299,21 @@ public class SchemeService {
         return schemeBenefitRepository.findBySchemeId(schemeId);
     }
 
+    /**
+     * Combined scheme + benefit usage-mode snapshot used by the Angular claim-detail
+     * page to render the product-type badge and decide whether to render the
+     * utilization card at all. Filters inactive benefits so the UI matches
+     * what adjudication actually enforces.
+     */
+    public Mono<com.medfund.contributions.dto.SchemeProductProfileResponse> findProductProfile(UUID schemeId) {
+        return schemeRepository.findById(schemeId)
+                .switchIfEmpty(Mono.error(new SchemeNotFoundException(schemeId)))
+                .flatMap(scheme -> schemeBenefitRepository.findBySchemeId(schemeId)
+                        .filter(b -> b.getStatus() == null || "active".equalsIgnoreCase(b.getStatus()))
+                        .collectList()
+                        .map(benefits -> com.medfund.contributions.dto.SchemeProductProfileResponse.from(scheme, benefits)));
+    }
+
     @Transactional
     public Mono<SchemeBenefit> createBenefit(CreateSchemeBenefitRequest request, String actorId, String actorEmail) {
         return schemeRepository.findById(request.schemeId())
@@ -323,6 +345,9 @@ public class SchemeService {
                 benefit.setMaxAge(request.maxAge());
                 if (request.cashClaimAllowed() != null) {
                     benefit.setCashClaimAllowed(request.cashClaimAllowed());
+                }
+                if (request.usageMode() != null) {
+                    benefit.setUsageMode(request.usageMode());
                 }
                 benefit.setCreatedAt(Instant.now());
                 benefit.setUpdatedAt(Instant.now());
@@ -368,6 +393,7 @@ public class SchemeService {
                     if (request.minAge() != null) existing.setMinAge(request.minAge());
                     if (request.maxAge() != null) existing.setMaxAge(request.maxAge());
                     if (request.cashClaimAllowed() != null) existing.setCashClaimAllowed(request.cashClaimAllowed());
+                    if (request.usageMode() != null) existing.setUsageMode(request.usageMode());
                     existing.setUpdatedAt(Instant.now());
 
                     return schemeBenefitRepository.save(existing)

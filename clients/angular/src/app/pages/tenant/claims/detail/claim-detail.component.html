@@ -20,6 +20,18 @@
           <span>{{ providerName() }}</span>
           <span class="sep">·</span>
           <span>service {{ claim.serviceDate }}</span>
+          @if (productProfile) {
+            <span class="sep">·</span>
+            <!-- V061: product-type badges. Humanized insurance line + a
+                 second chip that tells the adjudicator up-front whether
+                 this scheme runs per-member ledgers (medical aid, dental)
+                 or uses scheme-level limits only (indemnity). -->
+            <span class="tag tag--product">{{ productProfile.insuranceLine | humanize }}</span>
+            <span class="tag" [class.tag--tracked]="productProfile.tracksMemberBalances"
+                              [class.tag--untracked]="!productProfile.tracksMemberBalances">
+              {{ productTypeLabel() }}
+            </span>
+          }
         </p>
       } @else {
         <h1>Claim</h1>
@@ -374,6 +386,19 @@
               Save decisions
             </button>
           </div>
+          @if (saveBreachError) {
+            <!-- V061: inline 422 breach banner. Kept in the same card so
+                 the adjudicator can lower approved amounts and retry
+                 without navigating away or opening a modal. -->
+            <div class="save-breach-banner" role="alert">
+              <app-icon name="alert-triangle" [size]="16"></app-icon>
+              <div>
+                <strong>Balance breach</strong>
+                <p>{{ saveBreachError }}</p>
+                <p class="muted small">Lower the approved amount on one or more accepted lines and try again.</p>
+              </div>
+            </div>
+          }
         } @else {
           <p class="hint muted">Read-only — you need the Adjudicate right to modify line decisions.</p>
         }
@@ -421,51 +446,122 @@
     }
 
     <!-- ── 5b. Beneficiary benefit utilization (used vs. limit) ─────── -->
-    @if (utilization.length > 0) {
+    @if (showUtilization && visibleUtilization.length > 0) {
       <section class="detail-card">
         <header class="section-head">
           <h3 class="section-title">
             <app-icon name="trending-up" [size]="16"></app-icon>
             {{ dependant ? 'Dependant' : 'Member' }} utilization
           </h3>
-          <span class="muted">policy year {{ utilization[0].policyYear }}</span>
+          <span class="muted">policy year {{ visibleUtilization[0].policyYear || '—' }}</span>
         </header>
         <ul class="util-list">
-          @for (row of utilization; track row.id) {
-            <li class="util-row">
+          @for (row of visibleUtilization; track row.id) {
+            <li class="util-row" [class.util-row--exhausted]="row.status === 'exhausted'">
               <div class="util-meta">
                 <strong>{{ row.benefitName || 'Benefit' }}</strong>
                 @if (row.benefitType) {
                   <span class="muted small">· {{ row.benefitType | humanize }}</span>
                 }
-              </div>
-              <div class="util-figures">
-                <span>
-                  <strong>{{ row.consumedAmount | currencyFormat:row.currencyCode }}</strong>
-                  @if (row.annualLimit) {
-                    <span class="muted"> / {{ row.annualLimit | currencyFormat:row.currencyCode }}</span>
-                  }
+                <!-- V061 usage-mode chip — tells the adjudicator at a
+                     glance whether this benefit is running-balance,
+                     one-time, or event-counter without hunting for the
+                     limits column. -->
+                <span class="usage-mode-chip usage-mode-{{ usageModeOf(row).toLowerCase() }}">
+                  {{ usageModeOf(row) | humanize }}
                 </span>
-                @if (row.consumedCount > 0) {
-                  <span class="muted small">· {{ row.consumedCount }} claim{{ row.consumedCount === 1 ? '' : 's' }}</span>
-                }
               </div>
-              <div class="util-bar">
-                @if (utilizationPct(row) !== null) {
-                  <div class="util-bar__fill"
-                       [style.width.%]="utilizationPct(row)"
-                       [class.util-bar__fill--warn]="(utilizationPct(row) ?? 0) >= 80"
-                       [class.util-bar__fill--danger]="(utilizationPct(row) ?? 0) >= 100">
+              <!-- V061: branch on usage_mode for the right-hand figures + bar. -->
+              @switch (usageModeOf(row)) {
+                @case ('ONE_TIME_PER_BENEFICIARY') {
+                  <div class="util-figures util-figures--onetime">
+                    @if (row.status === 'exhausted') {
+                      <span class="status-badge status-exhausted">Used ✓ (lifetime)</span>
+                    } @else {
+                      <span class="status-badge status-available">Available (once per lifetime)</span>
+                    }
                   </div>
-                } @else {
-                  <span class="util-bar__unlimited muted small">no annual limit</span>
                 }
-              </div>
+                @case ('ONE_TIME_PER_PERIOD') {
+                  <div class="util-figures util-figures--onetime">
+                    @if (row.status === 'exhausted') {
+                      <span class="status-badge status-exhausted">Used ✓ this period</span>
+                    } @else {
+                      <span class="status-badge status-available">Available (once per period)</span>
+                    }
+                  </div>
+                }
+                @case ('PER_EVENT_COUNTER') {
+                  <div class="util-figures">
+                    <span>
+                      <strong>{{ row.consumedCount }}</strong>
+                      @if (row.eventLimit) {
+                        <span class="muted"> / {{ row.eventLimit }} events</span>
+                      }
+                    </span>
+                    @if (row.annualLimit) {
+                      <span class="muted small">· {{ row.consumedAmount | currencyFormat:row.currencyCode }}
+                        / {{ row.annualLimit | currencyFormat:row.currencyCode }}</span>
+                    }
+                  </div>
+                  <div class="util-bar">
+                    @if (utilizationPct(row) !== null) {
+                      <div class="util-bar__fill"
+                           [style.width.%]="utilizationPct(row)"
+                           [class.util-bar__fill--warn]="(utilizationPct(row) ?? 0) >= 80"
+                           [class.util-bar__fill--danger]="(utilizationPct(row) ?? 0) >= 100">
+                      </div>
+                    }
+                  </div>
+                }
+                @default {
+                  <!-- RUNNING_BALANCE (default) — retains the original UX. -->
+                  <div class="util-figures">
+                    <span>
+                      <strong>{{ row.consumedAmount | currencyFormat:row.currencyCode }}</strong>
+                      @if (row.annualLimit) {
+                        <span class="muted"> / {{ row.annualLimit | currencyFormat:row.currencyCode }}</span>
+                      }
+                    </span>
+                    @if (row.consumedCount > 0) {
+                      <span class="muted small">· {{ row.consumedCount }} claim{{ row.consumedCount === 1 ? '' : 's' }}</span>
+                    }
+                  </div>
+                  <div class="util-bar">
+                    @if (utilizationPct(row) !== null) {
+                      <div class="util-bar__fill"
+                           [style.width.%]="utilizationPct(row)"
+                           [class.util-bar__fill--warn]="(utilizationPct(row) ?? 0) >= 80"
+                           [class.util-bar__fill--danger]="(utilizationPct(row) ?? 0) >= 100">
+                      </div>
+                    } @else {
+                      <span class="util-bar__unlimited muted small">no annual limit</span>
+                    }
+                  </div>
+                }
+              }
             </li>
           }
         </ul>
         <p class="hint muted">
-          Counters update on adjudication. Rows without an annual limit render as "no limit"; they still accumulate a consumed total for reporting.
+          Counters update on adjudication. One-time benefits pay out once per beneficiary or period; running-balance benefits accumulate until reset.
+        </p>
+      </section>
+    } @else if (!showUtilization) {
+      <!-- V061: scheme opts out of per-member ledger — surface why the
+           utilization card is absent so the adjudicator isn't left
+           wondering (indemnity products settle against scheme-level
+           limits, not per-member balances). -->
+      <section class="detail-card">
+        <header class="section-head">
+          <h3 class="section-title">
+            <app-icon name="info" [size]="16"></app-icon>
+            Balance tracking
+          </h3>
+        </header>
+        <p class="muted small">
+          This scheme uses scheme-level limits only — no per-member benefit ledger. Adjudication runs
+          against the scheme's aggregate rules; there is no running balance to display.
         </p>
       </section>
     }

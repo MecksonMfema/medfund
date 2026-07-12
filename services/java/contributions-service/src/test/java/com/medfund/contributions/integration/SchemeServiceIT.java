@@ -84,7 +84,7 @@ class SchemeServiceIT extends AbstractIntegrationTest {
     void create_persistsRowAndEmitsAuditEventToKafka() {
         String uniqueName = "Gold IT " + UUID.randomUUID();
         var request = new CreateSchemeRequest(uniqueName, "desc", "hmo", "HEALTH",
-            LocalDate.now(), null, "USD", null, null);
+            LocalDate.now(), null, "USD", null, null, null);
 
         // Capture the persisted ID so we can re-read and assert end-to-end.
         var actorId = UUID.randomUUID().toString();
