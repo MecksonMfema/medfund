@@ -83,6 +83,7 @@ public class ClaimService {
     private final SchemeClient schemeClient;
     private final com.medfund.claims.repository.BeneficiaryBenefitRepository beneficiaryBenefitRepository;
     private final DatabaseClient databaseClient;
+    private final TariffBenefitResolver tariffBenefitResolver;
 
     public ClaimService(ClaimRepository claimRepository,
                         ClaimLineRepository claimLineRepository,
@@ -91,13 +92,15 @@ public class ClaimService {
                         AdjudicationPipeline adjudicationPipeline,
                         SchemeClient schemeClient,
                         com.medfund.claims.repository.BeneficiaryBenefitRepository beneficiaryBenefitRepository,
-                        DatabaseClient databaseClient) {
+                        DatabaseClient databaseClient,
+                        TariffBenefitResolver tariffBenefitResolver) {
         this.claimRepository = claimRepository;
         this.claimLineRepository = claimLineRepository;
         this.auditPublisher = auditPublisher;
         this.eventPublisher = eventPublisher;
         this.adjudicationPipeline = adjudicationPipeline;
         this.schemeClient = schemeClient;
+        this.tariffBenefitResolver = tariffBenefitResolver;
         this.beneficiaryBenefitRepository = beneficiaryBenefitRepository;
         this.databaseClient = databaseClient;
     }
@@ -221,20 +224,31 @@ public class ClaimService {
 
     private Mono<Claim> saveClaimLines(Claim savedClaim, List<ClaimLineRequest> lineRequests) {
         if (lineRequests == null || lineRequests.isEmpty()) return Mono.just(savedClaim);
-        List<ClaimLine> lines = lineRequests.stream().map(lineReq -> {
-            var line = new ClaimLine();
-            line.setClaimId(savedClaim.getId());
-            line.setTariffCode(lineReq.tariffCode());
-            line.setDescription(lineReq.description());
-            line.setQuantity(lineReq.quantity());
-            line.setUnitPrice(lineReq.unitPrice());
-            line.setClaimedAmount(lineReq.claimedAmount());
-            line.setModifierCodes(lineReq.modifierCodes());
-            line.setCurrencyCode(lineReq.currencyCode() != null ? lineReq.currencyCode() : savedClaim.getCurrencyCode());
-            line.setCreatedAt(Instant.now());
-            return line;
-        }).toList();
-        return Flux.fromIterable(lines).flatMap(claimLineRepository::save).then(Mono.just(savedClaim));
+        // V062: resolve each line's benefit_id at ingestion so the decrement
+        // consumer knows which per-benefit ledger row to touch. Empty result
+        // means cap-only or unmapped — either way, line.benefit_id stays null
+        // and Stage 3 re-checks the tariff mapping to distinguish the two.
+        return Flux.fromIterable(lineRequests)
+                .flatMap(lineReq -> tariffBenefitResolver
+                        .resolve(lineReq.tariffCode(), savedClaim.getSchemeId())
+                        .map(id -> (UUID) id)
+                        .defaultIfEmpty((UUID) null)
+                        .map(benefitId -> {
+                            var line = new ClaimLine();
+                            line.setClaimId(savedClaim.getId());
+                            line.setTariffCode(lineReq.tariffCode());
+                            line.setDescription(lineReq.description());
+                            line.setQuantity(lineReq.quantity());
+                            line.setUnitPrice(lineReq.unitPrice());
+                            line.setClaimedAmount(lineReq.claimedAmount());
+                            line.setModifierCodes(lineReq.modifierCodes());
+                            line.setCurrencyCode(lineReq.currencyCode() != null ? lineReq.currencyCode() : savedClaim.getCurrencyCode());
+                            line.setBenefitId(benefitId);
+                            line.setCreatedAt(Instant.now());
+                            return line;
+                        }))
+                .flatMap(claimLineRepository::save)
+                .then(Mono.just(savedClaim));
     }
 
     // ── Line-based validation ────────────────────────────────────────
@@ -338,6 +352,77 @@ public class ClaimService {
                 return Mono.empty();
             })
             .then();
+    }
+
+    /**
+     * V062 cap ledger increment. Runs after the per-benefit increment for
+     * every adjudicated claim on a scheme that has {@code annual_member_cap}
+     * set. Upserts the {@code beneficiary_annual_totals} row for the
+     * beneficiary + policy year, then increments {@code consumed_amount}
+     * by the aggregate approved delta. NULL cap → no-op.
+     *
+     * <p>Not idempotent via a separate log — the existing
+     * {@code claim_line_consumption_log} inserts already gate replay by
+     * failing before we get here.
+     */
+    private Mono<Void> incrementAnnualCap(Claim claim, java.math.BigDecimal delta) {
+        if (delta == null || delta.signum() == 0 || claim.getSchemeId() == null
+                || claim.getMemberId() == null) {
+            return Mono.empty();
+        }
+        int year = claim.getServiceDate() != null
+                ? claim.getServiceDate().getYear()
+                : java.time.LocalDate.now().getYear();
+        return databaseClient
+                .sql("SELECT annual_member_cap, currency_code FROM schemes WHERE id = :id")
+                .bind("id", claim.getSchemeId())
+                .fetch().one()
+                .flatMap(row -> {
+                    if (row.get("annual_member_cap") == null) return Mono.<Void>empty();
+                    String currency = row.get("currency_code") != null
+                            ? row.get("currency_code").toString()
+                            : (claim.getCurrencyCode() != null ? claim.getCurrencyCode() : "USD");
+                    // Two-step to avoid expression-index inference: seed
+                    // with ON CONFLICT DO NOTHING against the partial
+                    // UNIQUE (which uses COALESCE for the dependant slot),
+                    // then always UPDATE. If the seed lost the race, the
+                    // UPDATE still lands on the winning row.
+                    Mono<Long> seed = databaseClient.sql("""
+                            INSERT INTO beneficiary_annual_totals
+                                (scheme_id, member_id, dependant_id, policy_year, currency_code, consumed_amount)
+                            VALUES
+                                (:schemeId, :memberId, :dependantId, :year, :currency, 0)
+                            ON CONFLICT DO NOTHING
+                            """)
+                            .bind("schemeId", claim.getSchemeId())
+                            .bind("memberId", claim.getMemberId())
+                            .bind("dependantId", claim.getDependantId() != null ? claim.getDependantId() : (UUID) null)
+                            .bind("year", year)
+                            .bind("currency", currency)
+                            .fetch().rowsUpdated();
+                    Mono<Long> bump = databaseClient.sql("""
+                            UPDATE beneficiary_annual_totals
+                               SET consumed_amount = consumed_amount + :delta,
+                                   updated_at      = NOW()
+                             WHERE scheme_id = :schemeId
+                               AND member_id = :memberId
+                               AND ((:dependantId IS NULL AND dependant_id IS NULL)
+                                    OR dependant_id = :dependantId)
+                               AND policy_year = :year
+                            """)
+                            .bind("schemeId", claim.getSchemeId())
+                            .bind("memberId", claim.getMemberId())
+                            .bind("dependantId", claim.getDependantId() != null ? claim.getDependantId() : (UUID) null)
+                            .bind("year", year)
+                            .bind("delta", delta)
+                            .fetch().rowsUpdated();
+                    return seed.then(bump).then();
+                })
+                .onErrorResume(e -> {
+                    log.warn("Failed to increment annual cap ledger for claim {}: {}",
+                            claim.getId(), e.toString());
+                    return Mono.empty();
+                });
     }
 
     /** Loads the benefit's usage_mode; defaults to RUNNING_BALANCE when missing. */
@@ -815,6 +900,7 @@ public class ClaimService {
                                                         saved.getBenefitId()   != null ? saved.getBenefitId().toString()   : null,
                                                         String.valueOf(java.time.LocalDate.now().getYear())))
                                                 .then(incrementBeneficiaryBenefit(saved, acceptedLineIdsFinal, deltaFinal))
+                                                .then(incrementAnnualCap(saved, deltaFinal))
                                                 .thenReturn(saved);
                                         }));
                             });
@@ -854,18 +940,23 @@ public class ClaimService {
                 // Save drug claim lines as regular claim lines
                 if (request.lines() != null) {
                     return Flux.fromIterable(request.lines())
-                        .flatMap(lineReq -> {
-                            var line = new ClaimLine();
-                            line.setClaimId(saved.getId());
-                            line.setTariffCode(lineReq.drugCode());
-                            line.setDescription(lineReq.drugName());
-                            line.setQuantity(lineReq.quantity());
-                            line.setUnitPrice(lineReq.unitPrice());
-                            line.setClaimedAmount(lineReq.claimedAmount());
-                            line.setCurrencyCode(lineReq.currencyCode() != null ? lineReq.currencyCode() : saved.getCurrencyCode());
-                            line.setCreatedAt(java.time.Instant.now());
-                            return claimLineRepository.save(line);
-                        })
+                        .flatMap(lineReq -> tariffBenefitResolver
+                                .resolve(lineReq.drugCode(), saved.getSchemeId())
+                                .map(id -> (UUID) id)
+                                .defaultIfEmpty((UUID) null)
+                                .flatMap(benefitId -> {
+                                    var line = new ClaimLine();
+                                    line.setClaimId(saved.getId());
+                                    line.setTariffCode(lineReq.drugCode());
+                                    line.setDescription(lineReq.drugName());
+                                    line.setQuantity(lineReq.quantity());
+                                    line.setUnitPrice(lineReq.unitPrice());
+                                    line.setClaimedAmount(lineReq.claimedAmount());
+                                    line.setCurrencyCode(lineReq.currencyCode() != null ? lineReq.currencyCode() : saved.getCurrencyCode());
+                                    line.setBenefitId(benefitId);
+                                    line.setCreatedAt(java.time.Instant.now());
+                                    return claimLineRepository.save(line);
+                                }))
                         .then(Mono.just(saved));
                 }
                 return Mono.just(saved);

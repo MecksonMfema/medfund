@@ -35,6 +35,13 @@ export interface SchemeProductProfile {
   insuranceLine: string | null;
   schemeType: string | null;
   tracksMemberBalances: boolean;
+  /**
+   * V062 scheme-level aggregate cap per beneficiary per policy year.
+   * NULL means no cap; only multi-benefit insurance lines typically set
+   * one. When present, the claim-detail utilization card renders an
+   * "Annual cap" progress row above the per-benefit rows.
+   */
+  annualMemberCap?: number | null;
   benefitUsageModes: SchemeBenefitUsageMode[];
 }
 
@@ -43,6 +50,22 @@ export interface SchemeBenefitUsageMode {
   name: string;
   benefitType: string | null;
   usageMode: BenefitUsageMode;
+}
+
+/**
+ * V062 scheme-level annual cap utilization. Populated by
+ * GET /beneficiary-annual-totals/for. capAmount is null when the scheme
+ * opts out of the aggregate cap — the UI omits the row entirely in that
+ * case. consumedAmount is 0 when the beneficiary hasn't consumed yet.
+ */
+export interface AnnualCapUtilization {
+  schemeId: string;
+  memberId: string;
+  dependantId?: string | null;
+  policyYear: number;
+  consumedAmount: number;
+  capAmount: number | null;
+  currencyCode: string;
 }
 
 /** V061 benefit-level usage classification. See scheme_benefits.usage_mode. */
@@ -140,6 +163,10 @@ export interface SchemeBenefit {
   cashClaimAllowed?: boolean;
   /** V061 usage classification. Defaults to RUNNING_BALANCE server-side. */
   usageMode?: BenefitUsageMode;
+  /** V063 tariff-category coverage. Populated on the detail endpoint
+   *  (GET /schemes/benefits/{id}) so the edit form can pre-populate the
+   *  Categories multi-select. Empty on the list endpoint. */
+  categoryIds?: string[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -157,6 +184,11 @@ export interface UpsertBenefitPayload {
   minAge?: number;
   maxAge?: number;
   cashClaimAllowed?: boolean;
+  /** V063 — mandatory on create, replaces the join rows on update.
+   *  Undefined on update = leave links as-is. Empty array = wipe all
+   *  links (backend validator @NotEmpty enforces at least one on
+   *  typical submits). */
+  categoryIds?: string[];
 }
 
 export interface Contribution {
@@ -568,6 +600,21 @@ export class ContributionsService {
     if (dependantId) params['dependantId'] = dependantId;
     if (policyYear) params['policyYear'] = String(policyYear);
     return this.api.get<BeneficiaryBenefitUtilization[]>('/beneficiary-benefits/for', params);
+  }
+
+  /**
+   * V062 scheme-level annual cap utilization for a beneficiary in one
+   * policy year. Only meaningful for schemes with annualMemberCap set —
+   * NULL capAmount in the response means the scheme opts out and the
+   * UI omits the cap row.
+   */
+  getAnnualCapUtilization(memberId: string, schemeId: string,
+                            dependantId?: string | null,
+                            policyYear?: number): Observable<AnnualCapUtilization> {
+    const params: Record<string, string> = { memberId, schemeId };
+    if (dependantId) params['dependantId'] = dependantId;
+    if (policyYear) params['policyYear'] = String(policyYear);
+    return this.api.get<AnnualCapUtilization>('/beneficiary-annual-totals/for', params);
   }
 
   getBenefitsByScheme(schemeId: string): Observable<SchemeBenefit[]> {

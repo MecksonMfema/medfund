@@ -13,6 +13,7 @@ import {
   BillingCatalogueService,
   BenefitType,
 } from '../../../../core/services/billing-catalogue.service';
+import { TariffCategoriesService, TariffCategory } from '../../../../core/services/tariff-categories.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
@@ -29,6 +30,8 @@ interface BenefitForm {
   maxAge: number | null;
   /** V051 payout-mode flag. Default true (backwards-compat). */
   cashClaimAllowed: boolean;
+  /** V063 tariff-category coverage. At least one required. */
+  categoryIds: string[];
 }
 
 @Component({
@@ -43,6 +46,7 @@ export class BenefitFormComponent implements OnInit {
   benefitId: string | null = null;
   scheme: Scheme | null = null;
   benefitTypes: BenefitType[] = [];
+  tariffCategories: TariffCategory[] = [];
   loading = false;
   saving = false;
   errorMessage: string | null = null;
@@ -58,11 +62,13 @@ export class BenefitFormComponent implements OnInit {
     minAge: null,
     maxAge: null,
     cashClaimAllowed: true,
+    categoryIds: [],
   };
 
   constructor(
     private contributions: ContributionsService,
     private catalogue: BillingCatalogueService,
+    private tariffCategoriesService: TariffCategoriesService,
     private route: ActivatedRoute,
     private router: Router,
   ) {}
@@ -79,13 +85,15 @@ export class BenefitFormComponent implements OnInit {
     forkJoin({
       scheme: this.contributions.getSchemeById(this.schemeId),
       benefitTypes: this.catalogue.listBenefitTypes(true),
+      tariffCategories: this.tariffCategoriesService.list(true),
       existing: this.benefitId
         ? this.contributions.getBenefitById(this.benefitId)
         : of<SchemeBenefit | null>(null),
     }).subscribe({
-      next: ({ scheme, benefitTypes, existing }) => {
+      next: ({ scheme, benefitTypes, tariffCategories, existing }) => {
         this.scheme = scheme;
         this.benefitTypes = benefitTypes;
+        this.tariffCategories = tariffCategories;
         if (existing) {
           this.form = {
             name: existing.name,
@@ -98,6 +106,7 @@ export class BenefitFormComponent implements OnInit {
             minAge: (existing as any).minAge ?? null,
             maxAge: (existing as any).maxAge ?? null,
             cashClaimAllowed: (existing as any).cashClaimAllowed ?? true,
+            categoryIds: existing.categoryIds ?? [],
           };
         }
         this.loading = false;
@@ -107,6 +116,21 @@ export class BenefitFormComponent implements OnInit {
         this.loading = false;
       },
     });
+  }
+
+  /** Toggle a category in the form.categoryIds list. Used by the
+   *  multi-select checkbox row in the template. */
+  toggleCategory(id: string): void {
+    const idx = this.form.categoryIds.indexOf(id);
+    if (idx >= 0) {
+      this.form.categoryIds = this.form.categoryIds.filter(x => x !== id);
+    } else {
+      this.form.categoryIds = [...this.form.categoryIds, id];
+    }
+  }
+
+  isCategorySelected(id: string): boolean {
+    return this.form.categoryIds.includes(id);
   }
 
   /** When a catalogue type is picked, default the name to the catalogue label so users don't have to retype it. */
@@ -130,6 +154,10 @@ export class BenefitFormComponent implements OnInit {
       this.errorMessage = 'Pick a benefit type';
       return;
     }
+    if (this.form.categoryIds.length === 0) {
+      this.errorMessage = 'Pick at least one tariff category this benefit covers';
+      return;
+    }
     const payload: UpsertBenefitPayload = {
       schemeId: this.schemeId,
       name: this.form.name.trim(),
@@ -143,6 +171,7 @@ export class BenefitFormComponent implements OnInit {
       minAge: this.form.minAge ?? undefined,
       maxAge: this.form.maxAge ?? undefined,
       cashClaimAllowed: this.form.cashClaimAllowed,
+      categoryIds: this.form.categoryIds,
     };
 
     this.saving = true;

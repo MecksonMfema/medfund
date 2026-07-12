@@ -84,83 +84,98 @@
         <h3 class="section-title">{{ dependant ? 'Dependant information' : 'Member information' }}</h3>
       </header>
       @if (dependant) {
-        <dl class="kv kv--grid">
-          <dt>Name</dt><dd>{{ dependant.firstName }} {{ dependant.lastName }}</dd>
-          <dt>Relationship</dt><dd>{{ dependant.relationship | humanize }}</dd>
-          <!-- Gender is load-bearing for medical adjudication: obstetrics
-               / prostate / mammography procedures only apply to one sex,
-               so surface it up front (with a clear "unknown" fallback so
-               the adjudicator knows to verify before approving). -->
-          <dt>Gender</dt>
-          <dd>
+        <div class="identity">
+          <div class="identity-name">{{ dependant.firstName }} {{ dependant.lastName }}</div>
+          <div class="identity-sub">
+            <span>{{ dependant.relationship | humanize }}</span>
+            @if (dependant.status) {
+              <span class="sep">·</span>
+              <span class="muted">{{ dependant.status | humanize }}</span>
+            }
+          </div>
+          <div class="identity-chips">
+            <!-- Gender is load-bearing for medical adjudication: obstetrics
+                 / prostate / mammography procedures only apply to one sex,
+                 so surface it up front (with a clear "unknown" fallback so
+                 the adjudicator knows to verify before approving). -->
             @if (dependant.gender) {
               <span class="gender-pill gender-{{ dependant.gender.toLowerCase() }}">
                 {{ dependant.gender | humanize }}
               </span>
             } @else {
-              <span class="muted">Unknown — verify before adjudicating</span>
+              <span class="chip chip--warn">Gender unknown — verify</span>
             }
-          </dd>
-          @if (dependant.dateOfBirth) {
-            <dt>DOB</dt>
-            <dd>
-              {{ dependant.dateOfBirth }}
-              @if (ageAtService(dependant.dateOfBirth) !== null) {
-                <span class="muted">· {{ ageAtService(dependant.dateOfBirth) }} yrs at service</span>
-              }
-            </dd>
-          }
-          <dt>Status</dt><dd>{{ dependant.status | humanize }}</dd>
+            @if (dependant.dateOfBirth) {
+              <span class="chip">
+                {{ dependant.dateOfBirth }}
+                @if (ageAtService(dependant.dateOfBirth) !== null) {
+                  · {{ ageAtService(dependant.dateOfBirth) }} yrs at service
+                }
+              </span>
+            }
+          </div>
           @if (member) {
-            <dt>Sponsored by</dt>
-            <dd>
-              {{ member.firstName }} {{ member.lastName }}
-              (<code>{{ member.memberNumber }}</code>)
-            </dd>
+            <div class="identity-line muted">
+              Sponsored by <strong>{{ member.firstName }} {{ member.lastName }}</strong>
+              · <code>{{ member.memberNumber }}</code>
+            </div>
           }
           @if (schemeName) {
-            <dt>Scheme</dt>
-            <dd>
-              {{ schemeName }}
-              <span class="muted">· {{ activeLine || '—' }} · {{ claim.currencyCode }}</span>
-            </dd>
+            <div class="identity-line muted">
+              {{ schemeName }} · {{ activeLine || '—' }} · {{ claim.currencyCode }}
+            </div>
           }
-        </dl>
+        </div>
       } @else if (member) {
-        <dl class="kv kv--grid">
-          <dt>Name</dt><dd>{{ member.firstName }} {{ member.lastName }}</dd>
-          <dt>Member #</dt><dd><code>{{ member.memberNumber }}</code></dd>
-          <dt>Status</dt><dd>{{ member.status | humanize }}</dd>
-          <!-- Always show gender — see the dependant branch above for why. -->
-          <dt>Gender</dt>
-          <dd>
+        <div class="identity">
+          <div class="identity-name">{{ member.firstName }} {{ member.lastName }}</div>
+          <div class="identity-sub">
+            <code>{{ member.memberNumber }}</code>
+            @if (member.status) {
+              <span class="sep">·</span>
+              <span class="muted">{{ member.status | humanize }}</span>
+            }
+          </div>
+          <div class="identity-chips">
+            <!-- Always show gender — see the dependant branch above for why. -->
             @if (member.gender) {
               <span class="gender-pill gender-{{ member.gender.toLowerCase() }}">
                 {{ member.gender | humanize }}
               </span>
             } @else {
-              <span class="muted">Unknown — verify before adjudicating</span>
+              <span class="chip chip--warn">Gender unknown — verify</span>
             }
-          </dd>
-          @if (member.dateOfBirth) {
-            <dt>DOB</dt>
-            <dd>
-              {{ member.dateOfBirth }}
-              @if (ageAtService(member.dateOfBirth) !== null) {
-                <span class="muted">· {{ ageAtService(member.dateOfBirth) }} yrs at service</span>
+            @if (member.dateOfBirth) {
+              <span class="chip">
+                {{ member.dateOfBirth }}
+                @if (ageAtService(member.dateOfBirth) !== null) {
+                  · {{ ageAtService(member.dateOfBirth) }} yrs at service
+                }
+              </span>
+            }
+          </div>
+          @if (member.email || member.phone) {
+            <div class="identity-contacts">
+              @if (member.email) {
+                <a class="contact-link" [href]="'mailto:' + member.email">
+                  <app-icon name="mail" [size]="14"></app-icon>
+                  {{ member.email }}
+                </a>
               }
-            </dd>
+              @if (member.phone) {
+                <a class="contact-link" [href]="'tel:' + member.phone">
+                  <app-icon name="phone" [size]="14"></app-icon>
+                  {{ member.phone }}
+                </a>
+              }
+            </div>
           }
-          @if (member.email) { <dt>Email</dt><dd>{{ member.email }}</dd> }
-          @if (member.phone) { <dt>Phone</dt><dd>{{ member.phone }}</dd> }
           @if (schemeName) {
-            <dt>Scheme</dt>
-            <dd>
-              {{ schemeName }}
-              <span class="muted">· {{ activeLine || '—' }} · {{ claim.currencyCode }}</span>
-            </dd>
+            <div class="identity-line muted">
+              {{ schemeName }} · {{ activeLine || '—' }} · {{ claim.currencyCode }}
+            </div>
           }
-        </dl>
+        </div>
       } @else {
         <p class="muted">Beneficiary record unavailable.</p>
       }
@@ -172,22 +187,48 @@
         <span class="section-icon section-icon--sm"><app-icon name="clipboard-list" [size]="16"></app-icon></span>
         <h3 class="section-title">Claim details</h3>
       </header>
-      <dl class="kv kv--grid">
-        <dt>Type</dt><dd>{{ claim.claimType | humanize }}</dd>
-        <dt>Currency</dt><dd>{{ claim.currencyCode }}</dd>
-        <dt>Service date</dt><dd>{{ claim.serviceDate }}</dd>
-        @if (claim.insuranceLine) { <dt>Insurance line</dt><dd>{{ claim.insuranceLine }}</dd> }
-        @if (claim.batchNumber) { <dt>Batch</dt><dd><code>{{ claim.batchNumber }}</code></dd> }
-        @if (hasDisplayValue(claim.diagnosisCodes)) {
-          <dt>Diagnosis</dt><dd>{{ displayCodes(claim.diagnosisCodes) }}</dd>
+      <div class="identity">
+        <div class="identity-name">{{ claim.claimType | humanize }}</div>
+        <div class="identity-sub">
+          <span>{{ claim.serviceDate }}</span>
+          <span class="sep">·</span>
+          <span>{{ claim.currencyCode }}</span>
+          @if (claim.insuranceLine) {
+            <span class="sep">·</span>
+            <span>{{ claim.insuranceLine }}</span>
+          }
+        </div>
+        @if (claim.batchNumber) {
+          <div class="identity-line muted">
+            Batch <code>{{ claim.batchNumber }}</code>
+          </div>
         }
-        @if (hasDisplayValue(claim.procedureCodes)) {
-          <dt>Procedures</dt><dd>{{ displayCodes(claim.procedureCodes) }}</dd>
+        @if (hasDisplayValue(claim.diagnosisCodes) || hasDisplayValue(claim.procedureCodes)) {
+          <!-- Diagnosis / procedures need labels — the codes look identical
+               to the eye and the adjudicator has to know which is which. -->
+          <dl class="mini-kv">
+            @if (hasDisplayValue(claim.diagnosisCodes)) {
+              <dt>Diagnosis</dt><dd>{{ displayCodes(claim.diagnosisCodes) }}</dd>
+            }
+            @if (hasDisplayValue(claim.procedureCodes)) {
+              <dt>Procedures</dt><dd>{{ displayCodes(claim.procedureCodes) }}</dd>
+            }
+          </dl>
         }
-        @if (claim.notes) { <dt>Notes</dt><dd class="prewrap">{{ claim.notes }}</dd> }
-        @if (claim.rejectionReason) { <dt>Rejection reason</dt><dd><code>{{ claim.rejectionReason }}</code></dd> }
-        @if (claim.rejectionNotes) { <dt>Rejection notes</dt><dd class="prewrap">{{ claim.rejectionNotes }}</dd> }
-      </dl>
+        @if (claim.notes) {
+          <div class="identity-notes">
+            <div class="identity-label">Notes</div>
+            <p class="prewrap">{{ claim.notes }}</p>
+          </div>
+        }
+        @if (claim.rejectionReason || claim.rejectionNotes) {
+          <div class="identity-notes identity-notes--danger">
+            <div class="identity-label">Rejection</div>
+            @if (claim.rejectionReason) { <p><code>{{ claim.rejectionReason }}</code></p> }
+            @if (claim.rejectionNotes) { <p class="prewrap">{{ claim.rejectionNotes }}</p> }
+          </div>
+        }
+      </div>
     </section>
 
     <!-- ── 3. Payee ─────────────────────────────────────────────────── -->
@@ -199,35 +240,47 @@
         <h3 class="section-title">Payee</h3>
       </header>
       @if (provider) {
-        <dl class="kv kv--grid">
-          <dt>Payment to</dt><dd>Provider</dd>
-          <dt>Name</dt><dd>{{ provider.name }}</dd>
-          @if (provider.specialty) { <dt>Specialty</dt><dd>{{ provider.specialty }}</dd> }
-          @if (provider.registrationNumber) {
-            <dt>Reg. #</dt><dd><code>{{ provider.registrationNumber }}</code></dd>
+        <div class="identity">
+          <div class="identity-name">{{ provider.name }}</div>
+          @if (provider.specialty) {
+            <div class="identity-sub muted">{{ provider.specialty }}</div>
           }
-          @if (provider.status) { <dt>Status</dt><dd>{{ provider.status | humanize }}</dd> }
-          @if (provider.city) { <dt>City</dt><dd>{{ provider.city }}</dd> }
-        </dl>
+          <div class="identity-chips">
+            <span class="chip chip--primary">Provider</span>
+            @if (provider.status) {
+              <span class="chip">{{ provider.status | humanize }}</span>
+            }
+            @if (provider.city) {
+              <span class="chip">{{ provider.city }}</span>
+            }
+          </div>
+          @if (provider.registrationNumber) {
+            <div class="identity-line muted">
+              Reg <code>{{ provider.registrationNumber }}</code>
+            </div>
+          }
+        </div>
       } @else if (claim && !claim.providerId) {
         <!-- Member reimbursement — the payout always goes to the primary
              member on file, even for dependant claims. The dependant is
              the beneficiary of the service; the sponsor is the payee. -->
-        <dl class="kv kv--grid">
-          <dt>Payment to</dt><dd>Member reimbursement</dd>
+        <div class="identity">
+          <div class="identity-chips">
+            <span class="chip chip--primary">Member reimbursement</span>
+          </div>
           @if (member) {
-            <dt>Payee</dt>
-            <dd>
-              {{ member.firstName }} {{ member.lastName }}
-              (<code>{{ member.memberNumber }}</code>)
+            <div class="identity-name">{{ member.firstName }} {{ member.lastName }}</div>
+            <div class="identity-sub">
+              <code>{{ member.memberNumber }}</code>
               @if (dependant) {
-                <span class="muted">· sponsor of {{ dependant.firstName }} {{ dependant.lastName }}</span>
+                <span class="sep">·</span>
+                <span class="muted">sponsor of {{ dependant.firstName }} {{ dependant.lastName }}</span>
               }
-            </dd>
+            </div>
           } @else {
-            <dt>Payee</dt><dd class="muted">Sponsoring member record unavailable.</dd>
+            <p class="muted">Sponsoring member record unavailable.</p>
           }
-        </dl>
+        </div>
       } @else {
         <p class="muted">Provider record unavailable.</p>
       }
@@ -243,7 +296,7 @@
           <h3 class="section-title">Service lines</h3>
           <span class="muted">{{ lines.length }} line{{ lines.length === 1 ? '' : 's' }}</span>
         </header>
-        <table class="data-table">
+        <table class="data-table data-table--service-lines">
           <thead>
             <tr>
               <th class="right">#</th>
@@ -449,13 +502,43 @@
     }
 
     <!-- ── 5b. Beneficiary benefit utilization (used vs. limit) ─────── -->
-    @if (showUtilization && visibleUtilization.length > 0) {
+    @if ((showUtilization && visibleUtilization.length > 0) || showAnnualCap) {
       <section class="detail-card">
         <header class="section-head">
           <span class="section-icon section-icon--sm"><app-icon name="trending-up" [size]="16"></app-icon></span>
           <h3 class="section-title">{{ dependant ? 'Dependant' : 'Member' }} utilization</h3>
-          <span class="muted">policy year {{ visibleUtilization[0].policyYear || '—' }}</span>
+          <span class="muted">
+            policy year {{ (showAnnualCap ? annualCap!.policyYear : visibleUtilization[0]?.policyYear) || '—' }}
+          </span>
         </header>
+        <!-- V062 scheme-level annual cap — sits above the per-benefit
+             rows because it's the ceiling every benefit shares. Rendered
+             only when the scheme has annualMemberCap set. -->
+        @if (showAnnualCap) {
+          <ul class="util-list util-list--cap">
+            <li class="util-row util-row--cap"
+                [class.util-row--exhausted]="annualCapPct() !== null && annualCapPct()! >= 100">
+              <div class="util-meta">
+                <strong>Annual cap</strong>
+                <span class="muted small">· scheme-level aggregate ceiling</span>
+              </div>
+              <div class="util-figures">
+                {{ annualCap!.consumedAmount | currencyFormat:annualCap!.currencyCode }}
+                / {{ annualCap!.capAmount | currencyFormat:annualCap!.currencyCode }}
+              </div>
+              <div class="util-bar">
+                @if (annualCapPct() !== null) {
+                  <div class="util-bar__fill"
+                       [style.width.%]="annualCapPct()"
+                       [class.util-bar__fill--warn]="(annualCapPct() ?? 0) >= 80"
+                       [class.util-bar__fill--danger]="(annualCapPct() ?? 0) >= 100">
+                  </div>
+                }
+              </div>
+            </li>
+          </ul>
+        }
+        @if (showUtilization && visibleUtilization.length > 0) {
         <ul class="util-list">
           @for (row of visibleUtilization; track row.id) {
             <li class="util-row" [class.util-row--exhausted]="row.status === 'exhausted'">
@@ -544,6 +627,7 @@
             </li>
           }
         </ul>
+        }
         <p class="hint muted">
           Counters update on adjudication. One-time benefits pay out once per beneficiary or period; running-balance benefits accumulate until reset.
         </p>

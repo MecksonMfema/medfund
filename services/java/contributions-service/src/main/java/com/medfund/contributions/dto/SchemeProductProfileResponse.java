@@ -3,6 +3,7 @@ package com.medfund.contributions.dto;
 import com.medfund.contributions.entity.Scheme;
 import com.medfund.contributions.entity.SchemeBenefit;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,6 +23,7 @@ public record SchemeProductProfileResponse(
         String insuranceLine,
         String schemeType,
         Boolean tracksMemberBalances,
+        BigDecimal annualMemberCap,
         List<BenefitUsageMode> benefitUsageModes
 ) {
     public record BenefitUsageMode(UUID benefitId, String name, String benefitType, String usageMode) {
@@ -41,6 +43,7 @@ public record SchemeProductProfileResponse(
                 scheme.getInsuranceLine(),
                 scheme.getSchemeType(),
                 scheme.getTracksMemberBalances() != null ? scheme.getTracksMemberBalances() : Boolean.TRUE,
+                scheme.getAnnualMemberCap(),
                 benefits.stream().map(BenefitUsageMode::from).toList()
         );
     }

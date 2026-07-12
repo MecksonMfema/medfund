@@ -10,7 +10,10 @@ public record CreateTariffCodeRequest(
         @NotNull UUID scheduleId,
         @NotBlank String code,
         @NotBlank String description,
-        String category,
+        /** V063 — mandatory category FK. The legacy free-text {@code category}
+         *  string is kept on the entity as a denormalised label so old
+         *  reports keep rendering, but the resolver reads only categoryId. */
+        @NotNull UUID categoryId,
         @NotNull BigDecimal unitPrice,
         String currencyCode,
         Boolean requiresPreAuth

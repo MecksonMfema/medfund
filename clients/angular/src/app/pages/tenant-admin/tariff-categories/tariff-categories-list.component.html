@@ -1,0 +1,110 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Tariff categories</h1>
+      <p class="page-sub">
+        The tenant-configurable catalogue of categories every tariff belongs to and every
+        scheme benefit declares coverage for. Cap-only categories bypass per-benefit balances
+        and deduct from the scheme's annual cap directly.
+      </p>
+    </div>
+    <button class="btn btn-primary" (click)="startCreate()" [disabled]="showForm">
+      <app-icon name="plus" [size]="14"></app-icon> New category
+    </button>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+  }
+
+  @if (showForm) {
+    <form (ngSubmit)="save()" class="card form-grid">
+      <label class="field">
+        <span class="field-label">Code *</span>
+        <input type="text" [(ngModel)]="draft.code" name="code" required maxlength="64"
+               placeholder="CONSULTATION" />
+      </label>
+      <label class="field">
+        <span class="field-label">Label *</span>
+        <input type="text" [(ngModel)]="draft.label" name="label" required maxlength="200"
+               placeholder="Consultation" />
+      </label>
+      <label class="field span-2">
+        <span class="field-label">Description</span>
+        <input type="text" [(ngModel)]="draft.description" name="description"
+               placeholder="Optional — shown as a tooltip on the tariff form." />
+      </label>
+      <label class="field">
+        <span class="field-label">Sort order</span>
+        <input type="number" [(ngModel)]="draft.sortOrder" name="sortOrder" min="0" />
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" [(ngModel)]="draft.isCapOnly" name="isCapOnly" />
+        Cap-only (tariffs skip per-benefit balances)
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" [(ngModel)]="draft.isActive" name="isActive" />
+        Active
+      </label>
+      <div class="form-actions span-2">
+        <button type="button" class="btn btn-default" (click)="cancel()">Cancel</button>
+        <button type="submit" class="btn btn-primary" [disabled]="saving">
+          {{ saving ? 'Saving…' : (draft.id ? 'Update category' : 'Create category') }}
+        </button>
+      </div>
+    </form>
+  }
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (rows.length === 0) {
+    <p class="empty-state">No tariff categories yet — click <strong>New category</strong> to seed the catalogue.</p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Label</th>
+          <th>Description</th>
+          <th class="right">Sort</th>
+          <th>Cap-only</th>
+          <th>Active</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of rows; track row.id) {
+          <tr [class.inactive]="!row.isActive">
+            <td><code>{{ row.code }}</code></td>
+            <td>{{ row.label }}</td>
+            <td class="muted">{{ row.description || '—' }}</td>
+            <td class="right muted">{{ row.sortOrder }}</td>
+            <td>
+              @if (row.isCapOnly) {
+                <span class="badge badge-warn">cap-only</span>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td>
+              @if (row.isActive) {
+                <span class="badge badge-success">active</span>
+              } @else {
+                <span class="badge badge-muted">inactive</span>
+              }
+            </td>
+            <td class="right">
+              <button class="link-btn" (click)="startEdit(row)">Edit</button>
+              @if (row.isActive) {
+                <button class="link-btn danger" (click)="deactivate(row)">Deactivate</button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

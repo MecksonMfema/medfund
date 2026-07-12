@@ -16,6 +16,7 @@ import {
   RejectionReason,
 } from '../../../../core/services/claims-config.service';
 import {
+  AnnualCapUtilization,
   BeneficiaryBenefitUtilization,
   BenefitUsageMode,
   ContributionsService,
@@ -89,6 +90,10 @@ export class ClaimDetailComponent implements OnInit {
   /** V061 — scheme + per-benefit usage-mode snapshot. Drives the header
    *  badge and whether the utilization card renders at all. */
   productProfile: SchemeProductProfile | null = null;
+  /** V062 — scheme-level annual cap utilization for this beneficiary.
+   *  Null (or capAmount null) means the scheme has no aggregate cap and
+   *  the "Annual cap" row at the top of the utilization card is hidden. */
+  annualCap: AnnualCapUtilization | null = null;
   /** V061 save-time balance breach reason, set from a 422 on
    *  applyLineDecisions. Rendered as an inline red banner in the
    *  service-lines card; cleared on the next save attempt. */
@@ -216,6 +221,28 @@ export class ClaimDetailComponent implements OnInit {
     this.contributions.getBeneficiaryUtilization(claim.memberId, claim.dependantId)
       .pipe(catchError(() => of([] as BeneficiaryBenefitUtilization[])))
       .subscribe(rows => { this.utilization = rows; });
+
+    // V062 — scheme-level annual cap ledger. Only rendered when the
+    // scheme has annualMemberCap set; the row is hidden otherwise.
+    if (claim.schemeId) {
+      this.contributions.getAnnualCapUtilization(claim.memberId, claim.schemeId, claim.dependantId)
+        .pipe(catchError(() => of(null as AnnualCapUtilization | null)))
+        .subscribe(row => { this.annualCap = row; });
+    }
+  }
+
+  /** V062 annual cap progress (0-100). Null when cap isn't set. */
+  annualCapPct(): number | null {
+    if (!this.annualCap || !this.annualCap.capAmount) return null;
+    const cap = Number(this.annualCap.capAmount);
+    if (!cap || cap <= 0) return null;
+    const consumed = Number(this.annualCap.consumedAmount) || 0;
+    return Math.min(100, Math.round((consumed / cap) * 100));
+  }
+
+  /** V062 — whether the annual-cap row should render. */
+  get showAnnualCap(): boolean {
+    return !!(this.annualCap && this.annualCap.capAmount);
   }
 
   beneficiaryName(): string {

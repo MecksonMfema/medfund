@@ -26,7 +26,11 @@ export interface TariffCode {
   scheduleId: string;
   code: string;
   description: string;
+  /** Legacy free-text category label — kept for backwards compat on the
+   *  read side; the authoritative link is {@link categoryId}. */
   category?: string;
+  /** V063 — mandatory FK to the tariff_categories catalogue. */
+  categoryId?: string;
   unitPrice: string;
   currencyCode?: string;
   requiresPreAuth?: boolean;
@@ -37,7 +41,8 @@ export interface CreateTariffCodePayload {
   scheduleId: string;
   code: string;
   description: string;
-  category?: string;
+  /** V063 — mandatory. */
+  categoryId: string;
   unitPrice: string;
   currencyCode?: string;
   requiresPreAuth?: boolean;

@@ -8,6 +8,8 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.UUID;
 
 /**
  * Update payload for an existing scheme benefit. Currency cannot change once
@@ -33,7 +35,16 @@ public record UpdateSchemeBenefitRequest(
         Boolean cashClaimAllowed,
 
         /** V061 usage classification. Null on update = no change. */
-        String usageMode
+        String usageMode,
+
+        /**
+         * V063 tariff categories this benefit covers. Null = no change;
+         * non-null (including empty list) triggers a replace of the
+         * benefit_tariff_categories rows for this benefit. Provide an
+         * empty list only via a dedicated "unlink all" flow — the form
+         * enforces at-least-one on typical submits.
+         */
+        List<UUID> categoryIds
 ) {
     @AssertTrue(message = "usageMode must be RUNNING_BALANCE, ONE_TIME_PER_BENEFICIARY, ONE_TIME_PER_PERIOD, PER_EVENT_COUNTER, or NO_TRACKING")
     public boolean isUsageModeValid() {

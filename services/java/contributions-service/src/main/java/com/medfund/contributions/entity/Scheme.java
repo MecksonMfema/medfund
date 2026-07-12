@@ -6,6 +6,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -58,6 +59,17 @@ public class Scheme {
     @Column("tracks_member_balances")
     private Boolean tracksMemberBalances = Boolean.TRUE;
 
+    /**
+     * V062 scheme-level aggregate cap per beneficiary per policy year.
+     * Independent of the sum of individual benefit annual limits — a
+     * scheme can have $60k of benefit budgets but a $50k cap, or the
+     * cap can exceed the sum of benefits (leaving headroom for
+     * cap-only tariffs). NULL means no cap; only multi-benefit
+     * insurance lines typically set one.
+     */
+    @Column("annual_member_cap")
+    private BigDecimal annualMemberCap;
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;
@@ -108,6 +120,9 @@ public class Scheme {
 
     public Boolean getTracksMemberBalances() { return tracksMemberBalances; }
     public void setTracksMemberBalances(Boolean tracksMemberBalances) { this.tracksMemberBalances = tracksMemberBalances; }
+
+    public BigDecimal getAnnualMemberCap() { return annualMemberCap; }
+    public void setAnnualMemberCap(BigDecimal annualMemberCap) { this.annualMemberCap = annualMemberCap; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

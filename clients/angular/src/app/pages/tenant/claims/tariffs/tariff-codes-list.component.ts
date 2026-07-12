@@ -9,6 +9,7 @@ import {
   TariffCode,
   TariffSchedule,
 } from '../../../../core/services/claims-config.service';
+import { TariffCategoriesService, TariffCategory } from '../../../../core/services/tariff-categories.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
@@ -36,11 +37,16 @@ export class TariffCodesListComponent implements OnInit {
     scheduleId: '',
     code: '',
     description: '',
-    category: '',
+    categoryId: '',
     unitPrice: '',
     currencyCode: 'USD',
     requiresPreAuth: false,
   };
+
+  /** V063 — populated from the tariff_categories catalogue. Feeds the
+   *  required category dropdown on the add form. */
+  categories: TariffCategory[] = [];
+  categoryOptions: SelectOption[] = [];
 
   readonly currencyOptions: SelectOption[] = [
     { value: 'USD', label: 'USD' },
@@ -48,7 +54,9 @@ export class TariffCodesListComponent implements OnInit {
     { value: 'ZAR', label: 'ZAR' },
   ];
 
-  constructor(private config: ClaimsConfigService, private route: ActivatedRoute) {}
+  constructor(private config: ClaimsConfigService,
+              private categoriesService: TariffCategoriesService,
+              private route: ActivatedRoute) {}
 
   ngOnInit(): void {
     this.scheduleId = this.route.snapshot.paramMap.get('scheduleId');
@@ -58,10 +66,16 @@ export class TariffCodesListComponent implements OnInit {
     forkJoin({
       schedule: this.config.getSchedule(this.scheduleId),
       codes: this.config.listCodesBySchedule(this.scheduleId),
+      categories: this.categoriesService.list(true),
     }).subscribe({
-      next: ({ schedule, codes }) => {
+      next: ({ schedule, codes, categories }) => {
         this.schedule = schedule;
         this.rows = codes;
+        this.categories = categories;
+        this.categoryOptions = categories.map(c => ({
+          value: c.id,
+          label: c.label + (c.isCapOnly ? ' · cap-only' : ''),
+        }));
         this.loading = false;
       },
       error: (err) => {
@@ -69,6 +83,17 @@ export class TariffCodesListComponent implements OnInit {
         this.loading = false;
       },
     });
+  }
+
+  /** Look up the category label for a saved tariff row so the table can
+   *  keep showing a human-readable value (rows carry categoryId; catalogue
+   *  gives us the label). */
+  categoryLabel(row: TariffCode): string {
+    if (row.categoryId) {
+      const hit = this.categories.find(c => c.id === row.categoryId);
+      if (hit) return hit.label;
+    }
+    return row.category || '—';
   }
 
   toggleForm(): void {
@@ -81,13 +106,17 @@ export class TariffCodesListComponent implements OnInit {
       this.errorMessage = 'Code, description and unit price are required';
       return;
     }
+    if (!this.draft.categoryId) {
+      this.errorMessage = 'Category is required';
+      return;
+    }
     this.saving = true;
     this.errorMessage = null;
     this.config.createCode({
       scheduleId: this.scheduleId!,
       code: this.draft.code.trim().toUpperCase(),
       description: this.draft.description.trim(),
-      category: this.draft.category?.trim() || undefined,
+      categoryId: this.draft.categoryId,
       unitPrice: this.draft.unitPrice,
       currencyCode: this.draft.currencyCode || 'USD',
       requiresPreAuth: this.draft.requiresPreAuth,
@@ -109,7 +138,7 @@ export class TariffCodesListComponent implements OnInit {
       scheduleId: this.scheduleId!,
       code: '',
       description: '',
-      category: '',
+      categoryId: '',
       unitPrice: '',
       currencyCode: 'USD',
       requiresPreAuth: false,

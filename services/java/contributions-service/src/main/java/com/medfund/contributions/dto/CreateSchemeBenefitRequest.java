@@ -3,12 +3,14 @@ package com.medfund.contributions.dto;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.AssertTrue;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 public record CreateSchemeBenefitRequest(
@@ -37,7 +39,17 @@ public record CreateSchemeBenefitRequest(
          * ONE_TIME_PER_BENEFICIARY, ONE_TIME_PER_PERIOD, PER_EVENT_COUNTER,
          * NO_TRACKING. Null defaults to RUNNING_BALANCE at persist time.
          */
-        String usageMode
+        String usageMode,
+
+        /**
+         * V063 mandatory list of tariff category IDs this benefit covers.
+         * At least one required — persisted as rows in
+         * {@code benefit_tariff_categories}. The adjudicator's tariff
+         * resolver relies on this list to route each claim line to the
+         * correct scheme_benefit.
+         */
+        @NotEmpty(message = "At least one tariff category is required")
+        List<UUID> categoryIds
 ) {
     @AssertTrue(message = "usageMode must be RUNNING_BALANCE, ONE_TIME_PER_BENEFICIARY, ONE_TIME_PER_PERIOD, PER_EVENT_COUNTER, or NO_TRACKING")
     public boolean isUsageModeValid() {

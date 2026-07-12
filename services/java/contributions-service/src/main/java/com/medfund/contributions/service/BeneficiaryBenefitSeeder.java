@@ -2,6 +2,7 @@ package com.medfund.contributions.service;
 
 import com.medfund.contributions.entity.Scheme;
 import com.medfund.contributions.entity.SchemeBenefit;
+import com.medfund.contributions.repository.BeneficiaryAnnualTotalRepository;
 import com.medfund.contributions.repository.BeneficiaryBenefitRepository;
 import com.medfund.contributions.repository.SchemeBenefitRepository;
 import com.medfund.contributions.repository.SchemeRepository;
@@ -55,6 +56,7 @@ public class BeneficiaryBenefitSeeder {
     private final SchemeRepository schemeRepository;
     private final SchemeBenefitRepository schemeBenefitRepository;
     private final BeneficiaryBenefitRepository beneficiaryBenefitRepository;
+    private final BeneficiaryAnnualTotalRepository beneficiaryAnnualTotalRepository;
 
     /**
      * Seed benefit rows for a newly-enrolled beneficiary.
@@ -92,10 +94,32 @@ public class BeneficiaryBenefitSeeder {
     private Mono<Void> seedForScheme(UUID memberId, UUID dependantId, Scheme scheme,
                                      int policyYear, LocalDate dateOfBirth,
                                      LocalDate enrollmentDate) {
-        return schemeBenefitRepository.findBySchemeId(scheme.getId())
+        Mono<Void> perBenefit = schemeBenefitRepository.findBySchemeId(scheme.getId())
                 .filter(this::isSeedable)
                 .filter(b -> passesAgeGate(b, dateOfBirth, enrollmentDate))
                 .flatMap(b -> seedOne(memberId, dependantId, scheme, b, policyYear))
+                .then();
+        // V062: annual cap ledger row — only seeded when the scheme has
+        // a cap set (typical for multi-benefit medical-aid schemes).
+        Mono<Void> capSeed = seedAnnualTotal(memberId, dependantId, scheme, policyYear);
+        return perBenefit.then(capSeed);
+    }
+
+    /**
+     * V062 cap ledger seed. Idempotent — ON CONFLICT DO NOTHING inside
+     * the repo. Uses the scheme's currency; falls back to USD if unset.
+     */
+    private Mono<Void> seedAnnualTotal(UUID memberId, UUID dependantId, Scheme scheme, int policyYear) {
+        if (scheme.getAnnualMemberCap() == null) return Mono.empty();
+        String currency = scheme.getCurrencyCode() != null ? scheme.getCurrencyCode() : "USD";
+        return beneficiaryAnnualTotalRepository.seedRow(
+                        scheme.getId(), memberId, dependantId, policyYear, currency)
+                .doOnNext(rows -> {
+                    if (rows == 0) {
+                        log.debug("BeneficiaryAnnualTotal already exists for scheme {} year {} — no-op",
+                                scheme.getId(), policyYear);
+                    }
+                })
                 .then();
     }
 

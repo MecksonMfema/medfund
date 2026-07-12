@@ -100,7 +100,10 @@ public class TariffService {
         tariffCode.setScheduleId(request.scheduleId());
         tariffCode.setCode(request.code());
         tariffCode.setDescription(request.description());
-        tariffCode.setCategory(request.category());
+        // V063 — categoryId is the authoritative FK; the free-text
+        // category column stays populated from the request only when
+        // explicitly set alongside (kept as a denormalised label).
+        tariffCode.setCategoryId(request.categoryId());
         tariffCode.setUnitPrice(request.unitPrice());
         tariffCode.setCurrencyCode(request.currencyCode());
         tariffCode.setRequiresPreAuth(request.requiresPreAuth() != null ? request.requiresPreAuth() : false);

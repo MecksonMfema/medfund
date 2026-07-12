@@ -68,6 +68,8 @@ export const routes: Routes = [
       { path: 'audit',     loadComponent: () => import('./pages/tenant-admin/audit/audit.component').then(m => m.TenantAuditComponent), data: { title: 'Audit Logs' } },
       { path: 'rules',     loadComponent: () => import('./pages/tenant-admin/rules/rules.component').then(m => m.TenantRulesComponent), data: { title: 'Rules Engine' } },
       { path: 'settings',  loadComponent: () => import('./pages/tenant-admin/settings/settings.component').then(m => m.TenantSettingsComponent), data: { title: 'Settings' } },
+      // V063 — tariff categories catalogue (required on tariffs and benefits).
+      { path: 'tariff-categories', loadComponent: () => import('./pages/tenant-admin/tariff-categories/tariff-categories-list.component').then(m => m.TariffCategoriesListComponent), data: { title: 'Tariff Categories' } },
     ],
   },
   // Operational portal — sibling of /tenant/admin/*, same TenantLayoutComponent

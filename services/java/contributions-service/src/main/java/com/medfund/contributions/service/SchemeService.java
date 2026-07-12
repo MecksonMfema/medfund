@@ -49,6 +49,7 @@ public class SchemeService {
     private final SchemeBenefitQueryRepository schemeBenefitQueryRepository;
     private final AuditPublisher auditPublisher;
     private final org.springframework.r2dbc.core.DatabaseClient db;
+    private final com.medfund.contributions.repository.BenefitTariffCategoryRepository benefitTariffCategoryRepository;
 
     public SchemeService(SchemeRepository schemeRepository,
                          SchemeBenefitRepository schemeBenefitRepository,
@@ -56,7 +57,8 @@ public class SchemeService {
                          SchemeQueryRepository schemeQueryRepository,
                          SchemeBenefitQueryRepository schemeBenefitQueryRepository,
                          AuditPublisher auditPublisher,
-                         org.springframework.r2dbc.core.DatabaseClient db) {
+                         org.springframework.r2dbc.core.DatabaseClient db,
+                         com.medfund.contributions.repository.BenefitTariffCategoryRepository benefitTariffCategoryRepository) {
         this.schemeRepository = schemeRepository;
         this.schemeBenefitRepository = schemeBenefitRepository;
         this.ageGroupRepository = ageGroupRepository;
@@ -64,6 +66,20 @@ public class SchemeService {
         this.schemeBenefitQueryRepository = schemeBenefitQueryRepository;
         this.auditPublisher = auditPublisher;
         this.db = db;
+        this.benefitTariffCategoryRepository = benefitTariffCategoryRepository;
+    }
+
+    /**
+     * V063 delete-then-insert refresh of a benefit's tariff-category
+     * links. Runs inside the same transaction as the benefit save so an
+     * insert failure rolls the whole thing back.
+     */
+    private Mono<Void> replaceBenefitCategories(UUID benefitId, java.util.List<UUID> categoryIds) {
+        if (categoryIds == null) return Mono.empty();
+        return benefitTariffCategoryRepository.deleteByBenefit(benefitId)
+                .thenMany(reactor.core.publisher.Flux.fromIterable(categoryIds)
+                        .flatMap(cid -> benefitTariffCategoryRepository.link(benefitId, cid)))
+                .then();
     }
 
     /**
@@ -352,7 +368,12 @@ public class SchemeService {
                 benefit.setCreatedAt(Instant.now());
                 benefit.setUpdatedAt(Instant.now());
 
-                return schemeBenefitRepository.save(benefit);
+                return schemeBenefitRepository.save(benefit)
+                    // V063 — persist the benefit's tariff-category coverage in
+                    // the same transaction. request.categoryIds is @NotEmpty
+                    // so the list is at least one wide by validator time.
+                    .flatMap(saved -> replaceBenefitCategories(saved.getId(), request.categoryIds())
+                            .thenReturn(saved));
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
@@ -397,6 +418,11 @@ public class SchemeService {
                     existing.setUpdatedAt(Instant.now());
 
                     return schemeBenefitRepository.save(existing)
+                        // V063 — refresh benefit_tariff_categories only when
+                        // the request carries a non-null list. Null = leave
+                        // links as-is (partial update).
+                        .flatMap(saved -> replaceBenefitCategories(saved.getId(), request.categoryIds())
+                                .thenReturn(saved))
                         .flatMap(saved -> Mono.deferContextual(ctx -> {
                             String tenantId = TenantContext.get(ctx);
                             return publishAudit(tenantId, "SchemeBenefit", saved.getId().toString(), saved.getName(),

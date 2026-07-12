@@ -74,11 +74,17 @@
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border-light, #e5e7eb);
   border-radius: var(--radius-md, 8px);
-  padding: 1rem 1.1rem;
-  margin-bottom: 1rem;
+  padding: 1.15rem 1.25rem;
+  margin-bottom: 1.5rem;
   font-family: var(--font-family);
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
   color: var(--color-text-primary, #1b2a4a);
+  transition: box-shadow 160ms ease, border-color 160ms ease, transform 160ms ease;
+
+  &:hover {
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    border-color: var(--color-border, #d1d5db);
+  }
 }
 
 // Row wrapper for the top-of-page 3-up card layout (Member · Claim ·
@@ -87,8 +93,8 @@
 // row itself owns the spacing to the next section.
 .detail-row {
   display: grid;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
 
   > .detail-card { margin-bottom: 0; min-width: 0; }
 }
@@ -204,10 +210,30 @@
 
 .data-table th,
 .data-table td {
-  padding: 0.5rem 0.6rem;
+  padding: 0.8rem 0.7rem;
   text-align: left;
   border-bottom: 1px solid var(--color-border-light, #e5e7eb);
-  font-size: 0.875rem;
+  font-size: 0.9rem;
+  vertical-align: top;
+}
+
+// Lighter, quieter column headings — the row values carry the visual
+// weight and the label above them just anchors what each column means.
+.data-table th {
+  font-weight: 500;
+  color: var(--color-text-muted, #6b7280);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+// Unit price column (col 5 in service-lines) — wider so amounts like
+// "1,234,567.89" don't wrap into two lines and force the row taller.
+// Scoped to the service-lines table so other tables (scheme benefits)
+// keep their natural column widths.
+.data-table--service-lines th:nth-child(5),
+.data-table--service-lines td:nth-child(5) {
+  min-width: 130px;
 }
 
 .right { text-align: right; }
@@ -278,11 +304,21 @@
 // Cell wrapper for tariff / modifier — stacks the input above the
 // "originally X" audit note so the note doesn't force the input to
 // wrap or clip.
+//
+// `display: flex` is deliberately NOT used here: setting it on a <td>
+// takes the cell out of table-cell layout, which breaks the row's
+// shared-height mechanism and causes the border-bottom to draw at the
+// cell's own height instead of the row's bottom — the visual symptom
+// is misaligned bottom borders across the row. Stacking is done with
+// block-level children instead.
 .code-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  vertical-align: top;
   min-width: 140px;
+
+  .original-note {
+    display: block;
+    margin-top: 0.25rem;
+  }
 }
 
 .original-note {
@@ -333,13 +369,16 @@
 // Per-line decision buttons: Accept / Reject (+ optional Clear). Small
 // chip-shaped buttons that light up green / red when active.
 .decision-cell {
-  min-width: 200px;
+  // Wide enough to fit Accept + Reject + Clear on one line so the third
+  // chip doesn't drop below the row once a decision is picked.
+  min-width: 260px;
+  white-space: nowrap;
 }
 
 .decision-buttons {
   display: inline-flex;
   gap: 0.35rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 // Accept / Reject chip buttons — colour-coded outlines by default
@@ -518,6 +557,16 @@
 
 // V061 exhausted-row highlight and status-chip colour extensions.
 .util-row--exhausted { opacity: 0.85; }
+
+// V062 scheme-level annual cap row — sits above the per-benefit rows.
+// Slightly heavier border-bottom so the eye reads it as a parent
+// container of the benefits below, not just another benefit line.
+.util-list--cap {
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--color-border-light, #e5e7eb);
+}
+.util-row--cap strong { font-size: 0.95rem; }
 .util-figures--onetime {
   display: flex;
   align-items: center;
@@ -630,4 +679,124 @@
   border: 1px solid var(--danger-fg, #b91c1c);
   &:hover:not(:disabled)    { background: #991b1b; border-color: #991b1b; }
   &:disabled                { background: #fca5a5; border-color: #fca5a5; color: #ffffff; cursor: not-allowed; }
+}
+
+// ── Identity block ────────────────────────────────────────────────────
+// Replaces the label:value <dl> pattern for Member / Dependant / Claim /
+// Payee cards. Data is grouped visually so the adjudicator reads a
+// person, not a form — bold name on top, supporting facts as chips,
+// contact affordances as real mailto: / tel: links.
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+.identity-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-text-primary, #1b2a4a);
+  line-height: 1.2;
+}
+
+.identity-sub {
+  font-size: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--color-text-primary, #1b2a4a);
+
+  code {
+    font-family: ui-monospace, "Cascadia Mono", monospace;
+    font-size: 0.85rem;
+    color: var(--color-text-secondary, #4b5563);
+  }
+  .sep { opacity: 0.5; }
+  .muted { color: var(--color-text-muted, #6b7280); }
+}
+
+.identity-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.identity-contacts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding-top: 0.15rem;
+}
+
+.contact-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--color-primary, #0077b6);
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+}
+
+.identity-line {
+  font-size: 0.875rem;
+  code {
+    font-family: ui-monospace, "Cascadia Mono", monospace;
+    font-size: 0.825rem;
+    color: var(--color-text-secondary, #4b5563);
+  }
+  strong { color: var(--color-text-primary, #1b2a4a); font-weight: 600; }
+}
+
+.identity-notes {
+  border-top: 1px dashed var(--color-border-light, #e5e7eb);
+  padding-top: 0.75rem;
+  margin-top: 0.35rem;
+  p { margin: 0.2rem 0 0; font-size: 0.9rem; line-height: 1.5; }
+  code { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 0.85rem; }
+  &--danger .identity-label { color: var(--danger-fg, #991b1b); }
+}
+
+.identity-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--color-text-muted, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+// Neutral supporting-fact chip (city, status, DOB, "Provider" label).
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  background: var(--color-bg, #f1f5f9);
+  color: var(--color-text-secondary, #4b5563);
+  border: 1px solid var(--color-border-light, #e5e7eb);
+}
+.chip--primary {
+  background: var(--color-primary-light, rgba(0,119,182,0.1));
+  color: var(--color-primary, #0077b6);
+  border-color: transparent;
+}
+.chip--warn {
+  background: var(--warning-bg, #fef3c7);
+  color: var(--warning-fg, #92400e);
+  border-color: transparent;
+}
+
+// Compact label:value grid retained for the genuinely-labelled rows
+// inside the claim details card (diagnosis / procedures).
+.mini-kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.4rem 0.85rem;
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+  dt { color: var(--color-text-muted, #6b7280); font-weight: 500; }
+  dd { margin: 0; color: var(--color-text-primary, #1b2a4a); }
 }

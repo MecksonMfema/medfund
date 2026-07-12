@@ -58,6 +58,41 @@
             required
           />
         </label>
+
+        <!-- V063 tariff-category coverage. Multi-select; at least one
+             required. Cap-only categories are shown with a badge so the
+             admin knows those routes bypass the per-benefit balance. -->
+        <div class="field">
+          <span class="field-label">
+            Tariff categories covered <span class="req">*</span>
+          </span>
+          <small class="field-help">
+            Every claim line whose tariff belongs to one of these categories
+            will deduct from this benefit's balance. Pick at least one.
+          </small>
+          <ul class="category-list" role="listbox" aria-multiselectable="true">
+            @for (cat of tariffCategories; track cat.id) {
+              <li class="category-option"
+                  role="option"
+                  [attr.aria-selected]="isCategorySelected(cat.id)">
+                <label>
+                  <input type="checkbox"
+                         [checked]="isCategorySelected(cat.id)"
+                         (change)="toggleCategory(cat.id)" />
+                  <span class="category-label">{{ cat.label }}</span>
+                  @if (cat.isCapOnly) {
+                    <span class="category-badge">cap-only</span>
+                  }
+                </label>
+              </li>
+            } @empty {
+              <li class="category-empty muted">
+                No tariff categories configured yet. Ask a super-admin to
+                seed the catalogue under Tenant Admin → Tariff categories.
+              </li>
+            }
+          </ul>
+        </div>
       </section>
 
       <!-- ── Limits ────────────────────────────────────────────────────── -->

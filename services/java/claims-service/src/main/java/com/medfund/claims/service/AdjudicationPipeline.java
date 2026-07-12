@@ -118,7 +118,7 @@ public class AdjudicationPipeline {
                 results.add(s2);
                 return results;
             }))
-            .flatMap(results -> checkBenefitLimits(claim).map(s3 -> {
+            .flatMap(results -> checkBenefitLimits(claim, lines).map(s3 -> {
                 results.add(s3);
                 return results;
             }))
@@ -234,7 +234,23 @@ public class AdjudicationPipeline {
 
     // ---- Stage 3: Benefit Limits ----
 
-    private Mono<StageResult> checkBenefitLimits(Claim claim) {
+    private Mono<StageResult> checkBenefitLimits(Claim claim, List<ClaimLine> lines) {
+        // V062: two additional checks layer onto the classic benefit-limit
+        // flow — tariff mapping and scheme annual cap. Both run only if
+        // the primary benefit check passed. Any failure of the added
+        // checks fails the stage overall.
+        Mono<StageResult> primary = primaryBenefitCheck(claim);
+        return primary.flatMap(primaryResult -> {
+            if (!primaryResult.passed()) return Mono.just(primaryResult);
+            return validateTariffMappings(claim, lines)
+                    .flatMap(mapResult -> !mapResult.passed()
+                            ? Mono.just(mapResult)
+                            : checkAnnualMemberCap(claim, lines)
+                                    .map(capResult -> capResult.passed() ? primaryResult : capResult));
+        });
+    }
+
+    private Mono<StageResult> primaryBenefitCheck(Claim claim) {
         if (claim.getBenefitId() == null) {
             // No specific benefit — check against overall scheme limit
             return checkOverallBenefitLimit(claim);
@@ -249,6 +265,138 @@ public class AdjudicationPipeline {
                 .flatMap(ageResult -> ageResult.passed()
                         ? benefitLimitCheck(claim)
                         : Mono.just(ageResult));
+    }
+
+    /**
+     * V063 per-line tariff-category validation. For each line resolve
+     * tariff_code → tariff_codes.category_id, then confirm the category
+     * either (a) has {@code is_cap_only = TRUE} (pass — cap check
+     * enforces the ceiling) or (b) has at least one row in
+     * {@code benefit_tariff_categories} linking it to an active
+     * scheme_benefit for the claim's scheme.
+     *
+     * <p>A category with no covering benefit AND {@code is_cap_only = FALSE}
+     * fails the stage with {@code R03-TARIFF_UNMAPPED}. Empty tariff
+     * strings and tariffs missing from {@code tariff_codes} are
+     * skipped (Stage 5 catches tariff-code validity separately).
+     */
+    private Mono<StageResult> validateTariffMappings(Claim claim, List<ClaimLine> lines) {
+        if (lines == null || lines.isEmpty()) {
+            return Mono.just(new StageResult("BenefitLimits", true, "No lines to map"));
+        }
+        return Flux.fromIterable(lines)
+                .flatMap(line -> {
+                    if (line.getTariffCode() == null || line.getTariffCode().isBlank()) {
+                        return Mono.just("(no tariff on line — skipped)");
+                    }
+                    return tariffCodeRepository.findByCode(line.getTariffCode())
+                            .flatMap(tariff -> {
+                                UUID categoryId = tariff.getCategoryId();
+                                if (categoryId == null) {
+                                    // Legacy row that pre-dates V063 backfill —
+                                    // treat as cap-only rather than reject so
+                                    // adjudication makes progress. An operator
+                                    // can reclassify the tariff via the admin UI.
+                                    return Mono.just("(" + line.getTariffCode()
+                                            + " has no category — treated as cap-only)");
+                                }
+                                return databaseClient.sql("""
+                                        SELECT tc.is_cap_only,
+                                               EXISTS (
+                                                   SELECT 1 FROM benefit_tariff_categories btc
+                                                     JOIN scheme_benefits sb
+                                                       ON sb.id = btc.scheme_benefit_id
+                                                    WHERE btc.tariff_category_id = tc.id
+                                                      AND sb.scheme_id = :schemeId
+                                                      AND (sb.status IS NULL OR sb.status = 'active')
+                                               ) AS mapped_in_scheme
+                                          FROM tariff_categories tc
+                                         WHERE tc.id = :categoryId
+                                         LIMIT 1
+                                        """)
+                                        .bind("categoryId", categoryId)
+                                        .bind("schemeId", claim.getSchemeId())
+                                        .fetch().one()
+                                        .map(r -> {
+                                            boolean capOnly = r.get("is_cap_only") != null
+                                                    && Boolean.parseBoolean(r.get("is_cap_only").toString());
+                                            boolean mapped = r.get("mapped_in_scheme") != null
+                                                    && Boolean.parseBoolean(r.get("mapped_in_scheme").toString());
+                                            if (capOnly) {
+                                                return "(" + line.getTariffCode() + " → cap-only category)";
+                                            }
+                                            if (mapped) {
+                                                return "(" + line.getTariffCode() + " → mapped to a scheme benefit)";
+                                            }
+                                            return "R03-TARIFF_UNMAPPED: tariff " + line.getTariffCode()
+                                                    + " (category=" + categoryId + ") is not covered by any "
+                                                    + "scheme_benefit on scheme " + claim.getSchemeId();
+                                        })
+                                        .defaultIfEmpty("(" + line.getTariffCode()
+                                                + " category row missing — skipped)");
+                            })
+                            .defaultIfEmpty("(" + line.getTariffCode() + " not in tariff_codes — skipped)");
+                })
+                .collectList()
+                .map(details -> {
+                    boolean passed = details.stream().noneMatch(d -> d.startsWith("R03-TARIFF_UNMAPPED"));
+                    return new StageResult("BenefitLimits", passed, String.join("; ", details));
+                });
+    }
+
+    /**
+     * V062 scheme annual cap check. Only runs when the scheme has
+     * {@code annual_member_cap} set (typically medical-aid style products).
+     * Sums the current beneficiary's cap ledger (beneficiary_annual_totals)
+     * for the current policy year and rejects when adding the claim's total
+     * claimed amount would breach the cap.
+     */
+    private Mono<StageResult> checkAnnualMemberCap(Claim claim, List<ClaimLine> lines) {
+        if (claim.getSchemeId() == null) {
+            return Mono.just(new StageResult("BenefitLimits", true, "No scheme — cap skipped"));
+        }
+        int year = claim.getServiceDate() != null ? claim.getServiceDate().getYear() : LocalDate.now().getYear();
+        BigDecimal claimTotal = (lines == null || lines.isEmpty())
+                ? (claim.getClaimedAmount() != null ? claim.getClaimedAmount() : BigDecimal.ZERO)
+                : lines.stream().map(l -> l.getClaimedAmount() != null ? l.getClaimedAmount() : BigDecimal.ZERO)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return databaseClient.sql("""
+                SELECT s.annual_member_cap,
+                       (SELECT COALESCE(consumed_amount, 0)
+                          FROM beneficiary_annual_totals
+                         WHERE scheme_id = :schemeId
+                           AND member_id = :memberId
+                           AND ((:dependantId IS NULL AND dependant_id IS NULL)
+                                OR dependant_id = :dependantId)
+                           AND policy_year = :year
+                        ) AS consumed
+                  FROM schemes s
+                 WHERE s.id = :schemeId
+                """)
+                .bind("schemeId", claim.getSchemeId())
+                .bind("memberId", claim.getMemberId())
+                .bind("dependantId", claim.getDependantId() != null ? claim.getDependantId() : (UUID) null)
+                .bind("year", year)
+                .fetch().one()
+                .map(row -> {
+                    Object capObj = row.get("annual_member_cap");
+                    if (capObj == null) {
+                        return new StageResult("BenefitLimits", true, "Scheme has no annual cap");
+                    }
+                    BigDecimal cap = new BigDecimal(capObj.toString());
+                    BigDecimal consumed = row.get("consumed") != null
+                            ? new BigDecimal(row.get("consumed").toString()) : BigDecimal.ZERO;
+                    BigDecimal projected = consumed.add(claimTotal);
+                    if (projected.compareTo(cap) > 0) {
+                        return new StageResult("BenefitLimits", false,
+                                "R03-SCHEME_CAP_EXHAUSTED: claim total " + claimTotal
+                                + " would push consumed to " + projected + " over annual cap " + cap
+                                + " (currently consumed " + consumed + ")");
+                    }
+                    return new StageResult("BenefitLimits", true,
+                            "Annual cap check passed (projected=" + projected + ", cap=" + cap + ")");
+                })
+                .defaultIfEmpty(new StageResult("BenefitLimits", true, "Scheme row missing — cap skipped"));
     }
 
     private Mono<StageResult> benefitLimitCheck(Claim claim) {

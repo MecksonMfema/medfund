@@ -34,8 +34,14 @@
         <input type="text" [(ngModel)]="draft.code" name="code" required maxlength="50" placeholder="0001A" />
       </label>
       <label class="field">
-        <span class="field-label">Category</span>
-        <input type="text" [(ngModel)]="draft.category" name="category" placeholder="Consultation / Surgery / Diagnostic" />
+        <span class="field-label">Category *</span>
+        <app-select
+          [(ngModel)]="draft.categoryId"
+          name="categoryId"
+          [options]="categoryOptions"
+          placeholder="Pick a category"
+          required
+        ></app-select>
       </label>
       <label class="field span-2">
         <span class="field-label">Description *</span>
@@ -87,7 +93,7 @@
           <tr>
             <td><code>{{ row.code }}</code></td>
             <td>{{ row.description }}</td>
-            <td class="muted">{{ row.category || '—' }}</td>
+            <td class="muted">{{ categoryLabel(row) }}</td>
             <td class="right">{{ row.unitPrice | currencyFormat:(row.currencyCode || 'USD') }}</td>
             <td>
               @if (row.requiresPreAuth) {

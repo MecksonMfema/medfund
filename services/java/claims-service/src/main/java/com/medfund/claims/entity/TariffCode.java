@@ -24,6 +24,13 @@ public class TariffCode {
 
     private String category;
 
+    /** V063 — mandatory FK to the tariff_categories catalogue. The
+     *  legacy {@link #category} string stays alongside as a
+     *  denormalised label so downstream reporting doesn't break, but
+     *  the resolver reads only category_id. */
+    @Column("category_id")
+    private UUID categoryId;
+
     @Column("unit_price")
     private BigDecimal unitPrice;
 
@@ -51,6 +58,9 @@ public class TariffCode {
 
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
+
+    public UUID getCategoryId() { return categoryId; }
+    public void setCategoryId(UUID categoryId) { this.categoryId = categoryId; }
 
     public BigDecimal getUnitPrice() { return unitPrice; }
     public void setUnitPrice(BigDecimal unitPrice) { this.unitPrice = unitPrice; }

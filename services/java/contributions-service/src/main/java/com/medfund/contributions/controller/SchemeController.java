@@ -25,9 +25,12 @@ import java.util.UUID;
 public class SchemeController {
 
     private final SchemeService schemeService;
+    private final com.medfund.contributions.repository.BenefitTariffCategoryRepository benefitTariffCategoryRepository;
 
-    public SchemeController(SchemeService schemeService) {
+    public SchemeController(SchemeService schemeService,
+                            com.medfund.contributions.repository.BenefitTariffCategoryRepository benefitTariffCategoryRepository) {
         this.schemeService = schemeService;
+        this.benefitTariffCategoryRepository = benefitTariffCategoryRepository;
     }
 
     @GetMapping
@@ -182,9 +185,15 @@ public class SchemeController {
     }
 
     @GetMapping("/benefits/{id}")
-    @Operation(summary = "Get a scheme benefit by id")
+    @Operation(summary = "Get a scheme benefit by id",
+        description = "V063 — response includes categoryIds so the benefit form can "
+                    + "round-trip the tariff-category coverage on edit.")
     public Mono<SchemeBenefitResponse> findBenefitById(@PathVariable UUID id) {
-        return schemeService.findBenefitById(id).map(SchemeBenefitResponse::from);
+        return schemeService.findBenefitById(id)
+                .flatMap(b -> benefitTariffCategoryRepository.findByBenefit(id)
+                        .map(com.medfund.contributions.entity.BenefitTariffCategory::getTariffCategoryId)
+                        .collectList()
+                        .map(categoryIds -> SchemeBenefitResponse.from(b, categoryIds)));
     }
 
     @PutMapping("/benefits/{id}")

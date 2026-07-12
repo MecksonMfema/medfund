@@ -51,6 +51,17 @@ public class ClaimLine {
     @Column("currency_code")
     private String currencyCode;
 
+    /** V062 per-line benefit resolution. Populated at ingestion by
+     *  TariffBenefitResolver: tariff_code → tariff_codes.category →
+     *  tariff_benefit_mappings.benefit_type_id → the scheme_benefit for
+     *  this scheme + benefit_type. NULL means the tariff category is
+     *  cap-only (the mapping row exists but benefit_type_id is NULL) —
+     *  the line deducts from the scheme's annual cap without touching
+     *  a per-benefit ledger row. If the tariff category has no mapping
+     *  row at all, adjudication rejects the line at Stage 3. */
+    @Column("benefit_id")
+    private UUID benefitId;
+
     /** Per-line adjudication state. Defaults to PENDING until an
      *  adjudicator decides; then ACCEPTED or REJECTED. */
     private String status;
@@ -99,6 +110,9 @@ public class ClaimLine {
 
     public String getCurrencyCode() { return currencyCode; }
     public void setCurrencyCode(String currencyCode) { this.currencyCode = currencyCode; }
+
+    public UUID getBenefitId() { return benefitId; }
+    public void setBenefitId(UUID benefitId) { this.benefitId = benefitId; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
