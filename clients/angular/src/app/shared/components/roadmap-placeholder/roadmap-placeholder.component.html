@@ -1,0 +1,42 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>{{ title }}</h1>
+      @if (description) { <p class="page-sub">{{ description }}</p> }
+    </div>
+  </header>
+
+  <div class="callout">
+    <app-icon name="info" [size]="16"></app-icon>
+    <div>
+      <strong>Backend not yet available.</strong>
+      @if (config.blockedBy) { <span>{{ config.blockedBy }}</span> }
+      @else { <span>This screen is scaffolded but the API it needs hasn't shipped yet.</span> }
+    </div>
+  </div>
+
+  @if (config.willDo && config.willDo.length > 0) {
+    <section class="card">
+      <h3>What this screen will do</h3>
+      <ul>
+        @for (item of config.willDo; track item) {
+          <li>{{ item }}</li>
+        }
+      </ul>
+    </section>
+  }
+
+  @if (config.currentAlternative) {
+    <section class="card">
+      <h3>Meanwhile</h3>
+      <p>{{ config.currentAlternative.text }}</p>
+      @if (config.currentAlternative.links && config.currentAlternative.links.length > 0) {
+        <ul class="link-list">
+          @for (l of config.currentAlternative.links; track l.path) {
+            <li><a [routerLink]="l.path">{{ l.label }} →</a></li>
+          }
+        </ul>
+      }
+    </section>
+  }
+</div>

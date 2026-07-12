@@ -37,8 +37,28 @@ public class ClaimLine {
     @Column("modifier_codes")
     private String modifierCodes;
 
+    /** Snapshot of {@link #tariffCode} at capture time, populated only
+     *  when the adjudicator overrode it. Null on unedited rows so the
+     *  current column stays the single source of truth for those. */
+    @Column("original_tariff_code")
+    private String originalTariffCode;
+
+    /** Snapshot of {@link #modifierCodes} at capture time — same
+     *  contract as {@link #originalTariffCode}. */
+    @Column("original_modifier_codes")
+    private String originalModifierCodes;
+
     @Column("currency_code")
     private String currencyCode;
+
+    /** Per-line adjudication state. Defaults to PENDING until an
+     *  adjudicator decides; then ACCEPTED or REJECTED. */
+    private String status;
+
+    /** Populated only when {@link #status} is REJECTED. Matches a code
+     *  from the tenant's rejection_reasons catalogue. */
+    @Column("rejection_reason")
+    private String rejectionReason;
 
     @CreatedDate
     @Column("created_at")
@@ -71,8 +91,20 @@ public class ClaimLine {
     public String getModifierCodes() { return modifierCodes; }
     public void setModifierCodes(String modifierCodes) { this.modifierCodes = modifierCodes; }
 
+    public String getOriginalTariffCode() { return originalTariffCode; }
+    public void setOriginalTariffCode(String originalTariffCode) { this.originalTariffCode = originalTariffCode; }
+
+    public String getOriginalModifierCodes() { return originalModifierCodes; }
+    public void setOriginalModifierCodes(String originalModifierCodes) { this.originalModifierCodes = originalModifierCodes; }
+
     public String getCurrencyCode() { return currencyCode; }
     public void setCurrencyCode(String currencyCode) { this.currencyCode = currencyCode; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public String getRejectionReason() { return rejectionReason; }
+    public void setRejectionReason(String rejectionReason) { this.rejectionReason = rejectionReason; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

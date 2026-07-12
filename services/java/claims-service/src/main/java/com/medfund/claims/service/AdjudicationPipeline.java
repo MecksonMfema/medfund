@@ -149,10 +149,14 @@ public class AdjudicationPipeline {
     // ---- Stage 1: Eligibility ----
 
     private Mono<StageResult> checkEligibility(Claim claim) {
-        if (claim.getMemberId() == null || claim.getProviderId() == null || claim.getSchemeId() == null) {
+        // The provider is never a hard requirement at the pipeline gate:
+        // every line either accepts a member-reimbursement claim (no
+        // provider) or forbids providers entirely (LIFE / DISABILITY —
+        // and those were caught at capture time). Only memberId and
+        // schemeId are structurally load-bearing here.
+        if (claim.getMemberId() == null || claim.getSchemeId() == null) {
             var missing = new ArrayList<String>();
             if (claim.getMemberId() == null) missing.add("memberId");
-            if (claim.getProviderId() == null) missing.add("providerId");
             if (claim.getSchemeId() == null) missing.add("schemeId");
             return Mono.just(new StageResult("Eligibility", false,
                 "R01: Eligibility failed — missing " + String.join(", ", missing)));

@@ -1,0 +1,48 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Automated CTC allocations</h1>
+      <p class="page-sub">
+        Rules-driven auto-allocation of cash-to-cardholder payments —
+        e.g. auto-split contributions across enrolled members at month-end.
+      </p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/claims/ctc/pending">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back to pending
+    </a>
+  </header>
+
+  <div class="callout">
+    <app-icon name="info" [size]="16"></app-icon>
+    <div>
+      <strong>Backend not yet available.</strong>
+      Automated CTC allocation rules require an auto-CTC rules controller
+      on the finance service, and hook-up to the contribution-lifecycle
+      Kafka topic. Neither ships yet — this page will surface the rule
+      editor and run history once they do.
+    </div>
+  </div>
+
+  <section class="card">
+    <h3>Manual flow (available today)</h3>
+    <p>
+      Record CTC allocations by hand under <a routerLink="/tenant/claims/ctc/add">New CTC payment</a>.
+      Pending rows appear under
+      <a routerLink="/tenant/claims/ctc/pending">Pending CTC payments</a> until you commit them —
+      committed rows post to the beneficiary's balance and drop into
+      <a routerLink="/tenant/claims/ctc/committed">Committed CTC payments</a>.
+    </p>
+  </section>
+
+  <section class="card">
+    <h3>What the rules engine will do</h3>
+    <ul>
+      <li>Trigger on <code>contribution.committed</code> events per tenant.</li>
+      <li>Auto-split into per-member CTC allocations by an operator-configured formula.</li>
+      <li>Skip members flagged excluded (waiver, terminated, out-of-scheme).</li>
+      <li>Batch commit at a schedule (nightly, weekly, or on-demand).</li>
+      <li>Emit a run summary to the operator inbox on each execution.</li>
+    </ul>
+  </section>
+</div>

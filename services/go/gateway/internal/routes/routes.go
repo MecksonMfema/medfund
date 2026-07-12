@@ -29,6 +29,9 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/members/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/dependants", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/dependants/*", proxy.Handler(cfg.UserServiceURL))
+	// Unified member + dependant typeahead used by the claim-capture UI.
+	app.All("/api/v1/beneficiaries", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/beneficiaries/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/providers", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/providers/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/groups", proxy.Handler(cfg.UserServiceURL))
@@ -93,6 +96,9 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/scheme-change-waiting-periods/*", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/statements", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/statements/*", proxy.Handler(cfg.ContribServiceURL))
+	// Per-(member|dependant) benefit utilization vs. scheme limits.
+	app.All("/api/v1/beneficiary-benefits", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/beneficiary-benefits/*", proxy.Handler(cfg.ContribServiceURL))
 
 	// ── Finance Service ───────────────────────────────────────────────────────
 	app.All("/api/v1/payments/*", proxy.Handler(cfg.FinanceServiceURL))

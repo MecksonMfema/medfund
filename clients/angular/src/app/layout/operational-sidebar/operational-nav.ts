@@ -8,8 +8,8 @@ import { PermissionKey } from '../../core/security/permissions';
  * <p>{@code exactMatch} = true forces routerLinkActive to use exact path
  * comparison instead of prefix. Set this on any item whose route is a
  * prefix of another sibling item's route — e.g. {@code /tenant/claims}
- * needs exactMatch because {@code /tenant/claims/drug} is a separate
- * item; without exact, both stay highlighted when on the drug subpath.
+ * needs exactMatch because {@code /tenant/claims/preauth} is a separate
+ * item; without exact, both stay highlighted when on the sub-path.
  *
  * <p>{@code featureFlag} ties an item's visibility to a tenant feature
  * toggle from {@code TenantService.tenant$}. The sidebar resolves the flag
@@ -117,8 +117,8 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
     items: [
       // exactMatch on the parent route — Drug Claims, Pre-Auth, Tariffs and
       // Tasks are all children that would otherwise keep this item highlighted.
-      { label: 'All Claims',         icon: 'file-medical',  route: '/tenant/claims',         permissions: ['claims:view'], exactMatch: true },
-      { label: 'Drug Claims',        icon: 'wallet',        route: '/tenant/claims/drug',    permissions: ['claims:view_drug'], featureFlag: 'drugClaims' },
+      { label: 'All Claims',         icon: 'file-medical',  route: '/tenant/claims',         permissions: ['claims:view', 'claims:view_drug'], exactMatch: true },
+      { label: 'Submit Claim',       icon: 'file-text',     route: '/tenant/claims/submit',  permissions: ['claims:create'] },
       { label: 'Pre-Authorizations', icon: 'check-circle',  route: '/tenant/claims/preauth', permissions: ['claims:manage_preauth'] },
       { label: 'Tariffs',            icon: 'banknote',      route: '/tenant/claims/tariffs', permissions: ['claims:manage_tariffs'] },
       { label: 'Tasks',              icon: 'clipboard',     route: '/tenant/claims/tasks',   permissions: ['claims:manage_tasks'] },

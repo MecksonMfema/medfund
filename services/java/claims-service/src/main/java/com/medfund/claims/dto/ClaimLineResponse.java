@@ -16,7 +16,11 @@ public record ClaimLineResponse(
         BigDecimal claimedAmount,
         BigDecimal approvedAmount,
         String modifierCodes,
+        String originalTariffCode,
+        String originalModifierCodes,
         String currencyCode,
+        String status,
+        String rejectionReason,
         Instant createdAt
 ) {
     public static ClaimLineResponse from(ClaimLine line) {
@@ -30,7 +34,11 @@ public record ClaimLineResponse(
                 line.getClaimedAmount(),
                 line.getApprovedAmount(),
                 line.getModifierCodes(),
+                line.getOriginalTariffCode(),
+                line.getOriginalModifierCodes(),
                 line.getCurrencyCode(),
+                line.getStatus(),
+                line.getRejectionReason(),
                 line.getCreatedAt()
         );
     }

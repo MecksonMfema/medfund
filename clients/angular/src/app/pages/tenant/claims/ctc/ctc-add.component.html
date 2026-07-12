@@ -1,0 +1,89 @@
+<div class="form-page">
+  <header class="page-header">
+    <div>
+      <h1>New CTC payment</h1>
+      <p class="page-sub">
+        Record a cash-to-cardholder allocation. Once created it lands under Pending
+        until you commit it — commits are irreversible.
+      </p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/claims/ctc/pending">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  <form (submit)="$event.preventDefault(); submit()" class="card">
+    <section class="section">
+      <h3 class="section-title">Beneficiary</h3>
+      <div class="radio-row">
+        <label class="radio">
+          <input type="radio" name="beneficiary" value="member"
+                 [(ngModel)]="beneficiary" (ngModelChange)="onBeneficiaryChange()" />
+          Member
+        </label>
+        <label class="radio">
+          <input type="radio" name="beneficiary" value="group"
+                 [(ngModel)]="beneficiary" (ngModelChange)="onBeneficiaryChange()" />
+          Group
+        </label>
+      </div>
+
+      @if (beneficiary === 'member') {
+        <label class="field">
+          <span class="field-label">Member *</span>
+          <app-entity-picker kind="member" [(value)]="memberId"
+                             placeholder="Search by member name…"></app-entity-picker>
+        </label>
+      } @else {
+        <label class="field">
+          <span class="field-label">Group *</span>
+          <app-entity-picker kind="group" [(value)]="groupId"
+                             placeholder="Search by group name…"></app-entity-picker>
+        </label>
+      }
+    </section>
+
+    <section class="section">
+      <h3 class="section-title">Amount</h3>
+      <div class="form-grid">
+        <label class="field">
+          <span class="field-label">Amount *</span>
+          <input type="number" step="0.01" min="0.01"
+                 [(ngModel)]="form.amount" name="amount"
+                 placeholder="0.00" required />
+        </label>
+        <label class="field">
+          <span class="field-label">Currency *</span>
+          <app-select
+            [(ngModel)]="form.currencyCode"
+            name="currencyCode"
+            required
+            [options]="currencyOptions"
+            placeholder="Pick a currency"
+          ></app-select>
+        </label>
+      </div>
+    </section>
+
+    <section class="section">
+      <h3 class="section-title">Reference</h3>
+      <label class="field">
+        <span class="field-label">Contribution ID (optional)</span>
+        <input type="text" [(ngModel)]="form.contributionId" name="contributionId"
+               placeholder="Link this CTC to a specific contribution" />
+      </label>
+    </section>
+
+    @if (formError) {
+      <div class="banner banner-error">{{ formError }}</div>
+    }
+
+    <div class="form-actions">
+      <a class="btn btn-default" routerLink="/tenant/claims/ctc/pending">Cancel</a>
+      <button type="submit" class="btn btn-primary" [disabled]="saving">
+        {{ saving ? 'Saving…' : 'Record CTC payment' }}
+      </button>
+    </div>
+  </form>
+</div>

@@ -1,0 +1,88 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>{{ pageTitle }}</h1>
+      <p class="page-sub">
+        Payments where a portion was withheld as tax before payout. Drawn from
+        approved / applied adjustments of type <code>TAX_WITHHELD</code>.
+      </p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/claims">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  <div class="summary-strip">
+    <app-stat-card label="Rows" [value]="filtered.length" icon="list" color="blue"></app-stat-card>
+    <app-stat-card
+      label="Withheld total"
+      [value]="totalAmount | currencyFormat:(currencyMix === 'Mixed' ? 'USD' : currencyMix)"
+      icon="dollar-sign"
+      color="green"
+    ></app-stat-card>
+    <app-stat-card label="Currency" [value]="currencyMix" icon="banknote" color="teal"></app-stat-card>
+  </div>
+
+  <div class="filters">
+    <input type="text" class="search-input"
+           [(ngModel)]="q"
+           placeholder="Filter by adjustment #, reason, provider or member…" />
+    <app-select
+      [(ngModel)]="statusFilter"
+      name="status"
+      [options]="statusOptions"
+      (selectionChange)="onStatusChange()"
+      placeholder="All statuses"
+      size="sm"
+    ></app-select>
+    <button type="button" class="btn btn-default" (click)="refresh()">Refresh</button>
+  </div>
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (filtered.length === 0) {
+    <p class="empty-state">
+      No tax-withheld records match your filters.
+    </p>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Adjustment #</th>
+          <th>Beneficiary</th>
+          <th class="right">Amount</th>
+          <th>Currency</th>
+          <th>Status</th>
+          <th>Reason</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of filtered; track row.id) {
+          <tr>
+            <td><code>{{ row.adjustmentNumber }}</code></td>
+            <td>
+              @if (row.providerId) {
+                <span class="tag tag-provider">Provider</span>
+                <code>{{ row.providerId }}</code>
+              } @else if (row.memberId) {
+                <span class="tag tag-member">Member</span>
+                <code>{{ row.memberId }}</code>
+              } @else {
+                <span class="muted">—</span>
+              }
+            </td>
+            <td class="right">{{ row.amount | currencyFormat:row.currencyCode }}</td>
+            <td>{{ row.currencyCode }}</td>
+            <td>
+              <span class="status-badge status-{{ row.status.toLowerCase() }}">{{ row.status | humanize }}</span>
+            </td>
+            <td class="muted">{{ row.reason || '—' }}</td>
+            <td>{{ row.createdAt | date:'mediumDate' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</div>

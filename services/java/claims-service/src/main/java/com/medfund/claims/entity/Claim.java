@@ -38,6 +38,15 @@ public class Claim {
     @Column("claim_type")
     private String claimType;
 
+    @Column("insurance_line")
+    private String insuranceLine;
+
+    /** Optional per-claim tag for capture flows that group related
+     *  claims. Null for ad-hoc single-claim submissions. Never
+     *  server-generated — the operator types it or leaves it blank. */
+    @Column("batch_number")
+    private String batchNumber;
+
     private String status;
 
     @Column("service_date")
@@ -98,6 +107,12 @@ public class Claim {
     @Column("updated_by")
     private UUID updatedBy;
 
+    /** JSON array of {@code ClaimAttachment} metadata captured at
+     *  submission. Nullable — most claims won't carry attachments,
+     *  and an empty array is stored as NULL to keep the row tight. */
+    @Column("attachments_json")
+    private String attachmentsJson;
+
     // Getters and setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -122,6 +137,12 @@ public class Claim {
 
     public String getClaimType() { return claimType; }
     public void setClaimType(String claimType) { this.claimType = claimType; }
+
+    public String getInsuranceLine() { return insuranceLine; }
+    public void setInsuranceLine(String insuranceLine) { this.insuranceLine = insuranceLine; }
+
+    public String getBatchNumber() { return batchNumber; }
+    public void setBatchNumber(String batchNumber) { this.batchNumber = batchNumber; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
@@ -182,4 +203,7 @@ public class Claim {
 
     public UUID getUpdatedBy() { return updatedBy; }
     public void setUpdatedBy(UUID updatedBy) { this.updatedBy = updatedBy; }
+
+    public String getAttachmentsJson() { return attachmentsJson; }
+    public void setAttachmentsJson(String attachmentsJson) { this.attachmentsJson = attachmentsJson; }
 }

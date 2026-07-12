@@ -41,7 +41,7 @@ class ClaimEventPublisherTest {
     void publishClaimSubmitted_sendsToCorrectTopic() {
         when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
 
-        StepVerifier.create(claimEventPublisher.publishClaimSubmitted("clm-1", "CLM-123", "mbr-1"))
+        StepVerifier.create(claimEventPublisher.publishClaimSubmitted("clm-1", "CLM-123", "mbr-1", "HEALTH"))
                 .verifyComplete();
 
         verify(kafkaSender).send(senderRecordCaptor.capture());
@@ -52,6 +52,32 @@ class ClaimEventPublisherTest {
                     assertThat(record.key()).isEqualTo("clm-1");
                     assertThat(record.value()).contains("CLAIM_SUBMITTED");
                     assertThat(record.value()).contains("CLM-123");
+                    // insuranceLine must ride on every claim event so
+                    // downstream consumers can route without a scheme lookup.
+                    assertThat(record.value()).contains("HEALTH");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void publishClaimCaptured_sendsToCorrectTopic() {
+        // Emitted only for the preVerified=true capture path — pins the
+        // topic name so downstream "ready-for-adjudication" consumers
+        // stay wired.
+        when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
+
+        StepVerifier.create(claimEventPublisher.publishClaimCaptured("clm-2", "CLM-777", "mbr-9", "VEHICLE"))
+                .verifyComplete();
+
+        verify(kafkaSender).send(senderRecordCaptor.capture());
+
+        StepVerifier.create(senderRecordCaptor.getValue())
+                .assertNext(record -> {
+                    assertThat(record.topic()).isEqualTo("medfund.claims.captured");
+                    assertThat(record.key()).isEqualTo("clm-2");
+                    assertThat(record.value()).contains("CLAIM_CAPTURED");
+                    assertThat(record.value()).contains("VEHICLE");
                 })
                 .verifyComplete();
     }
@@ -61,7 +87,7 @@ class ClaimEventPublisherTest {
     void publishClaimAdjudicated_sendsToCorrectTopic() {
         when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
 
-        StepVerifier.create(claimEventPublisher.publishClaimAdjudicated("clm-1", "CLM-123", "APPROVED", "prov-1", "500.00", "USD"))
+        StepVerifier.create(claimEventPublisher.publishClaimAdjudicated("clm-1", "CLM-123", "APPROVED", "prov-1", "500.00", "USD", "HEALTH"))
                 .verifyComplete();
 
         verify(kafkaSender).send(senderRecordCaptor.capture());
@@ -81,7 +107,7 @@ class ClaimEventPublisherTest {
     void publishClaimStatusChanged_sendsToCorrectTopic() {
         when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
 
-        StepVerifier.create(claimEventPublisher.publishClaimStatusChanged("clm-1", "PAID"))
+        StepVerifier.create(claimEventPublisher.publishClaimStatusChanged("clm-1", "PAID", "HEALTH"))
                 .verifyComplete();
 
         verify(kafkaSender).send(senderRecordCaptor.capture());

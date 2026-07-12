@@ -17,6 +17,21 @@ public interface DependantRepository extends R2dbcRepository<Dependant, UUID> {
     Flux<Dependant> findByMemberIdAndStatus(UUID memberId, String status);
 
     /**
+     * Case-insensitive substring search on first name, last name, or
+     * member number. Mirrors {@code MemberRepository.search} so the
+     * unified beneficiary search endpoint composes results from both
+     * tables with the same matching rules.
+     */
+    @Query("""
+            SELECT * FROM dependants
+             WHERE LOWER(first_name)  LIKE LOWER(CONCAT('%', :query, '%'))
+                OR LOWER(last_name)   LIKE LOWER(CONCAT('%', :query, '%'))
+                OR member_number      LIKE CONCAT('%', :query, '%')
+             ORDER BY last_name, first_name
+            """)
+    Flux<Dependant> search(String query);
+
+    /**
      * Existence check for the new {@code member_number} column. Mirrors
      * {@code MemberRepository.existsByMemberNumber} so the cross-table
      * uniqueness guard in MemberNumberService can OR the two repos.

@@ -53,6 +53,29 @@ export interface GroupOption {
   registrationNumber?: string;
 }
 
+/**
+ * Per-(member or dependant, benefit, policy year) utilization row.
+ * Denormalised on the backend so the response carries the benefit's
+ * name + limits inline — one round trip per beneficiary is enough for
+ * the claim-detail utilization strip.
+ */
+export interface BeneficiaryBenefitUtilization {
+  id: string;
+  memberId: string;
+  dependantId?: string | null;
+  benefitId: string;
+  benefitName: string | null;
+  benefitType: string | null;
+  policyYear: number;
+  annualLimit?: string | null;
+  eventLimit?: string | null;
+  dailyLimit?: string | null;
+  waitingPeriodDays?: number | null;
+  consumedAmount: string;
+  consumedCount: number;
+  currencyCode: string;
+}
+
 export interface SchemeBenefit {
   id: string;
   schemeId: string;
@@ -481,6 +504,17 @@ export class ContributionsService {
   }
 
   // ── Scheme benefits ──
+  /** Per-beneficiary utilization vs. scheme limits. Powers the claim-
+   *  detail "used $180 of $500" strip. Pass memberId alone for the
+   *  member's own rows; add dependantId to scope to a dependant. */
+  getBeneficiaryUtilization(memberId: string, dependantId?: string | null,
+                              policyYear?: number): Observable<BeneficiaryBenefitUtilization[]> {
+    const params: Record<string, string> = { memberId };
+    if (dependantId) params['dependantId'] = dependantId;
+    if (policyYear) params['policyYear'] = String(policyYear);
+    return this.api.get<BeneficiaryBenefitUtilization[]>('/beneficiary-benefits/for', params);
+  }
+
   getBenefitsByScheme(schemeId: string): Observable<SchemeBenefit[]> {
     return this.api.get<SchemeBenefit[]>(`/schemes/${schemeId}/benefits`);
   }

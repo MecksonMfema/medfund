@@ -16,18 +16,37 @@ import { GroupsService, Group } from '../../../core/services/groups.service';
 import { MembersService, Member } from '../../../core/services/members.service';
 import { ProvidersService, Provider } from '../../../core/services/providers.service';
 
-export type EntityKind = 'provider' | 'member' | 'group' | 'scheme';
+export type EntityKind = 'provider' | 'member' | 'group' | 'scheme' | 'beneficiary';
 
 export interface EntityPickerSelection {
   id: string;
   label: string;
   sublabel?: string;
+  /** Present only for kind='beneficiary'. Lets the caller distinguish
+   *  a picked member from a picked dependant and, for dependants,
+   *  route the sponsor's ID into the payload's memberId slot. */
+  beneficiary?: BeneficiaryPick;
+}
+
+/** Extra fields the beneficiary typeahead threads through the picker
+ *  so the caller can build (memberId, dependantId) without re-fetching. */
+export interface BeneficiaryPick {
+  kind: 'MEMBER' | 'DEPENDANT';
+  /** The picked member's ID (kind=MEMBER) or the picked dependant's
+   *  sponsor ID (kind=DEPENDANT). Goes on the claim's memberId slot. */
+  memberId: string;
+  /** The picked dependant's ID. Null for kind=MEMBER. Goes on the
+   *  claim's dependantId slot. */
+  dependantId: string | null;
+  sponsorName?: string;
+  sponsorMemberNumber?: string;
 }
 
 interface Suggestion {
   id: string;
   label: string;
   sublabel?: string;
+  beneficiary?: BeneficiaryPick;
 }
 
 /**
@@ -181,7 +200,7 @@ export class EntityPickerComponent implements OnInit, OnChanges, ControlValueAcc
     this.editing = false;
     this.onChange(s.id);
     this.valueChange.emit(s.id);
-    this.selected.emit({ id: s.id, label: s.label, sublabel: s.sublabel });
+    this.selected.emit({ id: s.id, label: s.label, sublabel: s.sublabel, beneficiary: s.beneficiary });
     this.onTouched();
   }
 
@@ -274,15 +293,40 @@ export class EntityPickerComponent implements OnInit, OnChanges, ControlValueAcc
             })),
           )),
         );
+      case 'beneficiary':
+        return this.membersService.searchBeneficiaries(term).pipe(
+          switchMap(rows => of<Suggestion[]>(
+            rows.map(b => ({
+              id: b.id,
+              label: `${b.firstName} ${b.lastName}`.trim(),
+              // The badge in the sublabel is the operator's cue for
+              // whether this hit is a primary or a dependant — matches
+              // the mockup we agreed on ("MEM · MBR-000123" vs
+              // "DEP of MBR-000201 — Tapiwa Zulu").
+              sublabel: b.kind === 'MEMBER'
+                ? `MEM · ${b.memberNumber ?? ''}`
+                : `DEP · ${b.memberNumber ?? ''}${b.sponsorMemberNumber ? ' — ' + b.sponsorMemberNumber : ''}`
+                    + (b.sponsorName ? ` (${b.sponsorName})` : ''),
+              beneficiary: {
+                kind: b.kind,
+                memberId: b.kind === 'MEMBER' ? b.id : (b.sponsorId ?? b.id),
+                dependantId: b.kind === 'DEPENDANT' ? b.id : null,
+                sponsorName: b.sponsorName,
+                sponsorMemberNumber: b.sponsorMemberNumber,
+              },
+            })),
+          )),
+        );
     }
   }
 
   private defaultPlaceholder(): string {
     switch (this.kind) {
-      case 'provider': return 'Search by provider name…';
-      case 'member': return 'Search by member name…';
-      case 'group': return 'Search by group name…';
-      case 'scheme': return 'Search by scheme name…';
+      case 'provider':     return 'Search by provider name…';
+      case 'member':       return 'Search by member name…';
+      case 'group':        return 'Search by group name…';
+      case 'scheme':       return 'Search by scheme name…';
+      case 'beneficiary':  return 'Search member or dependant…';
     }
   }
 }

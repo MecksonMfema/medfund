@@ -1,0 +1,100 @@
+.page { padding: 1.5rem; }
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+.page-header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
+.page-sub { margin: 0; color: var(--color-text-muted, #6b7280); font-size: 0.9rem; max-width: 70ch; }
+.page-sub a { color: var(--color-primary, #0077b6); }
+
+.filters {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 240px;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--color-border, #d1d5db);
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.9rem;
+}
+
+.empty-state {
+  color: var(--color-text-muted, #6b7280);
+  font-style: italic;
+  padding: 2rem 0;
+  text-align: center;
+}
+.empty-state.small { padding: 1rem 0; }
+
+.scheme-card {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border-light, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  padding: 1rem 1.25rem 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.scheme-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.scheme-card-header h2 { margin: 0 0 0.15rem; font-size: 1.1rem; }
+.scheme-card-header .muted { margin: 0; color: var(--color-text-muted, #6b7280); font-size: 0.85rem; }
+
+.link {
+  font-size: 0.85rem;
+  color: var(--color-primary, #0077b6);
+  text-decoration: none;
+}
+.link:hover { text-decoration: underline; }
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-light, #e5e7eb);
+  font-size: 0.85rem;
+}
+
+.data-table th {
+  color: var(--color-text-muted, #6b7280);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.right { text-align: right; }
+.muted { color: var(--color-text-muted, #6b7280); }
+
+.chip {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  background: var(--success-bg, #d1fae5);
+  color: var(--success-fg, #065f46);
+}
+.chip-warn { background: var(--warning-bg, #fef3c7); color: var(--warning-fg, #92400e); }

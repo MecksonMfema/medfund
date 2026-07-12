@@ -5,6 +5,28 @@ import { PermissionKey } from '../../../core/security/permissions';
 const loadComingSoon = () =>
   import('../../../shared/components/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent);
 
+const loadRoadmap = () =>
+  import('../../../shared/components/roadmap-placeholder/roadmap-placeholder.component').then(m => m.RoadmapPlaceholderComponent);
+
+/**
+ * Route factory for a feature whose UI is scaffolded but which is
+ * blocked on a backend endpoint that hasn't shipped. Renders the
+ * {@link RoadmapPlaceholderComponent} with a "will do / meanwhile"
+ * layout.
+ */
+const rm = (
+  path: string,
+  title: string,
+  description: string,
+  perms: PermissionKey[],
+  roadmap: { blockedBy?: string; willDo?: string[]; currentAlternative?: { text: string; links?: { label: string; path: string }[] } },
+): import('@angular/router').Route => ({
+  path,
+  canActivate: [permissionGuard(perms)],
+  loadComponent: loadRoadmap,
+  data: { title, description, sidebar: 'operational', roadmap },
+});
+
 /**
  * Claims domain — reproduces the route shape of the legacy
  * {@code Masca-Claims-Admin/src/App.js} so devs can map old screens to new
@@ -34,7 +56,7 @@ export const CLAIMS_ROUTES: Routes = [
     path: '',
     canActivate: [permissionGuard(['claims:view'])],
     loadComponent: () => import('../../claims/claims.component').then(m => m.ClaimsComponent),
-    data: { title: 'Claims', sidebar: 'operational' },
+    data: { title: 'Claims', sidebar: 'operational', fullbleed: true },
   },
 
   // ── Claims pipeline ────────────────────────────────────────────────────────
@@ -54,12 +76,6 @@ export const CLAIMS_ROUTES: Routes = [
       presetStatus: 'VERIFIED',
       sidebar: 'operational',
     },
-  },
-  {
-    path: ':id',
-    canActivate: [permissionGuard(['claims:view'])],
-    loadComponent: () => import('./detail/claim-detail.component').then(m => m.ClaimDetailComponent),
-    data: { title: 'Claim Detail', sidebar: 'operational' },
   },
   {
     path: 'rejected',
@@ -85,63 +101,31 @@ export const CLAIMS_ROUTES: Routes = [
     loadComponent: () => import('./submit/submit-claim.component').then(m => m.SubmitClaimComponent),
     data: { title: 'Submit Claim', sidebar: 'operational' },
   },
-  cs('credit',         'Credit Claim',        '/create-credit-claim', 'Process refund / credit claims.',                           ['claims:create']),
+  {
+    path: 'credit',
+    canActivate: [permissionGuard(['claims:create'])],
+    loadComponent: () => import('./submit/submit-claim.component').then(m => m.SubmitClaimComponent),
+    data: { title: 'Credit Claim', description: 'Process refund / credit claims.', presetClaimType: 'credit', sidebar: 'operational' },
+  },
   {
     path: 'search',
     canActivate: [permissionGuard(['claims:view'])],
     loadComponent: () => import('./lookups/member-lookup.component').then(m => m.MemberLookupComponent),
     data: { title: 'Search Member Claims', sidebar: 'operational' },
   },
-  cs('tax-withheld',   'Tax-Withheld Claims', '/tax-with-held-claims','Claims with tax deduction applied.',                       ['claims:view', 'finance:view_withheld_tax']),
-
-  // ── Drug claims ────────────────────────────────────────────────────────────
-  // Drug claims share the Claim entity with claim_type='drug' — the existing
-  // pending-claims-list filters by both status and claim type via route data.
   {
-    path: 'drug',
-    canActivate: [permissionGuard(['claims:view_drug'])],
-    loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
-    data: { title: 'Drug Claims', description: 'Pharmaceutical claims, all statuses.', presetClaimType: 'drug', sidebar: 'operational' },
+    path: 'tax-withheld',
+    canActivate: [permissionGuard(['claims:view', 'finance:view_withheld_tax'])],
+    loadComponent: () => import('./tax-withheld/tax-withheld-list.component').then(m => m.TaxWithheldListComponent),
+    data: { title: 'Tax-Withheld Claims', variant: 'medical', sidebar: 'operational' },
   },
-  {
-    path: 'drug/pending',
-    canActivate: [permissionGuard(['claims:view_drug'])],
-    loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
-    data: { title: 'Pending Drug Claims', description: 'Drug claims awaiting adjudication.', presetClaimType: 'drug', presetStatus: 'VERIFIED', sidebar: 'operational' },
-  },
-  {
-    path: 'drug/rejected',
-    canActivate: [permissionGuard(['claims:view_drug'])],
-    loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
-    data: { title: 'Rejected Drug Claims', description: 'Denied pharmaceutical claims.', presetClaimType: 'drug', presetStatus: 'REJECTED', sidebar: 'operational' },
-  },
-  {
-    path: 'drug/captured',
-    canActivate: [permissionGuard(['claims:view_drug'])],
-    loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
-    data: { title: 'Captured Drug Claims', description: 'Recently submitted drug claims.', presetClaimType: 'drug', presetStatus: 'SUBMITTED', sidebar: 'operational' },
-  },
-  {
-    path: 'drug/staged',
-    canActivate: [permissionGuard(['claims:view_drug'])],
-    loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
-    data: { title: 'Staged Drug Claims', description: 'Drug claims pending info.', presetClaimType: 'drug', presetStatus: 'PENDING_INFO', sidebar: 'operational' },
-  },
-  {
-    path: 'drug/search',
-    canActivate: [permissionGuard(['claims:view_drug'])],
-    loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
-    data: { title: 'Search Drug Claims', description: 'All drug claims; use the search box to filter by claim # or notes.', presetClaimType: 'drug', sidebar: 'operational' },
-  },
-  {
-    path: 'drug/submit',
-    canActivate: [permissionGuard(['claims:create_drug'])],
-    loadComponent: () => import('./submit/submit-claim.component').then(m => m.SubmitClaimComponent),
-    data: { title: 'Submit Drug Claim', sidebar: 'operational' },
-  },
-  cs('drug/tax-withheld',   'Tax-Withheld Drug Claims', '/tax-with-held-drugclaims', 'Drug claims with tax deduction.',          ['claims:view_drug', 'finance:view_withheld_tax']),
 
   // ── Pre-authorisation ──────────────────────────────────────────────────────
+  // NOTE: The catch-all ":id" claim-detail route lives at the bottom of
+  // this file so literal segments (submit, credit, search, preauth, …)
+  // resolve first. Placing it above any of those made the router treat
+  // "submit" as a UUID and fire GET /api/v1/claims/submit — see the
+  // 2026-07-11 bug when Submit Claim was wired.
   {
     path: 'preauth',
     canActivate: [permissionGuard(['claims:manage_preauth'])],
@@ -160,44 +144,11 @@ export const CLAIMS_ROUTES: Routes = [
     loadComponent: () => import('./preauth/pre-auth-detail.component').then(m => m.PreAuthDetailComponent),
     data: { title: 'Pre-Auth Detail', sidebar: 'operational' },
   },
-  // Drug pre-auths share the pre_authorizations table — tariff_code holds the
-  // drug's tariff and diagnosis_code holds the indication. Same components.
-  {
-    path: 'drug/preauth',
-    canActivate: [permissionGuard(['claims:manage_drug_preauth'])],
-    loadComponent: () => import('./preauth/pre-auth-form.component').then(m => m.PreAuthFormComponent),
-    data: { title: 'New Drug Pre-Auth', sidebar: 'operational' },
-  },
-  {
-    path: 'drug/preauth/list',
-    canActivate: [permissionGuard(['claims:manage_drug_preauth'])],
-    loadComponent: () => import('./preauth/pre-auth-list.component').then(m => m.PreAuthListComponent),
-    data: { title: 'Drug Pre-Auth List', sidebar: 'operational' },
-  },
-
   // ── Verification ───────────────────────────────────────────────────────────
-  // All three verification entrypoints land on the same component — the
-  // claim-level verificationCode is generated server-side at submission, so
-  // there's no separate "issue a code" flow today; the page focuses on the
-  // front-desk lookup + confirm workflow.
-  {
-    path: 'verification-codes',
-    canActivate: [permissionGuard(['claims:manage_verification_codes'])],
-    loadComponent: () => import('./verification/verification-codes.component').then(m => m.VerificationCodesComponent),
-    data: { title: 'Verify Claim', sidebar: 'operational' },
-  },
-  {
-    path: 'request-code',
-    canActivate: [permissionGuard(['claims:manage_verification_codes'])],
-    loadComponent: () => import('./verification/verification-codes.component').then(m => m.VerificationCodesComponent),
-    data: { title: 'Verify Claim', sidebar: 'operational' },
-  },
-  {
-    path: 'preverification',
-    canActivate: [permissionGuard(['claims:verify'])],
-    loadComponent: () => import('./verification/verification-codes.component').then(m => m.VerificationCodesComponent),
-    data: { title: 'Verify Claim', sidebar: 'operational' },
-  },
+  // Removed on 2026-07-11 — operator submissions land VERIFIED at capture
+  // time, so the front-desk read-back-a-code page no longer has a job.
+  // When the provider portal ships and providers self-capture, the
+  // verification flow (and this page) will come back for those claims.
 
   // ── Configuration (tariffs, modifiers, rejection reasons, ICD) ────────────
   {
@@ -248,7 +199,12 @@ export const CLAIMS_ROUTES: Routes = [
     loadComponent: () => import('./icd-codes/icd-codes-search.component').then(m => m.IcdCodesSearchComponent),
     data: { title: 'ICD-10 Codes', sidebar: 'operational' },
   },
-  cs('scheme-limits',          'Scheme Limits',       '/scheme-limits',          'View per-scheme benefit caps.',                ['claims:view']),
+  {
+    path: 'scheme-limits',
+    canActivate: [permissionGuard(['claims:view'])],
+    loadComponent: () => import('./scheme-limits/scheme-limits.component').then(m => m.SchemeLimitsComponent),
+    data: { title: 'Scheme Limits', description: 'Read-only per-scheme benefit caps.', sidebar: 'operational' },
+  },
 
   // ── Lookups ────────────────────────────────────────────────────────────────
   {
@@ -280,24 +236,142 @@ export const CLAIMS_ROUTES: Routes = [
     redirectTo: '/tenant/billing/group-charge',
     pathMatch: 'full' as const,
   },
-  cs('special-waivers',        'Special Waivers',      '/special-waivers',     'Override benefit limits per member.',['members:manage_waivers']),
+  rm('special-waivers',
+    'Special waivers',
+    'Grant a member a one-off override on scheme limits, waiting periods, or age gates.',
+    ['members:manage_waivers'],
+    {
+      blockedBy: 'Needs a WaiverController on user-service (or a member.hasWaiver toggle endpoint) that the rules-engine can read from the MemberFact.',
+      willDo: [
+        'List active waivers by member with expiry dates.',
+        'Grant a waiver with a reason, effective date, and expiry.',
+        'Revoke a waiver early if operator granted it in error.',
+        'Emit an audit event on every grant / revoke so compliance can review.',
+      ],
+      currentAlternative: {
+        text: 'Right now the rules-engine reads a hasWaiver boolean on MemberFact — surface exceptions via a tenant-scoped rule rather than a per-member override.',
+        links: [
+          { label: 'Rules', path: '/tenant/admin/rules' },
+          { label: 'Members', path: '/tenant/members' },
+        ],
+      },
+    }),
 
   // ── Tasks ──────────────────────────────────────────────────────────────────
-  cs('tasks/incomplete',       'Incomplete Tasks',         '/incomplete-tasks',                'Open work items.',                       ['claims:manage_tasks']),
-  cs('tasks/complete',         'Completed Tasks',          '/complete-tasks',                  'Finished work items.',                   ['claims:manage_tasks']),
-  cs('tasks/add',              'Add Task',                 '/add-task',                        'Create a new work item.',                ['claims:manage_tasks']),
-  cs('tasks/assign',           'Assign Claims',            '/assign-claims',                   'Allocate claims to staff.',              ['claims:assign']),
-  cs('tasks/assign/drug',      'Assign Drug Claims',       '/assign-drug-claims',              'Allocate drug claims to staff.',         ['claims:assign']),
-  cs('tasks/user/incomplete',  'My Incomplete Tasks',      '/user-incomplete-tasks',           'My open assignments.',                   ['claims:manage_tasks']),
-  cs('tasks/user/claims',      'My Claim Tasks',           '/claims-user-incomplete-tasks',    'Staff-specific claim tasks.',            ['claims:manage_tasks']),
-  cs('tasks/user/drugs',       'My Drug Tasks',            '/drugs-user-incomplete-tasks',     'Staff-specific drug tasks.',             ['claims:manage_tasks']),
-  cs('tasks/user/complete',    'My Completed Tasks',       '/user-complete-tasks',             'Staff finished work.',                   ['claims:manage_tasks']),
+  // All 9 task routes share the same "blocked on TaskController" story;
+  // they render the roadmap placeholder with a title tailored per route.
+  rm('tasks/incomplete',
+    'Incomplete tasks',
+    'Open work items across the claims team.',
+    ['claims:manage_tasks'],
+    {
+      blockedBy: 'Needs a TaskController on claims-service with @GetMapping("/tasks?status=OPEN") and a Kafka-driven task queue.',
+      willDo: [
+        'List every open task with owner, priority, due date, and linked claim.',
+        'Bulk-assign, reassign, or drop tasks in one click.',
+        'Filter by owner, batch, claim type, or SLA breach.',
+      ],
+      currentAlternative: {
+        text: 'Until the task queue ships, adjudicators pick claims directly from the pending / staged lists.',
+        links: [
+          { label: 'Pending claims', path: '/tenant/claims/pending' },
+          { label: 'Staged claims', path: '/tenant/claims/staged' },
+        ],
+      },
+    }),
+  rm('tasks/complete',
+    'Completed tasks',
+    'Historical view of finished claim adjudication tasks.',
+    ['claims:manage_tasks'],
+    {
+      blockedBy: 'Needs a TaskController with @GetMapping("/tasks?status=DONE") and a retention policy.',
+      willDo: ['Filterable audit trail of finished tasks by owner, batch, and completion date.'],
+      currentAlternative: {
+        text: 'For now, the accepted / rejected claim lists carry the same trail via adjudicatedBy + adjudicatedAt.',
+        links: [
+          { label: 'Accepted claims', path: '/tenant/claims/accepted' },
+          { label: 'Rejected claims', path: '/tenant/claims/rejected' },
+        ],
+      },
+    }),
+  rm('tasks/add',
+    'Create task',
+    'Log a new ad-hoc work item — follow-ups, escalations, provider queries.',
+    ['claims:manage_tasks'],
+    {
+      blockedBy: 'Needs POST /tasks on claims-service.',
+      willDo: [
+        'Capture subject, priority, due date, assignee, and optional linked claim.',
+        'Emit a task-created event so the assignee gets a notification.',
+      ],
+    }),
+  rm('tasks/assign',
+    'Assign claims',
+    'Batch-assign a set of claims to two adjudicators for dual review.',
+    ['claims:assign'],
+    {
+      blockedBy: 'Needs POST /claims/assign on claims-service that takes a batch + adjudicator pair and splits the claims evenly.',
+      willDo: [
+        'Pick a batch (from the staged list) and two adjudicators.',
+        'Split the batch 50/50 by default, with an override to weight one adjudicator higher.',
+        'Emit assignment events so each adjudicator sees the claims in their queue.',
+      ],
+      currentAlternative: {
+        text: 'For now, all claim work is unassigned — anyone with claims:adjudicate can pick from the staged list.',
+        links: [{ label: 'Staged claims', path: '/tenant/claims/staged' }],
+      },
+    }),
+  rm('tasks/user/incomplete',
+    'My incomplete tasks',
+    'Your assigned but not-yet-completed work.',
+    ['claims:manage_tasks'],
+    {
+      blockedBy: 'Needs GET /tasks?owner=me&status=OPEN.',
+    }),
+  rm('tasks/user/claims',
+    'My claim tasks',
+    'Claims currently assigned to you for adjudication.',
+    ['claims:manage_tasks'],
+    {
+      blockedBy: 'Needs GET /tasks?owner=me&entity=claim.',
+      currentAlternative: {
+        text: 'Adjudicators currently pick from the shared pending queue.',
+        links: [{ label: 'Pending claims', path: '/tenant/claims/pending' }],
+      },
+    }),
+  rm('tasks/user/complete',
+    'My completed tasks',
+    'Everything you\'ve wrapped up.',
+    ['claims:manage_tasks'],
+    {
+      blockedBy: 'Needs GET /tasks?owner=me&status=DONE.',
+    }),
 
-  // ── CTC payments (Cost-To-Cure) ───────────────────────────────────────────
-  cs('ctc/pending',            'Pending CTC Payments',     '/pending-ctc-payments',     'Cost-to-cure allocations awaiting commit.',     ['claims:view_ctc_payments']),
-  cs('ctc/committed',          'Committed CTC Payments',   '/committed-ctc-payments',   'Allocated cost-to-cure payments.',              ['claims:view_ctc_payments']),
-  cs('ctc/add',                'Add CTC Payment',          '/add-ctc-payment',          'Create a cost-to-cure allocation.',             ['claims:commit_ctc_payment']),
-  cs('ctc/auto',               'Auto CTC Payments',        '/auto-ctc-payments',        'Automated CTC allocation rules.',                ['claims:view_ctc_payments']),
+  // ── CTC payments (Cash-To-Cardholder) ─────────────────────────────────────
+  {
+    path: 'ctc/pending',
+    canActivate: [permissionGuard(['claims:view_ctc_payments'])],
+    loadComponent: () => import('./ctc/ctc-list.component').then(m => m.CtcListComponent),
+    data: { title: 'Pending CTC Payments', description: 'Cash-to-cardholder allocations awaiting commit.', committed: false, sidebar: 'operational' },
+  },
+  {
+    path: 'ctc/committed',
+    canActivate: [permissionGuard(['claims:view_ctc_payments'])],
+    loadComponent: () => import('./ctc/ctc-list.component').then(m => m.CtcListComponent),
+    data: { title: 'Committed CTC Payments', description: 'Allocated cash-to-cardholder payments.', committed: true, sidebar: 'operational' },
+  },
+  {
+    path: 'ctc/add',
+    canActivate: [permissionGuard(['claims:commit_ctc_payment'])],
+    loadComponent: () => import('./ctc/ctc-add.component').then(m => m.CtcAddComponent),
+    data: { title: 'Add CTC Payment', sidebar: 'operational' },
+  },
+  {
+    path: 'ctc/auto',
+    canActivate: [permissionGuard(['claims:view_ctc_payments'])],
+    loadComponent: () => import('./ctc/ctc-auto.component').then(m => m.CtcAutoComponent),
+    data: { title: 'Auto CTC Payments', sidebar: 'operational' },
+  },
 
   // ── Drug inventory ─────────────────────────────────────────────────────────
   {
@@ -320,5 +394,34 @@ export const CLAIMS_ROUTES: Routes = [
   },
 
   // ── Provider registration requests ─────────────────────────────────────────
-  cs('registration-requests',  'Provider Registration Requests', '/registration-requests', 'New provider applications awaiting review.', ['providers:create']),
+  rm('registration-requests',
+    'Provider registration requests',
+    'New provider applications awaiting review.',
+    ['providers:create'],
+    {
+      blockedBy: 'Needs a RegistrationRequestController on user-service (or a provider.status=PENDING_APPROVAL filter endpoint).',
+      willDo: [
+        'List provider applications with contact info, registration #, and supporting documents.',
+        'Approve → creates the Provider row and notifies the applicant.',
+        'Reject → captures a reason and notifies the applicant.',
+      ],
+      currentAlternative: {
+        text: 'Right now, operators onboard providers directly under Providers → Create.',
+        links: [{ label: 'Providers', path: '/tenant/providers' }],
+      },
+    }),
+
+  // ── Claim detail (catch-all — MUST stay last) ─────────────────────────────
+  // A `:id` route matches every literal segment above it, so keeping this
+  // at the bottom is load-bearing. Moving it up made /tenant/claims/submit
+  // resolve to the detail component and fire GET /api/v1/claims/submit.
+  {
+    path: ':id',
+    // ANY-of: drug-only adjudicators (claims:view_drug without claims:view)
+    // must still open the detail page for the drug rows the unified list
+    // shows them.
+    canActivate: [permissionGuard(['claims:view', 'claims:view_drug'])],
+    loadComponent: () => import('./detail/claim-detail.component').then(m => m.ClaimDetailComponent),
+    data: { title: 'Claim Detail', sidebar: 'operational' },
+  },
 ];

@@ -1,45 +1,36 @@
 <header class="page-header">
-  <h1>Claims Management</h1>
+  <div>
+    <h1>Claims</h1>
+    <p class="page-sub">Every claim in the tenant. Filter by type, search by claim number, and open a row for the full adjudication view.</p>
+  </div>
 </header>
 
-<div class="chart-card">
-  <div class="chart-header">
-    <h3>Total number of claims each month</h3>
-    <span class="chart-period">Last 12 months</span>
-  </div>
-  <div class="chart-body">
-    <app-area-chart
-      [data]="monthlyClaimsData"
-      xAxisLabel="Month"
-      yAxisLabel="Claims"
-      [yScaleMax]="monthlyClaimsMax"
-    ></app-area-chart>
-  </div>
-</div>
+@if (showTabs) {
+  <nav class="scheme-tabs" role="tablist" aria-label="Filter claims by type">
+    @for (tab of typeTabs; track tab.value) {
+      <button
+        type="button"
+        role="tab"
+        class="scheme-tab"
+        [class.is-active]="activeType === tab.value"
+        [attr.aria-selected]="activeType === tab.value"
+        (click)="selectType(tab.value)"
+      >
+        {{ tab.label }}
+      </button>
+    }
+  </nav>
+}
 
-<section class="stats-grid">
-  <app-stat-card
-    label="Pending Review"
-    [value]="loading ? '—' : stats.claimsNewTasks"
-    color="red"
-    icon="file-medical"
-    actionLabel="View"
-    actionLink="/claims">
-  </app-stat-card>
-  <app-stat-card
-    label="This Month Claims"
-    [value]="loading ? '—' : stats.claimsThisMonth"
-    color="orange"
-    icon="calendar"
-    actionLabel="View"
-    actionLink="/claims">
-  </app-stat-card>
-  <app-stat-card
-    label="Claims Accepted"
-    [value]="loading ? '—' : stats.claimsAcceptedThisMonth"
-    color="cyan"
-    icon="check-circle"
-    actionLabel="View"
-    actionLink="/claims">
-  </app-stat-card>
-</section>
+<app-data-table
+  [columns]="columns"
+  [data]="filtered"
+  [actions]="actions"
+  [showActions]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [initialSortKey]="sortKey"
+  [initialSortDirection]="sortDirection"
+  emptyMessage="No claims yet"
+  emptyDescription="Once claims are submitted they'll show up here.">
+</app-data-table>

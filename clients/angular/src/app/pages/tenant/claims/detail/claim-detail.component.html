@@ -1,131 +1,542 @@
 <div class="page">
   <header class="page-header">
     <div>
+      <div class="crumb">
+        <a routerLink="/tenant/claims">
+          <app-icon name="arrow-left" [size]="14"></app-icon>
+          Back to claims
+        </a>
+      </div>
       @if (claim) {
         <h1>{{ claim.claimNumber }}</h1>
         <p class="page-sub">
           <span class="status-badge status-{{ claim.status.toLowerCase() }}">{{ claim.status | humanize }}</span>
-          · service date {{ claim.serviceDate }} · submitted {{ claim.createdAt | date:'mediumDate' }}
+          <span class="sep">·</span>
+          <span>{{ beneficiaryName() }}</span>
+          @if (dependant) {
+            <span class="tag tag--dep">DEP</span>
+          }
+          <span class="sep">·</span>
+          <span>{{ providerName() }}</span>
+          <span class="sep">·</span>
+          <span>service {{ claim.serviceDate }}</span>
         </p>
       } @else {
         <h1>Claim</h1>
       }
     </div>
-    <a class="btn btn-default" routerLink="/tenant/claims">
-      <app-icon name="arrow-left" [size]="14"></app-icon>
-      Back
-    </a>
   </header>
-
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
-  @if (successMessage) {
-    <div class="banner banner-success">{{ successMessage }}</div>
-  }
 
   @if (loading) {
     <app-skeleton></app-skeleton>
   } @else if (!claim) {
     <p class="empty-state">Claim not found.</p>
   } @else {
-    <div class="tabs">
-      <button class="tab" [class.active]="activeTab === 'services'" (click)="setTab('services')">
-        Services ({{ lines.length }})
-      </button>
-      <button class="tab" [class.active]="activeTab === 'header'" (click)="setTab('header')">
-        Header
-      </button>
-      <button class="tab" [class.active]="activeTab === 'audit'" (click)="setTab('audit')">
-        Audit
-      </button>
+    <!-- ── KPI strip ────────────────────────────────────────────────── -->
+    <div class="summary-strip">
+      <app-stat-card
+        label="Claimed"
+        [value]="claim.claimedAmount | currencyFormat:claim.currencyCode"
+        icon="dollar-sign"
+        color="blue"
+      ></app-stat-card>
+      <app-stat-card
+        label="Approved"
+        [value]="claim.approvedAmount ? (claim.approvedAmount | currencyFormat:claim.currencyCode) : '—'"
+        icon="check-circle"
+        color="green"
+      ></app-stat-card>
+      <app-stat-card
+        label="Lines"
+        [value]="lines.length"
+        icon="list"
+        color="teal"
+      ></app-stat-card>
+      <app-stat-card
+        label="Line"
+        [value]="claim.insuranceLine || (claim.claimType | humanize)"
+        icon="shield"
+        color="purple"
+      ></app-stat-card>
     </div>
 
-    <div class="tab-body">
-      @if (activeTab === 'services') {
-        @if (lines.length === 0) {
-          <p class="empty-state">No service lines on this claim.</p>
-        } @else {
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Tariff</th>
-                <th>Description</th>
-                <th class="right">Qty</th>
-                <th class="right">Unit price</th>
-                <th>Modifiers</th>
-                <th class="right">Claimed</th>
-                <th class="right">Approved</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (line of lines; track line.id) {
-                <tr>
-                  <td><code>{{ line.tariffCode }}</code></td>
-                  <td>{{ line.description || '—' }}</td>
-                  <td class="right">{{ line.quantity }}</td>
-                  <td class="right">{{ line.unitPrice | currencyFormat:claim.currencyCode }}</td>
-                  <td class="muted">{{ line.modifierCodes || '—' }}</td>
-                  <td class="right">{{ line.claimedAmount | currencyFormat:claim.currencyCode }}</td>
-                  <td class="right">
-                    {{ line.approvedAmount ? (line.approvedAmount | currencyFormat:claim.currencyCode) : '—' }}
-                  </td>
-                </tr>
+    <!-- ── Top row: 3-up cards (Member · Claim · Payee) ─────────────── -->
+    <div class="detail-row detail-row--three">
+
+    <!-- ── 1. Member / Dependant information ────────────────────────── -->
+    <section class="detail-card">
+      <header class="section-head">
+        <h3 class="section-title">
+          <app-icon [name]="dependant ? 'user-plus' : 'user'" [size]="16"></app-icon>
+          {{ dependant ? 'Dependant information' : 'Member information' }}
+        </h3>
+      </header>
+      @if (dependant) {
+        <dl class="kv kv--grid">
+          <dt>Name</dt><dd>{{ dependant.firstName }} {{ dependant.lastName }}</dd>
+          <dt>Relationship</dt><dd>{{ dependant.relationship | humanize }}</dd>
+          <!-- Gender is load-bearing for medical adjudication: obstetrics
+               / prostate / mammography procedures only apply to one sex,
+               so surface it up front (with a clear "unknown" fallback so
+               the adjudicator knows to verify before approving). -->
+          <dt>Gender</dt>
+          <dd>
+            @if (dependant.gender) {
+              <span class="gender-pill gender-{{ dependant.gender.toLowerCase() }}">
+                {{ dependant.gender | humanize }}
+              </span>
+            } @else {
+              <span class="muted">Unknown — verify before adjudicating</span>
+            }
+          </dd>
+          @if (dependant.dateOfBirth) {
+            <dt>DOB</dt>
+            <dd>
+              {{ dependant.dateOfBirth }}
+              @if (ageAtService(dependant.dateOfBirth) !== null) {
+                <span class="muted">· {{ ageAtService(dependant.dateOfBirth) }} yrs at service</span>
               }
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colspan="5" class="right total-label">Total</td>
-                <td class="right total-amount">{{ claim.claimedAmount | currencyFormat:claim.currencyCode }}</td>
-                <td class="right total-amount">
-                  {{ claim.approvedAmount ? (claim.approvedAmount | currencyFormat:claim.currencyCode) : '—' }}
+            </dd>
+          }
+          <dt>Status</dt><dd>{{ dependant.status | humanize }}</dd>
+          @if (member) {
+            <dt>Sponsored by</dt>
+            <dd>
+              {{ member.firstName }} {{ member.lastName }}
+              (<code>{{ member.memberNumber }}</code>)
+            </dd>
+          }
+          @if (schemeName) {
+            <dt>Scheme</dt>
+            <dd>
+              {{ schemeName }}
+              <span class="muted">· {{ activeLine || '—' }} · {{ claim.currencyCode }}</span>
+            </dd>
+          }
+        </dl>
+      } @else if (member) {
+        <dl class="kv kv--grid">
+          <dt>Name</dt><dd>{{ member.firstName }} {{ member.lastName }}</dd>
+          <dt>Member #</dt><dd><code>{{ member.memberNumber }}</code></dd>
+          <dt>Status</dt><dd>{{ member.status | humanize }}</dd>
+          <!-- Always show gender — see the dependant branch above for why. -->
+          <dt>Gender</dt>
+          <dd>
+            @if (member.gender) {
+              <span class="gender-pill gender-{{ member.gender.toLowerCase() }}">
+                {{ member.gender | humanize }}
+              </span>
+            } @else {
+              <span class="muted">Unknown — verify before adjudicating</span>
+            }
+          </dd>
+          @if (member.dateOfBirth) {
+            <dt>DOB</dt>
+            <dd>
+              {{ member.dateOfBirth }}
+              @if (ageAtService(member.dateOfBirth) !== null) {
+                <span class="muted">· {{ ageAtService(member.dateOfBirth) }} yrs at service</span>
+              }
+            </dd>
+          }
+          @if (member.email) { <dt>Email</dt><dd>{{ member.email }}</dd> }
+          @if (member.phone) { <dt>Phone</dt><dd>{{ member.phone }}</dd> }
+          @if (schemeName) {
+            <dt>Scheme</dt>
+            <dd>
+              {{ schemeName }}
+              <span class="muted">· {{ activeLine || '—' }} · {{ claim.currencyCode }}</span>
+            </dd>
+          }
+        </dl>
+      } @else {
+        <p class="muted">Beneficiary record unavailable.</p>
+      }
+    </section>
+
+    <!-- ── 2. Claim details ─────────────────────────────────────────── -->
+    <section class="detail-card">
+      <header class="section-head">
+        <h3 class="section-title"><app-icon name="clipboard-list" [size]="16"></app-icon> Claim details</h3>
+      </header>
+      <dl class="kv kv--grid">
+        <dt>Type</dt><dd>{{ claim.claimType | humanize }}</dd>
+        <dt>Currency</dt><dd>{{ claim.currencyCode }}</dd>
+        <dt>Service date</dt><dd>{{ claim.serviceDate }}</dd>
+        @if (claim.insuranceLine) { <dt>Insurance line</dt><dd>{{ claim.insuranceLine }}</dd> }
+        @if (claim.batchNumber) { <dt>Batch</dt><dd><code>{{ claim.batchNumber }}</code></dd> }
+        @if (hasDisplayValue(claim.diagnosisCodes)) {
+          <dt>Diagnosis</dt><dd>{{ displayCodes(claim.diagnosisCodes) }}</dd>
+        }
+        @if (hasDisplayValue(claim.procedureCodes)) {
+          <dt>Procedures</dt><dd>{{ displayCodes(claim.procedureCodes) }}</dd>
+        }
+        @if (claim.notes) { <dt>Notes</dt><dd class="prewrap">{{ claim.notes }}</dd> }
+        @if (claim.rejectionReason) { <dt>Rejection reason</dt><dd><code>{{ claim.rejectionReason }}</code></dd> }
+        @if (claim.rejectionNotes) { <dt>Rejection notes</dt><dd class="prewrap">{{ claim.rejectionNotes }}</dd> }
+      </dl>
+    </section>
+
+    <!-- ── 3. Payee ─────────────────────────────────────────────────── -->
+    <section class="detail-card" [class.detail-card--muted]="!provider">
+      <header class="section-head">
+        <h3 class="section-title">
+          <app-icon [name]="provider ? 'building' : 'user-check'" [size]="16"></app-icon>
+          Payee
+        </h3>
+      </header>
+      @if (provider) {
+        <dl class="kv kv--grid">
+          <dt>Payment to</dt><dd>Provider</dd>
+          <dt>Name</dt><dd>{{ provider.name }}</dd>
+          @if (provider.specialty) { <dt>Specialty</dt><dd>{{ provider.specialty }}</dd> }
+          @if (provider.registrationNumber) {
+            <dt>Reg. #</dt><dd><code>{{ provider.registrationNumber }}</code></dd>
+          }
+          @if (provider.status) { <dt>Status</dt><dd>{{ provider.status | humanize }}</dd> }
+          @if (provider.city) { <dt>City</dt><dd>{{ provider.city }}</dd> }
+        </dl>
+      } @else if (claim && !claim.providerId) {
+        <!-- Member reimbursement — the payout always goes to the primary
+             member on file, even for dependant claims. The dependant is
+             the beneficiary of the service; the sponsor is the payee. -->
+        <dl class="kv kv--grid">
+          <dt>Payment to</dt><dd>Member reimbursement</dd>
+          @if (member) {
+            <dt>Payee</dt>
+            <dd>
+              {{ member.firstName }} {{ member.lastName }}
+              (<code>{{ member.memberNumber }}</code>)
+              @if (dependant) {
+                <span class="muted">· sponsor of {{ dependant.firstName }} {{ dependant.lastName }}</span>
+              }
+            </dd>
+          } @else {
+            <dt>Payee</dt><dd class="muted">Sponsoring member record unavailable.</dd>
+          }
+        </dl>
+      } @else {
+        <p class="muted">Provider record unavailable.</p>
+      }
+    </section>
+
+    </div><!-- /.detail-row -->
+
+    <!-- ── 4. Service lines with per-line adjudication ──────────────── -->
+    @if (lines.length > 0) {
+      <section class="detail-card">
+        <header class="section-head">
+          <h3 class="section-title"><app-icon name="list" [size]="16"></app-icon> Service lines</h3>
+          <span class="muted">{{ lines.length }} line{{ lines.length === 1 ? '' : 's' }}</span>
+        </header>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="right">#</th>
+              <th>Tariff</th>
+              <th>Description</th>
+              <th class="right">Qty</th>
+              <th class="right">Unit price</th>
+              <th>Modifiers</th>
+              <th class="right">Claimed</th>
+              <th class="right">Approved</th>
+              <th>Decision</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of lines; track line.id; let i = $index) {
+              <tr [class.line-accepted]="draftFor(line).status === 'ACCEPTED'"
+                  [class.line-rejected]="draftFor(line).status === 'REJECTED'">
+                <td class="right muted">{{ i + 1 }}</td>
+
+                <!-- Tariff code — always-editable for adjudicators. When
+                     the current value differs from the operator's original
+                     capture, a small "originally X" note anchors the audit
+                     trail so the adjudicator can see what changed. -->
+                <td class="code-cell">
+                  @if (canEditLines) {
+                    <input class="field-control field-control--inline field-control--code"
+                           type="text"
+                           [(ngModel)]="draftFor(line).tariffCode"
+                           [name]="'tariff-' + line.id"
+                           placeholder="Tariff code" />
+                  } @else {
+                    <code>{{ line.tariffCode }}</code>
+                  }
+                  @if (showOriginal(draftFor(line).tariffCode, line.originalTariffCode)) {
+                    <span class="original-note">originally <code>{{ line.originalTariffCode }}</code></span>
+                  }
+                </td>
+
+                <td>{{ line.description || '—' }}</td>
+                <td class="right">{{ line.quantity }}</td>
+                <td class="right">{{ line.unitPrice | currencyFormat:claim.currencyCode }}</td>
+
+                <!-- Modifiers — same editability + originals story as tariff. -->
+                <td class="code-cell">
+                  @if (canEditLines) {
+                    <input class="field-control field-control--inline field-control--code"
+                           type="text"
+                           [(ngModel)]="draftFor(line).modifierCodes"
+                           [name]="'mods-' + line.id"
+                           placeholder="e.g. A1, M2" />
+                  } @else {
+                    <span class="muted">{{ displayCodes(line.modifierCodes) || '—' }}</span>
+                  }
+                  @if (showOriginal(draftFor(line).modifierCodes, line.originalModifierCodes)) {
+                    <span class="original-note">
+                      originally <code>{{ displayCodes(line.originalModifierCodes) }}</code>
+                    </span>
+                  }
+                </td>
+
+                <td class="right">{{ line.claimedAmount | currencyFormat:claim.currencyCode }}</td>
+
+                <!-- Approved amount — always editable for adjudicators;
+                     zeroed and read-only when the line is REJECTED. -->
+                <td class="right approved">
+                  @if (canEditLines && draftFor(line).status !== 'REJECTED') {
+                    <input class="field-control field-control--inline right" type="number"
+                           step="0.01" min="0"
+                           [(ngModel)]="draftFor(line).approvedAmount"
+                           [name]="'approved-' + line.id" />
+                  } @else {
+                    {{ draftFor(line).approvedAmount
+                        ? (draftFor(line).approvedAmount | currencyFormat:claim.currencyCode)
+                        : '—' }}
+                  }
+                </td>
+
+                <!-- Decision cell — always-on Accept / Reject buttons -->
+                <td class="decision-cell">
+                  <div class="decision-buttons">
+                    <button type="button" class="chip-btn chip-btn--accept"
+                            [class.on]="draftFor(line).status === 'ACCEPTED'"
+                            [disabled]="!canEditLines || busy"
+                            (click)="acceptLine(line)"
+                            title="Accept this line">
+                      <app-icon name="check-circle" [size]="12"></app-icon>
+                      Accept
+                    </button>
+                    <button type="button" class="chip-btn chip-btn--reject"
+                            [class.on]="draftFor(line).status === 'REJECTED'"
+                            [disabled]="!canEditLines || busy"
+                            (click)="rejectLine(line)"
+                            title="Reject this line">
+                      <app-icon name="x-circle" [size]="12"></app-icon>
+                      Reject
+                    </button>
+                    @if (canEditLines && draftFor(line).status !== 'PENDING') {
+                      <button type="button" class="chip-btn chip-btn--ghost"
+                              (click)="clearLineDecision(line)"
+                              title="Clear decision — line stays pending">
+                        Clear
+                      </button>
+                    }
+                  </div>
+                  @if (draftFor(line).status === 'REJECTED') {
+                    <app-select
+                      class="reason-select"
+                      [(ngModel)]="draftFor(line).rejectionReason"
+                      [name]="'reason-' + line.id"
+                      [options]="rejectionReasonOptions"
+                      placeholder="Reason…"
+                      size="sm"
+                    ></app-select>
+                  }
                 </td>
               </tr>
-            </tfoot>
-          </table>
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="6" class="right total-label">Total</td>
+              <td class="right total-amount">{{ claim.claimedAmount | currencyFormat:claim.currencyCode }}</td>
+              <td class="right total-amount">
+                {{ draftApprovedTotal() | currencyFormat:claim.currencyCode }}
+              </td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+        @if (canEditLines) {
+          <div class="save-bar">
+            <span class="muted">
+              @if (hasPendingChanges()) {
+                Unsaved changes — click Save to apply.
+              } @else {
+                No pending changes.
+              }
+            </span>
+            <button type="button" class="btn btn-primary btn-sm"
+                    [disabled]="busy || !hasPendingChanges()"
+                    (click)="saveLineDecisions()">
+              Save decisions
+            </button>
+          </div>
+        } @else {
+          <p class="hint muted">Read-only — you need the Adjudicate right to modify line decisions.</p>
         }
-      }
+      </section>
+    }
 
-      @if (activeTab === 'header') {
-        <dl class="header-grid">
-          <dt>Member</dt><dd><code>{{ claim.memberId }}</code></dd>
-          @if (claim.dependantId) { <dt>Dependant</dt><dd><code>{{ claim.dependantId }}</code></dd> }
-          <dt>Provider</dt><dd><code>{{ claim.providerId }}</code></dd>
-          <dt>Scheme</dt><dd><code>{{ claim.schemeId }}</code></dd>
-          <dt>Type</dt><dd>{{ claim.claimType | humanize }}</dd>
-          <dt>Currency</dt><dd>{{ claim.currencyCode }}</dd>
-          <dt>Service date</dt><dd>{{ claim.serviceDate }}</dd>
-          @if (claim.diagnosisCodes) { <dt>Diagnosis codes</dt><dd>{{ claim.diagnosisCodes }}</dd> }
-          @if (claim.notes) { <dt>Notes</dt><dd>{{ claim.notes }}</dd> }
-          @if (claim.rejectionReason) { <dt>Rejection reason</dt><dd><code>{{ claim.rejectionReason }}</code></dd> }
-          @if (claim.rejectionNotes) { <dt>Rejection notes</dt><dd>{{ claim.rejectionNotes }}</dd> }
-        </dl>
-      }
+    <!-- ── 5. Scheme benefits (adjudicator eyeball vs limits) ───────── -->
+    @if (benefits.length > 0) {
+      <section class="detail-card">
+        <header class="section-head">
+          <h3 class="section-title"><app-icon name="shield" [size]="16"></app-icon> Scheme benefits</h3>
+          <span class="muted">{{ benefits.length }} benefit{{ benefits.length === 1 ? '' : 's' }}</span>
+        </header>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th class="right">Annual limit</th>
+              <th class="right">Event limit</th>
+              <th class="right">Daily limit</th>
+              <th class="right">Waiting (days)</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (b of benefits; track b.id) {
+              <tr>
+                <td>{{ b.name }}</td>
+                <td>{{ b.benefitType | humanize }}</td>
+                <td class="right">{{ b.annualLimit ? (b.annualLimit | currencyFormat:b.currencyCode) : '—' }}</td>
+                <td class="right">{{ b.eventLimit ? (b.eventLimit | currencyFormat:b.currencyCode) : '—' }}</td>
+                <td class="right">{{ b.dailyLimit ? (b.dailyLimit | currencyFormat:b.currencyCode) : '—' }}</td>
+                <td class="right muted">{{ b.waitingPeriodDays ?? '—' }}</td>
+                <td class="muted">
+                  @if (b.minAge !== null && b.minAge !== undefined) { age ≥ {{ b.minAge }} }
+                  @if (b.maxAge !== null && b.maxAge !== undefined) { , ≤ {{ b.maxAge }} }
+                  @if (b.cashClaimAllowed === false) { · cash reimbursement blocked }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    }
 
-      @if (activeTab === 'audit') {
-        <dl class="header-grid">
-          <dt>Created</dt><dd>{{ claim.createdAt | date:'medium' }}</dd>
-          <dt>Updated</dt><dd>{{ claim.updatedAt | date:'medium' }}</dd>
-          @if (claim.verifiedAt) { <dt>Verified</dt><dd>{{ claim.verifiedAt | date:'medium' }}</dd> }
-          @if (claim.adjudicatedAt) { <dt>Adjudicated</dt><dd>{{ claim.adjudicatedAt | date:'medium' }}</dd> }
-          @if (claim.adjudicatedBy) { <dt>Adjudicated by</dt><dd><code>{{ claim.adjudicatedBy }}</code></dd> }
-        </dl>
-        <p class="muted">Full audit timeline will surface here once the claims-audit consumer ships its query API.</p>
-      }
-    </div>
+    <!-- ── 5b. Beneficiary benefit utilization (used vs. limit) ─────── -->
+    @if (utilization.length > 0) {
+      <section class="detail-card">
+        <header class="section-head">
+          <h3 class="section-title">
+            <app-icon name="trending-up" [size]="16"></app-icon>
+            {{ dependant ? 'Dependant' : 'Member' }} utilization
+          </h3>
+          <span class="muted">policy year {{ utilization[0].policyYear }}</span>
+        </header>
+        <ul class="util-list">
+          @for (row of utilization; track row.id) {
+            <li class="util-row">
+              <div class="util-meta">
+                <strong>{{ row.benefitName || 'Benefit' }}</strong>
+                @if (row.benefitType) {
+                  <span class="muted small">· {{ row.benefitType | humanize }}</span>
+                }
+              </div>
+              <div class="util-figures">
+                <span>
+                  <strong>{{ row.consumedAmount | currencyFormat:row.currencyCode }}</strong>
+                  @if (row.annualLimit) {
+                    <span class="muted"> / {{ row.annualLimit | currencyFormat:row.currencyCode }}</span>
+                  }
+                </span>
+                @if (row.consumedCount > 0) {
+                  <span class="muted small">· {{ row.consumedCount }} claim{{ row.consumedCount === 1 ? '' : 's' }}</span>
+                }
+              </div>
+              <div class="util-bar">
+                @if (utilizationPct(row) !== null) {
+                  <div class="util-bar__fill"
+                       [style.width.%]="utilizationPct(row)"
+                       [class.util-bar__fill--warn]="(utilizationPct(row) ?? 0) >= 80"
+                       [class.util-bar__fill--danger]="(utilizationPct(row) ?? 0) >= 100">
+                  </div>
+                } @else {
+                  <span class="util-bar__unlimited muted small">no annual limit</span>
+                }
+              </div>
+            </li>
+          }
+        </ul>
+        <p class="hint muted">
+          Counters update on adjudication. Rows without an annual limit render as "no limit"; they still accumulate a consumed total for reporting.
+        </p>
+      </section>
+    }
 
-    <!-- ── Action bar ─────────────────────────────────────────────── -->
-    <div class="action-bar">
-      <button type="button" class="btn btn-primary" [disabled]="busy || !canAct('adjudicate')"
-              (click)="adjudicate()">
+    <!-- ── Pre-authorisations (only when there are any) ─────────────── -->
+    @if (memberPreauths.length > 0) {
+      <section class="detail-card">
+        <header class="section-head">
+          <h3 class="section-title"><app-icon name="check-circle" [size]="16"></app-icon> Pre-authorisations</h3>
+          <span class="muted">on file for this member</span>
+        </header>
+        <ul class="preauth-list">
+          @for (pa of memberPreauths; track pa.id) {
+            <li>
+              <a [routerLink]="['/tenant/claims/preauth', pa.id]">
+                <code>{{ pa.authNumber }}</code>
+              </a>
+              <span class="status-badge status-{{ pa.status.toLowerCase() }}">{{ pa.status | humanize }}</span>
+              <span class="muted">{{ pa.tariffCode }} · {{ pa.requestedAmount | currencyFormat:pa.currencyCode }}</span>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    <!-- ── Member history (only when there are other claims) ────────── -->
+    @if (memberHistory.length > 0) {
+      <section class="detail-card">
+        <header class="section-head">
+          <h3 class="section-title"><app-icon name="clipboard" [size]="16"></app-icon> Member claim history</h3>
+          <span class="muted">{{ memberHistory.length }} other claim{{ memberHistory.length === 1 ? '' : 's' }}</span>
+        </header>
+        <table class="data-table hover">
+          <thead>
+            <tr>
+              <th>Claim #</th>
+              <th>Type</th>
+              <th>Service date</th>
+              <th>Status</th>
+              <th class="right">Claimed</th>
+              <th class="right">Approved</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (c of memberHistory; track c.id) {
+              <tr (click)="openClaim(c.id)">
+                <td><code>{{ c.claimNumber }}</code></td>
+                <td>{{ c.claimType | humanize }}</td>
+                <td>{{ c.serviceDate }}</td>
+                <td><span class="status-badge status-{{ c.status.toLowerCase() }}">{{ c.status | humanize }}</span></td>
+                <td class="right">{{ c.claimedAmount | currencyFormat:c.currencyCode }}</td>
+                <td class="right">{{ c.approvedAmount ? (c.approvedAmount | currencyFormat:c.currencyCode) : '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    }
+
+    <!-- ── Adjudicator action bar ───────────────────────────────────── -->
+    <div class="action-bar" *hasPermission="['claims:adjudicate', 'claims:reject']">
+      <button type="button" class="btn btn-primary" [disabled]="busy || !canAct('adjudicate')" (click)="adjudicate()"
+              *hasPermission="'claims:adjudicate'">
         <app-icon name="zap" [size]="14"></app-icon>
         Run pipeline
       </button>
-      <button type="button" class="btn btn-default" [disabled]="busy || !canAct('approve')"
-              (click)="approve()">
+      <button type="button" class="btn btn-default" [disabled]="busy || !canAct('approve')" (click)="approve()"
+              *hasPermission="'claims:adjudicate'">
         Approve
       </button>
-      <div class="reject-group">
+      <div class="reject-group" *hasPermission="'claims:reject'">
         <app-select
           [(ngModel)]="rejectingCode"
           name="rejectionCode"
@@ -134,13 +545,12 @@
           placeholder="Pick reason…"
           size="sm"
         ></app-select>
-        <button type="button" class="btn btn-default reject" [disabled]="busy || !canAct('reject')"
-                (click)="reject()">
+        <button type="button" class="btn btn-default reject" [disabled]="busy || !canAct('reject')" (click)="reject()">
           Reject
         </button>
       </div>
-      <button type="button" class="btn btn-default" [disabled]="busy || !canAct('cancel')"
-              (click)="cancel()">
+      <button type="button" class="btn btn-default" [disabled]="busy || !canAct('cancel')" (click)="cancel()"
+              *hasPermission="'claims:adjudicate'">
         Cancel
       </button>
     </div>

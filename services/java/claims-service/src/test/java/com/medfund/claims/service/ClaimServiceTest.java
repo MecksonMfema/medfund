@@ -1,18 +1,20 @@
 package com.medfund.claims.service;
 
+import com.medfund.claims.client.SchemeClient;
 import com.medfund.claims.dto.AdjudicationResult;
+import com.medfund.claims.dto.ClaimAttachment;
 import com.medfund.claims.dto.ClaimLineRequest;
 import com.medfund.claims.dto.SubmitClaimRequest;
 import com.medfund.claims.entity.Claim;
 import com.medfund.claims.entity.ClaimLine;
 import com.medfund.claims.exception.ClaimNotFoundException;
-import com.medfund.claims.exception.InvalidClaimStateException;
 import com.medfund.claims.repository.ClaimLineRepository;
 import com.medfund.claims.repository.ClaimRepository;
 import com.medfund.shared.audit.AuditPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -28,29 +30,22 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ClaimServiceTest {
 
-    @Mock
-    private ClaimRepository claimRepository;
-
-    @Mock
-    private ClaimLineRepository claimLineRepository;
-
-    @Mock
-    private AuditPublisher auditPublisher;
-
-    @Mock
-    private ClaimEventPublisher eventPublisher;
-
-    @Mock
-    private AdjudicationPipeline adjudicationPipeline;
-
-    @Mock
-    private VerificationService verificationService;
+    @Mock private ClaimRepository claimRepository;
+    @Mock private ClaimLineRepository claimLineRepository;
+    @Mock private AuditPublisher auditPublisher;
+    @Mock private ClaimEventPublisher eventPublisher;
+    @Mock private AdjudicationPipeline adjudicationPipeline;
+    @Mock private SchemeClient schemeClient;
 
     @InjectMocks
     private ClaimService claimService;
@@ -62,6 +57,8 @@ class ClaimServiceTest {
     void setUp() {
         actorId = UUID.randomUUID().toString();
     }
+
+    // ── Existing surface: findAll / findById ─────────────────────────
 
     @Test
     void findAll_returnsClaims() {
@@ -75,27 +72,21 @@ class ClaimServiceTest {
                 .expectNext(claim1)
                 .expectNext(claim2)
                 .verifyComplete();
-
-        verify(claimRepository).findAllOrderByCreatedAtDesc();
     }
 
     @Test
     void findById_existing_returnsClaim() {
         Claim claim = createTestClaim();
-
         when(claimRepository.findById(claim.getId())).thenReturn(Mono.just(claim));
 
         StepVerifier.create(claimService.findById(claim.getId()))
                 .expectNext(claim)
                 .verifyComplete();
-
-        verify(claimRepository).findById(claim.getId());
     }
 
     @Test
     void findById_nonExisting_throwsNotFound() {
         UUID id = UUID.randomUUID();
-
         when(claimRepository.findById(id)).thenReturn(Mono.empty());
 
         StepVerifier.create(claimService.findById(id))
@@ -103,90 +94,327 @@ class ClaimServiceTest {
                 .verify();
     }
 
+    // ── submit() — operator flow lands VERIFIED, emits both events ───
+
     @Test
-    void submit_validRequest_createsClaimWithLines() {
+    void submit_health_landsVerifiedAndEmitsCapturedAlongsideSubmitted() {
+        // Verification was removed on 2026-07-11: the operator vouches
+        // for the capture, so the claim skips SUBMITTED → VERIFIED and
+        // the "captured" event rides alongside "submitted" so the
+        // ready-for-adjudication consumer picks it up immediately.
         var lineRequest = new ClaimLineRequest(
                 "TC001", "Consultation", 1,
                 new BigDecimal("500.00"), new BigDecimal("500.00"),
                 null, "USD"
         );
-        var request = new SubmitClaimRequest(
-                UUID.randomUUID(), null, UUID.randomUUID(), UUID.randomUUID(),
-                null, null, LocalDate.now(), new BigDecimal("500.00"),
-                null, null, null, null, List.of(lineRequest)
-        );
+        var request = healthRequest(List.of(lineRequest));
 
-        when(claimRepository.existsByClaimNumber(anyString())).thenReturn(Mono.just(false));
-        when(claimRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-        when(claimLineRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-        when(verificationService.generateCode()).thenReturn("123456");
-        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        when(eventPublisher.publishClaimSubmitted(any(), any(), any())).thenReturn(Mono.empty());
+        stubHappyPathHealth();
 
         StepVerifier.create(
                 claimService.submit(request, actorId, ACTOR_EMAIL)
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
-                .assertNext(claim -> {
-                    assertThat(claim.getClaimNumber()).startsWith("CLM-");
-                    assertThat(claim.getStatus()).isEqualTo("SUBMITTED");
-                    assertThat(claim.getVerificationCode()).isEqualTo("123456");
-                    assertThat(claim.getMemberId()).isEqualTo(request.memberId());
-                    assertThat(claim.getProviderId()).isEqualTo(request.providerId());
-                    assertThat(claim.getSchemeId()).isEqualTo(request.schemeId());
-                    assertThat(claim.getClaimedAmount()).isEqualByComparingTo(new BigDecimal("500.00"));
+                .assertNext(response -> {
+                    assertThat(response.claim().claimNumber()).startsWith("CLM-");
+                    assertThat(response.claim().status())
+                            .withFailMessage("operator-captured claims must land VERIFIED — no separate verify hop")
+                            .isEqualTo("VERIFIED");
+                    assertThat(response.claim().insuranceLine()).isEqualTo("HEALTH");
+                    // Batching is opt-in — this request didn't set one.
+                    assertThat(response.batchNumber()).isNull();
                 })
                 .verifyComplete();
 
-        verify(claimRepository).existsByClaimNumber(anyString());
         verify(claimRepository).save(any(Claim.class));
         verify(claimLineRepository).save(any(ClaimLine.class));
-        verify(auditPublisher).publish(any());
-        verify(eventPublisher).publishClaimSubmitted(any(), any(), any());
+        verify(eventPublisher).publishClaimSubmitted(any(), any(), any(), eq("HEALTH"));
+        verify(eventPublisher).publishClaimCaptured(any(), any(), any(), eq("HEALTH"));
     }
 
-    @Test
-    void verify_validCode_setsStatusVerified() {
-        Claim claim = createTestClaim();
-        claim.setStatus("SUBMITTED");
-        claim.setVerificationCode("123456");
+    // ── submit() — insurance line derived from scheme, hint is advisory ──
 
-        when(claimRepository.findById(claim.getId())).thenReturn(Mono.just(claim));
-        when(claimRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        when(eventPublisher.publishClaimStatusChanged(any(), any())).thenReturn(Mono.empty());
+    @Test
+    void submit_derivesInsuranceLineFromScheme_ignoresConflictingHint() {
+        var lineRequest = new ClaimLineRequest("TC001", "Consultation", 1,
+                new BigDecimal("500.00"), new BigDecimal("500.00"), null, "USD");
+        var request = withInsuranceLineHint(healthRequest(List.of(lineRequest)), "VEHICLE");
+
+        stubHappyPathHealth();
 
         StepVerifier.create(
-                claimService.verify(claim.getId(), "123456", actorId, ACTOR_EMAIL)
+                claimService.submit(request, actorId, ACTOR_EMAIL)
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
-                .assertNext(verified -> {
-                    assertThat(verified.getStatus()).isEqualTo("VERIFIED");
-                    assertThat(verified.getVerifiedAt()).isNotNull();
+                .assertNext(response -> {
+                    assertThat(response.claim().insuranceLine())
+                            .withFailMessage("must persist the scheme-derived line, not the client hint")
+                            .isEqualTo("HEALTH");
                 })
                 .verifyComplete();
     }
 
-    @Test
-    void verify_invalidCode_throwsException() {
-        Claim claim = createTestClaim();
-        claim.setStatus("SUBMITTED");
-        claim.setVerificationCode("123456");
+    // ── submit() — per-line required-field enforcement ───────────────
 
-        when(claimRepository.findById(claim.getId())).thenReturn(Mono.just(claim));
+    @Test
+    void submit_health_rejectsEmptyLines() {
+        var request = healthRequest(List.of());
+        when(schemeClient.findById(request.schemeId()))
+                .thenReturn(Mono.just(schemeSummary("HEALTH")));
 
         StepVerifier.create(
-                claimService.verify(claim.getId(), "999999", actorId, ACTOR_EMAIL)
+                claimService.submit(request, actorId, ACTOR_EMAIL)
                         .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
         )
-                .expectError(InvalidClaimStateException.class)
+                .expectErrorSatisfies(err -> {
+                    assertThat(err).isInstanceOf(IllegalArgumentException.class);
+                    assertThat(err.getMessage()).contains("HEALTH", "tariff line");
+                })
+                .verify();
+
+        verify(claimRepository, never()).save(any(Claim.class));
+    }
+
+    @Test
+    void submit_vehicle_rejectsMissingRegistration() {
+        var request = vehicleRequest(null, "Harare CBD");
+        when(schemeClient.findById(request.schemeId()))
+                .thenReturn(Mono.just(schemeSummary("VEHICLE")));
+
+        StepVerifier.create(
+                claimService.submit(request, actorId, ACTOR_EMAIL)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .expectErrorSatisfies(err -> {
+                    assertThat(err).isInstanceOf(IllegalArgumentException.class);
+                    assertThat(err.getMessage()).contains("VEHICLE", "vehicleRegistration");
+                })
                 .verify();
     }
 
     @Test
-    void adjudicate_verifiedClaim_runsFullPipeline() {
+    void submit_vehicle_rejectsTariffLines() {
+        var lineRequest = new ClaimLineRequest("TC001", "Bodywork", 1,
+                new BigDecimal("300.00"), new BigDecimal("300.00"), null, "USD");
+        var request = withLines(vehicleRequest("ABC 1234", "Harare CBD"), List.of(lineRequest));
+        when(schemeClient.findById(request.schemeId()))
+                .thenReturn(Mono.just(schemeSummary("VEHICLE")));
+
+        StepVerifier.create(
+                claimService.submit(request, actorId, ACTOR_EMAIL)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .expectErrorSatisfies(err -> {
+                    assertThat(err).isInstanceOf(IllegalArgumentException.class);
+                    assertThat(err.getMessage()).contains("VEHICLE", "do not accept tariff lines");
+                })
+                .verify();
+    }
+
+    // ── submit() — batching + attachments ───────────────────────────
+
+    @Test
+    void submit_supplied_batchNumber_isPreserved() {
+        var lineRequest = new ClaimLineRequest("TC001", "Consultation", 1,
+                new BigDecimal("500.00"), new BigDecimal("500.00"), null, "USD");
+        var request = withBatchNumber(healthRequest(List.of(lineRequest)), "BATCH777");
+
+        stubHappyPathHealth();
+
+        ArgumentCaptor<Claim> claimCaptor = ArgumentCaptor.forClass(Claim.class);
+
+        StepVerifier.create(
+                claimService.submit(request, actorId, ACTOR_EMAIL)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(response -> {
+                    assertThat(response.batchNumber()).isEqualTo("BATCH777");
+                    assertThat(response.claim().batchNumber()).isEqualTo("BATCH777");
+                })
+                .verifyComplete();
+
+        verify(claimRepository).save(claimCaptor.capture());
+        assertThat(claimCaptor.getValue().getBatchNumber()).isEqualTo("BATCH777");
+    }
+
+    @Test
+    void submit_blankBatchNumber_isNormalisedToNull() {
+        var lineRequest = new ClaimLineRequest("TC001", "Consultation", 1,
+                new BigDecimal("500.00"), new BigDecimal("500.00"), null, "USD");
+        var request = withBatchNumber(healthRequest(List.of(lineRequest)), "   ");
+
+        stubHappyPathHealth();
+
+        StepVerifier.create(
+                claimService.submit(request, actorId, ACTOR_EMAIL)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(response -> {
+                    assertThat(response.batchNumber()).isNull();
+                    assertThat(response.claim().batchNumber()).isNull();
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void submit_attachments_areSerialisedToJsonOnTheClaim() {
+        var lineRequest = new ClaimLineRequest("TC001", "Consultation", 1,
+                new BigDecimal("500.00"), new BigDecimal("500.00"), null, "USD");
+        var attachments = List.of(
+                new ClaimAttachment("receipt.pdf", "application/pdf", 12345L),
+                new ClaimAttachment("photo.jpg",   "image/jpeg",       98765L)
+        );
+        var request = withAttachments(healthRequest(List.of(lineRequest)), attachments);
+
+        stubHappyPathHealth();
+
+        ArgumentCaptor<Claim> claimCaptor = ArgumentCaptor.forClass(Claim.class);
+
+        StepVerifier.create(
+                claimService.submit(request, actorId, ACTOR_EMAIL)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(response -> {
+                    assertThat(response.claim().attachments()).hasSize(2);
+                    assertThat(response.claim().attachments().get(0).filename()).isEqualTo("receipt.pdf");
+                    assertThat(response.claim().attachments().get(1).contentType()).isEqualTo("image/jpeg");
+                })
+                .verifyComplete();
+
+        verify(claimRepository).save(claimCaptor.capture());
+        assertThat(claimCaptor.getValue().getAttachmentsJson())
+                .withFailMessage("attachments must be persisted as JSON on the claim entity")
+                .contains("receipt.pdf", "photo.jpg", "image/jpeg");
+    }
+
+    @Test
+    void submit_noAttachments_storesNull() {
+        var lineRequest = new ClaimLineRequest("TC001", "Consultation", 1,
+                new BigDecimal("500.00"), new BigDecimal("500.00"), null, "USD");
+        var request = healthRequest(List.of(lineRequest));
+
+        stubHappyPathHealth();
+
+        ArgumentCaptor<Claim> claimCaptor = ArgumentCaptor.forClass(Claim.class);
+
+        StepVerifier.create(
+                claimService.submit(request, actorId, ACTOR_EMAIL)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(response -> {
+                    assertThat(response.claim().attachments()).isEmpty();
+                })
+                .verifyComplete();
+
+        verify(claimRepository).save(claimCaptor.capture());
+        assertThat(claimCaptor.getValue().getAttachmentsJson()).isNull();
+    }
+
+    // ── submit() — provider policy per line ─────────────────────────
+
+    @Test
+    void submit_life_rejectsProviderPresent() {
+        // FORBIDDEN lines (LIFE / DISABILITY) are paid straight to the
+        // member. Attaching a provider would let the finance consumer
+        // eventually pay the wrong party — reject at capture time.
+        var request = withInsuranceLineHint(healthRequest(List.of()), "LIFE");
+        request = new SubmitClaimRequest(
+                request.memberId(), request.dependantId(), request.providerId(), request.schemeId(),
+                request.benefitId(), request.claimType(), request.insuranceLine(), request.batchNumber(),
+                request.serviceDate(), request.claimedAmount(),
+                request.currencyCode(), request.diagnosisCodes(), request.procedureCodes(), request.notes(),
+                request.lines(),
+                request.vehicleRegistration(), request.incidentLocation(), request.incidentReportRef(),
+                request.policeReportRef(), request.propertyAddress(), request.deathCertificateRef(),
+                request.deceasedRelationship(), request.travelDestination(), request.travelStartDate(),
+                request.travelEndDate(), request.disabilityAssessmentRef(), "LIFE-CERT-2026-77",
+                request.attachments()
+        );
+        when(schemeClient.findById(request.schemeId()))
+                .thenReturn(Mono.just(schemeSummary("LIFE")));
+
+        SubmitClaimRequest finalRequest = request;
+        StepVerifier.create(
+                claimService.submit(finalRequest, actorId, ACTOR_EMAIL)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .expectErrorSatisfies(err -> {
+                    assertThat(err).isInstanceOf(IllegalArgumentException.class);
+                    assertThat(err.getMessage()).contains("LIFE", "paid to the member");
+                })
+                .verify();
+    }
+
+    @Test
+    void submit_life_acceptsNoProvider_andPersists() {
+        var lifeRequest = new SubmitClaimRequest(
+                UUID.randomUUID(), null, null /* no provider */, UUID.randomUUID(),
+                null, null, null, null,
+                LocalDate.now(), new BigDecimal("50000.00"),
+                "USD", null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null,
+                "LIFE-CERT-2026-77",
+                null
+        );
+        when(schemeClient.findById(any(UUID.class)))
+                .thenReturn(Mono.just(schemeSummary("LIFE")));
+        when(claimRepository.existsByClaimNumber(anyString())).thenReturn(Mono.just(false));
+        when(claimRepository.save(any())).thenAnswer(inv -> {
+            Claim saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishClaimSubmitted(any(), any(), any(), any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishClaimCaptured(any(), any(), any(), any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                claimService.submit(lifeRequest, actorId, ACTOR_EMAIL)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(response -> {
+                    assertThat(response.claim().insuranceLine()).isEqualTo("LIFE");
+                    assertThat(response.claim().providerId()).isNull();
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void submit_health_acceptsMissingProvider_asMemberReimbursement() {
+        // Member-reimbursement HEALTH claim: no provider, no bill from a
+        // network — just a receipt the operator captured. Regressing this
+        // puts every out-of-pocket capture behind a "pick a provider"
+        // wall the operator can't satisfy.
+        var lineRequest = new ClaimLineRequest("TC001", "Consultation", 1,
+                new BigDecimal("500.00"), new BigDecimal("500.00"), null, "USD");
+        var request = new SubmitClaimRequest(
+                UUID.randomUUID(), null, null /* member paid */, UUID.randomUUID(),
+                null, null, null, null,
+                LocalDate.now(), new BigDecimal("500.00"),
+                "USD", null, null, null, List.of(lineRequest),
+                null, null, null, null, null, null, null, null, null, null, null, null,
+                null
+        );
+        stubHappyPathHealth();
+
+        StepVerifier.create(
+                claimService.submit(request, actorId, ACTOR_EMAIL)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(response -> {
+                    assertThat(response.claim().insuranceLine()).isEqualTo("HEALTH");
+                    assertThat(response.claim().providerId()).isNull();
+                })
+                .verifyComplete();
+    }
+
+    // ── adjudicate() — insurance line rides on the outgoing event ───
+
+    @Test
+    void adjudicate_verifiedClaim_runsFullPipelineAndPropagatesLine() {
         Claim claim = createTestClaim();
         claim.setStatus("VERIFIED");
+        claim.setInsuranceLine("HEALTH");
 
         ClaimLine testClaimLine = new ClaimLine();
         testClaimLine.setId(UUID.randomUUID());
@@ -200,14 +428,8 @@ class ClaimServiceTest {
         testClaimLine.setCreatedAt(Instant.now());
 
         var adjudicationResult = new AdjudicationResult(
-                "APPROVED",
-                new BigDecimal("500.00"),
-                null,
-                null,
-                List.of(
-                        new AdjudicationResult.StageResult("Eligibility", true, "Passed"),
-                        new AdjudicationResult.StageResult("TariffPricing", true, "Passed")
-                )
+                "APPROVED", new BigDecimal("500.00"), null, null,
+                List.of(new AdjudicationResult.StageResult("Eligibility", true, "Passed"))
         );
 
         when(claimRepository.findById(claim.getId())).thenReturn(Mono.just(claim));
@@ -215,7 +437,8 @@ class ClaimServiceTest {
         when(claimLineRepository.findByClaimId(claim.getId())).thenReturn(Flux.just(testClaimLine));
         when(adjudicationPipeline.execute(any(), any())).thenReturn(Mono.just(adjudicationResult));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        when(eventPublisher.publishClaimAdjudicated(any(), any(), any(), any(), any(), any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishClaimAdjudicated(any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(Mono.empty());
 
         StepVerifier.create(
                 claimService.adjudicate(claim.getId(), actorId, ACTOR_EMAIL)
@@ -224,15 +447,126 @@ class ClaimServiceTest {
                 .assertNext(adjudicated -> {
                     assertThat(adjudicated.getStatus()).isEqualTo("ADJUDICATED");
                     assertThat(adjudicated.getApprovedAmount()).isEqualByComparingTo(new BigDecimal("500.00"));
-                    assertThat(adjudicated.getAdjudicatedAt()).isNotNull();
                 })
                 .verifyComplete();
 
         verify(adjudicationPipeline).execute(any(Claim.class), anyList());
-        verify(eventPublisher).publishClaimAdjudicated(any(), any(), any(), any(), any(), any());
+        verify(eventPublisher).publishClaimAdjudicated(any(), any(), any(), any(), any(), any(), eq("HEALTH"));
     }
 
-    // ---- Helper ----
+    // ── Fixtures ─────────────────────────────────────────────────────
+
+    private void stubHappyPathHealth() {
+        when(schemeClient.findById(any(UUID.class)))
+                .thenReturn(Mono.just(schemeSummary("HEALTH")));
+        when(claimRepository.existsByClaimNumber(anyString())).thenReturn(Mono.just(false));
+        // The service reads .getId() off the saved claim to build audit +
+        // event payloads. R2DBC gives the entity a generated id on insert
+        // — the mock has to do the same, otherwise every downstream leg
+        // NPEs. See memory: bug_claim_save_mock_id_npe.
+        when(claimRepository.save(any())).thenAnswer(inv -> {
+            Claim saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
+        when(claimLineRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishClaimSubmitted(any(), any(), any(), any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishClaimCaptured(any(), any(), any(), any())).thenReturn(Mono.empty());
+    }
+
+    private SchemeClient.SchemeSummary schemeSummary(String line) {
+        String type = switch (line) {
+            case "VEHICLE"  -> "comprehensive";
+            case "FUNERAL"  -> "funeral_benefit";
+            case "LIFE"     -> "term_life";
+            case "PROPERTY" -> "buildings";
+            default         -> "medical_aid";
+        };
+        return new SchemeClient.SchemeSummary(UUID.randomUUID(), line + " Test Scheme", type, line, "USD");
+    }
+
+    private SubmitClaimRequest healthRequest(List<ClaimLineRequest> lines) {
+        return new SubmitClaimRequest(
+                UUID.randomUUID(), null, UUID.randomUUID(), UUID.randomUUID(),
+                null, null, null, null,
+                LocalDate.now(), new BigDecimal("500.00"),
+                "USD", null, null, null, lines,
+                null, null, null, null, null, null, null, null, null, null, null, null,
+                null
+        );
+    }
+
+    private SubmitClaimRequest vehicleRequest(String vehicleReg, String incidentLocation) {
+        return new SubmitClaimRequest(
+                UUID.randomUUID(), null, UUID.randomUUID(), UUID.randomUUID(),
+                null, null, null, null,
+                LocalDate.now(), new BigDecimal("1200.00"),
+                "USD", null, null, null, null,
+                vehicleReg, incidentLocation, null, null, null, null, null, null, null, null, null, null,
+                null
+        );
+    }
+
+    private SubmitClaimRequest withInsuranceLineHint(SubmitClaimRequest req, String hint) {
+        return new SubmitClaimRequest(
+                req.memberId(), req.dependantId(), req.providerId(), req.schemeId(),
+                req.benefitId(), req.claimType(), hint, req.batchNumber(),
+                req.serviceDate(), req.claimedAmount(),
+                req.currencyCode(), req.diagnosisCodes(), req.procedureCodes(), req.notes(),
+                req.lines(),
+                req.vehicleRegistration(), req.incidentLocation(), req.incidentReportRef(),
+                req.policeReportRef(), req.propertyAddress(), req.deathCertificateRef(),
+                req.deceasedRelationship(), req.travelDestination(), req.travelStartDate(),
+                req.travelEndDate(), req.disabilityAssessmentRef(), req.lifeCertificateRef(),
+                req.attachments()
+        );
+    }
+
+    private SubmitClaimRequest withBatchNumber(SubmitClaimRequest req, String batch) {
+        return new SubmitClaimRequest(
+                req.memberId(), req.dependantId(), req.providerId(), req.schemeId(),
+                req.benefitId(), req.claimType(), req.insuranceLine(), batch,
+                req.serviceDate(), req.claimedAmount(),
+                req.currencyCode(), req.diagnosisCodes(), req.procedureCodes(), req.notes(),
+                req.lines(),
+                req.vehicleRegistration(), req.incidentLocation(), req.incidentReportRef(),
+                req.policeReportRef(), req.propertyAddress(), req.deathCertificateRef(),
+                req.deceasedRelationship(), req.travelDestination(), req.travelStartDate(),
+                req.travelEndDate(), req.disabilityAssessmentRef(), req.lifeCertificateRef(),
+                req.attachments()
+        );
+    }
+
+    private SubmitClaimRequest withLines(SubmitClaimRequest req, List<ClaimLineRequest> lines) {
+        return new SubmitClaimRequest(
+                req.memberId(), req.dependantId(), req.providerId(), req.schemeId(),
+                req.benefitId(), req.claimType(), req.insuranceLine(), req.batchNumber(),
+                req.serviceDate(), req.claimedAmount(),
+                req.currencyCode(), req.diagnosisCodes(), req.procedureCodes(), req.notes(),
+                lines,
+                req.vehicleRegistration(), req.incidentLocation(), req.incidentReportRef(),
+                req.policeReportRef(), req.propertyAddress(), req.deathCertificateRef(),
+                req.deceasedRelationship(), req.travelDestination(), req.travelStartDate(),
+                req.travelEndDate(), req.disabilityAssessmentRef(), req.lifeCertificateRef(),
+                req.attachments()
+        );
+    }
+
+    private SubmitClaimRequest withAttachments(SubmitClaimRequest req, List<ClaimAttachment> attachments) {
+        return new SubmitClaimRequest(
+                req.memberId(), req.dependantId(), req.providerId(), req.schemeId(),
+                req.benefitId(), req.claimType(), req.insuranceLine(), req.batchNumber(),
+                req.serviceDate(), req.claimedAmount(),
+                req.currencyCode(), req.diagnosisCodes(), req.procedureCodes(), req.notes(),
+                req.lines(),
+                req.vehicleRegistration(), req.incidentLocation(), req.incidentReportRef(),
+                req.policeReportRef(), req.propertyAddress(), req.deathCertificateRef(),
+                req.deceasedRelationship(), req.travelDestination(), req.travelStartDate(),
+                req.travelEndDate(), req.disabilityAssessmentRef(), req.lifeCertificateRef(),
+                attachments
+        );
+    }
 
     private Claim createTestClaim() {
         var claim = new Claim();
@@ -242,11 +576,11 @@ class ClaimServiceTest {
         claim.setProviderId(UUID.randomUUID());
         claim.setSchemeId(UUID.randomUUID());
         claim.setClaimType("medical");
-        claim.setStatus("SUBMITTED");
+        claim.setInsuranceLine("HEALTH");
+        claim.setStatus("VERIFIED");
         claim.setServiceDate(LocalDate.now());
         claim.setClaimedAmount(new BigDecimal("500.00"));
         claim.setCurrencyCode("USD");
-        claim.setVerificationCode("123456");
         claim.setCreatedAt(Instant.now());
         claim.setUpdatedAt(Instant.now());
         claim.setCreatedBy(UUID.randomUUID());

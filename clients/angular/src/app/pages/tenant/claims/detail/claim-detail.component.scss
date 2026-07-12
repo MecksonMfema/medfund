@@ -1,5 +1,13 @@
-.page { padding: 1.5rem; }
+.page {
+  padding: 1.5rem;
+  // Anchor the whole detail page to the app's sans-serif token so the
+  // fonts match the forms — before this the h1 rendered in a monospace
+  // face which made the header visually break from the rest of the app.
+  font-family: var(--font-family);
+  color: var(--color-text-primary, #1b2a4a);
+}
 
+// ── Header ────────────────────────────────────────────────────────────
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -9,17 +17,37 @@
   flex-wrap: wrap;
 }
 
-.page-header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; font-family: ui-monospace, "Cascadia Mono", monospace; }
-.page-sub { margin: 0; color: var(--color-text-muted, #6b7280); font-size: 0.9rem; }
-
-.banner {
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-md, 8px);
-  cursor: pointer;
-  margin-bottom: 1rem;
+.page-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+  font-family: var(--font-family);
+  font-weight: var(--font-weight-semibold, 600);
+  color: var(--color-text-primary, #1b2a4a);
 }
-.banner-error   { background: var(--danger-bg,  #fee2e2); color: var(--danger-fg,  #991b1b); }
-.banner-success { background: var(--success-bg, #d1fae5); color: var(--success-fg, #065f46); }
+.page-sub {
+  margin: 0;
+  color: var(--color-text-muted, #6b7280);
+  font-size: 0.875rem;
+  font-family: var(--font-family);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+.page-sub .sep { opacity: 0.6; }
+
+.crumb {
+  margin-bottom: 0.35rem;
+}
+.crumb a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted, #6b7280);
+  text-decoration: none;
+}
+.crumb a:hover { color: var(--color-primary, #0077b6); }
 
 .empty-state {
   color: var(--color-text-muted, #6b7280);
@@ -28,39 +56,108 @@
   text-align: center;
 }
 
-// ── Tabs ──────────────────────────────────────────────────────────────
-.tabs {
-  display: flex;
-  gap: 0.25rem;
-  border-bottom: 1px solid var(--color-border-light, #e5e7eb);
-  margin-bottom: 1rem;
+// ── Summary strip ─────────────────────────────────────────────────────
+.summary-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
 }
 
-.tab {
-  background: none;
-  border: none;
-  padding: 0.6rem 1rem;
-  font-size: 0.875rem;
-  cursor: pointer;
-  color: var(--color-text-secondary, #4b5563);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  font-family: inherit;
-}
+// ── Single-page detail cards ──────────────────────────────────────────
+// Tabs were removed on 2026-07-11 — every section stacks on one page
+// so the adjudicator sees the whole picture without hopping between
+// tabs. Each section is a .detail-card with a heading, optional CTA,
+// and a body (table / dl / list depending on content).
 
-.tab:hover { color: var(--color-text-primary, #1b2a4a); }
-.tab.active {
-  color: var(--color-primary, #0077b6);
-  border-bottom-color: var(--color-primary, #0077b6);
-  font-weight: 600;
-}
-
-.tab-body {
+.detail-card {
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border-light, #e5e7eb);
   border-radius: var(--radius-md, 8px);
-  padding: 1rem;
+  padding: 1rem 1.1rem;
   margin-bottom: 1rem;
+  font-family: var(--font-family);
+  font-size: 0.875rem;
+  color: var(--color-text-primary, #1b2a4a);
+}
+
+// Row wrapper for the top-of-page 3-up card layout (Member · Claim ·
+// Payee). Every card inside is a normal .detail-card — the row just
+// re-lays them side-by-side and cancels their bottom margin so the
+// row itself owns the spacing to the next section.
+.detail-row {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+
+  > .detail-card { margin-bottom: 0; min-width: 0; }
+}
+.detail-row--three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+// Card KVs stay legible once each column is a third the width.
+.detail-row .kv--grid {
+  grid-template-columns: max-content 1fr;
+  gap: 0.35rem 0.75rem;
+}
+
+@media (max-width: 1100px) {
+  .detail-row--three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .detail-row--three { grid-template-columns: 1fr; }
+}
+
+.detail-card--muted {
+  background: var(--color-bg, #f8fdff);
+}
+
+.detail-card .section-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.6rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border-light, #e5e7eb);
+}
+
+.detail-card .section-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #1b2a4a);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.section-cta {
+  margin-left: auto;
+}
+
+.edit-actions {
+  display: inline-flex;
+  gap: 0.5rem;
+}
+
+.btn-sm {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+// Beneficiary DEP tag next to the header sub-line.
+.tag {
+  display: inline-block;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  border-radius: var(--radius-sm, 4px);
+  letter-spacing: 0.05em;
+}
+.tag--dep {
+  background: var(--color-primary-light, rgba(0,119,182,0.1));
+  color: var(--color-primary, #0077b6);
 }
 
 // ── Status badge ──────────────────────────────────────────────────────
@@ -75,11 +172,14 @@
 .status-verified         { background: var(--color-primary-light, rgba(0,119,182,0.1)); color: var(--color-primary, #0077b6); }
 .status-in_adjudication  { background: var(--warning-bg, #fef3c7); color: var(--warning-fg, #92400e); }
 .status-adjudicated,
+.status-approved,
 .status-committed,
 .status-paid             { background: var(--success-bg, #d1fae5); color: var(--success-fg, #065f46); }
 .status-rejected,
 .status-cancelled        { background: var(--danger-bg,  #fee2e2); color: var(--danger-fg,  #991b1b); }
+.status-pending,
 .status-pending_info     { background: var(--warning-bg, #fef3c7); color: var(--warning-fg, #92400e); }
+.status-expired          { background: var(--color-bg, #f8fdff); color: var(--color-text-muted, #6b7280); border: 1px solid var(--color-border, #d1d5db); }
 
 // ── Data table ────────────────────────────────────────────────────────
 .data-table {
@@ -99,20 +199,328 @@
 .muted { color: var(--color-text-muted, #6b7280); }
 .data-table code { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 0.8rem; }
 
+.data-table.hover tbody tr { cursor: pointer; }
+.data-table.hover tbody tr:hover { background: var(--color-bg, #f8fdff); }
+
+.data-table tr.short {
+  background: var(--warning-bg-soft, rgba(255, 159, 28, 0.08));
+}
+.data-table tr.short .approved {
+  color: var(--warning-fg, #92400e);
+  font-weight: 600;
+}
+
+// Persisted per-line decision — subtle row tints so the adjudicator
+// can scan the whole table at a glance.
+.data-table tr.line-accepted { background: rgba(34, 197, 94, 0.04); }
+.data-table tr.line-rejected { background: rgba(231, 29, 54, 0.04); }
+
+// Line-level status pill (small font, PENDING/ACCEPTED/REJECTED).
+.status-badge.status-pending { background: var(--warning-bg, #fef3c7); color: var(--warning-fg, #92400e); }
+.status-badge.status-accepted { background: var(--success-bg, #d1fae5); color: var(--success-fg, #065f46); }
+
+.small { font-size: 0.75rem; }
+
+// Inline form controls — same visual grammar as the forms (member,
+// scheme, submit-claim) but scoped down for a table cell. Matches
+// .field-control in shared/_form-grammar.scss: same font, same border
+// radius, same primary focus ring.
+.field-control--inline {
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--color-border, #d1d5db);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-surface, #fff);
+  font-family: var(--font-family);
+  font-size: 0.875rem;
+  color: var(--color-text-primary, #1b2a4a);
+  outline: none;
+  transition: border-color 100ms, box-shadow 100ms;
+
+  &::placeholder { color: var(--color-text-muted, #6b7280); }
+  &:hover:not(:disabled) { border-color: var(--color-secondary, #6b7280); }
+  &:focus {
+    border-color: var(--color-primary, #0077b6);
+    box-shadow: 0 0 0 3px var(--color-primary-light, rgba(0, 119, 182, 0.15));
+  }
+  &:disabled {
+    background: var(--color-bg, #f8fdff);
+    color: var(--color-text-muted, #6b7280);
+    cursor: not-allowed;
+  }
+}
+.field-control--inline.right { text-align: right; }
+.field-control--tight { max-width: 130px; }
+
+// Tariff / modifier inline inputs — narrower than the amount input to
+// keep the row compact; monospace so the code strings read cleanly.
+.field-control--code {
+  max-width: 160px;
+  font-family: ui-monospace, "Cascadia Mono", monospace;
+  font-size: 0.8125rem;
+}
+
+// Cell wrapper for tariff / modifier — stacks the input above the
+// "originally X" audit note so the note doesn't force the input to
+// wrap or clip.
+.code-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 140px;
+}
+
+.original-note {
+  font-size: 0.7rem;
+  color: var(--color-text-muted, #6b7280);
+  code {
+    font-family: ui-monospace, "Cascadia Mono", monospace;
+    font-size: 0.7rem;
+    color: var(--color-text-secondary, #4b5563);
+  }
+}
+
+// Gender pill — visually loud so the adjudicator spots a mismatch
+// with a gender-specific procedure without having to hunt through
+// the KV list. Colour-coded but neutral enough for both genders to
+// carry equal weight.
+.gender-pill {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  text-transform: capitalize;
+}
+.gender-male, .gender-m {
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.3);
+}
+.gender-female, .gender-f {
+  background: rgba(219, 39, 119, 0.08);
+  color: #be185d;
+  border-color: rgba(219, 39, 119, 0.3);
+}
+.gender-other, .gender-non_binary, .gender-nonbinary {
+  background: var(--color-primary-light, rgba(0, 119, 182, 0.1));
+  color: var(--color-primary, #0077b6);
+  border-color: rgba(0, 119, 182, 0.3);
+}
+
+.reason-select {
+  display: block;
+  margin-top: 0.35rem;
+  max-width: 220px;
+}
+
+// Per-line decision buttons: Accept / Reject (+ optional Clear). Small
+// chip-shaped buttons that light up green / red when active.
+.decision-cell {
+  min-width: 200px;
+}
+
+.decision-buttons {
+  display: inline-flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+// Accept / Reject chip buttons — colour-coded outlines by default
+// (green for accept, red for reject) so the affordance reads at a
+// glance even before the operator picks a decision. Active state
+// deepens the outline + adds a soft tint so the pick is unambiguous.
+.chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 100ms, border-color 100ms, color 100ms;
+
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  &--accept {
+    border-color: var(--success-fg, #065f46);
+    color: var(--success-fg, #065f46);
+    &:hover:not(:disabled) { background: var(--success-bg, #d1fae5); }
+    &.on {
+      background: var(--success-bg, #d1fae5);
+      border-width: 2px;
+      padding: calc(0.25rem - 1px) calc(0.7rem - 1px);
+    }
+  }
+
+  &--reject {
+    border-color: var(--danger-fg, #991b1b);
+    color: var(--danger-fg, #991b1b);
+    &:hover:not(:disabled) { background: var(--danger-bg, #fee2e2); }
+    &.on {
+      background: var(--danger-bg, #fee2e2);
+      border-width: 2px;
+      padding: calc(0.25rem - 1px) calc(0.7rem - 1px);
+    }
+  }
+
+  &--ghost {
+    border-style: dashed;
+    border-color: var(--color-border, #d1d5db);
+    color: var(--color-text-muted, #6b7280);
+    &:hover:not(:disabled) {
+      color: var(--color-text-primary, #1b2a4a);
+      border-color: var(--color-text-secondary, #4b5563);
+    }
+  }
+}
+
+// Card-level action row — buttons on any detail-card get pushed to the
+// right, with any accompanying context text on the left.
+.card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--color-border-light, #e5e7eb);
+  flex-wrap: wrap;
+
+  .muted { margin-right: auto; font-size: 0.8125rem; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+}
+
+// Beneficiary utilization — used-vs-limit strip per benefit.
+.util-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.util-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "meta figures"
+    "bar bar";
+  gap: 0.35rem 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px dashed var(--color-border-light, #e5e7eb);
+  &:last-child { border-bottom: none; }
+}
+.util-meta    { grid-area: meta; font-size: 0.875rem; }
+.util-figures { grid-area: figures; font-size: 0.875rem; text-align: right; }
+.util-bar {
+  grid-area: bar;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-border-light, #e5e7eb);
+  overflow: hidden;
+  position: relative;
+}
+.util-bar__fill {
+  height: 100%;
+  background: var(--success-fg, #065f46);
+  transition: width 200ms;
+  border-radius: 999px;
+}
+.util-bar__fill--warn   { background: var(--warning-fg, #92400e); }
+.util-bar__fill--danger { background: var(--danger-fg, #991b1b); }
+.util-bar__unlimited {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// Save bar under the services table — anchors the batch save action.
+.save-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0 0;
+  margin-top: 0.5rem;
+  border-top: 1px dashed var(--color-border-light, #e5e7eb);
+  flex-wrap: wrap;
+}
+
 .total-label  { font-weight: 600; padding-top: 0.6rem; }
 .total-amount { font-weight: 700; padding-top: 0.6rem; font-size: 1rem; }
 
-// ── Header / audit definition list ────────────────────────────────────
-.header-grid {
+.hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+}
+
+// ── Key-value grid used inside detail cards ───────────────────────────
+.kv--grid {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: 0.5rem 1rem;
+  gap: 0.35rem 1rem;
+  margin: 0;
+  font-size: 0.875rem;
+}
+.kv--grid dt { color: var(--color-text-muted, #6b7280); font-weight: 500; }
+.kv--grid dd { margin: 0; color: var(--color-text-primary, #1b2a4a); }
+.kv--grid dd.prewrap { white-space: pre-wrap; }
+.kv--grid dd code { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 0.8rem; }
+
+.link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--color-primary, #0077b6);
+  text-decoration: none;
+}
+.link:hover { text-decoration: underline; }
+
+.preauth-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.preauth-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+}
+.preauth-list a { color: var(--color-primary, #0077b6); text-decoration: none; }
+.preauth-list a:hover { text-decoration: underline; }
+
+// ── Key-value definition list ─────────────────────────────────────────
+.kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.4rem 1rem;
   margin: 0;
 }
 
-.header-grid dt { color: var(--color-text-muted, #6b7280); font-size: 0.85rem; }
-.header-grid dd { margin: 0; font-size: 0.95rem; }
-.header-grid code { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 0.85rem; }
+.kv dt { color: var(--color-text-muted, #6b7280); font-size: 0.82rem; }
+.kv dd { margin: 0; font-size: 0.9rem; }
+.kv code { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 0.82rem; }
+.kv .prewrap { white-space: pre-wrap; }
+
+.kv.audit dt { min-width: 140px; }
 
 // ── Action bar ────────────────────────────────────────────────────────
 .action-bar {

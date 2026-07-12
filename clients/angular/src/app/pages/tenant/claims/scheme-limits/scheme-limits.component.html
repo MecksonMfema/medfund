@@ -1,0 +1,115 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Scheme benefit limits</h1>
+      <p class="page-sub">
+        Read-only view of every health-scheme benefit and its caps
+        (annual / daily / event). Waiting periods and age gates surface here too.
+        Edit benefits under
+        <a routerLink="/tenant/contributions/schemes">Schemes &amp; benefits</a>.
+      </p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/claims">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back
+    </a>
+  </header>
+
+  <div class="filters">
+    <input type="text" class="search-input"
+           [(ngModel)]="q"
+           placeholder="Filter benefits by name or type…" />
+    <app-select
+      [(ngModel)]="schemeFilter"
+      name="schemeFilter"
+      [options]="schemeOptions"
+      placeholder="All schemes"
+      size="sm"
+    ></app-select>
+    <button type="button" class="btn btn-default" (click)="refresh()">Refresh</button>
+  </div>
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (bundles.length === 0) {
+    <p class="empty-state">No health schemes configured yet.</p>
+  } @else if (visible.length === 0) {
+    <p class="empty-state">No benefits match those filters.</p>
+  } @else {
+    @for (b of visible; track b.scheme.id) {
+      <section class="scheme-card">
+        <header class="scheme-card-header">
+          <div>
+            <h2>{{ b.scheme.name }}</h2>
+            <p class="muted">
+              {{ b.scheme.schemeType || 'Scheme' | humanize }} ·
+              currency {{ b.scheme.currencyCode || '—' }} ·
+              {{ b.benefits.length }} benefit{{ b.benefits.length === 1 ? '' : 's' }}
+              @if (b.scheme.minAge != null || b.scheme.maxAge != null) {
+                · age {{ b.scheme.minAge ?? '—' }}–{{ b.scheme.maxAge ?? '—' }}
+              }
+            </p>
+          </div>
+          <a class="link" [routerLink]="['/tenant/contributions/schemes', b.scheme.id]">Open scheme →</a>
+        </header>
+
+        @if (b.benefits.length === 0) {
+          <p class="empty-state small">No benefits configured on this scheme.</p>
+        } @else {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Benefit</th>
+                <th>Type</th>
+                <th class="right">Annual</th>
+                <th class="right">Event</th>
+                <th class="right">Daily</th>
+                <th class="right">Waiting</th>
+                <th>Age gate</th>
+                <th>Payout</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (be of b.benefits; track be.id) {
+                <tr>
+                  <td><strong>{{ be.name }}</strong></td>
+                  <td>{{ be.benefitType | humanize }}</td>
+                  <td class="right">
+                    @if (be.annualLimit) { {{ be.annualLimit | currencyFormat:be.currencyCode }} }
+                    @else { <span class="muted">—</span> }
+                  </td>
+                  <td class="right">
+                    @if (be.eventLimit) { {{ be.eventLimit | currencyFormat:be.currencyCode }} }
+                    @else { <span class="muted">—</span> }
+                  </td>
+                  <td class="right">
+                    @if (be.dailyLimit) { {{ be.dailyLimit | currencyFormat:be.currencyCode }} }
+                    @else { <span class="muted">—</span> }
+                  </td>
+                  <td class="right">
+                    @if (be.waitingPeriodDays) { {{ be.waitingPeriodDays }} d }
+                    @else { <span class="muted">—</span> }
+                  </td>
+                  <td>
+                    @if (be.minAge != null || be.maxAge != null) {
+                      {{ be.minAge ?? '—' }}–{{ be.maxAge ?? '—' }}
+                    } @else {
+                      <span class="muted">any</span>
+                    }
+                  </td>
+                  <td>
+                    @if (be.cashClaimAllowed === false) {
+                      <span class="chip chip-warn">Provider-only</span>
+                    } @else {
+                      <span class="chip">Cash allowed</span>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+    }
+  }
+</div>

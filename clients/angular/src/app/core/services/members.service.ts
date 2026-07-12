@@ -3,12 +3,34 @@ import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
 import { CursorPage } from './admin.service';
 
+/**
+ * Row shape from {@code GET /beneficiaries/search}. Members and
+ * dependants share the record; {@code kind} is the discriminator.
+ * For MEMBER hits, {@code sponsorId} is null and {@code id} is the
+ * member ID. For DEPENDANT hits, {@code sponsorId} is the sponsoring
+ * member's ID (routes to {@code memberId} on the claim payload).
+ */
+export interface BeneficiarySearchResult {
+  kind: 'MEMBER' | 'DEPENDANT';
+  id: string;
+  memberNumber?: string;
+  firstName: string;
+  lastName: string;
+  sponsorId?: string;
+  sponsorName?: string;
+  sponsorMemberNumber?: string;
+}
+
 export interface Member {
   id: string;
   memberNumber: string;
   firstName: string;
   lastName: string;
   dateOfBirth: string;
+  /** Matters for medical adjudication — gender-specific procedures
+   *  (obstetrics, prostate exams, mammograms) get flagged during
+   *  review against this field. */
+  gender?: string;
   email: string;
   phone: string;
   status: string;
@@ -37,6 +59,8 @@ export interface Dependant {
   relationship: string;
   nationalId?: string;
   status: string;
+  /** V036 — dependants each have their own member number. */
+  memberNumber?: string;
   /**
    * Effective date the dependant became a beneficiary (V047). Always
    * the 1st of a month. Absent on legacy rows that pre-date V047 (the
@@ -67,6 +91,16 @@ export class MembersService {
 
   searchByName(q: string): Observable<Member[]> {
     return this.api.get<Member[]>('/members/search', { q });
+  }
+
+  /**
+   * Unified typeahead over members + dependants. Backed by
+   * {@code GET /api/v1/beneficiaries/search}; each hit carries a
+   * {@code kind} discriminator so the caller can route the pick to
+   * (memberId) or (memberId, dependantId) on the claim payload.
+   */
+  searchBeneficiaries(q: string): Observable<BeneficiarySearchResult[]> {
+    return this.api.get<BeneficiarySearchResult[]>('/beneficiaries/search', { q });
   }
 
   enroll(data: any): Observable<Member> {
@@ -100,6 +134,10 @@ export class MembersService {
 
   getDependants(memberId: string): Observable<Dependant[]> {
     return this.api.get<Dependant[]>(`/dependants/member/${memberId}`);
+  }
+
+  getDependantById(id: string): Observable<Dependant> {
+    return this.api.get<Dependant>(`/dependants/${id}`);
   }
 
   addDependant(data: any): Observable<Dependant> {

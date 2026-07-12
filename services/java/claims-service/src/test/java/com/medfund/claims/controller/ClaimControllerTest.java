@@ -1,6 +1,8 @@
 package com.medfund.claims.controller;
 
 import com.medfund.claims.config.SecurityConfig;
+import com.medfund.claims.dto.ClaimResponse;
+import com.medfund.claims.dto.ClaimSubmissionResponse;
 import com.medfund.claims.entity.Claim;
 import com.medfund.claims.exception.ClaimNotFoundException;
 import com.medfund.claims.repository.ClaimLineRepository;
@@ -72,8 +74,15 @@ class ClaimControllerTest {
     }
 
     @Test
-    void submit_returns201() {
-        when(claimService.submit(any(), any(), any())).thenReturn(Mono.just(createTestClaim()));
+    void submit_returns201WithSubmissionEnvelope() {
+        // The controller returns an envelope: the created claim plus the
+        // (nullable) batch number in a single payload. Pins the shape so
+        // a "flatten it back to ClaimResponse" refactor fails loudly.
+        var envelope = new ClaimSubmissionResponse(
+                ClaimResponse.from(createTestClaim()),
+                "BATCH999"
+        );
+        when(claimService.submit(any(), any(), any())).thenReturn(Mono.just(envelope));
 
         String body = """
                 {
@@ -82,7 +91,8 @@ class ClaimControllerTest {
                     "schemeId": "%s",
                     "serviceDate": "2026-01-15",
                     "claimedAmount": 500.00,
-                    "currencyCode": "USD"
+                    "currencyCode": "USD",
+                    "lines": [{"tariffCode":"TC001","quantity":1,"unitPrice":"500.00","claimedAmount":"500.00"}]
                 }
                 """.formatted(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
 
@@ -92,7 +102,10 @@ class ClaimControllerTest {
                 .bodyValue(body)
                 .header("X-Tenant-ID", "test-tenant")
                 .exchange()
-                .expectStatus().isCreated();
+                .expectStatus().isCreated()
+                .expectBody()
+                .jsonPath("$.batchNumber").isEqualTo("BATCH999")
+                .jsonPath("$.claim.claimNumber").isEqualTo("CLM-123456");
     }
 
     private Claim createTestClaim() {

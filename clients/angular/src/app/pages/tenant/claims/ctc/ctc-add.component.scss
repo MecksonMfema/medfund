@@ -1,0 +1,86 @@
+.form-page { padding: 1.5rem; max-width: 720px; margin: 0 auto; }
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.page-header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
+.page-sub { margin: 0; color: var(--color-text-muted, #6b7280); font-size: 0.9rem; max-width: 60ch; }
+
+.card {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border-light, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  padding: 1.5rem;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-bottom: 1.25rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--color-border-light, #f0f4f8);
+
+  &:last-of-type { padding-bottom: 0; margin-bottom: 0; border-bottom: none; }
+}
+
+.section-title {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.radio-row { display: flex; gap: 1.5rem; }
+
+.radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.radio input { cursor: pointer; }
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.field { display: flex; flex-direction: column; }
+.field-label { font-weight: 500; font-size: 0.875rem; margin-bottom: 0.35rem; }
+.field input {
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--color-border, #d1d5db);
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+.field input:focus {
+  outline: none;
+  border-color: var(--color-primary, #0077b6);
+  box-shadow: 0 0 0 3px var(--color-primary-light, rgba(0,119,182,0.1));
+}
+
+.banner {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md, 8px);
+  margin: 1rem 0;
+}
+.banner-error { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}

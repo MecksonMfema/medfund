@@ -24,17 +24,38 @@ public class ClaimEventPublisher {
         this.objectMapper = objectMapper;
     }
 
-    public Mono<Void> publishClaimSubmitted(String claimId, String claimNumber, String memberId) {
+    public Mono<Void> publishClaimSubmitted(String claimId, String claimNumber, String memberId,
+                                              String insuranceLine) {
         return publishEvent("medfund.claims.submitted", claimId, Map.of(
             "event", "CLAIM_SUBMITTED",
             "claimId", claimId,
             "claimNumber", claimNumber,
-            "memberId", memberId
+            "memberId", memberId,
+            "insuranceLine", nz(insuranceLine)
+        ));
+    }
+
+    /**
+     * Emitted when a claim is captured with {@code preVerified=true} —
+     * the operator has already confirmed the code out-of-band, so the
+     * claim skips the SUBMITTED → VERIFIED transition. Consumers that
+     * only care about "ready for adjudication" can listen on this
+     * topic plus lifecycle CLAIM_STATUS_CHANGED (status=VERIFIED).
+     */
+    public Mono<Void> publishClaimCaptured(String claimId, String claimNumber, String memberId,
+                                            String insuranceLine) {
+        return publishEvent("medfund.claims.captured", claimId, Map.of(
+            "event", "CLAIM_CAPTURED",
+            "claimId", claimId,
+            "claimNumber", claimNumber,
+            "memberId", memberId,
+            "insuranceLine", nz(insuranceLine)
         ));
     }
 
     public Mono<Void> publishClaimAdjudicated(String claimId, String claimNumber, String decision,
-                                                String providerId, String approvedAmount, String currencyCode) {
+                                                String providerId, String approvedAmount, String currencyCode,
+                                                String insuranceLine) {
         return publishEvent("medfund.claims.adjudicated", claimId, Map.of(
             "event", "CLAIM_ADJUDICATED",
             "claimId", claimId,
@@ -42,16 +63,22 @@ public class ClaimEventPublisher {
             "decision", decision,
             "providerId", providerId != null ? providerId : "",
             "approvedAmount", approvedAmount != null ? approvedAmount : "0",
-            "currencyCode", currencyCode != null ? currencyCode : "USD"
+            "currencyCode", currencyCode != null ? currencyCode : "USD",
+            "insuranceLine", nz(insuranceLine)
         ));
     }
 
-    public Mono<Void> publishClaimStatusChanged(String claimId, String status) {
+    public Mono<Void> publishClaimStatusChanged(String claimId, String status, String insuranceLine) {
         return publishEvent("medfund.claims.lifecycle", claimId, Map.of(
             "event", "CLAIM_STATUS_CHANGED",
             "claimId", claimId,
-            "status", status
+            "status", status,
+            "insuranceLine", nz(insuranceLine)
         ));
+    }
+
+    private static String nz(String s) {
+        return s != null ? s : "";
     }
 
     public Mono<Void> publishPreAuthDecision(String authId, String authNumber, String decision) {

@@ -280,3 +280,84 @@ export function lineForSchemeType(schemeType: string | null | undefined): string
   if (!schemeType) return 'HEALTH';
   return LINE_FOR_SCHEME_TYPE[schemeType] ?? 'HEALTH';
 }
+
+/**
+ * Domain-neutral names for the sub-forms a claim can carry. The submit
+ * form uses these keys to decide which sections to render — a VEHICLE
+ * claim shouldn't ask for tariff codes; a FUNERAL claim doesn't have
+ * diagnoses. The keys are also the payload field names on the submit
+ * request DTO (backend mirror).
+ *
+ * <p>Anchored on the FHIR Claim resource pattern: the claim declares
+ * which sub-forms it participates in via a discriminator (here: the
+ * derived insurance line) rather than every claim carrying every field.
+ */
+export type ClaimFieldKey =
+  | 'tariffCodes' | 'modifiers' | 'diagnosisCodes' | 'procedureCodes'
+  | 'prescription'
+  | 'vehicleRegistration' | 'incidentLocation' | 'incidentReport' | 'policeReport'
+  | 'propertyAddress'
+  | 'deathCertificate' | 'deceasedRelationship'
+  | 'travelDestination' | 'travelDates'
+  | 'disabilityAssessment'
+  | 'lifeCertificate';
+
+/**
+ * Per-insurance-line field set. HEALTH is the fallback for unknown /
+ * missing lines — keeps the form usable during the brief boot window
+ * before the tenant's line list has been fetched.
+ */
+export const CLAIM_FIELDS_BY_LINE: Readonly<Record<string, ReadonlySet<ClaimFieldKey>>> = {
+  HEALTH:     new Set<ClaimFieldKey>(['tariffCodes','modifiers','diagnosisCodes','procedureCodes']),
+  GROUP:      new Set<ClaimFieldKey>(['tariffCodes','modifiers','diagnosisCodes']),
+  TRAVEL:     new Set<ClaimFieldKey>(['tariffCodes','diagnosisCodes','travelDestination','travelDates','incidentReport']),
+  LIFE:       new Set<ClaimFieldKey>(['lifeCertificate','deceasedRelationship']),
+  FUNERAL:    new Set<ClaimFieldKey>(['deathCertificate','deceasedRelationship']),
+  VEHICLE:    new Set<ClaimFieldKey>(['vehicleRegistration','incidentLocation','incidentReport','policeReport']),
+  PROPERTY:   new Set<ClaimFieldKey>(['propertyAddress','incidentLocation','incidentReport','policeReport']),
+  DISABILITY: new Set<ClaimFieldKey>(['diagnosisCodes','disabilityAssessment']),
+};
+
+export function claimFieldsForLine(line: string | null | undefined): ReadonlySet<ClaimFieldKey> {
+  return CLAIM_FIELDS_BY_LINE[line ?? 'HEALTH'] ?? CLAIM_FIELDS_BY_LINE['HEALTH'];
+}
+
+export function hasClaimField(line: string | null | undefined, key: ClaimFieldKey): boolean {
+  return claimFieldsForLine(line).has(key);
+}
+
+/**
+ * Lines whose claim body is a list of itemised tariff lines (with fee,
+ * qty, modifiers). Others (VEHICLE, LIFE, FUNERAL, …) carry a single
+ * total plus line-specific attribute fields.
+ */
+export const LINE_ITEM_LINES: ReadonlySet<string> = new Set(['HEALTH','GROUP','TRAVEL']);
+
+export function usesLineItems(line: string | null | undefined): boolean {
+  return !!line && LINE_ITEM_LINES.has(line);
+}
+
+/**
+ * Per-line rule for whether a claim carries a provider. Only two live
+ * modes today — every line either allows a provider (member may have
+ * paid out-of-pocket, in which case the reimbursement goes to the
+ * member) or forbids one entirely (LIFE / DISABILITY payouts always go
+ * to the beneficiary). Mirrors the server-side
+ * {@code ClaimService.ProviderMode} enum.
+ */
+export type ProviderMode = 'OPTIONAL' | 'FORBIDDEN';
+
+export const PROVIDER_MODE_BY_LINE: Readonly<Record<string, ProviderMode>> = {
+  HEALTH:     'OPTIONAL', // member-reimbursed out-of-pocket is common
+  GROUP:      'OPTIONAL',
+  TRAVEL:     'OPTIONAL',
+  VEHICLE:    'OPTIONAL',
+  PROPERTY:   'OPTIONAL',
+  FUNERAL:    'OPTIONAL',
+  LIFE:       'FORBIDDEN',
+  DISABILITY: 'FORBIDDEN',
+};
+
+export function providerModeForLine(line: string | null | undefined): ProviderMode {
+  return PROVIDER_MODE_BY_LINE[line ?? ''] ?? 'OPTIONAL';
+}

@@ -13,6 +13,13 @@ import {
   LINE_FOR_SCHEME_TYPE,
   lineForSchemeType,
   SCHEME_TYPES_BY_LINE,
+  claimFieldsForLine,
+  hasClaimField,
+  usesLineItems,
+  CLAIM_FIELDS_BY_LINE,
+  LINE_ITEM_LINES,
+  providerModeForLine,
+  PROVIDER_MODE_BY_LINE,
 } from './insurance-lines';
 
 describe('insurance-lines parsers', () => {
@@ -214,6 +221,155 @@ describe('insurance-lines parsers', () => {
       expect(lineForSchemeType('term_life')).toBe('LIFE');
       expect(lineForSchemeType('group_disability')).toBe('GROUP');
       expect(lineForSchemeType('buildings')).toBe('PROPERTY');
+    });
+  });
+
+  // ── Per-line claim-form field sets ──────────────────────────────────
+  //
+  // These guard the adaptive-form contract: hiding a field that a line
+  // actually needs would silently drop information from the submit
+  // payload, and showing a field a line doesn't use would surface an
+  // unresolvable required-field error.
+
+  describe('claimFieldsForLine', () => {
+    it('HEALTH exposes the full itemised-claim field set', () => {
+      const f = claimFieldsForLine('HEALTH');
+      expect(f.has('tariffCodes')).toBeTrue();
+      expect(f.has('modifiers')).toBeTrue();
+      expect(f.has('diagnosisCodes')).toBeTrue();
+      expect(f.has('procedureCodes')).toBeTrue();
+      // Fields that belong to non-medical lines must not leak in.
+      expect(f.has('vehicleRegistration')).toBeFalse();
+      expect(f.has('deathCertificate')).toBeFalse();
+    });
+
+    it('VEHICLE has incident + registration fields, no tariff or diagnosis', () => {
+      const f = claimFieldsForLine('VEHICLE');
+      expect(f.has('vehicleRegistration')).toBeTrue();
+      expect(f.has('incidentLocation')).toBeTrue();
+      expect(f.has('policeReport')).toBeTrue();
+      expect(f.has('tariffCodes')).toBeFalse();
+      expect(f.has('modifiers')).toBeFalse();
+      expect(f.has('diagnosisCodes')).toBeFalse();
+    });
+
+    it('FUNERAL requires death certificate + relationship', () => {
+      const f = claimFieldsForLine('FUNERAL');
+      expect(f.has('deathCertificate')).toBeTrue();
+      expect(f.has('deceasedRelationship')).toBeTrue();
+      expect(f.has('tariffCodes')).toBeFalse();
+    });
+
+    it('PROPERTY carries address + incident; no medical fields', () => {
+      const f = claimFieldsForLine('PROPERTY');
+      expect(f.has('propertyAddress')).toBeTrue();
+      expect(f.has('incidentLocation')).toBeTrue();
+      expect(f.has('diagnosisCodes')).toBeFalse();
+    });
+
+    it('unknown / null / undefined lines fall back to HEALTH', () => {
+      // A brief window during tenant boot has no insurance line — the
+      // form must still render something sensible rather than crashing.
+      expect(claimFieldsForLine(null)).toBe(CLAIM_FIELDS_BY_LINE['HEALTH']);
+      expect(claimFieldsForLine(undefined)).toBe(CLAIM_FIELDS_BY_LINE['HEALTH']);
+      expect(claimFieldsForLine('__nope__')).toBe(CLAIM_FIELDS_BY_LINE['HEALTH']);
+    });
+
+    it('every configured insurance line has a field set', () => {
+      // Cheap coverage guard — every entry in INSURANCE_LINES must
+      // resolve to a non-empty set. Adding a new line without a
+      // matching entry breaks the form silently.
+      for (const line of INSURANCE_LINES) {
+        expect(claimFieldsForLine(line.value).size)
+          .withContext(`line ${line.value} must have at least one claim field`)
+          .toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe('hasClaimField', () => {
+    it('is a thin convenience over the set', () => {
+      expect(hasClaimField('HEALTH', 'tariffCodes')).toBeTrue();
+      expect(hasClaimField('VEHICLE', 'tariffCodes')).toBeFalse();
+      expect(hasClaimField('FUNERAL', 'deathCertificate')).toBeTrue();
+    });
+  });
+
+  describe('usesLineItems', () => {
+    it('true only for lines with an itemised body (HEALTH / GROUP / TRAVEL)', () => {
+      expect(usesLineItems('HEALTH')).toBeTrue();
+      expect(usesLineItems('GROUP')).toBeTrue();
+      expect(usesLineItems('TRAVEL')).toBeTrue();
+    });
+
+    it('false for asset / event / benefit lines', () => {
+      expect(usesLineItems('VEHICLE')).toBeFalse();
+      expect(usesLineItems('PROPERTY')).toBeFalse();
+      expect(usesLineItems('FUNERAL')).toBeFalse();
+      expect(usesLineItems('LIFE')).toBeFalse();
+      expect(usesLineItems('DISABILITY')).toBeFalse();
+    });
+
+    it('false for missing / unknown line', () => {
+      // Non-itemised is the safer default — the form falls back to the
+      // single-total layout instead of rendering an empty FormArray.
+      expect(usesLineItems(null)).toBeFalse();
+      expect(usesLineItems(undefined)).toBeFalse();
+      expect(usesLineItems('__nope__')).toBeFalse();
+    });
+
+    it('LINE_ITEM_LINES stays in sync with usesLineItems()', () => {
+      for (const line of Array.from(LINE_ITEM_LINES)) {
+        expect(usesLineItems(line)).toBeTrue();
+      }
+    });
+  });
+
+  // ── Per-line provider policy ─────────────────────────────────────────
+  //
+  // The rule directly drives what the submit form asks for. Guard the
+  // three cases explicitly so a well-meaning "let's require a provider
+  // everywhere" refactor can't silently strand LIFE / DISABILITY
+  // captures with a required field they can't satisfy.
+
+  describe('providerModeForLine', () => {
+    it('lines that can be provider-paid OR member-reimbursed are OPTIONAL', () => {
+      // The distinction between "network payment" and "member paid
+      // out-of-pocket then claimed reimbursement" is a per-submission
+      // choice, not a per-line rule — every line except the true
+      // no-provider payout lines accepts either shape.
+      for (const line of ['HEALTH', 'GROUP', 'TRAVEL', 'VEHICLE', 'PROPERTY', 'FUNERAL']) {
+        expect(providerModeForLine(line))
+          .withContext(`${line} allows either a provider OR a member reimbursement`)
+          .toBe('OPTIONAL');
+      }
+    });
+
+    it('LIFE and DISABILITY are always paid to the member (FORBIDDEN)', () => {
+      // The payout is structurally to the beneficiary — attaching a
+      // provider would let the finance consumer route the money to the
+      // wrong party. Kept strict.
+      expect(providerModeForLine('LIFE')).toBe('FORBIDDEN');
+      expect(providerModeForLine('DISABILITY')).toBe('FORBIDDEN');
+    });
+
+    it('unknown / null / undefined lines default to OPTIONAL', () => {
+      // A misconfigured line silently rejecting a claim would be worse
+      // than accepting a spurious provider that finance can flag later.
+      expect(providerModeForLine(null)).toBe('OPTIONAL');
+      expect(providerModeForLine(undefined)).toBe('OPTIONAL');
+      expect(providerModeForLine('__nope__')).toBe('OPTIONAL');
+    });
+
+    it('every configured line has an explicit policy', () => {
+      // The map should stay in sync with INSURANCE_LINES — a new line
+      // added without a policy entry silently falls back to REQUIRED
+      // and this catches that.
+      for (const line of INSURANCE_LINES) {
+        expect(PROVIDER_MODE_BY_LINE[line.value])
+          .withContext(`line ${line.value} must have an explicit provider mode`)
+          .toBeDefined();
+      }
     });
   });
 });

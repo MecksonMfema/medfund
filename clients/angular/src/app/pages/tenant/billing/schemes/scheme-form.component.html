@@ -81,11 +81,23 @@
           <small class="field-help">Leave blank for an open-ended scheme. Snaps to the last day of the chosen month so the scheme stays billable through that cycle.</small>
         </label>
 
-        <!-- V050: age-eligibility gate. Only rendered for person-centric lines
-             (HEALTH/LIFE/FUNERAL/GROUP/TRAVEL/DISABILITY); asset lines have no
-             concept of member age. When either bound is set, enrolments outside
-             the range are rejected 422 AGE_OUT_OF_RANGE by the backend. -->
-        @if (personCentric) {
+      </section>
+
+      <!-- ── Eligibility ───────────────────────────────────────────────────
+           V050 age-eligibility gate. Only rendered for person-centric lines
+           (HEALTH/LIFE/FUNERAL/GROUP/TRAVEL/DISABILITY); asset lines have
+           no concept of member age. Split into its own section so
+           .form-sections' fixed --section-rows can host the extra fields
+           without overflowing the Validity subgrid rows. When either bound
+           is set, enrolments outside the range are rejected 422
+           AGE_OUT_OF_RANGE by the backend. -->
+      @if (personCentric) {
+        <section class="form-section">
+          <header class="section-head">
+            <span class="section-icon"><app-icon name="users" [size]="18"></app-icon></span>
+            <h3 class="section-title">Eligibility</h3>
+          </header>
+
           <label class="field">
             <span class="field-label">Minimum age at enrolment <span class="optional">(optional)</span></span>
             <input class="field-control" type="number" min="0" max="120"
@@ -98,8 +110,8 @@
                    [(ngModel)]="form.maxAge" name="maxAge" />
             <small class="field-help">Reject enrolments above this age (e.g. 65 for HEALTH cutoff). Leave blank for no upper bound. See rule templates for softer patterns (premium loading, extended waiting).</small>
           </label>
-        }
-      </section>
+        </section>
+      }
 
       <!-- ── Pricing ───────────────────────────────────────────────────── -->
       <section class="form-section">

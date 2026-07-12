@@ -2,6 +2,8 @@ package com.medfund.claims.controller;
 
 import com.medfund.claims.dto.ClaimLineResponse;
 import com.medfund.claims.dto.ClaimResponse;
+import com.medfund.claims.dto.ClaimSubmissionResponse;
+import com.medfund.claims.dto.LineDecisionRequest;
 import com.medfund.claims.dto.SubmitClaimRequest;
 import com.medfund.claims.repository.ClaimLineRepository;
 import com.medfund.claims.service.ClaimService;
@@ -78,24 +80,23 @@ public class ClaimController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Submit a new claim",
-        description = "Creates claim with verification code, saves claim lines, publishes submission event")
+        description = "Creates claim with insurance-line-aware validation and verification code, "
+                    + "saves claim lines, publishes submission event, and returns the operator-"
+                    + "facing capture metadata (code, 5-minute window, batch number) inline.")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "Claim submitted"),
         @ApiResponse(responseCode = "400", description = "Validation error")
     })
-    public Mono<ClaimResponse> submit(@Valid @RequestBody SubmitClaimRequest request,
-                                       @AuthenticationPrincipal Jwt jwt) {
-        return claimService.submit(request, AuditActor.id(jwt), AuditActor.email(jwt)).map(ClaimResponse::from);
+    public Mono<ClaimSubmissionResponse> submit(@Valid @RequestBody SubmitClaimRequest request,
+                                                 @AuthenticationPrincipal Jwt jwt) {
+        return claimService.submit(request, AuditActor.id(jwt), AuditActor.email(jwt));
     }
 
-    @PostMapping("/{id}/verify")
-    @Operation(summary = "Verify a submitted claim")
-    public Mono<ClaimResponse> verify(@PathVariable UUID id,
-                                       @RequestParam String verificationCode,
-                                       @AuthenticationPrincipal Jwt jwt) {
-        return claimService.verify(id, verificationCode, AuditActor.id(jwt), AuditActor.email(jwt))
-                .map(ClaimResponse::from);
-    }
+    // NOTE: the /verify endpoint was removed on 2026-07-11. Operator-
+    // captured claims are now marked VERIFIED at submit time — see
+    // ClaimService.submit. When the provider-portal ships and providers
+    // start capturing their own claims, verification comes back for
+    // *those* claims only (the operator flow stays as-is).
 
     @PostMapping("/{id}/adjudicate")
     @Operation(summary = "Run 6-stage adjudication pipeline",
@@ -117,5 +118,19 @@ public class ClaimController {
     @Operation(summary = "Get claim lines for a claim")
     public Flux<ClaimLineResponse> getClaimLines(@PathVariable UUID claimId) {
         return claimLineRepository.findByClaimId(claimId).map(ClaimLineResponse::from);
+    }
+
+    @PostMapping("/{id}/lines/decisions")
+    @Operation(summary = "Apply per-line adjudicator decisions",
+        description = "Accept or reject individual lines with per-line approved amounts. "
+                    + "The claim's aggregate approvedAmount is recomputed from the accepted "
+                    + "lines' totals; the claim status moves to ADJUDICATED (any accepted) "
+                    + "or REJECTED (all rejected).")
+    public Mono<ClaimResponse> applyLineDecisions(@PathVariable("id") UUID claimId,
+                                                    @RequestBody java.util.List<LineDecisionRequest> decisions,
+                                                    @AuthenticationPrincipal Jwt jwt) {
+        return claimService.applyLineDecisions(claimId, decisions,
+                        AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(ClaimResponse::from);
     }
 }
