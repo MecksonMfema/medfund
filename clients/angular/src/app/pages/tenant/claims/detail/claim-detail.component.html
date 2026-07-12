@@ -628,7 +628,7 @@
         <app-icon name="zap" [size]="14"></app-icon>
         Run pipeline
       </button>
-      <button type="button" class="btn btn-default" [disabled]="busy || !canAct('approve')" (click)="approve()"
+      <button type="button" class="btn btn-approve" [disabled]="busy || !canAct('approve')" (click)="approve()"
               *hasPermission="'claims:adjudicate'">
         Approve
       </button>
@@ -641,7 +641,7 @@
           placeholder="Pick reason…"
           size="sm"
         ></app-select>
-        <button type="button" class="btn btn-default reject" [disabled]="busy || !canAct('reject')" (click)="reject()">
+        <button type="button" class="btn btn-reject" [disabled]="busy || !canAct('reject')" (click)="reject()">
           Reject
         </button>
       </div>

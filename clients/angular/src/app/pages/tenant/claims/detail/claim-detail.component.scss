@@ -614,7 +614,20 @@
   min-width: 240px;
 }
 
-.btn.reject:not(:disabled) {
-  border-color: var(--danger-fg, #b91c1c);
-  color: var(--danger-fg, #b91c1c);
+// Action-bar decision buttons — solid green/red so the adjudicator's terminal
+// choices read at a glance vs. the neutral Run pipeline / Cancel buttons.
+.btn-approve {
+  background: var(--success-fg, #15803d);
+  color: #ffffff;
+  border: 1px solid var(--success-fg, #15803d);
+  &:hover:not(:disabled)    { background: #166534; border-color: #166534; }
+  &:disabled                { background: #86efac; border-color: #86efac; color: #ffffff; cursor: not-allowed; }
+}
+
+.btn-reject {
+  background: var(--danger-fg, #b91c1c);
+  color: #ffffff;
+  border: 1px solid var(--danger-fg, #b91c1c);
+  &:hover:not(:disabled)    { background: #991b1b; border-color: #991b1b; }
+  &:disabled                { background: #fca5a5; border-color: #fca5a5; color: #ffffff; cursor: not-allowed; }
 }
