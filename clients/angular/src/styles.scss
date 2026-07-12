@@ -94,6 +94,37 @@
   --transition-fast: 150ms ease;
   --transition-base: 200ms ease;
   --transition-slow: 300ms ease;
+
+  /* ── Section-icon pill ────────────────────────────────────────────
+   * Small themed square that wraps a section-head <app-icon>. Every page
+   * that opts in gets the same look — light primary background, primary-
+   * coloured glyph — and a tenant can rebrand both without touching any
+   * component. Icons themselves are fill=currentColor so `color` drives
+   * the glyph and `background` drives the pill. */
+  --section-icon-size: 32px;
+  --section-icon-radius: var(--radius-md);
+  --section-icon-bg: var(--color-primary-light);
+  --section-icon-fg: var(--color-primary);
+}
+
+/* Global section-icon utility. Use with:
+ *   <span class="section-icon"><app-icon name="…" [size]="18"/></span>
+ * Pages should NOT override background / color inline — theme via the
+ * CSS variables above so a tenant rebrand cascades everywhere. */
+.section-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--section-icon-size);
+  height: var(--section-icon-size);
+  border-radius: var(--section-icon-radius);
+  background: var(--section-icon-bg);
+  color: var(--section-icon-fg);
+}
+/* Smaller variant for tighter section-heads inside detail cards. */
+.section-icon--sm {
+  --section-icon-size: 26px;
 }
 
 /* Global Reset */

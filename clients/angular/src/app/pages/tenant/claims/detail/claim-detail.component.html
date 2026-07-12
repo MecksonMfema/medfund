@@ -78,10 +78,10 @@
     <!-- ── 1. Member / Dependant information ────────────────────────── -->
     <section class="detail-card">
       <header class="section-head">
-        <h3 class="section-title">
+        <span class="section-icon section-icon--sm">
           <app-icon [name]="dependant ? 'user-plus' : 'user'" [size]="16"></app-icon>
-          {{ dependant ? 'Dependant information' : 'Member information' }}
-        </h3>
+        </span>
+        <h3 class="section-title">{{ dependant ? 'Dependant information' : 'Member information' }}</h3>
       </header>
       @if (dependant) {
         <dl class="kv kv--grid">
@@ -169,7 +169,8 @@
     <!-- ── 2. Claim details ─────────────────────────────────────────── -->
     <section class="detail-card">
       <header class="section-head">
-        <h3 class="section-title"><app-icon name="clipboard-list" [size]="16"></app-icon> Claim details</h3>
+        <span class="section-icon section-icon--sm"><app-icon name="clipboard-list" [size]="16"></app-icon></span>
+        <h3 class="section-title">Claim details</h3>
       </header>
       <dl class="kv kv--grid">
         <dt>Type</dt><dd>{{ claim.claimType | humanize }}</dd>
@@ -192,10 +193,10 @@
     <!-- ── 3. Payee ─────────────────────────────────────────────────── -->
     <section class="detail-card" [class.detail-card--muted]="!provider">
       <header class="section-head">
-        <h3 class="section-title">
+        <span class="section-icon section-icon--sm">
           <app-icon [name]="provider ? 'building' : 'user-check'" [size]="16"></app-icon>
-          Payee
-        </h3>
+        </span>
+        <h3 class="section-title">Payee</h3>
       </header>
       @if (provider) {
         <dl class="kv kv--grid">
@@ -238,7 +239,8 @@
     @if (lines.length > 0) {
       <section class="detail-card">
         <header class="section-head">
-          <h3 class="section-title"><app-icon name="list" [size]="16"></app-icon> Service lines</h3>
+          <span class="section-icon section-icon--sm"><app-icon name="list" [size]="16"></app-icon></span>
+          <h3 class="section-title">Service lines</h3>
           <span class="muted">{{ lines.length }} line{{ lines.length === 1 ? '' : 's' }}</span>
         </header>
         <table class="data-table">
@@ -409,7 +411,8 @@
     @if (benefits.length > 0) {
       <section class="detail-card">
         <header class="section-head">
-          <h3 class="section-title"><app-icon name="shield" [size]="16"></app-icon> Scheme benefits</h3>
+          <span class="section-icon section-icon--sm"><app-icon name="shield" [size]="16"></app-icon></span>
+          <h3 class="section-title">Scheme benefits</h3>
           <span class="muted">{{ benefits.length }} benefit{{ benefits.length === 1 ? '' : 's' }}</span>
         </header>
         <table class="data-table">
@@ -449,10 +452,8 @@
     @if (showUtilization && visibleUtilization.length > 0) {
       <section class="detail-card">
         <header class="section-head">
-          <h3 class="section-title">
-            <app-icon name="trending-up" [size]="16"></app-icon>
-            {{ dependant ? 'Dependant' : 'Member' }} utilization
-          </h3>
+          <span class="section-icon section-icon--sm"><app-icon name="trending-up" [size]="16"></app-icon></span>
+          <h3 class="section-title">{{ dependant ? 'Dependant' : 'Member' }} utilization</h3>
           <span class="muted">policy year {{ visibleUtilization[0].policyYear || '—' }}</span>
         </header>
         <ul class="util-list">
@@ -554,10 +555,8 @@
            limits, not per-member balances). -->
       <section class="detail-card">
         <header class="section-head">
-          <h3 class="section-title">
-            <app-icon name="info" [size]="16"></app-icon>
-            Balance tracking
-          </h3>
+          <span class="section-icon section-icon--sm"><app-icon name="info" [size]="16"></app-icon></span>
+          <h3 class="section-title">Balance tracking</h3>
         </header>
         <p class="muted small">
           This scheme uses scheme-level limits only — no per-member benefit ledger. Adjudication runs
@@ -570,7 +569,8 @@
     @if (memberPreauths.length > 0) {
       <section class="detail-card">
         <header class="section-head">
-          <h3 class="section-title"><app-icon name="check-circle" [size]="16"></app-icon> Pre-authorisations</h3>
+          <span class="section-icon section-icon--sm"><app-icon name="check-circle" [size]="16"></app-icon></span>
+          <h3 class="section-title">Pre-authorisations</h3>
           <span class="muted">on file for this member</span>
         </header>
         <ul class="preauth-list">
@@ -591,7 +591,8 @@
     @if (memberHistory.length > 0) {
       <section class="detail-card">
         <header class="section-head">
-          <h3 class="section-title"><app-icon name="clipboard" [size]="16"></app-icon> Member claim history</h3>
+          <span class="section-icon section-icon--sm"><app-icon name="clipboard" [size]="16"></app-icon></span>
+          <h3 class="section-title">Member claim history</h3>
           <span class="muted">{{ memberHistory.length }} other claim{{ memberHistory.length === 1 ? '' : 's' }}</span>
         </header>
         <table class="data-table hover">

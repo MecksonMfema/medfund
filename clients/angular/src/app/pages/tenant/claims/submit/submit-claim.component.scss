@@ -127,17 +127,9 @@
   margin-bottom: 4px;
 }
 
-.section-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-md);
-  background: var(--color-primary-light);
-  color: var(--color-primary);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
+// .section-icon lives globally in styles.scss (themed via
+// --section-icon-bg / --section-icon-fg). Kept the class name here as
+// the markup contract; do not re-declare its properties.
 
 .section-title {
   margin: 0;
