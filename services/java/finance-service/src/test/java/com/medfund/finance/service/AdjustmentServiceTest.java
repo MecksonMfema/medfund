@@ -1,9 +1,13 @@
 package com.medfund.finance.service;
 
+import com.medfund.finance.dto.AdjustmentFilterParams;
+import com.medfund.finance.dto.AdjustmentRow;
 import com.medfund.finance.dto.CreateAdjustmentRequest;
 import com.medfund.finance.entity.Adjustment;
 import com.medfund.finance.exception.AdjustmentNotFoundException;
+import com.medfund.finance.repository.AdjustmentQueryRepository;
 import com.medfund.finance.repository.AdjustmentRepository;
+import reactor.core.publisher.Flux;
 import com.medfund.shared.audit.AuditPublisher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,6 +23,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,6 +31,9 @@ class AdjustmentServiceTest {
 
     @Mock
     private AdjustmentRepository adjustmentRepository;
+
+    @Mock
+    private AdjustmentQueryRepository queryRepository;
 
     @Mock
     private AuditPublisher auditPublisher;
@@ -217,6 +225,55 @@ class AdjustmentServiceTest {
                 .verifyComplete();
 
         verify(adjustmentRepository, never()).save(any());
+    }
+
+    // ── searchPaged — envelope + clamp contract ─────────────────────
+
+    @Test
+    void searchPaged_wrapsQueryRepoRowsInPageResponse() {
+        var row = new AdjustmentRow(
+                UUID.randomUUID(), "ADJ-000001",
+                UUID.randomUUID(), "Harare Clinic",
+                UUID.randomUUID(), "Alice Ndlovu", "MBR-000001",
+                "TAX_WITHHELD", new BigDecimal("50.00"), "USD",
+                "Withholding tax", "pending",
+                null, null,
+                Instant.now(), Instant.now(), UUID.randomUUID());
+        var params = new AdjustmentFilterParams(
+                null, "TAX_WITHHELD", null, null, null, null,
+                "createdAt", "desc", 0, 50);
+
+        when(queryRepository.search(any(), eq(50), eq(0)))
+                .thenReturn(Flux.just(row));
+        when(queryRepository.count(any())).thenReturn(Mono.just(1L));
+
+        StepVerifier.create(adjustmentService.searchPaged(params))
+                .assertNext(resp -> {
+                    assertThat(resp.content()).containsExactly(row);
+                    assertThat(resp.total()).isEqualTo(1L);
+                    assertThat(resp.page()).isZero();
+                    assertThat(resp.size()).isEqualTo(50);
+                    assertThat(resp.totalPages()).isEqualTo(1);
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void searchPaged_clampsSizeAndPage() {
+        var params = new AdjustmentFilterParams(
+                null, null, null, null, null, null,
+                "createdAt", "desc", -3, 99999);
+
+        when(queryRepository.search(any(), eq(200), eq(0)))
+                .thenReturn(Flux.empty());
+        when(queryRepository.count(any())).thenReturn(Mono.just(0L));
+
+        StepVerifier.create(adjustmentService.searchPaged(params))
+                .assertNext(resp -> {
+                    assertThat(resp.page()).isZero();
+                    assertThat(resp.size()).isEqualTo(200);
+                })
+                .verifyComplete();
     }
 
     // ---- Helper ----

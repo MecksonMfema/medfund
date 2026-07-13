@@ -106,6 +106,43 @@ export interface CreateAdjustmentPayload {
   reason?: string;
 }
 
+/**
+ * Row shape returned by GET /adjustments/page. Member + provider display
+ * fields pre-joined server-side so tables render inline without a
+ * second lookup.
+ */
+export interface AdjustmentRow {
+  id: string;
+  adjustmentNumber: string;
+  providerId?: string;
+  providerName?: string;
+  memberId?: string;
+  memberName?: string;
+  memberNumber?: string;
+  adjustmentType: AdjustmentType;
+  amount: string;
+  currencyCode: string;
+  reason?: string;
+  status: AdjustmentStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface AdjustmentPageParams {
+  status?: AdjustmentStatus | '';
+  adjustmentType?: AdjustmentType | '';
+  providerId?: string;
+  memberId?: string;
+  currencyCode?: string;
+  q?: string;
+  sortKey?: string;
+  sortDirection?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
+}
+
 // ── Bank reconciliation ─────────────────────────────────────────────────
 export type ReconciliationStatus = 'unmatched' | 'matched' | 'investigating' | 'resolved';
 
@@ -343,6 +380,26 @@ export class FinanceService {
   // ── Adjustments ──
   getAdjustmentsByProvider(providerId: string): Observable<Adjustment[]> { return this.api.get<Adjustment[]>(`/adjustments/provider/${providerId}`); }
   getAdjustmentsByStatus(status: AdjustmentStatus): Observable<Adjustment[]> { return this.api.get<Adjustment[]>(`/adjustments/status/${status}`); }
+  /**
+   * Server-side paginated adjustments list. Feeds both the general
+   * adjustments page and the tax-withheld page (which pins
+   * adjustmentType='TAX_WITHHELD'). Rows carry pre-joined member +
+   * provider names.
+   */
+  listAdjustmentsPaged(opts: AdjustmentPageParams): Observable<FinancePageResponse<AdjustmentRow>> {
+    const params: Record<string, string> = {};
+    if (opts.status)          params['status']         = opts.status;
+    if (opts.adjustmentType)  params['adjustmentType'] = opts.adjustmentType;
+    if (opts.providerId)      params['providerId']     = opts.providerId;
+    if (opts.memberId)        params['memberId']       = opts.memberId;
+    if (opts.currencyCode)    params['currencyCode']   = opts.currencyCode;
+    if (opts.q)               params['q']              = opts.q;
+    if (opts.sortKey)         params['sortKey']        = opts.sortKey;
+    if (opts.sortDirection)   params['sortDirection']  = opts.sortDirection;
+    if (opts.page !== undefined) params['page']        = String(opts.page);
+    if (opts.size !== undefined) params['size']        = String(opts.size);
+    return this.api.get<FinancePageResponse<AdjustmentRow>>('/adjustments/page', params);
+  }
   getAdjustment(id: string): Observable<Adjustment> { return this.api.get<Adjustment>(`/adjustments/${id}`); }
   createAdjustment(body: CreateAdjustmentPayload): Observable<Adjustment> { return this.api.post<Adjustment>('/adjustments', body); }
   approveAdjustment(id: string): Observable<Adjustment> { return this.api.post<Adjustment>(`/adjustments/${id}/approve`, {}); }

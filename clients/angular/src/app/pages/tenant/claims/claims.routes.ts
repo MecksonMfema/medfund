@@ -119,7 +119,7 @@ export const CLAIMS_ROUTES: Routes = [
     path: 'tax-withheld',
     canActivate: [permissionGuard(['claims:view', 'finance:view_withheld_tax'])],
     loadComponent: () => import('./tax-withheld/tax-withheld-list.component').then(m => m.TaxWithheldListComponent),
-    data: { title: 'Tax-Withheld Claims', variant: 'medical', sidebar: 'operational' },
+    data: { title: 'Tax-Withheld Claims', variant: 'medical', sidebar: 'operational', fullbleed: true },
   },
 
   // ── Pre-authorisation ──────────────────────────────────────────────────────

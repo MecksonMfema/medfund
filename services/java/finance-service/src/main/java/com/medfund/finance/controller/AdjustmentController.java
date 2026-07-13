@@ -1,7 +1,10 @@
 package com.medfund.finance.controller;
 
+import com.medfund.finance.dto.AdjustmentFilterParams;
 import com.medfund.finance.dto.AdjustmentResponse;
+import com.medfund.finance.dto.AdjustmentRow;
 import com.medfund.finance.dto.CreateAdjustmentRequest;
+import com.medfund.finance.dto.PageResponse;
 import com.medfund.finance.service.AdjustmentService;
 import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,9 +41,32 @@ public class AdjustmentController {
     }
 
     @GetMapping("/status/{status}")
-    @Operation(summary = "List adjustments by status")
+    @Operation(summary = "List adjustments by status (unpaginated — prefer /page)")
     public Flux<AdjustmentResponse> findByStatus(@PathVariable String status) {
         return adjustmentService.findByStatus(status).map(AdjustmentResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "Server-side paginated, sortable, filterable adjustments list",
+        description = "Feeds /tenant/finance/adjustments and /tenant/claims/tax-withheld "
+                + "(the latter pins adjustmentType=TAX_WITHHELD). Rows carry member + "
+                + "provider names joined server-side so the tables render inline.")
+    @ApiResponse(responseCode = "200", description = "Page of adjustments")
+    public Mono<PageResponse<AdjustmentRow>> searchPaged(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String adjustmentType,
+            @RequestParam(required = false) UUID providerId,
+            @RequestParam(required = false) UUID memberId,
+            @RequestParam(required = false) String currencyCode,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "createdAt") String sortKey,
+            @RequestParam(required = false, defaultValue = "desc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        var params = new AdjustmentFilterParams(
+                status, adjustmentType, providerId, memberId, currencyCode, q,
+                sortKey, sortDirection, page, size);
+        return adjustmentService.searchPaged(params);
     }
 
     @GetMapping("/{id}")

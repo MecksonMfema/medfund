@@ -1,8 +1,12 @@
 package com.medfund.finance.service;
 
+import com.medfund.finance.dto.AdjustmentFilterParams;
+import com.medfund.finance.dto.AdjustmentRow;
 import com.medfund.finance.dto.CreateAdjustmentRequest;
+import com.medfund.finance.dto.PageResponse;
 import com.medfund.finance.entity.Adjustment;
 import com.medfund.finance.exception.AdjustmentNotFoundException;
+import com.medfund.finance.repository.AdjustmentQueryRepository;
 import com.medfund.finance.repository.AdjustmentRepository;
 import com.medfund.finance.util.Actors;
 import com.medfund.shared.audit.AuditEvent;
@@ -26,13 +30,16 @@ public class AdjustmentService {
     private static final Logger log = LoggerFactory.getLogger(AdjustmentService.class);
 
     private final AdjustmentRepository adjustmentRepository;
+    private final AdjustmentQueryRepository queryRepository;
     private final AuditPublisher auditPublisher;
     private final FinanceEventPublisher eventPublisher;
 
     public AdjustmentService(AdjustmentRepository adjustmentRepository,
+                             AdjustmentQueryRepository queryRepository,
                              AuditPublisher auditPublisher,
                              FinanceEventPublisher eventPublisher) {
         this.adjustmentRepository = adjustmentRepository;
+        this.queryRepository = queryRepository;
         this.auditPublisher = auditPublisher;
         this.eventPublisher = eventPublisher;
     }
@@ -43,6 +50,22 @@ public class AdjustmentService {
 
     public Flux<Adjustment> findByStatus(String status) {
         return adjustmentRepository.findByStatus(status);
+    }
+
+    /**
+     * Server-side paginated adjustments list. Feeds both the general
+     * adjustments page and the tax-withheld page (the latter pins
+     * {@code adjustmentType=TAX_WITHHELD}). Member + provider names
+     * joined server-side so the tables render without a lookup.
+     */
+    public Mono<PageResponse<AdjustmentRow>> searchPaged(AdjustmentFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return queryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(queryRepository.count(params))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 
     public Mono<Adjustment> findById(UUID id) {
