@@ -1,57 +1,35 @@
-<div class="page">
-  <header class="page-header">
-    <div>
-      <h1>Drug catalogue</h1>
-      <p class="page-sub">The tenant formulary. Drug type drives adjudication treatment — chronic items often need pre-auth, off-limit drugs are auto-rejected.</p>
-    </div>
-    <a class="btn btn-primary" routerLink="/tenant/claims/drugs/add">
-      <app-icon name="plus" [size]="14"></app-icon>
-      Add drug
-    </a>
-  </header>
+<header class="page-header">
+  <div>
+    <h1>Drug catalogue</h1>
+    <p class="page-sub">The tenant formulary. Drug type drives adjudication treatment — chronic items often need pre-auth, off-limit drugs are auto-rejected.</p>
+  </div>
+  <a class="btn btn-primary" routerLink="/tenant/claims/drugs/add">
+    <app-icon name="plus" [size]="14"></app-icon>
+    Add drug
+  </a>
+</header>
 
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
 
-  @if (loading) {
-    <app-skeleton></app-skeleton>
-  } @else if (rows.length === 0) {
-    <p class="empty-state">No drugs in the formulary yet.</p>
-  } @else {
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Unit</th>
-          <th>Tariff</th>
-          <th class="right">USD cost</th>
-          <th class="right">Cover %</th>
-          <th>Flags</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of rows; track row.id) {
-          <tr [class.pending]="pendingId === row.id" [class.inactive]="!row.isActive">
-            <td><strong>{{ row.drugName }}</strong></td>
-            <td><span class="type-badge type-{{ row.drugType.toLowerCase() }}">{{ row.drugType | humanize }}</span></td>
-            <td class="muted">{{ row.unitOfMeasurement }}</td>
-            <td class="muted"><code>{{ row.tariffCode || '—' }}</code></td>
-            <td class="right">{{ row.wholesaleCostUsd ? (row.wholesaleCostUsd | currencyFormat:'USD') : '—' }}</td>
-            <td class="right">{{ row.paymentPercentage }}%</td>
-            <td>
-              @if (row.doNotPay) { <span class="flag danger">Do not pay</span> }
-              @if (!row.isActive) { <span class="flag muted">Inactive</span> }
-            </td>
-            <td class="actions">
-              <button class="link-btn" (click)="edit(row)">Edit</button>
-              <button class="link-btn danger" (click)="remove(row)">Delete</button>
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  }
-</div>
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [actions]="actions"
+  [showActions]="true"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  [initialSortKey]="sortKey"
+  [initialSortDirection]="sortDirection"
+  searchPlaceholder="Search drug name, tariff or type"
+  emptyMessage="No drugs in the formulary yet"
+  emptyDescription="Add the first drug above to seed the catalogue."
+  (pageChange)="onPageChange($event)"
+  (searchChange)="onSearchChange($event)"
+  (sortChange)="onSortChange($event)">
+</app-data-table>

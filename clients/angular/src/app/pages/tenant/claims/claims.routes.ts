@@ -290,7 +290,7 @@ export const CLAIMS_ROUTES: Routes = [
     path: 'drugs',
     canActivate: [permissionGuard(['claims:view_drug'])],
     loadComponent: () => import('./drugs/drugs-list.component').then(m => m.DrugsListComponent),
-    data: { title: 'Drug Catalogue', sidebar: 'operational' },
+    data: { title: 'Drug Catalogue', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'drugs/add',

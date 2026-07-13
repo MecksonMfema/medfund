@@ -1,16 +1,18 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
-import { Drug, DrugsService } from '../../../../core/services/drugs.service';
+import {
+  Drug,
+  DrugPageResponse,
+  DrugsService,
+} from '../../../../core/services/drugs.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
-import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
-import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
-import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
+import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 
 @Component({
   selector: 'app-drugs-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, IconComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
+  imports: [CommonModule, RouterLink, IconComponent, DataTableComponent],
   templateUrl: './drugs-list.component.html',
   styleUrl: './drugs-list.component.scss',
 })
@@ -18,36 +20,95 @@ export class DrugsListComponent implements OnInit {
   rows: Drug[] = [];
   loading = false;
   errorMessage: string | null = null;
-  pendingId: string | null = null;
+
+  // Server-side pagination state.
+  page = 1;
+  pageSize = 50;
+  totalCount = 0;
+  totalPages = 1;
+  sortKey = 'drugName';
+  sortDirection: 'asc' | 'desc' = 'asc';
+  searchTerm = '';
+
+  readonly columns: TableColumn[] = [
+    { key: 'drugName',          label: 'Name',       sortable: true },
+    { key: 'drugType',          label: 'Type',       sortable: true, type: 'label' },
+    { key: 'unitOfMeasurement', label: 'Unit',       sortable: true },
+    { key: 'tariffCode',        label: 'Tariff #',   sortable: true },
+    { key: 'wholesaleCostUsd',  label: 'USD cost',   sortable: true, type: 'currency' },
+    { key: 'paymentPercentage', label: 'Pay %',      sortable: true },
+    { key: 'doNotPay',          label: 'Do not pay', sortable: true, type: 'boolean' },
+    { key: 'isActive',          label: 'Active',     sortable: true, type: 'boolean' },
+  ];
+
+  readonly actions: TableAction[] = [
+    {
+      label: 'Edit',
+      icon: 'edit',
+      color: 'default',
+      handler: (row: Drug) => this.router.navigate(['/tenant/claims/drugs', row.id, 'edit']),
+    },
+    {
+      label: 'Remove',
+      icon: 'trash',
+      color: 'danger',
+      handler: (row: Drug) => this.remove(row),
+    },
+  ];
 
   constructor(private drugs: DrugsService, private router: Router) {}
 
-  ngOnInit(): void { this.refresh(); }
+  ngOnInit(): void { this.fetchPage(); }
 
-  refresh(): void {
+  fetchPage(): void {
     this.loading = true;
-    this.drugs.list(false).subscribe({
-      next: (rows) => { this.rows = rows; this.loading = false; },
+    this.drugs.listPaged({
+      q: this.searchTerm || undefined,
+      sortKey: this.sortKey,
+      sortDirection: this.sortDirection,
+      page: this.page - 1,
+      size: this.pageSize,
+    }).subscribe({
+      next: (resp: DrugPageResponse) => {
+        this.rows = resp.content;
+        this.totalCount = resp.total;
+        this.totalPages = resp.totalPages;
+        this.loading = false;
+      },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load drug catalogue';
+        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load drug catalogue';
+        this.rows = [];
+        this.totalCount = 0;
+        this.totalPages = 1;
         this.loading = false;
       },
     });
   }
 
-  edit(d: Drug): void { this.router.navigate(['/tenant/claims/drugs', d.id, 'edit']); }
+  onPageChange(page: number): void {
+    this.page = page;
+    this.fetchPage();
+  }
+
+  onSearchChange(term: string): void {
+    this.searchTerm = term;
+    this.page = 1;
+    this.fetchPage();
+  }
+
+  onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
+    this.sortKey = evt.key;
+    this.sortDirection = evt.direction;
+    this.page = 1;
+    this.fetchPage();
+  }
 
   remove(d: Drug): void {
     if (!confirm(`Remove ${d.drugName} from the formulary?`)) return;
-    this.pendingId = d.id;
     this.drugs.delete(d.id).subscribe({
-      next: () => {
-        this.rows = this.rows.filter(x => x.id !== d.id);
-        this.pendingId = null;
-      },
+      next: () => this.fetchPage(),
       error: (err) => {
         this.errorMessage = err?.error?.detail || 'Delete failed';
-        this.pendingId = null;
       },
     });
   }

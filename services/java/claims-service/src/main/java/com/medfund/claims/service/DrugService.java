@@ -1,7 +1,10 @@
 package com.medfund.claims.service;
 
+import com.medfund.claims.dto.DrugFilterParams;
+import com.medfund.claims.dto.PageResponse;
 import com.medfund.claims.dto.UpsertDrugRequest;
 import com.medfund.claims.entity.Drug;
+import com.medfund.claims.repository.DrugQueryRepository;
 import com.medfund.claims.repository.DrugRepository;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
@@ -20,17 +23,37 @@ import java.util.UUID;
 public class DrugService {
 
     private final DrugRepository repo;
+    private final DrugQueryRepository queryRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
 
-    public DrugService(DrugRepository repo, R2dbcEntityTemplate r2dbcTemplate, AuditPublisher auditPublisher) {
+    public DrugService(DrugRepository repo,
+                       DrugQueryRepository queryRepository,
+                       R2dbcEntityTemplate r2dbcTemplate,
+                       AuditPublisher auditPublisher) {
         this.repo = repo;
+        this.queryRepository = queryRepository;
         this.r2dbcTemplate = r2dbcTemplate;
         this.auditPublisher = auditPublisher;
     }
 
     public Flux<Drug> findAll(boolean activeOnly) {
         return activeOnly ? repo.findAllActive() : repo.findAllOrdered();
+    }
+
+    /**
+     * Server-side paginated drugs list. Feeds /tenant/claims/drugs.
+     * The formulary is small (~a few hundred rows) but the pattern is
+     * uniform across every list surface — no page-scale exceptions.
+     */
+    public Mono<PageResponse<Drug>> searchPaged(DrugFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return queryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(queryRepository.count(params))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 
     public Mono<Drug> findById(UUID id) {

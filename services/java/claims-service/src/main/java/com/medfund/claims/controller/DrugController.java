@@ -1,10 +1,13 @@
 package com.medfund.claims.controller;
 
+import com.medfund.claims.dto.DrugFilterParams;
 import com.medfund.claims.dto.DrugResponse;
+import com.medfund.claims.dto.PageResponse;
 import com.medfund.claims.dto.UpsertDrugRequest;
 import com.medfund.claims.service.DrugService;
 import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -30,9 +33,29 @@ public class DrugController {
     }
 
     @GetMapping
-    @Operation(summary = "List drugs in the formulary")
+    @Operation(summary = "List drugs (unpaginated — prefer /page)")
     public Flux<DrugResponse> list(@RequestParam(required = false, defaultValue = "false") boolean activeOnly) {
         return service.findAll(activeOnly).map(DrugResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "Server-side paginated, sortable, filterable drugs list",
+        description = "Feeds /tenant/claims/drugs. Sortable keys: drugName, drugType, "
+                + "unitOfMeasurement, tariffCode, wholesaleCostUsd, paymentPercentage, "
+                + "doNotPay, isActive, createdAt.")
+    @ApiResponse(responseCode = "200", description = "Page of drugs")
+    public Mono<PageResponse<DrugResponse>> searchPaged(
+            @RequestParam(required = false) Boolean activeOnly,
+            @RequestParam(required = false) String drugType,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "drugName") String sortKey,
+            @RequestParam(required = false, defaultValue = "asc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        var params = new DrugFilterParams(activeOnly, drugType, q, sortKey, sortDirection, page, size);
+        return service.searchPaged(params).map(pageResp -> PageResponse.of(
+                pageResp.content().stream().map(DrugResponse::from).toList(),
+                pageResp.total(), pageResp.page(), pageResp.size()));
     }
 
     @GetMapping("/{id}")
