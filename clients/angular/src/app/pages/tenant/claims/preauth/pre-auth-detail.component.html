@@ -43,6 +43,9 @@
       <h2>Pre-authorization {{ preAuth.authNumber }}</h2>
       <dl class="detail-grid">
         <dt>Member</dt><dd><code>{{ preAuth.memberId }}</code></dd>
+        @if (preAuth.dependantId) {
+          <dt>Dependant</dt><dd><code>{{ preAuth.dependantId }}</code></dd>
+        }
         <dt>Provider</dt><dd><code>{{ preAuth.providerId }}</code></dd>
         @if (preAuth.schemeId) { <dt>Scheme</dt><dd><code>{{ preAuth.schemeId }}</code></dd> }
         <dt>Tariff code</dt><dd><code>{{ preAuth.tariffCode }}</code></dd>

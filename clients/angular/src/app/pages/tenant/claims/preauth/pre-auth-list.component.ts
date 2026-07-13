@@ -1,21 +1,22 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import {
   PreAuthorization,
   PreAuthService,
 } from '../../../../core/services/pre-auth.service';
-import { IconComponent } from '../../../../shared/components/icon/icon.component';
-import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
-import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
-import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
-import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
+import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
+
+interface StatusTab {
+  /** Lowercase status value, or null for "All". */
+  value: string | null;
+  label: string;
+}
 
 @Component({
   selector: 'app-pre-auth-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
+  imports: [CommonModule, DataTableComponent],
   templateUrl: './pre-auth-list.component.html',
   styleUrl: './pre-auth-list.component.scss',
 })
@@ -24,14 +25,37 @@ export class PreAuthListComponent implements OnInit {
   filtered: PreAuthorization[] = [];
   loading = false;
   errorMessage: string | null = null;
-  statusFilter = '';
+  pageSize = 20;
+  sortKey = 'createdAt';
+  sortDirection: 'asc' | 'desc' = 'desc';
 
-  readonly statusFilterOptions: SelectOption[] = [
-    { value: '', label: 'All' },
-    { value: 'pending', label: 'Pending' },
+  readonly statusTabs: StatusTab[] = [
+    { value: null,       label: 'All'      },
+    { value: 'pending',  label: 'Pending'  },
     { value: 'approved', label: 'Approved' },
     { value: 'rejected', label: 'Rejected' },
-    { value: 'expired', label: 'Expired' },
+    { value: 'expired',  label: 'Expired'  },
+  ];
+  activeStatus: string | null = null;
+
+  readonly columns: TableColumn[] = [
+    { key: 'authNumber',       label: 'Auth #',    sortable: true },
+    { key: 'tariffCode',       label: 'Tariff',    sortable: true },
+    { key: 'diagnosisCode',    label: 'Diagnosis', sortable: true },
+    { key: 'requestedAmount',  label: 'Requested', sortable: true, type: 'currency' },
+    { key: 'approvedAmount',   label: 'Approved',  sortable: true, type: 'currency' },
+    { key: 'status',           label: 'Status',    sortable: true, type: 'status' },
+    { key: 'expiryDate',       label: 'Expires',   sortable: true },
+    { key: 'createdAt',        label: 'Submitted', sortable: true, type: 'date' },
+  ];
+
+  readonly actions: TableAction[] = [
+    {
+      label: 'View',
+      icon: 'eye',
+      color: 'default',
+      handler: (row: PreAuthorization) => this.router.navigate(['/tenant/claims/preauth', row.id]),
+    },
   ];
 
   constructor(private service: PreAuthService, private router: Router) {}
@@ -44,19 +68,21 @@ export class PreAuthListComponent implements OnInit {
       next: (rows) => { this.rows = rows; this.applyFilter(); this.loading = false; },
       error: (err) => {
         this.errorMessage = err?.error?.detail || 'Failed to load pre-authorizations';
+        this.rows = [];
+        this.applyFilter();
         this.loading = false;
       },
     });
   }
 
-  onStatusChange(): void { this.applyFilter(); }
-
-  open(p: PreAuthorization): void {
-    this.router.navigate(['/tenant/claims/preauth', p.id]);
+  selectStatus(value: string | null): void {
+    if (this.activeStatus === value) return;
+    this.activeStatus = value;
+    this.applyFilter();
   }
 
   private applyFilter(): void {
-    if (!this.statusFilter) { this.filtered = this.rows; return; }
-    this.filtered = this.rows.filter(r => r.status === this.statusFilter);
+    if (!this.activeStatus) { this.filtered = this.rows; return; }
+    this.filtered = this.rows.filter(r => r.status === this.activeStatus);
   }
 }

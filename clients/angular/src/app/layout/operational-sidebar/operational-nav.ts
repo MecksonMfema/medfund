@@ -39,7 +39,8 @@ export interface OperationalNavItem {
       | 'lifeAvailable'
       | 'funeralAvailable'
       | 'travelAvailable'
-      | 'disabilityAvailable';
+      | 'disabilityAvailable'
+      | 'preauthAvailable';
 }
 
 /**
@@ -115,13 +116,13 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
   {
     title: 'Claims',
     items: [
-      // exactMatch on the parent route — Drug Claims, Pre-Auth, Tariffs and
-      // Tasks are all children that would otherwise keep this item highlighted.
+      // exactMatch on the parent route — Drug Claims, Pre-Auth, and
+      // Tariffs are all children that would otherwise keep this item highlighted.
       { label: 'All Claims',         icon: 'file-medical',  route: '/tenant/claims',         permissions: ['claims:view', 'claims:view_drug'], exactMatch: true },
       { label: 'Submit Claim',       icon: 'file-text',     route: '/tenant/claims/submit',  permissions: ['claims:create'] },
-      { label: 'Pre-Authorizations', icon: 'check-circle',  route: '/tenant/claims/preauth', permissions: ['claims:manage_preauth'] },
+      { label: 'Pre-Authorizations', icon: 'check-circle',  route: '/tenant/claims/preauth', permissions: ['claims:manage_preauth'], featureFlag: 'preauthAvailable', exactMatch: true },
+      { label: 'New Pre-Auth',       icon: 'plus',          route: '/tenant/claims/preauth/new', permissions: ['claims:manage_preauth'], featureFlag: 'preauthAvailable' },
       { label: 'Tariffs',            icon: 'banknote',      route: '/tenant/claims/tariffs', permissions: ['claims:manage_tariffs'] },
-      { label: 'Tasks',              icon: 'clipboard',     route: '/tenant/claims/tasks',   permissions: ['claims:manage_tasks'] },
     ],
   },
   {

@@ -341,13 +341,4 @@ export const FINANCE_ROUTES: Routes = [
     data: { title: 'Record Copayment', sidebar: 'operational' },
   },
 
-  // ── Tasks ─────────────────────────────────────────────────────────────────
-  cs('tasks/incomplete',             'Incomplete Tasks',             '/incomplete-tasks',         'Open finance work items.',                ['finance:view']),
-  cs('tasks/complete',               'Completed Tasks',              '/complete-tasks',           'Finished finance work.',                   ['finance:view']),
-  cs('tasks/clerk/incomplete',       'Clerk Incomplete Tasks',       '/clerk-incomplete-tasks',   'Clerk-specific open tasks.',               ['finance:view']),
-  cs('tasks/clerk/complete',         'Clerk Completed Tasks',        '/clerk-complete-tasks',     'Clerk-specific finished tasks.',           ['finance:view']),
-  cs('tasks/unassigned',             'Unassigned Tasks',             '/unassigned-tasks',         'Tasks without an owner.',                  ['finance:view']),
-  cs('tasks/add',                    'Add Task',                     '/add-task',                 'Create a finance task.',                   ['finance:view']),
-  cs('tasks/reassign',               'Reassign Task',                '/re-assign-task',           'Change a task\'s owner.',                  ['finance:view']),
-  cs('tasks/revoked',                'Revoked Tasks',                '/revoked-tasks',            'Cancelled tasks.',                         ['finance:view']),
 ];

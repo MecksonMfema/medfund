@@ -146,6 +146,34 @@ class AdjudicationPipelineTest {
     }
 
     @Test
+    void execute_dependantClaim_looksUpDependantPreAuth() {
+        // Dependant claims must resolve pre-auth against the dependant, not
+        // the sponsor — a sponsor's own auth for the same code should not
+        // cover a dependant's line, and vice versa. Guard the routing at
+        // the pipeline entry point.
+        Claim claim = createTestClaim();
+        claim.setDependantId(UUID.randomUUID());
+        ClaimLine line = createTestClaimLine(claim.getId(), "TC002");
+        when(tariffCodeRepository.findByCode("TC002")).thenReturn(Mono.just(createTestTariffCode("TC002", true)));
+        when(preAuthorizationRepository.findByDependantIdAndTariffCodeAndStatus(
+                eq(claim.getDependantId()), eq("TC002"), eq("APPROVED")))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(adjudicationPipeline.execute(claim, List.of(line)))
+                .assertNext(result -> {
+                    assertThat(result.decision()).isEqualTo("REJECTED");
+                    assertThat(result.stageResults()).anyMatch(
+                            s -> "PreAuthorization".equals(s.stageName()) && !s.passed());
+                })
+                .verifyComplete();
+
+        verify(preAuthorizationRepository).findByDependantIdAndTariffCodeAndStatus(
+                eq(claim.getDependantId()), eq("TC002"), eq("APPROVED"));
+        verify(preAuthorizationRepository, never()).findByMemberIdAndTariffCodeAndStatus(
+                eq(claim.getMemberId()), eq("TC002"), eq("APPROVED"));
+    }
+
+    @Test
     void execute_invalidTariffCode_returnsRejected() {
         Claim claim = createTestClaim();
         ClaimLine line = createTestClaimLine(claim.getId(), "INVALID_CODE");
@@ -308,6 +336,270 @@ class AdjudicationPipelineTest {
                             "BenefitLimits".equals(s.stageName())
                                     && !s.passed()
                                     && s.details().contains("R03-DELTA_CREDIT"));
+                })
+                .verifyComplete();
+    }
+
+    // ---- V061 usage_mode branches ----
+
+    /**
+     * V061 branch — when a benefit is NO_TRACKING, Stage 3 passes without
+     * consulting the beneficiary ledger. Guards against a regression where
+     * we accidentally start requiring a ledger row for declarative benefits.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void benefitLimitCheck_noTrackingUsageMode_passesImmediately() {
+        Claim claim = createTestClaim();
+        claim.setBenefitId(UUID.randomUUID());
+        ClaimLine line = createTestClaimLine(claim.getId(), "TC001");
+        when(tariffCodeRepository.findByCode("TC001")).thenReturn(Mono.just(createTestTariffCode("TC001", false)));
+
+        DatabaseClient.GenericExecuteSpec spec = mock(DatabaseClient.GenericExecuteSpec.class);
+        FetchSpec<Map<String, Object>> fetch = mock(FetchSpec.class);
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        when(spec.fetch()).thenReturn(fetch);
+        // The map covers keys queried by every stage: age-range, benefit-lookup,
+        // usage-mode, mapping check. NO_TRACKING short-circuits before the
+        // proration path even runs.
+        Map<String, Object> row = new java.util.HashMap<>();
+        row.put("status", "active");
+        row.put("enrollment_date", LocalDate.now().minusDays(365));
+        row.put("used", BigDecimal.ZERO);
+        row.put("annual_limit", new BigDecimal("3000"));
+        row.put("name", "Wellness benefit");
+        row.put("currency_code", "USD");
+        row.put("usage_mode", "NO_TRACKING");
+        row.put("tracks_member_balances", true);
+        when(fetch.one()).thenReturn(Mono.just(row));
+        when(fetch.all()).thenReturn(Flux.empty());
+
+        StepVerifier.create(adjudicationPipeline.execute(claim, List.of(line)))
+                .assertNext(result -> {
+                    assertThat(result.stageResults()).anyMatch(s ->
+                            "BenefitLimits".equals(s.stageName())
+                                    && s.passed()
+                                    && s.details().contains("NO_TRACKING"));
+                })
+                .verifyComplete();
+    }
+
+    /**
+     * V061 branch — a scheme flagged tracks_member_balances=false skips
+     * the per-member ledger entirely (typical for indemnity products like
+     * VEHICLE / PROPERTY). Stage 3 acknowledges the opt-out rather than
+     * silently succeeding — the pass details cite the opt-out so the
+     * adjudicator sees why the balance check was skipped.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void benefitLimitCheck_schemeOptsOutOfMemberBalances_passesWithOptOutDetails() {
+        Claim claim = createTestClaim();
+        claim.setBenefitId(UUID.randomUUID());
+        ClaimLine line = createTestClaimLine(claim.getId(), "TC001");
+        when(tariffCodeRepository.findByCode("TC001")).thenReturn(Mono.just(createTestTariffCode("TC001", false)));
+
+        DatabaseClient.GenericExecuteSpec spec = mock(DatabaseClient.GenericExecuteSpec.class);
+        FetchSpec<Map<String, Object>> fetch = mock(FetchSpec.class);
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        when(spec.fetch()).thenReturn(fetch);
+        Map<String, Object> row = new java.util.HashMap<>();
+        row.put("status", "active");
+        row.put("enrollment_date", LocalDate.now().minusDays(365));
+        row.put("used", BigDecimal.ZERO);
+        row.put("annual_limit", new BigDecimal("3000"));
+        row.put("name", "Roadside cover");
+        row.put("currency_code", "USD");
+        row.put("usage_mode", "RUNNING_BALANCE");
+        row.put("tracks_member_balances", false);
+        when(fetch.one()).thenReturn(Mono.just(row));
+        when(fetch.all()).thenReturn(Flux.empty());
+
+        StepVerifier.create(adjudicationPipeline.execute(claim, List.of(line)))
+                .assertNext(result -> {
+                    assertThat(result.stageResults()).anyMatch(s ->
+                            "BenefitLimits".equals(s.stageName())
+                                    && s.passed()
+                                    && s.details().contains("opts out"));
+                })
+                .verifyComplete();
+    }
+
+    /**
+     * V061 branch — a ONE_TIME_PER_BENEFICIARY benefit already used
+     * (consumed_count > 0) rejects with R03-ONE_TIME_EXHAUSTED. This is
+     * the funeral/life-cover shape.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void benefitLimitCheck_oneTimePerBeneficiaryAlreadyConsumed_rejectsR03OneTimeExhausted() {
+        Claim claim = createTestClaim();
+        claim.setBenefitId(UUID.randomUUID());
+        ClaimLine line = createTestClaimLine(claim.getId(), "TC001");
+        when(tariffCodeRepository.findByCode("TC001")).thenReturn(Mono.just(createTestTariffCode("TC001", false)));
+
+        DatabaseClient.GenericExecuteSpec spec = mock(DatabaseClient.GenericExecuteSpec.class);
+        FetchSpec<Map<String, Object>> fetch = mock(FetchSpec.class);
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        when(spec.fetch()).thenReturn(fetch);
+        Map<String, Object> row = new java.util.HashMap<>();
+        row.put("status", "active");
+        row.put("enrollment_date", LocalDate.now().minusDays(365));
+        row.put("annual_limit", new BigDecimal("10000"));
+        row.put("name", "Funeral");
+        row.put("currency_code", "USD");
+        row.put("usage_mode", "ONE_TIME_PER_BENEFICIARY");
+        row.put("tracks_member_balances", true);
+        // consumed_count = 1 → already used → reject
+        row.put("cc", 1);
+        when(fetch.one()).thenReturn(Mono.just(row));
+        when(fetch.all()).thenReturn(Flux.empty());
+
+        StepVerifier.create(adjudicationPipeline.execute(claim, List.of(line)))
+                .assertNext(result -> {
+                    assertThat(result.stageResults()).anyMatch(s ->
+                            "BenefitLimits".equals(s.stageName())
+                                    && !s.passed()
+                                    && s.details().contains("R03-ONE_TIME_EXHAUSTED"));
+                })
+                .verifyComplete();
+    }
+
+    // ---- V062 tariff-mapping validation ----
+
+    /**
+     * V062 — when the tariff category has no covering scheme_benefit
+     * AND is not cap-only, Stage 3 rejects with R03-TARIFF_UNMAPPED so
+     * the operator can add the missing mapping via the admin UI.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void validateTariffMappings_categoryUnmappedForScheme_rejectsR03TariffUnmapped() {
+        Claim claim = createTestClaim();
+        // benefitId=null takes the checkOverallBenefitLimit path which passes
+        // silently, so we can isolate the tariff-mapping check on the line.
+        UUID categoryId = UUID.randomUUID();
+        var tc = createTestTariffCode("TC001", false);
+        tc.setCategoryId(categoryId);
+        when(tariffCodeRepository.findByCode("TC001")).thenReturn(Mono.just(tc));
+
+        ClaimLine line = createTestClaimLine(claim.getId(), "TC001");
+
+        DatabaseClient.GenericExecuteSpec spec = mock(DatabaseClient.GenericExecuteSpec.class);
+        FetchSpec<Map<String, Object>> fetch = mock(FetchSpec.class);
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        when(spec.fetch()).thenReturn(fetch);
+        Map<String, Object> row = new java.util.HashMap<>();
+        // Eligibility + waiting + overall-limit + cap checks all read from
+        // the same mock; put the union of expected keys so each stage
+        // extracts what it needs. is_cap_only=false + mapped_in_scheme=false
+        // is the unmapped-for-this-scheme case.
+        row.put("status", "active");
+        row.put("enrollment_date", LocalDate.now().minusDays(365));
+        row.put("used", BigDecimal.ZERO);
+        row.put("is_cap_only", false);
+        row.put("mapped_in_scheme", false);
+        when(fetch.one()).thenReturn(Mono.just(row));
+        when(fetch.all()).thenReturn(Flux.empty());
+
+        StepVerifier.create(adjudicationPipeline.execute(claim, List.of(line)))
+                .assertNext(result -> {
+                    assertThat(result.stageResults()).anyMatch(s ->
+                            "BenefitLimits".equals(s.stageName())
+                                    && !s.passed()
+                                    && s.details().contains("R03-TARIFF_UNMAPPED"));
+                })
+                .verifyComplete();
+    }
+
+    // ---- V062 annual cap ----
+
+    /**
+     * V062 — when consumed_amount + claim total would push over the
+     * scheme's annual_member_cap, Stage 3 rejects with
+     * R03-SCHEME_CAP_EXHAUSTED. Runs whether or not the per-benefit
+     * check passes.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void checkAnnualMemberCap_projectedOverCap_rejectsR03SchemeCapExhausted() {
+        Claim claim = createTestClaim();
+        // No specific benefitId → primary check goes via checkOverallBenefitLimit
+        // which passes silently, isolating the cap-check branch.
+        UUID categoryId = UUID.randomUUID();
+        var tc = createTestTariffCode("TC001", false);
+        tc.setCategoryId(categoryId);
+        when(tariffCodeRepository.findByCode("TC001")).thenReturn(Mono.just(tc));
+
+        ClaimLine line = createTestClaimLine(claim.getId(), "TC001");
+
+        DatabaseClient.GenericExecuteSpec spec = mock(DatabaseClient.GenericExecuteSpec.class);
+        FetchSpec<Map<String, Object>> fetch = mock(FetchSpec.class);
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        when(spec.fetch()).thenReturn(fetch);
+        Map<String, Object> row = new java.util.HashMap<>();
+        row.put("status", "active");
+        row.put("enrollment_date", LocalDate.now().minusDays(365));
+        row.put("used", BigDecimal.ZERO);
+        // Tariff mapping — cap-only so the mapping check passes.
+        row.put("is_cap_only", true);
+        row.put("mapped_in_scheme", false);
+        // Cap: 1000 already consumed, cap is 1200, claim total is 500 → over.
+        row.put("annual_member_cap", new BigDecimal("1200"));
+        row.put("consumed", new BigDecimal("1000"));
+        when(fetch.one()).thenReturn(Mono.just(row));
+        when(fetch.all()).thenReturn(Flux.empty());
+
+        StepVerifier.create(adjudicationPipeline.execute(claim, List.of(line)))
+                .assertNext(result -> {
+                    assertThat(result.stageResults()).anyMatch(s ->
+                            "BenefitLimits".equals(s.stageName())
+                                    && !s.passed()
+                                    && s.details().contains("R03-SCHEME_CAP_EXHAUSTED"));
+                })
+                .verifyComplete();
+    }
+
+    /**
+     * V062 — the cap check is a no-op when the scheme has no cap set
+     * (annual_member_cap = null). Regression guard against the check
+     * accidentally rejecting single-benefit product lines.
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void checkAnnualMemberCap_schemeHasNoCap_passes() {
+        Claim claim = createTestClaim();
+        UUID categoryId = UUID.randomUUID();
+        var tc = createTestTariffCode("TC001", false);
+        tc.setCategoryId(categoryId);
+        when(tariffCodeRepository.findByCode("TC001")).thenReturn(Mono.just(tc));
+
+        ClaimLine line = createTestClaimLine(claim.getId(), "TC001");
+
+        DatabaseClient.GenericExecuteSpec spec = mock(DatabaseClient.GenericExecuteSpec.class);
+        FetchSpec<Map<String, Object>> fetch = mock(FetchSpec.class);
+        when(databaseClient.sql(anyString())).thenReturn(spec);
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        when(spec.fetch()).thenReturn(fetch);
+        Map<String, Object> row = new java.util.HashMap<>();
+        row.put("status", "active");
+        row.put("enrollment_date", LocalDate.now().minusDays(365));
+        row.put("used", BigDecimal.ZERO);
+        row.put("is_cap_only", true);
+        row.put("mapped_in_scheme", false);
+        // annual_member_cap absent → cap check acknowledges "no cap".
+        when(fetch.one()).thenReturn(Mono.just(row));
+        when(fetch.all()).thenReturn(Flux.empty());
+
+        StepVerifier.create(adjudicationPipeline.execute(claim, List.of(line)))
+                .assertNext(result -> {
+                    assertThat(result.stageResults()).anyMatch(s ->
+                            "BenefitLimits".equals(s.stageName()) && s.passed());
                 })
                 .verifyComplete();
     }

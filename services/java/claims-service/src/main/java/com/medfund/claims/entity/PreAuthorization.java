@@ -23,6 +23,9 @@ public class PreAuthorization {
     @Column("member_id")
     private UUID memberId;
 
+    @Column("dependant_id")
+    private UUID dependantId;
+
     @Column("provider_id")
     private UUID providerId;
 
@@ -82,6 +85,9 @@ public class PreAuthorization {
 
     public UUID getMemberId() { return memberId; }
     public void setMemberId(UUID memberId) { this.memberId = memberId; }
+
+    public UUID getDependantId() { return dependantId; }
+    public void setDependantId(UUID dependantId) { this.dependantId = dependantId; }
 
     public UUID getProviderId() { return providerId; }
     public void setProviderId(UUID providerId) { this.providerId = providerId; }

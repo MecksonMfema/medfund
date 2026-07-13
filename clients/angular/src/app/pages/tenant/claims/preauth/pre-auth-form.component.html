@@ -1,8 +1,8 @@
-<div class="form-page">
+<div class="claim-form-page">
   <header class="page-header">
     <div>
       <h1>New pre-authorization request</h1>
-      <p class="page-sub">Submit a request for prior approval. Once approved, claims for the same member + tariff code will pass the pipeline's pre-auth stage automatically.</p>
+      <p class="page-sub">Prior approval for elective or high-cost services. Once approved, the pipeline will pass claims for the same beneficiary + tariff code automatically. Dependants request their own auth — a member's auth doesn't cover their dependants and vice versa.</p>
     </div>
     <a class="btn btn-default" routerLink="/tenant/claims/preauth">
       <app-icon name="arrow-left" [size]="14"></app-icon>
@@ -14,113 +14,152 @@
     <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
   }
 
-  <form (submit)="$event.preventDefault(); submit()" class="card">
-    <label class="field">
-      <span class="field-label">Member *</span>
-      @if (selectedMember) {
-        <div class="selected-pill">
-          <div class="selected-info">
-            <strong>{{ selectedMember.label }}</strong>
-            @if (selectedMember.sublabel) { <span class="muted">{{ selectedMember.sublabel }}</span> }
-          </div>
-          <button type="button" class="link-btn" (click)="clearMember()">Change</button>
-        </div>
-      } @else {
-        <div class="search-wrapper">
-          <input type="text" [(ngModel)]="memberQuery" (ngModelChange)="onMemberQueryChange()"
-                 (focus)="showMemberMatches = true" name="memberQuery"
-                 placeholder="Search by member name…" autocomplete="off" />
-          @if (showMemberMatches && memberQuery.trim()) {
-            <ul class="suggestions">
-              @if (memberSearching) { <li class="suggestion muted">Searching…</li> }
-              @else if (memberMatches.length === 0) { <li class="suggestion muted">No matches</li> }
-              @else {
-                @for (m of memberMatches; track m.id) {
-                  <li class="suggestion" (click)="pickMember(m)">
-                    <strong>{{ m.label }}</strong>
-                    @if (m.sublabel) { <span class="muted">— {{ m.sublabel }}</span> }
-                  </li>
-                }
-              }
-            </ul>
-          }
-        </div>
-      }
-    </label>
-
-    <label class="field">
-      <span class="field-label">Provider *</span>
-      @if (selectedProvider) {
-        <div class="selected-pill">
-          <div class="selected-info">
-            <strong>{{ selectedProvider.label }}</strong>
-            @if (selectedProvider.sublabel) { <span class="muted">{{ selectedProvider.sublabel }}</span> }
-          </div>
-          <button type="button" class="link-btn" (click)="clearProvider()">Change</button>
-        </div>
-      } @else {
-        <div class="search-wrapper">
-          <input type="text" [(ngModel)]="providerQuery" (ngModelChange)="onProviderQueryChange()"
-                 (focus)="showProviderMatches = true" name="providerQuery"
-                 placeholder="Search providers…" autocomplete="off" />
-          @if (showProviderMatches && providerQuery.trim()) {
-            <ul class="suggestions">
-              @if (providerSearching) { <li class="suggestion muted">Searching…</li> }
-              @else if (providerMatches.length === 0) { <li class="suggestion muted">No matches</li> }
-              @else {
-                @for (p of providerMatches; track p.id) {
-                  <li class="suggestion" (click)="pickProvider(p)">
-                    <strong>{{ p.label }}</strong>
-                    @if (p.sublabel) { <span class="muted">— {{ p.sublabel }}</span> }
-                  </li>
-                }
-              }
-            </ul>
-          }
-        </div>
-      }
-    </label>
-
-    <div class="form-grid">
-      <label class="field">
-        <span class="field-label">Scheme *</span>
-        <app-select
-          [(ngModel)]="form.schemeId"
-          name="schemeId"
-          required
-          [options]="schemeOptions"
-          placeholder="Pick a scheme"
-        ></app-select>
-      </label>
-      <label class="field">
-        <span class="field-label">Currency *</span>
-        <app-select
-          [(ngModel)]="form.currencyCode"
-          name="currencyCode"
-          required
-          [options]="currencyOptions"
-          placeholder="Pick a currency"
-        ></app-select>
-      </label>
-      <label class="field">
-        <span class="field-label">Tariff code *</span>
-        <input type="text" [(ngModel)]="form.tariffCode" name="tariffCode" required placeholder="0001A" />
-      </label>
-      <label class="field">
-        <span class="field-label">Diagnosis code</span>
-        <input type="text" [(ngModel)]="form.diagnosisCode" name="diagnosisCode" placeholder="ICD-10 (e.g. C50.9)" />
-      </label>
-      <label class="field">
-        <span class="field-label">Requested amount *</span>
-        <input type="number" step="0.01" min="0" [(ngModel)]="form.requestedAmount" name="requestedAmount" required />
-      </label>
+  <form (submit)="$event.preventDefault(); submit()" class="form-card">
+    <div class="form-card__heading">
+      <h2 class="form-card__title">Request details</h2>
+      <span class="form-card__hint">Fields marked with * are required.</span>
     </div>
 
-    <label class="field">
-      <span class="field-label">Notes</span>
-      <textarea [(ngModel)]="form.notes" name="notes" rows="3"
-                placeholder="Clinical justification, treatment plan, supporting context…"></textarea>
-    </label>
+    <div class="form-sections">
+      <!-- ── Coverage ─────────────────────────────────────────────────── -->
+      <section class="form-section form-section--full">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="users" [size]="18"></app-icon></span>
+          <h3 class="section-title">Coverage</h3>
+        </header>
+
+        <div class="field-grid field-grid--3">
+          <label class="field">
+            <span class="field-label">Beneficiary <span class="req">*</span></span>
+            <app-entity-picker
+              kind="beneficiary"
+              [value]="beneficiaryId"
+              (selected)="onBeneficiaryPicked($event)"
+              placeholder="Search member or dependant…"
+            ></app-entity-picker>
+            @if (beneficiaryKind === 'DEPENDANT') {
+              <small class="field-help">Dependant pre-auth — the sponsoring member is billed and drilled through, but the auth applies to this dependant only.</small>
+            }
+          </label>
+
+          <label class="field">
+            <span class="field-label">Provider <span class="req">*</span></span>
+            <app-entity-picker
+              kind="provider"
+              [(value)]="providerId"
+              placeholder="Search by provider name or registration #…"
+            ></app-entity-picker>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Scheme</span>
+            @switch (schemeStatus) {
+              @case ('idle') {
+                <p class="field-help">Pick a beneficiary — their scheme fills in here automatically.</p>
+              }
+              @case ('loading') {
+                <p class="field-help">Loading scheme…</p>
+              }
+              @case ('ok') {
+                <div class="scheme-summary">
+                  <strong>{{ schemeName }}</strong>
+                  <span class="muted">{{ form.currencyCode }}</span>
+                </div>
+              }
+              @case ('missing') {
+                <p class="field-help field-help--warn">
+                  This beneficiary isn't enrolled on a scheme yet. Enrol them first, then re-open this form.
+                </p>
+              }
+              @case ('error') {
+                <p class="field-help field-help--warn">
+                  Couldn't load the scheme — retry, or contact support if this persists.
+                </p>
+              }
+            }
+          </label>
+        </div>
+      </section>
+
+      <!-- ── Service ──────────────────────────────────────────────────── -->
+      <section class="form-section form-section--full">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="list" [size]="18"></app-icon></span>
+          <h3 class="section-title">Service</h3>
+        </header>
+
+        <div class="field-grid field-grid--2">
+          <label class="field">
+            <span class="field-label">Tariff code <span class="req">*</span></span>
+            <div class="tariff-cell">
+              <input class="field-control" type="text"
+                     [(ngModel)]="form.tariffCode" name="tariffCode"
+                     placeholder="Search tariff…"
+                     autocomplete="off"
+                     (focus)="onTariffCodeFocus()"
+                     (input)="onTariffCodeInput()"
+                     (blur)="onTariffCodeBlur()" />
+              @if (showTariffMatches && (tariffSearching || tariffMatches.length > 0)) {
+                <ul class="suggestions">
+                  @if (tariffSearching) {
+                    <li class="suggestion muted">Searching…</li>
+                  } @else {
+                    @for (t of tariffMatches; track t.id) {
+                      <li class="suggestion" (mousedown)="pickTariff(t)">
+                        <code>{{ t.code }}</code>
+                        <span class="muted">— {{ t.description }}</span>
+                        <span class="tariff-price">{{ t.unitPrice | currencyFormat:(t.currencyCode || 'USD') }}</span>
+                      </li>
+                    }
+                  }
+                </ul>
+              }
+            </div>
+            @if (form.tariffDescription) {
+              <small class="field-help">{{ form.tariffDescription }}</small>
+            }
+          </label>
+
+          <label class="field">
+            <span class="field-label">Diagnosis code <span class="optional">(optional)</span></span>
+            <input class="field-control" type="text"
+                   [(ngModel)]="form.diagnosisCode" name="diagnosisCode"
+                   placeholder="ICD-10 (e.g. C50.9)" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Requested amount <span class="req">*</span></span>
+            <input class="field-control" type="number" step="0.01" min="0"
+                   [(ngModel)]="form.requestedAmount" name="requestedAmount" />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Currency <span class="req">*</span></span>
+            <app-select
+              [(ngModel)]="form.currencyCode"
+              name="currencyCode"
+              required
+              [options]="currencyOptions"
+              placeholder="Pick a currency"
+            ></app-select>
+          </label>
+        </div>
+      </section>
+
+      <!-- ── Notes ────────────────────────────────────────────────────── -->
+      <section class="form-section form-section--full">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="file-text" [size]="18"></app-icon></span>
+          <h3 class="section-title">Clinical justification</h3>
+        </header>
+
+        <label class="field">
+          <span class="field-label">Notes <span class="optional">(optional)</span></span>
+          <textarea class="field-control" [(ngModel)]="form.notes" name="notes" rows="4"
+                    placeholder="Clinical justification, treatment plan, supporting context…"></textarea>
+        </label>
+      </section>
+    </div>
 
     <div class="form-actions">
       <a class="btn btn-default" routerLink="/tenant/claims/preauth">Cancel</a>

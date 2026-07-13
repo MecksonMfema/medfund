@@ -68,4 +68,21 @@ describe('CLAIMS_ROUTES', () => {
     expect(paths.has('preauth/new')).toBeTrue();
     expect(paths.has('preauth/:id')).toBeTrue();
   });
+
+  it('has NO tasks/* branch', () => {
+    // Tasks were removed from the system (2026-07-13). The old routes
+    // were roadmap placeholders and never wired to a live queue; if any
+    // come back they should land under a new top-level domain, not
+    // as claims/tasks/*.
+    const forbidden = [
+      'tasks', 'tasks/incomplete', 'tasks/complete', 'tasks/add',
+      'tasks/assign', 'tasks/user/incomplete', 'tasks/user/claims',
+      'tasks/user/complete',
+    ];
+    for (const p of forbidden) {
+      expect(paths.has(p))
+        .withContext(`route "${p}" must not exist — tasks domain retired`)
+        .toBeFalse();
+    }
+  });
 });

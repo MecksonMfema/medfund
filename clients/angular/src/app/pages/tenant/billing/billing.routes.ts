@@ -313,14 +313,6 @@ export const BILLING_ROUTES: Routes = [
     data: { title: 'Edit Sender Email', sidebar: 'operational' },
   },
 
-  // ── Tasks ──────────────────────────────────────────────────────────────────
-  // Deferred — will be implemented alongside the notification-service rebuild
-  // (the two are tightly coupled: assigned tasks need notification dispatch).
-  cs('tasks',               'Tasks',               '/tickets/view-tasks',         'Billing-related work items.',                          ['billing:view']),
-  cs('tasks/add',           'Add Task',            '/tickets/add-tasks',          'Create a new work item.',                              ['billing:view']),
-  cs('tasks/assign',        'Assign Tasks',        '/tickets/assign-tasks',       'Allocate work items to billing clerks.',               ['billing:view']),
-  cs('tasks/incomplete',    'Incomplete Tasks',    '/tickets/incomplete-tasks',   'Open billing work.',                                   ['billing:view']),
-
   // ── Group / member admin helpers ──────────────────────────────────────────
   {
     path: 'groups',

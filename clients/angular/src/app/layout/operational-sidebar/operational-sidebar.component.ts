@@ -10,6 +10,7 @@ import { OPERATIONAL_NAV, OperationalNavGroup, OperationalNavItem } from './oper
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { clearSession } from '../../auth/keycloak.init';
 import { isPersonCentricLine } from '../../core/models/insurance-lines';
+import { tenantHasPreauth } from '../../pages/tenant/claims/preauth/preauth-line.guard';
 import { Tenant } from '../../core/services/tenant.service';
 
 /**
@@ -117,6 +118,8 @@ export class OperationalSidebarComponent implements OnInit, OnDestroy {
         return (tenant?.insuranceLines ?? []).includes('TRAVEL');
       case 'disabilityAvailable':
         return (tenant?.insuranceLines ?? []).includes('DISABILITY');
+      case 'preauthAvailable':
+        return tenantHasPreauth(tenant?.insuranceLines);
       default:
         return false;
     }

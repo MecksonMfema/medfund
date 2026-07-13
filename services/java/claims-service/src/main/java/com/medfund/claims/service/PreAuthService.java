@@ -62,6 +62,7 @@ public class PreAuthService {
                 var preAuth = new PreAuthorization();
                 preAuth.setAuthNumber(authNumber);
                 preAuth.setMemberId(request.memberId());
+                preAuth.setDependantId(request.dependantId());
                 preAuth.setProviderId(request.providerId());
                 preAuth.setSchemeId(request.schemeId());
                 preAuth.setTariffCode(request.tariffCode());

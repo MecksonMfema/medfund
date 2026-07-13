@@ -9,6 +9,7 @@ import com.medfund.claims.dto.AiSignals;
 import com.medfund.claims.entity.Claim;
 import com.medfund.claims.entity.ClaimLine;
 import com.medfund.claims.entity.DiagnosisProcedureMapping;
+import com.medfund.claims.entity.PreAuthorization;
 import com.medfund.claims.entity.TariffCode;
 import com.medfund.claims.repository.DiagnosisProcedureMappingRepository;
 import com.medfund.claims.repository.IcdCodeRepository;
@@ -661,8 +662,18 @@ public class AdjudicationPipeline {
             .flatMap(line -> tariffCodeRepository.findByCode(line.getTariffCode())
                 .flatMap(tariff -> {
                     if (Boolean.TRUE.equals(tariff.getRequiresPreAuth())) {
-                        return preAuthorizationRepository
-                            .findByMemberIdAndTariffCodeAndStatus(claim.getMemberId(), tariff.getCode(), "APPROVED")
+                        // Dependant claims resolve against the dependant's pre-auth;
+                        // member claims resolve against the member's (dependant_id
+                        // IS NULL) so a member and a dependant can each hold their
+                        // own auth for the same code without one shadowing the other.
+                        Mono<PreAuthorization> lookup = claim.getDependantId() != null
+                            ? preAuthorizationRepository
+                                .findByDependantIdAndTariffCodeAndStatus(
+                                    claim.getDependantId(), tariff.getCode(), "APPROVED")
+                            : preAuthorizationRepository
+                                .findByMemberIdAndTariffCodeAndStatus(
+                                    claim.getMemberId(), tariff.getCode(), "APPROVED");
+                        return lookup
                             .map(preAuth -> {
                                 boolean valid = preAuth.getExpiryDate() != null
                                     && !preAuth.getExpiryDate().isBefore(LocalDate.now());

@@ -44,7 +44,6 @@ public final class Permissions {
     public static final String CLAIMS_MANAGE_REJECTION_REASONS   = "claims:manage_rejection_reasons";
     public static final String CLAIMS_MANAGE_VERIFICATION_CODES  = "claims:manage_verification_codes";
     public static final String CLAIMS_ASSIGN                     = "claims:assign";
-    public static final String CLAIMS_MANAGE_TASKS               = "claims:manage_tasks";
     public static final String CLAIMS_VIEW_CTC_PAYMENTS          = "claims:view_ctc_payments";
     public static final String CLAIMS_COMMIT_CTC_PAYMENT         = "claims:commit_ctc_payment";
 
@@ -114,7 +113,7 @@ public final class Permissions {
             CLAIMS_VERIFY, CLAIMS_VIEW_DRUG, CLAIMS_CREATE_DRUG, CLAIMS_ADJUDICATE_DRUG,
             CLAIMS_MANAGE_PREAUTH, CLAIMS_MANAGE_DRUG_PREAUTH, CLAIMS_MANAGE_TARIFFS,
             CLAIMS_MANAGE_MODIFIERS, CLAIMS_MANAGE_REJECTION_REASONS,
-            CLAIMS_MANAGE_VERIFICATION_CODES, CLAIMS_ASSIGN, CLAIMS_MANAGE_TASKS,
+            CLAIMS_MANAGE_VERIFICATION_CODES, CLAIMS_ASSIGN,
             CLAIMS_VIEW_CTC_PAYMENTS, CLAIMS_COMMIT_CTC_PAYMENT,
 
             BILLING_VIEW, BILLING_MANAGE_SCHEMES, BILLING_MANAGE_AGE_GROUPS,

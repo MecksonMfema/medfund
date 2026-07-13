@@ -7,7 +7,11 @@ export type PreAuthStatus = 'pending' | 'approved' | 'rejected' | 'expired';
 export interface PreAuthorization {
   id: string;
   authNumber: string;
+  /** Sponsoring member id — always set. For a dependant pre-auth this is
+   *  the dependant's sponsor. */
   memberId: string;
+  /** Present only for a dependant pre-auth; identifies the covered dependant. */
+  dependantId?: string | null;
   providerId: string;
   schemeId?: string;
   tariffCode: string;
@@ -28,6 +32,7 @@ export interface PreAuthorization {
 
 export interface PreAuthRequestPayload {
   memberId: string;
+  dependantId?: string | null;
   providerId: string;
   schemeId: string;
   tariffCode: string;

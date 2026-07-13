@@ -18,7 +18,7 @@ export type PermissionKey =
   | 'claims:manage_preauth' | 'claims:manage_drug_preauth'
   | 'claims:manage_tariffs' | 'claims:manage_modifiers'
   | 'claims:manage_rejection_reasons' | 'claims:manage_verification_codes'
-  | 'claims:assign' | 'claims:manage_tasks'
+  | 'claims:assign'
   | 'claims:view_ctc_payments' | 'claims:commit_ctc_payment'
   // Billing
   | 'billing:view' | 'billing:manage_schemes' | 'billing:manage_age_groups'
@@ -82,7 +82,6 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'claims:manage_rejection_reasons', label: 'Manage rejection reasons',         description: 'Configure the catalogue of rejection reasons.' },
       { key: 'claims:manage_verification_codes', label: 'Manage verification codes',       description: 'Issue and revoke claim verification OTPs.' },
       { key: 'claims:assign',                    label: 'Assign claims',                    description: 'Allocate claims to staff for assessment.' },
-      { key: 'claims:manage_tasks',              label: 'Manage claim tasks',               description: 'Create and re-assign claim work items.' },
       { key: 'claims:view_ctc_payments',         label: 'View CTC payments',                description: 'View cost-to-cure payment allocations.' },
       { key: 'claims:commit_ctc_payment',        label: 'Commit CTC payments',              description: 'Approve a cost-to-cure allocation for payment.' },
     ],

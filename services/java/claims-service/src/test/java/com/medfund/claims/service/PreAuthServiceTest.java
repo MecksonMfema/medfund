@@ -74,12 +74,16 @@ class PreAuthServiceTest {
     @Test
     void request_validRequest_createsPreAuth() {
         var request = new PreAuthRequest(
-                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+                UUID.randomUUID(), null, UUID.randomUUID(), UUID.randomUUID(),
                 "TC001", "J06.9", new BigDecimal("1000.00"), "USD", "Urgent procedure"
         );
 
         when(preAuthorizationRepository.existsByAuthNumber(anyString())).thenReturn(Mono.just(false));
-        when(preAuthorizationRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(preAuthorizationRepository.save(any())).thenAnswer(inv -> {
+            var saved = (com.medfund.claims.entity.PreAuthorization) inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -90,6 +94,7 @@ class PreAuthServiceTest {
                     assertThat(preAuth.getAuthNumber()).startsWith("PA-");
                     assertThat(preAuth.getStatus()).isEqualTo("PENDING");
                     assertThat(preAuth.getMemberId()).isEqualTo(request.memberId());
+                    assertThat(preAuth.getDependantId()).isNull();
                     assertThat(preAuth.getProviderId()).isEqualTo(request.providerId());
                     assertThat(preAuth.getSchemeId()).isEqualTo(request.schemeId());
                     assertThat(preAuth.getTariffCode()).isEqualTo("TC001");
@@ -100,6 +105,35 @@ class PreAuthServiceTest {
 
         verify(preAuthorizationRepository).save(any(PreAuthorization.class));
         verify(auditPublisher).publish(any());
+    }
+
+    @Test
+    void request_forDependant_persistsDependantId() {
+        UUID sponsorMemberId = UUID.randomUUID();
+        UUID dependantId = UUID.randomUUID();
+        var request = new PreAuthRequest(
+                sponsorMemberId, dependantId, UUID.randomUUID(), UUID.randomUUID(),
+                "TC002", "J06.9", new BigDecimal("500.00"), "USD", "Dependant elective"
+        );
+
+        when(preAuthorizationRepository.existsByAuthNumber(anyString())).thenReturn(Mono.just(false));
+        when(preAuthorizationRepository.save(any())).thenAnswer(inv -> {
+            var saved = (com.medfund.claims.entity.PreAuthorization) inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                preAuthService.request(request, actorId, ACTOR_EMAIL)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(preAuth -> {
+                    assertThat(preAuth.getMemberId()).isEqualTo(sponsorMemberId);
+                    assertThat(preAuth.getDependantId()).isEqualTo(dependantId);
+                    assertThat(preAuth.getTariffCode()).isEqualTo("TC002");
+                })
+                .verifyComplete();
     }
 
     @Test
@@ -115,7 +149,11 @@ class PreAuthServiceTest {
         LocalDate expectedExpiry = expiryDate.withDayOfMonth(expiryDate.lengthOfMonth());
 
         when(preAuthorizationRepository.findById(preAuth.getId())).thenReturn(Mono.just(preAuth));
-        when(preAuthorizationRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(preAuthorizationRepository.save(any())).thenAnswer(inv -> {
+            var saved = (com.medfund.claims.entity.PreAuthorization) inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishPreAuthDecision(any(), any(), any())).thenReturn(Mono.empty());
 
@@ -142,7 +180,11 @@ class PreAuthServiceTest {
         String rejectionReason = "Insufficient medical justification";
 
         when(preAuthorizationRepository.findById(preAuth.getId())).thenReturn(Mono.just(preAuth));
-        when(preAuthorizationRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(preAuthorizationRepository.save(any())).thenAnswer(inv -> {
+            var saved = (com.medfund.claims.entity.PreAuthorization) inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishPreAuthDecision(any(), any(), any())).thenReturn(Mono.empty());
 

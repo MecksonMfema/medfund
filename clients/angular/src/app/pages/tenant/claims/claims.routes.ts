@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { permissionGuard } from '../../../auth/auth.guard';
 import { PermissionKey } from '../../../core/security/permissions';
+import { tenantPreauthGuard } from './preauth/preauth-line.guard';
 
 const loadComingSoon = () =>
   import('../../../shared/components/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent);
@@ -128,19 +129,19 @@ export const CLAIMS_ROUTES: Routes = [
   // 2026-07-11 bug when Submit Claim was wired.
   {
     path: 'preauth',
-    canActivate: [permissionGuard(['claims:manage_preauth'])],
+    canActivate: [permissionGuard(['claims:manage_preauth']), tenantPreauthGuard],
     loadComponent: () => import('./preauth/pre-auth-list.component').then(m => m.PreAuthListComponent),
-    data: { title: 'Pre-Authorizations', sidebar: 'operational' },
+    data: { title: 'Pre-Authorizations', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'preauth/new',
-    canActivate: [permissionGuard(['claims:manage_preauth'])],
+    canActivate: [permissionGuard(['claims:manage_preauth']), tenantPreauthGuard],
     loadComponent: () => import('./preauth/pre-auth-form.component').then(m => m.PreAuthFormComponent),
     data: { title: 'New Pre-Auth', sidebar: 'operational' },
   },
   {
     path: 'preauth/:id',
-    canActivate: [permissionGuard(['claims:manage_preauth'])],
+    canActivate: [permissionGuard(['claims:manage_preauth']), tenantPreauthGuard],
     loadComponent: () => import('./preauth/pre-auth-detail.component').then(m => m.PreAuthDetailComponent),
     data: { title: 'Pre-Auth Detail', sidebar: 'operational' },
   },
@@ -255,96 +256,6 @@ export const CLAIMS_ROUTES: Routes = [
           { label: 'Members', path: '/tenant/members' },
         ],
       },
-    }),
-
-  // ── Tasks ──────────────────────────────────────────────────────────────────
-  // All 9 task routes share the same "blocked on TaskController" story;
-  // they render the roadmap placeholder with a title tailored per route.
-  rm('tasks/incomplete',
-    'Incomplete tasks',
-    'Open work items across the claims team.',
-    ['claims:manage_tasks'],
-    {
-      blockedBy: 'Needs a TaskController on claims-service with @GetMapping("/tasks?status=OPEN") and a Kafka-driven task queue.',
-      willDo: [
-        'List every open task with owner, priority, due date, and linked claim.',
-        'Bulk-assign, reassign, or drop tasks in one click.',
-        'Filter by owner, batch, claim type, or SLA breach.',
-      ],
-      currentAlternative: {
-        text: 'Until the task queue ships, adjudicators pick claims directly from the pending / staged lists.',
-        links: [
-          { label: 'Pending claims', path: '/tenant/claims/pending' },
-          { label: 'Staged claims', path: '/tenant/claims/staged' },
-        ],
-      },
-    }),
-  rm('tasks/complete',
-    'Completed tasks',
-    'Historical view of finished claim adjudication tasks.',
-    ['claims:manage_tasks'],
-    {
-      blockedBy: 'Needs a TaskController with @GetMapping("/tasks?status=DONE") and a retention policy.',
-      willDo: ['Filterable audit trail of finished tasks by owner, batch, and completion date.'],
-      currentAlternative: {
-        text: 'For now, the accepted / rejected claim lists carry the same trail via adjudicatedBy + adjudicatedAt.',
-        links: [
-          { label: 'Accepted claims', path: '/tenant/claims/accepted' },
-          { label: 'Rejected claims', path: '/tenant/claims/rejected' },
-        ],
-      },
-    }),
-  rm('tasks/add',
-    'Create task',
-    'Log a new ad-hoc work item — follow-ups, escalations, provider queries.',
-    ['claims:manage_tasks'],
-    {
-      blockedBy: 'Needs POST /tasks on claims-service.',
-      willDo: [
-        'Capture subject, priority, due date, assignee, and optional linked claim.',
-        'Emit a task-created event so the assignee gets a notification.',
-      ],
-    }),
-  rm('tasks/assign',
-    'Assign claims',
-    'Batch-assign a set of claims to two adjudicators for dual review.',
-    ['claims:assign'],
-    {
-      blockedBy: 'Needs POST /claims/assign on claims-service that takes a batch + adjudicator pair and splits the claims evenly.',
-      willDo: [
-        'Pick a batch (from the staged list) and two adjudicators.',
-        'Split the batch 50/50 by default, with an override to weight one adjudicator higher.',
-        'Emit assignment events so each adjudicator sees the claims in their queue.',
-      ],
-      currentAlternative: {
-        text: 'For now, all claim work is unassigned — anyone with claims:adjudicate can pick from the staged list.',
-        links: [{ label: 'Staged claims', path: '/tenant/claims/staged' }],
-      },
-    }),
-  rm('tasks/user/incomplete',
-    'My incomplete tasks',
-    'Your assigned but not-yet-completed work.',
-    ['claims:manage_tasks'],
-    {
-      blockedBy: 'Needs GET /tasks?owner=me&status=OPEN.',
-    }),
-  rm('tasks/user/claims',
-    'My claim tasks',
-    'Claims currently assigned to you for adjudication.',
-    ['claims:manage_tasks'],
-    {
-      blockedBy: 'Needs GET /tasks?owner=me&entity=claim.',
-      currentAlternative: {
-        text: 'Adjudicators currently pick from the shared pending queue.',
-        links: [{ label: 'Pending claims', path: '/tenant/claims/pending' }],
-      },
-    }),
-  rm('tasks/user/complete',
-    'My completed tasks',
-    'Everything you\'ve wrapped up.',
-    ['claims:manage_tasks'],
-    {
-      blockedBy: 'Needs GET /tasks?owner=me&status=DONE.',
     }),
 
   // ── CTC payments (Cash-To-Cardholder) ─────────────────────────────────────

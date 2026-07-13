@@ -39,7 +39,6 @@ public final class PermissionCatalogue {
                     new Permission(Permissions.CLAIMS_MANAGE_REJECTION_REASONS,   "Manage rejection reasons",          "Configure the catalogue of rejection reasons."),
                     new Permission(Permissions.CLAIMS_MANAGE_VERIFICATION_CODES,  "Manage verification codes",         "Issue and revoke claim verification OTPs."),
                     new Permission(Permissions.CLAIMS_ASSIGN,                     "Assign claims",                     "Allocate claims to staff for assessment."),
-                    new Permission(Permissions.CLAIMS_MANAGE_TASKS,               "Manage claim tasks",                "Create and re-assign claim work items."),
                     new Permission(Permissions.CLAIMS_VIEW_CTC_PAYMENTS,          "View CTC payments",                 "View cost-to-cure payment allocations."),
                     new Permission(Permissions.CLAIMS_COMMIT_CTC_PAYMENT,         "Commit CTC payments",               "Approve a cost-to-cure allocation for payment.")
             )),

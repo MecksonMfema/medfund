@@ -1,78 +1,67 @@
-.page { padding: 1.5rem; }
-
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  margin-bottom: 1.25rem;
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
   flex-wrap: wrap;
 }
 
-.page-header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
-.page-sub { margin: 0; color: var(--color-text-muted, #6b7280); font-size: 0.9rem; max-width: 75ch; }
+.page-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.page-header .page-sub {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  max-width: 75ch;
+}
 
 .banner {
   padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-md, 8px);
   cursor: pointer;
-  margin-bottom: 1rem;
+  margin: 0.75rem 24px 0;
+  border-radius: var(--radius-md, 8px);
 }
 .banner-error { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
 
-.filters {
+// Status-filter tabs — mirrors the Claims page tab strip.
+.scheme-tabs {
   display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  align-items: center;
+  gap: 8px;
+  padding: 0 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
-.field { display: flex; flex-direction: column; font-size: 0.875rem; min-width: 180px; }
-.field-label { font-weight: 500; margin-bottom: 0.25rem; }
-.field input,
-.field select {
-  padding: 0.5rem;
-  border: 1px solid var(--color-border, #d1d5db);
-  border-radius: 4px;
+.scheme-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 4px;
+  margin: 0 8px 0 0;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+
+  &.is-active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+  }
 }
-
-.empty-state {
-  color: var(--color-text-muted, #6b7280);
-  font-style: italic;
-  padding: 2rem 0;
-  text-align: center;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: var(--color-surface, #fff);
-  border-radius: var(--radius-md, 8px);
-  overflow: hidden;
-}
-
-.data-table th,
-.data-table td {
-  padding: 0.55rem 0.75rem;
-  text-align: left;
-  border-bottom: 1px solid var(--color-border-light, #e5e7eb);
-  font-size: 0.875rem;
-}
-
-.data-table tr.clickable { cursor: pointer; }
-.data-table tr.clickable:hover { background: var(--color-bg, #f8fdff); }
-
-.right { text-align: right; }
-.muted { color: var(--color-text-muted, #6b7280); }
-.data-table code { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 0.85rem; }
-
-.status-badge {
-  display: inline-block;
-  padding: 0.15rem 0.55rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 9999px;
-}
-.status-pending  { background: var(--color-bg, #f8fdff); color: var(--color-text-secondary, #4b5563); border: 1px solid var(--color-border, #d1d5db); }
-.status-approved { background: var(--success-bg, #d1fae5); color: var(--success-fg, #065f46); }
-.status-rejected { background: var(--danger-bg,  #fee2e2); color: var(--danger-fg,  #991b1b); }
-.status-expired  { background: var(--color-bg, #f8fdff); color: var(--color-text-muted, #6b7280); }

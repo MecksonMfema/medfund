@@ -1,65 +1,39 @@
-<div class="page">
-  <header class="page-header">
-    <div>
-      <h1>Pre-authorizations</h1>
-      <p class="page-sub">Approval requests for elective and high-cost services. The adjudication pipeline rejects claims for tariff codes that require pre-auth and don't have a matching approved record.</p>
-    </div>
-    <a class="btn btn-primary" routerLink="/tenant/claims/preauth/new">
-      <app-icon name="plus" [size]="14"></app-icon>
-      New request
-    </a>
-  </header>
-
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
-
-  <div class="filters">
-    <label class="field">
-      <span class="field-label">Status</span>
-      <app-select
-        [(ngModel)]="statusFilter"
-        (selectionChange)="onStatusChange()"
-        name="status"
-        [options]="statusFilterOptions"
-        size="sm"
-        placeholder="All"
-      ></app-select>
-    </label>
+<header class="page-header">
+  <div>
+    <h1>Pre-authorizations</h1>
+    <p class="page-sub">Approval requests for elective and high-cost services. The adjudication pipeline rejects claims for tariff codes that require pre-auth and don't have a matching approved record.</p>
   </div>
+</header>
 
-  @if (loading) {
-    <app-skeleton></app-skeleton>
-  } @else if (filtered.length === 0) {
-    <p class="empty-state">No pre-authorizations match these filters.</p>
-  } @else {
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Auth #</th>
-          <th>Tariff</th>
-          <th>Diagnosis</th>
-          <th class="right">Requested</th>
-          <th class="right">Approved</th>
-          <th>Status</th>
-          <th>Expires</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of filtered; track row.id) {
-          <tr (click)="open(row)" class="clickable">
-            <td><strong><code>{{ row.authNumber }}</code></strong></td>
-            <td><code>{{ row.tariffCode }}</code></td>
-            <td class="muted">{{ row.diagnosisCode || '—' }}</td>
-            <td class="right">{{ row.requestedAmount | currencyFormat:row.currencyCode }}</td>
-            <td class="right">
-              {{ row.approvedAmount ? (row.approvedAmount | currencyFormat:row.currencyCode) : '—' }}
-            </td>
-            <td><span class="status-badge status-{{ row.status }}">{{ row.status | humanize }}</span></td>
-            <td class="muted">{{ row.expiryDate || '—' }}</td>
-          </tr>
-        }
-      </tbody>
-    </table>
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<nav class="scheme-tabs" role="tablist" aria-label="Filter pre-authorizations by status">
+  @for (tab of statusTabs; track tab.value) {
+    <button
+      type="button"
+      role="tab"
+      class="scheme-tab"
+      [class.is-active]="activeStatus === tab.value"
+      [attr.aria-selected]="activeStatus === tab.value"
+      (click)="selectStatus(tab.value)"
+    >
+      {{ tab.label }}
+    </button>
   }
-</div>
+</nav>
+
+<app-data-table
+  [columns]="columns"
+  [data]="filtered"
+  [actions]="actions"
+  [showActions]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [initialSortKey]="sortKey"
+  [initialSortDirection]="sortDirection"
+  searchPlaceholder="Search auth #, tariff, or diagnosis"
+  emptyMessage="No pre-authorizations yet"
+  emptyDescription="Submit a request from a scheme that requires prior approval and it'll appear here.">
+</app-data-table>
