@@ -1,9 +1,12 @@
 package com.medfund.claims.controller;
 
+import com.medfund.claims.dto.ClaimFilterParams;
 import com.medfund.claims.dto.ClaimLineResponse;
 import com.medfund.claims.dto.ClaimResponse;
+import com.medfund.claims.dto.ClaimRow;
 import com.medfund.claims.dto.ClaimSubmissionResponse;
 import com.medfund.claims.dto.LineDecisionRequest;
+import com.medfund.claims.dto.PageResponse;
 import com.medfund.claims.dto.SubmitClaimRequest;
 import com.medfund.claims.repository.ClaimLineRepository;
 import com.medfund.claims.service.ClaimService;
@@ -38,9 +41,37 @@ public class ClaimController {
     }
 
     @GetMapping
-    @Operation(summary = "List all claims")
+    @Operation(summary = "List all claims (unpaginated — prefer /page for the operational list)")
     public Flux<ClaimResponse> findAll() {
         return claimService.findAll().map(ClaimResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "Server-side paginated, sortable, filterable claims list",
+        description = "Feeds /tenant/claims and its status-tabbed siblings (pending, "
+                + "accepted, rejected, staged, captured). Joins member + provider names "
+                + "into every row. Sortable keys: claimNumber, memberName, providerName, "
+                + "status, claimType, insuranceLine, serviceDate, submissionDate, "
+                + "claimedAmount, approvedAmount. Unknown keys fall back to "
+                + "submissionDate DESC.")
+    @ApiResponse(responseCode = "200", description = "Page of claims")
+    public Mono<PageResponse<ClaimRow>> searchPaged(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String claimType,
+            @RequestParam(required = false) String insuranceLine,
+            @RequestParam(required = false) UUID memberId,
+            @RequestParam(required = false) UUID providerId,
+            @RequestParam(required = false) UUID schemeId,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "submissionDate") String sortKey,
+            @RequestParam(required = false, defaultValue = "desc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        var params = new ClaimFilterParams(
+                status, claimType, insuranceLine,
+                memberId, providerId, schemeId,
+                q, sortKey, sortDirection, page, size);
+        return claimService.searchPaged(params);
     }
 
     @GetMapping("/{id}")

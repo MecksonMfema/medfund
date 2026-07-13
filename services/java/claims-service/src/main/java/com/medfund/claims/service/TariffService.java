@@ -2,10 +2,14 @@ package com.medfund.claims.service;
 
 import com.medfund.claims.dto.CreateTariffCodeRequest;
 import com.medfund.claims.dto.CreateTariffScheduleRequest;
+import com.medfund.claims.dto.PageResponse;
+import com.medfund.claims.dto.TariffCodeFilterParams;
+import com.medfund.claims.dto.TariffCodeRow;
 import com.medfund.claims.entity.TariffCode;
 import com.medfund.claims.entity.TariffModifier;
 import com.medfund.claims.entity.TariffSchedule;
 import com.medfund.claims.exception.TariffNotFoundException;
+import com.medfund.claims.repository.TariffCodeQueryRepository;
 import com.medfund.claims.repository.TariffCodeRepository;
 import com.medfund.claims.repository.TariffModifierRepository;
 import com.medfund.claims.repository.TariffScheduleRepository;
@@ -33,15 +37,18 @@ public class TariffService {
 
     private final TariffScheduleRepository tariffScheduleRepository;
     private final TariffCodeRepository tariffCodeRepository;
+    private final TariffCodeQueryRepository tariffCodeQueryRepository;
     private final TariffModifierRepository tariffModifierRepository;
     private final AuditPublisher auditPublisher;
 
     public TariffService(TariffScheduleRepository tariffScheduleRepository,
                          TariffCodeRepository tariffCodeRepository,
+                         TariffCodeQueryRepository tariffCodeQueryRepository,
                          TariffModifierRepository tariffModifierRepository,
                          AuditPublisher auditPublisher) {
         this.tariffScheduleRepository = tariffScheduleRepository;
         this.tariffCodeRepository = tariffCodeRepository;
+        this.tariffCodeQueryRepository = tariffCodeQueryRepository;
         this.tariffModifierRepository = tariffModifierRepository;
         this.auditPublisher = auditPublisher;
     }
@@ -82,6 +89,23 @@ public class TariffService {
 
     public Flux<TariffCode> findCodesByScheduleId(UUID scheduleId) {
         return tariffCodeRepository.findByScheduleId(scheduleId);
+    }
+
+    /**
+     * Server-side paginated tariff-codes list. The AHFOZ March seed puts
+     * ~4,860 codes on a single schedule; hydrating that in one shot on the
+     * client (plus a categories-catalogue join per row) is what made the
+     * page feel slow. This query joins in the category label and limits the
+     * response to one page at a time.
+     */
+    public Mono<PageResponse<TariffCodeRow>> searchCodesPaged(TariffCodeFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return tariffCodeQueryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(tariffCodeQueryRepository.count(params))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 
     public Mono<TariffCode> findCodeByCode(String code) {

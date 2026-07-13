@@ -2,9 +2,12 @@ package com.medfund.claims.service;
 
 import com.medfund.claims.dto.CreateTariffCodeRequest;
 import com.medfund.claims.dto.CreateTariffScheduleRequest;
+import com.medfund.claims.dto.TariffCodeFilterParams;
+import com.medfund.claims.dto.TariffCodeRow;
 import com.medfund.claims.entity.TariffCode;
 import com.medfund.claims.entity.TariffModifier;
 import com.medfund.claims.entity.TariffSchedule;
+import com.medfund.claims.repository.TariffCodeQueryRepository;
 import com.medfund.claims.repository.TariffCodeRepository;
 import com.medfund.claims.repository.TariffModifierRepository;
 import com.medfund.claims.repository.TariffScheduleRepository;
@@ -37,6 +40,9 @@ class TariffServiceTest {
 
     @Mock
     private TariffCodeRepository tariffCodeRepository;
+
+    @Mock
+    private TariffCodeQueryRepository tariffCodeQueryRepository;
 
     @Mock
     private TariffModifierRepository tariffModifierRepository;
@@ -77,7 +83,11 @@ class TariffServiceTest {
                 "Test Schedule", LocalDate.now(), LocalDate.now().plusYears(1), "INTERNAL"
         );
 
-        when(tariffScheduleRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(tariffScheduleRepository.save(any())).thenAnswer(inv -> {
+            var saved = (TariffSchedule) inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -87,7 +97,9 @@ class TariffServiceTest {
                 .assertNext(schedule -> {
                     assertThat(schedule.getName()).isEqualTo("Test Schedule");
                     assertThat(schedule.getStatus()).isEqualTo("ACTIVE");
-                    assertThat(schedule.getEffectiveDate()).isEqualTo(request.effectiveDate());
+                    // TariffService snaps effectiveDate to the 1st of the
+                    // month (see memory: feedback_effective_date_snap).
+                    assertThat(schedule.getEffectiveDate()).isEqualTo(request.effectiveDate().withDayOfMonth(1));
                     assertThat(schedule.getSource()).isEqualTo("INTERNAL");
                     assertThat(schedule.getId()).isNotNull();
                     assertThat(schedule.getCreatedAt()).isNotNull();
@@ -117,12 +129,17 @@ class TariffServiceTest {
     @Test
     void createCode_validRequest_createsCode() {
         UUID scheduleId = UUID.randomUUID();
+        UUID categoryId = UUID.randomUUID();
         var request = new CreateTariffCodeRequest(
-                scheduleId, "TC100", "X-Ray", "RADIOLOGY",
+                scheduleId, "TC100", "X-Ray", categoryId,
                 new BigDecimal("250.00"), "USD", false
         );
 
-        when(tariffCodeRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(tariffCodeRepository.save(any())).thenAnswer(inv -> {
+            var saved = (com.medfund.claims.entity.TariffCode) inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -132,7 +149,8 @@ class TariffServiceTest {
                 .assertNext(code -> {
                     assertThat(code.getCode()).isEqualTo("TC100");
                     assertThat(code.getDescription()).isEqualTo("X-Ray");
-                    assertThat(code.getCategory()).isEqualTo("RADIOLOGY");
+                    // V063 — resolver reads categoryId, not the legacy free-text.
+                    assertThat(code.getCategoryId()).isEqualTo(categoryId);
                     assertThat(code.getUnitPrice()).isEqualByComparingTo(new BigDecimal("250.00"));
                     assertThat(code.getScheduleId()).isEqualTo(scheduleId);
                     assertThat(code.getRequiresPreAuth()).isFalse();
@@ -194,6 +212,54 @@ class TariffServiceTest {
         schedule.setStatus("ACTIVE");
         schedule.setCreatedAt(Instant.now());
         return schedule;
+    }
+
+    @Test
+    void searchCodesPaged_wrapsQueryRepoRowsInPageResponse() {
+        UUID scheduleId = UUID.randomUUID();
+        var row = new TariffCodeRow(
+                UUID.randomUUID(), scheduleId, "TC001", "Consultation",
+                UUID.randomUUID(), "General practice",
+                new BigDecimal("50.00"), "USD", false);
+
+        var params = new TariffCodeFilterParams(
+                scheduleId, "TC0", null, null, "code", "asc", 0, 50);
+
+        when(tariffCodeQueryRepository.search(any(), eq(50), eq(0)))
+                .thenReturn(Flux.just(row));
+        when(tariffCodeQueryRepository.count(any())).thenReturn(Mono.just(1L));
+
+        StepVerifier.create(tariffService.searchCodesPaged(params))
+                .assertNext(pageResp -> {
+                    assertThat(pageResp.content()).containsExactly(row);
+                    assertThat(pageResp.total()).isEqualTo(1L);
+                    assertThat(pageResp.page()).isZero();
+                    assertThat(pageResp.size()).isEqualTo(50);
+                    assertThat(pageResp.totalPages()).isEqualTo(1);
+                })
+                .verifyComplete();
+
+        verify(tariffCodeQueryRepository).search(any(), eq(50), eq(0));
+        verify(tariffCodeQueryRepository).count(any());
+    }
+
+    @Test
+    void searchCodesPaged_clampsSizeAndPage() {
+        // Guards the "one page won't blow up the client" contract even when
+        // a caller asks for size=99999 or a negative page.
+        var params = new TariffCodeFilterParams(
+                null, null, null, null, "code", "asc", -3, 99999);
+
+        when(tariffCodeQueryRepository.search(any(), eq(200), eq(0)))
+                .thenReturn(Flux.empty());
+        when(tariffCodeQueryRepository.count(any())).thenReturn(Mono.just(0L));
+
+        StepVerifier.create(tariffService.searchCodesPaged(params))
+                .assertNext(pageResp -> {
+                    assertThat(pageResp.page()).isZero();
+                    assertThat(pageResp.size()).isEqualTo(200);
+                })
+                .verifyComplete();
     }
 
     private TariffCode createTestTariffCode(String code, String description) {

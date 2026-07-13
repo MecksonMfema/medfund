@@ -3,28 +3,34 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
-  Claim,
+  ClaimRow,
   ClaimsService,
-  ClaimStatus,
+  PageResponse,
 } from '../../../../core/services/claims.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
-import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
-import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
-import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
+import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 
 @Component({
   selector: 'app-pending-claims-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, DataTableComponent],
   templateUrl: './pending-claims-list.component.html',
   styleUrl: './pending-claims-list.component.scss',
 })
 export class PendingClaimsListComponent implements OnInit {
-  rows: Claim[] = [];
-  filtered: Claim[] = [];
+  rows: ClaimRow[] = [];
   loading = false;
   errorMessage: string | null = null;
+
+  // Server-side pagination state.
+  page = 1;
+  pageSize = 50;
+  totalCount = 0;
+  totalPages = 1;
+  sortKey = 'submissionDate';
+  sortDirection: 'asc' | 'desc' = 'desc';
+  searchTerm = '';
 
   // Preset (route-driven) — locks the status / claim-type filter when set so
   // the URL identity is preserved. Sub-routes (accepted, rejected, drug, etc.)
@@ -34,9 +40,7 @@ export class PendingClaimsListComponent implements OnInit {
   pageTitle = 'Pending claims';
   pageDescription = 'Claims queued for adjudication. Click any row to open the detail view and decide.';
 
-  // Filter state
   statusFilter = '';
-  searchTerm = '';
 
   readonly statusFilterOptions: SelectOption[] = [
     { value: '', label: 'All' },
@@ -51,6 +55,27 @@ export class PendingClaimsListComponent implements OnInit {
     { value: 'CANCELLED', label: 'Cancelled' },
   ];
 
+  readonly columns: TableColumn[] = [
+    { key: 'claimNumber',     label: 'Claim #',      sortable: true },
+    { key: 'memberName',      label: 'Member',       sortable: true },
+    { key: 'providerName',    label: 'Provider',     sortable: true },
+    { key: 'claimType',       label: 'Type',         sortable: true, type: 'label' },
+    { key: 'claimedAmount',   label: 'Claimed',      sortable: true, type: 'currency' },
+    { key: 'approvedAmount',  label: 'Approved',     sortable: true, type: 'currency' },
+    { key: 'status',          label: 'Status',       sortable: true, type: 'status' },
+    { key: 'serviceDate',     label: 'Service date', sortable: true },
+    { key: 'submissionDate',  label: 'Submitted',    sortable: true, type: 'date' },
+  ];
+
+  readonly actions: TableAction[] = [
+    {
+      label: 'View',
+      icon: 'eye',
+      color: 'default',
+      handler: (row: ClaimRow) => this.router.navigate(['/tenant/claims', row.id]),
+    },
+  ];
+
   constructor(private claims: ClaimsService, private route: ActivatedRoute, private router: Router) {}
 
   ngOnInit(): void {
@@ -59,61 +84,64 @@ export class PendingClaimsListComponent implements OnInit {
       this.presetStatus = data['presetStatus'];
       this.statusFilter = this.presetStatus;
     } else if (data['presetClaimType']) {
-      // Drug-claim sub-routes default to "all statuses" — they're a type slice,
-      // not a queue. Operators pick the status filter from the dropdown.
       this.statusFilter = '';
     } else {
       this.statusFilter = 'VERIFIED'; // default to "ready for adjudication"
     }
     if (data['presetClaimType']) this.presetClaimType = data['presetClaimType'];
-    if (data['title']) this.pageTitle = data['title'];
-    if (data['description']) this.pageDescription = data['description'];
+    if (data['title'])           this.pageTitle       = data['title'];
+    if (data['description'])     this.pageDescription = data['description'];
 
-    this.refresh();
+    this.fetchPage();
   }
 
-  refresh(): void {
+  fetchPage(): void {
     this.loading = true;
-    const stream = this.statusFilter
-      ? this.claims.getByStatus(this.statusFilter)
-      : this.claims.list();
-    stream.subscribe({
-      next: (rows) => { this.rows = rows; this.applyFilter(); this.loading = false; },
+    this.claims.listPaged({
+      status: this.statusFilter || undefined,
+      claimType: this.presetClaimType || undefined,
+      q: this.searchTerm || undefined,
+      sortKey: this.sortKey,
+      sortDirection: this.sortDirection,
+      page: this.page - 1,
+      size: this.pageSize,
+    }).subscribe({
+      next: (resp: PageResponse<ClaimRow>) => {
+        this.rows = resp.content;
+        this.totalCount = resp.total;
+        this.totalPages = resp.totalPages;
+        this.loading = false;
+      },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load claims';
+        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load claims';
+        this.rows = [];
+        this.totalCount = 0;
+        this.totalPages = 1;
         this.loading = false;
       },
     });
   }
 
   onStatusChange(): void {
-    this.refresh();
+    this.page = 1;
+    this.fetchPage();
   }
 
-  onSearchChange(): void {
-    this.applyFilter();
+  onPageChange(page: number): void {
+    this.page = page;
+    this.fetchPage();
   }
 
-  open(claim: Claim): void {
-    this.router.navigate(['/tenant/claims', claim.id]);
+  onSearchChange(term: string): void {
+    this.searchTerm = term;
+    this.page = 1;
+    this.fetchPage();
   }
 
-  private applyFilter(): void {
-    let rows = this.rows;
-    // Drug routes set presetClaimType so the drug section only sees drug
-    // claims; medical routes leave it blank and see everything that passed
-    // the status filter.
-    if (this.presetClaimType) {
-      rows = rows.filter(c => c.claimType?.toLowerCase() === this.presetClaimType.toLowerCase());
-    }
-    const q = this.searchTerm.trim().toLowerCase();
-    if (!q) {
-      this.filtered = rows;
-      return;
-    }
-    this.filtered = rows.filter(c =>
-      c.claimNumber?.toLowerCase().includes(q) ||
-      (c.notes && c.notes.toLowerCase().includes(q)),
-    );
+  onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
+    this.sortKey = evt.key;
+    this.sortDirection = evt.direction;
+    this.page = 1;
+    this.fetchPage();
   }
 }

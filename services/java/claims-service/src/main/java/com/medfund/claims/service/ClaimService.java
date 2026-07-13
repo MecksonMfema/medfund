@@ -5,15 +5,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.claims.client.SchemeClient;
 import com.medfund.claims.dto.AdjudicationResult;
 import com.medfund.claims.dto.ClaimAttachment;
+import com.medfund.claims.dto.ClaimFilterParams;
 import com.medfund.claims.dto.ClaimLineRequest;
 import com.medfund.claims.dto.ClaimResponse;
+import com.medfund.claims.dto.ClaimRow;
 import com.medfund.claims.dto.ClaimSubmissionResponse;
+import com.medfund.claims.dto.PageResponse;
 import com.medfund.claims.dto.SubmitClaimRequest;
 import com.medfund.claims.entity.Claim;
 import com.medfund.claims.entity.ClaimLine;
 import com.medfund.claims.exception.ClaimNotFoundException;
 import com.medfund.claims.exception.InvalidClaimStateException;
 import com.medfund.claims.repository.ClaimLineRepository;
+import com.medfund.claims.repository.ClaimQueryRepository;
 import com.medfund.claims.repository.ClaimRepository;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
@@ -77,6 +81,7 @@ public class ClaimService {
 
     private final ClaimRepository claimRepository;
     private final ClaimLineRepository claimLineRepository;
+    private final ClaimQueryRepository claimQueryRepository;
     private final AuditPublisher auditPublisher;
     private final ClaimEventPublisher eventPublisher;
     private final AdjudicationPipeline adjudicationPipeline;
@@ -87,6 +92,7 @@ public class ClaimService {
 
     public ClaimService(ClaimRepository claimRepository,
                         ClaimLineRepository claimLineRepository,
+                        ClaimQueryRepository claimQueryRepository,
                         AuditPublisher auditPublisher,
                         ClaimEventPublisher eventPublisher,
                         AdjudicationPipeline adjudicationPipeline,
@@ -96,6 +102,7 @@ public class ClaimService {
                         TariffBenefitResolver tariffBenefitResolver) {
         this.claimRepository = claimRepository;
         this.claimLineRepository = claimLineRepository;
+        this.claimQueryRepository = claimQueryRepository;
         this.auditPublisher = auditPublisher;
         this.eventPublisher = eventPublisher;
         this.adjudicationPipeline = adjudicationPipeline;
@@ -129,6 +136,23 @@ public class ClaimService {
 
     public Flux<Claim> findByStatus(String status) {
         return claimRepository.findByStatus(status);
+    }
+
+    /**
+     * Server-side paginated claims list. Joins {@code members} and
+     * {@code providers} so the client renders member + provider names
+     * inline — the previous unpaginated flow shipped raw UUIDs and forced
+     * a per-row lookup. Feeds {@code /tenant/claims} and its status-tabbed
+     * siblings (/pending, /accepted, /rejected, /staged, /captured).
+     */
+    public Mono<PageResponse<ClaimRow>> searchPaged(ClaimFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return claimQueryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(claimQueryRepository.count(params))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 
     /**
@@ -228,12 +252,15 @@ public class ClaimService {
         // consumer knows which per-benefit ledger row to touch. Empty result
         // means cap-only or unmapped — either way, line.benefit_id stays null
         // and Stage 3 re-checks the tariff mapping to distinguish the two.
+        // Wrap the resolver Mono in Optional so we can distinguish "no
+        // benefit resolved" from "resolver hasn't emitted" — Reactor
+        // forbids null values in Mono.map / defaultIfEmpty.
         return Flux.fromIterable(lineRequests)
                 .flatMap(lineReq -> tariffBenefitResolver
                         .resolve(lineReq.tariffCode(), savedClaim.getSchemeId())
-                        .map(id -> (UUID) id)
-                        .defaultIfEmpty((UUID) null)
-                        .map(benefitId -> {
+                        .map(java.util.Optional::of)
+                        .defaultIfEmpty(java.util.Optional.<UUID>empty())
+                        .map(maybeBenefitId -> {
                             var line = new ClaimLine();
                             line.setClaimId(savedClaim.getId());
                             line.setTariffCode(lineReq.tariffCode());
@@ -243,7 +270,7 @@ public class ClaimService {
                             line.setClaimedAmount(lineReq.claimedAmount());
                             line.setModifierCodes(lineReq.modifierCodes());
                             line.setCurrencyCode(lineReq.currencyCode() != null ? lineReq.currencyCode() : savedClaim.getCurrencyCode());
-                            line.setBenefitId(benefitId);
+                            line.setBenefitId(maybeBenefitId.orElse(null));
                             line.setCreatedAt(Instant.now());
                             return line;
                         }))
@@ -942,9 +969,9 @@ public class ClaimService {
                     return Flux.fromIterable(request.lines())
                         .flatMap(lineReq -> tariffBenefitResolver
                                 .resolve(lineReq.drugCode(), saved.getSchemeId())
-                                .map(id -> (UUID) id)
-                                .defaultIfEmpty((UUID) null)
-                                .flatMap(benefitId -> {
+                                .map(java.util.Optional::of)
+                                .defaultIfEmpty(java.util.Optional.<UUID>empty())
+                                .flatMap(maybeBenefitId -> {
                                     var line = new ClaimLine();
                                     line.setClaimId(saved.getId());
                                     line.setTariffCode(lineReq.drugCode());
@@ -953,7 +980,7 @@ public class ClaimService {
                                     line.setUnitPrice(lineReq.unitPrice());
                                     line.setClaimedAmount(lineReq.claimedAmount());
                                     line.setCurrencyCode(lineReq.currencyCode() != null ? lineReq.currencyCode() : saved.getCurrencyCode());
-                                    line.setBenefitId(benefitId);
+                                    line.setBenefitId(maybeBenefitId.orElse(null));
                                     line.setCreatedAt(java.time.Instant.now());
                                     return claimLineRepository.save(line);
                                 }))

@@ -65,7 +65,7 @@ export const CLAIMS_ROUTES: Routes = [
     path: 'accepted',
     canActivate: [permissionGuard(['claims:view'])],
     loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
-    data: { title: 'Accepted Claims', description: 'Approved claims awaiting payment.', presetStatus: 'ADJUDICATED', sidebar: 'operational' },
+    data: { title: 'Accepted Claims', description: 'Approved claims awaiting payment.', presetStatus: 'ADJUDICATED', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'pending',
@@ -76,25 +76,26 @@ export const CLAIMS_ROUTES: Routes = [
       description: 'Verified claims queued for adjudication.',
       presetStatus: 'VERIFIED',
       sidebar: 'operational',
+      fullbleed: true,
     },
   },
   {
     path: 'rejected',
     canActivate: [permissionGuard(['claims:view'])],
     loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
-    data: { title: 'Rejected Claims', description: 'Denied claims with rejection reasons.', presetStatus: 'REJECTED', sidebar: 'operational' },
+    data: { title: 'Rejected Claims', description: 'Denied claims with rejection reasons.', presetStatus: 'REJECTED', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'staged',
     canActivate: [permissionGuard(['claims:view'])],
     loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
-    data: { title: 'Staged Claims', description: 'Claims pending additional info.', presetStatus: 'PENDING_INFO', sidebar: 'operational' },
+    data: { title: 'Staged Claims', description: 'Claims pending additional info.', presetStatus: 'PENDING_INFO', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'captured',
     canActivate: [permissionGuard(['claims:view'])],
     loadComponent: () => import('./pending/pending-claims-list.component').then(m => m.PendingClaimsListComponent),
-    data: { title: 'Captured Claims', description: 'Recently submitted claims awaiting verification.', presetStatus: 'SUBMITTED', sidebar: 'operational' },
+    data: { title: 'Captured Claims', description: 'Recently submitted claims awaiting verification.', presetStatus: 'SUBMITTED', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'submit',
@@ -156,7 +157,7 @@ export const CLAIMS_ROUTES: Routes = [
     path: 'tariffs',
     canActivate: [permissionGuard(['claims:manage_tariffs'])],
     loadComponent: () => import('./tariffs/tariff-schedules-list.component').then(m => m.TariffSchedulesListComponent),
-    data: { title: 'Tariff Schedules', sidebar: 'operational' },
+    data: { title: 'Tariff Schedules', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'tariffs/add',
@@ -168,7 +169,7 @@ export const CLAIMS_ROUTES: Routes = [
     path: 'tariffs/:scheduleId/codes',
     canActivate: [permissionGuard(['claims:manage_tariffs'])],
     loadComponent: () => import('./tariffs/tariff-codes-list.component').then(m => m.TariffCodesListComponent),
-    data: { title: 'Tariff Codes', sidebar: 'operational' },
+    data: { title: 'Tariff Codes', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'modifiers',

@@ -2,7 +2,10 @@ package com.medfund.claims.controller;
 
 import com.medfund.claims.dto.CreateTariffCodeRequest;
 import com.medfund.claims.dto.CreateTariffScheduleRequest;
+import com.medfund.claims.dto.PageResponse;
+import com.medfund.claims.dto.TariffCodeFilterParams;
 import com.medfund.claims.dto.TariffCodeResponse;
+import com.medfund.claims.dto.TariffCodeRow;
 import com.medfund.claims.dto.TariffScheduleResponse;
 import com.medfund.claims.entity.TariffModifier;
 import com.medfund.claims.service.TariffService;
@@ -64,9 +67,32 @@ public class TariffController {
     }
 
     @GetMapping("/codes/schedule/{scheduleId}")
-    @Operation(summary = "List tariff codes by schedule")
+    @Operation(summary = "List tariff codes by schedule (unpaginated — prefer /codes/page for large schedules)")
     public Flux<TariffCodeResponse> findCodesBySchedule(@PathVariable UUID scheduleId) {
         return tariffService.findCodesByScheduleId(scheduleId).map(TariffCodeResponse::from);
+    }
+
+    @GetMapping("/codes/page")
+    @Operation(summary = "Server-side paginated, sortable, filterable tariff-codes list",
+        description = "Feeds the /tenant/claims/tariffs/:scheduleId/codes table. "
+                + "Sortable keys: code, description, categoryLabel, unitPrice, currencyCode, "
+                + "requiresPreAuth. Anything else falls back to code ASC. Joins the "
+                + "tariff_categories catalogue so the client renders each row without a "
+                + "second lookup — critical for the ~5k-row AHFOZ schedule.")
+    @ApiResponse(responseCode = "200", description = "Page of tariff codes")
+    public Mono<PageResponse<TariffCodeRow>> searchCodesPaged(
+            @RequestParam(required = false) UUID scheduleId,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) UUID categoryId,
+            @RequestParam(required = false) Boolean requiresPreAuth,
+            @RequestParam(required = false, defaultValue = "code") String sortKey,
+            @RequestParam(required = false, defaultValue = "asc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        var params = new TariffCodeFilterParams(
+                scheduleId, q, categoryId, requiresPreAuth,
+                sortKey, sortDirection, page, size);
+        return tariffService.searchCodesPaged(params);
     }
 
     @GetMapping("/codes/{code}")

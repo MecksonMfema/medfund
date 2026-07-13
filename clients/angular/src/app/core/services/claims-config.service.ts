@@ -37,6 +37,44 @@ export interface TariffCode {
   createdAt?: string;
 }
 
+/**
+ * Row shape returned by {@code GET /tariffs/codes/page}. The category
+ * label is pre-joined server-side so the table renders each row without
+ * a client-side categories-catalogue lookup — the AHFOZ March seed puts
+ * ~5,000 codes on a single schedule and the previous unpaginated flow
+ * was noticeably slow.
+ */
+export interface TariffCodeRow {
+  id: string;
+  scheduleId: string;
+  code: string;
+  description: string;
+  categoryId?: string;
+  categoryLabel?: string;
+  unitPrice: string;
+  currencyCode?: string;
+  requiresPreAuth?: boolean;
+}
+
+export interface PageResponse<T> {
+  content: T[];
+  total: number;
+  page: number;
+  size: number;
+  totalPages: number;
+}
+
+export interface TariffCodePageParams {
+  scheduleId?: string;
+  q?: string;
+  categoryId?: string;
+  requiresPreAuth?: boolean;
+  sortKey?: string;
+  sortDirection?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
+}
+
 export interface CreateTariffCodePayload {
   scheduleId: string;
   code: string;
@@ -105,6 +143,26 @@ export class ClaimsConfigService {
   // ── Tariff codes ──
   listCodesBySchedule(scheduleId: string): Observable<TariffCode[]> {
     return this.api.get<TariffCode[]>(`/tariffs/codes/schedule/${scheduleId}`);
+  }
+
+  /**
+   * Server-side paginated tariff-codes list. Feeds the codes table on
+   * /tenant/claims/tariffs/:scheduleId/codes. Preferred over
+   * {@link listCodesBySchedule} — the AHFOZ March schedule alone carries
+   * ~5,000 codes and hydrating the whole set in one call is what made the
+   * previous page slow.
+   */
+  listCodesPaged(opts: TariffCodePageParams): Observable<PageResponse<TariffCodeRow>> {
+    const params: Record<string, string> = {};
+    if (opts.scheduleId)                 params['scheduleId']       = opts.scheduleId;
+    if (opts.q)                          params['q']                = opts.q;
+    if (opts.categoryId)                 params['categoryId']       = opts.categoryId;
+    if (opts.requiresPreAuth !== undefined) params['requiresPreAuth'] = String(opts.requiresPreAuth);
+    if (opts.sortKey)                    params['sortKey']          = opts.sortKey;
+    if (opts.sortDirection)              params['sortDirection']    = opts.sortDirection;
+    if (opts.page !== undefined)         params['page']             = String(opts.page);
+    if (opts.size !== undefined)         params['size']             = String(opts.size);
+    return this.api.get<PageResponse<TariffCodeRow>>('/tariffs/codes/page', params);
   }
 
   searchCodes(q: string): Observable<TariffCode[]> {

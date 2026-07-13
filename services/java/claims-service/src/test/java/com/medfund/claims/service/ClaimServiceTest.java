@@ -3,7 +3,9 @@ package com.medfund.claims.service;
 import com.medfund.claims.client.SchemeClient;
 import com.medfund.claims.dto.AdjudicationResult;
 import com.medfund.claims.dto.ClaimAttachment;
+import com.medfund.claims.dto.ClaimFilterParams;
 import com.medfund.claims.dto.ClaimLineRequest;
+import com.medfund.claims.dto.ClaimRow;
 import com.medfund.claims.dto.SubmitClaimRequest;
 import com.medfund.claims.entity.Claim;
 import com.medfund.claims.entity.ClaimLine;
@@ -38,16 +40,19 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
 class ClaimServiceTest {
 
     @Mock private ClaimRepository claimRepository;
     @Mock private ClaimLineRepository claimLineRepository;
+    @Mock private com.medfund.claims.repository.ClaimQueryRepository claimQueryRepository;
     @Mock private AuditPublisher auditPublisher;
     @Mock private ClaimEventPublisher eventPublisher;
     @Mock private AdjudicationPipeline adjudicationPipeline;
     @Mock private SchemeClient schemeClient;
     @Mock private com.medfund.claims.repository.BeneficiaryBenefitRepository beneficiaryBenefitRepository;
     @Mock private org.springframework.r2dbc.core.DatabaseClient databaseClient;
+    @Mock private TariffBenefitResolver tariffBenefitResolver;
 
     @InjectMocks
     private ClaimService claimService;
@@ -458,6 +463,65 @@ class ClaimServiceTest {
                 any(), any(), any(), any());
     }
 
+    // ── V063 ingestion — line.benefit_id resolved from tariff ────────
+
+    /**
+     * V063 — every health-claim line is routed through
+     * {@link TariffBenefitResolver#resolve(String, UUID)} at ingestion
+     * so the decrement consumer knows which benefit ledger to touch.
+     * Guards the wiring itself (arg values) — the resolver's SQL
+     * branches are covered separately by {@link TariffBenefitResolverTest}.
+     */
+    @Test
+    void submit_health_invokesTariffResolverPerLineWithSchemeContext() {
+        var line1 = new ClaimLineRequest("TC001", "Consultation", 1,
+                new BigDecimal("500.00"), new BigDecimal("500.00"), null, "USD");
+        var line2 = new ClaimLineRequest("TC099", "Radiology", 1,
+                new BigDecimal("250.00"), new BigDecimal("250.00"), null, "USD");
+        var request = healthRequest(List.of(line1, line2));
+
+        stubHappyPathHealth();
+
+        StepVerifier.create(
+                claimService.submit(request, actorId, ACTOR_EMAIL)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        ).expectNextCount(1).verifyComplete();
+
+        // Both lines get resolved with the same scheme id — Mockito can
+        // count matching invocations across argument variants.
+        verify(tariffBenefitResolver).resolve(eq("TC001"), eq(request.schemeId()));
+        verify(tariffBenefitResolver).resolve(eq("TC099"), eq(request.schemeId()));
+    }
+
+    /**
+     * V063 — when the resolver returns a scheme_benefit UUID, the saved
+     * line carries it on {@code benefit_id}. When the resolver returns
+     * empty (cap-only or unmapped), the line's benefit_id stays null.
+     * This is the ingestion-time contract the decrement consumer relies
+     * on to decide whether to touch a per-benefit ledger row.
+     */
+    @Test
+    void submit_health_setsBenefitIdOnLineWhenResolverEmits() {
+        var lineReq = new ClaimLineRequest("TC001", "Consultation", 1,
+                new BigDecimal("500.00"), new BigDecimal("500.00"), null, "USD");
+        var request = healthRequest(List.of(lineReq));
+        stubHappyPathHealth();
+
+        UUID resolvedBenefitId = UUID.randomUUID();
+        when(tariffBenefitResolver.resolve(eq("TC001"), any(UUID.class)))
+                .thenReturn(Mono.just(resolvedBenefitId));
+
+        StepVerifier.create(
+                claimService.submit(request, actorId, ACTOR_EMAIL)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        ).expectNextCount(1).verifyComplete();
+
+        ArgumentCaptor<ClaimLine> lineCaptor = ArgumentCaptor.forClass(ClaimLine.class);
+        verify(claimLineRepository).save(lineCaptor.capture());
+        assertThat(lineCaptor.getValue().getBenefitId()).isEqualTo(resolvedBenefitId);
+        assertThat(lineCaptor.getValue().getTariffCode()).isEqualTo("TC001");
+    }
+
     // ── Fixtures ─────────────────────────────────────────────────────
 
     private void stubHappyPathHealth() {
@@ -477,6 +541,10 @@ class ClaimServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishClaimSubmitted(any(), any(), any(), any())).thenReturn(Mono.empty());
         when(eventPublisher.publishClaimCaptured(any(), any(), any(), any())).thenReturn(Mono.empty());
+        // V063 — every claim line goes through the resolver at ingestion.
+        // Default to Mono.empty() (unmapped / cap-only) so line.benefit_id
+        // stays null unless a specific test overrides.
+        when(tariffBenefitResolver.resolve(anyString(), any(UUID.class))).thenReturn(Mono.empty());
     }
 
     private SchemeClient.SchemeSummary schemeSummary(String line) {
@@ -590,5 +658,64 @@ class ClaimServiceTest {
         claim.setCreatedBy(UUID.randomUUID());
         claim.setUpdatedBy(UUID.randomUUID());
         return claim;
+    }
+
+    // ── searchPaged — envelope + clamp contract ─────────────────────
+
+    @Test
+    void searchPaged_wrapsQueryRepoRowsInPageResponse() {
+        var row = new ClaimRow(
+                UUID.randomUUID(), "CLM-000001",
+                UUID.randomUUID(), "Alice Ndlovu", "MBR-000001", null,
+                UUID.randomUUID(), "Harare Clinic",
+                UUID.randomUUID(), "medical", "HEALTH", "VERIFIED",
+                LocalDate.now(), Instant.now(),
+                new BigDecimal("500.00"), null, "USD", null, Instant.now());
+
+        var params = new ClaimFilterParams(
+                "VERIFIED", null, null, null, null, null, null,
+                "submissionDate", "desc", 0, 50);
+
+        org.mockito.Mockito.when(
+                claimQueryRepository.search(org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.eq(50), org.mockito.ArgumentMatchers.eq(0)))
+                .thenReturn(Flux.just(row));
+        org.mockito.Mockito.when(
+                claimQueryRepository.count(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(Mono.just(1L));
+
+        StepVerifier.create(claimService.searchPaged(params))
+                .assertNext(pageResp -> {
+                    org.assertj.core.api.Assertions.assertThat(pageResp.content()).containsExactly(row);
+                    org.assertj.core.api.Assertions.assertThat(pageResp.total()).isEqualTo(1L);
+                    org.assertj.core.api.Assertions.assertThat(pageResp.page()).isZero();
+                    org.assertj.core.api.Assertions.assertThat(pageResp.size()).isEqualTo(50);
+                    org.assertj.core.api.Assertions.assertThat(pageResp.totalPages()).isEqualTo(1);
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void searchPaged_clampsSizeAndPage() {
+        // Negative page → 0. Size 99999 → 200. Keeps the "one page won't
+        // blow up the client" contract regardless of what a caller asks for.
+        var params = new ClaimFilterParams(
+                null, null, null, null, null, null, null,
+                "submissionDate", "desc", -3, 99999);
+
+        org.mockito.Mockito.when(
+                claimQueryRepository.search(org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.eq(200), org.mockito.ArgumentMatchers.eq(0)))
+                .thenReturn(Flux.empty());
+        org.mockito.Mockito.when(
+                claimQueryRepository.count(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(Mono.just(0L));
+
+        StepVerifier.create(claimService.searchPaged(params))
+                .assertNext(pageResp -> {
+                    org.assertj.core.api.Assertions.assertThat(pageResp.page()).isZero();
+                    org.assertj.core.api.Assertions.assertThat(pageResp.size()).isEqualTo(200);
+                })
+                .verifyComplete();
     }
 }

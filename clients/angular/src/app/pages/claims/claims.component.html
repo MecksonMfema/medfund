@@ -1,7 +1,7 @@
 <header class="page-header">
   <div>
     <h1>Claims</h1>
-    <p class="page-sub">Every claim in the tenant. Filter by type, search by claim number, and open a row for the full adjudication view.</p>
+    <p class="page-sub">Every claim in the tenant. Filter by type, search by claim number or member, and open a row for the full adjudication view.</p>
   </div>
 </header>
 
@@ -24,13 +24,21 @@
 
 <app-data-table
   [columns]="columns"
-  [data]="filtered"
+  [data]="rows"
   [actions]="actions"
   [showActions]="true"
+  [serverSide]="true"
   [loading]="loading"
   [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
   [initialSortKey]="sortKey"
   [initialSortDirection]="sortDirection"
+  searchPlaceholder="Search claim #, member name, provider or member number"
   emptyMessage="No claims yet"
-  emptyDescription="Once claims are submitted they'll show up here.">
+  emptyDescription="Once claims are submitted they'll show up here."
+  (pageChange)="onPageChange($event)"
+  (searchChange)="onSearchChange($event)"
+  (sortChange)="onSortChange($event)">
 </app-data-table>

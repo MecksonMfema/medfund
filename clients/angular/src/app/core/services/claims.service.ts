@@ -158,12 +158,82 @@ export interface SubmitClaimPayload {
   attachments?: ClaimAttachment[];
 }
 
+/**
+ * Row shape returned by GET /claims/page. Member + provider names are
+ * pre-joined server-side so the operational list renders them inline
+ * without a second lookup.
+ */
+export interface ClaimRow {
+  id: string;
+  claimNumber: string;
+  memberId: string;
+  memberName?: string;
+  memberNumber?: string;
+  dependantId?: string;
+  providerId?: string;
+  providerName?: string;
+  schemeId?: string;
+  claimType: string;
+  insuranceLine?: string;
+  status: ClaimStatus;
+  serviceDate: string;
+  submissionDate?: string;
+  claimedAmount: string;
+  approvedAmount?: string;
+  currencyCode: string;
+  batchNumber?: string;
+  createdAt: string;
+}
+
+export interface PageResponse<T> {
+  content: T[];
+  total: number;
+  page: number;
+  size: number;
+  totalPages: number;
+}
+
+export interface ClaimPageParams {
+  status?: string;
+  claimType?: string;
+  insuranceLine?: string;
+  memberId?: string;
+  providerId?: string;
+  schemeId?: string;
+  q?: string;
+  sortKey?: string;
+  sortDirection?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ClaimsService {
   constructor(private api: ApiService) {}
 
   list(): Observable<Claim[]> {
     return this.api.get<Claim[]>('/claims');
+  }
+
+  /**
+   * Server-side paginated claims list. Feeds /tenant/claims and its
+   * status-tabbed siblings. Rows carry pre-joined member + provider
+   * names so the table renders each cell without a lookup.
+   */
+  listPaged(opts: ClaimPageParams): Observable<PageResponse<ClaimRow>> {
+    const params: Record<string, string> = {};
+    if (opts.status)         params['status']         = opts.status;
+    if (opts.claimType)      params['claimType']      = opts.claimType;
+    if (opts.insuranceLine)  params['insuranceLine']  = opts.insuranceLine;
+    if (opts.memberId)       params['memberId']       = opts.memberId;
+    if (opts.providerId)     params['providerId']     = opts.providerId;
+    if (opts.schemeId)       params['schemeId']       = opts.schemeId;
+    if (opts.q)              params['q']              = opts.q;
+    if (opts.sortKey)        params['sortKey']        = opts.sortKey;
+    if (opts.sortDirection)  params['sortDirection']  = opts.sortDirection;
+    if (opts.page !== undefined) params['page']       = String(opts.page);
+    if (opts.size !== undefined) params['size']       = String(opts.size);
+    return this.api.get<PageResponse<ClaimRow>>('/claims/page', params);
   }
 
   getById(id: string): Observable<Claim> {

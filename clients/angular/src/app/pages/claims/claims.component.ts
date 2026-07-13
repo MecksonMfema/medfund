@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { DataTableComponent, TableAction, TableColumn } from '../../shared/components/data-table/data-table.component';
-import { Claim, ClaimsService } from '../../core/services/claims.service';
+import { ClaimRow, ClaimsService, PageResponse } from '../../core/services/claims.service';
 import { TenantService } from '../../core/services/tenant.service';
 import { PermissionService } from '../../core/security/permission.service';
 
@@ -21,12 +21,17 @@ interface TypeTab {
   styleUrl: './claims.component.scss',
 })
 export class ClaimsComponent implements OnInit, OnDestroy {
-  claims: Claim[] = [];
-  filtered: Claim[] = [];
+  rows: ClaimRow[] = [];
   loading = false;
-  pageSize = 20;
+
+  // Server-side pagination state.
+  page = 1;
+  pageSize = 50;
+  totalCount = 0;
+  totalPages = 1;
   sortKey = 'submissionDate';
   sortDirection: 'asc' | 'desc' = 'desc';
+  searchTerm = '';
 
   typeTabs: TypeTab[] = [];
   activeType: string | null = null;
@@ -38,24 +43,21 @@ export class ClaimsComponent implements OnInit, OnDestroy {
 
   columns: TableColumn[] = [
     { key: 'claimNumber',    label: 'Claim #',      sortable: true },
+    { key: 'memberName',     label: 'Member',       sortable: true },
+    { key: 'providerName',   label: 'Provider',     sortable: true },
     { key: 'claimType',      label: 'Type',         sortable: true },
     { key: 'claimedAmount',  label: 'Amount',       sortable: true, type: 'currency' },
     { key: 'status',         label: 'Status',       type: 'status', sortable: true },
-    { key: 'serviceDate',    label: 'Service Date', type: 'date',   sortable: true },
+    { key: 'serviceDate',    label: 'Service Date', sortable: true },
     { key: 'submissionDate', label: 'Submitted',    type: 'date',   sortable: true },
   ];
 
-  // Row action list — flat because there's only one entry today. If a
-  // second appears, filter through {@link rebuildActions} the way the
-  // schemes page does. The View action is intentionally ungated: the
-  // page-level route guard already established the caller's right to
-  // see rows, and the detail-route guard accepts both view and view_drug.
   readonly actions: TableAction[] = [
     {
       label: 'View',
       icon: 'eye',
       color: 'default',
-      handler: (row: Claim) => this.router.navigate(['/tenant/claims', row.id]),
+      handler: (row: ClaimRow) => this.router.navigate(['/tenant/claims', row.id]),
     },
   ];
 
@@ -74,7 +76,7 @@ export class ClaimsComponent implements OnInit, OnDestroy {
       this.permissions.permissions$.subscribe(() => this.rebuildTabs()),
     );
     this.rebuildTabs();
-    this.fetchAll();
+    this.fetchPage();
   }
 
   ngOnDestroy(): void {
@@ -84,7 +86,8 @@ export class ClaimsComponent implements OnInit, OnDestroy {
   selectType(value: string | null): void {
     if (this.activeType === value) return;
     this.activeType = value;
-    this.applyFilter();
+    this.page = 1;
+    this.fetchPage();
   }
 
   private rebuildTabs(): void {
@@ -116,24 +119,48 @@ export class ClaimsComponent implements OnInit, OnDestroy {
         this.activeType = null;
       }
     }
-    this.applyFilter();
   }
 
-  private fetchAll(): void {
+  private fetchPage(): void {
     this.loading = true;
-    this.claimsService.list().subscribe({
-      next: (rows) => { this.claims = rows; this.applyFilter(); this.loading = false; },
-      error: () => { this.claims = []; this.applyFilter(); this.loading = false; },
+    this.claimsService.listPaged({
+      claimType: this.activeType ?? undefined,
+      q: this.searchTerm || undefined,
+      sortKey: this.sortKey,
+      sortDirection: this.sortDirection,
+      page: this.page - 1,
+      size: this.pageSize,
+    }).subscribe({
+      next: (resp: PageResponse<ClaimRow>) => {
+        this.rows = resp.content;
+        this.totalCount = resp.total;
+        this.totalPages = resp.totalPages;
+        this.loading = false;
+      },
+      error: () => {
+        this.rows = [];
+        this.totalCount = 0;
+        this.totalPages = 1;
+        this.loading = false;
+      },
     });
   }
 
-  private applyFilter(): void {
-    let rows = this.claims;
-    if (this.drugOnly) {
-      rows = rows.filter(c => (c.claimType ?? '').toLowerCase() === 'drug');
-    } else if (this.activeType) {
-      rows = rows.filter(c => (c.claimType ?? '').toLowerCase() === this.activeType);
-    }
-    this.filtered = rows;
+  onPageChange(page: number): void {
+    this.page = page;
+    this.fetchPage();
+  }
+
+  onSearchChange(term: string): void {
+    this.searchTerm = term;
+    this.page = 1;
+    this.fetchPage();
+  }
+
+  onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
+    this.sortKey = evt.key;
+    this.sortDirection = evt.direction;
+    this.page = 1;
+    this.fetchPage();
   }
 }
