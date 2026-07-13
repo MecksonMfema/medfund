@@ -2,8 +2,9 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import {
-  PreAuthorization,
+  PreAuthPageResponse,
   PreAuthService,
+  PreAuthorizationRow,
 } from '../../../../core/services/pre-auth.service';
 import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 
@@ -21,13 +22,18 @@ interface StatusTab {
   styleUrl: './pre-auth-list.component.scss',
 })
 export class PreAuthListComponent implements OnInit {
-  rows: PreAuthorization[] = [];
-  filtered: PreAuthorization[] = [];
+  rows: PreAuthorizationRow[] = [];
   loading = false;
   errorMessage: string | null = null;
-  pageSize = 20;
+
+  // Server-side pagination state.
+  page = 1;
+  pageSize = 50;
+  totalCount = 0;
+  totalPages = 1;
   sortKey = 'createdAt';
   sortDirection: 'asc' | 'desc' = 'desc';
+  searchTerm = '';
 
   readonly statusTabs: StatusTab[] = [
     { value: null,       label: 'All'      },
@@ -40,8 +46,9 @@ export class PreAuthListComponent implements OnInit {
 
   readonly columns: TableColumn[] = [
     { key: 'authNumber',       label: 'Auth #',    sortable: true },
+    { key: 'memberName',       label: 'Member',    sortable: true },
+    { key: 'providerName',     label: 'Provider',  sortable: true },
     { key: 'tariffCode',       label: 'Tariff',    sortable: true },
-    { key: 'diagnosisCode',    label: 'Diagnosis', sortable: true },
     { key: 'requestedAmount',  label: 'Requested', sortable: true, type: 'currency' },
     { key: 'approvedAmount',   label: 'Approved',  sortable: true, type: 'currency' },
     { key: 'status',           label: 'Status',    sortable: true, type: 'status' },
@@ -54,22 +61,35 @@ export class PreAuthListComponent implements OnInit {
       label: 'View',
       icon: 'eye',
       color: 'default',
-      handler: (row: PreAuthorization) => this.router.navigate(['/tenant/claims/preauth', row.id]),
+      handler: (row: PreAuthorizationRow) => this.router.navigate(['/tenant/claims/preauth', row.id]),
     },
   ];
 
   constructor(private service: PreAuthService, private router: Router) {}
 
-  ngOnInit(): void { this.refresh(); }
+  ngOnInit(): void { this.fetchPage(); }
 
-  refresh(): void {
+  fetchPage(): void {
     this.loading = true;
-    this.service.list().subscribe({
-      next: (rows) => { this.rows = rows; this.applyFilter(); this.loading = false; },
+    this.service.listPaged({
+      status: this.activeStatus ?? undefined,
+      q: this.searchTerm || undefined,
+      sortKey: this.sortKey,
+      sortDirection: this.sortDirection,
+      page: this.page - 1,
+      size: this.pageSize,
+    }).subscribe({
+      next: (resp: PreAuthPageResponse) => {
+        this.rows = resp.content;
+        this.totalCount = resp.total;
+        this.totalPages = resp.totalPages;
+        this.loading = false;
+      },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load pre-authorizations';
+        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load pre-authorizations';
         this.rows = [];
-        this.applyFilter();
+        this.totalCount = 0;
+        this.totalPages = 1;
         this.loading = false;
       },
     });
@@ -78,11 +98,25 @@ export class PreAuthListComponent implements OnInit {
   selectStatus(value: string | null): void {
     if (this.activeStatus === value) return;
     this.activeStatus = value;
-    this.applyFilter();
+    this.page = 1;
+    this.fetchPage();
   }
 
-  private applyFilter(): void {
-    if (!this.activeStatus) { this.filtered = this.rows; return; }
-    this.filtered = this.rows.filter(r => r.status === this.activeStatus);
+  onPageChange(page: number): void {
+    this.page = page;
+    this.fetchPage();
+  }
+
+  onSearchChange(term: string): void {
+    this.searchTerm = term;
+    this.page = 1;
+    this.fetchPage();
+  }
+
+  onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
+    this.sortKey = evt.key;
+    this.sortDirection = evt.direction;
+    this.page = 1;
+    this.fetchPage();
   }
 }

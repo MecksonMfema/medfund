@@ -1,8 +1,12 @@
 package com.medfund.claims.service;
 
+import com.medfund.claims.dto.PageResponse;
 import com.medfund.claims.dto.PreAuthRequest;
+import com.medfund.claims.dto.PreAuthorizationFilterParams;
+import com.medfund.claims.dto.PreAuthorizationRow;
 import com.medfund.claims.entity.PreAuthorization;
 import com.medfund.claims.exception.PreAuthNotFoundException;
+import com.medfund.claims.repository.PreAuthorizationQueryRepository;
 import com.medfund.claims.repository.PreAuthorizationRepository;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
@@ -27,15 +31,33 @@ public class PreAuthService {
     private static final Logger log = LoggerFactory.getLogger(PreAuthService.class);
 
     private final PreAuthorizationRepository preAuthorizationRepository;
+    private final PreAuthorizationQueryRepository queryRepository;
     private final AuditPublisher auditPublisher;
     private final ClaimEventPublisher eventPublisher;
 
     public PreAuthService(PreAuthorizationRepository preAuthorizationRepository,
+                          PreAuthorizationQueryRepository queryRepository,
                           AuditPublisher auditPublisher,
                           ClaimEventPublisher eventPublisher) {
         this.preAuthorizationRepository = preAuthorizationRepository;
+        this.queryRepository = queryRepository;
         this.auditPublisher = auditPublisher;
         this.eventPublisher = eventPublisher;
+    }
+
+    /**
+     * Server-side paginated pre-authorizations list. Feeds
+     * /tenant/claims/preauth. Member + provider names joined into every
+     * row so the client renders inline without a lookup.
+     */
+    public Mono<PageResponse<PreAuthorizationRow>> searchPaged(PreAuthorizationFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return queryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(queryRepository.count(params))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 
     public Flux<PreAuthorization> findByMemberId(UUID memberId) {

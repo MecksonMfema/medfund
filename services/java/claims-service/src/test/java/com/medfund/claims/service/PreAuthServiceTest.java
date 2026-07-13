@@ -3,6 +3,7 @@ package com.medfund.claims.service;
 import com.medfund.claims.dto.PreAuthRequest;
 import com.medfund.claims.entity.PreAuthorization;
 import com.medfund.claims.exception.PreAuthNotFoundException;
+import com.medfund.claims.repository.PreAuthorizationQueryRepository;
 import com.medfund.claims.repository.PreAuthorizationRepository;
 import com.medfund.shared.audit.AuditPublisher;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,6 +30,9 @@ class PreAuthServiceTest {
 
     @Mock
     private PreAuthorizationRepository preAuthorizationRepository;
+
+    @Mock
+    private PreAuthorizationQueryRepository queryRepository;
 
     @Mock
     private AuditPublisher auditPublisher;

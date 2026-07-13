@@ -26,14 +26,21 @@
 
 <app-data-table
   [columns]="columns"
-  [data]="filtered"
+  [data]="rows"
   [actions]="actions"
   [showActions]="true"
+  [serverSide]="true"
   [loading]="loading"
   [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
   [initialSortKey]="sortKey"
   [initialSortDirection]="sortDirection"
-  searchPlaceholder="Search auth #, tariff, or diagnosis"
+  searchPlaceholder="Search auth #, tariff, diagnosis, member or provider"
   emptyMessage="No pre-authorizations yet"
-  emptyDescription="Submit a request from a scheme that requires prior approval and it'll appear here.">
+  emptyDescription="Submit a request from a scheme that requires prior approval and it'll appear here."
+  (pageChange)="onPageChange($event)"
+  (searchChange)="onSearchChange($event)"
+  (sortChange)="onSortChange($event)">
 </app-data-table>

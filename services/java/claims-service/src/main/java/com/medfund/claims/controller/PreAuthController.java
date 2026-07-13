@@ -1,7 +1,10 @@
 package com.medfund.claims.controller;
 
+import com.medfund.claims.dto.PageResponse;
 import com.medfund.claims.dto.PreAuthRequest;
 import com.medfund.claims.dto.PreAuthResponse;
+import com.medfund.claims.dto.PreAuthorizationFilterParams;
+import com.medfund.claims.dto.PreAuthorizationRow;
 import com.medfund.claims.service.PreAuthService;
 import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,9 +41,33 @@ public class PreAuthController {
     }
 
     @GetMapping
-    @Operation(summary = "List pre-authorizations by status")
+    @Operation(summary = "List pre-authorizations by status (unpaginated — prefer /page)")
     public Flux<PreAuthResponse> findByStatus(@RequestParam(defaultValue = "PENDING") String status) {
         return preAuthService.findByStatus(status).map(PreAuthResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "Server-side paginated, sortable, filterable pre-auths list",
+        description = "Feeds /tenant/claims/preauth. Member + provider names joined "
+                + "into every row. Sortable keys: authNumber, memberName, providerName, "
+                + "tariffCode, status, requestedAmount, approvedAmount, requestedDate, "
+                + "expiryDate, createdAt.")
+    @ApiResponse(responseCode = "200", description = "Page of pre-authorizations")
+    public Mono<PageResponse<PreAuthorizationRow>> searchPaged(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) UUID memberId,
+            @RequestParam(required = false) UUID providerId,
+            @RequestParam(required = false) UUID schemeId,
+            @RequestParam(required = false) String tariffCode,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "createdAt") String sortKey,
+            @RequestParam(required = false, defaultValue = "desc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        var params = new PreAuthorizationFilterParams(
+                status, memberId, providerId, schemeId, tariffCode, q,
+                sortKey, sortDirection, page, size);
+        return preAuthService.searchPaged(params);
     }
 
     @GetMapping("/{id}")
