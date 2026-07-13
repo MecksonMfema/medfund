@@ -175,13 +175,13 @@ export const CLAIMS_ROUTES: Routes = [
     path: 'modifiers',
     canActivate: [permissionGuard(['claims:manage_modifiers'])],
     loadComponent: () => import('./modifiers/modifiers-list.component').then(m => m.ModifiersListComponent),
-    data: { title: 'Tariff Modifiers', sidebar: 'operational' },
+    data: { title: 'Tariff Modifiers', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'rejection-reasons',
     canActivate: [permissionGuard(['claims:manage_rejection_reasons'])],
     loadComponent: () => import('./rejection-reasons/rejection-reasons-list.component').then(m => m.RejectionReasonsListComponent),
-    data: { title: 'Rejection Reasons', sidebar: 'operational' },
+    data: { title: 'Rejection Reasons', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'rejection-reasons/add',

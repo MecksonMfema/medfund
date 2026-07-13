@@ -178,12 +178,56 @@ export class ClaimsConfigService {
     return this.api.get<TariffModifier[]>('/tariffs/modifiers');
   }
 
+  /**
+   * Server-side paginated tariff-modifiers list. Feeds
+   * /tenant/claims/modifiers.
+   */
+  listModifiersPaged(opts: {
+    activeOnly?: boolean;
+    adjustmentType?: string;
+    q?: string;
+    sortKey?: string;
+    sortDirection?: 'asc' | 'desc';
+    page?: number;
+    size?: number;
+  }): Observable<PageResponse<TariffModifier>> {
+    const params: Record<string, string> = {};
+    if (opts.activeOnly !== undefined) params['activeOnly']     = String(opts.activeOnly);
+    if (opts.adjustmentType)           params['adjustmentType'] = opts.adjustmentType;
+    if (opts.q)                        params['q']              = opts.q;
+    if (opts.sortKey)                  params['sortKey']        = opts.sortKey;
+    if (opts.sortDirection)            params['sortDirection']  = opts.sortDirection;
+    if (opts.page !== undefined)       params['page']           = String(opts.page);
+    if (opts.size !== undefined)       params['size']           = String(opts.size);
+    return this.api.get<PageResponse<TariffModifier>>('/tariffs/modifiers/page', params);
+  }
+
   // ── ICD codes ──
   searchIcdCodes(q: string): Observable<IcdCode[]> {
     return this.api.get<IcdCode[]>('/icd-codes/search', { q });
   }
 
   // ── Rejection reasons ──
+  listRejectionReasonsPaged(opts: {
+    activeOnly?: boolean;
+    category?: string;
+    q?: string;
+    sortKey?: string;
+    sortDirection?: 'asc' | 'desc';
+    page?: number;
+    size?: number;
+  }): Observable<PageResponse<RejectionReason>> {
+    const params: Record<string, string> = {};
+    if (opts.activeOnly !== undefined) params['activeOnly']    = String(opts.activeOnly);
+    if (opts.category)                 params['category']      = opts.category;
+    if (opts.q)                        params['q']             = opts.q;
+    if (opts.sortKey)                  params['sortKey']       = opts.sortKey;
+    if (opts.sortDirection)            params['sortDirection'] = opts.sortDirection;
+    if (opts.page !== undefined)       params['page']          = String(opts.page);
+    if (opts.size !== undefined)       params['size']          = String(opts.size);
+    return this.api.get<PageResponse<RejectionReason>>('/rejection-reasons/page', params);
+  }
+
   listRejectionReasons(activeOnly = false): Observable<RejectionReason[]> {
     const params: Record<string, string> = {};
     if (activeOnly) params['activeOnly'] = 'true';

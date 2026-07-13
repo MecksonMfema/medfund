@@ -9,6 +9,7 @@ import com.medfund.claims.entity.TariffModifier;
 import com.medfund.claims.entity.TariffSchedule;
 import com.medfund.claims.repository.TariffCodeQueryRepository;
 import com.medfund.claims.repository.TariffCodeRepository;
+import com.medfund.claims.repository.TariffModifierQueryRepository;
 import com.medfund.claims.repository.TariffModifierRepository;
 import com.medfund.claims.repository.TariffScheduleRepository;
 import com.medfund.shared.audit.AuditPublisher;
@@ -46,6 +47,9 @@ class TariffServiceTest {
 
     @Mock
     private TariffModifierRepository tariffModifierRepository;
+
+    @Mock
+    private TariffModifierQueryRepository tariffModifierQueryRepository;
 
     @Mock
     private AuditPublisher auditPublisher;

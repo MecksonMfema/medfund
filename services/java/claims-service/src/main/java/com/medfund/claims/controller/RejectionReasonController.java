@@ -1,5 +1,7 @@
 package com.medfund.claims.controller;
 
+import com.medfund.claims.dto.PageResponse;
+import com.medfund.claims.dto.RejectionReasonFilterParams;
 import com.medfund.claims.dto.RejectionReasonResponse;
 import com.medfund.claims.dto.UpsertRejectionReasonRequest;
 import com.medfund.claims.service.RejectionReasonService;
@@ -33,10 +35,30 @@ public class RejectionReasonController {
     }
 
     @GetMapping
-    @Operation(summary = "List all rejection reasons (active + inactive)")
+    @Operation(summary = "List all rejection reasons (unpaginated — prefer /page)")
     public Flux<RejectionReasonResponse> list(@RequestParam(required = false, defaultValue = "false") boolean activeOnly) {
         var stream = activeOnly ? service.findAllActive() : service.findAll();
         return stream.map(RejectionReasonResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "Server-side paginated, sortable, filterable rejection-reasons list",
+        description = "Feeds /tenant/claims/rejection-reasons. Sortable keys: code, "
+                + "description, category, isActive.")
+    @ApiResponse(responseCode = "200", description = "Page of rejection reasons")
+    public Mono<PageResponse<RejectionReasonResponse>> searchPaged(
+            @RequestParam(required = false) Boolean activeOnly,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "code") String sortKey,
+            @RequestParam(required = false, defaultValue = "asc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        var params = new RejectionReasonFilterParams(
+                activeOnly, category, q, sortKey, sortDirection, page, size);
+        return service.searchPaged(params).map(pageResp -> PageResponse.of(
+                pageResp.content().stream().map(RejectionReasonResponse::from).toList(),
+                pageResp.total(), pageResp.page(), pageResp.size()));
     }
 
     @GetMapping("/{code}")

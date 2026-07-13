@@ -1,7 +1,10 @@
 package com.medfund.claims.service;
 
+import com.medfund.claims.dto.PageResponse;
+import com.medfund.claims.dto.RejectionReasonFilterParams;
 import com.medfund.claims.dto.UpsertRejectionReasonRequest;
 import com.medfund.claims.entity.RejectionReason;
+import com.medfund.claims.repository.RejectionReasonQueryRepository;
 import com.medfund.claims.repository.RejectionReasonRepository;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
@@ -28,19 +31,38 @@ public class RejectionReasonService {
     private static final Logger log = LoggerFactory.getLogger(RejectionReasonService.class);
 
     private final RejectionReasonRepository repo;
+    private final RejectionReasonQueryRepository queryRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
 
     public RejectionReasonService(RejectionReasonRepository repo,
+                                   RejectionReasonQueryRepository queryRepository,
                                    R2dbcEntityTemplate r2dbcTemplate,
                                    AuditPublisher auditPublisher) {
         this.repo = repo;
+        this.queryRepository = queryRepository;
         this.r2dbcTemplate = r2dbcTemplate;
         this.auditPublisher = auditPublisher;
     }
 
     public Flux<RejectionReason> findAll() {
         return repo.findAll();
+    }
+
+    /**
+     * Server-side paginated rejection-reasons list. Feeds
+     * /tenant/claims/rejection-reasons. The catalogue is small (~20
+     * platform-seeded codes plus tenant extensions) but the uniform
+     * pattern makes it consistent with every other list surface.
+     */
+    public Mono<PageResponse<RejectionReason>> searchPaged(RejectionReasonFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return queryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(queryRepository.count(params))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 
     public Flux<RejectionReason> findAllActive() {

@@ -6,6 +6,7 @@ import com.medfund.claims.dto.PageResponse;
 import com.medfund.claims.dto.TariffCodeFilterParams;
 import com.medfund.claims.dto.TariffCodeResponse;
 import com.medfund.claims.dto.TariffCodeRow;
+import com.medfund.claims.dto.TariffModifierFilterParams;
 import com.medfund.claims.dto.TariffScheduleResponse;
 import com.medfund.claims.entity.TariffModifier;
 import com.medfund.claims.service.TariffService;
@@ -121,8 +122,26 @@ public class TariffController {
     }
 
     @GetMapping("/modifiers")
-    @Operation(summary = "List all active tariff modifiers")
+    @Operation(summary = "List all active tariff modifiers (unpaginated — prefer /modifiers/page)")
     public Flux<TariffModifier> findAllModifiers() {
         return tariffService.findAllModifiers();
+    }
+
+    @GetMapping("/modifiers/page")
+    @Operation(summary = "Server-side paginated, sortable, filterable tariff-modifiers list",
+        description = "Feeds /tenant/claims/modifiers. Sortable keys: code, name, "
+                + "adjustmentType, adjustmentValue, isActive.")
+    @ApiResponse(responseCode = "200", description = "Page of modifiers")
+    public Mono<PageResponse<TariffModifier>> searchModifiersPaged(
+            @RequestParam(required = false) Boolean activeOnly,
+            @RequestParam(required = false) String adjustmentType,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "code") String sortKey,
+            @RequestParam(required = false, defaultValue = "asc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        var params = new TariffModifierFilterParams(
+                activeOnly, adjustmentType, q, sortKey, sortDirection, page, size);
+        return tariffService.searchModifiersPaged(params);
     }
 }

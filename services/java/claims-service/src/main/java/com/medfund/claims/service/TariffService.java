@@ -5,12 +5,14 @@ import com.medfund.claims.dto.CreateTariffScheduleRequest;
 import com.medfund.claims.dto.PageResponse;
 import com.medfund.claims.dto.TariffCodeFilterParams;
 import com.medfund.claims.dto.TariffCodeRow;
+import com.medfund.claims.dto.TariffModifierFilterParams;
 import com.medfund.claims.entity.TariffCode;
 import com.medfund.claims.entity.TariffModifier;
 import com.medfund.claims.entity.TariffSchedule;
 import com.medfund.claims.exception.TariffNotFoundException;
 import com.medfund.claims.repository.TariffCodeQueryRepository;
 import com.medfund.claims.repository.TariffCodeRepository;
+import com.medfund.claims.repository.TariffModifierQueryRepository;
 import com.medfund.claims.repository.TariffModifierRepository;
 import com.medfund.claims.repository.TariffScheduleRepository;
 import com.medfund.shared.audit.AuditEvent;
@@ -39,18 +41,36 @@ public class TariffService {
     private final TariffCodeRepository tariffCodeRepository;
     private final TariffCodeQueryRepository tariffCodeQueryRepository;
     private final TariffModifierRepository tariffModifierRepository;
+    private final TariffModifierQueryRepository tariffModifierQueryRepository;
     private final AuditPublisher auditPublisher;
 
     public TariffService(TariffScheduleRepository tariffScheduleRepository,
                          TariffCodeRepository tariffCodeRepository,
                          TariffCodeQueryRepository tariffCodeQueryRepository,
                          TariffModifierRepository tariffModifierRepository,
+                         TariffModifierQueryRepository tariffModifierQueryRepository,
                          AuditPublisher auditPublisher) {
         this.tariffScheduleRepository = tariffScheduleRepository;
         this.tariffCodeRepository = tariffCodeRepository;
         this.tariffCodeQueryRepository = tariffCodeQueryRepository;
         this.tariffModifierRepository = tariffModifierRepository;
+        this.tariffModifierQueryRepository = tariffModifierQueryRepository;
         this.auditPublisher = auditPublisher;
+    }
+
+    /**
+     * Server-side paginated tariff-modifiers list. Feeds
+     * /tenant/claims/modifiers. Small catalogue but part of the platform-
+     * wide pagination sweep.
+     */
+    public Mono<PageResponse<TariffModifier>> searchModifiersPaged(TariffModifierFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return tariffModifierQueryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(tariffModifierQueryRepository.count(params))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 
     public Flux<TariffSchedule> findAllSchedules() {
