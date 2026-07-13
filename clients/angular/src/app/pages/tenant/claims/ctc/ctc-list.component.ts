@@ -2,14 +2,16 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { CtcPayment, FinanceService } from '../../../../core/services/finance.service';
+import {
+  CtcPaymentRow,
+  FinancePageResponse,
+  FinanceService,
+} from '../../../../core/services/finance.service';
 import { ConfirmService } from '../../../../shared/components/confirm-dialog/confirm.service';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
-import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
-import { StatCardComponent } from '../../../../shared/components/stat-card/stat-card.component';
 import { HasPermissionDirective } from '../../../../shared/directives/has-permission.directive';
-import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
+import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 
 @Component({
   selector: 'app-ctc-list',
@@ -19,20 +21,47 @@ import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pip
     FormsModule,
     RouterLink,
     IconComponent,
-    SkeletonComponent,
-    StatCardComponent,
     HasPermissionDirective,
-    CurrencyFormatPipe,
+    DataTableComponent,
   ],
   templateUrl: './ctc-list.component.html',
   styleUrl: './ctc-list.component.scss',
 })
 export class CtcListComponent implements OnInit {
-  rows: CtcPayment[] = [];
+  rows: CtcPaymentRow[] = [];
   loading = false;
   busyId: string | null = null;
   committed = false;
-  q = '';
+
+  // Server-side pagination state.
+  page = 1;
+  pageSize = 50;
+  totalCount = 0;
+  totalPages = 1;
+  sortKey = 'createdAt';
+  sortDirection: 'asc' | 'desc' = 'desc';
+  searchTerm = '';
+
+  readonly columns: TableColumn[] = [
+    { key: 'memberName',   label: 'Member',       sortable: true },
+    { key: 'groupName',    label: 'Group',        sortable: true },
+    { key: 'amount',       label: 'Amount',       sortable: true, type: 'currency' },
+    { key: 'currencyCode', label: 'Currency',     sortable: true },
+    { key: 'committed',    label: 'Committed',    sortable: true, type: 'boolean' },
+    { key: 'createdAt',    label: 'Created',      sortable: true, type: 'date' },
+  ];
+
+  readonly actions: TableAction[] = [
+    {
+      label: 'Commit',
+      icon: 'check',
+      color: 'success',
+      requiresPermission: 'claims:commit_ctc_payment',
+      visible: (row: CtcPaymentRow) => !row.committed,
+      labelFor: (row: CtcPaymentRow) => this.busyId === row.id ? 'Committing…' : 'Commit',
+      handler: (row: CtcPaymentRow) => this.commit(row),
+    },
+  ];
 
   constructor(
     private finance: FinanceService,
@@ -43,40 +72,54 @@ export class CtcListComponent implements OnInit {
 
   ngOnInit(): void {
     this.committed = !!this.route.snapshot.data?.['committed'];
-    this.refresh();
+    this.fetchPage();
   }
 
-  refresh(): void {
+  fetchPage(): void {
     this.loading = true;
-    this.finance.listCtcPayments(this.committed).subscribe({
-      next: (rows) => { this.rows = rows; this.loading = false; },
+    this.finance.listCtcPaymentsPaged({
+      committed: this.committed,
+      q: this.searchTerm || undefined,
+      sortKey: this.sortKey,
+      sortDirection: this.sortDirection,
+      page: this.page - 1,
+      size: this.pageSize,
+    }).subscribe({
+      next: (resp: FinancePageResponse<CtcPaymentRow>) => {
+        this.rows = resp.content;
+        this.totalCount = resp.total;
+        this.totalPages = resp.totalPages;
+        this.loading = false;
+      },
       error: (err) => {
         this.loading = false;
-        this.toast.error(err?.error?.detail || 'Failed to load CTC payments');
+        this.rows = [];
+        this.totalCount = 0;
+        this.totalPages = 1;
+        this.toast.error(err?.error?.detail || err?.error?.title || 'Failed to load CTC payments');
       },
     });
   }
 
-  get filtered(): CtcPayment[] {
-    if (!this.q.trim()) return this.rows;
-    const q = this.q.trim().toLowerCase();
-    return this.rows.filter(r =>
-      r.id.toLowerCase().includes(q) ||
-      (r.memberId || '').toLowerCase().includes(q) ||
-      (r.groupId || '').toLowerCase().includes(q),
-    );
+  onPageChange(page: number): void {
+    this.page = page;
+    this.fetchPage();
   }
 
-  get totalAmount(): number {
-    return this.filtered.reduce((s, r) => s + Number(r.amount || 0), 0);
+  onSearchChange(term: string): void {
+    this.searchTerm = term;
+    this.page = 1;
+    this.fetchPage();
   }
 
-  get currencyMix(): string {
-    const set = new Set(this.filtered.map(r => r.currencyCode));
-    return set.size === 1 ? [...set][0] : 'Mixed';
+  onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
+    this.sortKey = evt.key;
+    this.sortDirection = evt.direction;
+    this.page = 1;
+    this.fetchPage();
   }
 
-  async commit(row: CtcPayment): Promise<void> {
+  async commit(row: CtcPaymentRow): Promise<void> {
     if (row.committed) return;
     const ok = await this.confirm.ask({
       title: 'Commit CTC payment',
@@ -87,13 +130,12 @@ export class CtcListComponent implements OnInit {
 
     this.busyId = row.id;
     this.finance.commitCtcPayment(row.id).subscribe({
-      next: (updated) => {
+      next: () => {
         this.busyId = null;
         this.toast.success('CTC payment committed');
-        const i = this.rows.findIndex(r => r.id === updated.id);
-        if (i >= 0) this.rows[i] = updated;
-        // On the pending list, drop committed rows.
-        if (!this.committed && updated.committed) this.rows = this.rows.filter(r => r.id !== updated.id);
+        // Re-fetch the current page so the row moves out of the pending
+        // list (or lands on committed with its new state).
+        this.fetchPage();
       },
       error: (err) => {
         this.busyId = null;

@@ -1,7 +1,10 @@
 package com.medfund.finance.service;
 
 import com.medfund.finance.dto.CtcPaymentDtos.CreateCtcPaymentRequest;
+import com.medfund.finance.dto.CtcPaymentFilterParams;
+import com.medfund.finance.dto.CtcPaymentRow;
 import com.medfund.finance.entity.CtcPayment;
+import com.medfund.finance.repository.CtcPaymentQueryRepository;
 import com.medfund.finance.repository.CtcPaymentRepository;
 import com.medfund.shared.audit.AuditPublisher;
 import org.junit.jupiter.api.Test;
@@ -27,6 +30,9 @@ class CtcPaymentServiceTest {
 
     @Mock
     private CtcPaymentRepository repository;
+
+    @Mock
+    private CtcPaymentQueryRepository queryRepository;
 
     @Mock
     private AuditPublisher auditPublisher;
@@ -137,5 +143,49 @@ class CtcPaymentServiceTest {
         c.setCommitted(false);
         c.setCreatedAt(Instant.now());
         return c;
+    }
+
+    // ── searchPaged — envelope + clamp contract ─────────────────────
+
+    @Test
+    void searchPaged_wrapsQueryRepoRowsInPageResponse() {
+        var row = new CtcPaymentRow(
+                UUID.randomUUID(), UUID.randomUUID(), "Acme Ltd",
+                null, "", null, new BigDecimal("500.00"), "USD",
+                null, false, Instant.now(), null);
+        var params = new CtcPaymentFilterParams(
+                false, null, null, "createdAt", "desc", 0, 50);
+
+        when(queryRepository.search(any(), org.mockito.ArgumentMatchers.eq(50), org.mockito.ArgumentMatchers.eq(0)))
+                .thenReturn(reactor.core.publisher.Flux.just(row));
+        when(queryRepository.count(any())).thenReturn(Mono.just(1L));
+
+        StepVerifier.create(service.searchPaged(params))
+                .assertNext(resp -> {
+                    assertThat(resp.content()).containsExactly(row);
+                    assertThat(resp.total()).isEqualTo(1L);
+                    assertThat(resp.page()).isZero();
+                    assertThat(resp.size()).isEqualTo(50);
+                    assertThat(resp.totalPages()).isEqualTo(1);
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void searchPaged_clampsSizeAndPage() {
+        // Negative page → 0. Size 99999 → 200.
+        var params = new CtcPaymentFilterParams(
+                null, null, null, "createdAt", "desc", -3, 99999);
+
+        when(queryRepository.search(any(), org.mockito.ArgumentMatchers.eq(200), org.mockito.ArgumentMatchers.eq(0)))
+                .thenReturn(reactor.core.publisher.Flux.empty());
+        when(queryRepository.count(any())).thenReturn(Mono.just(0L));
+
+        StepVerifier.create(service.searchPaged(params))
+                .assertNext(resp -> {
+                    assertThat(resp.page()).isZero();
+                    assertThat(resp.size()).isEqualTo(200);
+                })
+                .verifyComplete();
     }
 }

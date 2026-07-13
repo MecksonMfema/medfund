@@ -1,7 +1,11 @@
 package com.medfund.finance.service;
 
 import com.medfund.finance.dto.CtcPaymentDtos.CreateCtcPaymentRequest;
+import com.medfund.finance.dto.CtcPaymentFilterParams;
+import com.medfund.finance.dto.CtcPaymentRow;
+import com.medfund.finance.dto.PageResponse;
 import com.medfund.finance.entity.CtcPayment;
+import com.medfund.finance.repository.CtcPaymentQueryRepository;
 import com.medfund.finance.repository.CtcPaymentRepository;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
@@ -22,6 +26,7 @@ import java.util.UUID;
 public class CtcPaymentService {
 
     private final CtcPaymentRepository repository;
+    private final CtcPaymentQueryRepository queryRepository;
     private final AuditPublisher auditPublisher;
 
     public Flux<CtcPayment> findAll() {
@@ -30,6 +35,22 @@ public class CtcPaymentService {
 
     public Flux<CtcPayment> findByCommitted(boolean committed) {
         return repository.findByCommitted(committed);
+    }
+
+    /**
+     * Server-side paginated CTC list. Joins {@code members} and
+     * {@code groups} so the client renders the beneficiary chip inline —
+     * the previous unpaginated flow surfaced raw UUIDs and was hostile
+     * at scale.
+     */
+    public Mono<PageResponse<CtcPaymentRow>> searchPaged(CtcPaymentFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return queryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(queryRepository.count(params))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 
     public Mono<CtcPayment> findById(UUID id) {
