@@ -1,7 +1,9 @@
 package com.medfund.finance.controller;
 
+import com.medfund.finance.dto.BankReconciliationFilterParams;
 import com.medfund.finance.dto.BankReconciliationResponse;
 import com.medfund.finance.dto.CreateReconciliationRequest;
+import com.medfund.finance.dto.PageResponse;
 import com.medfund.finance.service.ReconciliationService;
 import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,9 +34,29 @@ public class ReconciliationController {
     }
 
     @GetMapping
-    @Operation(summary = "List all reconciliation records")
+    @Operation(summary = "List all reconciliation records (unpaginated — prefer /page)")
     public Flux<BankReconciliationResponse> findAll() {
         return reconciliationService.findAll().map(BankReconciliationResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "Server-side paginated, sortable, filterable reconciliations list",
+        description = "Feeds /tenant/finance/reconciliations. Sortable keys: referenceNumber, "
+                    + "statementAmount, systemAmount, difference, currencyCode, status, "
+                    + "statementDate, reconciledAt.")
+    @ApiResponse(responseCode = "200", description = "Page of reconciliations")
+    public Mono<PageResponse<BankReconciliationResponse>> searchPaged(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String currencyCode,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "statementDate") String sortKey,
+            @RequestParam(required = false, defaultValue = "desc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        var params = new BankReconciliationFilterParams(status, currencyCode, q, sortKey, sortDirection, page, size);
+        return reconciliationService.searchPaged(params).map(pageResp -> PageResponse.of(
+                pageResp.content().stream().map(BankReconciliationResponse::from).toList(),
+                pageResp.total(), pageResp.page(), pageResp.size()));
     }
 
     @GetMapping("/status/{status}")

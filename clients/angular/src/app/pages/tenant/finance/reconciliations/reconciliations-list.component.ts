@@ -1,37 +1,40 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import {
   BankReconciliation,
+  FinancePageResponse,
   FinanceService,
   ReconciliationStatus,
 } from '../../../../core/services/finance.service';
-import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
-import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
-import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
-import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
+import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 
 @Component({
   selector: 'app-reconciliations-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
+  imports: [CommonModule, FormsModule, SelectComponent, DataTableComponent],
   templateUrl: './reconciliations-list.component.html',
   styleUrl: './reconciliations-list.component.scss',
 })
 export class ReconciliationsListComponent implements OnInit {
   rows: BankReconciliation[] = [];
-  filtered: BankReconciliation[] = [];
   loading = false;
   busyId: string | null = null;
   errorMessage: string | null = null;
   successMessage: string | null = null;
 
   statusFilter: ReconciliationStatus | '' = '';
-  searchTerm = '';
 
-  constructor(private finance: FinanceService, private router: Router) {}
+  // Server-side pagination state.
+  page = 1;
+  pageSize = 50;
+  totalCount = 0;
+  totalPages = 1;
+  sortKey = 'statementDate';
+  sortDirection: 'asc' | 'desc' = 'desc';
+  searchTerm = '';
 
   readonly statusOptions: SelectOption[] = [
     { value: '', label: 'All' },
@@ -41,70 +44,97 @@ export class ReconciliationsListComponent implements OnInit {
     { value: 'resolved', label: 'Resolved' },
   ];
 
-  ngOnInit(): void {
-    this.refresh();
-  }
+  readonly columns: TableColumn[] = [
+    { key: 'referenceNumber', label: 'Reference #',      sortable: true },
+    { key: 'statementDate',   label: 'Statement date',   sortable: true },
+    { key: 'statementAmount', label: 'Statement amount', sortable: true, type: 'currency' },
+    { key: 'systemAmount',    label: 'System amount',    sortable: true, type: 'currency' },
+    { key: 'difference',      label: 'Difference',       sortable: true, type: 'currency' },
+    { key: 'currencyCode',    label: 'Currency',         sortable: true },
+    { key: 'status',          label: 'Status',           sortable: true, type: 'status' },
+  ];
 
-  refresh(): void {
+  readonly actions: TableAction[] = [
+    {
+      label: 'Match',
+      icon: 'check',
+      color: 'success',
+      visible: (r: BankReconciliation) => r.status === 'unmatched' || r.status === 'investigating',
+      handler: (r: BankReconciliation) => this.transition(r, 'matched', () => this.finance.matchReconciliation(r.id)),
+    },
+    {
+      label: 'Investigate',
+      icon: 'search',
+      color: 'warning',
+      visible: (r: BankReconciliation) => r.status === 'unmatched',
+      handler: (r: BankReconciliation) => this.transition(r, 'investigating', () => this.finance.investigateReconciliation(r.id)),
+    },
+    {
+      label: 'Resolve',
+      icon: 'check-circle',
+      color: 'success',
+      visible: (r: BankReconciliation) => r.status === 'investigating',
+      handler: (r: BankReconciliation) => this.transition(r, 'resolved', () => this.finance.resolveReconciliation(r.id)),
+    },
+  ];
+
+  constructor(private finance: FinanceService, private router: Router) {}
+
+  ngOnInit(): void { this.fetchPage(); }
+
+  fetchPage(): void {
     this.loading = true;
-    const stream = this.statusFilter
-      ? this.finance.getReconciliationsByStatus(this.statusFilter)
-      : this.finance.listReconciliations();
-    stream.subscribe({
-      next: (rows) => { this.rows = rows; this.applyFilter(); this.loading = false; },
+    this.finance.listReconciliationsPaged({
+      status: this.statusFilter || undefined,
+      q: this.searchTerm || undefined,
+      sortKey: this.sortKey,
+      sortDirection: this.sortDirection,
+      page: this.page - 1,
+      size: this.pageSize,
+    }).subscribe({
+      next: (resp: FinancePageResponse<BankReconciliation>) => {
+        this.rows = resp.content;
+        this.totalCount = resp.total;
+        this.totalPages = resp.totalPages;
+        this.loading = false;
+      },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load reconciliations';
+        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load reconciliations';
+        this.rows = [];
+        this.totalCount = 0;
+        this.totalPages = 1;
         this.loading = false;
       },
     });
   }
 
-  onStatusChange(): void { this.refresh(); }
-  onFilterChange(): void { this.applyFilter(); }
-
-  match(row: BankReconciliation, event: Event): void {
-    this.transition(row, event, 'matched', () => this.finance.matchReconciliation(row.id));
-  }
-
-  investigate(row: BankReconciliation, event: Event): void {
-    this.transition(row, event, 'investigating', () => this.finance.investigateReconciliation(row.id));
-  }
-
-  resolve(row: BankReconciliation, event: Event): void {
-    this.transition(row, event, 'resolved', () => this.finance.resolveReconciliation(row.id));
+  onStatusChange(): void { this.page = 1; this.fetchPage(); }
+  onPageChange(page: number): void { this.page = page; this.fetchPage(); }
+  onSearchChange(term: string): void { this.searchTerm = term; this.page = 1; this.fetchPage(); }
+  onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
+    this.sortKey = evt.key;
+    this.sortDirection = evt.direction;
+    this.page = 1;
+    this.fetchPage();
   }
 
   private transition(
     row: BankReconciliation,
-    event: Event,
     target: string,
     fn: () => import('rxjs').Observable<BankReconciliation>,
   ): void {
-    event.stopPropagation();
     if (!confirm(`Mark reconciliation ${row.referenceNumber} as ${target}?`)) return;
     this.busyId = row.id;
     fn().subscribe({
-      next: (updated) => {
-        const idx = this.rows.findIndex(r => r.id === updated.id);
-        if (idx >= 0) this.rows[idx] = updated;
-        this.applyFilter();
-        this.successMessage = `Reconciliation ${updated.referenceNumber} → ${target}.`;
+      next: () => {
+        this.successMessage = `Reconciliation ${row.referenceNumber} → ${target}.`;
         this.busyId = null;
+        this.fetchPage();
       },
       error: (err) => {
         this.errorMessage = err?.error?.detail || `Failed to mark ${target}`;
         this.busyId = null;
       },
     });
-  }
-
-  private applyFilter(): void {
-    const q = this.searchTerm.trim().toLowerCase();
-    this.filtered = q
-      ? this.rows.filter(r =>
-          r.referenceNumber?.toLowerCase().includes(q) ||
-          (r.notes && r.notes.toLowerCase().includes(q)),
-        )
-      : this.rows;
   }
 }

@@ -6,19 +6,18 @@ import { CurrencyService, Currency } from '../../../../core/services/currency.se
 import {
   CreateNotePayload,
   FinanceNote,
+  FinancePageResponse,
   FinanceService,
 } from '../../../../core/services/finance.service';
-import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
-import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
-import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
+import { DataTableComponent, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 
 type Mode = 'debit' | 'credit';
 
 @Component({
   selector: 'app-notes-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, SelectComponent, DataTableComponent],
   templateUrl: './notes-list.component.html',
   styleUrl: './notes-list.component.scss',
 })
@@ -34,6 +33,23 @@ export class NotesListComponent implements OnInit {
   showForm = false;
   form: CreateNotePayload = this.blankForm();
 
+  // Server-side pagination state.
+  page = 1;
+  pageSize = 50;
+  totalCount = 0;
+  totalPages = 1;
+  sortKey = 'createdAt';
+  sortDirection: 'asc' | 'desc' = 'desc';
+  searchTerm = '';
+
+  readonly columns: TableColumn[] = [
+    { key: 'reference',    label: 'Reference',   sortable: true },
+    { key: 'amount',       label: 'Amount',      sortable: true, type: 'currency' },
+    { key: 'currencyCode', label: 'Currency',    sortable: true },
+    { key: 'notes',        label: 'Notes' },
+    { key: 'createdAt',    label: 'Created',     sortable: true, type: 'date' },
+  ];
+
   constructor(
     private finance: FinanceService,
     private currencyService: CurrencyService,
@@ -46,7 +62,7 @@ export class NotesListComponent implements OnInit {
 
   ngOnInit(): void {
     this.mode = (this.route.snapshot.data['mode'] as Mode) || 'debit';
-    this.refresh();
+    this.fetchPage();
     this.currencyService.listMaster(true).subscribe({
       next: (rows) => {
         this.currencies = rows;
@@ -66,18 +82,47 @@ export class NotesListComponent implements OnInit {
       : 'Goodwill credits and reversals booked outside the adjustments table.';
   }
 
-  refresh(): void {
+  fetchPage(): void {
     this.loading = true;
     const stream = this.mode === 'debit'
-      ? this.finance.listDebitNotes()
-      : this.finance.listCreditNotes();
+      ? this.finance.listDebitNotesPaged({
+          q: this.searchTerm || undefined,
+          sortKey: this.sortKey,
+          sortDirection: this.sortDirection,
+          page: this.page - 1,
+          size: this.pageSize,
+        })
+      : this.finance.listCreditNotesPaged({
+          q: this.searchTerm || undefined,
+          sortKey: this.sortKey,
+          sortDirection: this.sortDirection,
+          page: this.page - 1,
+          size: this.pageSize,
+        });
     stream.subscribe({
-      next: (rows) => { this.rows = rows; this.loading = false; },
+      next: (resp: FinancePageResponse<FinanceNote>) => {
+        this.rows = resp.content;
+        this.totalCount = resp.total;
+        this.totalPages = resp.totalPages;
+        this.loading = false;
+      },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load';
+        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load';
+        this.rows = [];
+        this.totalCount = 0;
+        this.totalPages = 1;
         this.loading = false;
       },
     });
+  }
+
+  onPageChange(page: number): void { this.page = page; this.fetchPage(); }
+  onSearchChange(term: string): void { this.searchTerm = term; this.page = 1; this.fetchPage(); }
+  onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
+    this.sortKey = evt.key;
+    this.sortDirection = evt.direction;
+    this.page = 1;
+    this.fetchPage();
   }
 
   newNote(): void {
@@ -102,7 +147,8 @@ export class NotesListComponent implements OnInit {
         this.busy = false;
         this.showForm = false;
         this.successMessage = `${this.mode === 'debit' ? 'Debit' : 'Credit'} note recorded.`;
-        this.refresh();
+        this.page = 1;
+        this.fetchPage();
       },
       error: (err) => {
         this.errorMessage = err?.error?.detail || 'Failed to record note';

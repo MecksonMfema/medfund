@@ -320,6 +320,49 @@ export interface PaymentRunPageParams {
   size?: number;
 }
 
+// ── Provider balance (creditor) paginated row ──────────────────────────
+export interface ProviderBalanceRow {
+  id: string;
+  providerId: string;
+  providerName?: string;
+  totalClaimed: string;
+  totalApproved: string;
+  totalPaid: string;
+  outstandingBalance: string;
+  currencyCode: string;
+  lastUpdatedAt?: string;
+}
+
+export interface ProviderBalancePageParams {
+  currencyCode?: string;
+  q?: string;
+  sortKey?: string;
+  sortDirection?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
+}
+
+// ── Bank reconciliation paginated params (uses BankReconciliation directly) ─
+export interface BankReconciliationPageParams {
+  status?: string;
+  currencyCode?: string;
+  q?: string;
+  sortKey?: string;
+  sortDirection?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
+}
+
+// ── Finance-note paginated params ──────────────────────────────────────
+export interface FinanceNotePageParams {
+  currencyCode?: string;
+  q?: string;
+  sortKey?: string;
+  sortDirection?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
+}
+
 export interface CreateCtcPaymentPayload {
   groupId?: string;
   memberId?: string;
@@ -472,6 +515,17 @@ export class FinanceService {
 
   // ── Provider balances ──
   listProviderBalances(): Observable<ProviderBalance[]> { return this.api.get<ProviderBalance[]>('/provider-balances'); }
+  /** Server-side paginated provider-balances list — provider name joined. */
+  listProviderBalancesPaged(opts: ProviderBalancePageParams): Observable<FinancePageResponse<ProviderBalanceRow>> {
+    const params: Record<string, string> = {};
+    if (opts.currencyCode)   params['currencyCode']  = opts.currencyCode;
+    if (opts.q)              params['q']             = opts.q;
+    if (opts.sortKey)        params['sortKey']       = opts.sortKey;
+    if (opts.sortDirection)  params['sortDirection'] = opts.sortDirection;
+    if (opts.page !== undefined) params['page']      = String(opts.page);
+    if (opts.size !== undefined) params['size']      = String(opts.size);
+    return this.api.get<FinancePageResponse<ProviderBalanceRow>>('/provider-balances/page', params);
+  }
   getProviderBalance(providerId: string): Observable<ProviderBalance> { return this.api.get<ProviderBalance>(`/provider-balances/provider/${providerId}`); }
 
   // ── Adjustments ──
@@ -554,12 +608,41 @@ export class FinanceService {
 
   // ── Debit / credit notes ──
   listDebitNotes(): Observable<FinanceNote[]> { return this.api.get<FinanceNote[]>('/debit-notes'); }
+  listDebitNotesPaged(opts: FinanceNotePageParams): Observable<FinancePageResponse<FinanceNote>> {
+    return this.notePage('/debit-notes/page', opts);
+  }
   createDebitNote(body: CreateNotePayload): Observable<FinanceNote> { return this.api.post<FinanceNote>('/debit-notes', body); }
   listCreditNotes(): Observable<FinanceNote[]> { return this.api.get<FinanceNote[]>('/credit-notes'); }
+  listCreditNotesPaged(opts: FinanceNotePageParams): Observable<FinancePageResponse<FinanceNote>> {
+    return this.notePage('/credit-notes/page', opts);
+  }
   createCreditNote(body: CreateNotePayload): Observable<FinanceNote> { return this.api.post<FinanceNote>('/credit-notes', body); }
+
+  private notePage(path: string, opts: FinanceNotePageParams): Observable<FinancePageResponse<FinanceNote>> {
+    const params: Record<string, string> = {};
+    if (opts.currencyCode)   params['currencyCode']  = opts.currencyCode;
+    if (opts.q)              params['q']             = opts.q;
+    if (opts.sortKey)        params['sortKey']       = opts.sortKey;
+    if (opts.sortDirection)  params['sortDirection'] = opts.sortDirection;
+    if (opts.page !== undefined) params['page']      = String(opts.page);
+    if (opts.size !== undefined) params['size']      = String(opts.size);
+    return this.api.get<FinancePageResponse<FinanceNote>>(path, params);
+  }
 
   // ── Reconciliations ──
   listReconciliations(): Observable<BankReconciliation[]> { return this.api.get<BankReconciliation[]>('/reconciliations'); }
+  /** Server-side paginated reconciliations list. */
+  listReconciliationsPaged(opts: BankReconciliationPageParams): Observable<FinancePageResponse<BankReconciliation>> {
+    const params: Record<string, string> = {};
+    if (opts.status)         params['status']         = opts.status;
+    if (opts.currencyCode)   params['currencyCode']   = opts.currencyCode;
+    if (opts.q)              params['q']              = opts.q;
+    if (opts.sortKey)        params['sortKey']        = opts.sortKey;
+    if (opts.sortDirection)  params['sortDirection']  = opts.sortDirection;
+    if (opts.page !== undefined) params['page']       = String(opts.page);
+    if (opts.size !== undefined) params['size']       = String(opts.size);
+    return this.api.get<FinancePageResponse<BankReconciliation>>('/reconciliations/page', params);
+  }
   getReconciliationsByStatus(status: ReconciliationStatus): Observable<BankReconciliation[]> { return this.api.get<BankReconciliation[]>(`/reconciliations/status/${status}`); }
   createReconciliation(body: CreateReconciliationPayload): Observable<BankReconciliation> { return this.api.post<BankReconciliation>('/reconciliations', body); }
   matchReconciliation(id: string): Observable<BankReconciliation> { return this.api.post<BankReconciliation>(`/reconciliations/${id}/match`, {}); }

@@ -2,10 +2,14 @@ package com.medfund.finance.controller;
 
 import com.medfund.finance.dto.NoteDtos.CreateNoteRequest;
 import com.medfund.finance.dto.NoteDtos.NoteResponse;
+import com.medfund.finance.dto.NoteFilterParams;
+import com.medfund.finance.dto.PageResponse;
 import com.medfund.finance.entity.CreditNote;
 import com.medfund.finance.entity.DebitNote;
 import com.medfund.finance.repository.CreditNoteRepository;
 import com.medfund.finance.repository.DebitNoteRepository;
+import com.medfund.finance.repository.NoteQueryRepository;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import com.medfund.shared.audit.AuditActor;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
@@ -36,12 +40,26 @@ public class NotesController {
 
     private final DebitNoteRepository debitRepo;
     private final CreditNoteRepository creditRepo;
+    private final NoteQueryRepository queryRepository;
     private final AuditPublisher auditPublisher;
 
     @GetMapping("/api/v1/debit-notes")
-    @Operation(summary = "List debit notes")
+    @Operation(summary = "List debit notes (unpaginated — prefer /page)")
     public Flux<NoteResponse> listDebit() {
         return debitRepo.findAllOrdered().map(NoteResponse::from);
+    }
+
+    @GetMapping("/api/v1/debit-notes/page")
+    @Operation(summary = "Server-side paginated debit-notes list")
+    @ApiResponse(responseCode = "200", description = "Page of debit notes")
+    public Mono<PageResponse<NoteResponse>> pageDebit(
+            @RequestParam(required = false) String currencyCode,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "createdAt") String sortKey,
+            @RequestParam(required = false, defaultValue = "desc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        return pageNotes(NoteQueryRepository.NoteTable.DEBIT, currencyCode, q, sortKey, sortDirection, page, size);
     }
 
     @PostMapping("/api/v1/debit-notes")
@@ -61,9 +79,36 @@ public class NotesController {
     }
 
     @GetMapping("/api/v1/credit-notes")
-    @Operation(summary = "List credit notes")
+    @Operation(summary = "List credit notes (unpaginated — prefer /page)")
     public Flux<NoteResponse> listCredit() {
         return creditRepo.findAllOrdered().map(NoteResponse::from);
+    }
+
+    @GetMapping("/api/v1/credit-notes/page")
+    @Operation(summary = "Server-side paginated credit-notes list")
+    @ApiResponse(responseCode = "200", description = "Page of credit notes")
+    public Mono<PageResponse<NoteResponse>> pageCredit(
+            @RequestParam(required = false) String currencyCode,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "createdAt") String sortKey,
+            @RequestParam(required = false, defaultValue = "desc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        return pageNotes(NoteQueryRepository.NoteTable.CREDIT, currencyCode, q, sortKey, sortDirection, page, size);
+    }
+
+    private Mono<PageResponse<NoteResponse>> pageNotes(NoteQueryRepository.NoteTable table,
+                                                         String currencyCode, String q,
+                                                         String sortKey, String sortDirection,
+                                                         int page, int size) {
+        var params = new NoteFilterParams(currencyCode, q, sortKey, sortDirection, page, size);
+        int pageIdx = Math.max(params.page(), 0);
+        int sizeCl = Math.min(Math.max(params.size(), 1), 200);
+        int offset = pageIdx * sizeCl;
+        return queryRepository.search(table, params, sizeCl, offset)
+                .collectList()
+                .zipWith(queryRepository.count(table, params))
+                .map(t -> PageResponse.of(t.getT1(), t.getT2(), pageIdx, sizeCl));
     }
 
     @PostMapping("/api/v1/credit-notes")

@@ -1,6 +1,10 @@
 package com.medfund.finance.service;
 
+import com.medfund.finance.dto.PageResponse;
+import com.medfund.finance.dto.ProviderBalanceFilterParams;
+import com.medfund.finance.dto.ProviderBalanceRow;
 import com.medfund.finance.entity.ProviderBalance;
+import com.medfund.finance.repository.ProviderBalanceQueryRepository;
 import com.medfund.finance.repository.ProviderBalanceRepository;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
@@ -23,12 +27,27 @@ public class ProviderBalanceService {
     private static final Logger log = LoggerFactory.getLogger(ProviderBalanceService.class);
 
     private final ProviderBalanceRepository providerBalanceRepository;
+    private final ProviderBalanceQueryRepository queryRepository;
     private final AuditPublisher auditPublisher;
 
     public ProviderBalanceService(ProviderBalanceRepository providerBalanceRepository,
+                                  ProviderBalanceQueryRepository queryRepository,
                                   AuditPublisher auditPublisher) {
         this.providerBalanceRepository = providerBalanceRepository;
+        this.queryRepository = queryRepository;
         this.auditPublisher = auditPublisher;
+    }
+
+    /** Server-side paginated creditor / provider-balance list. Provider
+     *  name joined server-side so the creditors table renders inline. */
+    public Mono<PageResponse<ProviderBalanceRow>> searchPaged(ProviderBalanceFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return queryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(queryRepository.count(params))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 
     public Mono<ProviderBalance> findByProviderId(UUID providerId) {

@@ -185,13 +185,13 @@ export const FINANCE_ROUTES: Routes = [
     path: 'debit-notes',
     canActivate: [permissionGuard(['finance:post_adjustments'])],
     loadComponent: () => import('./notes/notes-list.component').then(m => m.NotesListComponent),
-    data: { title: 'Debit Notes', mode: 'debit', sidebar: 'operational' },
+    data: { title: 'Debit Notes', mode: 'debit', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'credit-notes',
     canActivate: [permissionGuard(['finance:post_adjustments'])],
     loadComponent: () => import('./notes/notes-list.component').then(m => m.NotesListComponent),
-    data: { title: 'Credit Notes', mode: 'credit', sidebar: 'operational' },
+    data: { title: 'Credit Notes', mode: 'credit', sidebar: 'operational', fullbleed: true },
   },
 
   // ── Reconciliation ────────────────────────────────────────────────────────
@@ -199,7 +199,7 @@ export const FINANCE_ROUTES: Routes = [
     path: 'reconciliations',
     canActivate: [permissionGuard(['finance:view'])],
     loadComponent: () => import('./reconciliations/reconciliations-list.component').then(m => m.ReconciliationsListComponent),
-    data: { title: 'Bank Reconciliation', sidebar: 'operational' },
+    data: { title: 'Bank Reconciliation', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'reconciliations/new',

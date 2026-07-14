@@ -3,93 +3,88 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
+  FinancePageResponse,
   FinanceService,
-  ProviderBalance,
+  ProviderBalanceRow,
 } from '../../../../core/services/finance.service';
-import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
-import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
-import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
-import { CurrencyTotal, aggregateByCurrency } from '../../../../shared/utils/currency-totals';
+import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 
 @Component({
   selector: 'app-creditors-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, SelectComponent, SkeletonComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, DataTableComponent],
   templateUrl: './creditors-list.component.html',
   styleUrl: './creditors-list.component.scss',
 })
 export class CreditorsListComponent implements OnInit {
-  rows: ProviderBalance[] = [];
-  filtered: ProviderBalance[] = [];
+  rows: ProviderBalanceRow[] = [];
   loading = false;
   errorMessage: string | null = null;
 
-  currencyFilter = '';
+  // Server-side pagination state.
+  page = 1;
+  pageSize = 50;
+  totalCount = 0;
+  totalPages = 1;
+  sortKey = 'outstandingBalance';
+  sortDirection: 'asc' | 'desc' = 'desc';
   searchTerm = '';
-  sortBy: 'outstanding' | 'paid' | 'claimed' = 'outstanding';
+
+  readonly columns: TableColumn[] = [
+    { key: 'providerName',       label: 'Provider',    sortable: true },
+    { key: 'currencyCode',       label: 'Currency',    sortable: true },
+    { key: 'totalClaimed',       label: 'Claimed',     sortable: true, type: 'currency' },
+    { key: 'totalApproved',      label: 'Approved',    sortable: true, type: 'currency' },
+    { key: 'totalPaid',          label: 'Paid',        sortable: true, type: 'currency' },
+    { key: 'outstandingBalance', label: 'Outstanding', sortable: true, type: 'currency' },
+    { key: 'lastUpdatedAt',      label: 'Updated',     sortable: true, type: 'date' },
+  ];
+
+  readonly actions: TableAction[] = [
+    {
+      label: 'View',
+      icon: 'eye',
+      color: 'default',
+      handler: (row: ProviderBalanceRow) =>
+        this.router.navigate(['/tenant/finance/creditors/provider', row.providerId]),
+    },
+  ];
 
   constructor(private finance: FinanceService, private router: Router) {}
 
-  readonly sortByOptions: SelectOption[] = [
-    { value: 'outstanding', label: 'Outstanding' },
-    { value: 'paid', label: 'Paid' },
-    { value: 'claimed', label: 'Claimed' },
-  ];
+  ngOnInit(): void { this.fetchPage(); }
 
-  get currencyOptions(): SelectOption[] {
-    return [
-      { value: '', label: 'All' },
-      ...this.uniqueCurrencies().map(c => ({ value: c, label: c })),
-    ];
-  }
-
-  ngOnInit(): void {
-    this.refresh();
-  }
-
-  refresh(): void {
+  fetchPage(): void {
     this.loading = true;
-    this.finance.listProviderBalances().subscribe({
-      next: (rows) => { this.rows = rows; this.applyFilter(); this.loading = false; },
+    this.finance.listProviderBalancesPaged({
+      q: this.searchTerm || undefined,
+      sortKey: this.sortKey,
+      sortDirection: this.sortDirection,
+      page: this.page - 1,
+      size: this.pageSize,
+    }).subscribe({
+      next: (resp: FinancePageResponse<ProviderBalanceRow>) => {
+        this.rows = resp.content;
+        this.totalCount = resp.total;
+        this.totalPages = resp.totalPages;
+        this.loading = false;
+      },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load provider balances';
+        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load provider balances';
+        this.rows = [];
+        this.totalCount = 0;
+        this.totalPages = 1;
         this.loading = false;
       },
     });
   }
 
-  open(balance: ProviderBalance): void {
-    this.router.navigate(['/tenant/finance/creditors/provider', balance.providerId]);
-  }
-
-  onFilterChange(): void { this.applyFilter(); }
-
-  uniqueCurrencies(): string[] {
-    return Array.from(new Set(this.rows.map(r => r.currencyCode))).sort();
-  }
-
-  /**
-   * Per-currency totals for the currently filtered rows. Critical Rule 1
-   * forbids summing across currencies, so the page renders one chip per
-   * currency rather than collapsing to a single number.
-   */
-  totalsByCurrency(): CurrencyTotal[] {
-    return aggregateByCurrency(this.filtered, 'outstandingBalance', 'currencyCode');
-  }
-
-  private applyFilter(): void {
-    let rows = [...this.rows];
-    if (this.currencyFilter) {
-      rows = rows.filter(r => r.currencyCode === this.currencyFilter);
-    }
-    const q = this.searchTerm.trim().toLowerCase();
-    if (q) {
-      rows = rows.filter(r => r.providerId?.toLowerCase().includes(q));
-    }
-    rows.sort((a, b) => {
-      const key = this.sortBy === 'paid' ? 'totalPaid' : this.sortBy === 'claimed' ? 'totalClaimed' : 'outstandingBalance';
-      return Number(b[key as keyof ProviderBalance]) - Number(a[key as keyof ProviderBalance]);
-    });
-    this.filtered = rows;
+  onPageChange(page: number): void { this.page = page; this.fetchPage(); }
+  onSearchChange(term: string): void { this.searchTerm = term; this.page = 1; this.fetchPage(); }
+  onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
+    this.sortKey = evt.key;
+    this.sortDirection = evt.direction;
+    this.page = 1;
+    this.fetchPage();
   }
 }

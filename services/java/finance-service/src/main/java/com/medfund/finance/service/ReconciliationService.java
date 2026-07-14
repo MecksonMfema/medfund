@@ -29,15 +29,30 @@ public class ReconciliationService {
     private static final Logger log = LoggerFactory.getLogger(ReconciliationService.class);
 
     private final BankReconciliationRepository bankReconciliationRepository;
+    private final com.medfund.finance.repository.BankReconciliationQueryRepository queryRepository;
     private final PaymentRepository paymentRepository;
     private final AuditPublisher auditPublisher;
 
     public ReconciliationService(BankReconciliationRepository bankReconciliationRepository,
+                                 com.medfund.finance.repository.BankReconciliationQueryRepository queryRepository,
                                  PaymentRepository paymentRepository,
                                  AuditPublisher auditPublisher) {
         this.bankReconciliationRepository = bankReconciliationRepository;
+        this.queryRepository = queryRepository;
         this.paymentRepository = paymentRepository;
         this.auditPublisher = auditPublisher;
+    }
+
+    /** Server-side paginated reconciliations list. */
+    public reactor.core.publisher.Mono<com.medfund.finance.dto.PageResponse<com.medfund.finance.entity.BankReconciliation>>
+    searchPaged(com.medfund.finance.dto.BankReconciliationFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return queryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(queryRepository.count(params))
+                .map(t -> com.medfund.finance.dto.PageResponse.of(t.getT1(), t.getT2(), page, size));
     }
 
     public Flux<BankReconciliation> findAll() {
