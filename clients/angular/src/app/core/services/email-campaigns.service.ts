@@ -32,12 +32,57 @@ export interface AudiencePreview {
   sample: { memberNumber: string; firstName: string; lastName: string; email: string }[];
 }
 
+export interface EmailCampaignRow {
+  id: string;
+  senderId?: string;
+  senderAddress?: string | null;
+  senderDisplayName?: string | null;
+  subject: string;
+  status: EmailCampaignStatus;
+  scheduledFor?: string;
+  sentAt?: string;
+  recipientCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface EmailCampaignsPageResponse<T> {
+  content: T[];
+  total: number;
+  page: number;
+  size: number;
+  totalPages: number;
+}
+
+export interface EmailCampaignPageParams {
+  status?: EmailCampaignStatus;
+  senderId?: string;
+  q?: string;
+  sortKey?: string;
+  sortDirection?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class EmailCampaignsService {
   constructor(private api: ApiService) {}
 
   list(): Observable<EmailCampaign[]> {
     return this.api.get<EmailCampaign[]>('/email-campaigns');
+  }
+
+  listPaged(opts: EmailCampaignPageParams = {}): Observable<EmailCampaignsPageResponse<EmailCampaignRow>> {
+    const params: Record<string, string> = {
+      page: String(opts.page ?? 0),
+      size: String(opts.size ?? 50),
+    };
+    if (opts.status)         params['status']        = opts.status;
+    if (opts.senderId)       params['senderId']      = opts.senderId;
+    if (opts.q)              params['q']             = opts.q;
+    if (opts.sortKey)        params['sortKey']       = opts.sortKey;
+    if (opts.sortDirection)  params['sortDirection'] = opts.sortDirection;
+    return this.api.get<EmailCampaignsPageResponse<EmailCampaignRow>>('/email-campaigns/page', params);
   }
 
   findById(id: string): Observable<EmailCampaign> {

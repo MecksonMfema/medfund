@@ -286,7 +286,7 @@ export const BILLING_ROUTES: Routes = [
     path: 'emails',
     canActivate: [permissionGuard(['admin:manage_settings'])],
     loadComponent: () => import('./emails/campaigns-list.component').then(m => m.CampaignsListComponent),
-    data: { title: 'Emails', sidebar: 'operational' },
+    data: { title: 'Emails', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'emails/send',
@@ -298,7 +298,7 @@ export const BILLING_ROUTES: Routes = [
     path: 'emails/senders',
     canActivate: [permissionGuard(['admin:manage_settings'])],
     loadComponent: () => import('./email-senders/email-senders-list.component').then(m => m.EmailSendersListComponent),
-    data: { title: 'Sender Emails', sidebar: 'operational' },
+    data: { title: 'Sender Emails', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'emails/senders/add',

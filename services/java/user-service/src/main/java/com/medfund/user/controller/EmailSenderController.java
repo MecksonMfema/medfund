@@ -1,7 +1,10 @@
 package com.medfund.user.controller;
 
 import com.medfund.shared.audit.AuditActor;
+import com.medfund.user.dto.EmailSenderFilterParams;
 import com.medfund.user.dto.EmailSenderResponse;
+import com.medfund.user.dto.EmailSenderRow;
+import com.medfund.user.dto.PageResponse;
 import com.medfund.user.dto.UpsertEmailSenderRequest;
 import com.medfund.user.service.EmailSenderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,9 +36,21 @@ public class EmailSenderController {
     private final EmailSenderService service;
 
     @GetMapping
-    @Operation(summary = "List all email senders for the current tenant")
+    @Operation(summary = "List all email senders (unpaginated — prefer /page)")
     public Flux<EmailSenderResponse> list() {
         return service.findAll().map(EmailSenderResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "List email senders (server-side paginated)")
+    public Mono<PageResponse<EmailSenderRow>> page(@RequestParam(required = false) String status,
+                                                    @RequestParam(required = false) String q,
+                                                    @RequestParam(required = false) String sortKey,
+                                                    @RequestParam(required = false) String sortDirection,
+                                                    @RequestParam(defaultValue = "0") int page,
+                                                    @RequestParam(defaultValue = "50") int size) {
+        return service.searchPaged(new EmailSenderFilterParams(
+                status, q, sortKey, sortDirection, page, size));
     }
 
     @GetMapping("/{id}")

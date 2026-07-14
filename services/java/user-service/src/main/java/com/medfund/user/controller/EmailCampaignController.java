@@ -2,7 +2,10 @@ package com.medfund.user.controller;
 
 import com.medfund.shared.audit.AuditActor;
 import com.medfund.user.dto.AudiencePreviewResponse;
+import com.medfund.user.dto.EmailCampaignFilterParams;
 import com.medfund.user.dto.EmailCampaignResponse;
+import com.medfund.user.dto.EmailCampaignRow;
+import com.medfund.user.dto.PageResponse;
 import com.medfund.user.dto.UpsertEmailCampaignRequest;
 import com.medfund.user.service.EmailCampaignService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,9 +37,26 @@ public class EmailCampaignController {
     private final EmailCampaignService service;
 
     @GetMapping
-    @Operation(summary = "List all campaigns")
+    @Operation(summary = "List all campaigns (unpaginated — prefer /page)")
     public Flux<EmailCampaignResponse> list() {
         return service.findAll().map(EmailCampaignResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "List campaigns (server-side paginated)",
+            description = "Rows expose the sender address + display name inline so the "
+                    + "operational table never renders raw sender UUIDs. Supports status "
+                    + "and senderId filters, free-text search across subject, sender "
+                    + "address, and sender display name.")
+    public Mono<PageResponse<EmailCampaignRow>> page(@RequestParam(required = false) String status,
+                                                      @RequestParam(required = false) UUID senderId,
+                                                      @RequestParam(required = false) String q,
+                                                      @RequestParam(required = false) String sortKey,
+                                                      @RequestParam(required = false) String sortDirection,
+                                                      @RequestParam(defaultValue = "0") int page,
+                                                      @RequestParam(defaultValue = "50") int size) {
+        return service.searchPaged(new EmailCampaignFilterParams(
+                status, senderId, q, sortKey, sortDirection, page, size));
     }
 
     @GetMapping("/{id}")

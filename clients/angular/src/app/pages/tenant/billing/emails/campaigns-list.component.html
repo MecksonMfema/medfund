@@ -1,57 +1,32 @@
-<div class="page">
-  <header class="page-header">
-    <div>
-      <h1>Email campaigns</h1>
-      <p class="page-sub">Composed campaigns and their delivery state. Drafts can still be edited; sent campaigns are read-only with a recorded recipient count.</p>
-    </div>
-    <a class="btn btn-primary" routerLink="/tenant/billing/emails/send">
-      <app-icon name="plus" [size]="14"></app-icon>
-      Compose
-    </a>
-  </header>
+<header class="page-header">
+  <div>
+    <h1>Email campaigns</h1>
+    <p class="page-sub">Composed campaigns and their delivery state. Drafts can still be edited; sent campaigns are read-only with a recorded recipient count.</p>
+  </div>
+  <a class="btn btn-primary" routerLink="/tenant/billing/emails/send">Compose</a>
+</header>
 
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
 
-  @if (loading) {
-    <app-skeleton></app-skeleton>
-  } @else if (rows.length === 0) {
-    <p class="empty-state">No campaigns yet. Use Compose to create your first draft.</p>
-  } @else {
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Subject</th>
-          <th>Status</th>
-          <th class="right">Recipients</th>
-          <th>Sent</th>
-          <th>Created</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of rows; track row.id) {
-          <tr [class.pending]="pendingId === row.id">
-            <td><strong>{{ row.subject }}</strong></td>
-            <td>
-              <span class="status-badge status-{{ row.status }}">{{ row.status | humanize }}</span>
-            </td>
-            <td class="right">{{ row.recipientCount ?? '—' }}</td>
-            <td class="muted">{{ row.sentAt ? (row.sentAt | date:'medium') : '—' }}</td>
-            <td class="muted">{{ row.createdAt | date:'mediumDate' }}</td>
-            <td class="actions">
-              @if (row.status === 'draft') {
-                <button class="link-btn" (click)="edit(row)">Edit</button>
-                <button class="link-btn primary" (click)="send(row)">Send</button>
-                <button class="link-btn danger" (click)="remove(row)">Delete</button>
-              } @else {
-                <button class="link-btn" (click)="edit(row)">View</button>
-              }
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  }
-</div>
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [actions]="actions"
+  [showActions]="true"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  [initialSortKey]="sortKey"
+  [initialSortDirection]="sortDirection"
+  searchPlaceholder="Search by subject, sender address or name"
+  emptyMessage="No campaigns yet"
+  emptyDescription="Use Compose to create your first draft."
+  (pageChange)="onPageChange($event)"
+  (searchChange)="onSearchChange($event)"
+  (sortChange)="onSortChange($event)">
+</app-data-table>

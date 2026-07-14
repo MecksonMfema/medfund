@@ -6,8 +6,12 @@ import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import com.medfund.user.dto.AudiencePreviewResponse;
+import com.medfund.user.dto.EmailCampaignFilterParams;
+import com.medfund.user.dto.EmailCampaignRow;
+import com.medfund.user.dto.PageResponse;
 import com.medfund.user.dto.UpsertEmailCampaignRequest;
 import com.medfund.user.entity.EmailCampaign;
+import com.medfund.user.repository.EmailCampaignQueryRepository;
 import com.medfund.user.repository.EmailCampaignRepository;
 import io.r2dbc.postgresql.codec.Json;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +47,7 @@ import java.util.UUID;
 public class EmailCampaignService {
 
     private final EmailCampaignRepository repo;
+    private final EmailCampaignQueryRepository queryRepo;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final DatabaseClient db;
     private final AuditPublisher auditPublisher;
@@ -50,6 +55,17 @@ public class EmailCampaignService {
 
     public Flux<EmailCampaign> findAll() {
         return repo.findAllOrderByCreatedAtDesc();
+    }
+
+    /** Server-side paginated campaigns list with joined sender address + display name. */
+    public Mono<PageResponse<EmailCampaignRow>> searchPaged(EmailCampaignFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return queryRepo.search(params, size, offset)
+                .collectList()
+                .zipWith(queryRepo.count(params))
+                .map(t -> PageResponse.of(t.getT1(), t.getT2(), page, size));
     }
 
     public Mono<EmailCampaign> findById(UUID id) {

@@ -3,8 +3,12 @@ package com.medfund.user.service;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
+import com.medfund.user.dto.EmailSenderFilterParams;
+import com.medfund.user.dto.EmailSenderRow;
+import com.medfund.user.dto.PageResponse;
 import com.medfund.user.dto.UpsertEmailSenderRequest;
 import com.medfund.user.entity.EmailSender;
+import com.medfund.user.repository.EmailSenderQueryRepository;
 import com.medfund.user.repository.EmailSenderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,11 +28,23 @@ import java.util.UUID;
 public class EmailSenderService {
 
     private final EmailSenderRepository repo;
+    private final EmailSenderQueryRepository queryRepo;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
 
     public Flux<EmailSender> findAll() {
         return repo.findAllOrdered();
+    }
+
+    /** Server-side paginated senders list. */
+    public Mono<PageResponse<EmailSenderRow>> searchPaged(EmailSenderFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return queryRepo.search(params, size, offset)
+                .collectList()
+                .zipWith(queryRepo.count(params))
+                .map(t -> PageResponse.of(t.getT1(), t.getT2(), page, size));
     }
 
     public Mono<EmailSender> findById(UUID id) {
