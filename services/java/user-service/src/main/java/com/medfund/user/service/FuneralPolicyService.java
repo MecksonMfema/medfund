@@ -4,9 +4,13 @@ import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import com.medfund.user.dto.CreateFuneralPolicyRequest;
+import com.medfund.user.dto.FuneralPolicyFilterParams;
+import com.medfund.user.dto.FuneralPolicyRow;
+import com.medfund.user.dto.PageResponse;
 import com.medfund.user.dto.UpdateFuneralPolicyRequest;
 import com.medfund.user.entity.FuneralPolicy;
 import com.medfund.user.exception.FuneralPolicyNotFoundException;
+import com.medfund.user.repository.FuneralPolicyQueryRepository;
 import com.medfund.user.repository.FuneralPolicyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,11 +32,23 @@ import java.util.UUID;
 public class FuneralPolicyService {
 
     private final FuneralPolicyRepository funeralPolicyRepository;
+    private final FuneralPolicyQueryRepository funeralPolicyQueryRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
 
     public Flux<FuneralPolicy> findAll() {
         return funeralPolicyRepository.findAllOrderByCreatedAtDesc();
+    }
+
+    /** Server-side paginated funeral-policies list with joined scheme + principal names. */
+    public Mono<PageResponse<FuneralPolicyRow>> searchPaged(FuneralPolicyFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return funeralPolicyQueryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(funeralPolicyQueryRepository.count(params))
+                .map(t -> PageResponse.of(t.getT1(), t.getT2(), page, size));
     }
 
     public Mono<FuneralPolicy> findById(UUID id) {

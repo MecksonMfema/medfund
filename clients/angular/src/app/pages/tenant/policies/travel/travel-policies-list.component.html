@@ -1,48 +1,32 @@
-<div class="page">
-  <header class="page-head">
-    <div class="title-block">
-      <h1>Travel Policies</h1>
-      <p class="muted">Travel-insurance policies. Each policy covers a single traveller for a defined trip window and bills against its scheme using the standard or per-policy custom premium.</p>
-    </div>
-    <a class="btn btn-primary" routerLink="/tenant/policies/travel/add">
-      <app-icon name="plus" [size]="14"></app-icon> Add travel policy
-    </a>
-  </header>
-
-  <div class="toolbar">
-    <input type="search"
-           class="search-input"
-           placeholder="Search by policy number…"
-           [(ngModel)]="searchQuery"
-           (input)="onSearch()" />
+<header class="page-header">
+  <div>
+    <h1>Travel policies</h1>
+    <p class="page-sub">Travel-insurance policies. Each policy covers a single traveller for a defined trip window.</p>
   </div>
+  <a class="btn btn-primary" routerLink="/tenant/policies/travel/add">Add travel policy</a>
+</header>
 
-  @if (loading) {
-    <p class="muted">Loading…</p>
-  } @else if (policies.length === 0) {
-    <p class="muted">No travel policies yet. Click <strong>Add travel policy</strong> to register the first one.</p>
-  } @else {
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Policy #</th>
-          <th>Trip start</th>
-          <th>Trip end</th>
-          <th>Destination</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (p of policies; track p.id) {
-          <tr (click)="rowClick(p)" class="clickable">
-            <td><strong>{{ p.policyNumber }}</strong></td>
-            <td>{{ p.tripStartDate }}</td>
-            <td>{{ p.tripEndDate }}</td>
-            <td>{{ p.destinationBand || '—' }}</td>
-            <td><span class="chip status" [attr.data-status]="p.status">{{ p.status }}</span></td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  }
-</div>
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [actions]="actions"
+  [showActions]="true"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  [initialSortKey]="sortKey"
+  [initialSortDirection]="sortDirection"
+  searchPlaceholder="Search by policy number, traveler, scheme or destination"
+  emptyMessage="No travel policies yet"
+  emptyDescription="Click Add travel policy to register the first one."
+  (pageChange)="onPageChange($event)"
+  (searchChange)="onSearchChange($event)"
+  (sortChange)="onSortChange($event)">
+</app-data-table>

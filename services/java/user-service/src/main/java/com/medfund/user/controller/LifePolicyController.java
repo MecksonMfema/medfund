@@ -2,7 +2,10 @@ package com.medfund.user.controller;
 
 import com.medfund.shared.audit.AuditActor;
 import com.medfund.user.dto.CreateLifePolicyRequest;
+import com.medfund.user.dto.LifePolicyFilterParams;
 import com.medfund.user.dto.LifePolicyResponse;
+import com.medfund.user.dto.LifePolicyRow;
+import com.medfund.user.dto.PageResponse;
 import com.medfund.user.dto.UpdateLifePolicyRequest;
 import com.medfund.user.service.LifePolicyService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,9 +36,23 @@ public class LifePolicyController {
     }
 
     @GetMapping
-    @Operation(summary = "List life policies")
+    @Operation(summary = "List life policies (unpaginated — prefer /page)")
     public Flux<LifePolicyResponse> findAll() {
         return lifePolicyService.findAll().map(LifePolicyResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "List life policies (server-side paginated)",
+            description = "Rows carry pre-joined scheme + insured-member names.")
+    public Mono<PageResponse<LifePolicyRow>> page(@RequestParam(required = false) String status,
+                                                   @RequestParam(required = false) UUID schemeId,
+                                                   @RequestParam(required = false) String q,
+                                                   @RequestParam(required = false) String sortKey,
+                                                   @RequestParam(required = false) String sortDirection,
+                                                   @RequestParam(defaultValue = "0") int page,
+                                                   @RequestParam(defaultValue = "50") int size) {
+        return lifePolicyService.searchPaged(new LifePolicyFilterParams(
+                status, schemeId, q, sortKey, sortDirection, page, size));
     }
 
     @GetMapping("/{id}")

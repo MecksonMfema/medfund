@@ -2,7 +2,10 @@ package com.medfund.user.controller;
 
 import com.medfund.shared.audit.AuditActor;
 import com.medfund.user.dto.CreateTravelPolicyRequest;
+import com.medfund.user.dto.PageResponse;
+import com.medfund.user.dto.TravelPolicyFilterParams;
 import com.medfund.user.dto.TravelPolicyResponse;
+import com.medfund.user.dto.TravelPolicyRow;
 import com.medfund.user.dto.UpdateTravelPolicyRequest;
 import com.medfund.user.service.TravelPolicyService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,9 +36,23 @@ public class TravelPolicyController {
     }
 
     @GetMapping
-    @Operation(summary = "List travel policies")
+    @Operation(summary = "List travel policies (unpaginated — prefer /page)")
     public Flux<TravelPolicyResponse> findAll() {
         return travelPolicyService.findAll().map(TravelPolicyResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "List travel policies (server-side paginated)",
+            description = "Rows carry pre-joined scheme + traveler-member names.")
+    public Mono<PageResponse<TravelPolicyRow>> page(@RequestParam(required = false) String status,
+                                                     @RequestParam(required = false) UUID schemeId,
+                                                     @RequestParam(required = false) String q,
+                                                     @RequestParam(required = false) String sortKey,
+                                                     @RequestParam(required = false) String sortDirection,
+                                                     @RequestParam(defaultValue = "0") int page,
+                                                     @RequestParam(defaultValue = "50") int size) {
+        return travelPolicyService.searchPaged(new TravelPolicyFilterParams(
+                status, schemeId, q, sortKey, sortDirection, page, size));
     }
 
     @GetMapping("/{id}")

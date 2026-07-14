@@ -120,19 +120,176 @@ export interface DisabilityPolicy {
   updatedAt?: string;
 }
 
+// ── Server-side paginated row shapes — mirror user-service *Row records ──
+// The "page" endpoints return these instead of the raw entity DTOs above;
+// they include pre-joined display fields (schemeName, ownerMemberName,
+// insuredMemberName, etc.) so the tables never render raw UUIDs.
+
+export interface PoliciesPageResponse<T> {
+  content: T[];
+  total: number;
+  page: number;
+  size: number;
+  totalPages: number;
+}
+
+export interface VehicleRow {
+  id: string;
+  schemeId: string;
+  schemeName: string | null;
+  ownerMemberId: string | null;
+  ownerMemberName: string | null;
+  registrationNumber: string;
+  make: string;
+  model: string;
+  year: number;
+  vehicleValue: number;
+  bodyType: string | null;
+  usageType: string | null;
+  status: string;
+  billingOverrideAmount: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PropertyRow {
+  id: string;
+  schemeId: string;
+  schemeName: string | null;
+  ownerMemberId: string | null;
+  ownerMemberName: string | null;
+  propertyName: string;
+  address: string | null;
+  sumInsured: number;
+  constructionType: string | null;
+  occupancy: string | null;
+  status: string;
+  billingOverrideAmount: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LifePolicyRow {
+  id: string;
+  schemeId: string;
+  schemeName: string | null;
+  insuredMemberId: string;
+  insuredMemberName: string | null;
+  policyNumber: string;
+  sumAssured: number;
+  occupationHazardClass: string | null;
+  termMonths: number;
+  status: string;
+  billingOverrideAmount: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FuneralPolicyRow {
+  id: string;
+  schemeId: string;
+  schemeName: string | null;
+  principalMemberId: string;
+  principalMemberName: string | null;
+  policyNumber: string;
+  coverAmount: number;
+  livesCovered: number;
+  status: string;
+  billingOverrideAmount: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TravelPolicyRow {
+  id: string;
+  schemeId: string;
+  schemeName: string | null;
+  travelerMemberId: string;
+  travelerMemberName: string | null;
+  policyNumber: string;
+  tripStartDate: string;
+  tripEndDate: string;
+  destinationBand: string | null;
+  coverageLevel: string | null;
+  status: string;
+  billingOverrideAmount: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DisabilityPolicyRow {
+  id: string;
+  schemeId: string;
+  schemeName: string | null;
+  insuredMemberId: string;
+  insuredMemberName: string | null;
+  policyNumber: string;
+  occupationHazardClass: string | null;
+  waitingPeriodDays: number;
+  benefitPeriod: string | null;
+  monthlyBenefit: number;
+  status: string;
+  billingOverrideAmount: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PolicyPageParams {
+  status?: string;
+  schemeId?: string;
+  q?: string;
+  sortKey?: string;
+  sortDirection?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
+}
+
 /**
  * One service per backend domain. The Part-3a user-service exposes six
  * REST surfaces (/api/v1/{vehicles,properties,life-policies,funeral-
  * policies,travel-policies,disability-policies}); grouping all of them
  * here means consumers import a single token instead of six.
  *
- * Backend endpoints return raw lists today (no cursor-page wrapper —
- * see Part 3a controllers); the components defensively unwrap both
- * shapes to stay forward-compatible.
+ * The list*Paged methods hit the /page endpoints and receive Row DTOs
+ * with pre-joined scheme + member names. The plain list* methods still
+ * exist for pickers, forms, and legacy consumers.
  */
 @Injectable({ providedIn: 'root' })
 export class PoliciesService {
   constructor(private api: ApiService) {}
+
+  // ── Paginated lists (server-side) ──────────────────────────────────────
+  listVehiclesPaged(opts: PolicyPageParams = {}) {
+    return this.api.get<PoliciesPageResponse<VehicleRow>>('/vehicles/page', this.pageParams(opts));
+  }
+  listPropertiesPaged(opts: PolicyPageParams = {}) {
+    return this.api.get<PoliciesPageResponse<PropertyRow>>('/properties/page', this.pageParams(opts));
+  }
+  listLifePoliciesPaged(opts: PolicyPageParams = {}) {
+    return this.api.get<PoliciesPageResponse<LifePolicyRow>>('/life-policies/page', this.pageParams(opts));
+  }
+  listFuneralPoliciesPaged(opts: PolicyPageParams = {}) {
+    return this.api.get<PoliciesPageResponse<FuneralPolicyRow>>('/funeral-policies/page', this.pageParams(opts));
+  }
+  listTravelPoliciesPaged(opts: PolicyPageParams = {}) {
+    return this.api.get<PoliciesPageResponse<TravelPolicyRow>>('/travel-policies/page', this.pageParams(opts));
+  }
+  listDisabilityPoliciesPaged(opts: PolicyPageParams = {}) {
+    return this.api.get<PoliciesPageResponse<DisabilityPolicyRow>>('/disability-policies/page', this.pageParams(opts));
+  }
+
+  private pageParams(opts: PolicyPageParams): Record<string, string> {
+    const p: Record<string, string> = {
+      page: String(opts.page ?? 0),
+      size: String(opts.size ?? 50),
+    };
+    if (opts.status)        p['status']        = opts.status;
+    if (opts.schemeId)      p['schemeId']      = opts.schemeId;
+    if (opts.q)             p['q']             = opts.q;
+    if (opts.sortKey)       p['sortKey']       = opts.sortKey;
+    if (opts.sortDirection) p['sortDirection'] = opts.sortDirection;
+    return p;
+  }
 
   // ── VEHICLES (MOTOR) ────────────────────────────────────────────────────
   listVehicles():                          Observable<Vehicle[]>      { return this.api.get<Vehicle[]>('/vehicles'); }

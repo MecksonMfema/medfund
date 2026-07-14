@@ -1,76 +1,93 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { Subject, debounceTime, distinctUntilChanged, switchMap, takeUntil } from 'rxjs';
-import { PoliciesService, DisabilityPolicy } from '../../../../core/services/policies.service';
-import { IconComponent } from '../../../../shared/components/icon/icon.component';
-import { ToastService } from '../../../../shared/components/toast/toast.service';
+import {
+  DisabilityPolicyRow,
+  PoliciesPageResponse,
+  PoliciesService,
+} from '../../../../core/services/policies.service';
+import {
+  DataTableComponent,
+  TableAction,
+  TableColumn,
+} from '../../../../shared/components/data-table/data-table.component';
 
-/**
- * DISABILITY policies list. Mirrors the vehicles list pattern —
- * debounced search, status chip per row, click-through to the edit
- * form. The backend list endpoint returns a raw array today (see
- * DisabilityPolicyController) so there's no cursor wrapper to unpack.
- */
 @Component({
   selector: 'app-disability-policies-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent],
+  imports: [CommonModule, FormsModule, RouterLink, DataTableComponent],
   templateUrl: './disability-policies-list.component.html',
   styleUrl: './disability-policies-list.component.scss',
 })
-export class DisabilityPoliciesListComponent implements OnInit, OnDestroy {
-  policies: DisabilityPolicy[] = [];
+export class DisabilityPoliciesListComponent implements OnInit {
+  rows: DisabilityPolicyRow[] = [];
   loading = false;
-  searchQuery = '';
+  errorMessage: string | null = null;
 
-  private search$ = new Subject<string>();
-  private destroy$ = new Subject<void>();
+  page = 1;
+  pageSize = 50;
+  totalCount = 0;
+  totalPages = 1;
+  sortKey = 'policyNumber';
+  sortDirection: 'asc' | 'desc' = 'asc';
+  searchTerm = '';
 
-  constructor(
-    private policiesSvc: PoliciesService,
-    private router: Router,
-    private toast: ToastService,
-  ) {}
+  readonly columns: TableColumn[] = [
+    { key: 'policyNumber',      label: 'Policy #',        sortable: true },
+    { key: 'insuredMemberName', label: 'Insured',         sortable: true },
+    { key: 'schemeName',        label: 'Scheme',          sortable: true },
+    { key: 'monthlyBenefit',    label: 'Monthly benefit', sortable: true, type: 'currency' },
+    { key: 'waitingPeriodDays', label: 'Waiting (days)',  sortable: true },
+    { key: 'benefitPeriod',     label: 'Benefit period',  sortable: true },
+    { key: 'status',            label: 'Status',          sortable: true },
+  ];
 
-  ngOnInit(): void {
-    this.search$
-      .pipe(
-        debounceTime(400),
-        distinctUntilChanged(),
-        switchMap((q) => (q ? this.policiesSvc.searchDisabilityPolicies(q) : this.policiesSvc.listDisabilityPolicies())),
-        takeUntil(this.destroy$),
-      )
-      .subscribe({
-        next: (rows) => { this.policies = rows ?? []; this.loading = false; },
-        error: (err) => {
-          this.loading = false;
-          this.toast.error(err?.error?.detail || 'Failed to load disability policies');
-        },
-      });
-    this.load();
-  }
+  readonly actions: TableAction[] = [
+    {
+      label: 'Open',
+      icon: 'eye',
+      color: 'default',
+      handler: (row: DisabilityPolicyRow) =>
+        this.router.navigate(['/tenant/policies/disability', row.id]),
+    },
+  ];
 
-  ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
+  constructor(private policies: PoliciesService, private router: Router) {}
 
-  load(): void {
+  ngOnInit(): void { this.fetchPage(); }
+
+  fetchPage(): void {
     this.loading = true;
-    this.policiesSvc.listDisabilityPolicies().subscribe({
-      next: (rows) => { this.policies = rows ?? []; this.loading = false; },
-      error: (err) => {
+    this.policies.listDisabilityPoliciesPaged({
+      q: this.searchTerm || undefined,
+      sortKey: this.sortKey,
+      sortDirection: this.sortDirection,
+      page: this.page - 1,
+      size: this.pageSize,
+    }).subscribe({
+      next: (resp: PoliciesPageResponse<DisabilityPolicyRow>) => {
+        this.rows = resp.content ?? [];
+        this.totalCount = resp.total;
+        this.totalPages = resp.totalPages;
         this.loading = false;
-        this.toast.error(err?.error?.detail || 'Failed to load disability policies');
+      },
+      error: (err) => {
+        this.errorMessage = err?.error?.detail || 'Failed to load disability policies';
+        this.rows = [];
+        this.totalCount = 0;
+        this.totalPages = 1;
+        this.loading = false;
       },
     });
   }
 
-  onSearch(): void {
-    this.loading = true;
-    this.search$.next(this.searchQuery.trim());
-  }
-
-  rowClick(p: DisabilityPolicy): void {
-    this.router.navigate(['/tenant/policies/disability', p.id]);
+  onPageChange(page: number): void { this.page = page; this.fetchPage(); }
+  onSearchChange(term: string): void { this.searchTerm = term; this.page = 1; this.fetchPage(); }
+  onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
+    this.sortKey = evt.key;
+    this.sortDirection = evt.direction;
+    this.page = 1;
+    this.fetchPage();
   }
 }

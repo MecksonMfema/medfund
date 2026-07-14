@@ -4,9 +4,13 @@ import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import com.medfund.user.dto.CreateTravelPolicyRequest;
+import com.medfund.user.dto.PageResponse;
+import com.medfund.user.dto.TravelPolicyFilterParams;
+import com.medfund.user.dto.TravelPolicyRow;
 import com.medfund.user.dto.UpdateTravelPolicyRequest;
 import com.medfund.user.entity.TravelPolicy;
 import com.medfund.user.exception.TravelPolicyNotFoundException;
+import com.medfund.user.repository.TravelPolicyQueryRepository;
 import com.medfund.user.repository.TravelPolicyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,11 +32,23 @@ import java.util.UUID;
 public class TravelPolicyService {
 
     private final TravelPolicyRepository travelPolicyRepository;
+    private final TravelPolicyQueryRepository travelPolicyQueryRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
 
     public Flux<TravelPolicy> findAll() {
         return travelPolicyRepository.findAllOrderByCreatedAtDesc();
+    }
+
+    /** Server-side paginated travel-policies list with joined scheme + traveler names. */
+    public Mono<PageResponse<TravelPolicyRow>> searchPaged(TravelPolicyFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return travelPolicyQueryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(travelPolicyQueryRepository.count(params))
+                .map(t -> PageResponse.of(t.getT1(), t.getT2(), page, size));
     }
 
     public Mono<TravelPolicy> findById(UUID id) {

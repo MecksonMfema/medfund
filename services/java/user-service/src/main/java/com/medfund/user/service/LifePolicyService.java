@@ -4,9 +4,13 @@ import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import com.medfund.user.dto.CreateLifePolicyRequest;
+import com.medfund.user.dto.LifePolicyFilterParams;
+import com.medfund.user.dto.LifePolicyRow;
+import com.medfund.user.dto.PageResponse;
 import com.medfund.user.dto.UpdateLifePolicyRequest;
 import com.medfund.user.entity.LifePolicy;
 import com.medfund.user.exception.LifePolicyNotFoundException;
+import com.medfund.user.repository.LifePolicyQueryRepository;
 import com.medfund.user.repository.LifePolicyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,11 +32,23 @@ import java.util.UUID;
 public class LifePolicyService {
 
     private final LifePolicyRepository lifePolicyRepository;
+    private final LifePolicyQueryRepository lifePolicyQueryRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
 
     public Flux<LifePolicy> findAll() {
         return lifePolicyRepository.findAllOrderByCreatedAtDesc();
+    }
+
+    /** Server-side paginated life-policies list with joined scheme + insured names. */
+    public Mono<PageResponse<LifePolicyRow>> searchPaged(LifePolicyFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return lifePolicyQueryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(lifePolicyQueryRepository.count(params))
+                .map(t -> PageResponse.of(t.getT1(), t.getT2(), page, size));
     }
 
     public Mono<LifePolicy> findById(UUID id) {

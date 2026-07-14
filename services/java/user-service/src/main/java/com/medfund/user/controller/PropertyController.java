@@ -2,8 +2,11 @@ package com.medfund.user.controller;
 
 import com.medfund.shared.audit.AuditActor;
 import com.medfund.user.dto.CreatePropertyRequest;
-import com.medfund.user.dto.UpdatePropertyRequest;
+import com.medfund.user.dto.PageResponse;
+import com.medfund.user.dto.PropertyFilterParams;
 import com.medfund.user.dto.PropertyResponse;
+import com.medfund.user.dto.PropertyRow;
+import com.medfund.user.dto.UpdatePropertyRequest;
 import com.medfund.user.service.PropertyService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -33,9 +36,25 @@ public class PropertyController {
     }
 
     @GetMapping
-    @Operation(summary = "List properties")
+    @Operation(summary = "List properties (unpaginated — prefer /page)")
     public Flux<PropertyResponse> findAll() {
         return propertyService.findAll().map(PropertyResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "List properties (server-side paginated)",
+            description = "Rows carry pre-joined scheme + owner-member names. Supports "
+                    + "status + schemeId filters, free-text search across property name, "
+                    + "address, scheme name, and owner name.")
+    public Mono<PageResponse<PropertyRow>> page(@RequestParam(required = false) String status,
+                                                 @RequestParam(required = false) UUID schemeId,
+                                                 @RequestParam(required = false) String q,
+                                                 @RequestParam(required = false) String sortKey,
+                                                 @RequestParam(required = false) String sortDirection,
+                                                 @RequestParam(defaultValue = "0") int page,
+                                                 @RequestParam(defaultValue = "50") int size) {
+        return propertyService.searchPaged(new PropertyFilterParams(
+                status, schemeId, q, sortKey, sortDirection, page, size));
     }
 
     @GetMapping("/{id}")

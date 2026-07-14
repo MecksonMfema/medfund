@@ -4,9 +4,13 @@ import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import com.medfund.user.dto.CreatePropertyRequest;
+import com.medfund.user.dto.PageResponse;
+import com.medfund.user.dto.PropertyFilterParams;
+import com.medfund.user.dto.PropertyRow;
 import com.medfund.user.dto.UpdatePropertyRequest;
 import com.medfund.user.entity.Property;
 import com.medfund.user.exception.PropertyNotFoundException;
+import com.medfund.user.repository.PropertyQueryRepository;
 import com.medfund.user.repository.PropertyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,11 +32,23 @@ import java.util.UUID;
 public class PropertyService {
 
     private final PropertyRepository propertyRepository;
+    private final PropertyQueryRepository propertyQueryRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
 
     public Flux<Property> findAll() {
         return propertyRepository.findAllOrderByCreatedAtDesc();
+    }
+
+    /** Server-side paginated properties list with joined scheme + owner names. */
+    public Mono<PageResponse<PropertyRow>> searchPaged(PropertyFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return propertyQueryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(propertyQueryRepository.count(params))
+                .map(t -> PageResponse.of(t.getT1(), t.getT2(), page, size));
     }
 
     public Mono<Property> findById(UUID id) {

@@ -2,7 +2,10 @@ package com.medfund.user.controller;
 
 import com.medfund.shared.audit.AuditActor;
 import com.medfund.user.dto.CreateDisabilityPolicyRequest;
+import com.medfund.user.dto.DisabilityPolicyFilterParams;
 import com.medfund.user.dto.DisabilityPolicyResponse;
+import com.medfund.user.dto.DisabilityPolicyRow;
+import com.medfund.user.dto.PageResponse;
 import com.medfund.user.dto.UpdateDisabilityPolicyRequest;
 import com.medfund.user.service.DisabilityPolicyService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,9 +36,23 @@ public class DisabilityPolicyController {
     }
 
     @GetMapping
-    @Operation(summary = "List disability policies")
+    @Operation(summary = "List disability policies (unpaginated — prefer /page)")
     public Flux<DisabilityPolicyResponse> findAll() {
         return disabilityPolicyService.findAll().map(DisabilityPolicyResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "List disability policies (server-side paginated)",
+            description = "Rows carry pre-joined scheme + insured-member names.")
+    public Mono<PageResponse<DisabilityPolicyRow>> page(@RequestParam(required = false) String status,
+                                                         @RequestParam(required = false) UUID schemeId,
+                                                         @RequestParam(required = false) String q,
+                                                         @RequestParam(required = false) String sortKey,
+                                                         @RequestParam(required = false) String sortDirection,
+                                                         @RequestParam(defaultValue = "0") int page,
+                                                         @RequestParam(defaultValue = "50") int size) {
+        return disabilityPolicyService.searchPaged(new DisabilityPolicyFilterParams(
+                status, schemeId, q, sortKey, sortDirection, page, size));
     }
 
     @GetMapping("/{id}")

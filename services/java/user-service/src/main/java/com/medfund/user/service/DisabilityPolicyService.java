@@ -4,9 +4,13 @@ import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import com.medfund.user.dto.CreateDisabilityPolicyRequest;
+import com.medfund.user.dto.DisabilityPolicyFilterParams;
+import com.medfund.user.dto.DisabilityPolicyRow;
+import com.medfund.user.dto.PageResponse;
 import com.medfund.user.dto.UpdateDisabilityPolicyRequest;
 import com.medfund.user.entity.DisabilityPolicy;
 import com.medfund.user.exception.DisabilityPolicyNotFoundException;
+import com.medfund.user.repository.DisabilityPolicyQueryRepository;
 import com.medfund.user.repository.DisabilityPolicyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,11 +32,23 @@ import java.util.UUID;
 public class DisabilityPolicyService {
 
     private final DisabilityPolicyRepository disabilityPolicyRepository;
+    private final DisabilityPolicyQueryRepository disabilityPolicyQueryRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
 
     public Flux<DisabilityPolicy> findAll() {
         return disabilityPolicyRepository.findAllOrderByCreatedAtDesc();
+    }
+
+    /** Server-side paginated disability-policies list with joined scheme + insured names. */
+    public Mono<PageResponse<DisabilityPolicyRow>> searchPaged(DisabilityPolicyFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return disabilityPolicyQueryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(disabilityPolicyQueryRepository.count(params))
+                .map(t -> PageResponse.of(t.getT1(), t.getT2(), page, size));
     }
 
     public Mono<DisabilityPolicy> findById(UUID id) {

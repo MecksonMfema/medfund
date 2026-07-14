@@ -1,76 +1,92 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { Subject, debounceTime, distinctUntilChanged, switchMap, takeUntil } from 'rxjs';
-import { FuneralPolicy, PoliciesService } from '../../../../core/services/policies.service';
-import { IconComponent } from '../../../../shared/components/icon/icon.component';
-import { ToastService } from '../../../../shared/components/toast/toast.service';
+import {
+  FuneralPolicyRow,
+  PoliciesPageResponse,
+  PoliciesService,
+} from '../../../../core/services/policies.service';
+import {
+  DataTableComponent,
+  TableAction,
+  TableColumn,
+} from '../../../../shared/components/data-table/data-table.component';
 
-/**
- * FUNERAL policies list. Mirrors the vehicles list pattern — debounced
- * search, status chip per row, click-through to the edit form. The
- * backend list endpoint returns a raw array today (see
- * FuneralPolicyController) so there's no cursor wrapper to unpack.
- */
 @Component({
   selector: 'app-funeral-policies-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent],
+  imports: [CommonModule, FormsModule, RouterLink, DataTableComponent],
   templateUrl: './funeral-policies-list.component.html',
   styleUrl: './funeral-policies-list.component.scss',
 })
-export class FuneralPoliciesListComponent implements OnInit, OnDestroy {
-  policies: FuneralPolicy[] = [];
+export class FuneralPoliciesListComponent implements OnInit {
+  rows: FuneralPolicyRow[] = [];
   loading = false;
-  searchQuery = '';
+  errorMessage: string | null = null;
 
-  private search$ = new Subject<string>();
-  private destroy$ = new Subject<void>();
+  page = 1;
+  pageSize = 50;
+  totalCount = 0;
+  totalPages = 1;
+  sortKey = 'policyNumber';
+  sortDirection: 'asc' | 'desc' = 'asc';
+  searchTerm = '';
 
-  constructor(
-    private policiesSvc: PoliciesService,
-    private router: Router,
-    private toast: ToastService,
-  ) {}
+  readonly columns: TableColumn[] = [
+    { key: 'policyNumber',        label: 'Policy #',      sortable: true },
+    { key: 'principalMemberName', label: 'Principal',     sortable: true },
+    { key: 'schemeName',          label: 'Scheme',        sortable: true },
+    { key: 'coverAmount',         label: 'Cover amount',  sortable: true, type: 'currency' },
+    { key: 'livesCovered',        label: 'Lives covered', sortable: true },
+    { key: 'status',              label: 'Status',        sortable: true },
+  ];
 
-  ngOnInit(): void {
-    this.search$
-      .pipe(
-        debounceTime(400),
-        distinctUntilChanged(),
-        switchMap((q) => (q ? this.policiesSvc.searchFuneralPolicies(q) : this.policiesSvc.listFuneralPolicies())),
-        takeUntil(this.destroy$),
-      )
-      .subscribe({
-        next: (rows) => { this.policies = rows ?? []; this.loading = false; },
-        error: (err) => {
-          this.loading = false;
-          this.toast.error(err?.error?.detail || 'Failed to load funeral policies');
-        },
-      });
-    this.load();
-  }
+  readonly actions: TableAction[] = [
+    {
+      label: 'Open',
+      icon: 'eye',
+      color: 'default',
+      handler: (row: FuneralPolicyRow) =>
+        this.router.navigate(['/tenant/policies/funeral', row.id]),
+    },
+  ];
 
-  ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
+  constructor(private policies: PoliciesService, private router: Router) {}
 
-  load(): void {
+  ngOnInit(): void { this.fetchPage(); }
+
+  fetchPage(): void {
     this.loading = true;
-    this.policiesSvc.listFuneralPolicies().subscribe({
-      next: (rows) => { this.policies = rows ?? []; this.loading = false; },
-      error: (err) => {
+    this.policies.listFuneralPoliciesPaged({
+      q: this.searchTerm || undefined,
+      sortKey: this.sortKey,
+      sortDirection: this.sortDirection,
+      page: this.page - 1,
+      size: this.pageSize,
+    }).subscribe({
+      next: (resp: PoliciesPageResponse<FuneralPolicyRow>) => {
+        this.rows = resp.content ?? [];
+        this.totalCount = resp.total;
+        this.totalPages = resp.totalPages;
         this.loading = false;
-        this.toast.error(err?.error?.detail || 'Failed to load funeral policies');
+      },
+      error: (err) => {
+        this.errorMessage = err?.error?.detail || 'Failed to load funeral policies';
+        this.rows = [];
+        this.totalCount = 0;
+        this.totalPages = 1;
+        this.loading = false;
       },
     });
   }
 
-  onSearch(): void {
-    this.loading = true;
-    this.search$.next(this.searchQuery.trim());
-  }
-
-  rowClick(p: FuneralPolicy): void {
-    this.router.navigate(['/tenant/policies/funeral', p.id]);
+  onPageChange(page: number): void { this.page = page; this.fetchPage(); }
+  onSearchChange(term: string): void { this.searchTerm = term; this.page = 1; this.fetchPage(); }
+  onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
+    this.sortKey = evt.key;
+    this.sortDirection = evt.direction;
+    this.page = 1;
+    this.fetchPage();
   }
 }

@@ -4,9 +4,13 @@ import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import com.medfund.user.dto.CreateVehicleRequest;
+import com.medfund.user.dto.PageResponse;
 import com.medfund.user.dto.UpdateVehicleRequest;
+import com.medfund.user.dto.VehicleFilterParams;
+import com.medfund.user.dto.VehicleRow;
 import com.medfund.user.entity.Vehicle;
 import com.medfund.user.exception.VehicleNotFoundException;
+import com.medfund.user.repository.VehicleQueryRepository;
 import com.medfund.user.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,11 +32,23 @@ import java.util.UUID;
 public class VehicleService {
 
     private final VehicleRepository vehicleRepository;
+    private final VehicleQueryRepository vehicleQueryRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
 
     public Flux<Vehicle> findAll() {
         return vehicleRepository.findAllOrderByCreatedAtDesc();
+    }
+
+    /** Server-side paginated vehicles list with joined scheme + owner names. */
+    public Mono<PageResponse<VehicleRow>> searchPaged(VehicleFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return vehicleQueryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(vehicleQueryRepository.count(params))
+                .map(t -> PageResponse.of(t.getT1(), t.getT2(), page, size));
     }
 
     public Mono<Vehicle> findById(UUID id) {

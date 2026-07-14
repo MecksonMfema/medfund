@@ -1,46 +1,32 @@
-<div class="page">
-  <header class="page-head">
-    <div class="title-block">
-      <h1>Properties</h1>
-      <p class="muted">Property-insurance asset records. Each property bills against its scheme using the standard or per-asset custom premium.</p>
-    </div>
-    <a class="btn btn-primary" routerLink="/tenant/policies/properties/add">
-      <app-icon name="plus" [size]="14"></app-icon> Add property
-    </a>
-  </header>
-
-  <div class="toolbar">
-    <input type="search"
-           class="search-input"
-           placeholder="Search by property name or address…"
-           [(ngModel)]="searchQuery"
-           (input)="onSearch()" />
+<header class="page-header">
+  <div>
+    <h1>Properties</h1>
+    <p class="page-sub">Property-insurance asset records. Each property bills against its scheme using the standard or per-asset custom premium.</p>
   </div>
+  <a class="btn btn-primary" routerLink="/tenant/policies/properties/add">Add property</a>
+</header>
 
-  @if (loading) {
-    <p class="muted">Loading…</p>
-  } @else if (properties.length === 0) {
-    <p class="muted">No properties yet. Click <strong>Add property</strong> to register the first one.</p>
-  } @else {
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Property name</th>
-          <th>Address</th>
-          <th>Sum insured</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (p of properties; track p.id) {
-          <tr (click)="rowClick(p)" class="clickable">
-            <td><strong>{{ p.propertyName }}</strong></td>
-            <td class="address-cell" [title]="p.address">{{ p.address }}</td>
-            <td>{{ p.sumInsured | number:'1.0-2' }}</td>
-            <td><span class="chip status" [attr.data-status]="p.status">{{ p.status }}</span></td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  }
-</div>
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [actions]="actions"
+  [showActions]="true"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  [initialSortKey]="sortKey"
+  [initialSortDirection]="sortDirection"
+  searchPlaceholder="Search by property name, address, scheme or owner"
+  emptyMessage="No properties yet"
+  emptyDescription="Click Add property to register the first one."
+  (pageChange)="onPageChange($event)"
+  (searchChange)="onSearchChange($event)"
+  (sortChange)="onSortChange($event)">
+</app-data-table>

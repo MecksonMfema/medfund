@@ -2,7 +2,10 @@ package com.medfund.user.controller;
 
 import com.medfund.shared.audit.AuditActor;
 import com.medfund.user.dto.CreateFuneralPolicyRequest;
+import com.medfund.user.dto.FuneralPolicyFilterParams;
 import com.medfund.user.dto.FuneralPolicyResponse;
+import com.medfund.user.dto.FuneralPolicyRow;
+import com.medfund.user.dto.PageResponse;
 import com.medfund.user.dto.UpdateFuneralPolicyRequest;
 import com.medfund.user.service.FuneralPolicyService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,9 +36,23 @@ public class FuneralPolicyController {
     }
 
     @GetMapping
-    @Operation(summary = "List funeral policies")
+    @Operation(summary = "List funeral policies (unpaginated — prefer /page)")
     public Flux<FuneralPolicyResponse> findAll() {
         return funeralPolicyService.findAll().map(FuneralPolicyResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "List funeral policies (server-side paginated)",
+            description = "Rows carry pre-joined scheme + principal-member names.")
+    public Mono<PageResponse<FuneralPolicyRow>> page(@RequestParam(required = false) String status,
+                                                      @RequestParam(required = false) UUID schemeId,
+                                                      @RequestParam(required = false) String q,
+                                                      @RequestParam(required = false) String sortKey,
+                                                      @RequestParam(required = false) String sortDirection,
+                                                      @RequestParam(defaultValue = "0") int page,
+                                                      @RequestParam(defaultValue = "50") int size) {
+        return funeralPolicyService.searchPaged(new FuneralPolicyFilterParams(
+                status, schemeId, q, sortKey, sortDirection, page, size));
     }
 
     @GetMapping("/{id}")

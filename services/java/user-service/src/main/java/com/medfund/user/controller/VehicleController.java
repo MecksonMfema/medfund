@@ -2,8 +2,11 @@ package com.medfund.user.controller;
 
 import com.medfund.shared.audit.AuditActor;
 import com.medfund.user.dto.CreateVehicleRequest;
+import com.medfund.user.dto.PageResponse;
 import com.medfund.user.dto.UpdateVehicleRequest;
+import com.medfund.user.dto.VehicleFilterParams;
 import com.medfund.user.dto.VehicleResponse;
+import com.medfund.user.dto.VehicleRow;
 import com.medfund.user.service.VehicleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -33,9 +36,26 @@ public class VehicleController {
     }
 
     @GetMapping
-    @Operation(summary = "List vehicles")
+    @Operation(summary = "List vehicles (unpaginated — prefer /page)")
     public Flux<VehicleResponse> findAll() {
         return vehicleService.findAll().map(VehicleResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "List vehicles (server-side paginated)",
+            description = "Returns rows with pre-joined scheme + owner-member names so the "
+                    + "operational table never renders raw UUIDs. Supports status + schemeId "
+                    + "filters, free-text search across registration, make, model, scheme "
+                    + "name, and owner name, plus sortKey/sortDirection.")
+    public Mono<PageResponse<VehicleRow>> page(@RequestParam(required = false) String status,
+                                                @RequestParam(required = false) UUID schemeId,
+                                                @RequestParam(required = false) String q,
+                                                @RequestParam(required = false) String sortKey,
+                                                @RequestParam(required = false) String sortDirection,
+                                                @RequestParam(defaultValue = "0") int page,
+                                                @RequestParam(defaultValue = "50") int size) {
+        return vehicleService.searchPaged(new VehicleFilterParams(
+                status, schemeId, q, sortKey, sortDirection, page, size));
     }
 
     @GetMapping("/{id}")
