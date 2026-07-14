@@ -1,9 +1,14 @@
 package com.medfund.contributions.controller;
 
+import com.medfund.contributions.dto.PageResponse;
+import com.medfund.contributions.dto.SchemeChangeWaitingPeriodFilterParams;
 import com.medfund.contributions.dto.SchemeChangeWaitingPeriodResponse;
 import com.medfund.contributions.dto.UpsertSchemeChangeWaitingPeriodRequest;
 import com.medfund.contributions.dto.UpsertWaitingPeriodRequest;
+import com.medfund.contributions.dto.WaitingPeriodFilterParams;
 import com.medfund.contributions.dto.WaitingPeriodResponse;
+import com.medfund.contributions.dto.WaitingPeriodRow;
+import com.medfund.contributions.entity.SchemeChangeWaitingPeriodRule;
 import com.medfund.contributions.service.WaitingPeriodService;
 import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
@@ -55,10 +60,26 @@ public class WaitingPeriodController {
     // ── Initial-enrolment waiting periods ────────────────────────────────────
 
     @GetMapping("/waiting-periods")
-    @Operation(summary = "List waiting periods, optionally filtered by scheme")
+    @Operation(summary = "List waiting periods (unpaginated — prefer /waiting-periods/page)")
     public Flux<WaitingPeriodResponse> list(@RequestParam(required = false) UUID schemeId) {
         return (schemeId != null ? service.listByScheme(schemeId) : service.listAll())
                 .map(WaitingPeriodResponse::from);
+    }
+
+    @GetMapping("/waiting-periods/page")
+    @Operation(summary = "Server-side paginated, sortable, filterable waiting-periods list",
+        description = "Feeds /tenant/billing/waiting-periods. Scheme name pre-joined.")
+    @ApiResponse(responseCode = "200", description = "Page of waiting-period rules")
+    public Mono<PageResponse<WaitingPeriodRow>> searchPaged(
+            @RequestParam(required = false) UUID schemeId,
+            @RequestParam(required = false) String conditionType,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "createdAt") String sortKey,
+            @RequestParam(required = false, defaultValue = "desc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        var params = new WaitingPeriodFilterParams(schemeId, conditionType, q, sortKey, sortDirection, page, size);
+        return service.searchPaged(params);
     }
 
     @PostMapping("/waiting-periods")
@@ -88,9 +109,28 @@ public class WaitingPeriodController {
     // ── Scheme-change waiting periods ────────────────────────────────────────
 
     @GetMapping("/scheme-change-waiting-periods")
-    @Operation(summary = "List scheme-change waiting period rules")
+    @Operation(summary = "List scheme-change waiting period rules (unpaginated — prefer /page)")
     public Flux<SchemeChangeWaitingPeriodResponse> listSchemeChange() {
         return service.listAllSchemeChange().map(SchemeChangeWaitingPeriodResponse::from);
+    }
+
+    @GetMapping("/scheme-change-waiting-periods/page")
+    @Operation(summary = "Server-side paginated scheme-change waiting-periods list",
+        description = "Feeds /tenant/billing/scheme-change-waiting-periods.")
+    @ApiResponse(responseCode = "200", description = "Page of scheme-change rules")
+    public Mono<PageResponse<SchemeChangeWaitingPeriodResponse>> searchSchemeChangePaged(
+            @RequestParam(required = false) String changeType,
+            @RequestParam(required = false) String benefitType,
+            @RequestParam(required = false) Boolean activeOnly,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "createdAt") String sortKey,
+            @RequestParam(required = false, defaultValue = "desc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        var params = new SchemeChangeWaitingPeriodFilterParams(changeType, benefitType, activeOnly, q, sortKey, sortDirection, page, size);
+        return service.searchSchemeChangePaged(params).map(pageResp -> PageResponse.of(
+                pageResp.content().stream().map(SchemeChangeWaitingPeriodResponse::from).toList(),
+                pageResp.total(), pageResp.page(), pageResp.size()));
     }
 
     @PostMapping("/scheme-change-waiting-periods")

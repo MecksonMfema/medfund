@@ -39,6 +39,9 @@ class BillingServiceTest {
     private ContributionRepository contributionRepository;
 
     @Mock
+    private com.medfund.contributions.repository.ContributionQueryRepository contributionQueryRepository;
+
+    @Mock
     private InvoiceRepository invoiceRepository;
 
     @Mock

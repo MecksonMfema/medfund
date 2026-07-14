@@ -6,8 +6,14 @@ import com.medfund.contributions.dto.BillingCommitResponse;
 import com.medfund.contributions.dto.BillingPreviewResponse;
 import com.medfund.contributions.dto.ChargePreviewResponse;
 import com.medfund.contributions.dto.CommitBillingRequest;
+import com.medfund.contributions.dto.ContributionFilterParams;
 import com.medfund.contributions.dto.ContributionResponse;
+import com.medfund.contributions.dto.ContributionRow;
 import com.medfund.contributions.dto.EnqueueBillingRequest;
+import com.medfund.contributions.dto.PageResponse;
+import org.springframework.format.annotation.DateTimeFormat;
+
+import java.time.LocalDate;
 import com.medfund.contributions.dto.EnqueueBillingResponse;
 import com.medfund.contributions.dto.GenerateBillingRequest;
 import com.medfund.contributions.dto.PreviewBillingRequest;
@@ -68,9 +74,35 @@ public class ContributionController {
     }
 
     @GetMapping("/status/{status}")
-    @Operation(summary = "List contributions by status")
+    @Operation(summary = "List contributions by status (unpaginated — prefer /page)")
     public Flux<ContributionResponse> findByStatus(@PathVariable String status) {
         return billingService.findContributionsByStatus(status).map(ContributionResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "Server-side paginated, sortable, filterable contribution-statements list",
+        description = "Feeds /tenant/billing/contributions. Joins members + groups + schemes "
+                + "into every row so the operational statements table renders inline. "
+                + "Sortable keys: memberName, groupName, schemeName, amount, currencyCode, "
+                + "status, periodStart, periodEnd, paidAt, createdAt.")
+    @ApiResponse(responseCode = "200", description = "Page of contributions")
+    public Mono<PageResponse<ContributionRow>> searchPaged(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) UUID memberId,
+            @RequestParam(required = false) UUID groupId,
+            @RequestParam(required = false) UUID schemeId,
+            @RequestParam(required = false) String currencyCode,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodStartFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodStartTo,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "periodStart") String sortKey,
+            @RequestParam(required = false, defaultValue = "desc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        var params = new ContributionFilterParams(
+                status, memberId, groupId, schemeId, currencyCode,
+                periodStartFrom, periodStartTo, q, sortKey, sortDirection, page, size);
+        return billingService.searchContributionsPaged(params);
     }
 
     @GetMapping("/{id}")

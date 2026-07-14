@@ -1,10 +1,16 @@
 package com.medfund.contributions.service;
 
+import com.medfund.contributions.dto.PageResponse;
+import com.medfund.contributions.dto.SchemeChangeWaitingPeriodFilterParams;
 import com.medfund.contributions.dto.UpsertSchemeChangeWaitingPeriodRequest;
 import com.medfund.contributions.dto.UpsertWaitingPeriodRequest;
+import com.medfund.contributions.dto.WaitingPeriodFilterParams;
+import com.medfund.contributions.dto.WaitingPeriodRow;
 import com.medfund.contributions.entity.SchemeChangeWaitingPeriodRule;
 import com.medfund.contributions.entity.WaitingPeriodRule;
+import com.medfund.contributions.repository.SchemeChangeWaitingPeriodQueryRepository;
 import com.medfund.contributions.repository.SchemeChangeWaitingPeriodRuleRepository;
+import com.medfund.contributions.repository.WaitingPeriodQueryRepository;
 import com.medfund.contributions.repository.WaitingPeriodRuleRepository;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
@@ -42,6 +48,8 @@ public class WaitingPeriodService {
 
     private final WaitingPeriodRuleRepository waitingRepo;
     private final SchemeChangeWaitingPeriodRuleRepository schemeChangeRepo;
+    private final WaitingPeriodQueryRepository waitingQueryRepository;
+    private final SchemeChangeWaitingPeriodQueryRepository schemeChangeQueryRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
 
@@ -49,6 +57,34 @@ public class WaitingPeriodService {
 
     public Flux<WaitingPeriodRule> listAll() {
         return waitingRepo.findAllOrdered();
+    }
+
+    /**
+     * Server-side paginated waiting-period-rules list. Feeds
+     * /tenant/billing/waiting-periods. Scheme name joined server-side.
+     */
+    public Mono<PageResponse<WaitingPeriodRow>> searchPaged(WaitingPeriodFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return waitingQueryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(waitingQueryRepository.count(params))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
+    }
+
+    /**
+     * Server-side paginated scheme-change waiting-period-rules list.
+     * Feeds /tenant/billing/scheme-change-waiting-periods.
+     */
+    public Mono<PageResponse<SchemeChangeWaitingPeriodRule>> searchSchemeChangePaged(SchemeChangeWaitingPeriodFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return schemeChangeQueryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(schemeChangeQueryRepository.count(params))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 
     public Flux<WaitingPeriodRule> listByScheme(UUID schemeId) {

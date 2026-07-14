@@ -203,6 +203,60 @@ export interface Contribution {
   status: string;
 }
 
+/**
+ * Row shape returned by GET /contributions/page. Member, group, and
+ * scheme display fields pre-joined server-side so the statements
+ * table renders inline without a second lookup.
+ */
+export interface ContributionRow {
+  id: string;
+  memberId?: string;
+  memberName?: string;
+  memberNumber?: string;
+  groupId?: string;
+  groupName?: string;
+  schemeId?: string;
+  schemeName?: string;
+  amount: string;
+  currencyCode: string;
+  periodStart: string;
+  periodEnd?: string;
+  status: string;
+  paymentMethod?: string;
+  paymentReference?: string;
+  paidAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+/**
+ * Envelope for every server-side paginated endpoint in contributions-
+ * service. Kept local so contributions.service.ts doesn't reach into
+ * balance.service.ts for a shared symbol.
+ */
+export interface ContributionsPageResponse<T> {
+  content: T[];
+  total: number;
+  page: number;
+  size: number;
+  totalPages: number;
+}
+
+export interface ContributionPageParams {
+  status?: string;
+  memberId?: string;
+  groupId?: string;
+  schemeId?: string;
+  currencyCode?: string;
+  periodStartFrom?: string;
+  periodStartTo?: string;
+  q?: string;
+  sortKey?: string;
+  sortDirection?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
+}
+
 export interface Transaction {
   id: string;
   transactionNumber: string;
@@ -683,6 +737,28 @@ export class ContributionsService {
 
   getContributionsByStatus(status: string): Observable<Contribution[]> {
     return this.api.get<Contribution[]>(`/contributions/status/${status}`);
+  }
+
+  /**
+   * Server-side paginated contributions list. Feeds
+   * /tenant/billing/contributions. Rows carry pre-joined member +
+   * group + scheme display fields.
+   */
+  listContributionsPaged(opts: ContributionPageParams): Observable<ContributionsPageResponse<ContributionRow>> {
+    const params: Record<string, string> = {};
+    if (opts.status)          params['status']          = opts.status;
+    if (opts.memberId)        params['memberId']        = opts.memberId;
+    if (opts.groupId)         params['groupId']         = opts.groupId;
+    if (opts.schemeId)        params['schemeId']        = opts.schemeId;
+    if (opts.currencyCode)    params['currencyCode']    = opts.currencyCode;
+    if (opts.periodStartFrom) params['periodStartFrom'] = opts.periodStartFrom;
+    if (opts.periodStartTo)   params['periodStartTo']   = opts.periodStartTo;
+    if (opts.q)               params['q']               = opts.q;
+    if (opts.sortKey)         params['sortKey']         = opts.sortKey;
+    if (opts.sortDirection)   params['sortDirection']   = opts.sortDirection;
+    if (opts.page !== undefined) params['page']         = String(opts.page);
+    if (opts.size !== undefined) params['size']         = String(opts.size);
+    return this.api.get<ContributionsPageResponse<ContributionRow>>('/contributions/page', params);
   }
 
   previewBilling(filters: BillingFilterPayload): Observable<BillingPreviewResponse> {

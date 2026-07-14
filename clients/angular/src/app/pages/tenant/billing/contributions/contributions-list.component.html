@@ -1,55 +1,43 @@
-<div class="contributions-page">
-  <header class="page-header">
-    <div>
-      <h1>Contributions</h1>
-      <p class="page-sub">Browse contribution rows by status. Generate new ones from the billing wizard.</p>
-    </div>
-    <a class="btn btn-primary" routerLink="/tenant/billing/generate">
-      <app-icon name="play-circle" [size]="14"></app-icon>
-      Generate billing
-    </a>
-  </header>
-
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
-
-  <div class="filters">
-    @for (s of statuses; track s) {
-      <button type="button" class="status-chip" [class.active]="status === s" (click)="status = s; refresh()">
-        {{ s | humanize }}
-      </button>
-    }
+<header class="page-header">
+  <div>
+    <h1>Contribution statements</h1>
+    <p class="page-sub">Browse contribution rows by status. Generate new ones from the billing wizard.</p>
   </div>
+</header>
 
-  @if (loading) {
-    <app-skeleton></app-skeleton>
-  } @else if (rows.length === 0) {
-    <p class="empty-state">No {{ status | humanize | lowercase }} contributions.</p>
-  } @else {
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Member</th>
-          <th>Scheme</th>
-          <th>Group</th>
-          <th>Period</th>
-          <th>Amount</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of rows; track row.id) {
-          <tr>
-            <td>{{ row.memberId }}</td>
-            <td>{{ row.schemeId }}</td>
-            <td>{{ row.groupId || '—' }}</td>
-            <td>{{ row.periodStart }} → {{ row.periodEnd }}</td>
-            <td>{{ row.amount | currencyFormat:row.currencyCode }}</td>
-            <td><span class="status-badge status-{{ row.status }}">{{ row.status | humanize }}</span></td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  }
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="filter-strip">
+  <label class="field">
+    <span class="field-label">Status</span>
+    <app-select
+      [(ngModel)]="status"
+      (selectionChange)="onStatusChange()"
+      name="status"
+      [options]="statusOptions"
+      size="sm"
+    ></app-select>
+  </label>
 </div>
+
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [showActions]="false"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  [initialSortKey]="sortKey"
+  [initialSortDirection]="sortDirection"
+  searchPlaceholder="Search member, member #, group, scheme or reference"
+  emptyMessage="No contributions match these filters"
+  emptyDescription="Adjust the status filter, or generate a new billing run."
+  (pageChange)="onPageChange($event)"
+  (searchChange)="onSearchChange($event)"
+  (sortChange)="onSortChange($event)">
+</app-data-table>

@@ -90,7 +90,7 @@ export const BILLING_ROUTES: Routes = [
     path: 'waiting-periods',
     canActivate: [permissionGuard(['billing:view', 'billing:manage_waiting_periods'])],
     loadComponent: () => import('./waiting-periods/waiting-periods-list.component').then(m => m.WaitingPeriodsListComponent),
-    data: { title: 'Waiting Periods', sidebar: 'operational' },
+    data: { title: 'Waiting Periods', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'waiting-periods/add',
@@ -108,7 +108,7 @@ export const BILLING_ROUTES: Routes = [
     path: 'scheme-change-waiting-periods',
     canActivate: [permissionGuard(['billing:view', 'billing:manage_waiting_periods'])],
     loadComponent: () => import('./scheme-change-waiting-periods/scheme-change-waiting-periods-list.component').then(m => m.SchemeChangeWaitingPeriodsListComponent),
-    data: { title: 'Scheme-Change Waiting Periods', sidebar: 'operational' },
+    data: { title: 'Scheme-Change Waiting Periods', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'scheme-change-waiting-periods/add',

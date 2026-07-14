@@ -1,29 +1,23 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
-import { forkJoin, of } from 'rxjs';
+import { Router } from '@angular/router';
 import {
   ContributionsService,
   Scheme,
 } from '../../../../core/services/contributions.service';
 import {
-  WaitingPeriod,
+  WaitingPeriodPageResponse,
+  WaitingPeriodRow,
   WaitingPeriodService,
 } from '../../../../core/services/waiting-period.service';
-import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
-import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
-import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
-
-interface WaitingPeriodRow extends WaitingPeriod {
-  schemeName?: string;
-}
+import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 
 @Component({
   selector: 'app-waiting-periods-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, SkeletonComponent, HumanizePipe],
+  imports: [CommonModule, FormsModule, SelectComponent, DataTableComponent],
   templateUrl: './waiting-periods-list.component.html',
   styleUrl: './waiting-periods-list.component.scss',
 })
@@ -33,9 +27,39 @@ export class WaitingPeriodsListComponent implements OnInit {
   rows: WaitingPeriodRow[] = [];
   loading = false;
   errorMessage: string | null = null;
-  pendingId: string | null = null;
 
-  private schemeNames: Record<string, string> = {};
+  // Server-side pagination state.
+  page = 1;
+  pageSize = 50;
+  totalCount = 0;
+  totalPages = 1;
+  sortKey = 'createdAt';
+  sortDirection: 'asc' | 'desc' = 'desc';
+  searchTerm = '';
+
+  readonly columns: TableColumn[] = [
+    { key: 'schemeName',    label: 'Scheme',        sortable: true },
+    { key: 'conditionType', label: 'Condition',     sortable: true },
+    { key: 'waitingDays',   label: 'Waiting (days)', sortable: true },
+    { key: 'minAge',        label: 'Min age',       sortable: true },
+    { key: 'maxAge',        label: 'Max age',       sortable: true },
+    { key: 'description',   label: 'Description' },
+  ];
+
+  readonly actions: TableAction[] = [
+    {
+      label: 'Edit',
+      icon: 'edit',
+      color: 'default',
+      handler: (row: WaitingPeriodRow) => this.router.navigate(['/tenant/billing/waiting-periods', row.id, 'edit']),
+    },
+    {
+      label: 'Delete',
+      icon: 'trash',
+      color: 'danger',
+      handler: (row: WaitingPeriodRow) => this.remove(row),
+    },
+  ];
 
   get schemeOptions(): SelectOption[] {
     return [
@@ -51,59 +75,72 @@ export class WaitingPeriodsListComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // Load the scheme picker options once; the page itself is server-
+    // paginated so we don't need every scheme's waiting-period rules.
+    this.contributions.getSchemes().subscribe({
+      next: (schemes) => { this.schemes = schemes; },
+      error: () => { /* filter dropdown just stays empty */ },
+    });
+    this.fetchPage();
+  }
+
+  fetchPage(): void {
     this.loading = true;
-    forkJoin({
-      schemes: this.contributions.getSchemes(),
-      rules: this.waitingService.list(),
+    this.errorMessage = null;
+    this.waitingService.listPaged({
+      schemeId: this.selectedSchemeId || undefined,
+      q: this.searchTerm || undefined,
+      sortKey: this.sortKey,
+      sortDirection: this.sortDirection,
+      page: this.page - 1,
+      size: this.pageSize,
     }).subscribe({
-      next: ({ schemes, rules }) => {
-        this.schemes = schemes;
-        this.schemeNames = Object.fromEntries(schemes.map(s => [s.id, s.name]));
-        this.applyRows(rules);
+      next: (resp: WaitingPeriodPageResponse<WaitingPeriodRow>) => {
+        this.rows = resp.content;
+        this.totalCount = resp.total;
+        this.totalPages = resp.totalPages;
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load waiting periods';
+        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load waiting periods';
+        this.rows = [];
+        this.totalCount = 0;
+        this.totalPages = 1;
         this.loading = false;
       },
     });
   }
 
   onSchemeChange(): void {
-    this.loading = true;
-    this.errorMessage = null;
-    const stream = this.selectedSchemeId
-      ? this.waitingService.list(this.selectedSchemeId)
-      : this.waitingService.list();
-    stream.subscribe({
-      next: (rules) => { this.applyRows(rules); this.loading = false; },
-      error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load waiting periods';
-        this.loading = false;
-      },
-    });
+    this.page = 1;
+    this.fetchPage();
   }
 
-  edit(r: WaitingPeriodRow): void {
-    this.router.navigate(['/tenant/billing/waiting-periods', r.id, 'edit']);
+  onPageChange(page: number): void {
+    this.page = page;
+    this.fetchPage();
+  }
+
+  onSearchChange(term: string): void {
+    this.searchTerm = term;
+    this.page = 1;
+    this.fetchPage();
+  }
+
+  onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
+    this.sortKey = evt.key;
+    this.sortDirection = evt.direction;
+    this.page = 1;
+    this.fetchPage();
   }
 
   remove(r: WaitingPeriodRow): void {
     if (!confirm(`Delete waiting period "${r.conditionType}" (${r.waitingDays} days)?`)) return;
-    this.pendingId = r.id;
     this.waitingService.delete(r.id).subscribe({
-      next: () => {
-        this.rows = this.rows.filter(x => x.id !== r.id);
-        this.pendingId = null;
-      },
+      next: () => this.fetchPage(),
       error: (err) => {
         this.errorMessage = err?.error?.detail || 'Delete failed';
-        this.pendingId = null;
       },
     });
-  }
-
-  private applyRows(rules: WaitingPeriod[]): void {
-    this.rows = rules.map(r => ({ ...r, schemeName: this.schemeNames[r.schemeId] }));
   }
 }

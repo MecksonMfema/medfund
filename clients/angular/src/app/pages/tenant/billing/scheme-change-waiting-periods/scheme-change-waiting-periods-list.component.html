@@ -1,54 +1,34 @@
-<div class="page">
-  <header class="page-header">
-    <div>
-      <h1>Scheme-change waiting periods</h1>
-      <p class="page-sub">Waits applied when a member moves between schemes. Optionally scoped to a specific benefit type — leave the benefit blank for "applies to all benefits". Initial-enrolment waits live on the Waiting Periods page.</p>
-    </div>
-    <a class="btn btn-primary" routerLink="/tenant/billing/scheme-change-waiting-periods/add">
-      <app-icon name="plus" [size]="14"></app-icon>
-      Add rule
-    </a>
-  </header>
+<header class="page-header">
+  <div>
+    <h1>Scheme-change waiting periods</h1>
+    <p class="page-sub">Waits applied when a member moves between schemes. Optionally scoped to a specific benefit type — leave the benefit blank for "applies to all benefits". Initial-enrolment waits live on the Waiting Periods page.</p>
+  </div>
+  <a class="btn btn-primary" routerLink="/tenant/billing/scheme-change-waiting-periods/add">
+    Add rule
+  </a>
+</header>
 
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
 
-  @if (loading) {
-    <app-skeleton></app-skeleton>
-  } @else if (rows.length === 0) {
-    <p class="empty-state">No scheme-change waiting periods configured.</p>
-  } @else {
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Direction</th>
-          <th>Benefit</th>
-          <th class="right">Days</th>
-          <th>Active</th>
-          <th>Description</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of rows; track row.id) {
-          <tr [class.pending]="pendingId === row.id">
-            <td>
-              <span class="badge badge-{{ row.changeType.toLowerCase() }}">{{ row.changeType | humanize }}</span>
-            </td>
-            <td>{{ row.benefitType ? (row.benefitType | humanize) : 'All benefits' }}</td>
-            <td class="right">{{ row.waitingDays }}</td>
-            <td>
-              <input type="checkbox" [checked]="row.isActive" disabled />
-            </td>
-            <td class="muted">{{ row.description || '—' }}</td>
-            <td class="actions">
-              <button class="link-btn" (click)="edit(row)">Edit</button>
-              <button class="link-btn danger" (click)="remove(row)">Delete</button>
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  }
-</div>
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [actions]="actions"
+  [showActions]="true"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  [initialSortKey]="sortKey"
+  [initialSortDirection]="sortDirection"
+  searchPlaceholder="Search benefit or description"
+  emptyMessage="No scheme-change waiting periods configured"
+  emptyDescription="Add the first rule above."
+  (pageChange)="onPageChange($event)"
+  (searchChange)="onSearchChange($event)"
+  (sortChange)="onSortChange($event)">
+</app-data-table>

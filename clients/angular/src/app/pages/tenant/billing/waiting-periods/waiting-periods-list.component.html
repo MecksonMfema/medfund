@@ -1,62 +1,48 @@
-<div class="page">
-  <header class="page-header">
-    <div>
-      <h1>Waiting periods</h1>
-      <p class="page-sub">Initial-enrolment waits per scheme. Used by the adjudication pipeline to gate benefits during the configured number of days after a member joins. For waits triggered by scheme change, use the Scheme-Change Waiting Periods page.</p>
-    </div>
-    <a class="btn btn-primary" routerLink="/tenant/billing/waiting-periods/add">
-      <app-icon name="plus" [size]="14"></app-icon>
-      Add waiting period
-    </a>
-  </header>
-
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
-
-  <div class="filters">
-    <label class="field">
-      <span class="field-label">Scheme</span>
-      <app-select
-        [(ngModel)]="selectedSchemeId"
-        (selectionChange)="onSchemeChange()"
-        name="scheme"
-        size="sm"
-        [options]="schemeOptions"
-        placeholder="All schemes"
-      ></app-select>
-    </label>
+<header class="page-header">
+  <div>
+    <h1>Waiting periods</h1>
+    <p class="page-sub">Initial-enrolment waits per scheme. Used by the adjudication pipeline to gate benefits during the configured number of days after a member joins. For waits triggered by scheme change, use the Scheme-Change Waiting Periods page.</p>
   </div>
+  <a class="btn btn-primary" routerLink="/tenant/billing/waiting-periods/add">
+    Add waiting period
+  </a>
+</header>
 
-  @if (loading) {
-    <app-skeleton></app-skeleton>
-  } @else if (rows.length === 0) {
-    <p class="empty-state">No waiting periods configured{{ selectedSchemeId ? ' for this scheme' : '' }}.</p>
-  } @else {
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Scheme</th>
-          <th>Condition</th>
-          <th class="right">Days</th>
-          <th>Description</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of rows; track row.id) {
-          <tr [class.pending]="pendingId === row.id">
-            <td>{{ row.schemeName || row.schemeId }}</td>
-            <td>{{ row.conditionType | humanize }}</td>
-            <td class="right">{{ row.waitingDays }}</td>
-            <td class="muted">{{ row.description || '—' }}</td>
-            <td class="actions">
-              <button class="link-btn" (click)="edit(row)">Edit</button>
-              <button class="link-btn danger" (click)="remove(row)">Delete</button>
-            </td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  }
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="filter-strip">
+  <label class="field">
+    <span class="field-label">Scheme</span>
+    <app-select
+      [(ngModel)]="selectedSchemeId"
+      (selectionChange)="onSchemeChange()"
+      name="scheme"
+      size="sm"
+      [options]="schemeOptions"
+      placeholder="All schemes"
+    ></app-select>
+  </label>
 </div>
+
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [actions]="actions"
+  [showActions]="true"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  [initialSortKey]="sortKey"
+  [initialSortDirection]="sortDirection"
+  searchPlaceholder="Search scheme, condition or description"
+  emptyMessage="No waiting periods configured"
+  emptyDescription="Add the first waiting period rule above."
+  (pageChange)="onPageChange($event)"
+  (searchChange)="onSearchChange($event)"
+  (sortChange)="onSortChange($event)">
+</app-data-table>

@@ -3,7 +3,10 @@ package com.medfund.contributions.service;
 import com.medfund.contributions.dto.BillingCommitResponse;
 import com.medfund.contributions.dto.BillingPreviewResponse;
 import com.medfund.contributions.dto.CommitBillingRequest;
+import com.medfund.contributions.dto.ContributionFilterParams;
+import com.medfund.contributions.dto.ContributionRow;
 import com.medfund.contributions.dto.GenerateBillingRequest;
+import com.medfund.contributions.dto.PageResponse;
 import com.medfund.contributions.dto.PreviewBillingRequest;
 import com.medfund.contributions.entity.BillingCycleConfig;
 import com.medfund.contributions.entity.Contribution;
@@ -17,6 +20,7 @@ import com.medfund.contributions.exception.ContributionNotFoundException;
 import com.medfund.contributions.exception.InvoiceNotFoundException;
 import com.medfund.contributions.repository.AgeGroupRepository;
 import com.medfund.contributions.repository.BillingCycleConfigRepository;
+import com.medfund.contributions.repository.ContributionQueryRepository;
 import com.medfund.contributions.repository.ContributionRepository;
 import com.medfund.contributions.repository.InvoiceRepository;
 import com.medfund.contributions.repository.SchemeRepository;
@@ -53,6 +57,7 @@ public class BillingService {
     private static final int SAMPLE_LIMIT = 25;
 
     private final ContributionRepository contributionRepository;
+    private final ContributionQueryRepository contributionQueryRepository;
     private final InvoiceRepository invoiceRepository;
     private final SchemeRepository schemeRepository;
     private final AgeGroupRepository ageGroupRepository;
@@ -73,6 +78,7 @@ public class BillingService {
     private final java.util.Map<String, com.medfund.contributions.service.candidate.CandidateResolver> candidateResolvers;
 
     public BillingService(ContributionRepository contributionRepository,
+                          ContributionQueryRepository contributionQueryRepository,
                           InvoiceRepository invoiceRepository,
                           SchemeRepository schemeRepository,
                           AgeGroupRepository ageGroupRepository,
@@ -86,6 +92,7 @@ public class BillingService {
                           InvoiceSnapshotService invoiceSnapshotService,
                           java.util.List<com.medfund.contributions.service.candidate.CandidateResolver> resolvers) {
         this.contributionRepository = contributionRepository;
+        this.contributionQueryRepository = contributionQueryRepository;
         this.invoiceRepository = invoiceRepository;
         this.schemeRepository = schemeRepository;
         this.ageGroupRepository = ageGroupRepository;
@@ -140,6 +147,22 @@ public class BillingService {
 
     public Flux<Contribution> findContributionsByStatus(String status) {
         return contributionRepository.findByStatus(status);
+    }
+
+    /**
+     * Server-side paginated contributions list. Feeds
+     * /tenant/billing/contributions. Joins members + groups + schemes
+     * server-side so the operational statements table renders each
+     * row inline without a lookup.
+     */
+    public Mono<PageResponse<ContributionRow>> searchContributionsPaged(ContributionFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return contributionQueryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(contributionQueryRepository.count(params))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 
     public Mono<Contribution> findContributionById(UUID id) {
