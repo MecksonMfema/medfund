@@ -1,6 +1,8 @@
 # MedFund Platform
 
-Healthcare claims management SaaS platform — greenfield polyglot build.
+Core insurance operating system — multi-tenant, multi-line SaaS. Greenfield polyglot build.
+
+The platform is line-agnostic at the core (claims, contributions, finance, rules, tenancy). The `InsuranceLine` enum today covers **HEALTH, LIFE, FUNERAL, GROUP, TRAVEL, DISABILITY, VEHICLE, PROPERTY**. Medical aid is the production-ready vertical; life, funeral, disability, travel, and asset lines have entities and enrollment scaffolding but are not yet end-to-end.
 
 See [.claude/CLAUDE.md](.claude/CLAUDE.md) for full architecture guidelines, tech stack, and critical rules.
 
@@ -22,7 +24,7 @@ See [.claude/CLAUDE.md](.claude/CLAUDE.md) for full architecture guidelines, tec
 | Live Dashboard | Elixir 1.17 / Phoenix 1.7 | 4000 | `services/elixir/apps/live_dashboard` |
 | Chat Service | Elixir 1.17 / Phoenix 1.7 | 4001 | `services/elixir/apps/chat_service` |
 | AI Service | Python 3.12 / FastAPI | 8000 | `services/python/ai-service` |
-| Angular Web App | Angular 19 | 4200 | `clients/angular` |
+| Angular Web App | Angular 19 | 5100 | `clients/angular` |
 | Flutter App | Flutter 3.x | — | `clients/flutter` |
 
 ## Common Commands

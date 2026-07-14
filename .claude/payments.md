@@ -1,12 +1,14 @@
 # Payment Gateway & Online Payments
 
+> **Status:** the `payment-gateway` Go service is currently scaffolded (~10 files) with no live processor integrations. This doc is the target specification.
+
 ## Overview
 
-The MedFund platform handles three categories of monetary transactions:
+The MedFund platform handles three categories of monetary transactions (across all insurance lines — the "contribution" terminology comes from the medical-aid vertical, but the flows apply equally to premiums for life/funeral/motor/etc.):
 
-1. **Inbound — Contribution Payments**: Members/groups pay their medical aid contributions online
-2. **Inbound — Tenant Subscriptions**: Medical aid societies subscribe to and pay for the MedFund platform
-3. **Outbound — Payouts**: Tenants pay providers (claim settlements) and members (refunds) through the platform
+1. **Inbound — Contribution / Premium Payments**: Members/groups pay contributions or premiums online, regardless of insurance line
+2. **Inbound — Tenant Subscriptions**: Insurance carriers subscribe to and pay for the MedFund platform
+3. **Outbound — Payouts**: Tenants pay providers (claim settlements, garages, funeral homes) and members (refunds, benefits) through the platform
 
 All payment processing flows through the **Payment Gateway Service** (Go/Fiber), which provides a unified abstraction over multiple payment providers.
 

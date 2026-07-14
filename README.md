@@ -1,15 +1,17 @@
 # MedFund
 
-Healthcare claims management SaaS platform. Multi-tenant, multi-currency, AI-powered.
+Core insurance operating system. Multi-tenant, multi-line, multi-currency, AI-powered.
+
+MedFund's Java core (claims, contributions, finance, rules, tenancy) is line-agnostic. The `InsuranceLine` enum covers **HEALTH, LIFE, FUNERAL, GROUP, TRAVEL, DISABILITY, VEHICLE, PROPERTY**, and dedicated entities exist for `LifePolicy`, `FuneralPolicy`, `DisabilityPolicy`, `TravelPolicy`, `Vehicle`, and `Property`. Medical aid is the currently production-ready vertical; the other lines have schema and enrollment scaffolding in place and are progressing.
 
 ## Architecture
 
 MedFund is a polyglot microservices platform:
 
-- **Java 21 + Spring Boot WebFlux** — Core domain: claims, contributions, finance, tenancy, rules engine
+- **Java 21 + Spring Boot WebFlux** — Core domain: claims, contributions, finance, tenancy, rules engine, user/policy
 - **Go 1.23 + Fiber v2** — High-throughput: API gateway, notifications, audit, file processing, payments
 - **Elixir 1.17 + Phoenix 1.7** — Real-time: live dashboards, WebSocket channels, chat
-- **Python 3.12 + FastAPI** — AI/ML: adjudication AI, fraud detection, OCR, chatbot
+- **Python 3.12 + FastAPI** — AI/ML: adjudication, fraud, OCR, chatbot, forecasting, analytics, pricing
 - **Angular 19** — Web frontend (super admin, tenant admin, operations, providers)
 - **Flutter 3.x** — Mobile + web (member portal, provider companion, group liaison)
 
@@ -28,13 +30,13 @@ MedFund is a polyglot microservices platform:
 medfund/
 ├── services/
 │   ├── java/                   # Gradle multi-project (6 services + shared lib)
-│   │   ├── tenancy-service/    # Tenant lifecycle, provisioning, plans
-│   │   ├── user-service/       # Members, providers, groups, roles
-│   │   ├── claims-service/     # Claims, adjudication, tariffs, ICD-10
-│   │   ├── contributions-service/ # Schemes, billing, contributions
-│   │   ├── finance-service/    # Payments, payment runs, reconciliation
-│   │   ├── rules-engine/       # Drools-based per-tenant business rules
-│   │   └── shared/             # Tenant context, audit publisher, security
+│   │   ├── tenancy-service/    # Tenant lifecycle, provisioning, plans, currencies, per-tenant proration
+│   │   ├── user-service/       # Members, providers, dependants, groups, roles + policy entities (life, funeral, disability, travel, vehicle, property)
+│   │   ├── claims-service/     # Claims (line-tagged), pre-auth, adjudication, tariffs, ICD codes, drug claims
+│   │   ├── contributions-service/ # Schemes, benefits, age groups, billing cycles, invoices, group balances
+│   │   ├── finance-service/    # Payments, payment runs, provider balances, adjustments, reconciliation
+│   │   ├── rules-engine/       # Drools-backed engine with 15 rule-template categories (line-agnostic core)
+│   │   └── shared/             # Tenant context, audit publisher, InsuranceLine enum, scheduling, RBAC
 │   ├── go/                     # Go workspace (5 services + shared)
 │   │   ├── gateway/            # API gateway, JWT validation, rate limiting
 │   │   ├── notification-service/ # Email, SMS, push notifications

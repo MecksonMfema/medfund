@@ -2,7 +2,9 @@
 
 ## Overview
 
-The platform must handle multiple currencies per tenant. A healthcare fund in Zimbabwe may bill in ZWL but pay providers in USD. A fund in Botswana bills in BWP. Each tenant configures their supported currencies, default currency, and exchange rate sources.
+The platform must handle multiple currencies per tenant. A tenant in Zimbabwe may bill in ZWL but pay providers in USD; a tenant in Botswana bills in BWP; a regional life insurer may collect premiums in ZAR and pay claims in USD. Each tenant configures their supported currencies, default currency, and exchange rate sources.
+
+Multi-currency support is line-agnostic: contribution billing, claim settlement, premium collection, provider payout, and reserve accounting all flow through the same currency + exchange-rate machinery (`Currency`, `ExchangeRate`, `TenantCurrencyConfig` in `tenancy-service`).
 
 ## Core Principles
 

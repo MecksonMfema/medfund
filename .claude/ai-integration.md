@@ -4,6 +4,8 @@
 
 AI is integrated across the MedFund platform to augment human decision-making, automate repetitive tasks, detect fraud, and improve member/provider experience. All AI features follow a **human-in-the-loop** design — AI makes recommendations, humans make final decisions (except for low-risk automated approvals configured per tenant).
 
+AI features are exposed by the Python `ai-service` (FastAPI) across seven modules today: `adjudication`, `fraud`, `ocr`, `chatbot`, `forecasting`, `analytics`, `pricing`. Most endpoints are stubs with stable contracts; the concrete ML models below are the target design. Adjudication AI is currently focused on the medical-aid vertical (ICD/tariff-aware); fraud, OCR, forecasting, and pricing generalise across insurance lines.
+
 ## AI Service Architecture (Python / FastAPI)
 
 ```

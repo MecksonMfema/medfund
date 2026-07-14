@@ -2,7 +2,9 @@
 
 ## Overview
 
-MedFund v2 has five distinct portal experiences, each serving a different audience. The Angular web application hosts four of these as route groups (super admin, tenant admin, operations, provider). The Flutter application serves two audiences (members and providers) on both mobile and web.
+MedFund has five distinct portal experiences, each serving a different audience. The Angular web application hosts four of these as route groups (super admin, tenant admin, operations, provider). The Flutter application serves two audiences (members and providers) on both mobile and web.
+
+> Language note: many role and permission descriptions in this doc use "medical aid" and "healthcare providers" because the health vertical is the currently implemented one. The portal shapes, role definitions, and RBAC design are line-agnostic — a life or funeral tenant uses the same tenant-admin/operations/provider/member portal structure with line-appropriate features enabled. "Provider" is a service provider generally (hospital, clinic, garage, funeral home, travel agent) depending on the tenant's active insurance lines.
 
 ## Portal Map
 

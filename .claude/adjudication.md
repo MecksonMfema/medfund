@@ -1,8 +1,10 @@
 # Claims Adjudication Specification
 
+> **Scope:** This document specifies adjudication for the **medical-aid vertical** (`InsuranceLine.HEALTH`) — the vertical that is production-ready today. The pipeline shape (six stages, rules-engine + AI split) is intended to generalize across insurance lines; the tariff/ICD/AHFOZ/clinical-validation specifics in this doc are health-only. Life/funeral/disability/travel/vehicle/property lines will each get analogous but line-appropriate adjudication when they graduate from scaffolding.
+
 ## Overview
 
-Claims adjudication is the core business process of the platform. It determines what amount (if any) should be paid for a medical claim. MedFund implements a **six-stage adjudication pipeline** that combines deterministic rules (Java Rules Engine via Drools) with AI-assisted analysis (Python AI Service).
+Claims adjudication is the core business process of the platform. It determines what amount (if any) should be paid for a submitted claim. Every `Claim` row carries an `insurance_line` (V053 migration) so downstream stages can dispatch to line-appropriate rules. MedFund implements a **six-stage adjudication pipeline** that combines deterministic rules (Java Rules Engine via Drools) with AI-assisted analysis (Python AI Service).
 
 ## Where Each Component Lives
 

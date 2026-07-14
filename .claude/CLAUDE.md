@@ -1,6 +1,25 @@
 # MedFund Platform — Architecture Guidelines
 
-This document is the root guide for Claude Code when working on the MedFund healthcare claims platform. The legacy system has been decommissioned — this is a **greenfield build**. The legacy codebase in this repo serves only as domain knowledge reference.
+This document is the root guide for Claude Code when working on the **MedFund core insurance operating system**. The legacy system has been decommissioned — this is a **greenfield build**. The legacy codebase in this repo serves only as domain knowledge reference.
+
+## What MedFund Is
+
+MedFund is a **multi-tenant, multi-line insurance core system**. The Java core (claims, contributions, finance, rules, tenancy, user/policy) is line-agnostic; the `InsuranceLine` enum in `services/java/shared` today covers:
+
+| Line | Status | Notes |
+|------|--------|-------|
+| `HEALTH` | Production-ready | Medical aid — full claims/pre-auth/tariff/AHFOZ/ICD stack |
+| `LIFE` | Scaffolded | `LifePolicy` entity, enrollment, billing hooks |
+| `FUNERAL` | Scaffolded | `FuneralPolicy` entity, enrollment, billing hooks |
+| `DISABILITY` | Scaffolded | `DisabilityPolicy` entity, enrollment, billing hooks |
+| `TRAVEL` | Scaffolded | `TravelPolicy` entity, enrollment, billing hooks |
+| `GROUP` | Scaffolded | Corporate/group cover wrapper |
+| `VEHICLE` | Scaffolded | Asset-line (`Vehicle` entity); UI label is "MOTOR" |
+| `PROPERTY` | Scaffolded | Asset-line (`Property` entity) |
+
+Person-centric lines (HEALTH, LIFE, FUNERAL, DISABILITY, TRAVEL, GROUP) share the member/dependant model. Asset-centric lines (VEHICLE, PROPERTY) don't require member identity to price — this split is codified in `InsuranceLine.isPersonCentric()`.
+
+**Framing rule:** when writing docs, code comments, DTOs, UI copy, or PR text, prefer line-neutral wording ("claim", "policy", "beneficiary", "provider") over healthcare-only wording ("patient", "clinical") unless the code is genuinely medical-vertical-specific (ICD codes, AHFOZ tariffs, clinical pre-auth rules).
 
 ## Tech Stack
 
@@ -113,10 +132,10 @@ public class AdjudicationResult {
 1. **Never mix currencies in arithmetic.** Always convert to a common currency using the exchange rate service before comparing or summing amounts. Use `BigDecimal` (Java) / `decimal` (others) — never floating point for money.
 2. **Every database query must be tenant-scoped.** Java services use the tenant-aware `TenantContext` interceptor. Every service must resolve tenant from JWT or subdomain.
 3. **AI decisions must be auditable.** Every AI-assisted adjudication, fraud flag, or billing suggestion must log the model version, input features, confidence score, and output — with a human-reviewable trail.
-4. **Healthcare compliance first.** PHI/PII must be encrypted at rest and in transit. Audit logs are immutable. Data retention policies apply per tenant jurisdiction.
+4. **Data protection first.** PII must be encrypted at rest and in transit; PHI (from the health vertical) additionally falls under healthcare compliance regimes. Audit logs are immutable. Data retention policies apply per tenant jurisdiction and per insurance line.
    - **MFA is mandatory** for all admin and staff roles. Supports TOTP (authenticator apps), Email OTP, and SMS OTP — all via Keycloak. Tenant admins configure which methods and roles require MFA.
    - **OAuth 2.0 / OIDC** via Keycloak for all auth flows. Authorization Code + PKCE for web and mobile clients. No custom auth logic — Keycloak is the single identity provider. Social login (Google, Microsoft, Apple, SAML) configurable per tenant.
-5. **Per-tenant rules live in Java.** Business rules that vary by tenant (adjudication rules, contribution schedules, waiting periods, benefit limits) are managed in the Spring Boot rules engine with Drools or a custom DSL. Tenant admins configure these via their admin portal.
+5. **Per-tenant rules live in the rules-engine service.** Business rules that vary by tenant *and by insurance line* (adjudication, underwriting, contribution schedules, waiting periods, benefit limits, proration, provider payment, reconciliation) are compiled from JSON `RuleDefinition`s to Drools DRL by `DrlCompiler`. Facts are line-agnostic (`ClaimFact`, `MemberFact`, `ContributionFact`, `PaymentRunFact`, etc.); line-specific behavior is expressed as *rule content*, not engine code. 15 template categories ship out of the box — see [rules-engine.md](rules-engine.md). Tenant admins configure rules via the admin portal.
 6. **Service communication via Kafka events.** Services do not call each other directly for side effects. Use Kafka topics for async event-driven communication. Synchronous calls only for query/read operations via gRPC or REST.
 7. **Every API endpoint must be documented in Swagger (OpenAPI 3.1).** No endpoint ships without a complete Swagger definition — request/response schemas, status codes, descriptions, example payloads, and authentication requirements. Swagger UI must be accessible at `/swagger-ui` (Java), `/docs` (Python), or equivalent for each service.
 8. **Every entity mutation must be audit-logged.** Every CREATE, UPDATE, DELETE on business entities must emit an audit event to Kafka with actor, old value, new value, changed fields, and correlation ID. Audit events are immutable (append-only, no updates or deletes). See coding-standards.md for implementation per language.

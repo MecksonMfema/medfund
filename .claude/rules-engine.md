@@ -2,7 +2,31 @@
 
 ## Overview
 
-Tenant admins do **not** write Drools DRL code. They configure business rules through a **visual rule builder** in the Angular admin portal (`/admin/rules`). The UI translates their input into structured rule definitions stored in the database. The Rules Engine service (Java) compiles these definitions into executable Drools rules at runtime.
+The rules engine is **line-agnostic** — it's shared infrastructure for every insurance line MedFund supports. Facts (`ClaimFact`, `MemberFact`, `ContributionFact`, `PaymentRunFact`, `SchemeChangeContext`, etc.) carry the `insurance_line` where relevant so rule authors can scope conditions to a specific line. Line-specific behaviour lives in *rule content*, not engine code.
+
+The engine ships **15 rule-template categories** out of the box:
+
+| Category | Applies to |
+|---|---|
+| `Eligibility` | All lines |
+| `WaitingPeriod` | All lines with cover-start delays |
+| `BenefitLimit` | All lines with capped benefits |
+| `CoPayment` | All lines that split cost with the beneficiary |
+| `TariffPricing` | Health today; extensible to line-specific fee schedules |
+| `PreAuthorization` | Health today (clinical pre-auth); extensible |
+| `ClinicalValidation` | Health only (ICD/procedure matching) |
+| `ContributionBilling` | All lines |
+| `ContributionPricing` | All lines |
+| `AgeGroup` | All person-centric lines |
+| `SchemeChangeProration` | All lines with mid-cycle plan changes |
+| `ProviderPayment` | All lines that pay a service provider |
+| `Reconciliation` | All lines |
+| `MemberLifecycle` | All person-centric lines |
+| `Underwriting` | All lines with risk assessment |
+
+Tenant admins do **not** write Drools DRL code. They configure business rules through a **visual rule builder** in the Angular admin portal (`/admin/rules`). The UI translates their input into structured rule definitions stored in the database. The Rules Engine service (Java) compiles these definitions into executable Drools rules at runtime via `DrlCompiler`.
+
+**Extensibility contract:** adding a new fact type or action does **not** require editing the compiler — extend `FACT_MAPPINGS` for new facts, add a new `ActionEmitter` bean for new actions. Tenant isolation is enforced via a per-tenant `ReleaseId` in `TenantRuleEngine.loadRules` (see project memory `bug_rules_engine_tenant_isolation`).
 
 ## Architecture
 

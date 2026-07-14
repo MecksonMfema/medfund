@@ -1,10 +1,18 @@
 # Architecture Overview
 
+## What MedFund Is
+
+MedFund is a **core insurance operating system** — a multi-tenant SaaS whose Java domain services are line-agnostic and today host eight insurance lines via the `InsuranceLine` enum (`HEALTH`, `LIFE`, `FUNERAL`, `GROUP`, `TRAVEL`, `DISABILITY`, `VEHICLE`, `PROPERTY`).
+
+- **Person-centric lines** — `HEALTH`, `LIFE`, `FUNERAL`, `DISABILITY`, `TRAVEL`, `GROUP` — share the member/dependant model and adjudicated claims flow.
+- **Asset-centric lines** — `VEHICLE`, `PROPERTY` — attach cover to an insured asset entity (`Vehicle`, `Property`) rather than requiring member identity for pricing.
+- **Vertical maturity today** — the health (medical aid) vertical is production-ready end-to-end (tariffs, ICD codes, drug claims, pre-auth, AHFOZ integration). Life, funeral, disability, travel, vehicle, and property lines have policy entities, enrollment, and billing hooks in place but are not yet fully adjudicated end-to-end.
+
 ## Design Philosophy
 
 MedFund is a **polyglot microservices platform** where each service is built with the language and framework best suited to its workload:
 
-- **Java (Spring Boot)** — Domain-heavy services with complex business rules that vary per tenant
+- **Java (Spring Boot)** — Domain-heavy services with complex business rules that vary per tenant *and per insurance line*
 - **Go (Fiber)** — High-throughput, low-latency services where raw performance matters
 - **Elixir (Phoenix)** — Real-time features leveraging BEAM's concurrency model
 - **Python (FastAPI)** — AI/ML services leveraging the Python data science ecosystem
@@ -56,55 +64,71 @@ MedFund is a **polyglot microservices platform** where each service is built wit
 These handle the **core business domain** where complex, tenant-specific rules dominate.
 
 #### 1. Claims Service
-- Medical and drug claims lifecycle (submission → verification → adjudication → payment)
-- Tariff management and ICD code validation
-- Pre-authorization workflow
+- Line-tagged claims lifecycle (submission → verification → adjudication → payment). Every `Claim` row carries an `insurance_line` (V053 migration).
+- Health-vertical specifics: medical + drug claims, ICD code validation, AHFOZ tariff lookup, tariff modifiers, drug catalogue
+- Pre-authorization workflow (health vertical; dependant-aware since V064)
 - Claim verification codes (SMS/email)
-- **Per-tenant rules**: adjudication criteria, benefit limits, co-payment rules, exclusion lists
+- Quotation workflow
+- Key entities: `Claim`, `ClaimLine`, `PreAuthorization`, `Quotation`, `TariffCode`, `TariffCategory`, `TariffModifier`, `IcdCode`, `Drug`, `BeneficiaryBenefit`, `DiagnosisProcedureMapping`, `RejectionReason`
+- **Per-tenant rules**: adjudication criteria, benefit limits, co-payment rules, exclusion lists, clinical validation (all delegated to rules-engine)
 
 #### 2. Contributions Service
-- Scheme and benefit management
-- Age group pricing
-- Contribution billing cycles (monthly, quarterly, annual — per tenant)
-- Member/group balance tracking
-- Scheme change workflows (upgrades, downgrades, currency changes)
-- **Per-tenant rules**: billing schedules, grace periods, penalty calculations, shortfall rules
+- Scheme and benefit management (schemes are line-scoped; benefit `usage_mode` added V061)
+- Age group pricing, tariff→benefit mappings, annual caps
+- Contribution billing cycles (monthly, quarterly, annual — per tenant), with one-contribution-per-month invariant enforced at V034
+- Member/group balance tracking, group running balances, bad-debt tracking
+- Scheme change workflows with tenant-configurable proration (7 strategies wired via `TenantProrationConfig`)
+- Insurance quotes, dunning config
+- Key entities: `Contribution`, `Invoice`, `Scheme`, `Benefit`, `BenefitType`, `SchemeBenefit`, `Group`, `GroupRunningBalance`, `BillingCycleConfig`, `BadDebt`, `InsuranceQuote`, `AgeGroup`, `DunningConfig`, `Beneficiary`, `BeneficiaryBenefit`
+- **Per-tenant rules**: billing schedules, grace periods, penalty calculations, shortfall rules, proration strategy
 
 #### 3. Finance Service
-- Payment processing and payment runs
-- Provider balance management
+- Payment processing, payment runs, payment-run items
+- Provider balance management, advance payments
 - Debit/credit notes and adjustments
-- Bank reconciliation
+- Bank reconciliation, MASCA bank account management
+- CTC (cost-to-company) payments, payment advice records
 - Financial reporting and statements
+- Key entities: `Payment`, `PaymentRun`, `PaymentRunItem`, `ProviderBalance`, `Adjustment`, `AdvancePayment`, `DebitNote`, `CreditNote`, `BankReconciliation`, `CtcPayment`, `PaymentAdviceRecord`, `MascaBankAccount`
 - **Per-tenant rules**: payment terms, withholding tax rates, payment method restrictions
 
 #### 4. Tenancy Service
 - Tenant provisioning (create DB schema, Keycloak realm, seed data)
-- Tenant configuration management
+- Tenant configuration management (currency config, email templates, proration config, rules)
+- Currency + exchange rate registry (`Currency`, `ExchangeRate`)
+- Per-tenant rule storage (`TenantRule`); rules-engine reads from here
 - Super admin operations (tenant CRUD, feature flags, plan limits)
 - Tenant onboarding workflow
-- **Owns**: `public` schema tables (tenants, tenant_configs, plans, features)
+- **Owns Flyway** for the entire platform: `public` schema (V100–V127) and every tenant schema (V001–V065). No other Java service ships migrations.
+- Key entities: `Tenant`, `Plan`, `TenantCurrencyConfig`, `TenantEmailTemplate`, `TenantProrationConfig`, `Currency`, `ExchangeRate`, `TenantRule`
 
 #### 5. Rules Engine
-- Drools-based business rules that vary per tenant
-- Rule authoring API for tenant admins (via admin portal)
-- Rule versioning and rollback
-- Rule categories: adjudication, billing, eligibility, waiting periods, benefits
-- Rules are stored per-tenant and hot-reloaded
+- JSON `RuleDefinition` → Drools DRL compilation via `DrlCompiler`
+- Extensible fact registry (`FACT_MAPPINGS`) — adding a new fact type does not require compiler edits
+- Pluggable `ActionEmitter` beans per action type — adding a new action does not require compiler edits
+- Per-tenant `ReleaseId` isolation (tenant-isolation bug guard — see [rules-engine.md](rules-engine.md))
+- 15 rule-template categories shipped: `EligibilityTemplates`, `PreAuthorizationTemplates`, `ClinicalValidationTemplates`, `CoPaymentTemplates`, `BenefitLimitTemplates`, `TariffPricingTemplates`, `ContributionBillingTemplates`, `ContributionPricingTemplates`, `AgeGroupTemplates`, `WaitingPeriodTemplates`, `SchemeChangeProrationTemplates`, `ProviderPaymentTemplates`, `ReconciliationTemplates`, `MemberLifecycleTemplates`, `UnderwritingTemplates`
+- Facts are line-agnostic: `ClaimFact`, `ClaimDetailFact`, `MemberFact`, `DependantFact`, `ProviderFact`, `FamilyFact`, `ContributionFact`, `MemberLifecycleFact`, `PaymentRunFact`, `SchemeChangeContext`, `TimeFact`
+- Rules stored in `tenancy-service`'s `TenantRule` table and hot-reloaded per tenant
 
 #### 6. User Service
 - User profile management (members, providers, dependants, staff)
 - Integration with Keycloak for auth operations
-- Member enrollment and lifecycle (active → suspended → terminated)
-- Provider onboarding and verification
+- Member enrollment and lifecycle (active → suspended → terminated); effective-date snapping (starts → 1st-of-month, terminations → last-day-of-month)
+- Provider onboarding and verification (AHFOZ number for health providers)
+- **Policy entities per insurance line** — this service is where non-health lines currently live:
+  - `LifePolicy`, `FuneralPolicy`, `DisabilityPolicy`, `TravelPolicy` (person-centric)
+  - `Vehicle`, `Property` (asset-centric)
+- Email senders and email campaigns (per-tenant branding)
 - **Membership models** (configurable per tenant):
   - **Group/Corporate**: Members belong to an employer group. Group pays contributions on behalf of members. Group liaison manages enrollment. This is the traditional medical aid model
   - **Individual**: Members register and pay independently. No employer group. Self-service enrollment via Flutter/Angular
   - **Hybrid (both)**: Tenant supports both group and individual members. Some members are under corporate groups, others are self-paying individuals
 - Group/organization management (for corporate model)
-- **Group liaison** role: manages group members, dependants, and billing — explicitly blocked from all claims/medical data (PHI)
+- **Group liaison** role: manages group members, dependants, and billing — explicitly blocked from claims/PHI (relevant to the health vertical)
 - Individual self-registration workflow (for individual model)
 - Tenant configuration: `membership_model` = `GROUP_ONLY`, `INDIVIDUAL_ONLY`, or `BOTH`
+- Roles + permissions (`Role`, `Permission`) — RBAC catalogue
 
 ### Go Services (Fiber v2)
 
@@ -144,7 +168,8 @@ These handle **high-throughput, stateless operations** where Go's performance sh
 - Unified abstraction over multiple payment providers
 - Handles inbound payments (contributions, subscriptions) and outbound payouts (provider payments, member refunds)
 - Webhook receiver for async payment confirmations
-- See [payments.md](payments.md) for full specification
+- **Current state:** service is scaffolded (~10 files); no live processor integrations yet
+- See [payments.md](payments.md) for the target specification
 
 ### Elixir Services (Phoenix 1.7)
 
@@ -167,13 +192,15 @@ These handle **real-time, concurrent** features where BEAM excels.
 ### Python Service (FastAPI)
 
 #### 14. AI Service
-See [ai-integration.md](ai-integration.md) for full details.
-- Claims auto-adjudication assistance
-- Fraud detection and anomaly scoring
-- Document OCR and data extraction
-- Billing optimization recommendations
-- Predictive analytics (claim trends, financial forecasting)
-- Member chatbot (Claude-powered)
+See [ai-integration.md](ai-integration.md) for full details. Seven FastAPI modules today:
+- `adjudication` — claims auto-adjudication assistance
+- `fraud` — fraud detection and anomaly scoring
+- `ocr` — document OCR and data extraction
+- `chatbot` — member chatbot (integrates Gemini + Anthropic)
+- `forecasting` — predictive analytics (claim trends, financial forecasting)
+- `analytics` — cross-line analytics endpoints
+- `pricing` — pricing / billing optimization suggestions
+- Kafka consumer for async processing. Most endpoints are stubbed today; contracts are stable.
 
 ## Client Applications
 
@@ -188,11 +215,11 @@ Single Angular 19 application with **role-based routing**:
 | `/claims/*` | Claims clerks, adjudicators | Claim review queues, adjudication workspace, AI recommendations |
 | `/finance/*` | Finance clerks, finance HoD | Payment runs, reconciliation, reports, provider balances |
 | `/contributions/*` | Contributions staff | Billing runs, scheme management, member balances, invoicing |
-| `/providers/*` | Healthcare providers | Claim submission, payment tracking, pre-authorization requests |
+| `/providers/*` | Providers (medical providers, garages, funeral homes — line-dependent) | Claim submission, payment tracking, pre-authorization requests |
 
 ### Flutter Applications (Member-Facing)
 
-**Mobile app** (iOS + Android) and **Web app** (PWA) sharing the same Flutter codebase:
+**Mobile app** (iOS + Android) and **Web app** (PWA) sharing the same Flutter codebase. Currently ~8 scaffolded screens (login, home, dashboard, claims, benefits, chat, profile, payments); target feature set below:
 
 | Feature | Description |
 |---------|-------------|
@@ -206,7 +233,7 @@ Single Angular 19 application with **role-based routing**:
 | **Notifications** | Push notifications for claim updates, payment confirmations |
 | **Documents** | Upload/download claim documents, ID copies |
 | **Digital Card** | Digital membership card with QR code for provider verification |
-| **Group Liaison Mode** | For `group_liaison` role: manage group members, view/pay bills, enroll/terminate — NO access to medical data |
+| **Group Liaison Mode** | For `group_liaison` role: manage group members, view/pay bills, enroll/terminate — NO access to PHI/claims for the health vertical |
 
 ## Event-Driven Communication
 
@@ -554,27 +581,35 @@ See [multi-tenancy.md](multi-tenancy.md) for full schema details.
 
 ```
 PostgreSQL 17 Cluster
-├── public schema (shared across all tenants)
-│   ├── tenants              — Tenant registry and metadata
-│   ├── tenant_configs       — Per-tenant feature flags and settings
-│   ├── plans                — Subscription plans (tenant tiers)
-│   ├── currencies           — ISO 4217 currency master data
-│   ├── exchange_rates       — Historical exchange rates (daily snapshots)
-│   └── system_settings      — Global platform configuration
+├── public schema (shared across all tenants — migrations V100–V127 in tenancy-service)
+│   ├── tenants                    — Tenant registry and metadata
+│   ├── plans                      — Subscription plans (tenant tiers)
+│   ├── staff_users                — Platform staff (super admins) — cross-tenant
+│   ├── providers                  — Platform-level provider registry
+│   ├── currencies                 — ISO 4217 currency master data
+│   ├── exchange_rates             — Historical exchange rates (daily snapshots)
+│   ├── permissions                — RBAC catalogue
+│   ├── email_templates            — Platform-default email templates
+│   ├── notifications              — Cross-tenant notification records
+│   ├── rules                      — Rule metadata (per-tenant rule bodies in tenant schema)
+│   ├── scheduled_jobs             — Job config + run history (V114–V116)
+│   └── proration_config           — Per-tenant benefit-limit proration strategy
 │
 ├── tenant_{uuid} schema (one per tenant, completely isolated)
-│   ├── users, members, dependants, providers, groups
-│   ├── claims, claim_details, adjudications, pre_authorizations
-│   ├── tariffs, tariff_codes, tariff_modifiers
-│   ├── schemes, scheme_benefits, age_groups
-│   ├── contributions, transactions, balances
-│   ├── payments, payment_runs, adjustments, debit_notes, credit_notes
+│   ├── members, dependants, providers, groups, group_liaisons
+│   ├── life_policies, funeral_policies, disability_policies, travel_policies
+│   ├── vehicles, properties  (asset-line insured objects)
+│   ├── claims (line-tagged via insurance_line), claim_lines, pre_authorizations, quotations
+│   ├── tariff_codes, tariff_categories, tariff_modifiers, icd_codes, drugs  (health-vertical adjudication)
+│   ├── schemes, scheme_benefits, benefits, benefit_types, age_groups, tariff_benefit_mappings
+│   ├── contributions, invoices, group_running_balances, billing_cycle_config, dunning_config, bad_debts
+│   ├── payments, payment_runs, payment_run_items, adjustments, debit_notes, credit_notes, bank_reconciliations, provider_balances
 │   ├── audit_events (immutable, partitioned by month)
 │   ├── security_events (immutable, partitioned by month)
 │   ├── ai_predictions (model outputs + human feedback)
-│   ├── business_rules (Drools rule definitions)
 │   ├── notification_templates (per-tenant branding)
 │   └── chat_messages
+│   Note: Flyway migrations for this schema live in `tenancy-service` at V001–V065.
 │
 └── analytics schema (read replica)
     └── Materialized views for cross-tenant platform analytics (super admin only)
@@ -583,33 +618,37 @@ PostgreSQL 17 Cluster
 ## Monorepo Structure
 
 ```
-medfund-platform/
+medfund/
 ├── services/
-│   ├── claims-service/          # Java (Spring Boot)
-│   ├── contributions-service/   # Java (Spring Boot)
-│   ├── finance-service/         # Java (Spring Boot)
-│   ├── tenancy-service/         # Java (Spring Boot)
-│   ├── rules-engine/            # Java (Spring Boot + Drools)
-│   ├── user-service/            # Java (Spring Boot)
-│   ├── api-gateway/             # Go (Fiber)
-│   ├── notification-service/    # Go (Fiber)
-│   ├── audit-service/           # Go (Fiber)
-│   ├── file-service/            # Go (Fiber)
-│   ├── live-dashboard/          # Elixir (Phoenix)
-│   ├── chat-service/            # Elixir (Phoenix)
-│   └── ai-service/              # Python (FastAPI)
+│   ├── java/                        # Gradle multi-project
+│   │   ├── shared/                  # InsuranceLine, TenantContext, audit, scheduling, RBAC
+│   │   ├── tenancy-service/         # Spring Boot + Flyway (owns all migrations)
+│   │   ├── user-service/            # Spring Boot — members, providers, policies (life/funeral/etc.), vehicles, properties
+│   │   ├── claims-service/          # Spring Boot — line-tagged claims, health-vertical adjudication
+│   │   ├── contributions-service/   # Spring Boot — schemes, billing, invoices
+│   │   ├── finance-service/         # Spring Boot — payments, runs, reconciliation
+│   │   └── rules-engine/            # Spring Boot + Drools — line-agnostic rules engine
+│   ├── go/                          # Go workspace
+│   │   ├── shared/                  # Tenant middleware, audit helpers
+│   │   ├── gateway/                 # API gateway
+│   │   ├── notification-service/    # Email, SMS, push
+│   │   ├── audit-service/           # Kafka → immutable audit log
+│   │   ├── file-service/            # S3/MinIO uploads, PDF/CSV
+│   │   └── payment-gateway/         # Scaffolded — no live processor yet
+│   ├── elixir/                      # Mix umbrella
+│   │   └── apps/
+│   │       ├── live_dashboard/      # Phoenix — real-time dashboards
+│   │       └── chat_service/        # Phoenix — chat channels
+│   └── python/
+│       └── ai-service/              # FastAPI — adjudication, fraud, ocr, chatbot, forecasting, analytics, pricing
 ├── clients/
-│   ├── web-admin/               # Angular 19 (admin/operations portal)
-│   └── mobile-app/              # Flutter (member-facing mobile + web)
-├── shared/
-│   ├── proto/                   # Protobuf definitions (gRPC contracts)
-│   ├── kafka-schemas/           # Avro/JSON schemas for Kafka events
-│   └── api-specs/               # OpenAPI specs for REST APIs
-├── infrastructure/
-│   ├── helm/                    # Helm charts for all services
-│   ├── terraform/               # Cloud infrastructure (AWS/GCP)
-│   ├── docker/                  # Dockerfiles for each service
-│   └── argocd/                  # ArgoCD application manifests
-├── docs/                        # Architecture Decision Records (ADRs)
-└── .claude/                     # These guidelines
+│   ├── angular/                     # Angular 19 web app (all portals)
+│   └── flutter/                     # Flutter mobile + web (early stage)
+├── infra/
+│   └── docker/                      # PostgreSQL init, pg_hba
+├── docs/                            # User workflows, platform manual, local dev setup
+├── docker-compose.yml               # Local dev: Postgres, Redis, Kafka, Keycloak, MinIO, Mailpit
+└── .claude/                         # These guidelines
 ```
+
+Not yet in repo (aspirational, referenced in older docs): top-level `proto/`, `schemas/avro/`, `infra/helm`, `infra/terraform`, `infra/argocd`.
