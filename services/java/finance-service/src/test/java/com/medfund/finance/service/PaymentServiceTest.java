@@ -29,6 +29,9 @@ class PaymentServiceTest {
     private PaymentRepository paymentRepository;
 
     @Mock
+    private com.medfund.finance.repository.PaymentQueryRepository queryRepository;
+
+    @Mock
     private AuditPublisher auditPublisher;
 
     @Mock

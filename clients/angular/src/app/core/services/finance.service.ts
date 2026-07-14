@@ -252,6 +252,35 @@ export interface FinancePageResponse<T> {
   totalPages: number;
 }
 
+// ── Payment paginated row ───────────────────────────────────────────────
+export interface PaymentRow {
+  id: string;
+  paymentNumber: string;
+  providerId?: string;
+  providerName?: string;
+  amount: string;
+  currencyCode: string;
+  paymentType: string;
+  status: PaymentStatus;
+  paymentMethod?: string;
+  reference?: string;
+  paidAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface PaymentPageParams {
+  status?: PaymentStatus | '';
+  paymentType?: string;
+  providerId?: string;
+  currencyCode?: string;
+  q?: string;
+  sortKey?: string;
+  sortDirection?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
+}
+
 export interface CreateCtcPaymentPayload {
   groupId?: string;
   memberId?: string;
@@ -369,6 +398,23 @@ export class FinanceService {
   getPayment(id: string): Observable<Payment> { return this.api.get<Payment>(`/payments/${id}`); }
   getPaymentsByProvider(providerId: string): Observable<Payment[]> { return this.api.get<Payment[]>(`/payments/provider/${providerId}`); }
   getPaymentsByStatus(status: PaymentStatus): Observable<Payment[]> { return this.api.get<Payment[]>(`/payments/status/${status}`); }
+  /**
+   * Server-side paginated payments list. Feeds /tenant/finance/payments.
+   * Provider name pre-joined.
+   */
+  listPaymentsPaged(opts: PaymentPageParams): Observable<FinancePageResponse<PaymentRow>> {
+    const params: Record<string, string> = {};
+    if (opts.status)         params['status']         = opts.status;
+    if (opts.paymentType)    params['paymentType']    = opts.paymentType;
+    if (opts.providerId)     params['providerId']     = opts.providerId;
+    if (opts.currencyCode)   params['currencyCode']   = opts.currencyCode;
+    if (opts.q)              params['q']              = opts.q;
+    if (opts.sortKey)        params['sortKey']        = opts.sortKey;
+    if (opts.sortDirection)  params['sortDirection']  = opts.sortDirection;
+    if (opts.page !== undefined) params['page']       = String(opts.page);
+    if (opts.size !== undefined) params['size']       = String(opts.size);
+    return this.api.get<FinancePageResponse<PaymentRow>>('/payments/page', params);
+  }
   createPayment(body: CreatePaymentPayload): Observable<Payment> { return this.api.post<Payment>('/payments', body); }
   payPayment(id: string): Observable<Payment> { return this.api.post<Payment>(`/payments/${id}/pay`, {}); }
   cancelPayment(id: string): Observable<Payment> { return this.api.post<Payment>(`/payments/${id}/cancel`, {}); }

@@ -69,7 +69,7 @@ export const FINANCE_ROUTES: Routes = [
     path: 'payments',
     canActivate: [permissionGuard(['finance:view'])],
     loadComponent: () => import('./payments/payments-list.component').then(m => m.PaymentsListComponent),
-    data: { title: 'Payments', sidebar: 'operational' },
+    data: { title: 'Payments', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'payments/pending',
@@ -80,6 +80,7 @@ export const FINANCE_ROUTES: Routes = [
       description: 'Payments awaiting execution.',
       presetStatus: 'pending',
       sidebar: 'operational',
+      fullbleed: true,
     },
   },
   {
@@ -243,6 +244,7 @@ export const FINANCE_ROUTES: Routes = [
       title: 'Provider Payments',
       description: 'Provider payouts. Filter by status, currency, or search by reference.',
       sidebar: 'operational',
+      fullbleed: true,
     },
   },
   cs('reports/provider-payments/:id',        'Provider Payment Detail',          '/view-provider-payments',                   'Single provider payment list.',                   ['finance:view']),
@@ -255,6 +257,7 @@ export const FINANCE_ROUTES: Routes = [
       title: 'Provider Payment Status',
       description: 'Provider payouts grouped by state. Use the status filter to drill into pending / paid / cancelled.',
       sidebar: 'operational',
+      fullbleed: true,
     },
   },
   // committed-payments alias — paid-only history under a memorable name.
@@ -267,6 +270,7 @@ export const FINANCE_ROUTES: Routes = [
       description: 'Payouts that have settled. Filtered to status=paid.',
       presetStatus: 'paid',
       sidebar: 'operational',
+      fullbleed: true,
     },
   },
   {

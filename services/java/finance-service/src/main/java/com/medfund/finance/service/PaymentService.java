@@ -1,8 +1,12 @@
 package com.medfund.finance.service;
 
 import com.medfund.finance.dto.CreatePaymentRequest;
+import com.medfund.finance.dto.PageResponse;
+import com.medfund.finance.dto.PaymentFilterParams;
+import com.medfund.finance.dto.PaymentRow;
 import com.medfund.finance.entity.Payment;
 import com.medfund.finance.exception.PaymentNotFoundException;
+import com.medfund.finance.repository.PaymentQueryRepository;
 import com.medfund.finance.repository.PaymentRepository;
 import com.medfund.finance.util.Actors;
 import com.medfund.shared.audit.AuditEvent;
@@ -26,19 +30,36 @@ public class PaymentService {
     private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
 
     private final PaymentRepository paymentRepository;
+    private final PaymentQueryRepository queryRepository;
     private final AuditPublisher auditPublisher;
     private final FinanceEventPublisher eventPublisher;
 
     public PaymentService(PaymentRepository paymentRepository,
+                          PaymentQueryRepository queryRepository,
                           AuditPublisher auditPublisher,
                           FinanceEventPublisher eventPublisher) {
         this.paymentRepository = paymentRepository;
+        this.queryRepository = queryRepository;
         this.auditPublisher = auditPublisher;
         this.eventPublisher = eventPublisher;
     }
 
     public Flux<Payment> findAll() {
         return paymentRepository.findAllOrderByCreatedAtDesc();
+    }
+
+    /**
+     * Server-side paginated payments list. Provider name joined so the
+     * operational payments table renders inline.
+     */
+    public Mono<PageResponse<PaymentRow>> searchPaged(PaymentFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return queryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(queryRepository.count(params))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 
     public Mono<Payment> findById(UUID id) {

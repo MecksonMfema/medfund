@@ -1,7 +1,10 @@
 package com.medfund.finance.controller;
 
 import com.medfund.finance.dto.CreatePaymentRequest;
+import com.medfund.finance.dto.PageResponse;
+import com.medfund.finance.dto.PaymentFilterParams;
 import com.medfund.finance.dto.PaymentResponse;
+import com.medfund.finance.dto.PaymentRow;
 import com.medfund.finance.service.PaymentService;
 import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,9 +35,31 @@ public class PaymentController {
     }
 
     @GetMapping
-    @Operation(summary = "List all payments")
+    @Operation(summary = "List all payments (unpaginated — prefer /page)")
     public Flux<PaymentResponse> findAll() {
         return paymentService.findAll().map(PaymentResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "Server-side paginated, sortable, filterable payments list",
+        description = "Feeds /tenant/finance/payments. Provider name joined into every row. "
+                + "Sortable keys: paymentNumber, providerName, amount, currencyCode, "
+                + "paymentType, status, paidAt, createdAt.")
+    @ApiResponse(responseCode = "200", description = "Page of payments")
+    public Mono<PageResponse<PaymentRow>> searchPaged(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String paymentType,
+            @RequestParam(required = false) UUID providerId,
+            @RequestParam(required = false) String currencyCode,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "createdAt") String sortKey,
+            @RequestParam(required = false, defaultValue = "desc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        var params = new PaymentFilterParams(
+                status, paymentType, providerId, currencyCode, q,
+                sortKey, sortDirection, page, size);
+        return paymentService.searchPaged(params);
     }
 
     @GetMapping("/{id}")

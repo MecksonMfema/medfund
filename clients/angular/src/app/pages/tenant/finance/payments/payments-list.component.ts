@@ -3,41 +3,40 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import {
+  FinancePageResponse,
   FinanceService,
-  Payment,
+  PaymentRow,
   PaymentStatus,
 } from '../../../../core/services/finance.service';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
-import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
-import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
-import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
+import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 
 @Component({
   selector: 'app-payments-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, SelectComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
+  imports: [CommonModule, FormsModule, SelectComponent, DataTableComponent],
   templateUrl: './payments-list.component.html',
   styleUrl: './payments-list.component.scss',
 })
 export class PaymentsListComponent implements OnInit {
-  rows: Payment[] = [];
-  filtered: Payment[] = [];
+  rows: PaymentRow[] = [];
   loading = false;
   errorMessage: string | null = null;
 
   presetStatus: PaymentStatus | '' = '';
   pageTitle = 'Payments';
-  pageDescription = 'Provider payouts. Filter by status or currency. Click any row to inspect.';
+  pageDescription = 'Provider payouts. Filter by status. Click any row to inspect.';
 
   statusFilter: PaymentStatus | '' = '';
-  currencyFilter = '';
-  searchTerm = '';
 
-  constructor(
-    private finance: FinanceService,
-    private route: ActivatedRoute,
-    private router: Router,
-  ) {}
+  // Server-side pagination state.
+  page = 1;
+  pageSize = 50;
+  totalCount = 0;
+  totalPages = 1;
+  sortKey = 'createdAt';
+  sortDirection: 'asc' | 'desc' = 'desc';
+  searchTerm = '';
 
   readonly statusOptions: SelectOption[] = [
     { value: '', label: 'All' },
@@ -48,12 +47,32 @@ export class PaymentsListComponent implements OnInit {
     { value: 'failed', label: 'Failed' },
   ];
 
-  get currencyOptions(): SelectOption[] {
-    return [
-      { value: '', label: 'All' },
-      ...this.uniqueCurrencies().map(c => ({ value: c, label: c })),
-    ];
-  }
+  readonly columns: TableColumn[] = [
+    { key: 'paymentNumber', label: 'Payment #',   sortable: true },
+    { key: 'providerName',  label: 'Provider',    sortable: true },
+    { key: 'amount',        label: 'Amount',      sortable: true, type: 'currency' },
+    { key: 'currencyCode',  label: 'Currency',    sortable: true },
+    { key: 'paymentType',   label: 'Type',        sortable: true, type: 'label' },
+    { key: 'status',        label: 'Status',      sortable: true, type: 'status' },
+    { key: 'reference',     label: 'Reference' },
+    { key: 'paidAt',        label: 'Paid at',     sortable: true, type: 'date' },
+    { key: 'createdAt',     label: 'Created',     sortable: true, type: 'date' },
+  ];
+
+  readonly actions: TableAction[] = [
+    {
+      label: 'View',
+      icon: 'eye',
+      color: 'default',
+      handler: (row: PaymentRow) => this.router.navigate(['/tenant/finance/payments', row.id]),
+    },
+  ];
+
+  constructor(
+    private finance: FinanceService,
+    private route: ActivatedRoute,
+    private router: Router,
+  ) {}
 
   ngOnInit(): void {
     const data = this.route.snapshot.data;
@@ -64,46 +83,56 @@ export class PaymentsListComponent implements OnInit {
     if (data['title']) this.pageTitle = data['title'];
     if (data['description']) this.pageDescription = data['description'];
 
-    this.refresh();
+    this.fetchPage();
   }
 
-  refresh(): void {
+  fetchPage(): void {
     this.loading = true;
-    const stream = this.statusFilter
-      ? this.finance.getPaymentsByStatus(this.statusFilter)
-      : this.finance.listPayments();
-    stream.subscribe({
-      next: (rows) => { this.rows = rows; this.applyFilter(); this.loading = false; },
+    this.errorMessage = null;
+    this.finance.listPaymentsPaged({
+      status: this.statusFilter || undefined,
+      q: this.searchTerm || undefined,
+      sortKey: this.sortKey,
+      sortDirection: this.sortDirection,
+      page: this.page - 1,
+      size: this.pageSize,
+    }).subscribe({
+      next: (resp: FinancePageResponse<PaymentRow>) => {
+        this.rows = resp.content;
+        this.totalCount = resp.total;
+        this.totalPages = resp.totalPages;
+        this.loading = false;
+      },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load payments';
+        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load payments';
+        this.rows = [];
+        this.totalCount = 0;
+        this.totalPages = 1;
         this.loading = false;
       },
     });
   }
 
-  onStatusChange(): void { this.refresh(); }
-  onFilterChange(): void { this.applyFilter(); }
-
-  open(payment: Payment): void {
-    this.router.navigate(['/tenant/finance/payments', payment.id]);
+  onStatusChange(): void {
+    this.page = 1;
+    this.fetchPage();
   }
 
-  uniqueCurrencies(): string[] {
-    return Array.from(new Set(this.rows.map(r => r.currencyCode))).sort();
+  onPageChange(page: number): void {
+    this.page = page;
+    this.fetchPage();
   }
 
-  private applyFilter(): void {
-    let rows = this.rows;
-    if (this.currencyFilter) {
-      rows = rows.filter(r => r.currencyCode === this.currencyFilter);
-    }
-    const q = this.searchTerm.trim().toLowerCase();
-    if (q) {
-      rows = rows.filter(r =>
-        r.paymentNumber?.toLowerCase().includes(q) ||
-        (r.reference && r.reference.toLowerCase().includes(q)),
-      );
-    }
-    this.filtered = rows;
+  onSearchChange(term: string): void {
+    this.searchTerm = term;
+    this.page = 1;
+    this.fetchPage();
+  }
+
+  onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
+    this.sortKey = evt.key;
+    this.sortDirection = evt.direction;
+    this.page = 1;
+    this.fetchPage();
   }
 }
