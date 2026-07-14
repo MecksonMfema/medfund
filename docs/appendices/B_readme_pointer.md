@@ -2,9 +2,7 @@
 
 The root `README.md` at the top of this repository is the authoritative entry point. Direct link:
 
-- https://github.com/OWNER/REPO/blob/main/README.md
-
-Replace `OWNER/REPO` with the actual URL at submission time.
+- https://github.com/MecksonMfema/medfund/blob/main/README.md
 
 ## Repository layout (top level)
 

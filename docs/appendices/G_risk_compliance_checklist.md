@@ -40,7 +40,7 @@ Also appended to the AI4I proposal PDF after the body. This file is the repo cop
 | No clear user, beneficiary, or payer | Cleared. Seven user groups defined (section 1.3), four revenue lines defined (section 5.1) |
 | No business or sustainability model | Cleared. Full canvas in Appendix D, cost projection in section 5.2, four-tier pricing model |
 | No deployment plan beyond the demo | Cleared. Full plan in Appendix E, 90-day roadmap in section 3.1 |
-| No repository, dashboard, notebook, or evidence pack | Cleared. Repository at [Repo URL]. Evidence pack in Appendices B and H |
+| No repository, dashboard, notebook, or evidence pack | Cleared. Repository at https://github.com/MecksonMfema/medfund. Evidence pack in Appendices B and H |
 | No explanation of backend, database, integrations, or architecture | Cleared. Section 2.2 plus Appendix A |
 | No data source explanation | Cleared. Section 2.5 plus Appendix F |
 | AI mentioned but not justified | Cleared. Section 2.3 three-tier framing plus 10 capability entries plus Appendix F |

@@ -8,7 +8,7 @@ Date: 14 July 2026
 
 Submission artefacts:
 
-- Repository: [Repo URL, e.g., https://github.com/OWNER/REPO]. Access: public during the AI4I judging window (14 Jul to 1 Aug 2026), or private with judge accounts invited as read-only collaborators. State the access mode on the portal submission form.
+- Repository: https://github.com/MecksonMfema/medfund. Access: public during the AI4I judging window (14 Jul to 1 Aug 2026), or private with judge accounts invited as read-only collaborators. State the access mode on the portal submission form.
 - Hosted demo: [Demo URL]. Adjudicator smoke test passes per section 3.1 bootcamp definition of done.
 - Appendices: In repo at `/docs/appendices/` (A through J, per the appendix list at the end of this document).
 
@@ -106,7 +106,7 @@ Synthetic data validates through Kolmogorov-Smirnov and chi-squared correlation 
 
 ### 2.6 Prototype credibility and honest maturity matrix
 
-The GitHub repository is at [Repo URL] (Appendix B for full layout and README). At submission the repository contains around [N] merged commits across [M] services, with green CI, Testcontainers-backed integration tests, and dependency-locked manifests. No component gets claimed as production-ready when the component is not.
+The GitHub repository is at https://github.com/MecksonMfema/medfund (Appendix B for full layout and README). At submission the repository contains around [N] merged commits across [M] services, with green CI, Testcontainers-backed integration tests, and dependency-locked manifests. No component gets claimed as production-ready when the component is not.
 
 Full status at submission (per Appendix H). Full: tenancy, user service, RBAC, Keycloak per-tenant zones, policy administration, contributions and premium billing, three-line claims and adjudication (health, motor, funeral), rules engine with per-tenant KieBase isolation, tariff catalogue with annual cap, templated notifications, three Angular portals (Member, Adjudicator, Tenant Admin). Partial: Provider Network (onboarding and tariff live, pre-auth scaffolded), Finance and Regulatory (reports operational, GL and reserves in-flight), Flutter member app (core screens working, biometric-KYC in-flight), Provider portal. Functional and improving: audit trail (actor email, entity name, correlation ID enrichment extending). Design or stubs: payment gateway integrations (Ecocash targeted for bootcamp), live activity stream, Group Liaison and Regulator portals. Open: AI Service tier selection per capability (bootcamp and pilot decision, section 2.3), with AI-1, AI-4, AI-5, and AI-7 wired with candidate tier. See Appendix A for the single-page architecture render, Appendix C for the demo script, and Appendix H for the testing evidence pack.
 
