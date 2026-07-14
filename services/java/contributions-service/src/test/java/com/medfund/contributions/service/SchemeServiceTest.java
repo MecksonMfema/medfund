@@ -54,6 +54,13 @@ class SchemeServiceTest {
     @Mock
     private org.springframework.r2dbc.core.DatabaseClient.GenericExecuteSpec dbExec;
 
+    @Mock
+    private com.medfund.contributions.repository.SchemeQueryRepository schemeQueryRepository;
+    @Mock
+    private com.medfund.contributions.repository.SchemeBenefitQueryRepository schemeBenefitQueryRepository;
+    @Mock
+    private com.medfund.contributions.repository.BenefitTariffCategoryRepository benefitTariffCategoryRepository;
+
     @InjectMocks
     private SchemeService schemeService;
 
@@ -190,7 +197,7 @@ class SchemeServiceTest {
         var request = new CreateSchemeBenefitRequest(
             schemeId, "Outpatient", "outpatient",
             new BigDecimal("5000.00"), new BigDecimal("500.00"), new BigDecimal("1000.00"),
-            "USD", 30, "Outpatient benefit", null, null, null, null
+            "USD", 30, "Outpatient benefit", null, null, null, null, null
         );
 
         var parentScheme = new Scheme();
@@ -340,7 +347,7 @@ class SchemeServiceTest {
         var request = new CreateSchemeBenefitRequest(
             schemeId, "Outpatient", "outpatient",
             new BigDecimal("5000.00"), null, null,
-            "EUR", 30, null, null, null, null, null
+            "EUR", 30, null, null, null, null, null, null
         );
 
         StepVerifier.create(schemeService.createBenefit(request, actorId, actorEmail)
@@ -373,7 +380,7 @@ class SchemeServiceTest {
         var request = new CreateSchemeBenefitRequest(
             schemeId, "Outpatient", "outpatient",
             new BigDecimal("5000.00"), null, null,
-            null, 30, null, null, null, null, null
+            null, 30, null, null, null, null, null, null
         );
 
         StepVerifier.create(schemeService.createBenefit(request, actorId, actorEmail)
@@ -551,7 +558,7 @@ class SchemeServiceTest {
         var request = new CreateSchemeBenefitRequest(
             schemeId, "Anything", "x",
             new BigDecimal("1000.00"), null, null,
-            "USD", 0, null, null, null, null, null
+            "USD", 0, null, null, null, null, null, null
         );
 
         StepVerifier.create(schemeService.createBenefit(request, actorId, actorEmail)
@@ -613,7 +620,7 @@ class SchemeServiceTest {
         var request = new CreateSchemeBenefitRequest(
             schemeId, "Sum Assured", "lump_sum",
             new BigDecimal("100000.00"), null, null,
-            "USD", 90, null, null, null, null, null
+            "USD", 90, null, null, null, null, null, null
         );
 
         StepVerifier.create(schemeService.createBenefit(request, actorId, actorEmail)
@@ -653,5 +660,87 @@ class SchemeServiceTest {
         scheme.setCreatedBy(UUID.randomUUID());
         scheme.setUpdatedBy(UUID.randomUUID());
         return scheme;
+    }
+
+    // ── V063 benefit ↔ tariff-category persistence ──────────────────────
+
+    /**
+     * V063 — creating a benefit with a non-empty {@code categoryIds}
+     * list wipes any existing links and inserts one row per category.
+     * This is the delete-then-insert refresh path in
+     * {@code replaceBenefitCategories}.
+     */
+    @Test
+    void createBenefit_withCategoryIds_wipesThenLinksCategories() {
+        var schemeId = UUID.randomUUID();
+        UUID catA = UUID.randomUUID();
+        UUID catB = UUID.randomUUID();
+        var request = new CreateSchemeBenefitRequest(
+            schemeId, "Outpatient", "outpatient",
+            new BigDecimal("5000.00"), null, null,
+            "USD", 30, null, null, null, null, null,
+            java.util.List.of(catA, catB)
+        );
+
+        var parent = createTestScheme();
+        parent.setId(schemeId);
+        parent.setCurrencyCode("USD");
+        parent.setInsuranceLine("HEALTH");
+        when(schemeRepository.findById(schemeId)).thenReturn(Mono.just(parent));
+        when(schemeBenefitRepository.save(any())).thenAnswer(inv -> {
+            var saved = (com.medfund.contributions.entity.SchemeBenefit) inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(benefitTariffCategoryRepository.deleteByBenefit(any(UUID.class))).thenReturn(Mono.just(0));
+        when(benefitTariffCategoryRepository.link(any(UUID.class), any(UUID.class))).thenReturn(Mono.just(1));
+
+        StepVerifier.create(schemeService.createBenefit(request, actorId, actorEmail)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+                .expectNextCount(1)
+                .verifyComplete();
+
+        verify(benefitTariffCategoryRepository).deleteByBenefit(any(UUID.class));
+        verify(benefitTariffCategoryRepository).link(any(UUID.class), eq(catA));
+        verify(benefitTariffCategoryRepository).link(any(UUID.class), eq(catB));
+    }
+
+    /**
+     * V063 — creating a benefit with a null {@code categoryIds} short-
+     * circuits {@code replaceBenefitCategories}, leaving the join table
+     * untouched. Guards against a partial-update path accidentally
+     * wiping the existing links.
+     */
+    @Test
+    void createBenefit_nullCategoryIds_skipsCategoryPersistence() {
+        var schemeId = UUID.randomUUID();
+        var request = new CreateSchemeBenefitRequest(
+            schemeId, "Outpatient", "outpatient",
+            new BigDecimal("5000.00"), null, null,
+            "USD", 30, null, null, null, null, null, null
+        );
+
+        var parent = createTestScheme();
+        parent.setId(schemeId);
+        parent.setCurrencyCode("USD");
+        parent.setInsuranceLine("HEALTH");
+        when(schemeRepository.findById(schemeId)).thenReturn(Mono.just(parent));
+        when(schemeBenefitRepository.save(any())).thenAnswer(inv -> {
+            var saved = (com.medfund.contributions.entity.SchemeBenefit) inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+
+        StepVerifier.create(schemeService.createBenefit(request, actorId, actorEmail)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+                .expectNextCount(1)
+                .verifyComplete();
+
+        verify(benefitTariffCategoryRepository, org.mockito.Mockito.never())
+                .deleteByBenefit(any(UUID.class));
+        verify(benefitTariffCategoryRepository, org.mockito.Mockito.never())
+                .link(any(UUID.class), any(UUID.class));
     }
 }

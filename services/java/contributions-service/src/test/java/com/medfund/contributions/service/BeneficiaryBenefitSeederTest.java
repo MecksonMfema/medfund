@@ -2,6 +2,7 @@ package com.medfund.contributions.service;
 
 import com.medfund.contributions.entity.Scheme;
 import com.medfund.contributions.entity.SchemeBenefit;
+import com.medfund.contributions.repository.BeneficiaryAnnualTotalRepository;
 import com.medfund.contributions.repository.BeneficiaryBenefitRepository;
 import com.medfund.contributions.repository.SchemeBenefitRepository;
 import com.medfund.contributions.repository.SchemeRepository;
@@ -32,6 +33,7 @@ class BeneficiaryBenefitSeederTest {
     @Mock SchemeRepository schemeRepository;
     @Mock SchemeBenefitRepository schemeBenefitRepository;
     @Mock BeneficiaryBenefitRepository beneficiaryBenefitRepository;
+    @Mock BeneficiaryAnnualTotalRepository beneficiaryAnnualTotalRepository;
 
     private BeneficiaryBenefitSeeder seeder;
 
@@ -42,12 +44,17 @@ class BeneficiaryBenefitSeederTest {
 
     @BeforeEach
     void setUp() {
-        seeder = new BeneficiaryBenefitSeeder(schemeRepository, schemeBenefitRepository, beneficiaryBenefitRepository);
+        seeder = new BeneficiaryBenefitSeeder(schemeRepository, schemeBenefitRepository,
+                beneficiaryBenefitRepository, beneficiaryAnnualTotalRepository);
         memberId = UUID.randomUUID();
         schemeId = UUID.randomUUID();
         enrollDate = LocalDate.of(2026, 7, 1);
         dob = LocalDate.of(1990, 1, 1); // age 36 at enrollDate
         lenient().when(beneficiaryBenefitRepository.seedRow(any(), any(), any(), any(), any(), any()))
+                .thenReturn(Mono.just(1));
+        // V062 annual-totals seed default — returns 1 row when called
+        // (the specific tests override to assert whether it's called at all).
+        lenient().when(beneficiaryAnnualTotalRepository.seedRow(any(), any(), any(), any(), any()))
                 .thenReturn(Mono.just(1));
     }
 
@@ -136,6 +143,68 @@ class BeneficiaryBenefitSeederTest {
 
         verify(beneficiaryBenefitRepository, never())
                 .seedRow(any(), any(), any(), any(), any(), any());
+    }
+
+    // ── V062 annual-cap ledger seeding ──────────────────────────────────
+
+    /**
+     * V062 — a scheme configured with {@code annual_member_cap} seeds a
+     * cap-ledger row alongside the per-benefit rows. Without this row
+     * the claim-detail annual-cap widget starts empty until the first
+     * claim, which reads worse than showing 0 / cap up front.
+     */
+    @Test
+    void seed_schemeWithAnnualCap_alsoSeedsAnnualTotalsRow() {
+        var scheme = scheme(true);
+        scheme.setAnnualMemberCap(new java.math.BigDecimal("50000"));
+        var running = benefit("RUNNING_BALANCE");
+        when(schemeRepository.findById(schemeId)).thenReturn(Mono.just(scheme));
+        when(schemeBenefitRepository.findBySchemeId(schemeId)).thenReturn(Flux.just(running));
+
+        StepVerifier.create(seeder.seed(memberId, null, schemeId, enrollDate, dob)).verifyComplete();
+
+        // Cap-ledger seed fires with the scheme + beneficiary keys and
+        // the enrollment year (2026). Currency inherits from the scheme.
+        verify(beneficiaryAnnualTotalRepository).seedRow(
+                eq(schemeId), eq(memberId), eq((UUID) null), eq(2026), eq("USD"));
+    }
+
+    /**
+     * V062 — a scheme with a null {@code annual_member_cap} must NOT
+     * seed the cap ledger. Single-benefit products (funeral, life) don't
+     * carry an aggregate cap.
+     */
+    @Test
+    void seed_schemeWithoutAnnualCap_skipsAnnualTotalsSeed() {
+        var scheme = scheme(true); // no cap
+        var running = benefit("RUNNING_BALANCE");
+        when(schemeRepository.findById(schemeId)).thenReturn(Mono.just(scheme));
+        when(schemeBenefitRepository.findBySchemeId(schemeId)).thenReturn(Flux.just(running));
+
+        StepVerifier.create(seeder.seed(memberId, null, schemeId, enrollDate, dob)).verifyComplete();
+
+        verify(beneficiaryAnnualTotalRepository, never())
+                .seedRow(any(), any(), any(), any(), any());
+    }
+
+    /**
+     * V062 — dependants get their own cap ledger row. The dependant_id
+     * lands in the row so the claim-detail widget can scope
+     * consumed-vs-cap per beneficiary.
+     */
+    @Test
+    void seed_dependant_withCap_seedsAnnualTotalsRowForDependant() {
+        UUID dependantId = UUID.randomUUID();
+        var scheme = scheme(true);
+        scheme.setAnnualMemberCap(new java.math.BigDecimal("50000"));
+        var running = benefit("RUNNING_BALANCE");
+        when(schemeRepository.findById(schemeId)).thenReturn(Mono.just(scheme));
+        when(schemeBenefitRepository.findBySchemeId(schemeId)).thenReturn(Flux.just(running));
+
+        StepVerifier.create(seeder.seed(memberId, dependantId, schemeId, enrollDate, dob)).verifyComplete();
+
+        verify(beneficiaryAnnualTotalRepository).seedRow(
+                eq(schemeId), eq(memberId), eq(dependantId), eq(2026), any());
     }
 
     // ── Fixtures ─────────────────────────────────────────────────────────

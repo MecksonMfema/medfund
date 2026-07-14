@@ -31,6 +31,11 @@ class SchemeControllerTest {
     @MockBean
     private SchemeService schemeService;
 
+    // V063 — SchemeController now injects the benefit ↔ tariff-category
+    // repo to enrich GET /schemes/benefits/{id} with categoryIds.
+    @MockBean
+    private com.medfund.contributions.repository.BenefitTariffCategoryRepository benefitTariffCategoryRepository;
+
     @Test
     void findAll_returns200() {
         when(schemeService.findAll()).thenReturn(Flux.just(createTestScheme()));
