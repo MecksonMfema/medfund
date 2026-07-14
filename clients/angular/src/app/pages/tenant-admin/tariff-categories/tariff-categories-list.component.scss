@@ -1,135 +1,71 @@
-.page { padding: 1.5rem; }
-
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  margin-bottom: 1.25rem;
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
   flex-wrap: wrap;
 }
-.page-header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
-.page-sub { margin: 0; color: var(--color-text-muted, #6b7280); font-size: 0.9rem; max-width: 70ch; }
+
+.page-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.page-header .page-sub {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  max-width: 70ch;
+}
 
 .banner {
   padding: 0.5rem 0.75rem;
-  border-radius: 4px;
   cursor: pointer;
-  font-size: 0.875rem;
-  margin-bottom: 1rem;
+  margin: 0.75rem 24px 0;
+  border-radius: var(--radius-md, 8px);
 }
-.banner-error   { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
+.banner-error { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
 .banner-success { background: var(--success-bg, #d1fae5); color: var(--success-fg, #065f46); }
+
+.add-form { margin: 0.75rem 24px 0; }
 
 .card {
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border-light, #e5e7eb);
-  border-radius: 8px;
-  padding: 1rem 1.1rem;
-  margin-bottom: 1rem;
+  border-radius: var(--radius-md, 8px);
+  padding: 1.25rem;
 }
 
 .form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
 }
-.span-2 { grid-column: 1 / -1; }
 
-.field { display: flex; flex-direction: column; font-size: 0.85rem; }
-.field-label { font-weight: 500; margin-bottom: 0.25rem; }
-.field input {
-  padding: 0.5rem 0.6rem;
+.field { display: flex; flex-direction: column; }
+.field-label { font-weight: 500; font-size: 0.875rem; margin-bottom: 0.35rem; }
+.field input,
+.field select {
+  padding: 0.55rem 0.75rem;
   border: 1px solid var(--color-border, #d1d5db);
-  border-radius: 4px;
-  font-size: 0.9rem;
+  border-radius: var(--radius-md, 8px);
+  font-size: 0.95rem;
 }
-.field.checkbox {
-  flex-direction: row;
+
+.span-2 { grid-column: span 2; }
+
+.checkbox {
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  input { width: auto; }
+  font-size: 0.9rem;
 }
 
 .form-actions {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-.data-table th, .data-table td {
-  padding: 0.6rem 0.7rem;
-  text-align: left;
-  border-bottom: 1px solid var(--color-border-light, #e5e7eb);
-  vertical-align: top;
-}
-.data-table th {
-  font-weight: 500;
-  color: var(--color-text-muted, #6b7280);
-  font-size: 0.78rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.right { text-align: right; }
-.muted { color: var(--color-text-muted, #6b7280); }
-tr.inactive { opacity: 0.6; }
-
-.badge {
-  display: inline-block;
-  padding: 0.1rem 0.5rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  border-radius: 9999px;
-}
-.badge-warn    { background: var(--warning-bg, #fef3c7); color: var(--warning-fg, #92400e); }
-.badge-success { background: var(--success-bg, #d1fae5); color: var(--success-fg, #065f46); }
-.badge-muted   {
-  background: var(--color-bg, #f1f5f9);
-  color: var(--color-text-muted, #6b7280);
-}
-
-.link-btn {
-  background: none;
-  border: none;
-  color: var(--color-primary, #0077b6);
-  cursor: pointer;
-  font-size: 0.85rem;
-  padding: 0.25rem 0.4rem;
-}
-.link-btn.danger { color: var(--danger-fg, #b91c1c); }
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 0.9rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  border-radius: 6px;
-  border: 1px solid transparent;
-  cursor: pointer;
-}
-.btn-primary {
-  background: var(--color-primary, #0077b6);
-  color: white;
-  &:hover:not(:disabled) { background: var(--color-primary-hover, #005f92); }
-  &:disabled { opacity: 0.6; cursor: default; }
-}
-.btn-default {
-  background: transparent;
-  border-color: var(--color-border, #d1d5db);
-  color: var(--color-text-primary, #1b2a4a);
-}
-
-.empty-state {
-  color: var(--color-text-muted, #6b7280);
-  padding: 2rem 0;
-  text-align: center;
-  font-style: italic;
 }

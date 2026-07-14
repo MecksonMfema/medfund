@@ -1,10 +1,14 @@
 package com.medfund.claims.controller;
 
+import com.medfund.claims.dto.PageResponse;
+import com.medfund.claims.dto.TariffCategoryFilterParams;
 import com.medfund.claims.dto.TariffCategoryResponse;
 import com.medfund.claims.dto.UpsertTariffCategoryRequest;
 import com.medfund.claims.entity.TariffCategory;
+import com.medfund.claims.repository.TariffCategoryQueryRepository;
 import com.medfund.claims.repository.TariffCategoryRepository;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -39,13 +43,16 @@ import java.util.UUID;
 public class TariffCategoryController {
 
     private final TariffCategoryRepository repository;
+    private final TariffCategoryQueryRepository queryRepository;
 
-    public TariffCategoryController(TariffCategoryRepository repository) {
+    public TariffCategoryController(TariffCategoryRepository repository,
+                                     TariffCategoryQueryRepository queryRepository) {
         this.repository = repository;
+        this.queryRepository = queryRepository;
     }
 
     @GetMapping
-    @Operation(summary = "List tariff categories",
+    @Operation(summary = "List tariff categories (unpaginated — prefer /page)",
         description = "Returns categories in sort_order + label. Pass activeOnly=true to hide "
                     + "deactivated rows (default false so admins can un-deactivate).")
     public Flux<TariffCategoryResponse> list(@RequestParam(required = false, defaultValue = "false") boolean activeOnly) {
@@ -53,6 +60,31 @@ public class TariffCategoryController {
                 ? repository.findAllActiveOrderBySortOrder()
                 : repository.findAllOrderBySortOrder();
         return stream.map(TariffCategoryResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "Server-side paginated, sortable, filterable tariff-categories list",
+        description = "Feeds /tenant/admin/tariff-categories. Sortable keys: code, label, "
+                    + "isCapOnly, isActive, sortOrder.")
+    @ApiResponse(responseCode = "200", description = "Page of tariff categories")
+    public Mono<PageResponse<TariffCategoryResponse>> searchPaged(
+            @RequestParam(required = false) Boolean activeOnly,
+            @RequestParam(required = false) Boolean capOnly,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "sortOrder") String sortKey,
+            @RequestParam(required = false, defaultValue = "asc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        var params = new TariffCategoryFilterParams(activeOnly, capOnly, q, sortKey, sortDirection, page, size);
+        int pageIdx = Math.max(params.page(), 0);
+        int sizeCl = Math.min(Math.max(params.size(), 1), 200);
+        int offset = pageIdx * sizeCl;
+        return queryRepository.search(params, sizeCl, offset)
+                .collectList()
+                .zipWith(queryRepository.count(params))
+                .map(t -> PageResponse.of(
+                        t.getT1().stream().map(TariffCategoryResponse::from).toList(),
+                        t.getT2(), pageIdx, sizeCl));
     }
 
     @GetMapping("/{id}")

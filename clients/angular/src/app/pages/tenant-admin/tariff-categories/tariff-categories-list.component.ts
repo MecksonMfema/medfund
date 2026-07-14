@@ -4,17 +4,12 @@ import { FormsModule } from '@angular/forms';
 import {
   TariffCategoriesService,
   TariffCategory,
+  TariffCategoryPageResponse,
   UpsertTariffCategoryPayload,
 } from '../../../core/services/tariff-categories.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
-import { SkeletonComponent } from '../../../shared/components/skeleton/skeleton.component';
+import { DataTableComponent, TableAction, TableColumn } from '../../../shared/components/data-table/data-table.component';
 
-/**
- * V063 tariff_categories admin — thin list + inline create/edit form.
- * Sits under /tenant/admin/tariff-categories. Sends every write through
- * {@link TariffCategoriesService}. Mirrors the shape of the existing
- * billing-tab benefit-types admin.
- */
 interface CategoryDraft extends UpsertTariffCategoryPayload {
   id?: string;
 }
@@ -22,7 +17,7 @@ interface CategoryDraft extends UpsertTariffCategoryPayload {
 @Component({
   selector: 'app-tariff-categories-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, DataTableComponent],
   templateUrl: './tariff-categories-list.component.html',
   styleUrl: './tariff-categories-list.component.scss',
 })
@@ -36,21 +31,76 @@ export class TariffCategoriesListComponent implements OnInit {
   showForm = false;
   draft: CategoryDraft = this.empty();
 
+  // Server-side pagination state.
+  page = 1;
+  pageSize = 50;
+  totalCount = 0;
+  totalPages = 1;
+  sortKey = 'sortOrder';
+  sortDirection: 'asc' | 'desc' = 'asc';
+  searchTerm = '';
+
+  readonly columns: TableColumn[] = [
+    { key: 'code',        label: 'Code',        sortable: true },
+    { key: 'label',       label: 'Label',       sortable: true },
+    { key: 'description', label: 'Description' },
+    { key: 'sortOrder',   label: 'Sort',        sortable: true },
+    { key: 'isCapOnly',   label: 'Cap-only',    sortable: true, type: 'boolean' },
+    { key: 'isActive',    label: 'Active',      sortable: true, type: 'boolean' },
+  ];
+
+  readonly actions: TableAction[] = [
+    {
+      label: 'Edit',
+      icon: 'edit',
+      color: 'default',
+      handler: (row: TariffCategory) => this.startEdit(row),
+    },
+    {
+      label: 'Deactivate',
+      icon: 'trash',
+      color: 'danger',
+      visible: (row: TariffCategory) => row.isActive,
+      handler: (row: TariffCategory) => this.deactivate(row),
+    },
+  ];
+
   constructor(private svc: TariffCategoriesService) {}
 
-  ngOnInit(): void {
-    this.reload();
-  }
+  ngOnInit(): void { this.fetchPage(); }
 
-  reload(): void {
+  fetchPage(): void {
     this.loading = true;
-    this.svc.list(false).subscribe({
-      next: rows => { this.rows = rows; this.loading = false; },
-      error: err => {
-        this.errorMessage = err?.error?.detail || 'Failed to load categories';
+    this.svc.listPaged({
+      q: this.searchTerm || undefined,
+      sortKey: this.sortKey,
+      sortDirection: this.sortDirection,
+      page: this.page - 1,
+      size: this.pageSize,
+    }).subscribe({
+      next: (resp: TariffCategoryPageResponse) => {
+        this.rows = resp.content;
+        this.totalCount = resp.total;
+        this.totalPages = resp.totalPages;
+        this.loading = false;
+      },
+      error: (err) => {
+        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load categories';
+        this.rows = [];
+        this.totalCount = 0;
+        this.totalPages = 1;
         this.loading = false;
       },
     });
+  }
+
+  onPageChange(page: number): void { this.page = page; this.fetchPage(); }
+  onSearchChange(term: string): void { this.searchTerm = term; this.page = 1; this.fetchPage(); }
+  onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
+    this.sortKey = evt.key;
+    this.sortDirection = evt.direction;
+    this.page = 1;
+    this.fetchPage();
   }
 
   startCreate(): void {
@@ -100,7 +150,7 @@ export class TariffCategoriesListComponent implements OnInit {
         this.saving = false;
         this.successMessage = 'Category saved';
         this.showForm = false;
-        this.reload();
+        this.fetchPage();
       },
       error: (err) => {
         this.saving = false;
@@ -114,7 +164,7 @@ export class TariffCategoriesListComponent implements OnInit {
     this.svc.deactivate(row.id).subscribe({
       next: () => {
         this.successMessage = 'Category deactivated';
-        this.reload();
+        this.fetchPage();
       },
       error: (err) => {
         this.errorMessage = err?.error?.detail || 'Deactivate failed';
