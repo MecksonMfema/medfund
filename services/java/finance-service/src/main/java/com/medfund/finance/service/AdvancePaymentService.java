@@ -1,7 +1,11 @@
 package com.medfund.finance.service;
 
 import com.medfund.finance.dto.AdvancePaymentDtos.CreateAdvancePaymentRequest;
+import com.medfund.finance.dto.AdvancePaymentFilterParams;
+import com.medfund.finance.dto.AdvancePaymentRow;
+import com.medfund.finance.dto.PageResponse;
 import com.medfund.finance.entity.AdvancePayment;
+import com.medfund.finance.repository.AdvancePaymentQueryRepository;
 import com.medfund.finance.repository.AdvancePaymentRepository;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
@@ -22,10 +26,25 @@ import java.util.UUID;
 public class AdvancePaymentService {
 
     private final AdvancePaymentRepository repository;
+    private final AdvancePaymentQueryRepository queryRepository;
     private final AuditPublisher auditPublisher;
 
     public Flux<AdvancePayment> findAll() {
         return repository.findAllOrdered();
+    }
+
+    /**
+     * Server-side paginated advance-payments list. Provider + member
+     * names joined so the operational table renders inline.
+     */
+    public Mono<PageResponse<AdvancePaymentRow>> searchPaged(AdvancePaymentFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return queryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(queryRepository.count(params))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 
     public Flux<AdvancePayment> findByProvider(UUID providerId) {

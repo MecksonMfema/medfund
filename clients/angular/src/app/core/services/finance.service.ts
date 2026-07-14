@@ -281,6 +281,45 @@ export interface PaymentPageParams {
   size?: number;
 }
 
+// ── Advance-payment paginated row ───────────────────────────────────────
+export interface AdvancePaymentRow {
+  id: string;
+  paymentId?: string;
+  providerId?: string;
+  providerName?: string;
+  memberId?: string;
+  memberName?: string;
+  memberNumber?: string;
+  amount: string;
+  currencyCode: string;
+  paymentMethod?: string;
+  reference?: string;
+  comment?: string;
+  recordedAt?: string;
+}
+
+export interface AdvancePaymentPageParams {
+  providerId?: string;
+  memberId?: string;
+  currencyCode?: string;
+  q?: string;
+  sortKey?: string;
+  sortDirection?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
+}
+
+// ── Payment-run paginated row (shares the Angular PaymentRun type) ─────
+export interface PaymentRunPageParams {
+  status?: string;
+  currencyCode?: string;
+  q?: string;
+  sortKey?: string;
+  sortDirection?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
+}
+
 export interface CreateCtcPaymentPayload {
   groupId?: string;
   memberId?: string;
@@ -386,6 +425,18 @@ export class FinanceService {
 
   // ── Payment runs ──
   listRuns(): Observable<PaymentRun[]> { return this.api.get<PaymentRun[]>('/payment-runs'); }
+  /** Server-side paginated payment-runs list. */
+  listRunsPaged(opts: PaymentRunPageParams): Observable<FinancePageResponse<PaymentRun>> {
+    const params: Record<string, string> = {};
+    if (opts.status)         params['status']         = opts.status;
+    if (opts.currencyCode)   params['currencyCode']   = opts.currencyCode;
+    if (opts.q)              params['q']              = opts.q;
+    if (opts.sortKey)        params['sortKey']        = opts.sortKey;
+    if (opts.sortDirection)  params['sortDirection']  = opts.sortDirection;
+    if (opts.page !== undefined) params['page']       = String(opts.page);
+    if (opts.size !== undefined) params['size']       = String(opts.size);
+    return this.api.get<FinancePageResponse<PaymentRun>>('/payment-runs/page', params);
+  }
   getRun(id: string): Observable<PaymentRun> { return this.api.get<PaymentRun>(`/payment-runs/${id}`); }
   getRunItems(id: string): Observable<PaymentRunItem[]> { return this.api.get<PaymentRunItem[]>(`/payment-runs/${id}/items`); }
   createRun(body: CreatePaymentRunPayload): Observable<PaymentRun> { return this.api.post<PaymentRun>('/payment-runs', body); }
@@ -485,6 +536,19 @@ export class FinanceService {
 
   // ── Advance payments ──
   listAdvancePayments(): Observable<AdvancePayment[]> { return this.api.get<AdvancePayment[]>('/advance-payments'); }
+  /** Server-side paginated advance-payments list — provider + member names joined. */
+  listAdvancePaymentsPaged(opts: AdvancePaymentPageParams): Observable<FinancePageResponse<AdvancePaymentRow>> {
+    const params: Record<string, string> = {};
+    if (opts.providerId)    params['providerId']    = opts.providerId;
+    if (opts.memberId)      params['memberId']      = opts.memberId;
+    if (opts.currencyCode)  params['currencyCode']  = opts.currencyCode;
+    if (opts.q)             params['q']             = opts.q;
+    if (opts.sortKey)       params['sortKey']       = opts.sortKey;
+    if (opts.sortDirection) params['sortDirection'] = opts.sortDirection;
+    if (opts.page !== undefined) params['page']     = String(opts.page);
+    if (opts.size !== undefined) params['size']     = String(opts.size);
+    return this.api.get<FinancePageResponse<AdvancePaymentRow>>('/advance-payments/page', params);
+  }
   getAdvancePayment(id: string): Observable<AdvancePayment> { return this.api.get<AdvancePayment>(`/advance-payments/${id}`); }
   createAdvancePayment(body: CreateAdvancePaymentPayload): Observable<AdvancePayment> { return this.api.post<AdvancePayment>('/advance-payments', body); }
 

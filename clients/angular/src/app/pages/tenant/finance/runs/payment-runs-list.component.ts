@@ -1,28 +1,25 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import {
+  FinancePageResponse,
   FinanceService,
   PaymentRun,
   PaymentRunStatus,
 } from '../../../../core/services/finance.service';
-import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
-import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
-import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
-import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
+import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 
 @Component({
   selector: 'app-payment-runs-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
+  imports: [CommonModule, FormsModule, SelectComponent, DataTableComponent],
   templateUrl: './payment-runs-list.component.html',
   styleUrl: './payment-runs-list.component.scss',
 })
 export class PaymentRunsListComponent implements OnInit {
   rows: PaymentRun[] = [];
-  filtered: PaymentRun[] = [];
   loading = false;
   errorMessage: string | null = null;
 
@@ -32,14 +29,15 @@ export class PaymentRunsListComponent implements OnInit {
   pageDescription = 'Batched payouts to providers. Each run aggregates eligible adjudicated claims into a draft, then commits on execute.';
 
   statusFilter: PaymentRunStatus | '' = '';
-  currencyFilter = '';
-  searchTerm = '';
 
-  constructor(
-    private finance: FinanceService,
-    private route: ActivatedRoute,
-    private router: Router,
-  ) {}
+  // Server-side pagination state.
+  page = 1;
+  pageSize = 50;
+  totalCount = 0;
+  totalPages = 1;
+  sortKey = 'createdAt';
+  sortDirection: 'asc' | 'desc' = 'desc';
+  searchTerm = '';
 
   readonly statusOptions: SelectOption[] = [
     { value: '', label: 'All' },
@@ -50,12 +48,31 @@ export class PaymentRunsListComponent implements OnInit {
     { value: 'cancelled', label: 'Cancelled' },
   ];
 
-  get currencyOptions(): SelectOption[] {
-    return [
-      { value: '', label: 'All' },
-      ...this.uniqueCurrencies().map(c => ({ value: c, label: c })),
-    ];
-  }
+  readonly columns: TableColumn[] = [
+    { key: 'runNumber',    label: 'Run #',      sortable: true },
+    { key: 'status',       label: 'Status',     sortable: true, type: 'status' },
+    { key: 'totalAmount',  label: 'Total',      sortable: true, type: 'currency' },
+    { key: 'currencyCode', label: 'Currency',   sortable: true },
+    { key: 'paymentCount', label: 'Payments',   sortable: true },
+    { key: 'description',  label: 'Description' },
+    { key: 'executedAt',   label: 'Executed',   sortable: true, type: 'date' },
+    { key: 'createdAt',    label: 'Created',    sortable: true, type: 'date' },
+  ];
+
+  readonly actions: TableAction[] = [
+    {
+      label: 'View',
+      icon: 'eye',
+      color: 'default',
+      handler: (row: PaymentRun) => this.router.navigate(['/tenant/finance/runs', row.id]),
+    },
+  ];
+
+  constructor(
+    private finance: FinanceService,
+    private route: ActivatedRoute,
+    private router: Router,
+  ) {}
 
   ngOnInit(): void {
     const data = this.route.snapshot.data;
@@ -66,47 +83,55 @@ export class PaymentRunsListComponent implements OnInit {
     if (data['title']) this.pageTitle = data['title'];
     if (data['description']) this.pageDescription = data['description'];
 
-    this.refresh();
+    this.fetchPage();
   }
 
-  refresh(): void {
+  fetchPage(): void {
     this.loading = true;
-    this.finance.listRuns().subscribe({
-      next: (rows) => { this.rows = rows; this.applyFilter(); this.loading = false; },
+    this.finance.listRunsPaged({
+      status: this.statusFilter || undefined,
+      q: this.searchTerm || undefined,
+      sortKey: this.sortKey,
+      sortDirection: this.sortDirection,
+      page: this.page - 1,
+      size: this.pageSize,
+    }).subscribe({
+      next: (resp: FinancePageResponse<PaymentRun>) => {
+        this.rows = resp.content;
+        this.totalCount = resp.total;
+        this.totalPages = resp.totalPages;
+        this.loading = false;
+      },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load payment runs';
+        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load payment runs';
+        this.rows = [];
+        this.totalCount = 0;
+        this.totalPages = 1;
         this.loading = false;
       },
     });
   }
 
-  open(run: PaymentRun): void {
-    this.router.navigate(['/tenant/finance/runs', run.id]);
+  onStatusChange(): void {
+    this.page = 1;
+    this.fetchPage();
   }
 
-  onFilterChange(): void {
-    this.applyFilter();
+  onPageChange(page: number): void {
+    this.page = page;
+    this.fetchPage();
   }
 
-  uniqueCurrencies(): string[] {
-    return Array.from(new Set(this.rows.map(r => r.currencyCode))).sort();
+  onSearchChange(term: string): void {
+    this.searchTerm = term;
+    this.page = 1;
+    this.fetchPage();
   }
 
-  private applyFilter(): void {
-    let rows = this.rows;
-    if (this.statusFilter) {
-      rows = rows.filter(r => r.status === this.statusFilter);
-    }
-    if (this.currencyFilter) {
-      rows = rows.filter(r => r.currencyCode === this.currencyFilter);
-    }
-    const q = this.searchTerm.trim().toLowerCase();
-    if (q) {
-      rows = rows.filter(r =>
-        r.runNumber?.toLowerCase().includes(q) ||
-        (r.description && r.description.toLowerCase().includes(q)),
-      );
-    }
-    this.filtered = rows;
+  onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
+    this.sortKey = evt.key;
+    this.sortDirection = evt.direction;
+    this.page = 1;
+    this.fetchPage();
   }
 }

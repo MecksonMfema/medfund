@@ -38,7 +38,7 @@ export const FINANCE_ROUTES: Routes = [
     path: 'runs',
     canActivate: [permissionGuard(['finance:view'])],
     loadComponent: () => import('./runs/payment-runs-list.component').then(m => m.PaymentRunsListComponent),
-    data: { title: 'Payment Runs', sidebar: 'operational' },
+    data: { title: 'Payment Runs', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'runs/generate',
@@ -55,6 +55,7 @@ export const FINANCE_ROUTES: Routes = [
       description: 'Drafts awaiting approval and execution.',
       presetStatus: 'draft',
       sidebar: 'operational',
+      fullbleed: true,
     },
   },
   {
@@ -87,7 +88,7 @@ export const FINANCE_ROUTES: Routes = [
     path: 'payments/advance',
     canActivate: [permissionGuard(['finance:view_advance_payments'])],
     loadComponent: () => import('./advance/advance-payments-list.component').then(m => m.AdvancePaymentsListComponent),
-    data: { title: 'Advance Payments', sidebar: 'operational' },
+    data: { title: 'Advance Payments', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'payments/advance/add',

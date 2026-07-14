@@ -2,7 +2,11 @@ package com.medfund.finance.controller;
 
 import com.medfund.finance.dto.AdvancePaymentDtos.AdvancePaymentResponse;
 import com.medfund.finance.dto.AdvancePaymentDtos.CreateAdvancePaymentRequest;
+import com.medfund.finance.dto.AdvancePaymentFilterParams;
+import com.medfund.finance.dto.AdvancePaymentRow;
+import com.medfund.finance.dto.PageResponse;
 import com.medfund.finance.service.AdvancePaymentService;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import com.medfund.shared.audit.AuditActor;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -28,12 +32,30 @@ public class AdvancePaymentController {
     private final AdvancePaymentService service;
 
     @GetMapping
-    @Operation(summary = "List advance payments")
+    @Operation(summary = "List advance payments (unpaginated — prefer /page)")
     public Flux<AdvancePaymentResponse> list(@RequestParam(required = false) UUID providerId,
                                               @RequestParam(required = false) UUID memberId) {
         if (providerId != null) return service.findByProvider(providerId).map(AdvancePaymentResponse::from);
         if (memberId != null) return service.findByMember(memberId).map(AdvancePaymentResponse::from);
         return service.findAll().map(AdvancePaymentResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "Server-side paginated, sortable, filterable advance-payments list",
+        description = "Feeds /tenant/finance/payments/advance. Provider + member names joined.")
+    @ApiResponse(responseCode = "200", description = "Page of advance payments")
+    public Mono<PageResponse<AdvancePaymentRow>> searchPaged(
+            @RequestParam(required = false) UUID providerId,
+            @RequestParam(required = false) UUID memberId,
+            @RequestParam(required = false) String currencyCode,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "recordedAt") String sortKey,
+            @RequestParam(required = false, defaultValue = "desc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        var params = new AdvancePaymentFilterParams(
+                providerId, memberId, currencyCode, q, sortKey, sortDirection, page, size);
+        return service.searchPaged(params);
     }
 
     @GetMapping("/{id}")

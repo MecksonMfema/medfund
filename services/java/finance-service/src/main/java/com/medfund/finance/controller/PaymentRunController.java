@@ -1,6 +1,8 @@
 package com.medfund.finance.controller;
 
 import com.medfund.finance.dto.CreatePaymentRunRequest;
+import com.medfund.finance.dto.PageResponse;
+import com.medfund.finance.dto.PaymentRunFilterParams;
 import com.medfund.finance.dto.PaymentRunItemResponse;
 import com.medfund.finance.dto.PaymentRunResponse;
 import com.medfund.finance.service.PaymentRunService;
@@ -33,9 +35,28 @@ public class PaymentRunController {
     }
 
     @GetMapping
-    @Operation(summary = "List all payment runs")
+    @Operation(summary = "List all payment runs (unpaginated — prefer /page)")
     public Flux<PaymentRunResponse> findAll() {
         return paymentRunService.findAll().map(PaymentRunResponse::from);
+    }
+
+    @GetMapping("/page")
+    @Operation(summary = "Server-side paginated, sortable, filterable payment-runs list",
+        description = "Feeds /tenant/finance/runs. Sortable keys: runNumber, status, "
+                + "totalAmount, currencyCode, paymentCount, executedAt, createdAt.")
+    @ApiResponse(responseCode = "200", description = "Page of payment runs")
+    public Mono<PageResponse<PaymentRunResponse>> searchPaged(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String currencyCode,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "createdAt") String sortKey,
+            @RequestParam(required = false, defaultValue = "desc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        var params = new PaymentRunFilterParams(status, currencyCode, q, sortKey, sortDirection, page, size);
+        return paymentRunService.searchPaged(params).map(pageResp -> PageResponse.of(
+                pageResp.content().stream().map(PaymentRunResponse::from).toList(),
+                pageResp.total(), pageResp.page(), pageResp.size()));
     }
 
     @GetMapping("/{id}")

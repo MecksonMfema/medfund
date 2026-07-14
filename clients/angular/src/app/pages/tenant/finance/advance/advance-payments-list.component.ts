@@ -1,71 +1,98 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import {
-  AdvancePayment,
+  AdvancePaymentRow,
+  FinancePageResponse,
   FinanceService,
 } from '../../../../core/services/finance.service';
-import { IconComponent } from '../../../../shared/components/icon/icon.component';
-import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
-import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
-import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
+import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 
 @Component({
   selector: 'app-advance-payments-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, DataTableComponent],
   templateUrl: './advance-payments-list.component.html',
   styleUrl: './advance-payments-list.component.scss',
 })
 export class AdvancePaymentsListComponent implements OnInit {
-  rows: AdvancePayment[] = [];
-  filtered: AdvancePayment[] = [];
+  rows: AdvancePaymentRow[] = [];
   loading = false;
   errorMessage: string | null = null;
 
+  // Server-side pagination state.
+  page = 1;
+  pageSize = 50;
+  totalCount = 0;
+  totalPages = 1;
+  sortKey = 'recordedAt';
+  sortDirection: 'asc' | 'desc' = 'desc';
   searchTerm = '';
-  payeeFilter: '' | 'provider' | 'member' = '';
+
+  readonly columns: TableColumn[] = [
+    { key: 'providerName',  label: 'Provider',   sortable: true },
+    { key: 'memberName',    label: 'Member',     sortable: true },
+    { key: 'amount',        label: 'Amount',     sortable: true, type: 'currency' },
+    { key: 'currencyCode',  label: 'Currency',   sortable: true },
+    { key: 'paymentMethod', label: 'Method' },
+    { key: 'reference',     label: 'Reference' },
+    { key: 'recordedAt',    label: 'Recorded',   sortable: true, type: 'date' },
+  ];
+
+  readonly actions: TableAction[] = [
+    {
+      label: 'View',
+      icon: 'eye',
+      color: 'default',
+      handler: (row: AdvancePaymentRow) => this.router.navigate(['/tenant/finance/payments/advance', row.id]),
+    },
+  ];
 
   constructor(private finance: FinanceService, private router: Router) {}
 
-  readonly payeeOptions: SelectOption[] = [
-    { value: '', label: 'All' },
-    { value: 'provider', label: 'Providers' },
-    { value: 'member', label: 'Members' },
-  ];
+  ngOnInit(): void { this.fetchPage(); }
 
-  open(row: AdvancePayment): void {
-    this.router.navigate(['/tenant/finance/payments/advance', row.id]);
-  }
-
-  ngOnInit(): void {
-    this.refresh();
-  }
-
-  refresh(): void {
+  fetchPage(): void {
     this.loading = true;
-    this.finance.listAdvancePayments().subscribe({
-      next: (rows) => { this.rows = rows; this.applyFilter(); this.loading = false; },
+    this.finance.listAdvancePaymentsPaged({
+      q: this.searchTerm || undefined,
+      sortKey: this.sortKey,
+      sortDirection: this.sortDirection,
+      page: this.page - 1,
+      size: this.pageSize,
+    }).subscribe({
+      next: (resp: FinancePageResponse<AdvancePaymentRow>) => {
+        this.rows = resp.content;
+        this.totalCount = resp.total;
+        this.totalPages = resp.totalPages;
+        this.loading = false;
+      },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load advance payments';
+        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load advance payments';
+        this.rows = [];
+        this.totalCount = 0;
+        this.totalPages = 1;
         this.loading = false;
       },
     });
   }
 
-  onFilterChange(): void { this.applyFilter(); }
+  onPageChange(page: number): void {
+    this.page = page;
+    this.fetchPage();
+  }
 
-  private applyFilter(): void {
-    let rows = this.rows;
-    if (this.payeeFilter === 'provider') rows = rows.filter(r => !!r.providerId);
-    if (this.payeeFilter === 'member') rows = rows.filter(r => !!r.memberId);
-    const q = this.searchTerm.trim().toLowerCase();
-    if (q) {
-      rows = rows.filter(r =>
-        (r.reference && r.reference.toLowerCase().includes(q)) ||
-        (r.comment && r.comment.toLowerCase().includes(q)));
-    }
-    this.filtered = rows;
+  onSearchChange(term: string): void {
+    this.searchTerm = term;
+    this.page = 1;
+    this.fetchPage();
+  }
+
+  onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
+    this.sortKey = evt.key;
+    this.sortDirection = evt.direction;
+    this.page = 1;
+    this.fetchPage();
   }
 }

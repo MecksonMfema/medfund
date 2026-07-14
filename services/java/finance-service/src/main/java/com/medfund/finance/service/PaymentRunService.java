@@ -33,6 +33,7 @@ public class PaymentRunService {
     private static final Logger log = LoggerFactory.getLogger(PaymentRunService.class);
 
     private final PaymentRunRepository paymentRunRepository;
+    private final com.medfund.finance.repository.PaymentRunQueryRepository queryRepository;
     private final PaymentRunItemRepository paymentRunItemRepository;
     private final PaymentRepository paymentRepository;
     private final ProviderBalanceRepository providerBalanceRepository;
@@ -41,6 +42,7 @@ public class PaymentRunService {
     private final PaymentRunDecisionService decisionService;
 
     public PaymentRunService(PaymentRunRepository paymentRunRepository,
+                             com.medfund.finance.repository.PaymentRunQueryRepository queryRepository,
                              PaymentRunItemRepository paymentRunItemRepository,
                              PaymentRepository paymentRepository,
                              ProviderBalanceRepository providerBalanceRepository,
@@ -48,12 +50,28 @@ public class PaymentRunService {
                              FinanceEventPublisher eventPublisher,
                              PaymentRunDecisionService decisionService) {
         this.paymentRunRepository = paymentRunRepository;
+        this.queryRepository = queryRepository;
         this.paymentRunItemRepository = paymentRunItemRepository;
         this.paymentRepository = paymentRepository;
         this.providerBalanceRepository = providerBalanceRepository;
         this.auditPublisher = auditPublisher;
         this.eventPublisher = eventPublisher;
         this.decisionService = decisionService;
+    }
+
+    /**
+     * Server-side paginated payment-runs list. Self-contained header
+     * rows — no joins.
+     */
+    public reactor.core.publisher.Mono<com.medfund.finance.dto.PageResponse<com.medfund.finance.entity.PaymentRun>>
+    searchPaged(com.medfund.finance.dto.PaymentRunFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return queryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(queryRepository.count(params))
+                .map(tuple -> com.medfund.finance.dto.PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 
     public Flux<PaymentRun> findAll() {
