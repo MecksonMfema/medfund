@@ -1,29 +1,26 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import {
-  Adjustment,
+  AdjustmentRow,
   AdjustmentStatus,
   AdjustmentType,
+  FinancePageResponse,
   FinanceService,
 } from '../../../../core/services/finance.service';
-import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
-import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
-import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
-import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
+import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 
 @Component({
   selector: 'app-adjustments-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, SkeletonComponent, CurrencyFormatPipe, HumanizePipe],
+  imports: [CommonModule, FormsModule, SelectComponent, DataTableComponent],
   templateUrl: './adjustments-list.component.html',
   styleUrl: './adjustments-list.component.scss',
 })
 export class AdjustmentsListComponent implements OnInit {
-  rows: Adjustment[] = [];
-  filtered: Adjustment[] = [];
+  rows: AdjustmentRow[] = [];
   loading = false;
   errorMessage: string | null = null;
 
@@ -31,17 +28,20 @@ export class AdjustmentsListComponent implements OnInit {
   pageTitle = 'Adjustments';
   pageDescription = 'Financial adjustments awaiting approval and application.';
 
-  statusFilter: AdjustmentStatus = 'pending';
-  typeFilter = '';
+  statusFilter: AdjustmentStatus | '' = 'pending';
+  typeFilter: AdjustmentType | '' = '';
+
+  // Server-side pagination state.
+  page = 1;
+  pageSize = 50;
+  totalCount = 0;
+  totalPages = 1;
+  sortKey = 'createdAt';
+  sortDirection: 'asc' | 'desc' = 'desc';
   searchTerm = '';
 
-  constructor(
-    private finance: FinanceService,
-    private route: ActivatedRoute,
-    private router: Router,
-  ) {}
-
   readonly statusOptions: SelectOption[] = [
+    { value: '', label: 'All' },
     { value: 'pending', label: 'Pending' },
     { value: 'approved', label: 'Approved' },
     { value: 'applied', label: 'Applied' },
@@ -57,6 +57,32 @@ export class AdjustmentsListComponent implements OnInit {
     { value: 'TAX_WITHHELD', label: 'Tax withheld' },
   ];
 
+  readonly columns: TableColumn[] = [
+    { key: 'adjustmentNumber', label: 'Adj #',       sortable: true },
+    { key: 'memberName',       label: 'Member',      sortable: true },
+    { key: 'providerName',     label: 'Provider',    sortable: true },
+    { key: 'adjustmentType',   label: 'Type',        sortable: true, type: 'label' },
+    { key: 'amount',           label: 'Amount',      sortable: true, type: 'currency' },
+    { key: 'status',           label: 'Status',      sortable: true, type: 'status' },
+    { key: 'reason',           label: 'Reason' },
+    { key: 'createdAt',        label: 'Created',     sortable: true, type: 'date' },
+  ];
+
+  readonly actions: TableAction[] = [
+    {
+      label: 'View',
+      icon: 'eye',
+      color: 'default',
+      handler: (row: AdjustmentRow) => this.router.navigate(['/tenant/finance/adjustments', row.id]),
+    },
+  ];
+
+  constructor(
+    private finance: FinanceService,
+    private route: ActivatedRoute,
+    private router: Router,
+  ) {}
+
   ngOnInit(): void {
     const data = this.route.snapshot.data;
     if (data['presetType']) {
@@ -66,39 +92,54 @@ export class AdjustmentsListComponent implements OnInit {
     if (data['title']) this.pageTitle = data['title'];
     if (data['description']) this.pageDescription = data['description'];
 
-    this.refresh();
+    this.fetchPage();
   }
 
-  refresh(): void {
+  fetchPage(): void {
     this.loading = true;
-    this.finance.getAdjustmentsByStatus(this.statusFilter).subscribe({
-      next: (rows) => { this.rows = rows; this.applyFilter(); this.loading = false; },
+    this.finance.listAdjustmentsPaged({
+      status: this.statusFilter || undefined,
+      adjustmentType: this.typeFilter || undefined,
+      q: this.searchTerm || undefined,
+      sortKey: this.sortKey,
+      sortDirection: this.sortDirection,
+      page: this.page - 1,
+      size: this.pageSize,
+    }).subscribe({
+      next: (resp: FinancePageResponse<AdjustmentRow>) => {
+        this.rows = resp.content;
+        this.totalCount = resp.total;
+        this.totalPages = resp.totalPages;
+        this.loading = false;
+      },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load adjustments';
+        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load adjustments';
+        this.rows = [];
+        this.totalCount = 0;
+        this.totalPages = 1;
         this.loading = false;
       },
     });
   }
 
-  onStatusChange(): void { this.refresh(); }
-  onFilterChange(): void { this.applyFilter(); }
+  onStatusChange(): void { this.page = 1; this.fetchPage(); }
+  onTypeChange(): void   { this.page = 1; this.fetchPage(); }
 
-  open(adj: Adjustment): void {
-    this.router.navigate(['/tenant/finance/adjustments', adj.id]);
+  onPageChange(page: number): void {
+    this.page = page;
+    this.fetchPage();
   }
 
-  private applyFilter(): void {
-    let rows = this.rows;
-    if (this.typeFilter) {
-      rows = rows.filter(r => r.adjustmentType === this.typeFilter);
-    }
-    const q = this.searchTerm.trim().toLowerCase();
-    if (q) {
-      rows = rows.filter(r =>
-        r.adjustmentNumber?.toLowerCase().includes(q) ||
-        (r.reason && r.reason.toLowerCase().includes(q)),
-      );
-    }
-    this.filtered = rows;
+  onSearchChange(term: string): void {
+    this.searchTerm = term;
+    this.page = 1;
+    this.fetchPage();
+  }
+
+  onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
+    this.sortKey = evt.key;
+    this.sortDirection = evt.direction;
+    this.page = 1;
+    this.fetchPage();
   }
 }

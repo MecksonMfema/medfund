@@ -155,7 +155,7 @@ export const FINANCE_ROUTES: Routes = [
     path: 'adjustments',
     canActivate: [permissionGuard(['finance:post_adjustments'])],
     loadComponent: () => import('./adjustments/adjustments-list.component').then(m => m.AdjustmentsListComponent),
-    data: { title: 'Adjustments', sidebar: 'operational' },
+    data: { title: 'Adjustments', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'adjustments/new',
@@ -172,6 +172,7 @@ export const FINANCE_ROUTES: Routes = [
       description: 'Adjustments recording withheld tax against provider payouts.',
       presetType: 'TAX_WITHHELD',
       sidebar: 'operational',
+      fullbleed: true,
     },
   },
   {
@@ -283,6 +284,7 @@ export const FINANCE_ROUTES: Routes = [
       description: 'Tax withheld from provider payouts. Filtered to TAX_WITHHELD adjustments.',
       presetType: 'TAX_WITHHELD',
       sidebar: 'operational',
+      fullbleed: true,
     },
   },
 
