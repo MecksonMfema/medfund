@@ -1,4 +1,4 @@
-# MedFund Platform
+# InsureFlow Platform
 
 Core insurance operating system — multi-tenant, multi-line SaaS. Greenfield polyglot build.
 

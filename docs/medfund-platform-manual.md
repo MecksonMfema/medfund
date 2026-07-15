@@ -1,7 +1,7 @@
 ---
-title: "MedFund Platform — Functional Manual & Acceptance-Test Plan"
+title: "InsureFlow Platform — Functional Manual & Acceptance-Test Plan"
 subtitle: "What 'fully working' looks like for the multi-tenant, multi-currency, settings-driven insurtech platform"
-author: "MedFund Engineering"
+author: "InsureFlow Engineering"
 date: "2026-06-24"
 ---
 
@@ -9,7 +9,7 @@ date: "2026-06-24"
 
 This document is two things at once.
 
-**For the business reader** — it is the product manual. It describes, in plain English, every capability the MedFund platform delivers when it is fully functional. Read it top to bottom and you should be able to picture what the product *is*, who uses it, and what it does for them.
+**For the business reader** — it is the product manual. It describes, in plain English, every capability the InsureFlow platform delivers when it is fully functional. Read it top to bottom and you should be able to picture what the product *is*, who uses it, and what it does for them.
 
 **For the QA, operations, or engineering reader** — it is the acceptance-test plan. Each functional chapter ends with a numbered set of manual checks. Walk through those checks in a browser, the mobile app, the admin console, or against the API, and you can answer one question with confidence: *is the platform truly working?*
 
@@ -32,7 +32,7 @@ When a screenshot would help, the document leaves a labelled placeholder so revi
 
 ## A1. Executive summary
 
-MedFund is a Software-as-a-Service platform for organisations that administer insurance schemes. A single MedFund deployment hosts many tenants — each tenant is a complete, isolated insurance business. The platform handles the full lifecycle of insurance administration:
+InsureFlow is a Software-as-a-Service platform for organisations that administer insurance schemes. A single InsureFlow deployment hosts many tenants — each tenant is a complete, isolated insurance business. The platform handles the full lifecycle of insurance administration:
 
 - **Onboard the carrier** — provision a new tenant in minutes, give it its own subdomain, brand it, choose its lines of business and currencies.
 - **Enroll members** — directly (individual self-signup) or through corporate groups with a designated liaison.
@@ -47,7 +47,7 @@ There are five portals:
 
 | Portal | Audience | Where |
 | --- | --- | --- |
-| Super Admin | The platform operator (MedFund staff) | `/platform/*` in the Angular web app |
+| Super Admin | The platform operator (InsureFlow staff) | `/platform/*` in the Angular web app |
 | Tenant Admin | Each tenant's administrators | `/tenant/admin/*` in the Angular web app |
 | Operations | Claims, finance, contributions staff inside a tenant | `/tenant/claims`, `/tenant/finance`, `/tenant/billing` |
 | Provider | Healthcare providers (clinics, hospitals, doctors, pharmacies) | `/tenant/providers` and the Flutter provider companion app |
@@ -137,7 +137,7 @@ For insured members on iOS, Android, or web PWA. A liaison sees a dual-mode UI:
 
 ## A4. The settings-driven platform — the "white-label switch panel"
 
-The single most important property of MedFund is that *almost every visible thing* about the platform is a tenant setting, not a code change. A tenant can:
+The single most important property of InsureFlow is that *almost every visible thing* about the platform is a tenant setting, not a code change. A tenant can:
 
 1. Replace the logo and the colour palette.
 2. Use a custom subdomain (`zmmas.medfund.healthcare`) or a fully custom domain (`portal.zmmas.co.zw`).
@@ -267,7 +267,7 @@ The tenant admin uploads their logo and colour palette, picks fonts, replaces th
 
 ### Why it matters
 
-The platform should feel like the tenant's own product to members and providers. A member of "ZMMAS" should never see the word "MedFund" anywhere in the UI or in the emails they receive.
+The platform should feel like the tenant's own product to members and providers. A member of "ZMMAS" should never see the word "InsureFlow" anywhere in the UI or in the emails they receive.
 
 ### Who uses it
 
@@ -285,7 +285,7 @@ Tenant admins.
 
 ### Pass criteria
 
-- No mention of "MedFund" anywhere in the tenant-facing UI.
+- No mention of "InsureFlow" anywhere in the tenant-facing UI.
 - Logo and colours render correctly on web, mobile app, and PDF documents (invoice, statement, payment advice).
 - Custom domain serves with a valid TLS certificate.
 
@@ -1281,7 +1281,7 @@ These are the smoke tests that prove the platform's defining properties end-to-e
 1. Take screenshots of the member portal, the provider portal, and a sample transactional email "before".
 2. Change logo, primary colour, login background, email "from" name, SMS sender ID, and custom domain.
 3. Take the same screenshots "after". Trigger one of every notification kind and observe.
-4. Confirm no mention of "MedFund" in the rebranded screens or emails.
+4. Confirm no mention of "InsureFlow" in the rebranded screens or emails.
 5. Open the Flutter mobile app, sign out, sign in via the tenant-branded login — confirm the rebrand is reflected there too.
 
 ### Pass criteria
@@ -1674,6 +1674,6 @@ Sign off: ______________________________  Date: ____________
 
 # End of document
 
-This document is the contract for "fully working" MedFund. Any feature not in this manual is either out of scope or, if it ought to be in scope, is a gap to log and address. The settings index in Appendix E is the daily reference for tenant onboarding and white-label work. The cross-cutting acceptance tests in Part I are the release gate.
+This document is the contract for "fully working" InsureFlow. Any feature not in this manual is either out of scope or, if it ought to be in scope, is a gap to log and address. The settings index in Appendix E is the daily reference for tenant onboarding and white-label work. The cross-cutting acceptance tests in Part I are the release gate.
 
 Reviewers — edit freely. Suggested additions: real screenshots in `docs/images/`, a tenant-specific addendum for any tenant that introduces a non-standard line of business or jurisdictional requirement, and a separate operational runbook for the on-call team that maps each surface in this document to a Grafana board.

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The rules engine is **line-agnostic** — it's shared infrastructure for every insurance line MedFund supports. Facts (`ClaimFact`, `MemberFact`, `ContributionFact`, `PaymentRunFact`, `SchemeChangeContext`, etc.) carry the `insurance_line` where relevant so rule authors can scope conditions to a specific line. Line-specific behaviour lives in *rule content*, not engine code.
+The rules engine is **line-agnostic** — it's shared infrastructure for every insurance line InsureFlow supports. Facts (`ClaimFact`, `MemberFact`, `ContributionFact`, `PaymentRunFact`, `SchemeChangeContext`, etc.) carry the `insurance_line` where relevant so rule authors can scope conditions to a specific line. Line-specific behaviour lives in *rule content*, not engine code.
 
 The engine ships **15 rule-template categories** out of the box:
 

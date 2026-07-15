@@ -1,4 +1,4 @@
-# [Product Name]
+# InsureFlow
 ## An AI-Native Core Insurance Operating Platform for Zimbabwean and SADC Insurers
 
 Track: Track 3, Development
@@ -27,11 +27,11 @@ Zimbabwean and SADC insurers run on decades-old core systems, spreadsheets, What
 - Data, currency, and regulator blindspot. No incumbent knows a real-time loss ratio or provider-spend outliers. The ZiG dual-currency regime since April 2024 forces every premium, reserve, claim, and ledger entry to reconcile across USD (77% of short-term revenue) and ZiG ⟨IPEC 2024⟩. IPEC returns get compiled by hand.
 - No modern engagement or embedded-insurance surface. No digital ID, no self-service, no in-language chat. A distressed family left a coffin at an EcoSure branch after a funeral claim was denied over a missed USD 4 premium ⟨iHarare 2025⟩. Telcos, banks, mobile-money, and e-commerce partners want to offer bundled cover. No incumbent exposes an API or partner portal.
 
-The common thread runs across all six problems. Zimbabwe lacks a modern, multi-tenant, AI-native core insurance operating platform to carry an insurer's whole book across every line, currency, channel, and partner, from first quote to regulator return. [Product Name] fills the gap.
+The common thread runs across all six problems. Zimbabwe lacks a modern, multi-tenant, AI-native core insurance operating platform to carry an insurer's whole book across every line, currency, channel, and partner, from first quote to regulator return. InsureFlow fills the gap.
 
-### 1.2 What [Product Name] is
+### 1.2 What InsureFlow is
 
-[Product Name] is a multi-tenant core insurance operating platform delivered as SaaS. The platform runs the full lifecycle: enrolment, policy administration, contributions and premium billing, provider network management, claims intake and adjudication, finance and regulatory reporting, and member engagement. AI enters at pricing, underwriting, fraud, adjudication, churn, document intelligence, and multilingual member service. The platform ships with seven role-scoped portals, a per-tenant hot-reloadable rules engine, and an evidence-grade audit trail. The design is modular. Large insurers adopt the whole platform. Microinsurers run only claims and engagement. Brokers run only enrolment and billing. TPAs run the platform for multiple carriers. Regulators consume the fraud graph and reporting API.
+InsureFlow is a multi-tenant core insurance operating platform delivered as SaaS. The platform runs the full lifecycle: enrolment, policy administration, contributions and premium billing, provider network management, claims intake and adjudication, finance and regulatory reporting, and member engagement. AI enters at pricing, underwriting, fraud, adjudication, churn, document intelligence, and multilingual member service. The platform ships with seven role-scoped portals, a per-tenant hot-reloadable rules engine, and an evidence-grade audit trail. The design is modular. Large insurers adopt the whole platform. Microinsurers run only claims and engagement. Brokers run only enrolment and billing. TPAs run the platform for multiple carriers. Regulators consume the fraud graph and reporting API.
 
 ### 1.3 Target users
 
@@ -47,9 +47,9 @@ The common thread runs across all six problems. Zimbabwe lacks a modern, multi-t
 
 ### 1.4 Strategic alignment
 
-[Product Name] maps onto the Zimbabwe National AI Strategy 2026 to 2030, launched on 13 March 2026 by President E.D. Mnangagwa ⟨UNESCO, OECD.AI⟩. The platform matches Pillar 3 (AI Adoption in the priority financial-services sector), Pillar 4 (Governance and Ethics: every AI decision logs model version, features, confidence, and human review under the Cyber and Data Protection Act, Chapter 12:07), and Flagship 1 (the AI Grand Challenge, of which AI4I is the implementation vehicle). The design generalises across SADC. The Zimbabwean market runs small enough for a credible pilot. The pain (fraud, delay, dual currency, informal-sector gap, ISA-3 regulator expectations) appears in South Africa, Zambia, Malawi, Botswana, and Namibia.
+InsureFlow maps onto the Zimbabwe National AI Strategy 2026 to 2030, launched on 13 March 2026 by President E.D. Mnangagwa ⟨UNESCO, OECD.AI⟩. The platform matches Pillar 3 (AI Adoption in the priority financial-services sector), Pillar 4 (Governance and Ethics: every AI decision logs model version, features, confidence, and human review under the Cyber and Data Protection Act, Chapter 12:07), and Flagship 1 (the AI Grand Challenge, of which AI4I is the implementation vehicle). The design generalises across SADC. The Zimbabwean market runs small enough for a credible pilot. The pain (fraud, delay, dual currency, informal-sector gap, ISA-3 regulator expectations) appears in South Africa, Zambia, Malawi, Botswana, and Namibia.
 
-Boundary statement: [Product Name] does not serve surveillance, credit denial, immigration profiling, or automated denial of care. Every high-value or contested decision keeps a human in the loop.
+Boundary statement: InsureFlow does not serve surveillance, credit denial, immigration profiling, or automated denial of care. Every high-value or contested decision keeps a human in the loop.
 
 ---
 
@@ -57,7 +57,7 @@ Boundary statement: [Product Name] does not serve surveillance, credit denial, i
 
 ### 2.1 Platform overview: seven modules, seven portals, one AI service
 
-[Product Name] runs as a family of loosely-coupled domain modules on a shared Kafka event backbone with a single AI service used by every module. Every module scopes to a tenant, tracks currency, instruments audit, and drives from rules. Users interact through six Angular web portals (super admin, tenant admin, operations and adjudicator, provider, group liaison, regulator read-only), plus a Flutter member app (Android, iOS, PWA, offline-first), a REST OpenAPI 3.1 surface for embedded-insurance partners, a multilingual chatbot (English, Shona, Ndebele), and webhook events for partner systems. Every portal scopes to a role, protects with MFA, and authenticates through OIDC.
+InsureFlow runs as a family of loosely-coupled domain modules on a shared Kafka event backbone with a single AI service used by every module. Every module scopes to a tenant, tracks currency, instruments audit, and drives from rules. Users interact through six Angular web portals (super admin, tenant admin, operations and adjudicator, provider, group liaison, regulator read-only), plus a Flutter member app (Android, iOS, PWA, offline-first), a REST OpenAPI 3.1 surface for embedded-insurance partners, a multilingual chatbot (English, Shona, Ndebele), and webhook events for partner systems. Every portal scopes to a role, protects with MFA, and authenticates through OIDC.
 
 Seven domain modules: Policy Administration (products, plans, biometric-KYC enrolment, dependants, group schemes), Contributions and Premium (billing cycles, multi-gateway collection across Ecocash, OneMoney, InnBucks, Paynow, Zimswitch, RTGS, bulk-EFT, arrears, revocation), Claims and Adjudication (intake, AI-assisted pre-auth, six-stage adjudication, payout, dispute, appeal), Provider Network (biometric-KYC onboarding, tariff catalogue, pre-auth, reconciliation), Finance and Regulatory (GL, reserves, payout orchestration, reinsurance ceding, IPEC returns, multi-currency reconciliation), Engagement (multilingual SMS, email, WhatsApp, push, in-app chat, digital ID, live activity stream), and Data, Analytics, and Insight (cross-cutting, section 2.4). Portal capability matrix in Appendix I.
 
@@ -69,7 +69,7 @@ Flutter edge budget (rubric C4). On-device face-embedding (MobileFaceNet-class c
 
 ### 2.3 AI fit: where AI earns a place, and where AI does not
 
-The AI4I rubric penalises "sledgehammer" designs. [Product Name] adopts an explicit rules-first principle. Any decision expressible as a deterministic lookup, inequality, or arithmetic operation goes to the Drools rules engine. The rules engine hot-reloads per tenant, versions cleanly, tests in isolation, and runs orders of magnitude cheaper than a model call. AI enters only where rules prove insufficient.
+The AI4I rubric penalises "sledgehammer" designs. InsureFlow adopts an explicit rules-first principle. Any decision expressible as a deterministic lookup, inequality, or arithmetic operation goes to the Drools rules engine. The rules engine hot-reloads per tenant, versions cleanly, tests in isolation, and runs orders of magnitude cheaper than a model call. AI enters only where rules prove insufficient.
 
 Model selection stays open at submission. Three tiers form the model stack.
 
@@ -125,7 +125,7 @@ Four delivery windows, full window-by-window table in Appendix C.
 
 ### 3.2 Compute environment (CCE) plan
 
-The AI4I ToRs require a deployment plan for the ZCHPC Controlled Compute Environment (full plan in Appendix E). ZCHPC publishes on zchpc.ac.zw. HPC Cloud Account, Linux KVM VPS, dedicated Windows servers, colocation, and incubation support. The National AI Strategy also names a POTRAZ-supervised "Innovation Crucible" AI Regulatory Sandbox ⟨National AI Strategy 2026, OECD.AI⟩. [Product Name] targets both.
+The AI4I ToRs require a deployment plan for the ZCHPC Controlled Compute Environment (full plan in Appendix E). ZCHPC publishes on zchpc.ac.zw. HPC Cloud Account, Linux KVM VPS, dedicated Windows servers, colocation, and incubation support. The National AI Strategy also names a POTRAZ-supervised "Innovation Crucible" AI Regulatory Sandbox ⟨National AI Strategy 2026, OECD.AI⟩. InsureFlow targets both.
 
 - Training: 1 A100-class GPU on the ZCHPC HPC Cloud Account for the Tier-3 custom-model layer (LoRA fine-tunes for ICD-10, triage, and Sn/Nd chatbot, plus fraud GBM/GNN, churn survival, uplift, and appropriateness classifiers). 90-day budget around 150 GPU-hours if the platform trends self-hosted, around 40 GPU-hours if hosted APIs cover the LLM tier.
 - Inference: CPU Kubernetes pods on ZCHPC KVM VPS for edge OCR, fraud, churn, uplift, and rules-engine services. Steady-state per tenant at 10 k claims per day is around 8 vCPU and 24 GB RAM without self-hosted LLM, plus 1 A10-class GPU and 32 GB VRAM with Tier-2 self-hosted LLM inference.
@@ -196,7 +196,7 @@ Top risks, likelihoods, impacts, and mitigations. Full register in Appendix G.
 
 ### 5.1 Business model
 
-[Product Name] runs as a B2B multi-tenant SaaS with four revenue lines: platform subscription (USD 8 k to 40 k per tenant per month across three tiers by active policy count), Module-as-a-Service for insurers with a legacy core (USD 2 k to 6 k per module per month across fraud, engagement, chatbot, regulatory return, risk pricing, each with an integration API), fraud recovery share (15% of documented fraud prevented pre-payment, capped per tenant. At sector fraud losses of USD 165 m per year, capturing even 5% funds the platform), and a regulator API priced at regulator level for IPEC and ZICB.
+InsureFlow runs as a B2B multi-tenant SaaS with four revenue lines: platform subscription (USD 8 k to 40 k per tenant per month across three tiers by active policy count), Module-as-a-Service for insurers with a legacy core (USD 2 k to 6 k per module per month across fraud, engagement, chatbot, regulatory return, risk pricing, each with an integration API), fraud recovery share (15% of documented fraud prevented pre-payment, capped per tenant. At sector fraud losses of USD 165 m per year, capturing even 5% funds the platform), and a regulator API priced at regulator level for IPEC and ZICB.
 
 ### 5.2 Cost projections
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-MedFund v2 uses a GitOps-driven deployment model with containerized polyglot services orchestrated on Kubernetes.
+InsureFlow v2 uses a GitOps-driven deployment model with containerized polyglot services orchestrated on Kubernetes.
 
 ## Cloud Architecture (AWS Target — Adaptable to GCP/Azure)
 

@@ -1,10 +1,10 @@
-# MedFund Platform — Architecture Guidelines
+# InsureFlow Platform — Architecture Guidelines
 
-This document is the root guide for Claude Code when working on the **MedFund core insurance operating system**. The legacy system has been decommissioned — this is a **greenfield build**. The legacy codebase in this repo serves only as domain knowledge reference.
+This document is the root guide for Claude Code when working on the **InsureFlow core insurance operating system**. The legacy system has been decommissioned — this is a **greenfield build**. The legacy codebase in this repo serves only as domain knowledge reference.
 
-## What MedFund Is
+## What InsureFlow Is
 
-MedFund is a **multi-tenant, multi-line insurance core system**. The Java core (claims, contributions, finance, rules, tenancy, user/policy) is line-agnostic; the `InsuranceLine` enum in `services/java/shared` today covers:
+InsureFlow is a **multi-tenant, multi-line insurance core system**. The Java core (claims, contributions, finance, rules, tenancy, user/policy) is line-agnostic; the `InsuranceLine` enum in `services/java/shared` today covers:
 
 | Line | Status | Notes |
 |------|--------|-------|

@@ -1,6 +1,6 @@
-# MedFund — User Workflows
+# InsureFlow — User Workflows
 
-Complete workflow documentation for all user roles across the MedFund healthcare claims management platform.
+Complete workflow documentation for all user roles across the InsureFlow healthcare claims management platform.
 
 ---
 

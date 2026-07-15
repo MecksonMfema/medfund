@@ -200,7 +200,7 @@ end
 
 ### API Gateway Aggregated Spec
 
-The API Gateway should aggregate all downstream OpenAPI specs into a **single unified spec** available at `/swagger-ui.html`. This gives consumers a single place to browse all MedFund APIs. Use a spec aggregation tool or custom middleware that fetches and merges specs from each service on startup.
+The API Gateway should aggregate all downstream OpenAPI specs into a **single unified spec** available at `/swagger-ui.html`. This gives consumers a single place to browse all InsureFlow APIs. Use a spec aggregation tool or custom middleware that fetches and merges specs from each service on startup.
 
 ### CI Enforcement
 
@@ -902,7 +902,7 @@ async def predict_adjudication(request: AdjudicationRequest) -> AdjudicationPred
 #### Elixir (Phoenix) — Ecto Multi + PubSub
 
 ```elixir
-defmodule MedFund.Audit do
+defmodule InsureFlow.Audit do
   @doc "Wraps an Ecto.Multi with audit event publishing"
   def audited_update(multi, name, changeset, actor) do
     multi

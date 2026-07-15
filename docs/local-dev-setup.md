@@ -1,6 +1,6 @@
 # Local Development Setup
 
-This guide covers running the full MedFund stack locally for development and testing.
+This guide covers running the full InsureFlow stack locally for development and testing.
 
 ## Prerequisites
 

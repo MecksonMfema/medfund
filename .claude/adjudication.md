@@ -4,7 +4,7 @@
 
 ## Overview
 
-Claims adjudication is the core business process of the platform. It determines what amount (if any) should be paid for a submitted claim. Every `Claim` row carries an `insurance_line` (V053 migration) so downstream stages can dispatch to line-appropriate rules. MedFund implements a **six-stage adjudication pipeline** that combines deterministic rules (Java Rules Engine via Drools) with AI-assisted analysis (Python AI Service).
+Claims adjudication is the core business process of the platform. It determines what amount (if any) should be paid for a submitted claim. Every `Claim` row carries an `insurance_line` (V053 migration) so downstream stages can dispatch to line-appropriate rules. InsureFlow implements a **six-stage adjudication pipeline** that combines deterministic rules (Java Rules Engine via Drools) with AI-assisted analysis (Python AI Service).
 
 ## Where Each Component Lives
 

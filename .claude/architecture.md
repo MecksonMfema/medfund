@@ -1,8 +1,8 @@
 # Architecture Overview
 
-## What MedFund Is
+## What InsureFlow Is
 
-MedFund is a **core insurance operating system** — a multi-tenant SaaS whose Java domain services are line-agnostic and today host eight insurance lines via the `InsuranceLine` enum (`HEALTH`, `LIFE`, `FUNERAL`, `GROUP`, `TRAVEL`, `DISABILITY`, `VEHICLE`, `PROPERTY`).
+InsureFlow is a **core insurance operating system** — a multi-tenant SaaS whose Java domain services are line-agnostic and today host eight insurance lines via the `InsuranceLine` enum (`HEALTH`, `LIFE`, `FUNERAL`, `GROUP`, `TRAVEL`, `DISABILITY`, `VEHICLE`, `PROPERTY`).
 
 - **Person-centric lines** — `HEALTH`, `LIFE`, `FUNERAL`, `DISABILITY`, `TRAVEL`, `GROUP` — share the member/dependant model and adjudicated claims flow.
 - **Asset-centric lines** — `VEHICLE`, `PROPERTY` — attach cover to an insured asset entity (`Vehicle`, `Property`) rather than requiring member identity for pricing.
@@ -10,7 +10,7 @@ MedFund is a **core insurance operating system** — a multi-tenant SaaS whose J
 
 ## Design Philosophy
 
-MedFund is a **polyglot microservices platform** where each service is built with the language and framework best suited to its workload:
+InsureFlow is a **polyglot microservices platform** where each service is built with the language and framework best suited to its workload:
 
 - **Java (Spring Boot)** — Domain-heavy services with complex business rules that vary per tenant *and per insurance line*
 - **Go (Fiber)** — High-throughput, low-latency services where raw performance matters

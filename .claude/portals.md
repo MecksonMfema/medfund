@@ -2,7 +2,7 @@
 
 ## Overview
 
-MedFund has five distinct portal experiences, each serving a different audience. The Angular web application hosts four of these as route groups (super admin, tenant admin, operations, provider). The Flutter application serves two audiences (members and providers) on both mobile and web.
+InsureFlow has five distinct portal experiences, each serving a different audience. The Angular web application hosts four of these as route groups (super admin, tenant admin, operations, provider). The Flutter application serves two audiences (members and providers) on both mobile and web.
 
 > Language note: many role and permission descriptions in this doc use "medical aid" and "healthcare providers" because the health vertical is the currently implemented one. The portal shapes, role definitions, and RBAC design are line-agnostic — a life or funeral tenant uses the same tenant-admin/operations/provider/member portal structure with line-appropriate features enabled. "Provider" is a service provider generally (hospital, clinic, garage, funeral home, travel agent) depending on the tenant's active insurance lines.
 
@@ -46,7 +46,7 @@ MedFund has five distinct portal experiences, each serving a different audience.
 
 ## 1. Super Admin Portal (Angular: `/super-admin/*`)
 
-**Audience**: MedFund platform operators. These are the people who run the SaaS platform itself.
+**Audience**: InsureFlow platform operators. These are the people who run the SaaS platform itself.
 
 **Keycloak Realm**: `medfund-platform` (separate from tenant realms)
 
@@ -105,7 +105,7 @@ MedFund has five distinct portal experiences, each serving a different audience.
 | `/admin/audit` | Audit Log | All actions within the tenant (who did what, when) |
 | `/admin/reports` | Reports | Member stats, claim trends, financial summaries |
 | `/admin/data-export` | Data Export | GDPR-compliant member data export |
-| `/admin/billing` | Platform Billing | View MedFund subscription usage and invoices |
+| `/admin/billing` | Platform Billing | View InsureFlow subscription usage and invoices |
 
 ---
 
@@ -271,7 +271,7 @@ Since group liaisons are also members, the Flutter app shows a **role switcher**
 
 ```
 ┌────────────────────────────┐
-│  ☰  MedFund                │
+│  ☰  InsureFlow                │
 │                            │
 │  ┌──────────────────────┐  │
 │  │ 👤 John Doe          │  │
@@ -808,15 +808,15 @@ export const claimsGuard: CanActivateFn = () => {
 
 ## Tenant Branding & UI Customization
 
-Tenant admins can customize the look and feel of their **Angular web portals** (admin, claims, finance, contributions, provider portal). The **Flutter member and provider mobile apps remain generic** with MedFund branding — only the logo and color scheme adapt per tenant.
+Tenant admins can customize the look and feel of their **Angular web portals** (admin, claims, finance, contributions, provider portal). The **Flutter member and provider mobile apps remain generic** with InsureFlow branding — only the logo and color scheme adapt per tenant.
 
 ### What is Customizable (Angular Web — Tenant Portals)
 
 | Category | Setting | Description | Default |
 |----------|---------|-------------|---------|
-| **Identity** | Logo (light) | Primary logo for light backgrounds | MedFund logo |
-| | Logo (dark) | Logo variant for dark backgrounds/sidebar | MedFund logo |
-| | Favicon | Browser tab icon | MedFund favicon |
+| **Identity** | Logo (light) | Primary logo for light backgrounds | InsureFlow logo |
+| | Logo (dark) | Logo variant for dark backgrounds/sidebar | InsureFlow logo |
+| | Favicon | Browser tab icon | InsureFlow favicon |
 | | Organization name | Displayed in header, footer, PDF reports | Tenant name |
 | **Colors** | Primary color | Buttons, links, active states, selection highlights | `#1677ff` |
 | | Secondary color | Accents, badges, secondary actions | `#52c41a` |
@@ -832,7 +832,7 @@ Tenant admins can customize the look and feel of their **Angular web portals** (
 | | Compact mode | Reduces padding/spacing for information-dense screens | `false` |
 | **Typography** | Font family | Primary font for UI text | `Inter` |
 | | Heading font | Font for headings (h1-h6) — can differ from body | Same as body |
-| **Login Page** | Background image | Login/signup page background | MedFund default |
+| **Login Page** | Background image | Login/signup page background | InsureFlow default |
 | | Welcome message | Text displayed on login page | "Welcome to {org_name}" |
 | **PDF Reports** | Letterhead image | Top of invoices, payment advice, statements | Tenant logo |
 | | Footer text | Bottom of PDF documents | Tenant name + address |
@@ -843,8 +843,8 @@ Tenant admins can customize the look and feel of their **Angular web portals** (
 ### What is NOT Customizable
 
 - Page structure, navigation items, component behavior — these are platform-defined
-- Flutter mobile/web app UI layout — remains generic MedFund design (only logo + colors adapt)
-- Super admin portal — always uses MedFund platform branding
+- Flutter mobile/web app UI layout — remains generic InsureFlow design (only logo + colors adapt)
+- Super admin portal — always uses InsureFlow platform branding
 
 ### Branding Configuration Schema
 
@@ -984,7 +984,7 @@ Layout mode is applied via a top-level component class:
 
 #### Flutter Mobile/Web App (Limited)
 
-Flutter adapts only logo and primary/secondary colors — layout remains standard MedFund:
+Flutter adapts only logo and primary/secondary colors — layout remains standard InsureFlow:
 
 ```dart
 // ThemeService loads tenant branding for color adaptation
@@ -996,7 +996,7 @@ class TenantTheme {
   ThemeData toThemeData() {
     return ThemeData(
       colorScheme: ColorScheme.fromSeed(seedColor: primaryColor),
-      // Layout, typography, component styles remain MedFund standard
+      // Layout, typography, component styles remain InsureFlow standard
     );
   }
 }
@@ -1016,6 +1016,6 @@ class TenantTheme {
 | **Login Page** | Background image upload, welcome text editor |
 | **PDF & Email** | Letterhead upload, footer text editor, email preview |
 | **Preview** | Full-page live preview showing how the portal will look with current settings |
-| **Reset** | Reset all to MedFund defaults |
+| **Reset** | Reset all to InsureFlow defaults |
 
 Changes are saved and applied immediately (no deploy needed) — the Angular app fetches branding config on every page load (cached in Redis, ~50ms overhead).

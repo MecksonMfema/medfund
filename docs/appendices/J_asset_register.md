@@ -1,6 +1,6 @@
 # Appendix J. Asset and Licence Register
 
-Per Track 3 ToR section 3. Enumerates every third-party code library, model weight, dataset, API, prompt template, and design asset used by [Product Name].
+Per Track 3 ToR section 3. Enumerates every third-party code library, model weight, dataset, API, prompt template, and design asset used by InsureFlow.
 
 Generation. The SBOM component list is auto-produced by `syft` per CI run against the built container images. Model, dataset, prompt-template, and design-asset rows are curated manually and reviewed per release. This document lives at `/docs/asset_register.md` and updates on every dependency change or model release.
 

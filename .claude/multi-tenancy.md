@@ -2,7 +2,7 @@
 
 ## Overview
 
-MedFund uses **schema-per-tenant** multi-tenancy in PostgreSQL. Each tenant (an insurance carrier — a medical aid society, life/funeral insurer, short-term insurer, or a combined multi-line carrier) gets its own database schema with identical table structures but completely isolated data. Shared platform data lives in the `public` schema.
+InsureFlow uses **schema-per-tenant** multi-tenancy in PostgreSQL. Each tenant (an insurance carrier — a medical aid society, life/funeral insurer, short-term insurer, or a combined multi-line carrier) gets its own database schema with identical table structures but completely isolated data. Shared platform data lives in the `public` schema.
 
 > Many examples in this doc use "medical aid" because that is the vertical currently in production. Everything about the schema-per-tenant design, tenant resolution, and provider multi-tenancy applies equally to any insurance line the platform supports.
 

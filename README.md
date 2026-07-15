@@ -1,12 +1,12 @@
-# MedFund
+# InsureFlow
 
 Core insurance operating system. Multi-tenant, multi-line, multi-currency, AI-powered.
 
-MedFund's Java core (claims, contributions, finance, rules, tenancy) is line-agnostic. The `InsuranceLine` enum covers **HEALTH, LIFE, FUNERAL, GROUP, TRAVEL, DISABILITY, VEHICLE, PROPERTY**, and dedicated entities exist for `LifePolicy`, `FuneralPolicy`, `DisabilityPolicy`, `TravelPolicy`, `Vehicle`, and `Property`. Medical aid is the currently production-ready vertical; the other lines have schema and enrollment scaffolding in place and are progressing.
+InsureFlow's Java core (claims, contributions, finance, rules, tenancy) is line-agnostic. The `InsuranceLine` enum covers **HEALTH, LIFE, FUNERAL, GROUP, TRAVEL, DISABILITY, VEHICLE, PROPERTY**, and dedicated entities exist for `LifePolicy`, `FuneralPolicy`, `DisabilityPolicy`, `TravelPolicy`, `Vehicle`, and `Property`. Medical aid is the currently production-ready vertical; the other lines have schema and enrollment scaffolding in place and are progressing.
 
 ## Architecture
 
-MedFund is a polyglot microservices platform:
+InsureFlow is a polyglot microservices platform:
 
 - **Java 21 + Spring Boot WebFlux** — Core domain: claims, contributions, finance, tenancy, rules engine, user/policy
 - **Go 1.23 + Fiber v2** — High-throughput: API gateway, notifications, audit, file processing, payments
