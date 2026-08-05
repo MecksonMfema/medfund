@@ -1,7 +1,20 @@
 name: Go Services CI
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/go/**'
+      - '.github/workflows/**'
+  pull_request:
+    paths:
+      - 'services/go/**'
+      - '.github/workflows/**'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 defaults:
   run:

@@ -1,7 +1,20 @@
 name: Angular Web CI
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'clients/angular/**'
+      - '.github/workflows/**'
+  pull_request:
+    paths:
+      - 'clients/angular/**'
+      - '.github/workflows/**'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 defaults:
   run:

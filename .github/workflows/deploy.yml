@@ -1,0 +1,189 @@
+name: Manual Deploy
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MANUAL DEPLOY ONLY — never triggered by push/PR.
+#
+# Builds one service's Docker image, pushes it to a container registry, then
+# deploys it directly to a Kubernetes cluster with `kubectl set image`.
+#
+# TEMPLATE STATUS: the platform's Helm/Terraform/ArgoCD infrastructure does not
+# exist in this repo yet (see .claude/infrastructure.md). This workflow is the
+# deploy mechanism the infra will consume. Before it can actually roll out:
+#
+#   1. Create a GitHub Environment named `staging` (and `production`) in
+#      Settings → Environments, and add required reviewers to gate approval.
+#   2. Add the `KUBECONFIG_BASE64` repository secret — a base64-encoded
+#      kubeconfig for a cluster/namespace this workflow is allowed to touch.
+#      (Generate locally: `base64 -w0 ~/.kube/config`)
+#   3. If deploying to AWS ECR instead of GHCR, uncomment the ECR block below
+#      and add AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY / AWS_REGION secrets.
+#   4. The Deployment object must exist in the cluster (kubectl set image does
+#      not create it), and its container name must equal the service name
+#      (e.g. deployment/gateway with a container named `gateway`) — that is
+#      what `kubectl set image deployment/<service> <service>=...` targets.
+#      If you prefer Helm, swap the deploy step for `helm upgrade` — see the
+#      commented alternative.
+#
+#   KUBECONFIG_BASE64 can be a repo-level secret or per-environment (the deploy
+#   job's `environment:` makes GitHub resolve environment secrets first). Use
+#   per-environment secrets to give staging and production different clusters.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Go service to build and deploy'
+        required: true
+        type: choice
+        options:
+          - gateway
+          - notification-service
+          - audit-service
+          - file-service
+          - payment-gateway
+      environment:
+        description: 'Target environment (gated by required reviewers)'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      image-tag:
+        description: 'Image tag to deploy. Defaults to sha-<commit>.'
+        required: false
+        type: string
+        default: ''
+      namespace:
+        description: 'Kubernetes namespace to deploy into'
+        required: false
+        type: string
+        default: medfund
+
+# One deploy per service+environment at a time — a second run on the same
+# target waits for the first to finish instead of racing it.
+concurrency:
+  group: deploy-${{ inputs.service }}-${{ inputs.environment }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write   # push to GHCR
+
+jobs:
+  build-and-push:
+    name: Build & push image
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image tag and repo
+        id: tag
+        run: |
+          # GHCR requires lowercase image names — github.repository preserves
+          # case, so lowercase it explicitly (owner here is mixed-case).
+          IMAGE_REPO="${GITHUB_REPOSITORY,,}"
+          TAG="${{ inputs.image-tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="sha-$(git rev-parse --short HEAD)"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "image-repo=${IMAGE_REPO}" >> "$GITHUB_OUTPUT"
+          echo "Image: ghcr.io/${IMAGE_REPO}/${{ inputs.service }}:${TAG}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Default: GitHub Container Registry — zero-config, works with the
+      # built-in GITHUB_TOKEN (permissions.packages: write above).
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # To deploy via AWS ECR instead, replace the two steps above with:
+      #
+      #   - name: Configure AWS credentials
+      #     uses: aws-actions/configure-aws-credentials@v4
+      #     with:
+      #       aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #       aws-region:            ${{ vars.AWS_REGION }}
+      #   - name: Log in to ECR
+      #     id: ecr
+      #     uses: aws-actions/amazon-ecr-login@v2
+      #   and use ${{ steps.ecr.outputs.registry }}/medfund/${{ inputs.service }}
+      #   as the image name.
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          # Go Dockerfiles expect the workspace root as context (they copy
+          # shared/ relative to it) — see services/go/*/Dockerfile.
+          context: services/go
+          file: services/go/${{ inputs.service }}/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ steps.tag.outputs.image-repo }}/${{ inputs.service }}:${{ steps.tag.outputs.tag }}
+            ghcr.io/${{ steps.tag.outputs.image-repo }}/${{ inputs.service }}:${{ inputs.environment }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+    outputs:
+      image: ghcr.io/${{ steps.tag.outputs.image-repo }}/${{ inputs.service }}:${{ steps.tag.outputs.tag }}
+
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    # Environment gate — requires the GitHub Environment to exist with required
+    # reviewers for the deployment to proceed without manual approval.
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        run: |
+          # Read via the env var (not inline interpolation) so the secret value
+          # never appears in the step command / shell history.
+          echo "$KUBECONFIG_BASE64" | base64 --decode > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+        env:
+          # Because this job declares `environment:`, GitHub resolves
+          # environment-scoped secrets first — give staging and production their
+          # own KUBECONFIG_BASE64 (different clusters) rather than one repo-wide
+          # secret.
+          KUBECONFIG_BASE64: ${{ secrets.KUBECONFIG_BASE64 }}
+
+      - name: Roll out image
+        run: |
+          kubectl set image \
+            "deployment/${{ inputs.service }}" \
+            "${{ inputs.service }}=${{ needs.build-and-push.outputs.image }}" \
+            -n "${{ inputs.namespace }}"
+
+          kubectl rollout status \
+            "deployment/${{ inputs.service }}" \
+            -n "${{ inputs.namespace }}" \
+            --timeout=5m
+
+      # Helm alternative (if a chart exists in infra/helm):
+      #
+      #   - name: Helm upgrade
+      #     run: |
+      #       helm upgrade --install "${{ inputs.service }}" \
+      #         infra/helm/charts/${{ inputs.service }} \
+      #         --namespace "${{ inputs.namespace }}" \
+      #         --set image.repository="ghcr.io/${{ steps.tag.outputs.image-repo }}/${{ inputs.service }}" \
+      #         --set image.tag="${{ steps.tag.outputs.tag }}" \
+      #         --wait --timeout 5m
+
+      - name: Verify deployment health
+        run: |
+          kubectl get deployment "${{ inputs.service }}" -n "${{ inputs.namespace }}" -o wide
