@@ -57,23 +57,44 @@
             </label>
 
             <label class="field">
-              <span class="field-label">Payee</span>
+              <span class="field-label">
+                Service provider
+                @if (isProviderRequired()) { <span class="req">*</span> }
+              </span>
               @if (providerMode === 'FORBIDDEN') {
                 <p class="field-help">
-                  {{ activeLine }} claims are paid directly to the member. No provider is captured on this claim.
+                  {{ activeLine }} payouts go straight to the member — no service provider is captured on this claim.
                 </p>
               } @else {
-                <label class="toggle toggle--inline">
-                  <input type="checkbox" [(ngModel)]="providerOptIn" name="providerOptIn"
-                         (ngModelChange)="providerOptIn || (providerId = null)" />
-                  <span>Paid to a provider (otherwise the member is reimbursed)</span>
-                </label>
-                @if (providerOptIn) {
-                  <app-entity-picker
-                    kind="provider"
-                    [(value)]="providerId"
-                    placeholder="Search by provider name or registration #…"
-                  ></app-entity-picker>
+                <app-entity-picker
+                  kind="provider"
+                  [value]="providerId"
+                  (valueChange)="providerId = $event; onProviderChange()"
+                  placeholder="Search by provider name or registration #…"
+                ></app-entity-picker>
+                @if (providerMode === 'OPTIONAL' && !providerId) {
+                  <small class="field-help">
+                    Optional — leave blank if the tenant is acting as the provider.
+                  </small>
+                }
+                @if (showPayeeChoice()) {
+                  <!-- Payee radio: independent of provider capture. Default
+                       is direct pay; flip to Reimburse for out-of-pocket
+                       claims where the member paid the provider upfront. -->
+                  <div class="payee-choice" role="radiogroup" aria-label="Payment routing">
+                    <label class="payee-choice__option"
+                           [class.on]="payeeType === 'PROVIDER'">
+                      <input type="radio" name="payeeType" value="PROVIDER"
+                             [(ngModel)]="payeeType" />
+                      <span>Direct pay to provider</span>
+                    </label>
+                    <label class="payee-choice__option"
+                           [class.on]="payeeType === 'MEMBER'">
+                      <input type="radio" name="payeeType" value="MEMBER"
+                             [(ngModel)]="payeeType" />
+                      <span>Reimburse to member</span>
+                    </label>
+                  </div>
                 }
               }
             </label>

@@ -540,6 +540,24 @@ export class ClaimDetailComponent implements OnInit {
     return this.claim?.providerId ?? '';
   }
 
+  /** Statuses that should tint the provider status chip warning-colour so
+   *  the adjudicator notices before approving payment. Everything not on
+   *  ACTIVE / VERIFIED is treated as risk-worthy. */
+  isProviderStatusRisk(status: string | null | undefined): boolean {
+    if (!status) return false;
+    const s = status.toUpperCase();
+    return s !== 'ACTIVE' && s !== 'VERIFIED';
+  }
+
+  /** V066 — is this claim's payout routed to the member (reimbursement)?
+   *  Reads the explicit payeeType when present; falls back to the pre-V066
+   *  heuristic (no providerId ⇒ member) for legacy rows. */
+  payeeIsMember(): boolean {
+    if (!this.claim) return false;
+    if (this.claim.payeeType) return this.claim.payeeType === 'MEMBER';
+    return !this.claim.providerId;
+  }
+
   // ── Lifecycle actions ────────────────────────────────────────────────
 
   adjudicate(): void {

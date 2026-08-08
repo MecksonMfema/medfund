@@ -139,26 +139,27 @@ describe('SubmitClaimComponent', () => {
       expect(component.activeLine).toBeNull();
     });
 
-    it('HEALTH sets provider OPTIONAL — picker hidden by default (member reimbursement)', () => {
-      // HEALTH claims default to member-reimbursed. The operator opts
-      // in to the provider picker if the payment goes to a network
-      // provider instead.
+    it('HEALTH sets provider REQUIRED — picker always shown, mandatory on submit', () => {
+      // V066: the service provider is load-bearing for adjudication
+      // (specialty, network, tariffs) regardless of who receives the
+      // payout. Member-reimbursement is a payee-routing choice, not a
+      // signal to omit the provider.
       contributions.getSchemeById.and.returnValue(of(healthScheme()));
       component.onSchemeIdChange('scheme-1');
-      expect(component.providerMode).toBe('OPTIONAL');
-      expect(component.showProviderPicker()).toBeFalse();
-      component.providerOptIn = true;
+      expect(component.providerMode).toBe('REQUIRED');
       expect(component.showProviderPicker()).toBeTrue();
+      expect(component.isProviderRequired()).toBeTrue();
     });
 
-    it('VEHICLE also OPTIONAL — same opt-in shape as HEALTH', () => {
+    it('VEHICLE also REQUIRED — same shape as HEALTH', () => {
       contributions.getSchemeById.and.returnValue(of(vehicleScheme()));
       component.onSchemeIdChange('scheme-2');
-      expect(component.providerMode).toBe('OPTIONAL');
-      expect(component.showProviderPicker()).toBeFalse();
+      expect(component.providerMode).toBe('REQUIRED');
+      expect(component.showProviderPicker()).toBeTrue();
+      expect(component.isProviderRequired()).toBeTrue();
     });
 
-    it('LIFE is FORBIDDEN — picker hides and any stale provider is scrubbed', () => {
+    it('LIFE is FORBIDDEN — picker hides, payeeType snaps to MEMBER, stale provider scrubbed', () => {
       // A stale providerId from a previous HEALTH scheme selection must
       // be cleared when switching to LIFE — otherwise it rides silently
       // into the payload and the backend rejects the whole submit.
@@ -173,17 +174,17 @@ describe('SubmitClaimComponent', () => {
       expect(component.providerMode).toBe('FORBIDDEN');
       expect(component.showProviderPicker()).toBeFalse();
       expect(component.providerId).toBeNull();
+      expect(component.payeeType).toBe('MEMBER');
     });
 
-    it('FUNERAL is OPTIONAL — funeral director OR bereaved family', () => {
+    it('FUNERAL stays OPTIONAL — picker shown but not required (tenant may be the funeral director)', () => {
       const funeralScheme = { ...healthScheme(), id: 'scheme-fun', insuranceLine: 'FUNERAL', schemeType: 'funeral_benefit' } as Scheme;
       contributions.getSchemeById.and.returnValue(of(funeralScheme));
       component.onSchemeIdChange('scheme-fun');
 
       expect(component.providerMode).toBe('OPTIONAL');
-      expect(component.showProviderPicker()).toBeFalse();
-      component.providerOptIn = true;
       expect(component.showProviderPicker()).toBeTrue();
+      expect(component.isProviderRequired()).toBeFalse();
     });
 
     it('scheme lookup failure defaults to HEALTH so the form still renders', () => {
@@ -202,28 +203,51 @@ describe('SubmitClaimComponent', () => {
   // ──────────────────────────────────────────────────────────────────
 
   describe('submit — provider policy', () => {
-    it('HEALTH without a provider submits fine — it is a member-reimbursement claim', () => {
-      // The point of dropping REQUIRED: an operator can capture a
-      // member's out-of-pocket bill on any OPTIONAL line without being
-      // forced to attach a provider they weren't given.
+    it('HEALTH without a provider is rejected — REQUIRED lines must have one on submit', () => {
+      // V066: the service provider is captured regardless of who
+      // receives payment. An operator that lacks the provider info
+      // has to fetch it before the claim can be submitted; the payee
+      // radio controls where the payout goes, not whether the provider
+      // shows up on the record.
       contributions.getSchemeById.and.returnValue(of(healthScheme()));
       component.onSchemeIdChange('scheme-1');
       component.onBeneficiaryPicked({
         id: 'm-1', label: 'Sarah',
         beneficiary: { kind: 'MEMBER', memberId: 'm-1', dependantId: null },
       });
-      // providerId intentionally left null — this is the member-paid path.
+      component.lines[0].tariffCode = 'TC001';
+      component.lines[0].unitPrice = '500';
+      claims.submit.and.returnValue(of(envelope()));
+
+      component.submit();
+      expect(claims.submit).not.toHaveBeenCalled();
+      expect(component.formError).toContain('require a service provider');
+    });
+
+    it('HEALTH with provider + payeeType MEMBER submits as reimbursement', () => {
+      // The out-of-pocket reimbursement path — provider is captured
+      // (so the adjudicator sees specialty, network, etc.) but the
+      // payout goes back to the sponsoring member.
+      contributions.getSchemeById.and.returnValue(of(healthScheme()));
+      component.onSchemeIdChange('scheme-1');
+      component.onBeneficiaryPicked({
+        id: 'm-1', label: 'Sarah',
+        beneficiary: { kind: 'MEMBER', memberId: 'm-1', dependantId: null },
+      });
+      component.providerId = 'p-42';
+      component.payeeType = 'MEMBER';
       component.lines[0].tariffCode = 'TC001';
       component.lines[0].unitPrice = '500';
       claims.submit.and.returnValue(of(envelope()));
 
       component.submit();
       const payload = claims.submit.calls.mostRecent().args[0] as SubmitClaimPayload;
-      expect(payload.providerId).toBeUndefined();
+      expect(payload.providerId).toBe('p-42');
+      expect(payload.payeeType).toBe('MEMBER');
       expect(component.formError).toBeNull();
     });
 
-    it('LIFE claim submits with providerId=undefined in payload', () => {
+    it('LIFE claim submits with providerId=undefined and payeeType=MEMBER', () => {
       const lifeScheme = { ...healthScheme(), id: 'scheme-life', insuranceLine: 'LIFE', schemeType: 'term_life' } as Scheme;
       contributions.getSchemeById.and.returnValue(of(lifeScheme));
       component.onSchemeIdChange('scheme-life');
@@ -242,6 +266,7 @@ describe('SubmitClaimComponent', () => {
       expect(payload.providerId)
         .withContext('LIFE claims are paid to the member — provider must not ride on the payload')
         .toBeUndefined();
+      expect(payload.payeeType).toBe('MEMBER');
     });
   });
 

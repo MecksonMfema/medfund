@@ -21,6 +21,7 @@ import { MembersService } from '../../../../core/services/members.service';
 import { TenantService } from '../../../../core/services/tenant.service';
 import {
   ClaimFieldKey,
+  PayeeType,
   ProviderMode,
   claimFieldsForLine,
   hasClaimField,
@@ -160,13 +161,18 @@ export class SubmitClaimComponent implements OnInit {
   activeLine: string | null = null;
   activeLineFields: ReadonlySet<ClaimFieldKey> = claimFieldsForLine(null);
   usesItemLines = true;
-  /** Per-line rule for the provider field. FORBIDDEN hides the picker
-   *  outright (payout goes to the member); OPTIONAL surfaces the opt-in
-   *  toggle so the operator can attach a provider or leave the claim
-   *  as a member reimbursement. */
-  providerMode: ProviderMode = 'OPTIONAL';
-  /** For OPTIONAL lines, gates whether the provider picker is shown. */
-  providerOptIn = false;
+  /** Per-line rule for the provider field. REQUIRED lines (HEALTH, GROUP,
+   *  TRAVEL, VEHICLE, PROPERTY) always show the picker and reject a
+   *  submission without a provider. OPTIONAL (FUNERAL) shows the picker
+   *  but lets the operator leave it blank. FORBIDDEN (LIFE / DISABILITY)
+   *  hides the picker outright — payment goes straight to the member. */
+  providerMode: ProviderMode = 'REQUIRED';
+  /** Payment routing — PROVIDER pays the service provider directly,
+   *  MEMBER reimburses the sponsoring member. The default depends on
+   *  the line (REQUIRED / OPTIONAL default to PROVIDER; FORBIDDEN forces
+   *  MEMBER). The operator can flip PROVIDER↔MEMBER on any non-FORBIDDEN
+   *  line to capture the out-of-pocket reimbursement scenario. */
+  payeeType: PayeeType = 'PROVIDER';
 
   // Tariff-code autocomplete state (only relevant for line-item bodies).
   activeLineIndex: number | null = null;
@@ -359,10 +365,16 @@ export class SubmitClaimComponent implements OnInit {
     this.providerMode = providerModeForLine(line);
     // A FORBIDDEN switch must scrub any provider the operator picked
     // under the previous scheme — leaving it in place would silently
-    // ride into the payload and be rejected 400 at submit.
+    // ride into the payload and be rejected 400 at submit. Payment
+    // routing also snaps to MEMBER (only option for LIFE / DISABILITY).
     if (this.providerMode === 'FORBIDDEN') {
       this.providerId = null;
-      this.providerOptIn = false;
+      this.payeeType = 'MEMBER';
+    } else {
+      // REQUIRED / OPTIONAL default to paying the provider directly —
+      // the operator can flip to MEMBER when the claim is a
+      // reimbursement for a bill the member paid out-of-pocket.
+      this.payeeType = 'PROVIDER';
     }
     // If we just switched from a line-item to a single-item body (or
     // vice versa), reset the corresponding entries so the payload is
@@ -376,12 +388,37 @@ export class SubmitClaimComponent implements OnInit {
     }
   }
 
-  /** True when the provider picker should render on the form. FORBIDDEN
-   *  hides it outright; OPTIONAL reveals it only after the operator
-   *  ticks the opt-in toggle (default state: member-paid claim). */
+  /** True when the provider picker should render on the form. Hidden
+   *  only for FORBIDDEN lines (LIFE / DISABILITY — no service provider
+   *  concept). REQUIRED shows it as mandatory; OPTIONAL (FUNERAL) shows
+   *  it but leaves it non-mandatory. */
   showProviderPicker(): boolean {
+    return this.providerMode !== 'FORBIDDEN';
+  }
+
+  /** True when the payee-type radio should render. Hidden on FORBIDDEN
+   *  lines where MEMBER is the only option, and on non-FORBIDDEN lines
+   *  where no provider is picked yet (payment would default to MEMBER
+   *  anyway; showing the radio empty is noise). */
+  showPayeeChoice(): boolean {
     if (this.providerMode === 'FORBIDDEN') return false;
-    return this.providerOptIn;
+    return !!this.providerId;
+  }
+
+  /** True when the provider is a hard requirement for the current line
+   *  — drives the "* required" asterisk on the picker and the submit-
+   *  time validation. */
+  isProviderRequired(): boolean {
+    return this.providerMode === 'REQUIRED';
+  }
+
+  /** Snap payeeType whenever the picked provider changes. Clearing the
+   *  provider forces MEMBER (there's nothing to pay directly). Adding
+   *  a provider keeps whatever the operator already picked (a MEMBER
+   *  reimbursement they set earlier stays; the PROVIDER default from
+   *  {@link setActiveLine} kicks in for fresh selections). */
+  onProviderChange(): void {
+    if (!this.providerId) this.payeeType = 'MEMBER';
   }
 
   hasField(key: ClaimFieldKey): boolean {
@@ -509,6 +546,17 @@ export class SubmitClaimComponent implements OnInit {
       this.formError = `${this.activeLine} claims are paid to the member — remove the provider`;
       return;
     }
+    if (this.providerMode === 'REQUIRED' && !this.providerId) {
+      this.formError = `${this.activeLine} claims require a service provider — pick one (use "Reimburse to member" if the member paid out-of-pocket)`;
+      return;
+    }
+    if (this.payeeType === 'PROVIDER' && !this.providerId) {
+      // Belt-and-braces: the UI hides the radio when there's no provider,
+      // but if the operator somehow reached PROVIDER + null the server
+      // would 400 anyway — catch it here so we can point at the fix.
+      this.formError = 'Pick a service provider or switch payee to "Reimburse to member"';
+      return;
+    }
     if (!this.schemeId)   { this.formError = 'Pick a scheme'; return; }
     if (!this.activeLine) { this.formError = 'Scheme has no insurance line — pick a different scheme'; return; }
     if (!this.form.serviceDate) { this.formError = 'Service date is required'; return; }
@@ -533,6 +581,10 @@ export class SubmitClaimComponent implements OnInit {
       memberId: this.memberId!,
       dependantId: this.dependantId ?? undefined,
       providerId: this.providerId ?? undefined,
+      // Server derives PROVIDER / MEMBER from provider presence when omitted;
+      // we send it explicitly so operator-picked MEMBER-with-provider (the
+      // out-of-pocket reimbursement scenario) survives the round-trip.
+      payeeType: this.providerMode === 'FORBIDDEN' ? 'MEMBER' : this.payeeType,
       schemeId: this.schemeId!,
       claimType: this.claimType,
       insuranceLine: this.activeLine!,
@@ -654,7 +706,7 @@ export class SubmitClaimComponent implements OnInit {
     this.dependantId = null;
     this.beneficiaryId = null;
     this.providerId = null;
-    this.providerOptIn = false;
+    this.payeeType = 'PROVIDER';
     this.schemeId = null;
     this.setActiveLine(null);
     this.form = {

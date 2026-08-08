@@ -29,6 +29,14 @@ public class Claim {
     @Column("provider_id")
     private UUID providerId;
 
+    /** V066 — payment routing. 'PROVIDER' pays the service provider
+     *  directly; 'MEMBER' reimburses the sponsoring member (used when the
+     *  member paid out-of-pocket, or for LIFE / DISABILITY payouts). Kept
+     *  distinct from providerId so an adjudicator sees provider info even
+     *  when the payment goes to the member. */
+    @Column("payee_type")
+    private String payeeType;
+
     @Column("scheme_id")
     private UUID schemeId;
 
@@ -128,6 +136,9 @@ public class Claim {
 
     public UUID getProviderId() { return providerId; }
     public void setProviderId(UUID providerId) { this.providerId = providerId; }
+
+    public String getPayeeType() { return payeeType; }
+    public void setPayeeType(String payeeType) { this.payeeType = payeeType; }
 
     public UUID getSchemeId() { return schemeId; }
     public void setSchemeId(UUID schemeId) { this.schemeId = schemeId; }

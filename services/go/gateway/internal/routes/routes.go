@@ -99,6 +99,9 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// Per-(member|dependant) benefit utilization vs. scheme limits.
 	app.All("/api/v1/beneficiary-benefits", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/beneficiary-benefits/*", proxy.Handler(cfg.ContribServiceURL))
+	// Annual cap totals aggregated per (member, scheme, policy year).
+	app.All("/api/v1/beneficiary-annual-totals", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/beneficiary-annual-totals/*", proxy.Handler(cfg.ContribServiceURL))
 
 	// ── Finance Service ───────────────────────────────────────────────────────
 	app.All("/api/v1/payments/*", proxy.Handler(cfg.FinanceServiceURL))

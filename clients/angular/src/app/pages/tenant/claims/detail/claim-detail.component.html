@@ -231,52 +231,115 @@
       </div>
     </section>
 
-    <!-- ── 3. Payee ─────────────────────────────────────────────────── -->
-    <section class="detail-card" [class.detail-card--muted]="!provider">
+    <!-- ── 3. Service provider ──────────────────────────────────────── -->
+    <!-- The provider drives adjudication: specialty gates certain procedures,
+         provider type / network status affects fraud + tariff rules, and
+         registration + contact info is what the adjudicator uses to verify
+         a suspect claim. Payment routing is expressed via claim.payeeType
+         (V066) and rendered as a chip at the top of the card. -->
+    <section class="detail-card" [class.detail-card--muted]="!provider && claim && !!claim.providerId">
       <header class="section-head">
         <span class="section-icon section-icon--sm">
           <app-icon [name]="provider ? 'building' : 'user-check'" [size]="16"></app-icon>
         </span>
-        <h3 class="section-title">Payee</h3>
+        <h3 class="section-title">Service provider</h3>
       </header>
       @if (provider) {
         <div class="identity">
+          <!-- Payment-routing chip first so the adjudicator can tell at a
+               glance who the payee is without conflating it with the
+               service-provider identity below. -->
+          <div class="identity-chips">
+            @if (payeeIsMember()) {
+              <span class="chip chip--warn" title="Approved amount is reimbursed to the sponsoring member">
+                <app-icon name="dollar-sign" [size]="12"></app-icon>
+                Reimburse to member
+              </span>
+            } @else {
+              <span class="chip chip--primary" title="Approved amount is paid to this provider">
+                <app-icon name="dollar-sign" [size]="12"></app-icon>
+                Direct pay to provider
+              </span>
+            }
+            @if (provider.providerType) {
+              <span class="chip">{{ provider.providerType | humanize }}</span>
+            }
+            @if (provider.status) {
+              <span class="chip"
+                    [class.chip--warn]="isProviderStatusRisk(provider.status)">
+                {{ provider.status | humanize }}
+              </span>
+            }
+          </div>
           <div class="identity-name">{{ provider.name }}</div>
           @if (provider.specialty) {
             <div class="identity-sub muted">{{ provider.specialty }}</div>
           }
-          <div class="identity-chips">
-            <span class="chip chip--primary">Provider</span>
-            @if (provider.status) {
-              <span class="chip">{{ provider.status | humanize }}</span>
-            }
-            @if (provider.city) {
-              <span class="chip">{{ provider.city }}</span>
-            }
-          </div>
           @if (provider.registrationNumber) {
             <div class="identity-line muted">
               Reg <code>{{ provider.registrationNumber }}</code>
             </div>
           }
-        </div>
-      } @else if (claim && !claim.providerId) {
-        <!-- Member reimbursement — the payout always goes to the primary
-             member on file, even for dependant claims. The dependant is
-             the beneficiary of the service; the sponsor is the payee. -->
-        <div class="identity">
-          <div class="identity-chips">
-            <span class="chip chip--primary">Member reimbursement</span>
-          </div>
-          @if (member) {
-            <div class="identity-name">{{ member.firstName }} {{ member.lastName }}</div>
-            <div class="identity-sub">
-              <code>{{ member.memberNumber }}</code>
-              @if (dependant) {
-                <span class="sep">·</span>
-                <span class="muted">sponsor of {{ dependant.firstName }} {{ dependant.lastName }}</span>
+          @if (provider.city || provider.address) {
+            <div class="identity-line muted">
+              <app-icon name="map-pin" [size]="12"></app-icon>
+              {{ provider.address || provider.city }}
+              @if (provider.address && provider.city) {
+                <span class="sep">·</span>{{ provider.city }}
               }
             </div>
+          }
+          @if (provider.email || provider.phone) {
+            <div class="identity-contacts">
+              @if (provider.email) {
+                <a class="contact-link" [href]="'mailto:' + provider.email">
+                  <app-icon name="mail" [size]="14"></app-icon>
+                  {{ provider.email }}
+                </a>
+              }
+              @if (provider.phone) {
+                <a class="contact-link" [href]="'tel:' + provider.phone">
+                  <app-icon name="phone" [size]="14"></app-icon>
+                  {{ provider.phone }}
+                </a>
+              }
+            </div>
+          }
+          @if (payeeIsMember() && member) {
+            <!-- Reimbursement payout target — the provider is on file for
+                 adjudication context but the money goes back to the
+                 sponsoring member. -->
+            <div class="identity-line">
+              Reimbursement payee: <strong>{{ member.firstName }} {{ member.lastName }}</strong>
+              · <code>{{ member.memberNumber }}</code>
+            </div>
+          }
+        </div>
+      } @else if (claim && !claim.providerId) {
+        <!-- No provider on file — LIFE / DISABILITY (FORBIDDEN by design)
+             or a legacy pre-V066 reimbursement claim. Payee is the member. -->
+        <div class="identity">
+          <div class="identity-chips">
+            <span class="chip chip--warn" title="No provider captured on this claim">
+              <app-icon name="alert-triangle" [size]="12"></app-icon>
+              Not captured
+            </span>
+            <span class="chip chip--primary" title="Approved amount is reimbursed to the sponsoring member">
+              <app-icon name="dollar-sign" [size]="12"></app-icon>
+              Reimburse to member
+            </span>
+          </div>
+          <p class="muted small">Payout goes to the sponsoring member — no provider is on the record.</p>
+          @if (member) {
+            <div class="identity-line">
+              Reimbursement payee: <strong>{{ member.firstName }} {{ member.lastName }}</strong>
+              · <code>{{ member.memberNumber }}</code>
+            </div>
+            @if (dependant) {
+              <div class="identity-line muted">
+                sponsor of {{ dependant.firstName }} {{ dependant.lastName }}
+              </div>
+            }
           } @else {
             <p class="muted">Sponsoring member record unavailable.</p>
           }

@@ -326,7 +326,7 @@ class ClaimServiceTest {
         // eventually pay the wrong party — reject at capture time.
         var request = withInsuranceLineHint(healthRequest(List.of()), "LIFE");
         request = new SubmitClaimRequest(
-                request.memberId(), request.dependantId(), request.providerId(), request.schemeId(),
+                request.memberId(), request.dependantId(), request.providerId(), request.payeeType(), request.schemeId(),
                 request.benefitId(), request.claimType(), request.insuranceLine(), request.batchNumber(),
                 request.serviceDate(), request.claimedAmount(),
                 request.currencyCode(), request.diagnosisCodes(), request.procedureCodes(), request.notes(),
@@ -355,7 +355,7 @@ class ClaimServiceTest {
     @Test
     void submit_life_acceptsNoProvider_andPersists() {
         var lifeRequest = new SubmitClaimRequest(
-                UUID.randomUUID(), null, null /* no provider */, UUID.randomUUID(),
+                UUID.randomUUID(), null, null /* no provider */, null /* payeeType defaults to MEMBER */, UUID.randomUUID(),
                 null, null, null, null,
                 LocalDate.now(), new BigDecimal("50000.00"),
                 "USD", null, null, null, null,
@@ -387,15 +387,47 @@ class ClaimServiceTest {
     }
 
     @Test
-    void submit_health_acceptsMissingProvider_asMemberReimbursement() {
-        // Member-reimbursement HEALTH claim: no provider, no bill from a
-        // network — just a receipt the operator captured. Regressing this
-        // puts every out-of-pocket capture behind a "pick a provider"
-        // wall the operator can't satisfy.
+    void submit_health_rejectsMissingProvider() {
+        // V066: HEALTH is now REQUIRED — the service provider is
+        // load-bearing for adjudication (specialty, network status)
+        // regardless of who receives the payout. Member-reimbursement
+        // stays available via payeeType=MEMBER but the provider must
+        // still be captured. A submission with no provider is a data-
+        // quality error and gets rejected at capture time.
         var lineRequest = new ClaimLineRequest("TC001", "Consultation", 1,
                 new BigDecimal("500.00"), new BigDecimal("500.00"), null, "USD");
         var request = new SubmitClaimRequest(
-                UUID.randomUUID(), null, null /* member paid */, UUID.randomUUID(),
+                UUID.randomUUID(), null, null /* provider missing */, null, UUID.randomUUID(),
+                null, null, null, null,
+                LocalDate.now(), new BigDecimal("500.00"),
+                "USD", null, null, null, List.of(lineRequest),
+                null, null, null, null, null, null, null, null, null, null, null, null,
+                null
+        );
+        when(schemeClient.findById(any(UUID.class)))
+                .thenReturn(Mono.just(schemeSummary("HEALTH")));
+
+        StepVerifier.create(
+                claimService.submit(request, actorId, ACTOR_EMAIL)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .expectErrorSatisfies(err -> {
+                    assertThat(err).isInstanceOf(IllegalArgumentException.class);
+                    assertThat(err.getMessage()).contains("HEALTH", "provider");
+                })
+                .verify();
+    }
+
+    @Test
+    void submit_health_memberReimbursement_persistsWithProviderAndPayeeType() {
+        // V066: the reimbursement scenario is now expressed with the
+        // provider captured + payeeType=MEMBER. The adjudicator still
+        // sees provider info, but the finance consumer routes payment
+        // back to the sponsoring member.
+        var lineRequest = new ClaimLineRequest("TC001", "Consultation", 1,
+                new BigDecimal("500.00"), new BigDecimal("500.00"), null, "USD");
+        var request = new SubmitClaimRequest(
+                UUID.randomUUID(), null, UUID.randomUUID() /* provider on file */, "MEMBER", UUID.randomUUID(),
                 null, null, null, null,
                 LocalDate.now(), new BigDecimal("500.00"),
                 "USD", null, null, null, List.of(lineRequest),
@@ -410,7 +442,8 @@ class ClaimServiceTest {
         )
                 .assertNext(response -> {
                     assertThat(response.claim().insuranceLine()).isEqualTo("HEALTH");
-                    assertThat(response.claim().providerId()).isNull();
+                    assertThat(response.claim().providerId()).isNotNull();
+                    assertThat(response.claim().payeeType()).isEqualTo("MEMBER");
                 })
                 .verifyComplete();
     }
@@ -566,7 +599,7 @@ class ClaimServiceTest {
 
     private SubmitClaimRequest healthRequest(List<ClaimLineRequest> lines) {
         return new SubmitClaimRequest(
-                UUID.randomUUID(), null, UUID.randomUUID(), UUID.randomUUID(),
+                UUID.randomUUID(), null, UUID.randomUUID(), null, UUID.randomUUID(),
                 null, null, null, null,
                 LocalDate.now(), new BigDecimal("500.00"),
                 "USD", null, null, null, lines,
@@ -577,7 +610,7 @@ class ClaimServiceTest {
 
     private SubmitClaimRequest vehicleRequest(String vehicleReg, String incidentLocation) {
         return new SubmitClaimRequest(
-                UUID.randomUUID(), null, UUID.randomUUID(), UUID.randomUUID(),
+                UUID.randomUUID(), null, UUID.randomUUID(), null, UUID.randomUUID(),
                 null, null, null, null,
                 LocalDate.now(), new BigDecimal("1200.00"),
                 "USD", null, null, null, null,
@@ -588,7 +621,7 @@ class ClaimServiceTest {
 
     private SubmitClaimRequest withInsuranceLineHint(SubmitClaimRequest req, String hint) {
         return new SubmitClaimRequest(
-                req.memberId(), req.dependantId(), req.providerId(), req.schemeId(),
+                req.memberId(), req.dependantId(), req.providerId(), req.payeeType(), req.schemeId(),
                 req.benefitId(), req.claimType(), hint, req.batchNumber(),
                 req.serviceDate(), req.claimedAmount(),
                 req.currencyCode(), req.diagnosisCodes(), req.procedureCodes(), req.notes(),
@@ -603,7 +636,7 @@ class ClaimServiceTest {
 
     private SubmitClaimRequest withBatchNumber(SubmitClaimRequest req, String batch) {
         return new SubmitClaimRequest(
-                req.memberId(), req.dependantId(), req.providerId(), req.schemeId(),
+                req.memberId(), req.dependantId(), req.providerId(), req.payeeType(), req.schemeId(),
                 req.benefitId(), req.claimType(), req.insuranceLine(), batch,
                 req.serviceDate(), req.claimedAmount(),
                 req.currencyCode(), req.diagnosisCodes(), req.procedureCodes(), req.notes(),
@@ -618,7 +651,7 @@ class ClaimServiceTest {
 
     private SubmitClaimRequest withLines(SubmitClaimRequest req, List<ClaimLineRequest> lines) {
         return new SubmitClaimRequest(
-                req.memberId(), req.dependantId(), req.providerId(), req.schemeId(),
+                req.memberId(), req.dependantId(), req.providerId(), req.payeeType(), req.schemeId(),
                 req.benefitId(), req.claimType(), req.insuranceLine(), req.batchNumber(),
                 req.serviceDate(), req.claimedAmount(),
                 req.currencyCode(), req.diagnosisCodes(), req.procedureCodes(), req.notes(),
@@ -633,7 +666,7 @@ class ClaimServiceTest {
 
     private SubmitClaimRequest withAttachments(SubmitClaimRequest req, List<ClaimAttachment> attachments) {
         return new SubmitClaimRequest(
-                req.memberId(), req.dependantId(), req.providerId(), req.schemeId(),
+                req.memberId(), req.dependantId(), req.providerId(), req.payeeType(), req.schemeId(),
                 req.benefitId(), req.claimType(), req.insuranceLine(), req.batchNumber(),
                 req.serviceDate(), req.claimedAmount(),
                 req.currencyCode(), req.diagnosisCodes(), req.procedureCodes(), req.notes(),
@@ -673,7 +706,7 @@ class ClaimServiceTest {
         var row = new ClaimRow(
                 UUID.randomUUID(), "CLM-000001",
                 UUID.randomUUID(), "Alice Ndlovu", "MBR-000001", null,
-                UUID.randomUUID(), "Harare Clinic",
+                UUID.randomUUID(), "Harare Clinic", "PROVIDER",
                 UUID.randomUUID(), "medical", "HEALTH", "VERIFIED",
                 LocalDate.now(), Instant.now(),
                 new BigDecimal("500.00"), null, "USD", null, Instant.now());

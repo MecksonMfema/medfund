@@ -13,6 +13,11 @@ export interface Claim {
   memberId: string;
   dependantId?: string;
   providerId: string;
+  /** V066 — payment routing. 'PROVIDER' pays the service provider directly;
+   *  'MEMBER' reimburses the sponsoring member. Independent of providerId
+   *  so the provider is still captured (and shown to the adjudicator) even
+   *  for out-of-pocket reimbursement claims. */
+  payeeType?: 'PROVIDER' | 'MEMBER';
   schemeId: string;
   benefitId?: string;
   claimType: string;
@@ -121,10 +126,16 @@ export interface ClaimAttachment {
 export interface SubmitClaimPayload {
   memberId: string;
   dependantId?: string;
-  /** Optional — LIFE and DISABILITY claims are paid to the member with
-   *  no provider on file; FUNERAL is operator-choice. Server enforces
-   *  the per-line rule. */
+  /** Required for HEALTH / GROUP / TRAVEL / VEHICLE / PROPERTY (the
+   *  service provider is captured regardless of who receives payment).
+   *  Optional for FUNERAL, forbidden for LIFE / DISABILITY. Server
+   *  enforces the per-line rule via {@code providerModeForLine}. */
   providerId?: string;
+  /** Payment routing — omit to let the server default (PROVIDER when a
+   *  provider is captured, MEMBER otherwise). Set explicitly to
+   *  {@code MEMBER} to reimburse the member even when a provider is on
+   *  the claim (out-of-pocket flow). */
+  payeeType?: 'PROVIDER' | 'MEMBER';
   schemeId: string;
   benefitId?: string;
   claimType?: string;
@@ -172,6 +183,7 @@ export interface ClaimRow {
   dependantId?: string;
   providerId?: string;
   providerName?: string;
+  payeeType?: 'PROVIDER' | 'MEMBER';
   schemeId?: string;
   claimType: string;
   insuranceLine?: string;

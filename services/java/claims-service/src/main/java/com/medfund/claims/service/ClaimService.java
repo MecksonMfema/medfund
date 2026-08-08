@@ -51,21 +51,30 @@ public class ClaimService {
     private static final Set<String> LINE_ITEM_LINES = Set.of("HEALTH", "GROUP", "TRAVEL");
 
     /**
-     * Per-line rule for whether a claim carries a provider. Only two
-     * live modes today — every line either allows a provider (member
-     * may have paid out-of-pocket, in which case the reimbursement goes
-     * to the member) or forbids one entirely (LIFE / DISABILITY payouts
-     * always go to the beneficiary).
+     * Per-line rule for whether a claim carries a provider on submit.
+     * <ul>
+     *   <li>{@code REQUIRED} — service provider must be captured. Applies
+     *       to HEALTH / GROUP / TRAVEL / VEHICLE / PROPERTY where the
+     *       provider's identity is load-bearing for adjudication
+     *       (specialty, network status, tariffs) regardless of who
+     *       receives payment. Member-reimbursement is expressed via
+     *       {@code payeeType = MEMBER}, not via a null provider.</li>
+     *   <li>{@code OPTIONAL} — FUNERAL: some tenants run their own
+     *       funeral parlour and act as the provider themselves; others
+     *       reimburse the family. Provider may or may not be captured.</li>
+     *   <li>{@code FORBIDDEN} — LIFE / DISABILITY payouts always go to
+     *       the beneficiary; there is no clinical / service provider.</li>
+     * </ul>
      */
-    public enum ProviderMode { OPTIONAL, FORBIDDEN }
+    public enum ProviderMode { REQUIRED, OPTIONAL, FORBIDDEN }
 
     private static final Map<String, ProviderMode> PROVIDER_MODE_BY_LINE = Map.of(
-            "HEALTH",     ProviderMode.OPTIONAL,  // member-reimbursed out-of-pocket is common
-            "GROUP",      ProviderMode.OPTIONAL,
-            "TRAVEL",     ProviderMode.OPTIONAL,
-            "VEHICLE",    ProviderMode.OPTIONAL,
-            "PROPERTY",   ProviderMode.OPTIONAL,
-            "FUNERAL",    ProviderMode.OPTIONAL,  // funeral director OR the family
+            "HEALTH",     ProviderMode.REQUIRED,
+            "GROUP",      ProviderMode.REQUIRED,
+            "TRAVEL",     ProviderMode.REQUIRED,
+            "VEHICLE",    ProviderMode.REQUIRED,
+            "PROPERTY",   ProviderMode.REQUIRED,
+            "FUNERAL",    ProviderMode.OPTIONAL,  // tenant may be the funeral director
             "LIFE",       ProviderMode.FORBIDDEN,
             "DISABILITY", ProviderMode.FORBIDDEN
     );
@@ -206,6 +215,7 @@ public class ClaimService {
                         claim.setMemberId(request.memberId());
                         claim.setDependantId(request.dependantId());
                         claim.setProviderId(request.providerId());
+                        claim.setPayeeType(resolvePayeeType(request.payeeType(), request.providerId() != null));
                         claim.setSchemeId(request.schemeId());
                         claim.setBenefitId(request.benefitId());
                         claim.setClaimType(request.claimType());
@@ -338,6 +348,33 @@ public class ClaimService {
         if (mode == ProviderMode.FORBIDDEN && hasProvider) {
             throw new IllegalArgumentException(line + " claims are paid to the member — remove the provider");
         }
+        if (mode == ProviderMode.REQUIRED && !hasProvider) {
+            throw new IllegalArgumentException(line + " claims require a service provider — capture the provider on submit (payeeType controls where the payout goes)");
+        }
+        // Cross-check payeeType against the shape:
+        //  - explicit PROVIDER with no provider on file makes no sense
+        //  - explicit MEMBER on a FORBIDDEN line is fine (there's no other option)
+        String payee = req.payeeType();
+        if ("PROVIDER".equalsIgnoreCase(payee) && !hasProvider) {
+            throw new IllegalArgumentException("payeeType=PROVIDER requires providerId to be set");
+        }
+    }
+
+    /**
+     * Coerces a request's {@code payeeType} into the persisted value.
+     * Null / blank input defaults to {@code PROVIDER} when a provider is
+     * captured (the common case) and {@code MEMBER} otherwise. Explicit
+     * values are normalised to upper-case and rejected if unknown.
+     */
+    private static String resolvePayeeType(String requested, boolean hasProvider) {
+        if (requested == null || requested.isBlank()) {
+            return hasProvider ? "PROVIDER" : "MEMBER";
+        }
+        String normalised = requested.trim().toUpperCase();
+        if (!"PROVIDER".equals(normalised) && !"MEMBER".equals(normalised)) {
+            throw new IllegalArgumentException("Unknown payeeType '" + requested + "' — expected PROVIDER or MEMBER");
+        }
+        return normalised;
     }
 
     private static String blankToNull(String s) {
@@ -1016,6 +1053,9 @@ public class ClaimService {
                 claim.setMemberId(request.memberId());
                 claim.setDependantId(request.dependantId());
                 claim.setProviderId(request.providerId());
+                // Drug claims always have a pharmacy provider — payee defaults
+                // to that provider; member-reimbursement is not a drug-claim shape.
+                claim.setPayeeType("PROVIDER");
                 claim.setSchemeId(request.schemeId());
                 claim.setBenefitId(request.benefitId());
                 claim.setClaimType("drug");

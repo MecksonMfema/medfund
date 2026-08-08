@@ -23,11 +23,17 @@ import java.util.UUID;
 public record SubmitClaimRequest(
         @NotNull UUID memberId,
         UUID dependantId,
-        /** Nullable — LIFE, DISABILITY, and (optionally) FUNERAL claims are
-         *  paid directly to the member without a provider on file. The
-         *  service enforces per-line rules; see
+        /** Required for HEALTH / GROUP / TRAVEL / VEHICLE / PROPERTY lines
+         *  (the service provider drives adjudication regardless of who
+         *  receives payment). Nullable for FUNERAL (tenant may act as the
+         *  funeral director) and LIFE / DISABILITY (no service provider).
+         *  The service enforces per-line rules; see
          *  {@code ClaimService.validateProviderPolicy}. */
         UUID providerId,
+        /** Payment routing — 'PROVIDER' pays the service provider directly;
+         *  'MEMBER' reimburses the sponsoring member. Optional: when null,
+         *  the service derives 'PROVIDER' if providerId is set, else 'MEMBER'. */
+        String payeeType,
         @NotNull UUID schemeId,
         UUID benefitId,
         String claimType,

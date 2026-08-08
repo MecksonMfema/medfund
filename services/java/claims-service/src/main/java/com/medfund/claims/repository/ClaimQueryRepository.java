@@ -79,7 +79,7 @@ public class ClaimQueryRepository {
     private String selectClause() {
         return """
                 SELECT c.id, c.claim_number, c.member_id, c.dependant_id,
-                       c.provider_id, c.scheme_id, c.claim_type,
+                       c.provider_id, c.payee_type, c.scheme_id, c.claim_type,
                        c.insurance_line, c.status, c.service_date,
                        c.submission_date, c.claimed_amount, c.approved_amount,
                        c.currency_code, c.batch_number, c.created_at,
@@ -148,6 +148,7 @@ public class ClaimQueryRepository {
                 row.get("dependant_id", UUID.class),
                 row.get("provider_id", UUID.class),
                 row.get("provider_name", String.class),
+                row.get("payee_type", String.class),
                 row.get("scheme_id", UUID.class),
                 row.get("claim_type", String.class),
                 row.get("insurance_line", String.class),

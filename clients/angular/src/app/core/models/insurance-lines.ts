@@ -338,22 +338,28 @@ export function usesLineItems(line: string | null | undefined): boolean {
 }
 
 /**
- * Per-line rule for whether a claim carries a provider. Only two live
- * modes today — every line either allows a provider (member may have
- * paid out-of-pocket, in which case the reimbursement goes to the
- * member) or forbids one entirely (LIFE / DISABILITY payouts always go
- * to the beneficiary). Mirrors the server-side
- * {@code ClaimService.ProviderMode} enum.
+ * Per-line rule for whether a claim carries a provider on submit.
+ * Mirrors the server-side {@code ClaimService.ProviderMode} enum:
+ *
+ *   REQUIRED  — service provider must be captured. Applies to HEALTH,
+ *               GROUP, TRAVEL, VEHICLE, PROPERTY. Payee routing
+ *               (provider vs member) is a separate field; the provider
+ *               is captured regardless so the adjudicator has full
+ *               context for specialty, network status, tariffs, etc.
+ *   OPTIONAL  — FUNERAL: some tenants run the funeral parlour themselves
+ *               and act as the provider; others reimburse the family.
+ *   FORBIDDEN — LIFE / DISABILITY payouts always go to the beneficiary;
+ *               there is no clinical / service provider.
  */
-export type ProviderMode = 'OPTIONAL' | 'FORBIDDEN';
+export type ProviderMode = 'REQUIRED' | 'OPTIONAL' | 'FORBIDDEN';
 
 export const PROVIDER_MODE_BY_LINE: Readonly<Record<string, ProviderMode>> = {
-  HEALTH:     'OPTIONAL', // member-reimbursed out-of-pocket is common
-  GROUP:      'OPTIONAL',
-  TRAVEL:     'OPTIONAL',
-  VEHICLE:    'OPTIONAL',
-  PROPERTY:   'OPTIONAL',
-  FUNERAL:    'OPTIONAL',
+  HEALTH:     'REQUIRED',
+  GROUP:      'REQUIRED',
+  TRAVEL:     'REQUIRED',
+  VEHICLE:    'REQUIRED',
+  PROPERTY:   'REQUIRED',
+  FUNERAL:    'OPTIONAL', // tenant may be the funeral director
   LIFE:       'FORBIDDEN',
   DISABILITY: 'FORBIDDEN',
 };
@@ -361,3 +367,11 @@ export const PROVIDER_MODE_BY_LINE: Readonly<Record<string, ProviderMode>> = {
 export function providerModeForLine(line: string | null | undefined): ProviderMode {
   return PROVIDER_MODE_BY_LINE[line ?? ''] ?? 'OPTIONAL';
 }
+
+/**
+ * Payment routing for a claim's approved amount. Independent of whether
+ * a service provider is on file — a claim may capture a provider AND
+ * still reimburse the member (member paid out-of-pocket). Mirrors the
+ * server-side {@code payee_type} column added in V066.
+ */
+export type PayeeType = 'PROVIDER' | 'MEMBER';

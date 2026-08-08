@@ -284,6 +284,50 @@
   margin-top: 2px;
 }
 
+// Payee-routing segmented control shown under the service-provider picker.
+// Rendered as radios so keyboard users get radiogroup semantics; visually
+// styled as pill segments so the choice reads as a single control.
+.payee-choice {
+  display: inline-flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 4px;
+  background: var(--color-bg, #f1f5f9);
+  border-radius: 8px;
+  border: 1px solid var(--color-border-light, #e5e7eb);
+
+  &__option {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--color-text-secondary, #4b5563);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease;
+
+    input[type="radio"] {
+      // Hide the native radio — the label surface conveys the state.
+      appearance: none;
+      width: 0;
+      height: 0;
+      margin: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    &.on {
+      background: var(--color-primary, #0077b6);
+      color: #fff;
+    }
+    &:not(.on):hover {
+      background: rgba(0, 0, 0, 0.04);
+    }
+  }
+}
+
 // ── Line-item grid: single row per line on desktop, stacks on ≤640px ─────
 .line-row {
   display: grid;

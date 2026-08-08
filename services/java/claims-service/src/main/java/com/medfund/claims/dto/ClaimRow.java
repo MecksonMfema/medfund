@@ -21,6 +21,7 @@ public record ClaimRow(
         UUID dependantId,
         UUID providerId,
         String providerName,
+        String payeeType,
         UUID schemeId,
         String claimType,
         String insuranceLine,
