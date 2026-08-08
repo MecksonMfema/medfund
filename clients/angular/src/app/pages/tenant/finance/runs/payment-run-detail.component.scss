@@ -124,3 +124,77 @@
   bottom: 1rem;
   box-shadow: var(--shadow-md, 0 4px 6px rgba(0,0,0,0.04));
 }
+
+// V067 — run-summary strip. Six cards along the top: money movement
+// (total, carried-in, carried-out) plus the three lifecycle timestamps
+// (generated, executed, settled). The carry-out and settled cards get
+// coloured tints when their values are non-null so an adjudicator can
+// spot outstanding balances / clean settlements at a glance.
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.summary-card {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border-light, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+
+  &--warn {
+    border-left: 3px solid var(--warning-fg, #92400e);
+    background: linear-gradient(180deg, var(--warning-bg, #fef3c7) 0%, var(--color-surface, #fff) 40%);
+  }
+  &--ok {
+    border-left: 3px solid var(--success-fg, #065f46);
+    background: linear-gradient(180deg, var(--success-bg, #d1fae5) 0%, var(--color-surface, #fff) 40%);
+  }
+}
+
+.summary-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.summary-value {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--color-text-primary, #1b2a4a);
+  &--sm { font-size: 0.9rem; font-weight: 500; }
+}
+
+.summary-sub {
+  font-size: 0.75rem;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.run-description {
+  margin: 0 0 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-bg, #f8fafc);
+  border-radius: var(--radius-md, 8px);
+  color: var(--color-text-secondary, #4b5563);
+  font-size: 0.9rem;
+}
+
+.payments-section {
+  margin-top: 0.5rem;
+
+  .section-title {
+    margin-bottom: 0.5rem;
+  }
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}

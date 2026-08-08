@@ -80,6 +80,15 @@ public class PaymentQueryRepository {
         if (f.currencyCode() != null && !f.currencyCode().isBlank()) {
             sb.append(" AND UPPER(p.currency_code) = UPPER(:currencyCode) ");
         }
+        if (f.paymentRunId() != null) {
+            // Payments join to a run via payment_run_items — EXISTS avoids
+            // duplicating rows if a payment ended up in more than one run
+            // through re-scheduling.
+            sb.append(" AND EXISTS ("
+                    + "   SELECT 1 FROM payment_run_items pri "
+                    + "    WHERE pri.payment_id = p.id "
+                    + "      AND pri.payment_run_id = :paymentRunId) ");
+        }
         if (hasQ) {
             sb.append(" AND (LOWER(p.payment_number) LIKE :search "
                    + "     OR LOWER(COALESCE(p.reference, '')) LIKE :search "
@@ -96,6 +105,7 @@ public class PaymentQueryRepository {
         if (f.paymentType() != null && !f.paymentType().isBlank())    spec = spec.bind("paymentType", f.paymentType());
         if (f.providerId() != null)                                   spec = spec.bind("providerId", f.providerId());
         if (f.currencyCode() != null && !f.currencyCode().isBlank())  spec = spec.bind("currencyCode", f.currencyCode());
+        if (f.paymentRunId() != null)                                 spec = spec.bind("paymentRunId", f.paymentRunId());
         if (hasQ)                                                     spec = spec.bind("search", search);
         return spec;
     }

@@ -7,6 +7,9 @@ public record PaymentFilterParams(
         String paymentType,
         UUID providerId,
         String currencyCode,
+        /** V067 — scope payments to a single payment run via the
+         *  payment_run_items join. Null = all runs. */
+        UUID paymentRunId,
         String q,
         String sortKey,
         String sortDirection,

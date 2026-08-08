@@ -48,6 +48,9 @@ class PaymentRunServiceTest {
     @Mock
     private PaymentRunDecisionService decisionService;
 
+    @Mock
+    private org.springframework.r2dbc.core.DatabaseClient databaseClient;
+
     @InjectMocks
     private PaymentRunService paymentRunService;
 
@@ -124,8 +127,11 @@ class PaymentRunServiceTest {
                 .verifyComplete();
 
         verify(paymentRunRepository).findById(run.getId());
-        // save called 3x: executing, recomputeRunTotal (totalAmount=0), executed
-        verify(paymentRunRepository, times(3)).save(any());
+        // save called 4x: executing, recomputeRunTotal (totalAmount=0),
+        // snapshotCarryOut (carriedOut=0, always fires), executed. The
+        // settlement-date snapshot short-circuits on the empty-items path
+        // and does not save.
+        verify(paymentRunRepository, times(4)).save(any());
         verify(auditPublisher).publish(any());
         verify(eventPublisher).publishPaymentRunExecuted(any(), any(), anyInt());
     }

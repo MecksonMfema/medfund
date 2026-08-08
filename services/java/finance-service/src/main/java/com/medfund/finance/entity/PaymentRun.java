@@ -38,6 +38,21 @@ public class PaymentRun {
     @Column("executed_by")
     private UUID executedBy;
 
+    /** V067 — snapshot of the unpaid balance carried in from prior runs
+     *  at generation time. Zero when nothing was rolled forward. */
+    @Column("carried_in_amount")
+    private BigDecimal carriedInAmount;
+
+    /** V067 — snapshot of the unpaid balance still remaining when this
+     *  run was executed. Rolls into the next run's carriedInAmount. */
+    @Column("carried_out_amount")
+    private BigDecimal carriedOutAmount;
+
+    /** V067 — moment the last item in the run transitioned to paid.
+     *  Null until every item in the run has settled. */
+    @Column("settlement_date")
+    private Instant settlementDate;
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;
@@ -76,6 +91,15 @@ public class PaymentRun {
 
     public UUID getExecutedBy() { return executedBy; }
     public void setExecutedBy(UUID executedBy) { this.executedBy = executedBy; }
+
+    public BigDecimal getCarriedInAmount() { return carriedInAmount; }
+    public void setCarriedInAmount(BigDecimal carriedInAmount) { this.carriedInAmount = carriedInAmount; }
+
+    public BigDecimal getCarriedOutAmount() { return carriedOutAmount; }
+    public void setCarriedOutAmount(BigDecimal carriedOutAmount) { this.carriedOutAmount = carriedOutAmount; }
+
+    public Instant getSettlementDate() { return settlementDate; }
+    public void setSettlementDate(Instant settlementDate) { this.settlementDate = settlementDate; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

@@ -41,6 +41,7 @@ public class PaymentRunQueryRepository {
 
         String sql = "SELECT id, run_number, status, total_amount, currency_code, "
                 + "       payment_count, description, executed_at, executed_by, "
+                + "       carried_in_amount, carried_out_amount, settlement_date, "
                 + "       created_at, updated_at "
                 + "  FROM payment_runs "
                 + whereClause(f, hasQ)
@@ -103,6 +104,9 @@ public class PaymentRunQueryRepository {
         r.setDescription(row.get("description", String.class));
         r.setExecutedAt(row.get("executed_at", Instant.class));
         r.setExecutedBy(row.get("executed_by", UUID.class));
+        r.setCarriedInAmount(row.get("carried_in_amount", BigDecimal.class));
+        r.setCarriedOutAmount(row.get("carried_out_amount", BigDecimal.class));
+        r.setSettlementDate(row.get("settlement_date", Instant.class));
         r.setCreatedAt(row.get("created_at", Instant.class));
         r.setUpdatedAt(row.get("updated_at", Instant.class));
         return r;

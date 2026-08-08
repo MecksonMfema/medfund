@@ -24,14 +24,9 @@ const cs = (
 });
 
 export const FINANCE_ROUTES: Routes = [
-  // ── Dashboard (index) ──────────────────────────────────────────────────────
-  {
-    path: '',
-    pathMatch: 'full',
-    canActivate: [permissionGuard(['finance:view'])],
-    loadComponent: () => import('./dashboard/finance-dashboard.component').then(m => m.FinanceDashboardComponent),
-    data: { title: 'Finance', sidebar: 'operational' },
-  },
+  // ── Index — no finance dashboard; land the user on Payment Runs, the
+  // natural first surface in this section. ──────────────────────────────────
+  { path: '', pathMatch: 'full', redirectTo: 'runs' },
 
   // ── Payment runs ───────────────────────────────────────────────────────────
   {

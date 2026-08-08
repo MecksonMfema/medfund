@@ -29,12 +29,61 @@
 }
 .banner-error { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
 
-.filter-strip {
+// Status filter, projected into the DataTable toolbar via [table-filters].
+// Mirrors /tenant/billing/ledger's toolbar cells so both surfaces feel
+// like the same filter language: small caps label to the left, flat
+// borderless select trigger, vertical divider comes from the parent
+// toolbar. Keep the class names in lock-step with ledger.component.scss
+// (.toolbar-cell / .cell-label / .cell-currency) so future refactors can
+// promote them to a shared partial without a rename dance.
+
+// DataTable's toolbar layout is [search][spacer][filters], which pushes
+// projected filters to the far right. Ledger's convention is the
+// opposite — every filter cell hugs the left, next to the search. Push
+// the DataTable's spacer past our status cell via flex order so the
+// filter sits flush against the search, matching ledger's look.
+::ng-deep .table-toolbar .toolbar-spacer { order: 1; }
+
+.toolbar-cell {
   display: flex;
-  gap: 1rem;
-  padding: 0.75rem 24px 0;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  min-height: 48px;
+  background: transparent;
+
+  .cell-label {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+    font-weight: var(--font-weight-medium);
+  }
 }
 
-.field { display: flex; flex-direction: column; font-size: 0.875rem; min-width: 220px; }
-.field-label { font-weight: 500; margin-bottom: 0.25rem; }
+.toolbar-cell.cell-status {
+  flex: 0 0 auto;
+  min-width: 200px;
+
+  app-select { min-width: 140px; flex: 1; }
+
+  // Strip the SelectComponent's default border + rounded background so it
+  // sits flush inside the toolbar row (matches ledger's cell-currency).
+  // ::ng-deep is deprecated but still the least-invasive route for a
+  // one-off variant — an alternative would be a new [flat] input on
+  // SelectComponent, which is more surface area than we need here.
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}

@@ -51,13 +51,14 @@ public class PaymentController {
             @RequestParam(required = false) String paymentType,
             @RequestParam(required = false) UUID providerId,
             @RequestParam(required = false) String currencyCode,
+            @RequestParam(required = false) UUID paymentRunId,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "createdAt") String sortKey,
             @RequestParam(required = false, defaultValue = "desc") String sortDirection,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "50") int size) {
         var params = new PaymentFilterParams(
-                status, paymentType, providerId, currencyCode, q,
+                status, paymentType, providerId, currencyCode, paymentRunId, q,
                 sortKey, sortDirection, page, size);
         return paymentService.searchPaged(params);
     }

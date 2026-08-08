@@ -15,6 +15,16 @@ export interface PaymentRun {
   description?: string;
   executedAt?: string;
   executedBy?: string;
+  /** V067 — snapshot of the unpaid balance rolled in from prior runs at
+   *  generation time. Zero when nothing was rolled forward (also the
+   *  default until the item-population flow lands). */
+  carriedInAmount?: string;
+  /** V067 — snapshot of the unpaid balance remaining when this run was
+   *  executed. Rolls into the next run's carriedInAmount. */
+  carriedOutAmount?: string;
+  /** V067 — moment the last item in the run transitioned to paid.
+   *  Null until every item in the run is settled. */
+  settlementDate?: string;
   createdAt: string;
   updatedAt?: string;
   createdBy?: string;
@@ -274,6 +284,8 @@ export interface PaymentPageParams {
   paymentType?: string;
   providerId?: string;
   currencyCode?: string;
+  /** V067 — scope the list to a single payment run via the payment_run_items join. */
+  paymentRunId?: string;
   q?: string;
   sortKey?: string;
   sortDirection?: 'asc' | 'desc';
@@ -502,6 +514,7 @@ export class FinanceService {
     if (opts.paymentType)    params['paymentType']    = opts.paymentType;
     if (opts.providerId)     params['providerId']     = opts.providerId;
     if (opts.currencyCode)   params['currencyCode']   = opts.currencyCode;
+    if (opts.paymentRunId)   params['paymentRunId']   = opts.paymentRunId;
     if (opts.q)              params['q']              = opts.q;
     if (opts.sortKey)        params['sortKey']        = opts.sortKey;
     if (opts.sortDirection)  params['sortDirection']  = opts.sortDirection;

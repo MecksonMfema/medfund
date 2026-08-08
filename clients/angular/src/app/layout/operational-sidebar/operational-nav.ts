@@ -128,9 +128,12 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
   {
     title: 'Finance',
     items: [
-      { label: 'Dashboard',          icon: 'chart',        route: '/tenant/finance',                       permissions: ['finance:view'] },
+      // Payments (top-level list) is intentionally omitted from the sidebar
+      // — payments are now reached by drilling into a run detail page
+      // (/tenant/finance/runs/:id), which shows the payments-in-run table
+      // inline with the run summary. The /tenant/finance/payments route
+      // still resolves for direct URLs / legacy bookmarks.
       { label: 'Payment Runs',       icon: 'play-circle',  route: '/tenant/finance/runs',                  permissions: ['finance:view', 'finance:create_payment_run'] },
-      { label: 'Payments',           icon: 'credit-card',  route: '/tenant/finance/payments',              permissions: ['finance:view'] },
       { label: 'Advance Payments',   icon: 'credit-card',  route: '/tenant/finance/payments/advance',      permissions: ['finance:view_advance_payments'] },
       { label: 'CTC Payments',       icon: 'credit-card',  route: '/tenant/finance/payments/ctc',          permissions: ['finance:manage_ctc_payments'] },
       { label: 'Provider Creditors', icon: 'building',     route: '/tenant/finance/creditors/provider',    permissions: ['billing:view_creditors'] },

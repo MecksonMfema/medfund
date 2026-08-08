@@ -17,6 +17,7 @@ import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
@@ -40,6 +41,7 @@ public class PaymentRunService {
     private final AuditPublisher auditPublisher;
     private final FinanceEventPublisher eventPublisher;
     private final PaymentRunDecisionService decisionService;
+    private final DatabaseClient databaseClient;
 
     public PaymentRunService(PaymentRunRepository paymentRunRepository,
                              com.medfund.finance.repository.PaymentRunQueryRepository queryRepository,
@@ -48,7 +50,8 @@ public class PaymentRunService {
                              ProviderBalanceRepository providerBalanceRepository,
                              AuditPublisher auditPublisher,
                              FinanceEventPublisher eventPublisher,
-                             PaymentRunDecisionService decisionService) {
+                             PaymentRunDecisionService decisionService,
+                             DatabaseClient databaseClient) {
         this.paymentRunRepository = paymentRunRepository;
         this.queryRepository = queryRepository;
         this.paymentRunItemRepository = paymentRunItemRepository;
@@ -57,6 +60,7 @@ public class PaymentRunService {
         this.auditPublisher = auditPublisher;
         this.eventPublisher = eventPublisher;
         this.decisionService = decisionService;
+        this.databaseClient = databaseClient;
     }
 
     /**
@@ -137,6 +141,8 @@ public class PaymentRunService {
                     .flatMap(inProgress -> applyTenantRulesToItems(inProgress.getId())
                         .thenReturn(inProgress))
                     .flatMap(this::recomputeRunTotal)
+                    .flatMap(this::snapshotCarryOut)
+                    .flatMap(this::snapshotSettlementDate)
                     .flatMap(inProgress -> {
                         // Transition to executed (final terminal state for the happy path).
                         inProgress.setStatus("executed");
@@ -251,6 +257,59 @@ public class PaymentRunService {
                 run.setTotalAmount(total);
                 run.setUpdatedAt(Instant.now());
                 return paymentRunRepository.save(run);
+            });
+    }
+
+    /**
+     * V067 — snapshot the sum of amounts for items that are NOT settled
+     * (i.e. anything other than status='paid'). Captured at execute()
+     * time as the run's {@code carried_out_amount}, which the next run's
+     * generation flow reads to compute {@code carried_in_amount}.
+     */
+    private Mono<PaymentRun> snapshotCarryOut(PaymentRun run) {
+        return paymentRunItemRepository.findByPaymentRunId(run.getId())
+            .filter(item -> item.getAmount() != null && !"paid".equalsIgnoreCase(item.getStatus()))
+            .map(PaymentRunItem::getAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add)
+            .flatMap(carriedOut -> {
+                run.setCarriedOutAmount(carriedOut);
+                return paymentRunRepository.save(run);
+            });
+    }
+
+    /**
+     * V067 — capture {@code settlement_date} as MAX(payment.paid_at) once
+     * every item in the run has transitioned to paid; leave the column
+     * null until then. Uses a raw SQL projection because
+     * PaymentRunItem doesn't carry payment.paid_at inline.
+     *
+     * <p>Empty runs (no items yet — the common case in dev / before the
+     * item-population flow lands) short-circuit without hitting the DB.
+     */
+    private Mono<PaymentRun> snapshotSettlementDate(PaymentRun run) {
+        return paymentRunItemRepository.findByPaymentRunId(run.getId())
+            .count()
+            .flatMap(count -> {
+                if (count == 0) return Mono.just(run);
+                String sql = "SELECT "
+                        + "  BOOL_AND(pri.status = 'paid')          AS all_settled, "
+                        + "  MAX(p.paid_at)                          AS last_paid_at "
+                        + "FROM payment_run_items pri "
+                        + "LEFT JOIN payments p ON p.id = pri.payment_id "
+                        + "WHERE pri.payment_run_id = :runId";
+                return databaseClient.sql(sql)
+                    .bind("runId", run.getId())
+                    .fetch().one()
+                    .flatMap(row -> {
+                        Boolean allSettled = (Boolean) row.get("all_settled");
+                        Instant lastPaidAt = (Instant) row.get("last_paid_at");
+                        if (Boolean.TRUE.equals(allSettled) && lastPaidAt != null) {
+                            run.setSettlementDate(lastPaidAt);
+                            return paymentRunRepository.save(run);
+                        }
+                        return Mono.just(run);
+                    })
+                    .defaultIfEmpty(run);
             });
     }
 

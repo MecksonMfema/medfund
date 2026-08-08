@@ -9,11 +9,28 @@
         <h1>{{ run.runNumber }}</h1>
         <p class="page-sub">
           <span class="status-badge status-{{ run.status }}">{{ run.status | humanize }}</span>
-          · {{ run.paymentCount }} item{{ run.paymentCount === 1 ? '' : 's' }}
+          · {{ run.paymentCount }} payment{{ run.paymentCount === 1 ? '' : 's' }}
           · {{ run.totalAmount | currencyFormat:run.currencyCode }}
         </p>
       }
     </div>
+    @if (run && (run.status === 'draft' || run.status === 'approved')) {
+      <div class="header-actions">
+        @if (run.status === 'draft') {
+          <button class="btn btn-default" (click)="approve()" [disabled]="busy">
+            <app-icon name="check-circle" [size]="14"></app-icon>
+            Approve
+          </button>
+        }
+        <button class="btn btn-primary" (click)="execute()" [disabled]="busy">
+          <app-icon name="play-circle" [size]="14"></app-icon>
+          Execute run
+        </button>
+        <button class="btn btn-danger" (click)="cancelRun()" [disabled]="busy">
+          Cancel
+        </button>
+      </div>
+    }
   </header>
 
   @if (errorMessage) {
@@ -26,74 +43,98 @@
   @if (loading) {
     <app-skeleton></app-skeleton>
   } @else if (run) {
-    <section class="tab-body">
-      <h2 class="section-title">Run header</h2>
-      <dl class="header-grid">
-        <dt>Run number</dt><dd><code>{{ run.runNumber }}</code></dd>
-        <dt>Status</dt><dd><span class="status-badge status-{{ run.status }}">{{ run.status | humanize }}</span></dd>
-        <dt>Currency</dt><dd>{{ run.currencyCode }}</dd>
-        <dt>Total</dt><dd>{{ run.totalAmount | currencyFormat:run.currencyCode }}</dd>
-        <dt>Items</dt><dd>{{ run.paymentCount }}</dd>
-        <dt>Description</dt><dd>{{ run.description || '—' }}</dd>
-        <dt>Created</dt><dd>{{ run.createdAt | date:'medium' }}</dd>
-        <dt>Created by</dt><dd>{{ run.createdBy || '—' }}</dd>
-        <dt>Executed</dt><dd>{{ run.executedAt ? (run.executedAt | date:'medium') : '—' }}</dd>
-        <dt>Executed by</dt><dd>{{ run.executedBy || '—' }}</dd>
-      </dl>
-    </section>
+    <!-- ── Run summary strip — money movement + timestamps ─────────── -->
+    <!-- Six cards: identity (currency + total), the two carry-forward
+         legs, and three timestamps (generated, executed, settled). Each
+         renders "—" when the underlying field is null so the shape is
+         predictable even before the item-population flow lands. -->
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="summary-label">Total</div>
+        <div class="summary-value">
+          {{ run.totalAmount | currencyFormat:run.currencyCode }}
+        </div>
+        <div class="summary-sub">{{ run.currencyCode }}</div>
+      </div>
 
-    <section class="tab-body">
-      <h2 class="section-title">Items ({{ items.length }})</h2>
-      @if (items.length === 0) {
-        <p class="empty-state">No items in this run.</p>
-      } @else {
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Provider</th>
-              <th>Payment</th>
-              <th class="right">Amount</th>
-              <th>Status</th>
-              <th>Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (item of items; track item.id) {
-              <tr>
-                <td><code>{{ item.providerId }}</code></td>
-                <td>{{ item.paymentId ? '#' + item.paymentId.substring(0, 8) : '—' }}</td>
-                <td class="right">{{ item.amount | currencyFormat:item.currencyCode }}</td>
-                <td><span class="status-badge status-{{ item.status }}">{{ item.status | humanize }}</span></td>
-                <td class="muted">{{ item.createdAt | date:'shortDate' }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      }
-    </section>
+      <div class="summary-card">
+        <div class="summary-label">Carried in</div>
+        <div class="summary-value">
+          @if (run.carriedInAmount) {
+            {{ run.carriedInAmount | currencyFormat:run.currencyCode }}
+          } @else { — }
+        </div>
+        <div class="summary-sub">from prior runs</div>
+      </div>
 
-    <section class="action-bar">
-      @if (run.status === 'draft') {
-        <button class="btn btn-primary" (click)="approve()" [disabled]="busy">
-          <app-icon name="check" [size]="14"></app-icon>
-          Approve
-        </button>
-      }
-      @if (run.status === 'draft' || run.status === 'approved') {
-        <button class="btn btn-primary" (click)="execute()" [disabled]="busy">
-          <app-icon name="check" [size]="14"></app-icon>
-          Execute run
-        </button>
-        <button class="btn btn-danger" (click)="cancelRun()" [disabled]="busy">
-          Cancel
-        </button>
-      }
-      @if (run.status === 'executed' || run.status === 'cancelled') {
-        <span class="muted">No actions available for {{ run.status }} runs.</span>
-      }
-      @if (run.status === 'executing') {
-        <span class="muted">Run is executing — wait for it to settle.</span>
-      }
+      <div class="summary-card"
+           [class.summary-card--warn]="run.carriedOutAmount && +run.carriedOutAmount > 0">
+        <div class="summary-label">Carried out</div>
+        <div class="summary-value">
+          @if (run.carriedOutAmount) {
+            {{ run.carriedOutAmount | currencyFormat:run.currencyCode }}
+          } @else { — }
+        </div>
+        <div class="summary-sub">to next run</div>
+      </div>
+
+      <div class="summary-card">
+        <div class="summary-label">Generated</div>
+        <div class="summary-value summary-value--sm">
+          {{ run.createdAt | date:'medium' }}
+        </div>
+        <div class="summary-sub">Draft opened</div>
+      </div>
+
+      <div class="summary-card">
+        <div class="summary-label">Executed</div>
+        <div class="summary-value summary-value--sm">
+          @if (run.executedAt) {
+            {{ run.executedAt | date:'medium' }}
+          } @else { — }
+        </div>
+        <div class="summary-sub">Payment run committed</div>
+      </div>
+
+      <div class="summary-card"
+           [class.summary-card--ok]="run.settlementDate">
+        <div class="summary-label">Settled</div>
+        <div class="summary-value summary-value--sm">
+          @if (run.settlementDate) {
+            {{ run.settlementDate | date:'medium' }}
+          } @else { — }
+        </div>
+        <div class="summary-sub">Last payment cleared</div>
+      </div>
+    </div>
+
+    @if (run.description) {
+      <p class="run-description">{{ run.description }}</p>
+    }
+
+    <!-- ── Payments in this run ────────────────────────────────────── -->
+    <section class="payments-section">
+      <h2 class="section-title">Payments in this run</h2>
+      <app-data-table
+        [columns]="columns"
+        [data]="rows"
+        [actions]="actions"
+        [showActions]="true"
+        [serverSide]="true"
+        [loading]="paymentsLoading"
+        [pageSize]="pageSize"
+        [totalCount]="totalCount"
+        [totalPages]="totalPages"
+        [serverPage]="page"
+        [initialSortKey]="sortKey"
+        [initialSortDirection]="sortDirection"
+        searchPlaceholder="Search payment #, reference or provider"
+        emptyMessage="No payments in this run yet"
+        emptyDescription="Payments land here once the run is generated or executed."
+        (pageChange)="onPageChange($event)"
+        (searchChange)="onSearchChange($event)"
+        (sortChange)="onSortChange($event)">
+      </app-data-table>
     </section>
   }
 </div>
