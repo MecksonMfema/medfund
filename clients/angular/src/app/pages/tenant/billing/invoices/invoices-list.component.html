@@ -3,6 +3,13 @@
     <h1>Contribution statements</h1>
     <p class="page-sub">One row per contribution statement — every member + dependant contribution under a group rolls into a single statement. Tabs separate the list by insurance line.</p>
   </div>
+  @if (canBulkRevoke) {
+    <div class="page-header-actions">
+      <button type="button" class="btn btn-danger" (click)="bulkRevoke()">
+        {{ bulkRevokeLabel }}
+      </button>
+    </div>
+  }
 </header>
 
 @if (showTabs) {

@@ -73,4 +73,13 @@ public interface ContributionRepository extends R2dbcRepository<Contribution, UU
                                 AND s.insurance_line = :insuranceLine) )
             """)
     Flux<Contribution> findByPeriodAndLine(LocalDate start, LocalDate end, String insuranceLine);
+
+    /**
+     * Every contribution row linked to a single invoice. Used by
+     * {@link com.medfund.contributions.service.BillingService#revokeInvoice}
+     * to reverse per-contribution balance debits before the invoice-scoped
+     * DELETE removes them.
+     */
+    @Query("SELECT * FROM contributions WHERE invoice_id = :invoiceId")
+    Flux<Contribution> findByInvoiceId(UUID invoiceId);
 }

@@ -50,7 +50,23 @@ public class AdjudicationDecisionEngine {
     private static final List<String> SOFT_FAILURE_STAGES = List.of(
             "WaitingPeriod", "BenefitLimits");
 
+    /**
+     * Backwards-compat shim — callers without a rule-adjusted total fall through
+     * to the claim's raw claimed amount as the base, matching pre-modifier behaviour.
+     */
     public AdjudicationResult decide(Claim claim, List<StageResult> stages, AiSignals ai) {
+        return decide(claim, stages, ai, null);
+    }
+
+    /**
+     * @param ruleAdjustedTotal sum of per-line {@code ClaimDetailFact.approvedAmount}
+     *                          after MODIFIER_ADJUSTMENT rules fired. When null (or
+     *                          when no rule mutated the facts), the base for the
+     *                          auto-approval amount falls back to
+     *                          {@code claim.getClaimedAmount()}.
+     */
+    public AdjudicationResult decide(Claim claim, List<StageResult> stages, AiSignals ai,
+                                     BigDecimal ruleAdjustedTotal) {
         AiSignals signals = ai != null ? ai : AiSignals.empty();
 
         boolean aiSaysReject = signals.recommendation() != null
@@ -111,12 +127,19 @@ public class AdjudicationDecisionEngine {
                     stages, signals);
         }
 
-        // All clear — auto-approve. If the AI suggested a reduced amount
-        // (e.g. detected upcoding) honour it; otherwise approve full claim.
-        BigDecimal approved = (signals.suggestedAmount() != null
-                && signals.suggestedAmount().compareTo(claim.getClaimedAmount()) < 0)
-                ? signals.suggestedAmount()
+        // All clear — auto-approve. Base amount is the modifier-adjusted total
+        // when the tenant has MODIFIER_ADJUSTMENT rules that mutated any line's
+        // approvedAmount; otherwise fall back to the raw claimed amount so
+        // behaviour with no rules loaded is identical to the pre-modifier
+        // pipeline. If the AI's suggestedAmount is lower still (typical upcoding
+        // signal) it wins.
+        BigDecimal baseAmount = ruleAdjustedTotal != null
+                ? ruleAdjustedTotal
                 : claim.getClaimedAmount();
+        BigDecimal approved = (signals.suggestedAmount() != null
+                && signals.suggestedAmount().compareTo(baseAmount) < 0)
+                ? signals.suggestedAmount()
+                : baseAmount;
 
         return new AdjudicationResult(
                 "APPROVED", approved, null, null, stages, signals);

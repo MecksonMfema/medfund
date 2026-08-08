@@ -220,40 +220,115 @@ export class InvoicesListComponent implements OnInit, OnDestroy {
   private canRevokeRow(row: any): boolean {
     if (!this.perms.hasAny(['billing:revoke_billing'])) return false;
     if (!row?.periodStart) return false;
-    const now = new Date();
-    const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const expected = `${next.getFullYear().toString().padStart(4, '0')}-${(next.getMonth() + 1).toString().padStart(2, '0')}-01`;
-    return row.periodStart === expected;
+    return row.periodStart === this.firstOfNextMonthISO();
   }
 
   /**
-   * Confirm-then-revoke. Sends the full (periodStart, periodEnd,
-   * insuranceLine) tuple to the backend so the DELETE scopes to the
-   * same scheme line as the original commit. Refreshes the list on
-   * success so the revoked row disappears immediately.
+   * Bulk-revoke gate for the page-header button. Same permission +
+   * next-month-only window, but hides the button when nothing on the
+   * current page is actually revocable — otherwise the operator would
+   * just get a 422 on click. Lower-bound guard: if a revocable row
+   * exists on a later page the button won't appear until the user
+   * pages/filters to it.
+   */
+  get canBulkRevoke(): boolean {
+    if (!this.perms.hasAny(['billing:revoke_billing'])) return false;
+    const target = this.firstOfNextMonthISO();
+    return this.rows.some(r => (r as any).periodStart === target);
+  }
+
+  /** Human label for the bulk-revoke button — reflects the active tab. */
+  get bulkRevokeLabel(): string {
+    const monthLabel = this.formatNextMonth();
+    const scope = this.activeTab
+      ? (LINE_LABELS[this.activeTab] ?? this.activeTab)
+      : 'all lines';
+    return `Revoke ${monthLabel} (${scope})`;
+  }
+
+  /**
+   * Confirm-then-revoke every next-month statement matching the active
+   * line tab. Wizard's post-failed-commit banner uses the same endpoint
+   * — this button is the discoverable, always-on twin.
+   */
+  async bulkRevoke(): Promise<void> {
+    const monthLabel = this.formatNextMonth();
+    const scope = this.activeTab
+      ? (LINE_LABELS[this.activeTab] ?? this.activeTab)
+      : 'every insurance line';
+    const ok = await this.confirmSvc.ask({
+      title: `Revoke all ${monthLabel} statements (${scope})?`,
+      message:
+        `This deletes every contribution + statement issued for ${monthLabel} across ${scope}, ` +
+        `reverses each running-balance debit, and removes the PDFs. You'll need to re-commit ` +
+        `to regenerate. This cannot be undone.`,
+      confirmLabel: 'Revoke entire period',
+      cancelLabel: 'Cancel',
+      danger: true,
+    });
+    if (!ok) return;
+    this.contributions.revokeBilling({
+      periodStart:   this.firstOfNextMonthISO(),
+      periodEnd:     this.lastOfNextMonthISO(),
+      insuranceLine: this.activeTab ?? undefined,
+    }).subscribe({
+      next: (resp) => {
+        this.toast.success(
+          `Revoked ${resp.invoicesDeleted} statement(s) and ${resp.contributionsDeleted} contribution(s).`
+        );
+        this.fetchPage();
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.detail || err?.error?.title || 'Bulk revoke failed');
+      },
+    });
+  }
+
+  private firstOfNextMonthISO(): string {
+    const now = new Date();
+    // Date constructor normalizes month overflow (Dec → Jan next year).
+    const first = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    return `${first.getFullYear().toString().padStart(4, '0')}-`
+         + `${(first.getMonth() + 1).toString().padStart(2, '0')}-01`;
+  }
+
+  private lastOfNextMonthISO(): string {
+    const now = new Date();
+    // day 0 of "month after next" rolls back to the last day of next month.
+    const last = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+    return `${last.getFullYear().toString().padStart(4, '0')}-`
+         + `${(last.getMonth() + 1).toString().padStart(2, '0')}-`
+         + `${last.getDate().toString().padStart(2, '0')}`;
+  }
+
+  private formatNextMonth(): string {
+    const now = new Date();
+    const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    return next.toLocaleString(undefined, { month: 'long', year: 'numeric' });
+  }
+
+  /**
+   * Confirm-then-revoke a single statement. Scopes strictly to the row's
+   * invoice id so other statements for the same period are unaffected.
+   * The wizard's bulk "revoke entire period" flow lives on the generate
+   * page and stays untouched.
    */
   private async revokeRow(row: any): Promise<void> {
     const ok = await this.confirmSvc.ask({
       title: `Revoke statement ${row.invoiceNumber}?`,
       message:
-        `This deletes every contribution + statement for ${row.periodStart} → ${row.periodEnd}, ` +
-        `reverses each running balance, and removes the PDF blob. You'll need to re-commit to regenerate.`,
-      confirmLabel: 'Revoke',
+        `This deletes only statement ${row.invoiceNumber} for ${row.periodStart} → ${row.periodEnd}, ` +
+        `reverses its running-balance debits, and removes its PDF. Other statements for this ` +
+        `period are unaffected.`,
+      confirmLabel: 'Revoke this statement',
       cancelLabel: 'Keep statement',
       danger: true,
     });
     if (!ok) return;
-    const insuranceLine = Array.isArray(row.insuranceLines) && row.insuranceLines.length === 1
-      ? row.insuranceLines[0]
-      : (this.activeTab ?? null);
-    this.contributions.revokeBilling({
-      periodStart:   row.periodStart,
-      periodEnd:     row.periodEnd,
-      insuranceLine,
-    }).subscribe({
+    this.contributions.revokeStatement(row.id).subscribe({
       next: (resp) => {
         this.toast.success(
-          `Revoked: ${resp.contributionsDeleted} contribution(s), ${resp.invoicesDeleted} statement(s).`
+          `Revoked ${row.invoiceNumber}: ${resp.contributionsDeleted} contribution(s) reversed.`
         );
         this.fetchPage();
       },

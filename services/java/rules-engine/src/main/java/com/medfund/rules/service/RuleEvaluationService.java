@@ -1,6 +1,7 @@
 package com.medfund.rules.service;
 
 import com.medfund.rules.engine.TenantRuleEngine;
+import com.medfund.rules.fact.ClaimDetailFact;
 import com.medfund.rules.fact.ClaimFact;
 import com.medfund.rules.fact.DependantFact;
 import com.medfund.rules.fact.FamilyFact;
@@ -108,5 +109,42 @@ public class RuleEvaluationService {
                                                   Object... facts) {
         return Mono.fromCallable(() -> tenantRuleEngine.evaluateInGroup(tenantId, agendaGroup, facts))
                 .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Fire the tenant's MODIFIER_ADJUSTMENT rules against a claim's per-line facts.
+     * <p>
+     * The engine inserts every non-null fact (claim, member, provider, and each
+     * {@link ClaimDetailFact}) into the KieSession. Rules mutate
+     * {@link ClaimDetailFact#setApprovedAmount(java.math.BigDecimal)} in place;
+     * the caller reads the mutated value straight off the fact objects it passed
+     * in — no {@link RuleResult} plumbing needed for this category. Return type
+     * is intentionally {@code Mono<Void>} to make that contract explicit and
+     * discourage callers from digging into the (empty) result list.
+     * <p>
+     * When no MODIFIER_ADJUSTMENT rule is loaded for the tenant this is a no-op —
+     * each fact's {@code approvedAmount} retains whatever the caller pre-seeded
+     * (typically {@code billedAmount}), so downstream logic falls through to the
+     * pre-rules default cleanly.
+     */
+    public Mono<Void> evaluateModifiers(String tenantId,
+                                        ClaimFact claim,
+                                        MemberFact member,
+                                        ProviderFact provider,
+                                        List<ClaimDetailFact> details) {
+        if (details == null || details.isEmpty()) {
+            return Mono.empty();
+        }
+        Object[] facts = new Object[3 + details.size()];
+        facts[0] = claim;
+        facts[1] = member;
+        facts[2] = provider;
+        for (int i = 0; i < details.size(); i++) {
+            facts[3 + i] = details.get(i);
+        }
+        return Mono.fromRunnable(() ->
+                        tenantRuleEngine.evaluateInGroup(tenantId, "MODIFIER_ADJUSTMENT", facts))
+                .subscribeOn(Schedulers.boundedElastic())
+                .then();
     }
 }

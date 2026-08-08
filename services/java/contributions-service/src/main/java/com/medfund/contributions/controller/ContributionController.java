@@ -243,6 +243,22 @@ public class ContributionController {
         return billingService.revokeBilling(request, AuditActor.id(jwt), AuditActor.email(jwt));
     }
 
+    @PostMapping("/billing/revoke/{invoiceId}")
+    @Operation(summary = "Revoke a single contribution statement",
+        description = "Deletes just this invoice and its contributions, reversing the running-balance debits " +
+                "and removing the PDF blob. Same next-month-only window as the period-wide revoke — the invoice's " +
+                "periodStart must equal the first of next month. Other statements for the same period are untouched.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Statement revoked"),
+        @ApiResponse(responseCode = "404", description = "Invoice not found for this tenant"),
+        @ApiResponse(responseCode = "422", description = "Invoice period outside the next-month revoke window")
+    })
+    public Mono<com.medfund.contributions.dto.BillingRevokeResponse> revokeInvoice(
+            @PathVariable UUID invoiceId,
+            @AuthenticationPrincipal Jwt jwt) {
+        return billingService.revokeInvoice(invoiceId, AuditActor.id(jwt), AuditActor.email(jwt));
+    }
+
     @PostMapping("/{id}/pay")
     @Operation(summary = "Record contribution payment")
     @ApiResponses({

@@ -11,6 +11,7 @@ import com.medfund.rules.template.providers.ContributionBillingTemplates;
 import com.medfund.rules.template.providers.ContributionPricingTemplates;
 import com.medfund.rules.template.providers.EligibilityTemplates;
 import com.medfund.rules.template.providers.MemberLifecycleTemplates;
+import com.medfund.rules.template.providers.ModifierAdjustmentTemplates;
 import com.medfund.rules.template.providers.PreAuthorizationTemplates;
 import com.medfund.rules.template.providers.ProviderPaymentTemplates;
 import com.medfund.rules.template.providers.ReconciliationTemplates;
@@ -53,7 +54,8 @@ class RuleTemplateServiceTest {
                 new ContributionBillingTemplates(),
                 new CoPaymentTemplates(),
                 new ProviderPaymentTemplates(),
-                new ReconciliationTemplates()
+                new ReconciliationTemplates(),
+                new ModifierAdjustmentTemplates()
         );
         service = new RuleTemplateService(providers);
     }
@@ -63,6 +65,21 @@ class RuleTemplateServiceTest {
         assertThat(service.getDefaultRules()).isNotEmpty();
     }
 
+    /**
+     * Categories that deliberately ship without seeded templates — the New Rule
+     * modal still lists them (their {@link TemplateProvider} bean is registered)
+     * but the template gallery is empty until the platform DSL gains the
+     * expressive power to write starter rules for them.
+     *
+     * <p>{@code MODIFIER_ADJUSTMENT} needs {@code detail.*} field selectors and
+     * a {@code SET_APPROVED_AMOUNT} action verb — see
+     * {@link com.medfund.rules.template.providers.ModifierAdjustmentTemplates}
+     * for the raw-DRL escape hatch tenants use today.
+     */
+    private static final Set<String> INTENTIONALLY_EMPTY_CATEGORIES = Set.of(
+            RuleCategory.MODIFIER_ADJUSTMENT.name()
+    );
+
     @Test
     void getDefaultRules_coversEveryDeclaredCategory() {
         Set<String> categories = service.getDefaultRules().stream()
@@ -71,6 +88,7 @@ class RuleTemplateServiceTest {
 
         Set<String> expected = java.util.Arrays.stream(RuleCategory.values())
                 .map(Enum::name)
+                .filter(name -> !INTENTIONALLY_EMPTY_CATEGORIES.contains(name))
                 .collect(Collectors.toSet());
 
         assertThat(categories).containsAll(expected);

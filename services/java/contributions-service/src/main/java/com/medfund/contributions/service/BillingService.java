@@ -1070,6 +1070,108 @@ public class BillingService {
                                 }))));
     }
 
+    /**
+     * Per-statement revoke — narrows {@link #revokeBilling} to a single
+     * invoice so the operator can pull one contribution statement without
+     * wiping the rest of the month. Same next-month-only window guard
+     * applies: once the invoice's period becomes the active month, this
+     * refuses and the correction has to go through the (future) corrections
+     * flow.
+     *
+     * <p>Steps mirror the bulk path so the two stay consistent:
+     * reverse balance debits for this invoice's contributions, capture the
+     * MinIO pdf pointer, DELETE the contributions then the invoice, tell
+     * file-service to remove the blob, audit. Group invoices (with
+     * {@code scheme_id = NULL}) come through the same path — their
+     * contributions carry the scheme_id via the invoice_id join.
+     */
+    @Transactional
+    public Mono<BillingRevokeResponse> revokeInvoice(UUID invoiceId, String actorId, String actorEmail) {
+        LocalDate allowedStart = LocalDate.now().plusMonths(1).withDayOfMonth(1);
+        Instant now = Instant.now();
+
+        return invoiceRepository.findById(invoiceId)
+                .switchIfEmpty(Mono.error(new InvoiceNotFoundException(invoiceId)))
+                .flatMap(invoice -> {
+                    if (invoice.getPeriodStart() == null || !invoice.getPeriodStart().equals(allowedStart)) {
+                        return Mono.error(new BillingNotRevocableException(invoice.getPeriodStart(), allowedStart));
+                    }
+
+                    // 1) Reverse this invoice's contribution debits BEFORE the
+                    //    DELETE — reverseContributionDebit needs the amount
+                    //    still readable on the row.
+                    Mono<Long> reverseBalances = contributionRepository.findByInvoiceId(invoiceId)
+                            .concatMap(c -> balanceService.reverseContributionDebit(c).thenReturn(1L))
+                            .count();
+
+                    // 2) Capture MinIO pointer BEFORE the invoice DELETE fires
+                    //    the ON DELETE CASCADE on invoice_pdfs.
+                    Mono<PdfPointer> capturePointer = db.sql("""
+                            SELECT ip.invoice_id, ip.bucket, ip.object_key
+                              FROM invoice_pdfs ip
+                             WHERE ip.invoice_id = :id
+                            """)
+                            .bind("id", invoiceId)
+                            .map(row -> new PdfPointer(
+                                    row.get("invoice_id", UUID.class),
+                                    row.get("bucket", String.class),
+                                    row.get("object_key", String.class)))
+                            .one()
+                            .defaultIfEmpty(new PdfPointer(invoiceId, null, null));
+
+                    // 3) DELETE contributions first — FK on contributions.invoice_id
+                    //    blocks the invoice DELETE otherwise.
+                    Mono<Long> deletedContributions = db.sql(
+                                    "DELETE FROM contributions WHERE invoice_id = :id")
+                            .bind("id", invoiceId)
+                            .fetch().rowsUpdated();
+
+                    Mono<Long> deletedInvoice = db.sql(
+                                    "DELETE FROM invoices WHERE id = :id")
+                            .bind("id", invoiceId)
+                            .fetch().rowsUpdated();
+
+                    return reverseBalances
+                            .then(capturePointer)
+                            .flatMap(pointer -> deletedContributions
+                                    .flatMap(cCount -> deletedInvoice
+                                            .flatMap(iCount -> Mono.deferContextual(ctx -> {
+                                                String tenantId = TenantContext.get(ctx);
+                                                log.info("[revoke] tenant={} invoice={} number={} deleted contributions={} pdfBlob={}",
+                                                        tenantId, invoiceId, invoice.getInvoiceNumber(),
+                                                        cCount, pointer.objectKey() != null);
+
+                                                Mono<Void> publishBlobDelete = pointer.objectKey() == null
+                                                        ? Mono.empty()
+                                                        : eventPublisher.publishInvoicePdfDeleted(
+                                                                tenantId,
+                                                                invoiceId.toString(),
+                                                                pointer.bucket(),
+                                                                pointer.objectKey());
+
+                                                return publishBlobDelete.then(
+                                                        publishAudit(tenantId, "Invoice",
+                                                                invoiceId.toString(),
+                                                                invoice.getInvoiceNumber(),
+                                                                "DELETE", actorId, actorEmail,
+                                                                Map.of(
+                                                                        "invoiceNumber", invoice.getInvoiceNumber(),
+                                                                        "periodStart", String.valueOf(invoice.getPeriodStart()),
+                                                                        "periodEnd", String.valueOf(invoice.getPeriodEnd()),
+                                                                        "totalAmount", String.valueOf(invoice.getTotalAmount())),
+                                                                Map.of(
+                                                                        "contributionsDeleted", String.valueOf(cCount),
+                                                                        "invoicesDeleted", String.valueOf(iCount),
+                                                                        "pdfBlobDeleted", String.valueOf(pointer.objectKey() != null))))
+                                                        .thenReturn(new BillingRevokeResponse(
+                                                                cCount, iCount,
+                                                                invoice.getPeriodStart(),
+                                                                invoice.getPeriodEnd(),
+                                                                null, now));
+                                            }))));
+                });
+    }
+
     /** Internal: invoice → MinIO pointer tuple captured before the
      *  DELETE cascade clears the {@code invoice_pdfs} row. */
     private record PdfPointer(UUID invoiceId, String bucket, String objectKey) {}

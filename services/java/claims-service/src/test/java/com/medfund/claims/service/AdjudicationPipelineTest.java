@@ -95,6 +95,13 @@ class AdjudicationPipelineTest {
                         new com.medfund.rules.fact.ProviderFact())));
         when(ruleEvaluationService.evaluateClaim(anyString(), any(), any(), any()))
                 .thenReturn(Mono.just(java.util.List.of()));
+        // MODIFIER_ADJUSTMENT: default no-op — engine returns Mono<Void> that
+        // just completes. The pipeline reads adjustedAmount off the passed
+        // ClaimDetailFacts; with no stubbed mutation each fact retains its
+        // seeded billedAmount, so the summed ruleAdjustedTotal equals
+        // claim.claimedAmount — behaviour identical to pre-modifier tests.
+        when(ruleEvaluationService.evaluateModifiers(any(), any(), any(), any(), any()))
+                .thenReturn(Mono.<Void>empty());
 
         // Default mock: DatabaseClient returns active member enrolled 1 year ago, no waiting rules, no usage
         DatabaseClient.GenericExecuteSpec spec = mock(DatabaseClient.GenericExecuteSpec.class);

@@ -19,6 +19,8 @@ import com.medfund.claims.exception.InvalidClaimStateException;
 import com.medfund.claims.repository.ClaimLineRepository;
 import com.medfund.claims.repository.ClaimQueryRepository;
 import com.medfund.claims.repository.ClaimRepository;
+import com.medfund.rules.fact.ClaimDetailFact;
+import com.medfund.rules.service.RuleEvaluationService;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
@@ -89,6 +91,8 @@ public class ClaimService {
     private final com.medfund.claims.repository.BeneficiaryBenefitRepository beneficiaryBenefitRepository;
     private final DatabaseClient databaseClient;
     private final TariffBenefitResolver tariffBenefitResolver;
+    private final ClaimFactBuilder claimFactBuilder;
+    private final RuleEvaluationService ruleEvaluationService;
 
     public ClaimService(ClaimRepository claimRepository,
                         ClaimLineRepository claimLineRepository,
@@ -99,7 +103,9 @@ public class ClaimService {
                         SchemeClient schemeClient,
                         com.medfund.claims.repository.BeneficiaryBenefitRepository beneficiaryBenefitRepository,
                         DatabaseClient databaseClient,
-                        TariffBenefitResolver tariffBenefitResolver) {
+                        TariffBenefitResolver tariffBenefitResolver,
+                        ClaimFactBuilder claimFactBuilder,
+                        RuleEvaluationService ruleEvaluationService) {
         this.claimRepository = claimRepository;
         this.claimLineRepository = claimLineRepository;
         this.claimQueryRepository = claimQueryRepository;
@@ -110,6 +116,8 @@ public class ClaimService {
         this.tariffBenefitResolver = tariffBenefitResolver;
         this.beneficiaryBenefitRepository = beneficiaryBenefitRepository;
         this.databaseClient = databaseClient;
+        this.claimFactBuilder = claimFactBuilder;
+        this.ruleEvaluationService = ruleEvaluationService;
     }
 
     public Flux<Claim> findAll() {
@@ -592,7 +600,21 @@ public class ClaimService {
             .flatMap(claim -> claimLineRepository.findByClaimId(claim.getId())
                 .collectList()
                 .flatMap(lines -> adjudicationPipeline.execute(claim, lines)
-                    .flatMap(result -> applyAdjudicationResult(claim, result, actorId, actorEmail))));
+                    .flatMap(result -> applyAdjudicationResult(claim, result, actorId, actorEmail)
+                        .flatMap(saved -> {
+                            // AdjudicationPipeline.runModifierRules mutates each line's
+                            // approvedAmount in place. Persist them here so a subsequent
+                            // read (list, statement, PDF, payment run) reflects the
+                            // rule-adjusted per-line breakdown — not just the summed
+                            // claim total. Only persist on APPROVED/PARTIAL_APPROVED;
+                            // MANUAL_REVIEW leaves lines untouched so the operator
+                            // still sees the original values in their UI.
+                            String decision = result.decision();
+                            if ("APPROVED".equals(decision) || "PARTIAL_APPROVED".equals(decision)) {
+                                return claimLineRepository.saveAll(lines).then(Mono.just(saved));
+                            }
+                            return Mono.just(saved);
+                        }))));
     }
 
     @Transactional
@@ -718,52 +740,103 @@ public class ClaimService {
                         }
                         byId.put(d.lineId(), d);
                     }
-                    // Apply decisions to matching lines.
-                    var updates = new java.util.ArrayList<ClaimLine>();
-                    for (ClaimLine line : lines) {
-                        var d = byId.get(line.getId());
-                        if (d == null) continue;
-                        String s = d.status().trim().toUpperCase();
-                        line.setStatus(s);
-                        if ("ACCEPTED".equals(s)) {
-                            // Default to a full award when the adjudicator left
-                            // the amount blank — matches the "everything's fine"
-                            // happy path without forcing a re-key.
-                            line.setApprovedAmount(d.approvedAmount() != null
-                                    ? d.approvedAmount() : line.getClaimedAmount());
-                            line.setRejectionReason(null);
-                        } else if ("REJECTED".equals(s)) {
-                            line.setApprovedAmount(java.math.BigDecimal.ZERO);
-                            line.setRejectionReason(d.rejectionReason());
-                        }
-                        // PENDING: leave approvedAmount / rejectionReason
-                        // alone — code-only edits shouldn't lose an earlier
-                        // accept/reject decision.
 
-                        // Tariff / modifier override — snapshot the operator's
-                        // capture the first time the adjudicator changes either
-                        // value. Never overwrite an existing original snapshot;
-                        // the earliest capture is the honest record of what the
-                        // claimant actually submitted.
-                        applyCodeOverride(line, d);
-                        updates.add(line);
-                    }
-                    if (updates.isEmpty()) {
-                        return Mono.error(new IllegalArgumentException(
-                                "None of the supplied lineIds belong to this claim"));
-                    }
-                    // V061 save-time guard: sum the amounts the adjudicator wants
-                    // to accept and reject the whole save with 422 if the ledger
-                    // can't absorb it. Runs BEFORE anything is persisted so a
-                    // breach leaves the claim exactly as the operator found it.
-                    java.math.BigDecimal proposedDelta = updates.stream()
-                            .filter(l -> "ACCEPTED".equalsIgnoreCase(l.getStatus()))
-                            .map(l -> l.getApprovedAmount() != null
-                                    ? l.getApprovedAmount() : java.math.BigDecimal.ZERO)
-                            .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
-                    return validateSaveTimeBalance(claim, proposedDelta)
-                            .then(persistDecisions(claim, lines, updates, decisions, actorId, actorEmail));
+                    // Fire tenant MODIFIER_ADJUSTMENT rules against the loaded
+                    // lines so any modifier-driven amount adjustment becomes
+                    // the default when the operator leaves approvedAmount blank
+                    // on an ACCEPTED line. Rules mutate ClaimDetailFact.approvedAmount
+                    // in place; we index the results by line id, then walk the
+                    // lines with that map in hand. No rule / no tenant loaded →
+                    // fact keeps its seeded billedAmount, so the fallback ends
+                    // up equal to line.claimedAmount — behaviourally identical
+                    // to the pre-modifier default. Operator override still wins.
+                    return runModifierRules(claim, lines)
+                            .flatMap(ruleAdjusted -> {
+                                var updates = new java.util.ArrayList<ClaimLine>();
+                                for (ClaimLine line : lines) {
+                                    var d = byId.get(line.getId());
+                                    if (d == null) continue;
+                                    String s = d.status().trim().toUpperCase();
+                                    line.setStatus(s);
+                                    if ("ACCEPTED".equals(s)) {
+                                        java.math.BigDecimal fallback = ruleAdjusted
+                                                .getOrDefault(line.getId(), line.getClaimedAmount());
+                                        line.setApprovedAmount(d.approvedAmount() != null
+                                                ? d.approvedAmount() : fallback);
+                                        line.setRejectionReason(null);
+                                    } else if ("REJECTED".equals(s)) {
+                                        line.setApprovedAmount(java.math.BigDecimal.ZERO);
+                                        line.setRejectionReason(d.rejectionReason());
+                                    }
+                                    // PENDING: leave approvedAmount / rejectionReason
+                                    // alone — code-only edits shouldn't lose an earlier
+                                    // accept/reject decision.
+
+                                    // Tariff / modifier override — snapshot the operator's
+                                    // capture the first time the adjudicator changes either
+                                    // value. Never overwrite an existing original snapshot;
+                                    // the earliest capture is the honest record of what the
+                                    // claimant actually submitted.
+                                    applyCodeOverride(line, d);
+                                    updates.add(line);
+                                }
+                                if (updates.isEmpty()) {
+                                    return Mono.error(new IllegalArgumentException(
+                                            "None of the supplied lineIds belong to this claim"));
+                                }
+                                // V061 save-time guard: sum the amounts the adjudicator wants
+                                // to accept and reject the whole save with 422 if the ledger
+                                // can't absorb it. Runs BEFORE anything is persisted so a
+                                // breach leaves the claim exactly as the operator found it.
+                                java.math.BigDecimal proposedDelta = updates.stream()
+                                        .filter(l -> "ACCEPTED".equalsIgnoreCase(l.getStatus()))
+                                        .map(l -> l.getApprovedAmount() != null
+                                                ? l.getApprovedAmount() : java.math.BigDecimal.ZERO)
+                                        .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+                                return validateSaveTimeBalance(claim, proposedDelta)
+                                        .then(persistDecisions(claim, lines, updates, decisions, actorId, actorEmail));
+                            });
                 }));
+    }
+
+    /**
+     * Run MODIFIER_ADJUSTMENT tenant rules against a claim's loaded lines and
+     * return a {@code lineId → adjusted approvedAmount} map. Reuses
+     * {@link ClaimFactBuilder#toDetailFacts(List)} so the caller doesn't pay
+     * an extra {@code findByClaimId} round-trip.
+     *
+     * <p>Rules mutate {@link ClaimDetailFact#setApprovedAmount(java.math.BigDecimal)}
+     * in place; the returned map picks those values off in the same order
+     * the lines were supplied. When no rule fires (or the tenant has none
+     * loaded) every fact keeps its seeded {@code billedAmount}, so callers
+     * that fall back to the map value get identical numbers to the previous
+     * "default to claimed amount" behaviour.
+     */
+    private Mono<Map<UUID, java.math.BigDecimal>> runModifierRules(Claim claim, List<ClaimLine> lines) {
+        List<ClaimDetailFact> details = ClaimFactBuilder.toDetailFacts(lines);
+        if (details.isEmpty()) {
+            return Mono.just(java.util.Map.<UUID, java.math.BigDecimal>of());
+        }
+        return Mono.deferContextual(ctx -> {
+            String tenantId = TenantContext.get(ctx);
+            return claimFactBuilder.build(claim)
+                    .flatMap(facts -> {
+                        // Overwrite the freshly-fetched detail list with the one
+                        // we built from the pre-loaded lines — same shape, but
+                        // the *references* need to match so the caller reads
+                        // adjustments off the same objects Drools mutated.
+                        facts.claim().setDetails(details);
+                        return ruleEvaluationService.evaluateModifiers(
+                                        tenantId, facts.claim(), facts.member(), facts.provider(), details)
+                                .thenReturn(details);
+                    });
+        }).map(list -> {
+            Map<UUID, java.math.BigDecimal> byLineId = new java.util.HashMap<>();
+            for (int i = 0; i < lines.size() && i < list.size(); i++) {
+                byLineId.put(lines.get(i).getId(), list.get(i).getApprovedAmount());
+            }
+            return byLineId;
+        });
     }
 
     /**

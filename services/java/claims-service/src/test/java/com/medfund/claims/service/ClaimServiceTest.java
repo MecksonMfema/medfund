@@ -442,6 +442,12 @@ class ClaimServiceTest {
         when(claimRepository.findById(claim.getId())).thenReturn(Mono.just(claim));
         when(claimRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(claimLineRepository.findByClaimId(claim.getId())).thenReturn(Flux.just(testClaimLine));
+        // MODIFIER_ADJUSTMENT persistence: APPROVED / PARTIAL_APPROVED writes the
+        // rule-adjusted per-line approvedAmounts back to the repo. Mock echoes
+        // whatever the pipeline mutated so nothing changes for the assertions
+        // below — this test doesn't cover the per-line values, only that the
+        // wiring persists them without breaking the claim-level outcome.
+        when(claimLineRepository.saveAll(anyList())).thenAnswer(inv -> Flux.fromIterable(inv.getArgument(0)));
         when(adjudicationPipeline.execute(any(), any())).thenReturn(Mono.just(adjudicationResult));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishClaimAdjudicated(any(), any(), any(), any(), any(), any(), any(),

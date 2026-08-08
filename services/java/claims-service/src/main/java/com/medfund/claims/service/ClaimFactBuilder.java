@@ -1,6 +1,9 @@
 package com.medfund.claims.service;
 
 import com.medfund.claims.entity.Claim;
+import com.medfund.claims.entity.ClaimLine;
+import com.medfund.claims.repository.ClaimLineRepository;
+import com.medfund.rules.fact.ClaimDetailFact;
 import com.medfund.rules.fact.ClaimFact;
 import com.medfund.rules.fact.MemberFact;
 import com.medfund.rules.fact.ProviderFact;
@@ -12,6 +15,10 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Translates a {@link Claim} entity into the fact triple ({@link ClaimFact},
@@ -29,9 +36,11 @@ import java.time.temporal.ChronoUnit;
 public class ClaimFactBuilder {
 
     private final DatabaseClient db;
+    private final ClaimLineRepository claimLineRepository;
 
-    public ClaimFactBuilder(DatabaseClient db) {
+    public ClaimFactBuilder(DatabaseClient db, ClaimLineRepository claimLineRepository) {
         this.db = db;
+        this.claimLineRepository = claimLineRepository;
     }
 
     public Mono<Facts> build(Claim claim) {
@@ -45,8 +54,65 @@ public class ClaimFactBuilder {
                 ? Mono.just(emptyProvider(null))
                 : fetchProvider(claim.getProviderId().toString());
 
-        return Mono.zip(memberFact, providerFact)
-                .map(t -> new Facts(claimFact, t.getT1(), t.getT2()));
+        // ClaimLine → ClaimDetailFact list, so MODIFIER_ADJUSTMENT (and any
+        // other future per-line category) has facts to fire against. Empty
+        // list — not null — when the claim has no lines, so Drools rules can
+        // safely iterate without a null check.
+        Mono<List<ClaimDetailFact>> detailFacts = claim.getId() == null
+                ? Mono.just(List.<ClaimDetailFact>of())
+                : claimLineRepository.findByClaimId(claim.getId())
+                        .collectList()
+                        .map(ClaimFactBuilder::toDetailFacts)
+                        .onErrorResume(err -> {
+                            log.debug("[fact-builder] claim-line lookup failed for {}: {}",
+                                    claim.getId(), err.getMessage());
+                            return Mono.just(List.<ClaimDetailFact>of());
+                        });
+
+        return Mono.zip(memberFact, providerFact, detailFacts)
+                .map(t -> {
+                    claimFact.setDetails(t.getT3());
+                    return new Facts(claimFact, t.getT1(), t.getT2());
+                });
+    }
+
+    /**
+     * Build a {@link ClaimDetailFact} per {@link ClaimLine}, preserving the
+     * order the caller supplied. Exposed as a public static so callers who
+     * already hold the lines in memory (e.g. {@code ClaimService.applyLineDecisions})
+     * can reuse the same conversion without re-querying the DB.
+     *
+     * <p>Rank: 1-based position in the input list. Modifiers: parsed from
+     * the comma-delimited {@code modifier_codes} column, trimmed, blanks
+     * dropped. approvedAmount is seeded to the {@code claimedAmount} so a
+     * rule can multiply/reduce it — with no matching rule the value flows
+     * through unchanged, matching pre-modifier behaviour.
+     */
+    public static List<ClaimDetailFact> toDetailFacts(List<ClaimLine> lines) {
+        if (lines == null || lines.isEmpty()) return List.of();
+        List<ClaimDetailFact> facts = new ArrayList<>(lines.size());
+        int rank = 1;
+        for (ClaimLine line : lines) {
+            ClaimDetailFact d = new ClaimDetailFact();
+            d.setTariffCode(line.getTariffCode());
+            d.setBilledAmount(line.getClaimedAmount());
+            d.setModifiers(parseModifiers(line.getModifierCodes()));
+            d.setProcedureRank(rank++);
+            // approvedAmount seeded to billed so pass-through with no rule
+            // hit yields the same amount adjudication would have picked anyway.
+            d.setApprovedAmount(line.getClaimedAmount());
+            facts.add(d);
+        }
+        return facts;
+    }
+
+    /** Split a comma-delimited modifier column into an immutable list. */
+    static List<String> parseModifiers(String csv) {
+        if (csv == null || csv.isBlank()) return List.of();
+        return Arrays.stream(csv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toUnmodifiableList());
     }
 
     // ── ClaimFact ────────────────────────────────────────────────────────────

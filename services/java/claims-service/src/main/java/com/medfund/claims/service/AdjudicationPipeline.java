@@ -17,6 +17,7 @@ import com.medfund.claims.repository.PreAuthorizationRepository;
 import com.medfund.claims.repository.RejectionReasonRepository;
 import com.medfund.claims.repository.TariffCodeRepository;
 import com.medfund.claims.repository.TariffModifierRepository;
+import com.medfund.rules.fact.ClaimDetailFact;
 import com.medfund.rules.fact.ClaimFact;
 import com.medfund.rules.fact.MemberFact;
 import com.medfund.rules.fact.ProviderFact;
@@ -143,8 +144,60 @@ public class AdjudicationPipeline {
         Mono<AiSignals> aiMono = aiServiceClient.evaluate(claim, lines)
                 .defaultIfEmpty(AiSignals.empty());
 
-        return Mono.zip(stagesMono, aiMono)
-                .map(tuple -> decisionEngine.decide(claim, tuple.getT1(), tuple.getT2()));
+        // Fire MODIFIER_ADJUSTMENT rules over the per-line facts. On return
+        // each ClaimDetailFact.approvedAmount reflects the tenant-rule outcome
+        // (or the seeded billedAmount when no rule matched). We mutate the
+        // input `lines` in place so the caller sees the adjusted per-line
+        // amounts, then hand the summed total to decisionEngine.decide as the
+        // base for the auto-approve amount.
+        Mono<BigDecimal> ruleAdjustedTotalMono = runModifierRules(claim, lines);
+
+        return Mono.zip(stagesMono, aiMono, ruleAdjustedTotalMono)
+                .map(tuple -> decisionEngine.decide(
+                        claim, tuple.getT1(), tuple.getT2(), tuple.getT3()));
+    }
+
+    /**
+     * Build per-line {@link ClaimDetailFact}s from the loaded lines, fire the
+     * tenant's MODIFIER_ADJUSTMENT rules against them (agenda-gated so nothing
+     * else runs), copy each rule-adjusted amount back onto the corresponding
+     * {@link ClaimLine#setApprovedAmount(BigDecimal)}, and return the summed
+     * total.
+     *
+     * <p>Zero-line claims and tenants without any MODIFIER_ADJUSTMENT rules
+     * loaded both short-circuit to the raw claimed-amount total, so pipeline
+     * behaviour with no modifier rules is identical to what it was before.
+     */
+    private Mono<BigDecimal> runModifierRules(Claim claim, List<ClaimLine> lines) {
+        if (lines == null || lines.isEmpty()) {
+            BigDecimal fallback = claim.getClaimedAmount() != null
+                    ? claim.getClaimedAmount() : BigDecimal.ZERO;
+            return Mono.just(fallback);
+        }
+        List<ClaimDetailFact> details = ClaimFactBuilder.toDetailFacts(lines);
+        return Mono.deferContextual(ctx -> {
+            String tenantId = TenantContext.get(ctx);
+            return factBuilder.build(claim)
+                    .flatMap(facts -> {
+                        // Pin the fact objects Drools will mutate to the same
+                        // list we'll read from — see ClaimService.runModifierRules
+                        // for the same reference-matching contract.
+                        facts.claim().setDetails(details);
+                        return ruleEvaluationService.evaluateModifiers(
+                                        tenantId, facts.claim(), facts.member(), facts.provider(), details)
+                                .thenReturn(details);
+                    });
+        }).map(list -> {
+            BigDecimal total = BigDecimal.ZERO;
+            for (int i = 0; i < lines.size() && i < list.size(); i++) {
+                BigDecimal adjusted = list.get(i).getApprovedAmount();
+                if (adjusted != null) {
+                    lines.get(i).setApprovedAmount(adjusted);
+                    total = total.add(adjusted);
+                }
+            }
+            return total;
+        });
     }
 
     // ---- Stage 1: Eligibility ----

@@ -806,6 +806,15 @@ export class ContributionsService {
     return this.api.post<BillingRevokeResponse>('/contributions/billing/revoke', payload);
   }
 
+  /**
+   * Per-statement revoke — same next-month-only window as the bulk
+   * revoke, but scoped to a single invoice so other statements for the
+   * period survive. Backend: POST /contributions/billing/revoke/{id}.
+   */
+  revokeStatement(invoiceId: string): Observable<BillingRevokeResponse> {
+    return this.api.post<BillingRevokeResponse>(`/contributions/billing/revoke/${invoiceId}`, {});
+  }
+
   // ── Per-invoice listing + statement + PDF (V035) ────────────────────
   listInvoices(filter: InvoiceListFilter = {}): Observable<InvoicesPage> {
     const params: Record<string, string> = {};

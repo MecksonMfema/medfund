@@ -180,4 +180,57 @@ class AdjudicationDecisionEngineTest {
         assertThat(result.decision()).isEqualTo("MANUAL_REVIEW");
         assertThat(result.rejectionCode()).isEqualTo("AIConfidence");
     }
+
+    // ── MODIFIER_ADJUSTMENT wiring — ruleAdjustedTotal parameter ──────────
+
+    @Test
+    void ruleAdjustedTotal_overridesClaimedAmountAsBase() {
+        // Simulates a MODIFIER_ADJUSTMENT rule that halved a secondary
+        // procedure — the pipeline sums per-line adjusted amounts to 50.00
+        // and hands that to decide as the base. No AI cap ⇒ base wins.
+        var ai = new AiSignals("APPROVE", 0.95, null, "looks fine", List.of(),
+                0.1, "LOW", List.of(), null, null, "1.0.0");
+
+        var result = engine.decide(claim, allPass(), ai, new BigDecimal("50.00"));
+
+        assertThat(result.decision()).isEqualTo("APPROVED");
+        assertThat(result.approvedAmount()).isEqualByComparingTo("50.00");
+    }
+
+    @Test
+    void ruleAdjustedTotal_null_fallsBackToClaimedAmount() {
+        // Pre-modifier behaviour: null ruleAdjustedTotal (no rule fired /
+        // no rules loaded / no lines) means the base amount is the claim's
+        // claimedAmount — identical to what the 3-arg overload does.
+        var result = engine.decide(claim, allPass(), AiSignals.empty(), null);
+
+        assertThat(result.decision()).isEqualTo("APPROVED");
+        assertThat(result.approvedAmount()).isEqualByComparingTo("100.00");
+    }
+
+    @Test
+    void ruleAdjustedTotal_aiSuggestionLower_aiSuggestionWins() {
+        // Upcoding still trumps modifier adjustment when it comes in lower.
+        var ai = new AiSignals("APPROVE", 0.92,
+                new BigDecimal("30.00"), "possible upcoding", List.of("POSSIBLE_UPCODING"),
+                0.2, "LOW", List.of(), null, null, "1.0.0");
+
+        var result = engine.decide(claim, allPass(), ai, new BigDecimal("50.00"));
+
+        assertThat(result.decision()).isEqualTo("APPROVED");
+        assertThat(result.approvedAmount()).isEqualByComparingTo("30.00");
+    }
+
+    @Test
+    void ruleAdjustedTotal_belowAiSuggestion_baseWins() {
+        // Symmetric: when the rule-adjusted total is lower than the AI's
+        // suggested cap, the rule wins.
+        var ai = new AiSignals("APPROVE", 0.92,
+                new BigDecimal("80.00"), "possible upcoding", List.of("POSSIBLE_UPCODING"),
+                0.2, "LOW", List.of(), null, null, "1.0.0");
+
+        var result = engine.decide(claim, allPass(), ai, new BigDecimal("50.00"));
+
+        assertThat(result.approvedAmount()).isEqualByComparingTo("50.00");
+    }
 }

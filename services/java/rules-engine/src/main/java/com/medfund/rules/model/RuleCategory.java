@@ -39,6 +39,17 @@ public enum RuleCategory {
     CO_PAYMENT,
     PRE_AUTHORIZATION,
     TARIFF_PRICING,
+    /**
+     * Per-line adjustments driven by tariff modifiers (bilateral, assistant-surgeon,
+     * after-hours, multi-procedure, paediatric/geriatric loading, …). Rules in this
+     * category are agenda-gated — they only fire when the caller sets focus via
+     * {@code RuleEvaluationService.evaluateModifiers(...)} on the adjudication path,
+     * not during the stage-7 tenant-rule sweep. Rules read modifier codes off
+     * {@code ClaimDetailFact.modifiers} and mutate {@code ClaimDetailFact.approvedAmount}
+     * in place; the caller reads the mutated fact after the fire. Percentages are
+     * tenant policy (rule content), never engine code.
+     */
+    MODIFIER_ADJUSTMENT,
     CLINICAL_VALIDATION,
 
     // ── Finance ──────────────────────────────────────────────────────────────
