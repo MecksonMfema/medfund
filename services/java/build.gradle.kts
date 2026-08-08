@@ -105,5 +105,17 @@ subprojects {
         dependencies {
             "developmentOnly"("org.springframework.boot:spring-boot-devtools")
         }
+        // Cap each dev bootRun forked JVM. Five services at default (~800 MB each)
+        // exceed the 30 GiB budget when combined with Gradle daemons, VS Code
+        // Java extensions, and Docker infra — systemd-oomd then kills the tree.
+        tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
+            jvmArgs = listOf(
+                "-Xmx384m",
+                "-XX:MaxMetaspaceSize=256m",
+                "-XX:+UseSerialGC",
+                "-XX:+HeapDumpOnOutOfMemoryError",
+                "-XX:HeapDumpPath=build/heap-dumps/"
+            )
+        }
     }
 }
