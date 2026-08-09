@@ -2,8 +2,20 @@ package com.medfund.finance.consumer;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.medfund.finance.client.FxConverter;
+import com.medfund.finance.client.TenantConfigClient;
+import com.medfund.finance.client.TenantConfigClient.CtcAutoConfig;
+import com.medfund.finance.entity.CtcPayment;
+import com.medfund.finance.entity.MemberPayable;
+import com.medfund.finance.repository.CtcPaymentRepository;
+import com.medfund.finance.repository.MemberContributionBalanceReader;
+import com.medfund.finance.repository.MemberPayableRepository;
 import com.medfund.finance.service.ProviderBalanceService;
+import com.medfund.finance.util.DbErrors;
 import com.medfund.shared.audit.AuditActor;
+import com.medfund.shared.audit.AuditEvent;
+import com.medfund.shared.audit.AuditPublisher;
+import com.medfund.shared.tenant.TenantContext;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,11 +23,36 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.kafka.receiver.KafkaReceiver;
 import reactor.kafka.receiver.ReceiverOptions;
+import reactor.util.context.Context;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Sole subscriber on {@code medfund.claims.adjudicated} inside finance-service.
+ * Dispatches on {@code payeeType} (V069, per V066 payee-type column on
+ * {@code claims}):
+ *
+ * <ul>
+ *   <li><b>PROVIDER</b> (default for pre-V069 events with empty
+ *       {@code payeeType}) — updates {@code provider_balances} via
+ *       {@link ProviderBalanceService}.</li>
+ *   <li><b>MEMBER</b> — writes a {@code member_payables} row so downstream
+ *       CTC (Claims-to-Contributions) transfers have something to
+ *       offset against.</li>
+ * </ul>
+ *
+ * <p>The offset commit uses {@code .doOnSuccess} — never
+ * {@code .doOnTerminate} — per {@code bug_reactor_kafka_ack_swallow}:
+ * failed member-payable writes must NOT ack, otherwise Kafka at-least-once
+ * turns into at-most-once for the offending record.
+ */
 @Component
 public class ClaimAdjudicatedConsumer {
 
@@ -24,14 +61,32 @@ public class ClaimAdjudicatedConsumer {
 
     private final ReceiverOptions<String, String> receiverOptions;
     private final ProviderBalanceService providerBalanceService;
+    private final MemberPayableRepository memberPayableRepository;
+    private final AuditPublisher auditPublisher;
     private final ObjectMapper objectMapper;
+    private final TenantConfigClient tenantConfigClient;
+    private final MemberContributionBalanceReader memberContributionBalanceReader;
+    private final CtcPaymentRepository ctcPaymentRepository;
+    private final FxConverter fxConverter;
 
     public ClaimAdjudicatedConsumer(ReceiverOptions<String, String> receiverOptions,
                                     ProviderBalanceService providerBalanceService,
-                                    ObjectMapper objectMapper) {
+                                    MemberPayableRepository memberPayableRepository,
+                                    AuditPublisher auditPublisher,
+                                    ObjectMapper objectMapper,
+                                    TenantConfigClient tenantConfigClient,
+                                    MemberContributionBalanceReader memberContributionBalanceReader,
+                                    CtcPaymentRepository ctcPaymentRepository,
+                                    FxConverter fxConverter) {
         this.receiverOptions = receiverOptions;
         this.providerBalanceService = providerBalanceService;
+        this.memberPayableRepository = memberPayableRepository;
+        this.auditPublisher = auditPublisher;
         this.objectMapper = objectMapper;
+        this.tenantConfigClient = tenantConfigClient;
+        this.memberContributionBalanceReader = memberContributionBalanceReader;
+        this.ctcPaymentRepository = ctcPaymentRepository;
+        this.fxConverter = fxConverter;
     }
 
     @PostConstruct
@@ -43,14 +98,15 @@ public class ClaimAdjudicatedConsumer {
                 try {
                     return processEvent(record.value())
                         .doOnSuccess(v -> record.receiverOffset().acknowledge())
-                        .doOnError(e -> log.error("Failed to process claim adjudicated event: {}", e.getMessage()));
+                        .doOnError(e -> log.error("Failed to process claim adjudicated event (full chain): ", e))
+                        .onErrorResume(e -> Mono.empty());
                 } catch (Exception e) {
-                    log.error("Error deserializing claim adjudicated event: {}", e.getMessage());
+                    log.error("Error deserializing claim adjudicated event: ", e);
                     record.receiverOffset().acknowledge();
                     return Mono.empty();
                 }
             })
-            .doOnError(e -> log.error("Claim adjudicated consumer error: {}", e.getMessage()))
+            .doOnError(e -> log.error("Claim adjudicated consumer error: ", e))
             .retry()
             .subscribe();
     }
@@ -58,69 +114,255 @@ public class ClaimAdjudicatedConsumer {
     public Mono<Void> processEvent(String json) {
         try {
             JsonNode node = objectMapper.readTree(json);
-            String decision = node.get("decision").asText();
+            String decision  = textOrNull(node, "decision");
+            String payeeType = textOrNull(node, "payeeType");
+            String tenantId  = textOrNull(node, "tenantId");
 
-            // Pull common fields. providerId / currency / claimedAmount /
-            // approvedAmount may be missing for some decisions; treat null
-            // as "no delta" rather than failing the whole event.
-            String providerId = textOrNull(node, "providerId");
-            String currencyCode = textOrNull(node, "currencyCode");
-            String claimedAmount = textOrNull(node, "claimedAmount");
-            String approvedAmount = textOrNull(node, "approvedAmount");
-
-            if (providerId == null || currencyCode == null) {
-                log.info("Skipping claim adjudicated event without provider context: decision={}", decision);
-                return Mono.empty();
+            if ("MEMBER".equalsIgnoreCase(payeeType)) {
+                return handleMemberPayee(node, decision, tenantId);
             }
-
-            BigDecimal claimedDelta = claimedAmount != null ? new BigDecimal(claimedAmount) : null;
-            BigDecimal approvedDelta = null;
-            BigDecimal paidDelta = null;
-
-            switch (decision == null ? "" : decision.toUpperCase()) {
-                case "APPROVED":
-                case "PARTIAL_APPROVED":
-                    // Approved amount lifts both totalClaimed (we saw the claim)
-                    // and totalApproved (we owe this much). outstandingBalance
-                    // is recomputed from approved - paid downstream.
-                    if (approvedAmount != null) approvedDelta = new BigDecimal(approvedAmount);
-                    break;
-                case "REJECTED":
-                    // Rejection still counts toward the provider's totalClaimed
-                    // (they sent us a claim) but adds nothing to approved/paid.
-                    // Without this branch the provider's claim history would
-                    // under-count rejections.
-                    break;
-                case "COMMITTED":
-                case "PAID":
-                    // Payment-run flow fires these. claim.adjudicated may not
-                    // be the right topic for them in steady state, but we
-                    // tolerate them here so the consumer doesn't drop work
-                    // if upstream multiplexes events.
-                    if (approvedAmount != null) paidDelta = new BigDecimal(approvedAmount);
-                    break;
-                default:
-                    log.info("Skipping claim adjudicated event with decision={}", decision);
-                    return Mono.empty();
-            }
-
-            log.info("Processing claim adjudicated event: decision={}, provider={}, currency={}, " +
-                            "claimedDelta={}, approvedDelta={}, paidDelta={}",
-                     decision, providerId, currencyCode, claimedDelta, approvedDelta, paidDelta);
-
-            return providerBalanceService.updateBalance(
-                UUID.fromString(providerId),
-                currencyCode,
-                claimedDelta,
-                approvedDelta,
-                paidDelta,
-                AuditActor.SYSTEM_ID,
-                AuditActor.SYSTEM_EMAIL
-            ).then();
+            // Default to the provider-balance branch — matches the pre-V069
+            // behaviour for consumers that don't emit payeeType yet.
+            return handleProviderPayee(node, decision);
         } catch (Exception e) {
-            log.error("Failed to parse claim adjudicated event: {}", e.getMessage());
+            log.error("Failed to parse claim adjudicated event: ", e);
             return Mono.error(e);
         }
+    }
+
+    private Mono<Void> handleMemberPayee(JsonNode node, String decision, String tenantId) {
+        if (!isApprovedDecision(decision)) {
+            return Mono.empty();
+        }
+        String memberIdStr = textOrNull(node, "memberId");
+        String claimIdStr  = textOrNull(node, "claimId");
+        String claimNumber = textOrNull(node, "claimNumber");
+        String currency    = textOrNull(node, "currencyCode");
+        String approved    = textOrNull(node, "approvedAmount");
+        if (memberIdStr == null || claimIdStr == null || approved == null) {
+            log.info("Skipping MEMBER-payee event with missing fields: memberId={}, claimId={}, approved={}",
+                    memberIdStr, claimIdStr, approved);
+            return Mono.empty();
+        }
+        BigDecimal amount = new BigDecimal(approved);
+        if (amount.signum() <= 0) {
+            return Mono.empty();
+        }
+
+        MemberPayable mp = new MemberPayable();
+        mp.setMemberId(UUID.fromString(memberIdStr));
+        mp.setClaimId(UUID.fromString(claimIdStr));
+        mp.setClaimNumber(claimNumber);
+        mp.setAmount(amount);
+        mp.setCurrencyCode(currency != null ? currency : "USD");
+        mp.setStatus("open");
+        mp.setRecordedAt(Instant.now());
+        // System-initiated write; recordedBy=null is meaningful.
+
+        Mono<Void> write = memberPayableRepository.save(mp)
+            .flatMap(saved -> publishMemberPayableAudit(saved).thenReturn(saved))
+            .flatMap(this::maybeAutoDraftCtc)
+            .onErrorResume(e -> {
+                if (DbErrors.isUniqueViolation(e)) {
+                    log.info("Member payable already exists for claim {} — idempotent skip",
+                            claimIdStr);
+                    return Mono.empty();
+                }
+                return Mono.error(e);
+            });
+        return tenantId != null && !tenantId.isBlank()
+                ? write.contextWrite(Context.of(TenantContext.KEY, tenantId))
+                : write;
+    }
+
+    /**
+     * Auto-CTC (Phase 4). When the tenant has opted in via
+     * {@code public.tenant_ctc_auto_config} AND the member's outstanding
+     * contribution balance clears the configured threshold, drop a
+     * {@code status='draft'} CTC row linked to the just-created payable.
+     * <p>
+     * Never auto-commits — operator review stays mandatory. See design
+     * decision #4 in the plan for rationale (member consent + human in
+     * the loop even when the rule is deterministic).
+     * <p>
+     * Any failure inside this branch is logged and swallowed: the payable
+     * write must not be undone just because the auto-draft attempt failed.
+     */
+    private Mono<Void> maybeAutoDraftCtc(MemberPayable payable) {
+        return Mono.deferContextual(ctx -> {
+            String tenantStr = TenantContext.get(ctx);
+            if (tenantStr == null || tenantStr.isBlank()) {
+                return Mono.empty();
+            }
+            UUID tenantId;
+            try {
+                tenantId = UUID.fromString(tenantStr);
+            } catch (IllegalArgumentException ex) {
+                log.warn("[auto-ctc] tenant id in context is not a UUID: {}", tenantStr);
+                return Mono.empty();
+            }
+            return tenantConfigClient.getCtcAutoConfig(tenantId)
+                    .filter(CtcAutoConfig::enabled)
+                    .flatMap(cfg -> evaluateAutoDraft(payable, cfg, tenantId))
+                    .onErrorResume(err -> {
+                        log.warn("[auto-ctc] evaluation failed for payable {} — payable stays, draft skipped: {}",
+                                payable.getId(), err.getMessage());
+                        return Mono.empty();
+                    })
+                    .then();
+        });
+    }
+
+    private Mono<CtcPayment> evaluateAutoDraft(MemberPayable payable, CtcAutoConfig cfg, UUID tenantId) {
+        BigDecimal threshold = cfg.minMemberBalanceThreshold() != null
+                ? cfg.minMemberBalanceThreshold() : BigDecimal.ZERO;
+        return memberContributionBalanceReader.getBalance(payable.getMemberId(), payable.getCurrencyCode())
+                .flatMap(memberBalance -> convertIfNeeded(memberBalance, payable.getCurrencyCode(),
+                                cfg.thresholdCurrency(), tenantId)
+                        .filter(convertedBalance -> convertedBalance.compareTo(threshold) >= 0)
+                        .flatMap(_ok -> resolveAutoDraftAmount(payable, cfg, tenantId))
+                        .filter(amt -> amt.signum() > 0)
+                        .flatMap(amt -> insertAutoDraftCtc(payable, amt)));
+    }
+
+    private Mono<BigDecimal> resolveAutoDraftAmount(MemberPayable payable, CtcAutoConfig cfg, UUID tenantId) {
+        if (cfg.maxPerCtcAmount() == null) {
+            return Mono.just(payable.getAmount());
+        }
+        return convertIfNeeded(cfg.maxPerCtcAmount(), cfg.thresholdCurrency(),
+                        payable.getCurrencyCode(), tenantId)
+                .map(cap -> payable.getAmount().min(cap));
+    }
+
+    private Mono<BigDecimal> convertIfNeeded(BigDecimal amount, String from, String to, UUID tenantId) {
+        if (amount == null) return Mono.just(BigDecimal.ZERO);
+        if (from == null || to == null || from.equalsIgnoreCase(to)) return Mono.just(amount);
+        return fxConverter.convert(amount, from, to, LocalDate.now(ZoneOffset.UTC), tenantId);
+    }
+
+    private Mono<CtcPayment> insertAutoDraftCtc(MemberPayable payable, BigDecimal amount) {
+        CtcPayment ctc = new CtcPayment();
+        ctc.setMemberId(payable.getMemberId());
+        ctc.setMemberPayableId(payable.getId());
+        ctc.setAmount(amount);
+        ctc.setCurrencyCode(payable.getCurrencyCode());
+        ctc.setType("CTC");
+        ctc.setStatus("draft");
+        ctc.setCommitted(false);
+        // createdBy left null — system-initiated, meaningful marker for the
+        // "recent auto-drafts" query on the Angular auto-CTC surface.
+        return ctcPaymentRepository.save(ctc)
+                .flatMap(saved -> publishAutoDraftAudit(saved).thenReturn(saved));
+    }
+
+    private Mono<Void> publishAutoDraftAudit(CtcPayment ctc) {
+        return Mono.deferContextual(ctx -> {
+            String tenantId = TenantContext.get(ctx);
+            String entityName = "Auto-drafted CTC for member " + ctc.getMemberId()
+                    + " " + ctc.getAmount().toPlainString() + " " + ctc.getCurrencyCode();
+            Map<String, Object> newValue = new LinkedHashMap<>();
+            newValue.put("amount", ctc.getAmount().toPlainString());
+            newValue.put("currencyCode", ctc.getCurrencyCode());
+            newValue.put("memberId", ctc.getMemberId().toString());
+            newValue.put("memberPayableId", ctc.getMemberPayableId().toString());
+            newValue.put("status", ctc.getStatus());
+            newValue.put("type", ctc.getType());
+            newValue.put("source", "AUTO_CTC");
+            var event = AuditEvent.create(
+                    tenantId != null ? tenantId : "unknown",
+                    "CtcPayment",
+                    ctc.getId().toString(),
+                    entityName,
+                    "CREATE",
+                    AuditActor.SYSTEM_ID,
+                    AuditActor.SYSTEM_EMAIL,
+                    null,
+                    newValue,
+                    new String[]{"amount", "currencyCode", "status", "type", "source"},
+                    UUID.randomUUID().toString()
+            );
+            return auditPublisher.publish(event);
+        });
+    }
+
+    private Mono<Void> handleProviderPayee(JsonNode node, String decision) {
+        String providerId    = textOrNull(node, "providerId");
+        String currencyCode  = textOrNull(node, "currencyCode");
+        String claimedAmount = textOrNull(node, "claimedAmount");
+        String approvedAmount = textOrNull(node, "approvedAmount");
+
+        if (providerId == null || currencyCode == null) {
+            log.info("Skipping claim adjudicated event without provider context: decision={}", decision);
+            return Mono.empty();
+        }
+
+        BigDecimal claimedDelta = claimedAmount != null ? new BigDecimal(claimedAmount) : null;
+        BigDecimal approvedDelta = null;
+        BigDecimal paidDelta = null;
+
+        switch (decision == null ? "" : decision.toUpperCase()) {
+            case "APPROVED":
+            case "PARTIAL_APPROVED":
+                if (approvedAmount != null) approvedDelta = new BigDecimal(approvedAmount);
+                break;
+            case "REJECTED":
+                // Still counts toward the provider's totalClaimed history.
+                break;
+            case "COMMITTED":
+            case "PAID":
+                if (approvedAmount != null) paidDelta = new BigDecimal(approvedAmount);
+                break;
+            default:
+                log.info("Skipping claim adjudicated event with decision={}", decision);
+                return Mono.empty();
+        }
+
+        log.info("Processing PROVIDER claim adjudicated event: decision={}, provider={}, currency={}, " +
+                        "claimedDelta={}, approvedDelta={}, paidDelta={}",
+                 decision, providerId, currencyCode, claimedDelta, approvedDelta, paidDelta);
+
+        return providerBalanceService.updateBalance(
+            UUID.fromString(providerId),
+            currencyCode,
+            claimedDelta,
+            approvedDelta,
+            paidDelta,
+            AuditActor.SYSTEM_ID,
+            AuditActor.SYSTEM_EMAIL
+        ).then();
+    }
+
+    private Mono<Void> publishMemberPayableAudit(MemberPayable mp) {
+        return Mono.deferContextual(ctx -> {
+            String tenantId = TenantContext.get(ctx);
+            String entityName = "Payable to member " + mp.getMemberId()
+                              + " " + mp.getAmount().toPlainString() + " " + mp.getCurrencyCode();
+            Map<String, Object> newValue = new LinkedHashMap<>();
+            newValue.put("amount", mp.getAmount().toPlainString());
+            newValue.put("currencyCode", mp.getCurrencyCode());
+            newValue.put("claimId", mp.getClaimId().toString());
+            newValue.put("memberId", mp.getMemberId().toString());
+            newValue.put("status", mp.getStatus());
+            var event = AuditEvent.create(
+                tenantId != null ? tenantId : "unknown",
+                "MemberPayable",
+                mp.getId().toString(),
+                entityName,
+                "CREATE",
+                AuditActor.SYSTEM_ID,
+                AuditActor.SYSTEM_EMAIL,
+                null,
+                newValue,
+                new String[]{"amount", "currencyCode", "status"},
+                UUID.randomUUID().toString()
+            );
+            return auditPublisher.publish(event);
+        });
+    }
+
+    private static boolean isApprovedDecision(String decision) {
+        String d = decision == null ? "" : decision.toUpperCase();
+        return d.equals("APPROVED") || d.equals("PARTIAL_APPROVED");
     }
 
     private String textOrNull(JsonNode node, String field) {

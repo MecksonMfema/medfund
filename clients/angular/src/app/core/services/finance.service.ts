@@ -206,22 +206,40 @@ export interface UpsertMascaBankAccountPayload {
 }
 
 // ── CTC payments ────────────────────────────────────────────────────────
+/**
+ * V069 lifecycle status. `draft` awaits operator commit; `committed` has
+ * posted a `member_payable_applications` row and a `CTC_OFFSET` transaction;
+ * `reversed` means the original was superseded by a compensating REVERSAL
+ * row (the reversal itself is stored as a fresh row with `type='REVERSAL'`
+ * and `status='committed'`).
+ */
+export type CtcPaymentStatus = 'draft' | 'committed' | 'reversed';
+export type CtcPaymentType = 'CTC' | 'REVERSAL';
+
 export interface CtcPayment {
   id: string;
+  type?: CtcPaymentType;
+  status?: CtcPaymentStatus;
   groupId?: string;
   memberId?: string;
+  memberPayableId?: string;
+  reversesCtcId?: string;
   amount: string;
   currencyCode: string;
   contributionId?: string;
   committed: boolean;
   createdAt: string;
   createdBy?: string;
+  committedAt?: string;
+  committedBy?: string;
 }
 
 /**
  * Row shape returned by GET /ctc-payments/page. Member and group
  * display names are pre-joined server-side so the operational CTC list
- * renders the beneficiary chip inline without a lookup.
+ * renders the beneficiary chip inline without a lookup. `type`, `status`,
+ * and `memberPayableId` (V069) drive the per-row action gates on the
+ * finance-side list.
  */
 export interface CtcPaymentRow {
   id: string;
@@ -236,12 +254,48 @@ export interface CtcPaymentRow {
   committed: boolean;
   createdAt: string;
   createdBy?: string;
+  type?: CtcPaymentType;
+  status?: CtcPaymentStatus;
+  memberPayableId?: string;
+}
+
+/**
+ * Outstanding "approved claim amount owed to member" ledger row —
+ * returned by GET /api/v1/member-payables/member/{memberId}. Feeds the
+ * two-step selector on the CTC form so an operator picks a specific
+ * payable to offset rather than typing a raw UUID.
+ */
+export interface MemberPayable {
+  id: string;
+  memberId: string;
+  claimId: string;
+  claimNumber?: string;
+  amount: string;
+  currencyCode: string;
+  status: 'open' | 'applied' | 'reversed';
+  recordedAt: string;
+  recordedBy?: string;
+}
+
+export interface MemberPayableOutstanding {
+  currencyCode: string;
+  outstanding: string;
+}
+
+export interface ReverseCtcPaymentPayload {
+  reason: string;
 }
 
 export interface CtcPaymentPageParams {
   committed?: boolean;
   currencyCode?: string;
   q?: string;
+  /**
+   * Filter to auto-drafted rows (createdBy IS NULL) when true, or to
+   * operator-created rows when false. Omit for both. Feeds the "recent
+   * auto-drafts" panel on /tenant/claims/ctc/auto.
+   */
+  systemDrafted?: boolean;
   sortKey?: string;
   sortDirection?: 'asc' | 'desc';
   page?: number;
@@ -380,11 +434,18 @@ export interface FinanceNotePageParams {
 }
 
 export interface CreateCtcPaymentPayload {
-  groupId?: string;
-  memberId?: string;
+  /** Member-only for MVP — group-only CTC is out of scope. */
+  memberId: string;
+  /**
+   * Required — the source member_payable row this CTC offsets. Server
+   * 422s if omitted; the two-step form on `/finance/payments/ctc/add`
+   * enforces the selection.
+   */
+  memberPayableId: string;
   amount: string;
   currencyCode: string;
   contributionId?: string;
+  groupId?: string;
 }
 
 // ── Advance payments ────────────────────────────────────────────────────
@@ -619,6 +680,7 @@ export class FinanceService {
     if (opts.committed !== undefined) params['committed']     = String(opts.committed);
     if (opts.currencyCode)            params['currencyCode']  = opts.currencyCode;
     if (opts.q)                       params['q']             = opts.q;
+    if (opts.systemDrafted !== undefined) params['systemDrafted'] = String(opts.systemDrafted);
     if (opts.sortKey)                 params['sortKey']       = opts.sortKey;
     if (opts.sortDirection)           params['sortDirection'] = opts.sortDirection;
     if (opts.page !== undefined)      params['page']          = String(opts.page);
@@ -628,6 +690,17 @@ export class FinanceService {
   getCtcPayment(id: string): Observable<CtcPayment> { return this.api.get<CtcPayment>(`/ctc-payments/${id}`); }
   createCtcPayment(body: CreateCtcPaymentPayload): Observable<CtcPayment> { return this.api.post<CtcPayment>('/ctc-payments', body); }
   commitCtcPayment(id: string): Observable<CtcPayment> { return this.api.post<CtcPayment>(`/ctc-payments/${id}/commit`, {}); }
+  reverseCtcPayment(id: string, body: ReverseCtcPaymentPayload): Observable<CtcPayment> {
+    return this.api.post<CtcPayment>(`/ctc-payments/${id}/reverse`, body);
+  }
+
+  // ── Member payables (feeds the CTC form's payable selector) ──
+  listOpenPayablesForMember(memberId: string): Observable<MemberPayable[]> {
+    return this.api.get<MemberPayable[]>(`/member-payables/member/${memberId}`);
+  }
+  getMemberPayableBalance(memberId: string): Observable<MemberPayableOutstanding[]> {
+    return this.api.get<MemberPayableOutstanding[]>(`/member-payables/member/${memberId}/balance`);
+  }
 
   // ── Advance payments ──
   listAdvancePayments(): Observable<AdvancePayment[]> { return this.api.get<AdvancePayment[]>('/advance-payments'); }

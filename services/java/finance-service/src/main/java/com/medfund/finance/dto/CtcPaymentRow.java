@@ -7,8 +7,9 @@ import java.util.UUID;
 /**
  * Row shape returned by {@code GET /ctc-payments/page}. Carries the
  * joined member/group display fields so the CTC list renders each cell
- * without a second lookup. The previous unpaginated flow surfaced raw
- * UUIDs to the operator, which was hostile at scale.
+ * without a second lookup. Also carries the V069 lifecycle columns
+ * ({@code type}, {@code status}, {@code memberPayableId}) so the list
+ * can render status pills and the reverse action can be gated per-row.
  */
 public record CtcPaymentRow(
         UUID id,
@@ -22,6 +23,9 @@ public record CtcPaymentRow(
         UUID contributionId,
         Boolean committed,
         Instant createdAt,
-        UUID createdBy
+        UUID createdBy,
+        String type,
+        String status,
+        UUID memberPayableId
 ) {
 }

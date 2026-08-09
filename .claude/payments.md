@@ -383,6 +383,82 @@ Finance Service:
 | **Hold period** | Configurable hold period between adjudication and payout (e.g., 7 days) |
 | **Balance check** | Payout blocked if tenant's pooled fund balance is insufficient |
 
+## Claims-to-Contributions Transfers (CTC)
+
+**CTC** is an internal cash-movement pattern — no external provider, no Payment Gateway involvement. When a member's claim adjudicates and the payee is the member themselves (rather than a provider), the fund can *offset* the approved amount against that member's outstanding contribution bill instead of cutting a payout. The member's contribution balance goes down; no money leaves the fund.
+
+### Flow
+
+```
+Claim adjudicated (payeeType=MEMBER, APPROVED $150 USD)
+    │
+    ▼
+claims-service publishes medfund.claims.adjudicated { payeeType:'MEMBER', ... }
+    │
+    ▼
+finance-service ClaimAdjudicatedConsumer
+    │
+    ├── writes member_payables row (idempotent — unique on claim_id)
+    │       "the fund owes this member $150"
+    │
+    └── (auto-CTC branch, if tenant_ctc_auto_config.enabled and
+         member's outstanding contribution ≥ threshold)
+         auto-drafts a CtcPayment row (status='draft', createdBy=null)
+
+Operator opens /tenant/finance/payments/ctc, reviews drafts
+    │
+    ▼
+Operator clicks Commit
+    │
+    ▼
+finance-service CtcPaymentService.commit
+    │
+    ├── writes member_payable_applications row (+amount, source_type='CTC')
+    ├── flips member_payable.status='applied' if fully consumed
+    ├── flips ctc_payment.status='committed'
+    └── publishes medfund.finance.ctc.committed
+             │
+             ▼
+        contributions-service CtcCommittedConsumer
+             │
+             └── records CTC_OFFSET transaction against the member's
+                 contribution ledger. member_running_balance drops by
+                 the CTC amount (sign '-' from transaction_types).
+```
+
+Reversal takes the same shape: `POST /api/v1/ctc-payments/{id}/reverse` creates a compensating `type='REVERSAL'` CtcPayment row, negates the application (`amount_applied = -original`), reopens the payable, publishes `medfund.finance.ctc.reversed`, and the contributions-service consumer posts a `CTC_OFFSET_REVERSAL` transaction (sign '+') that restores the balance.
+
+### Kafka events
+
+| Topic | Producer | Consumer | Payload |
+|---|---|---|---|
+| `medfund.claims.adjudicated` | claims-service | finance-service | Now carries `payeeType` and `tenantId` (V069) so the consumer knows whether to write a `member_payables` row (`payeeType=MEMBER`) or update `provider_balances` (`payeeType=PROVIDER`). |
+| `medfund.finance.ctc.committed` | finance-service | contributions-service | `{ctcId, memberId, memberPayableId, amount, currencyCode, tenantId, committedBy}` — triggers the `CTC_OFFSET` transaction. |
+| `medfund.finance.ctc.reversed` | finance-service | contributions-service | `{originalCtcId, compensatingCtcId, memberId, memberPayableId, amount, currencyCode, tenantId, reason}` — triggers the `CTC_OFFSET_REVERSAL` transaction. |
+
+### Where each row lives
+
+| Row | Schema.table | Written by |
+|---|---|---|
+| Fund owes member $X | tenant.`member_payables` | finance-service consumer of `medfund.claims.adjudicated` (V069) |
+| CTC application against a payable | tenant.`member_payable_applications` | finance-service `CtcPaymentService.commit` / `.reverse` |
+| CTC lifecycle row | tenant.`ctc_payments` | finance-service `CtcPaymentService` (V069 added `type`, `status`, `member_payable_id`, `reverses_ctc_id`, `committed_at`, `committed_by`) |
+| CTC offset transaction | tenant.`transactions` (`transaction_type='CTC_OFFSET'`) | contributions-service `CtcCommittedConsumer` / `CtcReversedConsumer` |
+| Per-tenant auto-CTC config | public.`tenant_ctc_auto_config` | tenancy-service `TenantCtcAutoConfigController` (V129) |
+
+### Design invariants
+
+- **Auto-CTC never auto-commits.** The consumer only creates the *draft* — operator review of every draft is mandatory. Threshold in `tenant_ctc_auto_config` gates auto-drafting, not auto-committing.
+- **CTC anchors to the individual member, not the group.** `TransactionService.recordFromCtcOffset` bypasses the grouped-member guard because CTC is an internal offset, not a member-initiated payment (see [rules-engine.md](rules-engine.md) `feedback_grouped_members_cannot_pay` context).
+- **Member-payable balance is a derived aggregate.** `MemberPayableBalanceRepository` computes `payable - sum(applications)` per currency in a CTE — no snapshot column, no drift risk.
+- **Idempotency at both ends.** `member_payables.claim_id` is UNIQUE; a Kafka replay of the same adjudication event is trapped as `DuplicateKeyException` and skipped. The CTC entity's UUID stops duplicate commits.
+- **Permissions** (see `PermissionCatalogue`):
+  - `finance:manage_ctc_payments` — create, commit
+  - `finance:reverse_ctc_payment` — reverse a committed CTC (separate so tenants can grant create+commit to clerks and reserve reverse for finance HoD)
+  - `finance:view_member_payables` — read the outstanding "member is owed" balances
+  - `finance:configure_auto_ctc` — enable/disable auto-drafting and edit the threshold
+  - `claims:view_ctc_payments`, `claims:commit_ctc_payment` — claims-side entry points for the same actions
+
 ## Payment Gateway Service — Database Schema (public schema)
 
 The Payment Gateway owns a ledger in the `public` schema (cross-tenant, since it handles platform subscriptions too). Per-tenant payment records are also written to tenant schemas by the Finance Service.

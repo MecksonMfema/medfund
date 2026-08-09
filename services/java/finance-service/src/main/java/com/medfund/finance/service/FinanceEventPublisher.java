@@ -3,6 +3,8 @@ package com.medfund.finance.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.finance.entity.AdvancePayment;
 import com.medfund.finance.entity.AdvancePaymentApplication;
+import com.medfund.finance.entity.CtcPayment;
+import com.medfund.finance.entity.MemberPayableApplication;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -124,6 +126,68 @@ public class FinanceEventPublisher {
         payload.put("amountApplied", application.getAmountApplied().toPlainString());
         payload.put("currencyCode", application.getCurrencyCode());
         return publishEvent("medfund.finance.advance.applied", application.getAdvancePaymentId().toString(), payload);
+    }
+
+    /**
+     * CTC (Claims-to-Contributions) transfer committed. Consumed by
+     * contributions-service {@code CtcCommittedConsumer}, which posts a
+     * {@code CTC_OFFSET} transaction against the member's contribution
+     * ledger. {@code tenantId} is on the payload so the consumer can
+     * switch the R2DBC search_path via a {@code contextWrite}; without
+     * it the tenant-aware connection factory has nothing to bind.
+     */
+    public Mono<Void> publishCtcCommitted(CtcPayment ctc, String tenantId) {
+        Map<String, String> payload = new HashMap<>();
+        payload.put("event", "CTC_COMMITTED");
+        payload.put("ctcId", ctc.getId().toString());
+        payload.put("tenantId", tenantId != null ? tenantId : "");
+        payload.put("memberId", ctc.getMemberId() != null ? ctc.getMemberId().toString() : "");
+        payload.put("groupId", ctc.getGroupId() != null ? ctc.getGroupId().toString() : "");
+        payload.put("memberPayableId",
+                ctc.getMemberPayableId() != null ? ctc.getMemberPayableId().toString() : "");
+        payload.put("amount", ctc.getAmount().toPlainString());
+        payload.put("currencyCode", ctc.getCurrencyCode());
+        payload.put("committedBy",
+                ctc.getCommittedBy() != null ? ctc.getCommittedBy().toString() : "");
+        return publishEvent("medfund.finance.ctc.committed", ctc.getId().toString(), payload);
+    }
+
+    /**
+     * CTC reversed — the original is marked {@code status=reversed} and a
+     * compensating {@code type=REVERSAL} row was written. Consumed by
+     * {@code CtcReversedConsumer} which posts a
+     * {@code CTC_OFFSET_REVERSAL} transaction to restore the member's
+     * contribution balance.
+     */
+    public Mono<Void> publishCtcReversed(CtcPayment original, CtcPayment compensating,
+                                          String reason, String tenantId) {
+        Map<String, String> payload = new HashMap<>();
+        payload.put("event", "CTC_REVERSED");
+        payload.put("originalCtcId", original.getId().toString());
+        payload.put("compensatingCtcId", compensating.getId().toString());
+        payload.put("tenantId", tenantId != null ? tenantId : "");
+        payload.put("memberId", original.getMemberId() != null ? original.getMemberId().toString() : "");
+        payload.put("memberPayableId",
+                original.getMemberPayableId() != null ? original.getMemberPayableId().toString() : "");
+        payload.put("amount", original.getAmount().toPlainString());
+        payload.put("currencyCode", original.getCurrencyCode());
+        payload.put("reason", reason != null ? reason : "");
+        return publishEvent("medfund.finance.ctc.reversed",
+                original.getId().toString(), payload);
+    }
+
+    /** CTC application bridge-row written — audit fanout only, no ledger movement. */
+    public Mono<Void> publishCtcApplied(MemberPayableApplication application) {
+        Map<String, String> payload = new HashMap<>();
+        payload.put("event", "CTC_APPLIED");
+        payload.put("applicationId", application.getId().toString());
+        payload.put("memberPayableId", application.getMemberPayableId().toString());
+        payload.put("sourceType", application.getSourceType());
+        payload.put("sourceId", application.getSourceId().toString());
+        payload.put("amountApplied", application.getAmountApplied().toPlainString());
+        payload.put("currencyCode", application.getCurrencyCode());
+        return publishEvent("medfund.finance.ctc.applied",
+                application.getMemberPayableId().toString(), payload);
     }
 
     public Mono<Void> publishAdjustmentApplied(String adjustmentId, String type, String amount) {

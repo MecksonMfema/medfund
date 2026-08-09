@@ -40,3 +40,74 @@
 .card li { margin-bottom: 0.3rem; line-height: 1.4; }
 .card code { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 0.8rem; background: var(--color-bg, #f8fdff); padding: 1px 4px; border-radius: 3px; }
 .card a { color: var(--color-primary, #0077b6); }
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.form-row { margin-bottom: 0.75rem; }
+.form-row .check { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 500; }
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.form-field label { display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 0.25rem; }
+.form-field input,
+.form-field select {
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--color-border-light, #e5e7eb);
+  border-radius: var(--radius-sm, 4px);
+  font-size: 0.9rem;
+  background: var(--color-surface, #fff);
+}
+.form-field input:disabled,
+.form-field select:disabled { background: var(--color-bg, #f8fdff); color: var(--color-text-muted, #6b7280); }
+
+.form-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.hint { font-size: 0.8rem; color: var(--color-text-muted, #6b7280); margin: 0.25rem 0 0; }
+.hint.muted { font-style: italic; }
+
+.alert {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.6rem 0.85rem;
+  border-radius: var(--radius-md, 8px);
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+.alert-danger { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
+.alert-success { background: var(--success-bg, #dcfce7); color: var(--success-fg, #166534); }
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+.table th, .table td {
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-light, #e5e7eb);
+}
+.table th { font-weight: 600; background: var(--color-bg, #f8fdff); font-size: 0.85rem; }
+
+.pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.pill-default { background: var(--color-border-light, #e5e7eb); color: var(--color-text-muted, #6b7280); }
+.pill-success { background: var(--success-bg, #dcfce7); color: var(--success-fg, #166534); }

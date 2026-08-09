@@ -39,8 +39,8 @@ public final class PermissionCatalogue {
                     new Permission(Permissions.CLAIMS_MANAGE_REJECTION_REASONS,   "Manage rejection reasons",          "Configure the catalogue of rejection reasons."),
                     new Permission(Permissions.CLAIMS_MANAGE_VERIFICATION_CODES,  "Manage verification codes",         "Issue and revoke claim verification OTPs."),
                     new Permission(Permissions.CLAIMS_ASSIGN,                     "Assign claims",                     "Allocate claims to staff for assessment."),
-                    new Permission(Permissions.CLAIMS_VIEW_CTC_PAYMENTS,          "View CTC payments",                 "View cost-to-cure payment allocations."),
-                    new Permission(Permissions.CLAIMS_COMMIT_CTC_PAYMENT,         "Commit CTC payments",               "Approve a cost-to-cure allocation for payment.")
+                    new Permission(Permissions.CLAIMS_VIEW_CTC_PAYMENTS,          "View CTC payments",                 "View Claims-to-Contributions transfers (member claim payouts credited against the member's own contribution bill)."),
+                    new Permission(Permissions.CLAIMS_COMMIT_CTC_PAYMENT,         "Commit CTC payments",               "Commit a Claims-to-Contributions transfer — the member's payable is applied against their contribution bill.")
             )),
             new Domain("billing", "Billing", List.of(
                     new Permission(Permissions.BILLING_VIEW,                      "View billing",                      "Read access to schemes, contributions, invoices, and statements."),
@@ -63,7 +63,10 @@ public final class PermissionCatalogue {
                     new Permission(Permissions.FINANCE_APPROVE_PAYMENT_RUN,       "Approve payment run",               "Execute a draft payment run — disburses funds."),
                     new Permission(Permissions.FINANCE_VIEW_ADVANCE_PAYMENTS,     "View advance payments",             "View provider prepayments."),
                     new Permission(Permissions.FINANCE_MANAGE_ADVANCE_PAYMENTS,   "Manage advance payments",           "Create, edit, or cancel provider prepayments."),
-                    new Permission(Permissions.FINANCE_MANAGE_CTC_PAYMENTS,       "Manage CTC payments",               "Create or commit cost-to-cure payments from finance."),
+                    new Permission(Permissions.FINANCE_MANAGE_CTC_PAYMENTS,       "Manage CTC payments",               "Create or commit Claims-to-Contributions transfers from finance."),
+                    new Permission(Permissions.FINANCE_REVERSE_CTC_PAYMENT,       "Reverse CTC payments",              "Post a compensating reversal for a committed Claims-to-Contributions transfer."),
+                    new Permission(Permissions.FINANCE_VIEW_MEMBER_PAYABLES,      "View member payables",              "View outstanding member-payable balances (approved claim amounts routing to members)."),
+                    new Permission(Permissions.FINANCE_CONFIGURE_AUTO_CTC,        "Configure auto-CTC",                "Enable and configure automatic drafting of Claims-to-Contributions transfers from qualifying member-payee claim adjudications."),
                     new Permission(Permissions.FINANCE_MANAGE_RECEIPTS,           "Manage receipts",                   "Capture and post receipts for member or group payments."),
                     new Permission(Permissions.FINANCE_MANAGE_BANKS,              "Manage bank accounts",              "Configure tenant bank accounts and routing."),
                     new Permission(Permissions.FINANCE_POST_ADJUSTMENTS,          "Post adjustments",                  "Apply manual adjustments to payments or receipts."),

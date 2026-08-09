@@ -234,7 +234,7 @@ export const BILLING_ROUTES: Routes = [
     loadComponent: () => import('./transactions/transactions-list.component').then(m => m.TransactionsListComponent),
     data: {
       title: 'CTC Transactions',
-      description: 'Cost-to-cure transactions: clinical-cost transfers between schemes.',
+      description: 'Claims-to-Contributions offsets — approved member claim amounts applied against the same member\'s outstanding contributions.',
       presetTransactionType: 'CTC',
       sidebar: 'operational',
       fullbleed: true,

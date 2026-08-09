@@ -33,7 +33,9 @@ export type PermissionKey =
   | 'finance:view' | 'finance:create_payment_run' | 'finance:approve_payment_run'
   | 'finance:view_advance_payments' | 'finance:manage_advance_payments'
   | 'finance:approve_advance_payment' | 'finance:reverse_advance_payment'
-  | 'finance:manage_ctc_payments' | 'finance:manage_receipts'
+  | 'finance:manage_ctc_payments' | 'finance:reverse_ctc_payment'
+  | 'finance:view_member_payables' | 'finance:configure_auto_ctc'
+  | 'finance:manage_receipts'
   | 'finance:manage_banks' | 'finance:post_adjustments'
   | 'finance:view_debtors' | 'finance:view_subledger'
   | 'finance:manage_billing_reconcile' | 'finance:view_payment_advice'
@@ -83,8 +85,8 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'claims:manage_rejection_reasons', label: 'Manage rejection reasons',         description: 'Configure the catalogue of rejection reasons.' },
       { key: 'claims:manage_verification_codes', label: 'Manage verification codes',       description: 'Issue and revoke claim verification OTPs.' },
       { key: 'claims:assign',                    label: 'Assign claims',                    description: 'Allocate claims to staff for assessment.' },
-      { key: 'claims:view_ctc_payments',         label: 'View CTC payments',                description: 'View cost-to-cure payment allocations.' },
-      { key: 'claims:commit_ctc_payment',        label: 'Commit CTC payments',              description: 'Approve a cost-to-cure allocation for payment.' },
+      { key: 'claims:view_ctc_payments',         label: 'View CTC payments',                description: "View Claims-to-Contributions transfers (member claim payouts credited against the member's own contribution bill)." },
+      { key: 'claims:commit_ctc_payment',        label: 'Commit CTC payments',              description: "Commit a Claims-to-Contributions transfer — the member's payable is applied against their contribution bill." },
     ],
   },
   {
@@ -118,7 +120,10 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'finance:manage_advance_payments',  label: 'Manage advance payments',          description: 'Create, edit, or cancel provider prepayments.' },
       { key: 'finance:approve_advance_payment',  label: 'Approve advance payment',          description: 'Approve a pending advance payment above the tenant threshold. Approver must differ from the recorder.' },
       { key: 'finance:reverse_advance_payment',  label: 'Reverse advance payment',          description: 'Post a compensating reversal for an approved or applied advance payment.' },
-      { key: 'finance:manage_ctc_payments',      label: 'Manage CTC payments',              description: 'Create or commit cost-to-cure payments from finance.' },
+      { key: 'finance:manage_ctc_payments',      label: 'Manage CTC payments',              description: 'Create or commit Claims-to-Contributions transfers from finance.' },
+      { key: 'finance:reverse_ctc_payment',      label: 'Reverse CTC payments',             description: 'Post a compensating reversal for a committed Claims-to-Contributions transfer.' },
+      { key: 'finance:view_member_payables',     label: 'View member payables',             description: 'View outstanding member-payable balances (approved claim amounts routing to members).' },
+      { key: 'finance:configure_auto_ctc',       label: 'Configure auto-CTC',               description: 'Enable and configure automatic drafting of Claims-to-Contributions transfers from qualifying member-payee claim adjudications.' },
       { key: 'finance:manage_receipts',          label: 'Manage receipts',                  description: 'Capture and post receipts for member or group payments.' },
       { key: 'finance:manage_banks',             label: 'Manage bank accounts',             description: 'Configure tenant bank accounts and routing.' },
       { key: 'finance:post_adjustments',         label: 'Post adjustments',                 description: 'Apply manual adjustments to payments or receipts.' },

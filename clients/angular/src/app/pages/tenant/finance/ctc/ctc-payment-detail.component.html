@@ -8,9 +8,11 @@
       <h1>CTC payment</h1>
       @if (payment) {
         <p class="page-sub">
-          {{ payment.groupId ? 'Group' : 'Member' }} transfer
-          · {{ payment.amount | currencyFormat:payment.currencyCode }}
-          @if (payment.committed) { · <span class="badge ok">Committed</span> } @else { · <span class="badge muted">Pending</span> }
+          {{ payment.amount | currencyFormat:payment.currencyCode }}
+          · <span [class]="statusClass">{{ status | titlecase }}</span>
+          @if (isReversalRow) {
+            · <span class="badge muted">Compensating row</span>
+          }
         </p>
       }
     </div>
@@ -26,29 +28,110 @@
   @if (loading) {
     <app-skeleton></app-skeleton>
   } @else if (payment) {
+
+    <!-- Timeline strip -->
+    <section class="timeline">
+      <div class="tl-card done">
+        <div class="tl-icon"><app-icon name="edit-2" [size]="14"></app-icon></div>
+        <div class="tl-body">
+          <div class="tl-title">Recorded</div>
+          <div class="tl-meta">{{ payment.createdAt | date:'medium' }}</div>
+          <div class="tl-meta muted">
+            {{ payment.createdBy ? 'by ' + payment.createdBy.substring(0, 8) : 'system-drafted' }}
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-card" [class.done]="!!payment.committedAt" [class.pending]="!payment.committedAt">
+        <div class="tl-icon"><app-icon name="check-circle" [size]="14"></app-icon></div>
+        <div class="tl-body">
+          <div class="tl-title">Committed</div>
+          @if (payment.committedAt) {
+            <div class="tl-meta">{{ payment.committedAt | date:'medium' }}</div>
+            <div class="tl-meta muted">
+              {{ payment.committedBy ? 'by ' + payment.committedBy.substring(0, 8) : '' }}
+            </div>
+          } @else {
+            <div class="tl-meta muted">Not yet committed</div>
+          }
+        </div>
+      </div>
+
+      @if (status === 'reversed' || isReversalRow) {
+        <div class="tl-card done danger">
+          <div class="tl-icon"><app-icon name="rotate-ccw" [size]="14"></app-icon></div>
+          <div class="tl-body">
+            <div class="tl-title">Reversed</div>
+            @if (isReversalRow) {
+              <div class="tl-meta muted">This row is the compensating REVERSAL.</div>
+            } @else {
+              <div class="tl-meta muted">Superseded by a compensating REVERSAL row.</div>
+            }
+          </div>
+        </div>
+      }
+    </section>
+
+    <!-- Details grid -->
     <section class="card">
       <h2 class="section-title">Details</h2>
       <dl class="header-grid">
-        @if (payment.groupId) { <dt>Group</dt><dd><code>{{ payment.groupId }}</code></dd> }
+        <dt>Type</dt><dd>{{ payment.type || 'CTC' }}</dd>
+        <dt>Status</dt><dd><span [class]="statusClass">{{ status | titlecase }}</span></dd>
         @if (payment.memberId) { <dt>Member</dt><dd><code>{{ payment.memberId }}</code></dd> }
+        @if (payment.groupId) { <dt>Group</dt><dd><code>{{ payment.groupId }}</code></dd> }
         <dt>Amount</dt><dd>{{ payment.amount | currencyFormat:payment.currencyCode }}</dd>
         <dt>Currency</dt><dd>{{ payment.currencyCode }}</dd>
         <dt>Linked contribution</dt>
         <dd>{{ payment.contributionId ? '#' + payment.contributionId.substring(0, 8) : '—' }}</dd>
-        <dt>Committed</dt><dd>{{ payment.committed ? 'Yes' : 'No' }}</dd>
         <dt>Created</dt><dd>{{ payment.createdAt | date:'medium' }}</dd>
-        <dt>Created by</dt><dd>{{ payment.createdBy || '—' }}</dd>
+        @if (payment.committedAt) {
+          <dt>Committed at</dt><dd>{{ payment.committedAt | date:'medium' }}</dd>
+        }
       </dl>
     </section>
 
+    <!-- Linked artifacts -->
+    <section class="card">
+      <h2 class="section-title">Linked artifacts</h2>
+      <div class="chips">
+        @if (payment.memberPayableId) {
+          <span class="chip">
+            <app-icon name="link" [size]="12"></app-icon>
+            Payable #{{ payment.memberPayableId.substring(0, 8) }}
+          </span>
+        }
+        @if (status === 'committed' || isReversalRow) {
+          <a class="chip chip-link" routerLink="/tenant/billing/transactions/ctc">
+            <app-icon name="external-link" [size]="12"></app-icon>
+            CTC_OFFSET transaction
+          </a>
+        }
+        @if (payment.reversesCtcId) {
+          <a class="chip chip-link"
+             [routerLink]="['/tenant/finance/payments/ctc', payment.reversesCtcId]">
+            <app-icon name="rotate-ccw" [size]="12"></app-icon>
+            Reverses CTC #{{ payment.reversesCtcId.substring(0, 8) }}
+          </a>
+        }
+      </div>
+    </section>
+
     <section class="action-bar">
-      @if (!payment.committed) {
+      @if (canCommit) {
         <button class="btn btn-primary" (click)="commit()" [disabled]="busy">
           <app-icon name="check" [size]="14"></app-icon>
           Commit
         </button>
-      } @else {
-        <span class="muted">No actions available — payment is committed.</span>
+      }
+      @if (canReverse) {
+        <button class="btn btn-danger" (click)="reverse()" [disabled]="busy">
+          <app-icon name="rotate-ccw" [size]="14"></app-icon>
+          Reverse
+        </button>
+      }
+      @if (!canCommit && !canReverse) {
+        <span class="muted">No actions available for the current status / your permissions.</span>
       }
     </section>
   }

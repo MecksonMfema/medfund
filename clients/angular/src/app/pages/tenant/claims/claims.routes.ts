@@ -264,13 +264,13 @@ export const CLAIMS_ROUTES: Routes = [
     path: 'ctc/pending',
     canActivate: [permissionGuard(['claims:view_ctc_payments'])],
     loadComponent: () => import('./ctc/ctc-list.component').then(m => m.CtcListComponent),
-    data: { title: 'Pending CTC Payments', description: 'Cash-to-cardholder allocations awaiting commit.', committed: false, sidebar: 'operational', fullbleed: true },
+    data: { title: 'Pending CTC Payments', description: 'Claims-to-Contributions transfers awaiting commit.', committed: false, sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'ctc/committed',
     canActivate: [permissionGuard(['claims:view_ctc_payments'])],
     loadComponent: () => import('./ctc/ctc-list.component').then(m => m.CtcListComponent),
-    data: { title: 'Committed CTC Payments', description: 'Allocated cash-to-cardholder payments.', committed: true, sidebar: 'operational', fullbleed: true },
+    data: { title: 'Committed CTC Payments', description: 'Committed Claims-to-Contributions transfers.', committed: true, sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'ctc/add',

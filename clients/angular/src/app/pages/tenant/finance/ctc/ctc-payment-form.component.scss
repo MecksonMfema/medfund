@@ -1,6 +1,16 @@
 .page { padding: 1.5rem; max-width: 720px; margin: 0 auto; }
 
-.page-header { margin-bottom: 1.25rem; }
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+// Title column shrinks; the right-side back button holds its size so
+// it never wraps below the title. Mirrors advance-payment-form.
+.page-header > div:first-child { min-width: 0; flex: 1 1 auto; }
+.page-header > .btn { flex: 0 0 auto; }
 .page-header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
 .page-sub { margin: 0; color: var(--color-text-muted, #6b7280); font-size: 0.9rem; max-width: 70ch; }
 
@@ -51,6 +61,8 @@
   font-size: 0.875rem;
 }
 .field-label { font-weight: 500; margin-bottom: 0.25rem; }
+.small { font-size: 0.8rem; margin-top: 0.35rem; }
+.muted { color: var(--color-text-muted, #6b7280); }
 .field input,
 .field select {
   padding: 0.6rem 0.75rem;

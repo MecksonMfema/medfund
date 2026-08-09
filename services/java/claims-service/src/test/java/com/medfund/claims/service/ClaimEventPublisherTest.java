@@ -89,7 +89,8 @@ class ClaimEventPublisherTest {
 
         StepVerifier.create(claimEventPublisher.publishClaimAdjudicated("clm-1", "CLM-123", "APPROVED",
                         "prov-1", "500.00", "USD", "HEALTH",
-                        "mbr-1", null, "bnf-1", "2026"))
+                        "mbr-1", null, "bnf-1", "2026", "MEMBER",
+                        "b3c1e7b4-0000-0000-0000-000000000001"))
                 .verifyComplete();
 
         verify(kafkaSender).send(senderRecordCaptor.capture());
@@ -100,6 +101,7 @@ class ClaimEventPublisherTest {
                     assertThat(record.key()).isEqualTo("clm-1");
                     assertThat(record.value()).contains("CLAIM_ADJUDICATED");
                     assertThat(record.value()).contains("APPROVED");
+                    assertThat(record.value()).contains("\"payeeType\":\"MEMBER\"");
                 })
                 .verifyComplete();
     }

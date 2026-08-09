@@ -3,8 +3,9 @@
     <div>
       <h1>New CTC payment</h1>
       <p class="page-sub">
-        Record a cash-to-cardholder allocation. Once created it lands under Pending
-        until you commit it — commits are irreversible.
+        Record a Claims-to-Contributions transfer. Pick the member, then
+        the payable to offset. The draft lands under Pending until you
+        commit it — commits are irreversible without a compensating reversal.
       </p>
     </div>
     <a class="btn btn-default" routerLink="/tenant/claims/ctc/pending">
@@ -15,65 +16,74 @@
 
   <form (submit)="$event.preventDefault(); submit()" class="card">
     <section class="section">
-      <h3 class="section-title">Beneficiary</h3>
-      <div class="radio-row">
-        <label class="radio">
-          <input type="radio" name="beneficiary" value="member"
-                 [(ngModel)]="beneficiary" (ngModelChange)="onBeneficiaryChange()" />
-          Member
-        </label>
-        <label class="radio">
-          <input type="radio" name="beneficiary" value="group"
-                 [(ngModel)]="beneficiary" (ngModelChange)="onBeneficiaryChange()" />
-          Group
-        </label>
-      </div>
+      <h3 class="section-title">Member</h3>
+      <label class="field">
+        <span class="field-label">Member *</span>
+        <app-entity-picker
+          kind="member"
+          [value]="memberId"
+          (valueChange)="onMemberChange($event)"
+          placeholder="Search by member name or number…">
+        </app-entity-picker>
+      </label>
 
-      @if (beneficiary === 'member') {
+      @if (memberId) {
         <label class="field">
-          <span class="field-label">Member *</span>
-          <app-entity-picker kind="member" [(value)]="memberId"
-                             placeholder="Search by member name…"></app-entity-picker>
-        </label>
-      } @else {
-        <label class="field">
-          <span class="field-label">Group *</span>
-          <app-entity-picker kind="group" [(value)]="groupId"
-                             placeholder="Search by group name…"></app-entity-picker>
+          <span class="field-label">Payable to offset *</span>
+          @if (loadingPayables) {
+            <p class="muted small">Loading open payables…</p>
+          } @else if (openPayables.length === 0) {
+            <p class="muted small">No open payables for this member.</p>
+          } @else {
+            <app-select
+              [ngModel]="memberPayableId"
+              (ngModelChange)="onPayableChange($event)"
+              name="memberPayableId"
+              [options]="payableOptions"
+              placeholder="Choose a payable…">
+            </app-select>
+          }
         </label>
       }
     </section>
 
-    <section class="section">
-      <h3 class="section-title">Amount</h3>
-      <div class="form-grid">
-        <label class="field">
-          <span class="field-label">Amount *</span>
-          <input type="number" step="0.01" min="0.01"
-                 [(ngModel)]="form.amount" name="amount"
-                 placeholder="0.00" required />
-        </label>
-        <label class="field">
-          <span class="field-label">Currency *</span>
-          <app-select
-            [(ngModel)]="form.currencyCode"
-            name="currencyCode"
-            required
-            [options]="currencyOptions"
-            placeholder="Pick a currency"
-          ></app-select>
-        </label>
-      </div>
-    </section>
+    @if (memberPayableId) {
+      <section class="section">
+        <h3 class="section-title">Amount</h3>
+        <div class="form-grid">
+          <label class="field">
+            <span class="field-label">Amount *</span>
+            <input type="number" step="0.01" min="0.01"
+                   [(ngModel)]="form.amount" name="amount"
+                   placeholder="0.00" required />
+            @if (selectedPayable) {
+              <span class="muted small">
+                Remaining on payable: {{ selectedPayable.amount }} {{ selectedPayable.currencyCode }}
+              </span>
+            }
+          </label>
+          <label class="field">
+            <span class="field-label">Currency *</span>
+            <app-select
+              [(ngModel)]="form.currencyCode"
+              name="currencyCode"
+              required
+              [options]="currencyOptions"
+              placeholder="Pick a currency">
+            </app-select>
+          </label>
+        </div>
+      </section>
 
-    <section class="section">
-      <h3 class="section-title">Reference</h3>
-      <label class="field">
-        <span class="field-label">Contribution ID (optional)</span>
-        <input type="text" [(ngModel)]="form.contributionId" name="contributionId"
-               placeholder="Link this CTC to a specific contribution" />
-      </label>
-    </section>
+      <section class="section">
+        <h3 class="section-title">Reference</h3>
+        <label class="field">
+          <span class="field-label">Contribution ID (optional)</span>
+          <input type="text" [(ngModel)]="form.contributionId" name="contributionId"
+                 placeholder="Link this CTC to a specific contribution" />
+        </label>
+      </section>
+    }
 
     @if (formError) {
       <div class="banner banner-error">{{ formError }}</div>
@@ -81,7 +91,8 @@
 
     <div class="form-actions">
       <a class="btn btn-default" routerLink="/tenant/claims/ctc/pending">Cancel</a>
-      <button type="submit" class="btn btn-primary" [disabled]="saving">
+      <button type="submit" class="btn btn-primary"
+              [disabled]="saving || !memberId || !memberPayableId || !form.amount">
         {{ saving ? 'Saving…' : 'Record CTC payment' }}
       </button>
     </div>

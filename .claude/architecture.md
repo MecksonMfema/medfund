@@ -87,7 +87,7 @@ These handle the **core business domain** where complex, tenant-specific rules d
 - Provider balance management, advance payments
 - Debit/credit notes and adjustments
 - Bank reconciliation, MASCA bank account management
-- CTC (cost-to-company) payments, payment advice records
+- CTC (Claims-to-Contributions) payments, payment advice records
 - Financial reporting and statements
 - Key entities: `Payment`, `PaymentRun`, `PaymentRunItem`, `ProviderBalance`, `Adjustment`, `AdvancePayment`, `DebitNote`, `CreditNote`, `BankReconciliation`, `CtcPayment`, `PaymentAdviceRecord`, `MascaBankAccount`
 - **Per-tenant rules**: payment terms, withholding tax rates, payment method restrictions

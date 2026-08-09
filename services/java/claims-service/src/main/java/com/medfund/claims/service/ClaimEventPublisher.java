@@ -57,7 +57,8 @@ public class ClaimEventPublisher {
                                                 String providerId, String approvedAmount, String currencyCode,
                                                 String insuranceLine,
                                                 String memberId, String dependantId,
-                                                String benefitId, String policyYear) {
+                                                String benefitId, String policyYear,
+                                                String payeeType, String tenantId) {
         var payload = new java.util.LinkedHashMap<String, String>();
         payload.put("event", "CLAIM_ADJUDICATED");
         payload.put("claimId", claimId);
@@ -75,6 +76,17 @@ public class ClaimEventPublisher {
         payload.put("dependantId",  nz(dependantId));
         payload.put("benefitId",    nz(benefitId));
         payload.put("policyYear",   nz(policyYear));
+        // V069: payeeType routes downstream ledger updates. MEMBER writes a
+        // member_payables row in finance-service; PROVIDER updates the
+        // provider_balances row. Empty string preserved for old-shape
+        // consumers that don't read the field.
+        payload.put("payeeType",    nz(payeeType));
+        // V069: tenantId lets consumers switch the R2DBC search_path to the
+        // originating tenant schema when they write follow-on rows
+        // (TenantAwareConnectionFactory reads TenantContext from the
+        // Reactor context). Without it the finance-side member_payables
+        // insert lands in public and returns silent errors.
+        payload.put("tenantId",     nz(tenantId));
         return publishEvent("medfund.claims.adjudicated", claimId, payload);
     }
 

@@ -484,7 +484,7 @@ class ClaimServiceTest {
         when(adjudicationPipeline.execute(any(), any())).thenReturn(Mono.just(adjudicationResult));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishClaimAdjudicated(any(), any(), any(), any(), any(), any(), any(),
-                        any(), any(), any(), any()))
+                        any(), any(), any(), any(), any(), any()))
                 .thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -499,7 +499,7 @@ class ClaimServiceTest {
 
         verify(adjudicationPipeline).execute(any(Claim.class), anyList());
         verify(eventPublisher).publishClaimAdjudicated(any(), any(), any(), any(), any(), any(), eq("HEALTH"),
-                any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any());
     }
 
     // ── V063 ingestion — line.benefit_id resolved from tariff ────────

@@ -729,7 +729,8 @@ public class ClaimService {
                         saved.getMemberId()    != null ? saved.getMemberId().toString()    : null,
                         saved.getDependantId() != null ? saved.getDependantId().toString() : null,
                         saved.getBenefitId()   != null ? saved.getBenefitId().toString()   : null,
-                        String.valueOf(java.time.LocalDate.now().getYear())))
+                        String.valueOf(java.time.LocalDate.now().getYear()),
+                        saved.getPayeeType(), tenantId))
                     .thenReturn(saved);
             }));
     }
@@ -1035,7 +1036,8 @@ public class ClaimService {
                                                         saved.getMemberId()    != null ? saved.getMemberId().toString()    : null,
                                                         saved.getDependantId() != null ? saved.getDependantId().toString() : null,
                                                         saved.getBenefitId()   != null ? saved.getBenefitId().toString()   : null,
-                                                        String.valueOf(java.time.LocalDate.now().getYear())))
+                                                        String.valueOf(java.time.LocalDate.now().getYear()),
+                                                        saved.getPayeeType(), tenantId))
                                                 .then(incrementBeneficiaryBenefit(saved, acceptedLineIdsFinal, deltaFinal))
                                                 .then(incrementAnnualCap(saved, deltaFinal))
                                                 .thenReturn(saved);

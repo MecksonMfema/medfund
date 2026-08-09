@@ -5,6 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import {
   CreateCtcPaymentPayload,
   FinanceService,
+  MemberPayable,
 } from '../../../../core/services/finance.service';
 import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
 import { TenantService } from '../../../../core/services/tenant.service';
@@ -13,8 +14,11 @@ import { IconComponent } from '../../../../shared/components/icon/icon.component
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
 
-type Beneficiary = 'member' | 'group';
-
+/**
+ * Claims-side entry to record a CTC. Same two-step selection as the
+ * finance-side form (member → payable → amount) — the two entry points
+ * exist so both operator roles can start from their natural workspace.
+ */
 @Component({
   selector: 'app-ctc-add',
   standalone: true,
@@ -31,11 +35,12 @@ type Beneficiary = 'member' | 'group';
 })
 export class CtcAddComponent implements OnInit {
   saving = false;
+  loadingPayables = false;
   formError: string | null = null;
 
-  beneficiary: Beneficiary = 'member';
   memberId: string | null = null;
-  groupId: string | null = null;
+  memberPayableId: string | null = null;
+  openPayables: MemberPayable[] = [];
 
   form = {
     amount: '',
@@ -51,6 +56,18 @@ export class CtcAddComponent implements OnInit {
       label: c.currencyCode,
       description: c.isDefault ? 'Default' : undefined,
     }));
+  }
+
+  get payableOptions(): SelectOption[] {
+    return this.openPayables.map(p => ({
+      value: p.id,
+      label: `${p.claimNumber ? '#' + p.claimNumber + ' • ' : ''}${p.amount} ${p.currencyCode}`,
+    }));
+  }
+
+  get selectedPayable(): MemberPayable | null {
+    if (!this.memberPayableId) return null;
+    return this.openPayables.find(p => p.id === this.memberPayableId) ?? null;
   }
 
   constructor(
@@ -74,23 +91,42 @@ export class CtcAddComponent implements OnInit {
     }
   }
 
-  onBeneficiaryChange(): void {
-    // Clear the un-selected picker so only one ID goes into the payload.
-    if (this.beneficiary === 'member') this.groupId = null;
-    else this.memberId = null;
+  onMemberChange(newId: string | null): void {
+    this.memberId = newId;
+    this.memberPayableId = null;
+    this.openPayables = [];
+    this.form.amount = '';
+    this.formError = null;
+    if (!newId) return;
+    this.loadingPayables = true;
+    this.finance.listOpenPayablesForMember(newId).subscribe({
+      next: (rows) => {
+        this.openPayables = (rows || []).filter(p => p.status === 'open');
+        this.loadingPayables = false;
+        if (this.openPayables.length === 0) {
+          this.formError = 'This member has no open payables to offset.';
+        }
+      },
+      error: (err) => {
+        this.loadingPayables = false;
+        this.formError = err?.error?.detail || 'Failed to load member payables';
+      },
+    });
+  }
+
+  onPayableChange(payableId: string): void {
+    this.memberPayableId = payableId;
+    const p = this.selectedPayable;
+    if (p) {
+      this.form.currencyCode = p.currencyCode;
+      this.form.amount = p.amount;
+    }
   }
 
   submit(): void {
     this.formError = null;
-
-    if (this.beneficiary === 'member' && !this.memberId) {
-      this.formError = 'Pick a member';
-      return;
-    }
-    if (this.beneficiary === 'group' && !this.groupId) {
-      this.formError = 'Pick a group';
-      return;
-    }
+    if (!this.memberId) { this.formError = 'Pick a member first'; return; }
+    if (!this.memberPayableId) { this.formError = 'Pick a payable to offset'; return; }
     const amt = Number(this.form.amount);
     if (!Number.isFinite(amt) || amt <= 0) {
       this.formError = 'Amount must be greater than zero';
@@ -98,10 +134,10 @@ export class CtcAddComponent implements OnInit {
     }
 
     const payload: CreateCtcPaymentPayload = {
+      memberId: this.memberId,
+      memberPayableId: this.memberPayableId,
       amount: amt.toFixed(2),
       currencyCode: this.form.currencyCode,
-      memberId: this.beneficiary === 'member' ? this.memberId! : undefined,
-      groupId: this.beneficiary === 'group' ? this.groupId! : undefined,
       contributionId: this.form.contributionId.trim() || undefined,
     };
 

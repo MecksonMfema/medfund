@@ -10,6 +10,7 @@ public record CtcPaymentFilterParams(
         Boolean committed,
         String currencyCode,
         String q,
+        Boolean systemDrafted,
         String sortKey,
         String sortDirection,
         int page,

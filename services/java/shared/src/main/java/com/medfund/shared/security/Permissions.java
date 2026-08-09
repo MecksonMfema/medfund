@@ -72,6 +72,9 @@ public final class Permissions {
     public static final String FINANCE_APPROVE_ADVANCE_PAYMENT   = "finance:approve_advance_payment";
     public static final String FINANCE_REVERSE_ADVANCE_PAYMENT   = "finance:reverse_advance_payment";
     public static final String FINANCE_MANAGE_CTC_PAYMENTS       = "finance:manage_ctc_payments";
+    public static final String FINANCE_REVERSE_CTC_PAYMENT       = "finance:reverse_ctc_payment";
+    public static final String FINANCE_VIEW_MEMBER_PAYABLES      = "finance:view_member_payables";
+    public static final String FINANCE_CONFIGURE_AUTO_CTC        = "finance:configure_auto_ctc";
     public static final String FINANCE_MANAGE_RECEIPTS           = "finance:manage_receipts";
     public static final String FINANCE_MANAGE_BANKS              = "finance:manage_banks";
     public static final String FINANCE_POST_ADJUSTMENTS          = "finance:post_adjustments";
@@ -127,7 +130,9 @@ public final class Permissions {
             FINANCE_VIEW, FINANCE_CREATE_PAYMENT_RUN, FINANCE_APPROVE_PAYMENT_RUN,
             FINANCE_VIEW_ADVANCE_PAYMENTS, FINANCE_MANAGE_ADVANCE_PAYMENTS,
             FINANCE_APPROVE_ADVANCE_PAYMENT, FINANCE_REVERSE_ADVANCE_PAYMENT,
-            FINANCE_MANAGE_CTC_PAYMENTS, FINANCE_MANAGE_RECEIPTS, FINANCE_MANAGE_BANKS,
+            FINANCE_MANAGE_CTC_PAYMENTS, FINANCE_REVERSE_CTC_PAYMENT, FINANCE_VIEW_MEMBER_PAYABLES,
+            FINANCE_CONFIGURE_AUTO_CTC,
+            FINANCE_MANAGE_RECEIPTS, FINANCE_MANAGE_BANKS,
             FINANCE_POST_ADJUSTMENTS, FINANCE_VIEW_DEBTORS, FINANCE_VIEW_SUBLEDGER,
             FINANCE_MANAGE_BILLING_RECONCILE, FINANCE_VIEW_PAYMENT_ADVICE,
             FINANCE_MANAGE_COPAYMENTS, FINANCE_VIEW_WITHHELD_TAX,

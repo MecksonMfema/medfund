@@ -1,67 +1,47 @@
-<div class="page">
-  <header class="page-header">
-    <div>
-      <h1>CTC payments</h1>
-      <p class="page-sub">
-        Cash-to-cardholder transfers at group or member level. Drafted
-        entries are committed once accounting confirms the transfer.
-      </p>
-    </div>
+<header class="page-header">
+  <div>
+    <h1>CTC payments</h1>
+    <p class="page-sub">
+      Claims-to-Contributions transfers — approved member claim amounts
+      offset against the same member's outstanding contributions. Draft
+      rows post a CTC_OFFSET transaction when committed.
+    </p>
+  </div>
+  @if (canCreate) {
     <a class="btn btn-primary" routerLink="/tenant/finance/payments/ctc/add">
       <app-icon name="plus" [size]="14"></app-icon>
       New CTC payment
     </a>
-  </header>
-
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
   }
+</header>
 
-  <div class="filters">
-    <label class="field">
-      <span class="field-label">Status</span>
-      <app-select
-        [(ngModel)]="committedFilter"
-        (ngModelChange)="refresh()"
-        name="committed"
-        [options]="committedOptions"
-        size="sm"
-      ></app-select>
-    </label>
+@if (banner) {
+  <div class="banner"
+       [class.banner-success]="banner.kind === 'success'"
+       [class.banner-error]="banner.kind === 'error'"
+       [class.banner-info]="banner.kind === 'info'"
+       (click)="banner = null">
+    {{ banner.text }}
   </div>
+}
 
-  @if (loading) {
-    <app-skeleton></app-skeleton>
-  } @else if (rows.length === 0) {
-    <p class="empty-state">No CTC payments recorded.</p>
-  } @else {
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Target</th>
-          <th>Type</th>
-          <th class="right">Amount</th>
-          <th>Committed</th>
-          <th>Created</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (row of rows; track row.id) {
-          <tr (click)="open(row)" class="clickable">
-            <td><code>{{ (row.groupId || row.memberId || '').substring(0, 8) }}</code></td>
-            <td class="muted">{{ row.groupId ? 'Group' : 'Member' }}</td>
-            <td class="right">{{ row.amount | currencyFormat:row.currencyCode }}</td>
-            <td>
-              @if (row.committed) {
-                <span class="badge ok">Committed</span>
-              } @else {
-                <span class="badge muted">Pending</span>
-              }
-            </td>
-            <td class="muted">{{ row.createdAt | date:'shortDate' }}</td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  }
-</div>
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [actions]="actions"
+  [showActions]="true"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  [initialSortKey]="sortKey"
+  [initialSortDirection]="sortDirection"
+  searchPlaceholder="Search member name, member number or group name"
+  emptyMessage="No CTC payments recorded"
+  emptyDescription="Drafts appear here when a MEMBER-payee claim is adjudicated or an operator records one manually."
+  (pageChange)="onPageChange($event)"
+  (searchChange)="onSearchChange($event)"
+  (sortChange)="onSortChange($event)">
+</app-data-table>

@@ -33,6 +33,11 @@ public class TenantWebFilter implements WebFilter {
             "/actuator",
             "/swagger",
             "/v3/api-docs",
+            // springdoc-openapi-starter-webflux-ui serves swagger-ui static
+            // assets (JS/CSS + the raw index.html) under /webjars/**. Without
+            // this whitelist the browser 400s on the asset load and the
+            // swagger page appears broken.
+            "/webjars",
             "/api/v1/staff-users",
             "/api/v1/tenants",
             "/api/v1/platform",

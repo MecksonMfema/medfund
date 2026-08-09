@@ -30,13 +30,15 @@ import java.util.UUID;
 @Repository
 public class CtcPaymentQueryRepository {
 
-    private static final Map<String, String> SORT_COLUMNS = Map.of(
-            "amount",       "c.amount",
-            "currencyCode", "c.currency_code",
-            "committed",    "c.committed",
-            "memberName",   "COALESCE(m.first_name || ' ' || m.last_name, '')",
-            "groupName",    "COALESCE(g.name, '')",
-            "createdAt",    "c.created_at"
+    private static final Map<String, String> SORT_COLUMNS = Map.ofEntries(
+            Map.entry("amount",       "c.amount"),
+            Map.entry("currencyCode", "c.currency_code"),
+            Map.entry("committed",    "c.committed"),
+            Map.entry("status",       "c.status"),
+            Map.entry("type",         "c.type"),
+            Map.entry("memberName",   "COALESCE(m.first_name || ' ' || m.last_name, '')"),
+            Map.entry("groupName",    "COALESCE(g.name, '')"),
+            Map.entry("createdAt",    "c.created_at")
     );
 
     private final DatabaseClient db;
@@ -74,6 +76,7 @@ public class CtcPaymentQueryRepository {
         return """
                 SELECT c.id, c.group_id, c.member_id, c.amount, c.currency_code,
                        c.contribution_id, c.committed, c.created_at, c.created_by,
+                       c.type, c.status, c.member_payable_id,
                        COALESCE(m.first_name || ' ' || m.last_name, '') AS member_name,
                        m.member_number AS member_number,
                        g.name AS group_name
@@ -93,6 +96,11 @@ public class CtcPaymentQueryRepository {
         }
         if (f.currencyCode() != null && !f.currencyCode().isBlank()) {
             sb.append(" AND UPPER(c.currency_code) = UPPER(:currencyCode) ");
+        }
+        if (f.systemDrafted() != null) {
+            sb.append(f.systemDrafted()
+                    ? " AND c.created_by IS NULL "
+                    : " AND c.created_by IS NOT NULL ");
         }
         if (hasQ) {
             sb.append(" AND (LOWER(COALESCE(m.first_name || ' ' || m.last_name, '')) LIKE :search "
@@ -131,7 +139,10 @@ public class CtcPaymentQueryRepository {
                 row.get("contribution_id", UUID.class),
                 row.get("committed", Boolean.class),
                 row.get("created_at", Instant.class),
-                row.get("created_by", UUID.class)
+                row.get("created_by", UUID.class),
+                row.get("type", String.class),
+                row.get("status", String.class),
+                row.get("member_payable_id", UUID.class)
         );
     }
 }

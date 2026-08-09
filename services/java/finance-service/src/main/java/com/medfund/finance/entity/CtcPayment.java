@@ -33,6 +33,12 @@ public class CtcPayment {
     @Column("contribution_id")
     private UUID contributionId;
 
+    /**
+     * Legacy back-compat flag. Kept in sync with {@link #status} for one
+     * release so external readers that still key off {@code committed}
+     * don't break; removed in a follow-up cleanup migration. New code
+     * reads {@link #status} directly.
+     */
     private Boolean committed = false;
 
     @CreatedDate
@@ -41,4 +47,28 @@ public class CtcPayment {
 
     @Column("created_by")
     private UUID createdBy;
+
+    /** 'CTC' (original) or 'REVERSAL' (compensating entry). Default 'CTC'. */
+    private String type;
+
+    /** 'draft' | 'committed' | 'reversed'. Default 'draft'. */
+    private String status;
+
+    /**
+     * The member-payable this CTC offsets. Required on new CTC rows;
+     * NULL on historical pre-V069 rows and on REVERSAL rows (which
+     * carry the original's payable via {@link #reversesCtcId}).
+     */
+    @Column("member_payable_id")
+    private UUID memberPayableId;
+
+    /** Only populated on REVERSAL rows — points at the CTC they negate. */
+    @Column("reverses_ctc_id")
+    private UUID reversesCtcId;
+
+    @Column("committed_at")
+    private Instant committedAt;
+
+    @Column("committed_by")
+    private UUID committedBy;
 }

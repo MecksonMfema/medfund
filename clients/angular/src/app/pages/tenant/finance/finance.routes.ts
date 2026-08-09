@@ -101,7 +101,7 @@ export const FINANCE_ROUTES: Routes = [
     path: 'payments/ctc',
     canActivate: [permissionGuard(['finance:manage_ctc_payments'])],
     loadComponent: () => import('./ctc/ctc-payments-list.component').then(m => m.CtcPaymentsListComponent),
-    data: { title: 'CTC Payments', sidebar: 'operational' },
+    data: { title: 'CTC Payments', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'payments/ctc/add',

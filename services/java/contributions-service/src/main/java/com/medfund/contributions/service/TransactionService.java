@@ -125,6 +125,36 @@ public class TransactionService {
     }
 
     /**
+     * System-initiated CTC offset transaction. Reuses {@link #doRecord}
+     * but deliberately bypasses {@link #rejectIfMemberIsGrouped} — see
+     * design decision #3 in {@code thoughts/shared/plans/2026-08-09-ctc-payments.md}:
+     * a CTC offsets the member's own contribution debt with an approved
+     * claim payout that would otherwise be paid to them. Grouped members
+     * are legal CTC recipients; the grouped-member guard exists to stop
+     * a per-member payment from double-counting against the group-liaison
+     * bill (see {@code feedback_grouped_members_cannot_pay}), which is a
+     * different situation from an internal offset.
+     *
+     * <p>Also enforces that the transaction type is one of the two CTC
+     * codes so this method cannot be misused for arbitrary
+     * grouped-member ledger movements.
+     */
+    @Transactional
+    public Mono<Transaction> recordFromCtcOffset(RecordTransactionRequest request,
+                                                  String actorId, String actorEmail) {
+        if (request.memberId() == null) {
+            return Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                "CTC offset requires memberId — group-only CTC is out of scope"));
+        }
+        String type = request.transactionType();
+        if (!"CTC_OFFSET".equals(type) && !"CTC_OFFSET_REVERSAL".equals(type)) {
+            return Mono.error(new IllegalArgumentException(
+                "recordFromCtcOffset only accepts CTC_OFFSET / CTC_OFFSET_REVERSAL, got: " + type));
+        }
+        return doRecord(request, actorId, actorEmail);
+    }
+
+    /**
      * Loads the member row and errors with 422 when {@code group_id}
      * is set — that member is billed through their group, so a direct
      * payment to their individual balance is a routing mistake. Missing
@@ -160,7 +190,7 @@ public class TransactionService {
         transaction.setStatus("completed");
         transaction.setTransactionDate(Instant.now());
         transaction.setCreatedAt(Instant.now());
-        transaction.setCreatedBy(UUID.fromString(actorId));
+        transaction.setCreatedBy(safeParseUuid(actorId));
 
         return transactionRepository.save(transaction)
             .flatMap(this::applyBalanceUpdate)
@@ -259,6 +289,19 @@ public class TransactionService {
     /** Match BillingService.moneyDisplay: 2dp on the wire for presentation. */
     private static String moneyDisplay(java.math.BigDecimal amount) {
         return amount == null ? null : amount.setScale(2, RoundingMode.HALF_UP).toPlainString();
+    }
+
+    /**
+     * Actor identifiers can be a Keycloak subject UUID, a service-account
+     * name, or the {@code AuditActor.SYSTEM_ID} sentinel for
+     * consumer-initiated writes (LateAdjustmentService, CTC offset). The
+     * created_by column is a nullable UUID; fall back to {@code null}
+     * rather than throw when the value isn't parseable.
+     */
+    private static UUID safeParseUuid(String value) {
+        if (value == null || value.isBlank()) return null;
+        try { return UUID.fromString(value); }
+        catch (IllegalArgumentException e) { return null; }
     }
 
     /**
