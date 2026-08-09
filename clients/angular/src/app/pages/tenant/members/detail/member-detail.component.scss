@@ -19,8 +19,13 @@
   align-items: flex-start;
   gap: 1rem;
   margin-bottom: 24px;
-  flex-wrap: wrap;
 }
+// Title column shrinks so the right-side action cluster stays inline on
+// the same row. The inner .header-actions cluster keeps its own wrap so
+// six buttons still lay out cleanly on narrow screens by wrapping within
+// their own block rather than pushing the whole cluster below the title.
+.page-header > div:first-child { min-width: 0; flex: 1 1 auto; }
+.page-header > .header-actions { flex: 0 0 auto; }
 
 .page-header h1 {
   margin: 0 0 8px;

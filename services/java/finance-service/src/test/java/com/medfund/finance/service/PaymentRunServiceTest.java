@@ -1,7 +1,11 @@
 package com.medfund.finance.service;
 
+import com.medfund.finance.client.FxConverter;
 import com.medfund.finance.dto.CreatePaymentRunRequest;
 import com.medfund.finance.entity.PaymentRun;
+import com.medfund.finance.repository.AdvancePaymentApplicationRepository;
+import com.medfund.finance.repository.AdvancePaymentBalanceRepository;
+import com.medfund.finance.repository.AdvancePaymentRepository;
 import com.medfund.finance.repository.PaymentRepository;
 import com.medfund.finance.repository.PaymentRunItemRepository;
 import com.medfund.finance.repository.PaymentRunRepository;
@@ -40,6 +44,18 @@ class PaymentRunServiceTest {
     private ProviderBalanceRepository providerBalanceRepository;
 
     @Mock
+    private AdvancePaymentRepository advancePaymentRepository;
+
+    @Mock
+    private AdvancePaymentBalanceRepository advanceBalanceRepository;
+
+    @Mock
+    private AdvancePaymentApplicationRepository advanceApplicationRepository;
+
+    @Mock
+    private FxConverter fxConverter;
+
+    @Mock
     private AuditPublisher auditPublisher;
 
     @Mock
@@ -74,7 +90,11 @@ class PaymentRunServiceTest {
         String actorId = UUID.randomUUID().toString();
 
         when(paymentRunRepository.existsByRunNumber(any())).thenReturn(Mono.just(false));
-        when(paymentRunRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(paymentRunRepository.save(any())).thenAnswer(inv -> {
+            PaymentRun saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishPaymentRunCreated(any(), any(), any(), any(), anyInt()))
             .thenReturn(Mono.empty());
@@ -106,7 +126,11 @@ class PaymentRunServiceTest {
         String actorId = UUID.randomUUID().toString();
 
         when(paymentRunRepository.findById(run.getId())).thenReturn(Mono.just(run));
-        when(paymentRunRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(paymentRunRepository.save(any())).thenAnswer(inv -> {
+            PaymentRun saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
         // No items in this run — applyTenantRulesToItems and recomputeRunTotal both
         // call findByPaymentRunId; an empty Flux exercises the wiring without
         // dragging rule logic into this test.
@@ -140,7 +164,11 @@ class PaymentRunServiceTest {
     void approve_draft_flipsToApproved() {
         var run = createTestRun();
         when(paymentRunRepository.findById(run.getId())).thenReturn(Mono.just(run));
-        when(paymentRunRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(paymentRunRepository.save(any())).thenAnswer(inv -> {
+            PaymentRun saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishPaymentRunApproved(any(), any(), any())).thenReturn(Mono.empty());
 
@@ -174,7 +202,11 @@ class PaymentRunServiceTest {
     void cancel_draft_flipsToCancelled() {
         var run = createTestRun();
         when(paymentRunRepository.findById(run.getId())).thenReturn(Mono.just(run));
-        when(paymentRunRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(paymentRunRepository.save(any())).thenAnswer(inv -> {
+            PaymentRun saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishPaymentRunCancelled(any(), any(), any())).thenReturn(Mono.empty());
 
@@ -216,6 +248,92 @@ class PaymentRunServiceTest {
                 .verifyComplete();
 
         verify(paymentRunRepository, never()).save(any());
+    }
+
+    @Test
+    void execute_withAdvanceOffset_writesApplicationAndFlipsAdvance() {
+        var run = createTestRun();
+        UUID providerId = UUID.randomUUID();
+        UUID advanceId  = UUID.randomUUID();
+
+        var item = new com.medfund.finance.entity.PaymentRunItem();
+        item.setId(UUID.randomUUID());
+        item.setPaymentRunId(run.getId());
+        item.setProviderId(providerId);
+        item.setPaymentId(UUID.randomUUID());
+        item.setAmount(new BigDecimal("300.00"));
+        item.setCurrencyCode("USD");
+        item.setStatus("pending");
+
+        var advance = new com.medfund.finance.entity.AdvancePayment();
+        advance.setId(advanceId);
+        advance.setProviderId(providerId);
+        advance.setAmount(new BigDecimal("500.00"));
+        advance.setCurrencyCode("USD");
+        advance.setStatus("approved");
+        advance.setType("ADVANCE");
+
+        when(paymentRunRepository.findById(run.getId())).thenReturn(Mono.just(run));
+        when(paymentRunRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(paymentRunItemRepository.findByPaymentRunId(run.getId())).thenReturn(Flux.just(item));
+        when(paymentRunItemRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishPaymentRunExecuted(any(), any(), anyInt())).thenReturn(Mono.empty());
+
+        // Advance balance lookup returns $500 USD outstanding.
+        when(advanceBalanceRepository.findOutstandingByProvider(providerId)).thenReturn(
+            Flux.just(new com.medfund.finance.repository.OutstandingAdvanceBalance("USD", new BigDecimal("500.00"))));
+
+        // The rule engine "fires" — mock the DecisionService to simulate a 100% withhold
+        // by dropping the item amount to zero and returning a fact with the withholdAmount.
+        when(decisionService.decide(any(), any())).thenAnswer(inv -> {
+            com.medfund.finance.entity.PaymentRunItem it = inv.getArgument(0);
+            it.setAmount(BigDecimal.ZERO);
+            it.setStatus("withheld");
+            return Mono.just(new com.medfund.rules.fact.PaymentRunFact());
+        });
+
+        // FIFO drawdown: oldest open advance = the one above; remaining before + after.
+        when(advancePaymentRepository.findOldestOpenForProvider(providerId, "USD"))
+                .thenReturn(Mono.just(advance));
+        when(advanceBalanceRepository.remainingOn(advanceId))
+                .thenReturn(Mono.just(new BigDecimal("500.00")))    // remaining while writing app row
+                .thenReturn(Mono.just(new BigDecimal("200.00")));   // remaining after (500 - 300)
+
+        when(advanceApplicationRepository.save(any())).thenAnswer(inv -> {
+            com.medfund.finance.entity.AdvancePaymentApplication saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
+        when(eventPublisher.publishAdvanceApplied(any())).thenReturn(Mono.empty());
+        // advancePaymentRepository.save(...) is only called when the advance is fully
+        // drawn down (remaining <= 0). In this scenario 200 remain, so save is not invoked.
+
+        // snapshotSettlementDate uses the DatabaseClient directly to project
+        // BOOL_AND(status='paid') across items; stub the whole fluent chain so
+        // the empty result short-circuits without NPE'ing.
+        var stubSpec = org.mockito.Mockito.mock(org.springframework.r2dbc.core.DatabaseClient.GenericExecuteSpec.class);
+        var stubFetch = org.mockito.Mockito.mock(org.springframework.r2dbc.core.FetchSpec.class);
+        when(databaseClient.sql(anyString())).thenReturn(stubSpec);
+        when(stubSpec.bind(anyString(), any())).thenReturn(stubSpec);
+        when(stubSpec.fetch()).thenReturn(stubFetch);
+        when(stubFetch.one()).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                paymentRunService.execute(run.getId(), UUID.randomUUID().toString(), "actor@test.example")
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", UUID.randomUUID().toString()))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("executed"))
+                .verifyComplete();
+
+        // Application row was written with the withheld amount.
+        org.mockito.ArgumentCaptor<com.medfund.finance.entity.AdvancePaymentApplication> appCap =
+                org.mockito.ArgumentCaptor.forClass(com.medfund.finance.entity.AdvancePaymentApplication.class);
+        verify(advanceApplicationRepository).save(appCap.capture());
+        assertThat(appCap.getValue().getAmountApplied()).isEqualByComparingTo("300.00");
+        assertThat(appCap.getValue().getAdvancePaymentId()).isEqualTo(advanceId);
+        assertThat(appCap.getValue().getPaymentRunItemId()).isEqualTo(item.getId());
+        verify(eventPublisher).publishAdvanceApplied(any());
     }
 
     // ---- Helper ----

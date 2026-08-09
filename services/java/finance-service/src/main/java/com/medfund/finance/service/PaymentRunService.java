@@ -1,9 +1,16 @@
 package com.medfund.finance.service;
 
+import com.medfund.finance.client.FxConverter;
 import com.medfund.finance.dto.CreatePaymentRunRequest;
+import com.medfund.finance.entity.AdvancePayment;
+import com.medfund.finance.entity.AdvancePaymentApplication;
 import com.medfund.finance.entity.PaymentRun;
 import com.medfund.finance.entity.PaymentRunItem;
 import com.medfund.finance.exception.PaymentNotFoundException;
+import com.medfund.finance.repository.AdvancePaymentApplicationRepository;
+import com.medfund.finance.repository.AdvancePaymentBalanceRepository;
+import com.medfund.finance.repository.AdvancePaymentRepository;
+import com.medfund.finance.repository.OutstandingAdvanceBalance;
 import com.medfund.finance.repository.PaymentRepository;
 import com.medfund.finance.repository.PaymentRunItemRepository;
 import com.medfund.finance.repository.PaymentRunRepository;
@@ -24,6 +31,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -38,6 +46,10 @@ public class PaymentRunService {
     private final PaymentRunItemRepository paymentRunItemRepository;
     private final PaymentRepository paymentRepository;
     private final ProviderBalanceRepository providerBalanceRepository;
+    private final AdvancePaymentRepository advancePaymentRepository;
+    private final AdvancePaymentBalanceRepository advanceBalanceRepository;
+    private final AdvancePaymentApplicationRepository advanceApplicationRepository;
+    private final FxConverter fxConverter;
     private final AuditPublisher auditPublisher;
     private final FinanceEventPublisher eventPublisher;
     private final PaymentRunDecisionService decisionService;
@@ -48,6 +60,10 @@ public class PaymentRunService {
                              PaymentRunItemRepository paymentRunItemRepository,
                              PaymentRepository paymentRepository,
                              ProviderBalanceRepository providerBalanceRepository,
+                             AdvancePaymentRepository advancePaymentRepository,
+                             AdvancePaymentBalanceRepository advanceBalanceRepository,
+                             AdvancePaymentApplicationRepository advanceApplicationRepository,
+                             FxConverter fxConverter,
                              AuditPublisher auditPublisher,
                              FinanceEventPublisher eventPublisher,
                              PaymentRunDecisionService decisionService,
@@ -57,6 +73,10 @@ public class PaymentRunService {
         this.paymentRunItemRepository = paymentRunItemRepository;
         this.paymentRepository = paymentRepository;
         this.providerBalanceRepository = providerBalanceRepository;
+        this.advancePaymentRepository = advancePaymentRepository;
+        this.advanceBalanceRepository = advanceBalanceRepository;
+        this.advanceApplicationRepository = advanceApplicationRepository;
+        this.fxConverter = fxConverter;
         this.auditPublisher = auditPublisher;
         this.eventPublisher = eventPublisher;
         this.decisionService = decisionService;
@@ -233,14 +253,124 @@ public class PaymentRunService {
      * matched + no withhold) are left at their current status — payment
      * downstream code is expected to skip non-{@code scheduled} items.
      *
-     * <p>Tenants without finance rules see no behaviour change — every item's
-     * status / amount stays as it was.
+     * <p>Advance offset seam: {@code advancePaid} is aggregated per
+     * (provider, currency) from {@code advance_payments} and passed into
+     * the rule engine. If a tenant has an active PROVIDER_PAYMENT rule that
+     * withholds when {@code advancePaid >= amountDue} (the shipped starter
+     * template), the run item's amount will drop by the withheld portion.
+     * Every drop is then recorded FIFO into {@code advance_payment_applications}
+     * so "how much of provider X's outstanding advance has been consumed"
+     * is a single-query answer, and each consumed advance flips to
+     * {@code applied} once its balance is fully drawn down.
+     *
+     * <p>Tenants without finance rules see no behaviour change — advancePaid
+     * is still fed into the engine, but with no matching rule the item's
+     * amount and status stay as they were.
      */
     private Mono<Void> applyTenantRulesToItems(UUID runId) {
         return paymentRunItemRepository.findByPaymentRunId(runId)
-            .flatMap(item -> decisionService.decide(item)
-                .then(paymentRunItemRepository.save(item)))
+            .flatMap(item -> resolveAdvancePaid(item)
+                .flatMap(advancePaid -> {
+                    BigDecimal preRuleAmount = item.getAmount() == null ? BigDecimal.ZERO : item.getAmount();
+                    return decisionService.decide(item, advancePaid)
+                        .then(paymentRunItemRepository.save(item))
+                        .flatMap(saved -> recordApplicationsIfConsumed(saved, preRuleAmount)
+                            .thenReturn(saved));
+                }))
             .then();
+    }
+
+    /**
+     * Aggregate outstanding advance balance for the item's provider, converted
+     * to the item's currency. Returns ZERO if the item has no provider (e.g.
+     * member-payee runs, which today don't exist but may later) or no open
+     * balance in any currency.
+     */
+    private Mono<BigDecimal> resolveAdvancePaid(PaymentRunItem item) {
+        UUID payeeId = item.getProviderId();
+        if (payeeId == null || item.getCurrencyCode() == null) {
+            return Mono.just(BigDecimal.ZERO);
+        }
+        String targetCurrency = item.getCurrencyCode();
+        return Mono.deferContextual(ctx -> {
+            UUID tenantId = parseTenant(TenantContext.get(ctx));
+            return advanceBalanceRepository.findOutstandingByProvider(payeeId)
+                .flatMap(bal -> targetCurrency.equalsIgnoreCase(bal.currencyCode())
+                    ? Mono.just(bal.outstanding())
+                    : fxConverter.convert(bal.outstanding(), bal.currencyCode(),
+                                          targetCurrency, LocalDate.now(), tenantId)
+                        .onErrorResume(err -> {
+                            log.warn("[advance-offset] FX {}->{} failed for run item {} — skipping "
+                                    + "that balance line: {}",
+                                    bal.currencyCode(), targetCurrency, item.getId(), err.getMessage());
+                            return Mono.empty();
+                        }))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        });
+    }
+
+    /**
+     * If the rule engine reduced the item's amount, that reduction is what
+     * the advance offset "paid for". Record it FIFO against the provider's
+     * open advances (oldest first) until we've fully accounted for the drop.
+     * Skips silently when: no drop, no provider on item, or no open advance
+     * in the item's currency.
+     */
+    private Mono<Void> recordApplicationsIfConsumed(PaymentRunItem item, BigDecimal preRuleAmount) {
+        if (item.getProviderId() == null || item.getCurrencyCode() == null) return Mono.empty();
+        BigDecimal postRuleAmount = item.getAmount() == null ? BigDecimal.ZERO : item.getAmount();
+        BigDecimal consumed = preRuleAmount.subtract(postRuleAmount);
+        if (consumed.signum() <= 0) return Mono.empty();
+
+        return drawDownAdvancesFifo(item, consumed);
+    }
+
+    private Mono<Void> drawDownAdvancesFifo(PaymentRunItem item, BigDecimal remainingToApply) {
+        if (remainingToApply.signum() <= 0) return Mono.empty();
+        return advancePaymentRepository.findOldestOpenForProvider(item.getProviderId(), item.getCurrencyCode())
+            .flatMap(advance -> advanceBalanceRepository.remainingOn(advance.getId())
+                .flatMap(remainingOnAdvance -> {
+                    BigDecimal applyThisRow = remainingToApply.min(remainingOnAdvance);
+                    if (applyThisRow.signum() <= 0) return Mono.empty();
+                    var app = new AdvancePaymentApplication();
+                    app.setAdvancePaymentId(advance.getId());
+                    app.setPaymentId(item.getPaymentId());
+                    app.setPaymentRunId(item.getPaymentRunId());
+                    app.setPaymentRunItemId(item.getId());
+                    app.setAmountApplied(applyThisRow);
+                    app.setCurrencyCode(item.getCurrencyCode());
+                    app.setAppliedAt(Instant.now());
+                    app.setAppliedBy(null); // system-initiated via rule engine
+                    return advanceApplicationRepository.save(app)
+                        .flatMap(saved -> eventPublisher.publishAdvanceApplied(saved).thenReturn(saved))
+                        .flatMap(saved -> maybeMarkAdvanceApplied(advance).thenReturn(applyThisRow));
+                }))
+            .flatMap(applied -> {
+                BigDecimal next = remainingToApply.subtract(applied);
+                return next.signum() > 0 ? drawDownAdvancesFifo(item, next) : Mono.<Void>empty();
+            })
+            .then();
+    }
+
+    /**
+     * If the advance has now been fully drawn down (remaining == 0), flip its
+     * status to {@code applied}. Uses the balance repository to authoritatively
+     * check remaining, not just the incremental delta above.
+     */
+    private Mono<Void> maybeMarkAdvanceApplied(AdvancePayment advance) {
+        return advanceBalanceRepository.remainingOn(advance.getId())
+            .flatMap(remaining -> {
+                if (remaining.signum() <= 0 && !"applied".equals(advance.getStatus())) {
+                    advance.setStatus("applied");
+                    return advancePaymentRepository.save(advance).then();
+                }
+                return Mono.empty();
+            });
+    }
+
+    private UUID parseTenant(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try { return UUID.fromString(raw); } catch (IllegalArgumentException e) { return null; }
     }
 
     /**

@@ -33,6 +33,22 @@ public class PaymentRunFact {
     private int outstandingClaimsCount;
     private boolean providerVerified;
 
+    /**
+     * Convenience predicate for the shipped starter template
+     * "PR04 - Auto-offset when advance covers item". True when the
+     * provider's outstanding advance balance (in this item's currency)
+     * is at least the item's amountDue and the item has a positive
+     * amountDue. Computed at fact build time — the rule engine can
+     * treat this as a plain boolean without needing property-to-property
+     * comparisons (which the JSON->DRL compiler does not support).
+     */
+    public boolean isAdvanceCoversAmount() {
+        return amountDue != null
+            && amountDue.signum() > 0
+            && advancePaid != null
+            && advancePaid.compareTo(amountDue) >= 0;
+    }
+
     // ── Outputs ──────────────────────────────────────────────────────────────
 
     private boolean scheduled;

@@ -4,10 +4,14 @@
       <h1>Record advance payment</h1>
       <p class="page-sub">
         Captures a prepayment to a provider or member that wasn't part of
-        a regular payment run. Append-only — once recorded, this entry is
+        a regular payment run. Append-only: once recorded, this entry is
         permanent and audit-logged.
       </p>
     </div>
+    <a class="btn btn-default" routerLink="/tenant/finance/payments/advance">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back to advance payments
+    </a>
   </header>
 
   @if (errorMessage) {
@@ -52,7 +56,7 @@
           [(ngModel)]="currencyCode"
           name="currencyCode"
           [options]="currencyOptions"
-          placeholder="Select currency…"
+          placeholder="Select currency"
           required
         ></app-select>
       </label>
@@ -61,12 +65,19 @@
     <div class="row-2">
       <label class="field">
         <span class="field-label">Payment method</span>
-        <input type="text" [(ngModel)]="paymentMethod" name="paymentMethod"
-               placeholder="EFT, Cash, Cheque, etc." />
+        <app-select
+          [(ngModel)]="paymentMethod"
+          name="paymentMethod"
+          [options]="paymentMethodOptions"
+          placeholder="Select payment method"
+        ></app-select>
       </label>
       <label class="field">
-        <span class="field-label">Reference</span>
+        <span class="field-label">
+          Reference{{ selectedMethodRequiresReference ? ' *' : '' }}
+        </span>
         <input type="text" [(ngModel)]="reference" name="reference"
+               [required]="selectedMethodRequiresReference"
                placeholder="External payment reference" />
       </label>
     </div>

@@ -10,10 +10,33 @@
         <p class="page-sub">
           {{ payment.providerId ? 'Provider' : 'Member' }} prepayment
           · {{ payment.amount | currencyFormat:payment.currencyCode }}
+          @if (payment.type === 'REVERSAL') { · <span class="tag tag-danger">Reversal</span> }
         </p>
       }
     </div>
+    @if (payment) {
+      <div class="page-actions">
+        @if (canApprove) {
+          <button class="btn btn-primary" (click)="approve()">
+            <app-icon name="check-circle" [size]="14"></app-icon> Approve
+          </button>
+        }
+        @if (canReverse) {
+          <button class="btn btn-danger" (click)="reverse()">
+            <app-icon name="rotate-ccw" [size]="14"></app-icon> Reverse
+          </button>
+        }
+      </div>
+    }
   </header>
+
+  @if (banner) {
+    <div class="banner" [class.banner-success]="banner.kind === 'success'"
+         [class.banner-error]="banner.kind === 'error'"
+         (click)="banner = null">
+      {{ banner.text }}
+    </div>
+  }
 
   @if (errorMessage) {
     <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
@@ -22,6 +45,77 @@
   @if (loading) {
     <app-skeleton></app-skeleton>
   } @else if (payment) {
+
+    <!-- Status pill -->
+    <section class="status-strip">
+      <span class="field-label">Status</span>
+      <span class="status-pill"
+            [class.status-pending]="payment.status === 'pending'"
+            [class.status-approved]="payment.status === 'approved'"
+            [class.status-applied]="payment.status === 'applied'"
+            [class.status-reversed]="payment.status === 'reversed'">
+        {{ payment.status }}
+      </span>
+      @if (payment.reversesAdvanceId) {
+        <button class="link" (click)="openOriginal()">
+          Reverses <code>{{ payment.reversesAdvanceId.substring(0, 8) }}</code> →
+        </button>
+      }
+    </section>
+
+    <!-- Timeline -->
+    <section class="card">
+      <h2 class="section-title">Lifecycle</h2>
+      <ol class="timeline">
+        <li class="timeline-item done">
+          <span class="dot"></span>
+          <div>
+            <strong>Recorded</strong>
+            <div class="muted">{{ payment.recordedAt | date:'medium' }} · {{ payment.recordedBy || 'system' }}</div>
+          </div>
+        </li>
+        @if (payment.approvedAt) {
+          <li class="timeline-item done">
+            <span class="dot"></span>
+            <div>
+              <strong>Approved</strong>
+              <div class="muted">{{ payment.approvedAt | date:'medium' }} · {{ payment.approvedBy || 'system' }}</div>
+            </div>
+          </li>
+        } @else if (payment.status === 'pending') {
+          <li class="timeline-item pending">
+            <span class="dot"></span>
+            <div>
+              <strong>Awaiting approval</strong>
+              <div class="muted">A different operator must approve.</div>
+            </div>
+          </li>
+        }
+        @if (applications.length > 0) {
+          <li class="timeline-item done">
+            <span class="dot"></span>
+            <div>
+              <strong>Applied to payment run{{ applications.length > 1 ? 's' : '' }}</strong>
+              <div class="muted">
+                {{ applications.length }} application{{ applications.length > 1 ? 's' : '' }} ·
+                latest {{ applications[0].appliedAt | date:'medium' }}
+              </div>
+            </div>
+          </li>
+        }
+        @if (payment.status === 'reversed') {
+          <li class="timeline-item done danger">
+            <span class="dot"></span>
+            <div>
+              <strong>Reversed</strong>
+              <div class="muted">A compensating REVERSAL entry has been posted.</div>
+            </div>
+          </li>
+        }
+      </ol>
+    </section>
+
+    <!-- Details grid -->
     <section class="card">
       <h2 class="section-title">Details</h2>
       <dl class="header-grid">
@@ -31,15 +125,48 @@
         <dt>Currency</dt><dd>{{ payment.currencyCode }}</dd>
         <dt>Method</dt><dd>{{ payment.paymentMethod || '—' }}</dd>
         <dt>Reference</dt><dd>{{ payment.reference || '—' }}</dd>
-        <dt>Linked payment</dt><dd>{{ payment.paymentId ? '#' + payment.paymentId.substring(0, 8) : '—' }}</dd>
+        <dt>Type</dt><dd>{{ payment.type || 'ADVANCE' }}</dd>
         <dt>Recorded</dt><dd>{{ payment.recordedAt | date:'medium' }}</dd>
         <dt>Recorded by</dt><dd>{{ payment.recordedBy || '—' }}</dd>
+        @if (payment.approvedAt) {
+          <dt>Approved</dt><dd>{{ payment.approvedAt | date:'medium' }}</dd>
+          <dt>Approved by</dt><dd>{{ payment.approvedBy || '—' }}</dd>
+        }
       </dl>
       @if (payment.comment) {
         <div class="comment">
           <span class="field-label">Comment</span>
           <p>{{ payment.comment }}</p>
         </div>
+      }
+    </section>
+
+    <!-- Applications table -->
+    <section class="card">
+      <h2 class="section-title">Consumed by payment runs</h2>
+      @if (applications.length === 0) {
+        <p class="empty-state">No payment runs have consumed this advance yet.</p>
+      } @else {
+        <table class="applications-table">
+          <thead>
+            <tr>
+              <th>Applied</th>
+              <th>Run item</th>
+              <th>Payment</th>
+              <th class="numeric">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (app of applications; track app.id) {
+              <tr>
+                <td>{{ app.appliedAt | date:'medium' }}</td>
+                <td><code>{{ (app.paymentRunItemId || app.paymentRunId || '—').substring(0, 8) }}</code></td>
+                <td>{{ app.paymentId ? '#' + app.paymentId.substring(0, 8) : '—' }}</td>
+                <td class="numeric">{{ app.amountApplied | currencyFormat:app.currencyCode }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
       }
     </section>
   }

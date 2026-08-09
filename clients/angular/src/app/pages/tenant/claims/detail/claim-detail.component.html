@@ -1,12 +1,6 @@
 <div class="page">
   <header class="page-header">
     <div>
-      <div class="crumb">
-        <a routerLink="/tenant/claims">
-          <app-icon name="arrow-left" [size]="14"></app-icon>
-          Back to claims
-        </a>
-      </div>
       @if (claim) {
         <h1>{{ claim.claimNumber }}</h1>
         <p class="page-sub">
@@ -36,6 +30,15 @@
       } @else {
         <h1>Claim</h1>
       }
+    </div>
+    <!-- Header actions cluster: back-to-list pinned to the right, per
+         the app convention (see member-detail for the canonical form:
+         actions on the left of the cluster, Back last on the right). -->
+    <div class="header-actions">
+      <a class="btn btn-default" routerLink="/tenant/claims">
+        <app-icon name="arrow-left" [size]="14"></app-icon>
+        Back to claims
+      </a>
     </div>
   </header>
 

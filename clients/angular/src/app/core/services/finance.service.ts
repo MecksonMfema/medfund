@@ -308,6 +308,10 @@ export interface AdvancePaymentRow {
   reference?: string;
   comment?: string;
   recordedAt?: string;
+  // Row-level status + type surface for actions gating; the paged endpoint
+  // may not yet project these — treat as optional and default in the UI.
+  type?: 'ADVANCE' | 'REVERSAL';
+  status?: 'pending' | 'approved' | 'applied' | 'reversed';
 }
 
 export interface AdvancePaymentPageParams {
@@ -384,6 +388,9 @@ export interface CreateCtcPaymentPayload {
 }
 
 // ── Advance payments ────────────────────────────────────────────────────
+export type AdvancePaymentType = 'ADVANCE' | 'REVERSAL';
+export type AdvancePaymentStatus = 'pending' | 'approved' | 'applied' | 'reversed';
+
 export interface AdvancePayment {
   id: string;
   paymentId?: string;
@@ -396,6 +403,23 @@ export interface AdvancePayment {
   comment?: string;
   recordedAt: string;
   recordedBy?: string;
+  type?: AdvancePaymentType;
+  status?: AdvancePaymentStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+  reversesAdvanceId?: string;
+}
+
+export interface AdvancePaymentApplication {
+  id: string;
+  advancePaymentId: string;
+  paymentId?: string;
+  paymentRunId?: string;
+  paymentRunItemId?: string;
+  amountApplied: string;
+  currencyCode: string;
+  appliedAt: string;
+  appliedBy?: string;
 }
 
 export interface CreateAdvancePaymentPayload {
@@ -406,6 +430,10 @@ export interface CreateAdvancePaymentPayload {
   paymentMethod?: string;
   reference?: string;
   comment?: string;
+}
+
+export interface ReverseAdvancePaymentPayload {
+  reason: string;
 }
 
 // ── Debit / credit notes ────────────────────────────────────────────────
@@ -618,6 +646,13 @@ export class FinanceService {
   }
   getAdvancePayment(id: string): Observable<AdvancePayment> { return this.api.get<AdvancePayment>(`/advance-payments/${id}`); }
   createAdvancePayment(body: CreateAdvancePaymentPayload): Observable<AdvancePayment> { return this.api.post<AdvancePayment>('/advance-payments', body); }
+  approveAdvancePayment(id: string): Observable<AdvancePayment> { return this.api.post<AdvancePayment>(`/advance-payments/${id}/approve`, {}); }
+  reverseAdvancePayment(id: string, body: ReverseAdvancePaymentPayload): Observable<AdvancePayment> {
+    return this.api.post<AdvancePayment>(`/advance-payments/${id}/reverse`, body);
+  }
+  listAdvancePaymentApplications(advanceId: string): Observable<AdvancePaymentApplication[]> {
+    return this.api.get<AdvancePaymentApplication[]>(`/advance-payments/${advanceId}/applications`);
+  }
 
   // ── Debit / credit notes ──
   listDebitNotes(): Observable<FinanceNote[]> { return this.api.get<FinanceNote[]>('/debit-notes'); }

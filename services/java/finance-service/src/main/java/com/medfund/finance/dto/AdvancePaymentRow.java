@@ -19,6 +19,8 @@ public record AdvancePaymentRow(
         String paymentMethod,
         String reference,
         String comment,
-        Instant recordedAt
+        Instant recordedAt,
+        String type,
+        String status
 ) {
 }

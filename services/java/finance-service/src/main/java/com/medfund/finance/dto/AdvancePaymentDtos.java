@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
+@SuppressWarnings("deprecation") // response mirrors legacy paymentId column
 public final class AdvancePaymentDtos {
 
     private AdvancePaymentDtos() {}
@@ -24,6 +25,10 @@ public final class AdvancePaymentDtos {
         String comment
     ) {}
 
+    public record ReverseAdvancePaymentRequest(
+        @NotBlank @Size(max = 500) String reason
+    ) {}
+
     public record AdvancePaymentResponse(
         UUID id,
         UUID paymentId,
@@ -35,13 +40,20 @@ public final class AdvancePaymentDtos {
         String reference,
         String comment,
         Instant recordedAt,
-        UUID recordedBy
+        UUID recordedBy,
+        String type,
+        String status,
+        UUID approvedBy,
+        Instant approvedAt,
+        UUID reversesAdvanceId
     ) {
         public static AdvancePaymentResponse from(AdvancePayment a) {
             return new AdvancePaymentResponse(
                 a.getId(), a.getPaymentId(), a.getProviderId(), a.getMemberId(),
                 a.getAmount(), a.getCurrencyCode(), a.getPaymentMethod(),
-                a.getReference(), a.getComment(), a.getRecordedAt(), a.getRecordedBy()
+                a.getReference(), a.getComment(), a.getRecordedAt(), a.getRecordedBy(),
+                a.getType(), a.getStatus(), a.getApprovedBy(), a.getApprovedAt(),
+                a.getReversesAdvanceId()
             );
         }
     }

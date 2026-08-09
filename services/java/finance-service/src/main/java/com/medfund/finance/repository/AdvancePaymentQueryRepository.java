@@ -36,7 +36,7 @@ public class AdvancePaymentQueryRepository {
         String sql = """
                 SELECT a.id, a.payment_id, a.provider_id, a.member_id, a.amount,
                        a.currency_code, a.payment_method, a.reference, a.comment,
-                       a.recorded_at,
+                       a.recorded_at, a.type, a.status,
                        pr.name AS provider_name,
                        COALESCE(m.first_name || ' ' || m.last_name, '') AS member_name,
                        m.member_number AS member_number
@@ -114,7 +114,9 @@ public class AdvancePaymentQueryRepository {
                 row.get("payment_method", String.class),
                 row.get("reference", String.class),
                 row.get("comment", String.class),
-                row.get("recorded_at", Instant.class)
+                row.get("recorded_at", Instant.class),
+                row.get("type", String.class),
+                row.get("status", String.class)
         );
     }
 }

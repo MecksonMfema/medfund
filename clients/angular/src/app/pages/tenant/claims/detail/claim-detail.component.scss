@@ -14,8 +14,10 @@
   align-items: flex-start;
   gap: 1rem;
   margin-bottom: 1.25rem;
-  flex-wrap: wrap;
 }
+// Title column shrinks so the right-side back button stays inline.
+.page-header > div:first-child { min-width: 0; flex: 1 1 auto; }
+.page-header > .header-actions { flex: 0 0 auto; }
 
 .page-header h1 {
   margin: 0 0 0.25rem;
@@ -36,18 +38,12 @@
 }
 .page-sub .sep { opacity: 0.6; }
 
-.crumb {
-  margin-bottom: 0.35rem;
-}
-.crumb a {
+.header-actions {
   display: inline-flex;
+  gap: 8px;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.85rem;
-  color: var(--color-text-muted, #6b7280);
-  text-decoration: none;
+  flex-wrap: wrap;
 }
-.crumb a:hover { color: var(--color-primary, #0077b6); }
 
 .empty-state {
   color: var(--color-text-muted, #6b7280);

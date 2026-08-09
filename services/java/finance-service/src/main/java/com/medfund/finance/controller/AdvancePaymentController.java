@@ -1,7 +1,9 @@
 package com.medfund.finance.controller;
 
+import com.medfund.finance.dto.AdvancePaymentApplicationResponse;
 import com.medfund.finance.dto.AdvancePaymentDtos.AdvancePaymentResponse;
 import com.medfund.finance.dto.AdvancePaymentDtos.CreateAdvancePaymentRequest;
+import com.medfund.finance.dto.AdvancePaymentDtos.ReverseAdvancePaymentRequest;
 import com.medfund.finance.dto.AdvancePaymentFilterParams;
 import com.medfund.finance.dto.AdvancePaymentRow;
 import com.medfund.finance.dto.PageResponse;
@@ -25,7 +27,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/advance-payments")
 @RequiredArgsConstructor
-@Tag(name = "Advance Payments", description = "Provider / member prepayments captured outside the regular run pipeline.")
+@Tag(name = "Advance Payments", description = "Provider / member prepayments — full lifecycle (record, approve, reverse, offset).")
 @SecurityRequirement(name = "bearer-jwt")
 public class AdvancePaymentController {
 
@@ -64,12 +66,47 @@ public class AdvancePaymentController {
         return service.findById(id).map(AdvancePaymentResponse::from);
     }
 
+    @GetMapping("/{id}/applications")
+    @Operation(summary = "List payment-run applications that consumed this advance",
+        description = "Empty until the offset flow has written any application rows.")
+    public Flux<AdvancePaymentApplicationResponse> listApplications(@PathVariable UUID id) {
+        return service.listApplications(id).map(AdvancePaymentApplicationResponse::from);
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Record a new advance payment")
+    @Operation(summary = "Record a new advance payment",
+        description = "Amounts at or below the tenant approval threshold auto-approve; above it, the advance lands in 'pending' and requires POST /{id}/approve by a different operator.")
     public Mono<AdvancePaymentResponse> create(@Valid @RequestBody CreateAdvancePaymentRequest request,
                                                 @AuthenticationPrincipal Jwt jwt) {
         return service.create(request, AuditActor.id(jwt), AuditActor.email(jwt))
+            .map(AdvancePaymentResponse::from);
+    }
+
+    @PostMapping("/{id}/approve")
+    @ResponseStatus(HttpStatus.OK)
+    @Operation(summary = "Approve a pending advance payment",
+        description = "Requires finance:approve_advance_payment. Approver must be different from the recorder.")
+    @ApiResponse(responseCode = "200", description = "Approval accepted; status is now 'approved'")
+    @ApiResponse(responseCode = "400", description = "Advance is not pending or approver is the recorder")
+    @ApiResponse(responseCode = "404", description = "Advance not found")
+    public Mono<AdvancePaymentResponse> approve(@PathVariable UUID id,
+                                                 @AuthenticationPrincipal Jwt jwt) {
+        return service.approve(id, AuditActor.id(jwt), AuditActor.email(jwt))
+            .map(AdvancePaymentResponse::from);
+    }
+
+    @PostMapping("/{id}/reverse")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Reverse an approved or applied advance payment",
+        description = "Requires finance:reverse_advance_payment. Posts a compensating REVERSAL row; original is marked status='reversed' and never mutates further.")
+    @ApiResponse(responseCode = "201", description = "Compensating REVERSAL row created")
+    @ApiResponse(responseCode = "400", description = "Advance is pending or already reversed")
+    @ApiResponse(responseCode = "404", description = "Advance not found")
+    public Mono<AdvancePaymentResponse> reverse(@PathVariable UUID id,
+                                                 @Valid @RequestBody ReverseAdvancePaymentRequest body,
+                                                 @AuthenticationPrincipal Jwt jwt) {
+        return service.reverse(id, body, AuditActor.id(jwt), AuditActor.email(jwt))
             .map(AdvancePaymentResponse::from);
     }
 }

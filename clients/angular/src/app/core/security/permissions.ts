@@ -32,6 +32,7 @@ export type PermissionKey =
   // Finance
   | 'finance:view' | 'finance:create_payment_run' | 'finance:approve_payment_run'
   | 'finance:view_advance_payments' | 'finance:manage_advance_payments'
+  | 'finance:approve_advance_payment' | 'finance:reverse_advance_payment'
   | 'finance:manage_ctc_payments' | 'finance:manage_receipts'
   | 'finance:manage_banks' | 'finance:post_adjustments'
   | 'finance:view_debtors' | 'finance:view_subledger'
@@ -115,6 +116,8 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'finance:approve_payment_run',      label: 'Approve payment run',              description: 'Execute a draft payment run — disburses funds.' },
       { key: 'finance:view_advance_payments',    label: 'View advance payments',            description: 'View provider prepayments.' },
       { key: 'finance:manage_advance_payments',  label: 'Manage advance payments',          description: 'Create, edit, or cancel provider prepayments.' },
+      { key: 'finance:approve_advance_payment',  label: 'Approve advance payment',          description: 'Approve a pending advance payment above the tenant threshold. Approver must differ from the recorder.' },
+      { key: 'finance:reverse_advance_payment',  label: 'Reverse advance payment',          description: 'Post a compensating reversal for an approved or applied advance payment.' },
       { key: 'finance:manage_ctc_payments',      label: 'Manage CTC payments',              description: 'Create or commit cost-to-cure payments from finance.' },
       { key: 'finance:manage_receipts',          label: 'Manage receipts',                  description: 'Capture and post receipts for member or group payments.' },
       { key: 'finance:manage_banks',             label: 'Manage bank accounts',             description: 'Configure tenant bank accounts and routing.' },

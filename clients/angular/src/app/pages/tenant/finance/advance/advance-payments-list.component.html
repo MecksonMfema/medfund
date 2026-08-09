@@ -3,10 +3,25 @@
     <h1>Advance payments</h1>
     <p class="page-sub">
       Provider or member prepayments captured outside the regular run
-      pipeline. Each entry is append-only and audit-logged.
+      pipeline. Append-only ledger, reversals post a compensating entry.
     </p>
   </div>
+  @if (canManage) {
+    <a class="btn btn-primary" routerLink="/tenant/finance/payments/advance/add">
+      <app-icon name="plus" [size]="14"></app-icon>
+      Record advance payment
+    </a>
+  }
 </header>
+
+@if (banner) {
+  <div class="banner" [class.banner-success]="banner.kind === 'success'"
+       [class.banner-error]="banner.kind === 'error'"
+       [class.banner-info]="banner.kind === 'info'"
+       (click)="banner = null">
+    {{ banner.text }}
+  </div>
+}
 
 @if (errorMessage) {
   <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>

@@ -27,4 +27,6 @@
   margin: 0.75rem 24px 0;
   border-radius: var(--radius-md, 8px);
 }
-.banner-error { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
+.banner-error   { background: var(--danger-bg,  #fee2e2); color: var(--danger-fg,  #991b1b); }
+.banner-success { background: var(--success-bg, #d1fae5); color: var(--success-fg, #065f46); }
+.banner-info    { background: var(--info-bg,    #dbeafe); color: var(--info-fg,    #1e40af); }

@@ -27,7 +27,7 @@
           @for (m of visibleSuggestions; track m.id) {
             <li class="suggestion" (mousedown)="pick(m)">
               <strong>{{ m.label }}</strong>
-              @if (m.sublabel) { <span class="muted">— {{ m.sublabel }}</span> }
+              @if (m.sublabel) { <span class="muted">· {{ m.sublabel }}</span> }
             </li>
           }
         }

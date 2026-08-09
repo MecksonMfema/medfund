@@ -36,7 +36,19 @@ public class ProviderPaymentTemplates implements TemplateProvider {
                  RuleCategory.PROVIDER_PAYMENT, 70,
                  all(cond("paymentRun.outstandingClaimsCount", "EQUALS", "0")),
                  action("WITHHOLD_PAYMENT", "100",
-                        "Withhold 100% — no claims processed in this period"))
+                        "Withhold 100% — no claims processed in this period")),
+
+            rule("PR04 - Auto-offset when advance covers item",
+                 "Withhold 100% of a run item whose amount is fully covered by "
+                 + "the provider's outstanding advance balance. The withhold "
+                 + "reduces the disbursed amount to zero; the finance service "
+                 + "records the drawdown against the oldest advance FIFO in "
+                 + "advance_payment_applications, and the advance flips to "
+                 + "'applied' once fully consumed.",
+                 RuleCategory.PROVIDER_PAYMENT, 50,
+                 all(cond("paymentRun.advanceCoversAmount", "EQUALS", "true")),
+                 action("WITHHOLD_PAYMENT", "100",
+                        "Fully offset by advance payment balance"))
         );
     }
 }

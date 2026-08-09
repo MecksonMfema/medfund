@@ -1,6 +1,8 @@
 package com.medfund.finance.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.medfund.finance.entity.AdvancePayment;
+import com.medfund.finance.entity.AdvancePaymentApplication;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,6 +11,7 @@ import reactor.core.publisher.Mono;
 import reactor.kafka.sender.KafkaSender;
 import reactor.kafka.sender.SenderRecord;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @Service
@@ -84,6 +87,43 @@ public class FinanceEventPublisher {
             "runNumber", runNumber,
             "reason", reason != null ? reason : ""
         ));
+    }
+
+    /** Advance payment cleared the approval gate (either at record-time auto-approve or via explicit approve). */
+    public Mono<Void> publishAdvanceApproved(AdvancePayment advance) {
+        Map<String, String> payload = new HashMap<>();
+        payload.put("event", "ADVANCE_PAYMENT_APPROVED");
+        payload.put("advanceId", advance.getId().toString());
+        payload.put("providerId", advance.getProviderId() != null ? advance.getProviderId().toString() : "");
+        payload.put("memberId", advance.getMemberId() != null ? advance.getMemberId().toString() : "");
+        payload.put("amount", advance.getAmount().toPlainString());
+        payload.put("currencyCode", advance.getCurrencyCode());
+        payload.put("approvedBy", advance.getApprovedBy() != null ? advance.getApprovedBy().toString() : "");
+        return publishEvent("medfund.finance.advance.approved", advance.getId().toString(), payload);
+    }
+
+    /** Advance payment reversed — original marked reversed + compensating REVERSAL row created. */
+    public Mono<Void> publishAdvanceReversed(AdvancePayment original, AdvancePayment compensating) {
+        Map<String, String> payload = new HashMap<>();
+        payload.put("event", "ADVANCE_PAYMENT_REVERSED");
+        payload.put("originalId", original.getId().toString());
+        payload.put("compensatingId", compensating.getId().toString());
+        payload.put("amount", compensating.getAmount().toPlainString());
+        payload.put("currencyCode", compensating.getCurrencyCode());
+        return publishEvent("medfund.finance.advance.reversed", original.getId().toString(), payload);
+    }
+
+    /** Advance payment application row written — consumed against a payment-run item. */
+    public Mono<Void> publishAdvanceApplied(AdvancePaymentApplication application) {
+        Map<String, String> payload = new HashMap<>();
+        payload.put("event", "ADVANCE_PAYMENT_APPLIED");
+        payload.put("applicationId", application.getId().toString());
+        payload.put("advanceId", application.getAdvancePaymentId().toString());
+        payload.put("paymentRunId", application.getPaymentRunId() != null ? application.getPaymentRunId().toString() : "");
+        payload.put("paymentRunItemId", application.getPaymentRunItemId() != null ? application.getPaymentRunItemId().toString() : "");
+        payload.put("amountApplied", application.getAmountApplied().toPlainString());
+        payload.put("currencyCode", application.getCurrencyCode());
+        return publishEvent("medfund.finance.advance.applied", application.getAdvancePaymentId().toString(), payload);
     }
 
     public Mono<Void> publishAdjustmentApplied(String adjustmentId, String type, String amount) {

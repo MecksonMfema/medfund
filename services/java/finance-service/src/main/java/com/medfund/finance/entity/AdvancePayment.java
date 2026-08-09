@@ -19,6 +19,11 @@ public class AdvancePayment {
     @Id
     private UUID id;
 
+    // Deprecated — advance-payment consumption is now tracked in the
+    // advance_payment_applications bridging table (V068). Column retained
+    // for historical rows and legacy readers; new write paths must not
+    // populate it.
+    @Deprecated
     @Column("payment_id")
     private UUID paymentId;
 
@@ -46,4 +51,20 @@ public class AdvancePayment {
 
     @Column("recorded_by")
     private UUID recordedBy;
+
+    /** 'ADVANCE' (original) or 'REVERSAL' (compensating entry). */
+    private String type;
+
+    /** 'pending' | 'approved' | 'applied' | 'reversed'. */
+    private String status;
+
+    @Column("approved_by")
+    private UUID approvedBy;
+
+    @Column("approved_at")
+    private Instant approvedAt;
+
+    /** Only populated on REVERSAL rows — points back to the ADVANCE they negate. */
+    @Column("reverses_advance_id")
+    private UUID reversesAdvanceId;
 }
