@@ -132,19 +132,6 @@ export const FINANCE_ROUTES: Routes = [
   { path: 'receipts/groups', pathMatch: 'full', redirectTo: '/tenant/billing/transactions' },
   cs('receipts/report',           'Receipts Report',           '/view-receipts-report',      'Receipts analytics dashboard.',                ['finance:manage_receipts']),
 
-  // ── Banks ──────────────────────────────────────────────────────────────────
-  // The only real bank surface today is /banks/masca (platform bank accounts).
-  // The general /banks placeholder and /banks/edit redirect there until
-  // tenant-side bank management ships.
-  { path: 'banks',      pathMatch: 'full', redirectTo: '/tenant/finance/banks/masca' },
-  { path: 'banks/edit', pathMatch: 'full', redirectTo: '/tenant/finance/banks/masca' },
-  {
-    path: 'banks/masca',
-    canActivate: [permissionGuard(['finance:manage_banks'])],
-    loadComponent: () => import('./banks/masca-banks.component').then(m => m.MascaBanksComponent),
-    data: { title: 'Platform Bank Accounts', sidebar: 'operational' },
-  },
-
   // ── Notes (V074: unified debit / credit / memo notes) ────────────────────
   // Single surface with filter chips — the split debit-notes / credit-notes
   // pages were consolidated. Filtering by direction is a chip on the list

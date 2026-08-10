@@ -1423,7 +1423,7 @@ The full inventory by service is captured here for completeness. Each line is a 
 - `PaymentController`, `PaymentRunController` — payments + runs.
 - `ProviderBalanceController` — per-provider per-currency balances (driven by `medfund.claims.adjudicated`).
 - `ReconciliationController` — bank reconciliation.
-- `MascaBankAccountController` — banking integration.
+- `TenantBankAccountController` — tenant bank-account management (outbound disbursements + inbound receipt matching). Mutating verbs gated by `admin.bank_accounts:manage`.
 - `AdjustmentController`, `AdvancePaymentController`, `CtcPaymentController`, `NotesController`, `PaymentAdviceController` — adjustments / advances / CTC / notes / advice.
 - `ReportController` — claims / payment / provider performance / contribution reports.
 

@@ -33,7 +33,11 @@ func (h *Handler) InitiatePayment(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"error": "payment provider error: " + err.Error()})
 	}
 
-	txn := h.ledger.Record(req, resp, h.provider.Name(), "inbound")
+	direction := req.Direction
+	if direction == "" {
+		direction = "inbound"
+	}
+	txn := h.ledger.Record(req, resp, h.provider.Name(), direction)
 	return c.Status(fiber.StatusCreated).JSON(txn)
 }
 

@@ -140,7 +140,6 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
       { label: 'Reconciliation',     icon: 'wallet',       route: '/tenant/finance/reconciliations',       permissions: ['finance:view'] },
       { label: 'Notes',              icon: 'edit',         route: '/tenant/finance/notes',                 permissions: ['finance.notes:read'] },
       { label: 'Payment Advice',     icon: 'wallet',       route: '/tenant/finance/advice',                permissions: ['finance:view_payment_advice'] },
-      { label: 'Platform Banks',     icon: 'building',     route: '/tenant/finance/banks/masca',           permissions: ['finance:manage_banks'] },
       { label: 'Copayments',         icon: 'wallet',       route: '/tenant/finance/copayments',            permissions: ['finance:manage_copayments'] },
       { label: 'Reports',            icon: 'chart',        route: '/tenant/finance/reports',               permissions: ['finance:view_debtors', 'finance:view_subledger'] },
     ],

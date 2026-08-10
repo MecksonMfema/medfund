@@ -126,7 +126,7 @@ func TenantMiddleware() fiber.Handler {
 #### Elixir (Phoenix)
 ```elixir
 # Plug sets the Ecto prefix for the connection
-defmodule MascaWeb.TenantPlug do
+defmodule InsureFlowWeb.TenantPlug do
   def call(conn, _opts) do
     tenant_id = get_req_header(conn, "x-tenant-id") |> List.first()
     Ecto.put_meta(conn, prefix: "tenant_#{tenant_id}")
@@ -211,6 +211,7 @@ This catches bugs where a service accidentally connects to the wrong schema.
 | **Business Rules** | Configure adjudication rules, billing rules, waiting periods, benefit limits via UI |
 | **Scheme Management** | Create/edit schemes, benefits, age groups, pricing |
 | **Currency Settings** | Configure supported currencies, default currency, exchange rate sources |
+| **Bank Accounts** | Configure the tenant's own bank accounts (label + currency + nomination) used for outbound payment-run disbursements and inbound receipt matching |
 | **Notification Templates** | Customize email/SMS templates with tenant branding |
 | **Provider Network** | Manage which providers are in-network for this tenant |
 | **Membership Model** | Configure `GROUP_ONLY`, `INDIVIDUAL_ONLY`, or `BOTH` — controls enrollment flows, billing, and portal access |

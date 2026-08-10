@@ -13,8 +13,8 @@ import java.util.UUID;
 
 @Getter
 @Setter
-@Table("masca_bank_accounts")
-public class MascaBankAccount {
+@Table("tenant_bank_accounts")
+public class TenantBankAccount {
 
     @Id
     private UUID id;
@@ -36,6 +36,12 @@ public class MascaBankAccount {
 
     @Column("currency_code")
     private String currencyCode;
+
+    @Column("label")
+    private String label;
+
+    @Column("notes")
+    private String notes;
 
     @Column("is_nominated")
     private Boolean nominated = false;

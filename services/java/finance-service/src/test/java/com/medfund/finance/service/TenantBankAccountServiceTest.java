@@ -1,11 +1,13 @@
 package com.medfund.finance.service;
 
-import com.medfund.finance.dto.UpsertMascaBankAccountRequest;
-import com.medfund.finance.entity.MascaBankAccount;
-import com.medfund.finance.repository.MascaBankAccountRepository;
+import com.medfund.finance.dto.UpsertTenantBankAccountRequest;
+import com.medfund.finance.entity.TenantBankAccount;
+import com.medfund.finance.repository.TenantBankAccountRepository;
+import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -25,22 +27,23 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class MascaBankAccountServiceTest {
+class TenantBankAccountServiceTest {
 
     @Mock
-    private MascaBankAccountRepository repository;
+    private TenantBankAccountRepository repository;
 
     @Mock
     private AuditPublisher auditPublisher;
 
     @InjectMocks
-    private MascaBankAccountService service;
+    private TenantBankAccountService service;
 
     @Test
     void create_nominated_clearsOtherNominationsForSameCurrency() {
         var request = sampleRequest("USD", true);
         when(repository.save(any())).thenAnswer(inv -> {
-            MascaBankAccount saved = inv.getArgument(0);
+            TenantBankAccount saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
             saved.setCreatedAt(Instant.now());
             return Mono.just(saved);
         });
@@ -55,6 +58,8 @@ class MascaBankAccountServiceTest {
                     assertThat(saved.getNominated()).isTrue();
                     assertThat(saved.getCurrencyCode()).isEqualTo("USD");
                     assertThat(saved.getActive()).isTrue();
+                    assertThat(saved.getLabel()).isEqualTo("Ops USD");
+                    assertThat(saved.getNotes()).isEqualTo("Primary payout account");
                 })
                 .verifyComplete();
 
@@ -66,7 +71,11 @@ class MascaBankAccountServiceTest {
     @Test
     void create_notNominated_doesNotClearOthers() {
         var request = sampleRequest("USD", false);
-        when(repository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(repository.save(any())).thenAnswer(inv -> {
+            TenantBankAccount saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -81,7 +90,7 @@ class MascaBankAccountServiceTest {
     }
 
     @Test
-    void update_flippingNominated_clearsOthers() {
+    void update_flippingNominated_clearsOthers_andEmitsChangedFields() {
         var existing = existingAccount("USD", false);
         var request = sampleRequest("USD", true);
         when(repository.findById(existing.getId())).thenReturn(Mono.just(existing));
@@ -99,6 +108,18 @@ class MascaBankAccountServiceTest {
 
         verify(repository).clearNominationsForCurrencyExcept(eq("USD"), eq(existing.getId()));
         verify(repository).save(any());
+
+        ArgumentCaptor<AuditEvent> captor = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(auditPublisher).publish(captor.capture());
+        AuditEvent event = captor.getValue();
+        assertThat(event.action()).isEqualTo("UPDATE");
+        assertThat(event.entityType()).isEqualTo("TenantBankAccount");
+        assertThat(event.entityName()).isEqualTo("Ops USD");
+        // Existing was: bankName=Old Bank, accountNumber=0000000000, accountName=Old Account,
+        // notes=null, nominated=false; request switches every one of these plus branch/swift.
+        assertThat(event.changedFields())
+            .isNotEmpty()
+            .contains("bankName", "accountNumber", "accountName", "label", "notes", "nominated");
     }
 
     @Test
@@ -135,19 +156,22 @@ class MascaBankAccountServiceTest {
 
     // ---- Helpers ----
 
-    private UpsertMascaBankAccountRequest sampleRequest(String currency, boolean nominated) {
-        return new UpsertMascaBankAccountRequest(
+    private UpsertTenantBankAccountRequest sampleRequest(String currency, boolean nominated) {
+        return new UpsertTenantBankAccountRequest(
             "Test Bank", "1234567890", "0001", "TESTSWIFT",
-            "MedFund Operations", currency, nominated, true);
+            "MedFund Operations", currency, "Ops USD", "Primary payout account",
+            nominated, true);
     }
 
-    private MascaBankAccount existingAccount(String currency, boolean nominated) {
-        var a = new MascaBankAccount();
+    private TenantBankAccount existingAccount(String currency, boolean nominated) {
+        var a = new TenantBankAccount();
         a.setId(UUID.randomUUID());
         a.setBankName("Old Bank");
         a.setAccountNumber("0000000000");
         a.setAccountName("Old Account");
         a.setCurrencyCode(currency);
+        a.setLabel("Old Label");
+        a.setNotes(null);
         a.setNominated(nominated);
         a.setActive(true);
         a.setCreatedAt(Instant.now());

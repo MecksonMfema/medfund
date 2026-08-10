@@ -38,7 +38,7 @@ export type PermissionKey =
   | 'finance:manage_ctc_payments' | 'finance:reverse_ctc_payment'
   | 'finance:view_member_payables' | 'finance:configure_auto_ctc'
   | 'finance:manage_receipts'
-  | 'finance:manage_banks' | 'finance:post_adjustments'
+  | 'finance:post_adjustments'
   | 'finance.notes:read' | 'finance.notes:write' | 'finance.notes:approve'
   | 'finance:view_debtors' | 'finance:view_subledger'
   | 'finance:manage_billing_reconcile' | 'finance:view_payment_advice'
@@ -52,6 +52,7 @@ export type PermissionKey =
   // Tenant administration
   | 'admin:manage_roles' | 'admin:manage_users' | 'admin:view_audit'
   | 'admin:manage_settings' | 'admin:manage_rules'
+  | 'admin.bank_accounts:manage'
   // Platform administration (super-admin only)
   | 'platform:view_jobs' | 'platform:manage_jobs';
 
@@ -131,7 +132,6 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'finance:view_member_payables',     label: 'View member payables',             description: 'View outstanding member-payable balances (approved claim amounts routing to members).' },
       { key: 'finance:configure_auto_ctc',       label: 'Configure auto-CTC',               description: 'Enable and configure automatic drafting of Claims-to-Contributions transfers from qualifying member-payee claim adjudications.' },
       { key: 'finance:manage_receipts',          label: 'Manage receipts',                  description: 'Capture and post receipts for member or group payments.' },
-      { key: 'finance:manage_banks',             label: 'Manage bank accounts',             description: 'Configure tenant bank accounts and routing.' },
       { key: 'finance:post_adjustments',         label: 'Post adjustments (legacy)',        description: 'Deprecated V074: auto-expands to the three finance.notes:* permissions on login for compat. Do not assign to new roles.' },
       { key: 'finance.notes:read',               label: 'View notes',                       description: 'Read access to debit / credit / memo notes.' },
       { key: 'finance.notes:write',              label: 'Create notes',                     description: 'Create debit, credit, or memo notes (pending status).' },
@@ -176,6 +176,7 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'admin:view_audit',                 label: 'View audit log',                   description: 'Read tenant audit events.' },
       { key: 'admin:manage_settings',            label: 'Manage tenant settings',           description: 'Edit branding, insurance lines, email templates, etc.' },
       { key: 'admin:manage_rules',               label: 'Manage rules engine',              description: 'Author and deploy tenant-specific business rules.' },
+      { key: 'admin.bank_accounts:manage',       label: 'Manage bank accounts',             description: "Configure the tenant's own bank accounts used for outbound disbursements and inbound receipt matching." },
     ],
   },
   {

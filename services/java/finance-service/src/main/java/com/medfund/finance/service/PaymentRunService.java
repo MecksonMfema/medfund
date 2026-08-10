@@ -15,6 +15,7 @@ import com.medfund.finance.repository.PaymentRepository;
 import com.medfund.finance.repository.PaymentRunItemRepository;
 import com.medfund.finance.repository.PaymentRunRepository;
 import com.medfund.finance.repository.ProviderBalanceRepository;
+import com.medfund.finance.repository.TenantBankAccountRepository;
 import com.medfund.finance.util.Actors;
 
 import java.math.BigDecimal;
@@ -55,6 +56,7 @@ public class PaymentRunService {
     private final PaymentRunDecisionService decisionService;
     private final PaymentRunGenerator paymentRunGenerator;
     private final PaymentAdviceService paymentAdviceService;
+    private final TenantBankAccountRepository bankAccountRepository;
     private final DatabaseClient databaseClient;
 
     public PaymentRunService(PaymentRunRepository paymentRunRepository,
@@ -71,6 +73,7 @@ public class PaymentRunService {
                              PaymentRunDecisionService decisionService,
                              PaymentRunGenerator paymentRunGenerator,
                              PaymentAdviceService paymentAdviceService,
+                             TenantBankAccountRepository bankAccountRepository,
                              DatabaseClient databaseClient) {
         this.paymentRunRepository = paymentRunRepository;
         this.queryRepository = queryRepository;
@@ -86,6 +89,7 @@ public class PaymentRunService {
         this.decisionService = decisionService;
         this.paymentRunGenerator = paymentRunGenerator;
         this.paymentAdviceService = paymentAdviceService;
+        this.bankAccountRepository = bankAccountRepository;
         this.databaseClient = databaseClient;
     }
 
@@ -119,26 +123,39 @@ public class PaymentRunService {
 
     @Transactional
     public Mono<PaymentRun> create(CreatePaymentRunRequest request, String actorId, String actorEmail) {
-        return generateRunNumber()
-            .flatMap(runNumber -> {
-                var run = new PaymentRun();
-                run.setRunNumber(runNumber);
-                run.setStatus("draft");
-                run.setCurrencyCode(request.currencyCode());
-                run.setPayeeType(request.payeeType());
-                run.setDescription(request.description());
-                run.setPaymentCount(0);
-                run.setCreatedAt(Instant.now());
-                run.setUpdatedAt(Instant.now());
-                run.setCreatedBy(Actors.parseId(actorId));
+        return bankAccountRepository.findById(request.sourceBankAccountId())
+            .switchIfEmpty(Mono.error(new IllegalArgumentException(
+                "Bank account not found: " + request.sourceBankAccountId())))
+            .flatMap(bank -> {
+                if (!bank.getCurrencyCode().equalsIgnoreCase(request.currencyCode())) {
+                    return Mono.error(new IllegalArgumentException(
+                        "Bank account currency (" + bank.getCurrencyCode()
+                        + ") does not match run currency (" + request.currencyCode() + ")"));
+                }
+                return generateRunNumber()
+                    .flatMap(runNumber -> {
+                        var run = new PaymentRun();
+                        run.setRunNumber(runNumber);
+                        run.setStatus("draft");
+                        run.setCurrencyCode(request.currencyCode());
+                        run.setPayeeType(request.payeeType());
+                        run.setDescription(request.description());
+                        run.setPaymentCount(0);
+                        run.setSourceBankAccountId(bank.getId());
+                        run.setCreatedAt(Instant.now());
+                        run.setUpdatedAt(Instant.now());
+                        run.setCreatedBy(Actors.parseId(actorId));
 
-                return paymentRunRepository.save(run);
+                        return paymentRunRepository.save(run)
+                            .doOnNext(saved -> saved.setSourceBankAccountLabel(bank.getLabel()));
+                    });
             })
             .flatMap(saved -> paymentRunGenerator.populate(saved)
                 .flatMap(count -> {
                     saved.setPaymentCount(count);
                     saved.setUpdatedAt(Instant.now());
-                    return paymentRunRepository.save(saved);
+                    return paymentRunRepository.save(saved)
+                        .doOnNext(reloaded -> reloaded.setSourceBankAccountLabel(saved.getSourceBankAccountLabel()));
                 }))
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
@@ -197,15 +214,30 @@ public class PaymentRunService {
                         .thenReturn(completed))
                     .flatMap(completed -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "PaymentRun", completed.getId().toString(), completed.getRunNumber(),
-                                "UPDATE", actorId, actorEmail,
-                                Map.of("status", previousStatus),
-                                Map.of("status", completed.getStatus()))
-                            .then(eventPublisher.publishPaymentRunExecuted(
-                                completed.getId().toString(),
-                                completed.getRunNumber(),
-                                completed.getPaymentCount() != null ? completed.getPaymentCount() : 0))
-                            .thenReturn(completed);
+                        return paymentRunItemRepository.findByPaymentRunId(completed.getId())
+                            .map(item -> new PaymentRunItemPayload(
+                                item.getId() != null ? item.getId().toString() : "",
+                                item.getPaymentId() != null ? item.getPaymentId().toString() : "",
+                                item.getProviderId() != null ? item.getProviderId().toString() : "",
+                                item.getMemberId() != null ? item.getMemberId().toString() : "",
+                                item.getAmount() != null ? item.getAmount().toPlainString() : "0",
+                                item.getCurrencyCode() != null ? item.getCurrencyCode() : ""))
+                            .collectList()
+                            .flatMap(itemPayloads ->
+                                publishAudit(tenantId, "PaymentRun", completed.getId().toString(), completed.getRunNumber(),
+                                        "UPDATE", actorId, actorEmail,
+                                        Map.of("status", previousStatus),
+                                        Map.of("status", completed.getStatus()))
+                                    .then(eventPublisher.publishPaymentRunExecuted(
+                                        completed.getId().toString(),
+                                        completed.getRunNumber(),
+                                        tenantId,
+                                        completed.getSourceBankAccountId() != null
+                                            ? completed.getSourceBankAccountId().toString() : "",
+                                        completed.getCurrencyCode(),
+                                        completed.getPaymentCount() != null ? completed.getPaymentCount() : 0,
+                                        itemPayloads))
+                                    .thenReturn(completed));
                     }));
             });
     }

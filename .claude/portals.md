@@ -99,6 +99,7 @@ InsureFlow has five distinct portal experiences, each serving a different audien
 | `/admin/rules` | Business Rules | Configure adjudication rules, billing rules, waiting periods, exclusions |
 | `/admin/rules/test` | Rule Testing | Dry-run rules against sample claims to validate behavior |
 | `/admin/currencies` | Currency Config | Select supported currencies, set default, configure exchange rate source |
+| `/admin/settings#bank-accounts` | Bank Accounts | Configure the tenant's own bank accounts (label + currency + nomination) used for outbound payment-run disbursements and inbound receipt matching. Gated on `admin.bank_accounts:manage` |
 | `/admin/providers` | Provider Network | Manage in-network providers, invite new providers |
 | `/admin/templates` | Notification Templates | Customize email/SMS templates with tenant branding |
 | `/admin/ai-config` | AI Settings | Auto-adjudication thresholds, enable/disable AI features |
@@ -573,6 +574,7 @@ admin.membership_model:read          — View membership model
 admin.membership_model:configure     — Change membership model
 admin.payments_config:read           — View payment provider config
 admin.payments_config:configure      — Change payment provider settings
+admin.bank_accounts:manage           — Configure tenant bank accounts (outbound disbursements + inbound receipt matching)
 admin.audit:read                     — View tenant audit log
 admin.billing:read                   — View platform subscription/billing
 

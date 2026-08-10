@@ -3,6 +3,7 @@ package com.medfund.finance.entity;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
@@ -58,6 +59,15 @@ public class PaymentRun {
     @Column("settlement_date")
     private Instant settlementDate;
 
+    /** V075 — the tenant bank account this run debits. Set at create time. */
+    @Column("source_bank_account_id")
+    private UUID sourceBankAccountId;
+
+    /** Populated by the paginated query repo via a join on tenant_bank_accounts;
+     *  null on entity loads via findById. Not persisted. */
+    @Transient
+    private String sourceBankAccountLabel;
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;
@@ -108,6 +118,12 @@ public class PaymentRun {
 
     public Instant getSettlementDate() { return settlementDate; }
     public void setSettlementDate(Instant settlementDate) { this.settlementDate = settlementDate; }
+
+    public UUID getSourceBankAccountId() { return sourceBankAccountId; }
+    public void setSourceBankAccountId(UUID sourceBankAccountId) { this.sourceBankAccountId = sourceBankAccountId; }
+
+    public String getSourceBankAccountLabel() { return sourceBankAccountLabel; }
+    public void setSourceBankAccountLabel(String sourceBankAccountLabel) { this.sourceBankAccountLabel = sourceBankAccountLabel; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

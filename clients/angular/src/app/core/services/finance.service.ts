@@ -28,6 +28,11 @@ export interface PaymentRun {
   /** V067 — moment the last item in the run transitioned to paid.
    *  Null until every item in the run is settled. */
   settlementDate?: string;
+  /** V075 — id of the tenant bank account this run debits. */
+  sourceBankAccountId?: string;
+  /** V075 — friendly label of the source bank account. Populated by the
+   *  paginated list query; may be undefined on single-row loads. */
+  sourceBankAccountLabel?: string;
   createdAt: string;
   updatedAt?: string;
   createdBy?: string;
@@ -38,6 +43,9 @@ export interface CreatePaymentRunPayload {
   description?: string;
   /** PROVIDER | MEMBER — omit to accept the server default (PROVIDER). */
   payeeType?: PayeeType;
+  /** V075 — the tenant bank account this run debits. Required; server
+   *  rejects if its currency does not match currencyCode. */
+  sourceBankAccountId: string;
 }
 
 export type PayeeType = 'PROVIDER' | 'MEMBER';
@@ -226,8 +234,8 @@ export interface CreateReconciliationPayload {
   notes?: string;
 }
 
-// ── MASCA bank accounts ─────────────────────────────────────────────────
-export interface MascaBankAccount {
+// ── Tenant bank accounts ────────────────────────────────────────────────
+export interface TenantBankAccount {
   id: string;
   bankName: string;
   accountNumber: string;
@@ -235,21 +243,25 @@ export interface MascaBankAccount {
   swiftCode?: string;
   accountName: string;
   currencyCode: string;
+  label: string;
+  notes?: string;
   nominated: boolean;
   active: boolean;
   createdAt: string;
   updatedAt?: string;
 }
 
-export interface UpsertMascaBankAccountPayload {
+export interface UpsertTenantBankAccountPayload {
+  label: string;
   bankName: string;
   accountNumber: string;
   branchCode?: string;
   swiftCode?: string;
   accountName: string;
   currencyCode: string;
-  nominated?: boolean;
-  active?: boolean;
+  notes?: string;
+  nominated: boolean;
+  active: boolean;
 }
 
 // ── CTC payments ────────────────────────────────────────────────────────
@@ -839,12 +851,12 @@ export class FinanceService {
   }
   deleteNote(id: string): Observable<void> { return this.api.delete<void>(`/notes/${id}`); }
 
-  // ── MASCA bank accounts ──
-  listMascaBankAccounts(): Observable<MascaBankAccount[]> { return this.api.get<MascaBankAccount[]>('/masca-bank-accounts'); }
-  getMascaBankAccount(id: string): Observable<MascaBankAccount> { return this.api.get<MascaBankAccount>(`/masca-bank-accounts/${id}`); }
-  createMascaBankAccount(body: UpsertMascaBankAccountPayload): Observable<MascaBankAccount> { return this.api.post<MascaBankAccount>('/masca-bank-accounts', body); }
-  updateMascaBankAccount(id: string, body: UpsertMascaBankAccountPayload): Observable<MascaBankAccount> { return this.api.put<MascaBankAccount>(`/masca-bank-accounts/${id}`, body); }
-  deleteMascaBankAccount(id: string): Observable<void> { return this.api.delete<void>(`/masca-bank-accounts/${id}`); }
+  // ── Tenant bank accounts ──
+  listTenantBankAccounts(): Observable<TenantBankAccount[]> { return this.api.get<TenantBankAccount[]>('/tenant-bank-accounts'); }
+  getTenantBankAccount(id: string): Observable<TenantBankAccount> { return this.api.get<TenantBankAccount>(`/tenant-bank-accounts/${id}`); }
+  createTenantBankAccount(body: UpsertTenantBankAccountPayload): Observable<TenantBankAccount> { return this.api.post<TenantBankAccount>('/tenant-bank-accounts', body); }
+  updateTenantBankAccount(id: string, body: UpsertTenantBankAccountPayload): Observable<TenantBankAccount> { return this.api.put<TenantBankAccount>(`/tenant-bank-accounts/${id}`, body); }
+  deleteTenantBankAccount(id: string): Observable<void> { return this.api.delete<void>(`/tenant-bank-accounts/${id}`); }
 
   // ── CTC payments ──
   listCtcPayments(committed?: boolean): Observable<CtcPayment[]> {

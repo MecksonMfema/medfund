@@ -79,7 +79,6 @@ public final class Permissions {
     public static final String FINANCE_VIEW_MEMBER_PAYABLES      = "finance:view_member_payables";
     public static final String FINANCE_CONFIGURE_AUTO_CTC        = "finance:configure_auto_ctc";
     public static final String FINANCE_MANAGE_RECEIPTS           = "finance:manage_receipts";
-    public static final String FINANCE_MANAGE_BANKS              = "finance:manage_banks";
     /**
      * @deprecated V074 splits notes management into
      *   {@link #FINANCE_NOTES_READ}, {@link #FINANCE_NOTES_WRITE}, and
@@ -123,6 +122,7 @@ public final class Permissions {
     public static final String ADMIN_VIEW_AUDIT                  = "admin:view_audit";
     public static final String ADMIN_MANAGE_SETTINGS             = "admin:manage_settings";
     public static final String ADMIN_MANAGE_RULES                = "admin:manage_rules";
+    public static final String ADMIN_BANK_ACCOUNTS_MANAGE        = "admin.bank_accounts:manage";
 
     // Platform-level (super-admin) permissions. Tenant admins should never
     // hold these; they gate the cross-tenant operational tooling.
@@ -150,7 +150,7 @@ public final class Permissions {
             FINANCE_APPROVE_ADVANCE_PAYMENT, FINANCE_REVERSE_ADVANCE_PAYMENT,
             FINANCE_MANAGE_CTC_PAYMENTS, FINANCE_REVERSE_CTC_PAYMENT, FINANCE_VIEW_MEMBER_PAYABLES,
             FINANCE_CONFIGURE_AUTO_CTC,
-            FINANCE_MANAGE_RECEIPTS, FINANCE_MANAGE_BANKS,
+            FINANCE_MANAGE_RECEIPTS,
             FINANCE_POST_ADJUSTMENTS,
             FINANCE_NOTES_READ, FINANCE_NOTES_WRITE, FINANCE_NOTES_APPROVE,
             FINANCE_VIEW_DEBTORS, FINANCE_VIEW_SUBLEDGER,
@@ -163,7 +163,7 @@ public final class Permissions {
             PROVIDERS_VIEW, PROVIDERS_CREATE, PROVIDERS_UPDATE, PROVIDERS_MANAGE_CONTRACTS,
 
             ADMIN_MANAGE_ROLES, ADMIN_MANAGE_USERS, ADMIN_VIEW_AUDIT,
-            ADMIN_MANAGE_SETTINGS, ADMIN_MANAGE_RULES,
+            ADMIN_MANAGE_SETTINGS, ADMIN_MANAGE_RULES, ADMIN_BANK_ACCOUNTS_MANAGE,
 
             PLATFORM_VIEW_JOBS, PLATFORM_MANAGE_JOBS
     );

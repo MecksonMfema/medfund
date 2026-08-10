@@ -3,7 +3,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { CurrencyService, Currency } from '../../../../core/services/currency.service';
-import { FinanceService, PayeeType } from '../../../../core/services/finance.service';
+import {
+  FinanceService,
+  PayeeType,
+  TenantBankAccount,
+} from '../../../../core/services/finance.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
@@ -23,6 +27,11 @@ export class PaymentRunGenerateComponent implements OnInit {
   busy = false;
   errorMessage: string | null = null;
 
+  // V075 — source bank account. Filtered by currencyCode; cleared when the
+  // currency changes so the user can't submit a mismatched pair.
+  bankAccounts: TenantBankAccount[] = [];
+  sourceBankAccountId = '';
+
   readonly payeeTypeOptions: SelectOption[] = [
     { value: 'PROVIDER', label: 'Providers' },
     { value: 'MEMBER',   label: 'Members' },
@@ -38,14 +47,47 @@ export class PaymentRunGenerateComponent implements OnInit {
     return this.currencies.map(c => ({ value: c.code, label: `${c.code} — ${c.name}` }));
   }
 
+  get bankAccountOptions(): SelectOption[] {
+    return this.bankAccounts
+      .filter(b => b.active && b.currencyCode === this.currencyCode)
+      .map(b => ({
+        value: b.id,
+        label: b.nominated ? `${b.label} (nominated)` : b.label,
+        description: `${b.bankName} · ${b.accountNumber}`,
+      }));
+  }
+
   ngOnInit(): void {
     this.currencyService.listMaster(true).subscribe({
       next: (rows) => {
         this.currencies = rows;
         if (!this.currencyCode && rows.length) this.currencyCode = rows[0].code;
+        this.onCurrencyChange();
       },
       error: () => { this.currencies = []; },
     });
+    this.finance.listTenantBankAccounts().subscribe({
+      next: (rows) => {
+        this.bankAccounts = rows;
+        this.autoSelectNominated();
+      },
+      error: () => { this.bankAccounts = []; },
+    });
+  }
+
+  onCurrencyChange(): void {
+    // Currency change invalidates the picked bank; default to the nominated
+    // account for the new currency if one exists.
+    this.sourceBankAccountId = '';
+    this.autoSelectNominated();
+  }
+
+  private autoSelectNominated(): void {
+    if (!this.currencyCode) return;
+    const nominated = this.bankAccounts.find(
+      b => b.active && b.currencyCode === this.currencyCode && b.nominated,
+    );
+    if (nominated) this.sourceBankAccountId = nominated.id;
   }
 
   submit(): void {
@@ -53,11 +95,16 @@ export class PaymentRunGenerateComponent implements OnInit {
       this.errorMessage = 'Pick a currency';
       return;
     }
+    if (!this.sourceBankAccountId) {
+      this.errorMessage = 'Pick a source bank account';
+      return;
+    }
     this.busy = true;
     this.finance.createRun({
       currencyCode: this.currencyCode,
       description: this.description.trim() || undefined,
       payeeType: this.payeeType,
+      sourceBankAccountId: this.sourceBankAccountId,
     }).subscribe({
       next: (run) => {
         this.busy = false;

@@ -3,6 +3,7 @@ package com.medfund.finance.service;
 import com.medfund.finance.client.FxConverter;
 import com.medfund.finance.dto.CreatePaymentRunRequest;
 import com.medfund.finance.entity.PaymentRun;
+import com.medfund.finance.entity.TenantBankAccount;
 import com.medfund.finance.repository.AdvancePaymentApplicationRepository;
 import com.medfund.finance.repository.AdvancePaymentBalanceRepository;
 import com.medfund.finance.repository.AdvancePaymentRepository;
@@ -10,6 +11,7 @@ import com.medfund.finance.repository.PaymentRepository;
 import com.medfund.finance.repository.PaymentRunItemRepository;
 import com.medfund.finance.repository.PaymentRunRepository;
 import com.medfund.finance.repository.ProviderBalanceRepository;
+import com.medfund.finance.repository.TenantBankAccountRepository;
 import com.medfund.shared.audit.AuditPublisher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -71,10 +73,25 @@ class PaymentRunServiceTest {
     private PaymentAdviceService paymentAdviceService;
 
     @Mock
+    private TenantBankAccountRepository bankAccountRepository;
+
+    @Mock
     private org.springframework.r2dbc.core.DatabaseClient databaseClient;
 
     @InjectMocks
     private PaymentRunService paymentRunService;
+
+    private TenantBankAccount stubBankAccount(String currencyCode) {
+        var bank = new TenantBankAccount();
+        bank.setId(UUID.randomUUID());
+        bank.setBankName("Test Bank");
+        bank.setAccountNumber("0100123456");
+        bank.setAccountName("Test Account");
+        bank.setCurrencyCode(currencyCode);
+        bank.setLabel(currencyCode + " Ops");
+        bank.setActive(true);
+        return bank;
+    }
 
     @Test
     void findAll_returnsRuns() {
@@ -92,9 +109,11 @@ class PaymentRunServiceTest {
 
     @Test
     void create_validRequest_createsRun() {
-        var request = new CreatePaymentRunRequest("USD", "Monthly provider payments", "PROVIDER");
+        var bank = stubBankAccount("USD");
+        var request = new CreatePaymentRunRequest("USD", "Monthly provider payments", "PROVIDER", bank.getId());
         String actorId = UUID.randomUUID().toString();
 
+        when(bankAccountRepository.findById(bank.getId())).thenReturn(Mono.just(bank));
         when(paymentRunRepository.existsByRunNumber(any())).thenReturn(Mono.just(false));
         when(paymentRunRepository.save(any())).thenAnswer(inv -> {
             PaymentRun saved = inv.getArgument(0);
@@ -116,11 +135,14 @@ class PaymentRunServiceTest {
                     assertThat(saved.getCurrencyCode()).isEqualTo("USD");
                     assertThat(saved.getDescription()).isEqualTo("Monthly provider payments");
                     assertThat(saved.getPaymentCount()).isEqualTo(0);
+                    assertThat(saved.getSourceBankAccountId()).isEqualTo(bank.getId());
+                    assertThat(saved.getSourceBankAccountLabel()).isEqualTo(bank.getLabel());
                     assertThat(saved.getCreatedBy()).isNotNull();
                     assertThat(saved.getCreatedAt()).isNotNull();
                 })
                 .verifyComplete();
 
+        verify(bankAccountRepository).findById(bank.getId());
         verify(paymentRunRepository).existsByRunNumber(any());
         verify(paymentRunRepository, times(2)).save(any());  // once for header, once for updated count
         verify(paymentRunGenerator).populate(any());
@@ -130,9 +152,11 @@ class PaymentRunServiceTest {
 
     @Test
     void create_populateReturnsMultipleItems_countRecordedOnRun() {
-        var request = new CreatePaymentRunRequest("USD", "With populated items", "PROVIDER");
+        var bank = stubBankAccount("USD");
+        var request = new CreatePaymentRunRequest("USD", "With populated items", "PROVIDER", bank.getId());
         String actorId = UUID.randomUUID().toString();
 
+        when(bankAccountRepository.findById(bank.getId())).thenReturn(Mono.just(bank));
         when(paymentRunRepository.existsByRunNumber(any())).thenReturn(Mono.just(false));
         when(paymentRunRepository.save(any())).thenAnswer(inv -> {
             PaymentRun saved = inv.getArgument(0);
@@ -155,6 +179,42 @@ class PaymentRunServiceTest {
     }
 
     @Test
+    void create_bankAccountNotFound_errors() {
+        var missingBankId = UUID.randomUUID();
+        var request = new CreatePaymentRunRequest("USD", "orphan bank", "PROVIDER", missingBankId);
+        when(bankAccountRepository.findById(missingBankId)).thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                paymentRunService.create(request, UUID.randomUUID().toString(), "actor@test.example")
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .expectErrorMatches(err ->
+                    err instanceof IllegalArgumentException
+                    && err.getMessage().contains("Bank account not found"))
+                .verify();
+
+        verify(paymentRunRepository, never()).save(any());
+    }
+
+    @Test
+    void create_currencyMismatch_errors() {
+        var zwlBank = stubBankAccount("ZWL");
+        var request = new CreatePaymentRunRequest("USD", "wrong currency", "PROVIDER", zwlBank.getId());
+        when(bankAccountRepository.findById(zwlBank.getId())).thenReturn(Mono.just(zwlBank));
+
+        StepVerifier.create(
+                paymentRunService.create(request, UUID.randomUUID().toString(), "actor@test.example")
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .expectErrorMatches(err ->
+                    err instanceof IllegalArgumentException
+                    && err.getMessage().contains("does not match run currency"))
+                .verify();
+
+        verify(paymentRunRepository, never()).save(any());
+    }
+
+    @Test
     void execute_draftRun_setsStatusCompleted() {
         var run = createTestRun();
         String actorId = UUID.randomUUID().toString();
@@ -165,13 +225,14 @@ class PaymentRunServiceTest {
             if (saved.getId() == null) saved.setId(UUID.randomUUID());
             return Mono.just(saved);
         });
-        // No items in this run — applyTenantRulesToItems and recomputeRunTotal both
-        // call findByPaymentRunId; an empty Flux exercises the wiring without
-        // dragging rule logic into this test.
+        // No items in this run — applyTenantRulesToItems, recomputeRunTotal,
+        // and the fat-payload item collection all call findByPaymentRunId;
+        // an empty Flux exercises the wiring without dragging rule logic in.
         when(paymentRunItemRepository.findByPaymentRunId(run.getId())).thenReturn(Flux.empty());
         when(paymentAdviceService.generateAdvicesForRun(run.getId())).thenReturn(Flux.empty());
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        when(eventPublisher.publishPaymentRunExecuted(any(), any(), anyInt())).thenReturn(Mono.empty());
+        when(eventPublisher.publishPaymentRunExecuted(any(), any(), any(), any(), any(), anyInt(), any()))
+            .thenReturn(Mono.empty());
 
         StepVerifier.create(
                 paymentRunService.execute(run.getId(), actorId, "actor@test.example")
@@ -193,7 +254,7 @@ class PaymentRunServiceTest {
         verify(paymentRunRepository, times(4)).save(any());
         verify(paymentAdviceService).generateAdvicesForRun(run.getId());
         verify(auditPublisher).publish(any());
-        verify(eventPublisher).publishPaymentRunExecuted(any(), any(), anyInt());
+        verify(eventPublisher).publishPaymentRunExecuted(any(), any(), any(), any(), any(), anyInt(), any());
     }
 
     @Test
@@ -315,7 +376,8 @@ class PaymentRunServiceTest {
         when(paymentRunItemRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(paymentAdviceService.generateAdvicesForRun(run.getId())).thenReturn(Flux.empty());
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        when(eventPublisher.publishPaymentRunExecuted(any(), any(), anyInt())).thenReturn(Mono.empty());
+        when(eventPublisher.publishPaymentRunExecuted(any(), any(), any(), any(), any(), anyInt(), any()))
+            .thenReturn(Mono.empty());
 
         // Advance balance lookup returns $500 USD outstanding.
         when(advanceBalanceRepository.findOutstandingByProvider(providerId)).thenReturn(

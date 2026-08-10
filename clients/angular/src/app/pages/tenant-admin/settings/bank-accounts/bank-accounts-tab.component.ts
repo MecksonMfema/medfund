@@ -4,22 +4,26 @@ import { FormsModule } from '@angular/forms';
 import { CurrencyService, Currency } from '../../../../core/services/currency.service';
 import {
   FinanceService,
-  MascaBankAccount,
-  UpsertMascaBankAccountPayload,
+  TenantBankAccount,
+  UpsertTenantBankAccountPayload,
 } from '../../../../core/services/finance.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 
+/**
+ * Tenant Bank Accounts — the tenant's own accounts used for outbound
+ * disbursements + inbound receipt matching. One nominated per currency.
+ */
 @Component({
-  selector: 'app-masca-banks',
+  selector: 'app-tenant-bank-accounts-tab',
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent, SelectComponent, SkeletonComponent],
-  templateUrl: './masca-banks.component.html',
-  styleUrl: './masca-banks.component.scss',
+  templateUrl: './bank-accounts-tab.component.html',
+  styleUrl: './bank-accounts-tab.component.scss',
 })
-export class MascaBanksComponent implements OnInit {
-  rows: MascaBankAccount[] = [];
+export class TenantBankAccountsTabComponent implements OnInit {
+  rows: TenantBankAccount[] = [];
   currencies: Currency[] = [];
   loading = false;
   busy = false;
@@ -28,7 +32,7 @@ export class MascaBanksComponent implements OnInit {
 
   showForm = false;
   editingId: string | null = null;
-  form: UpsertMascaBankAccountPayload = this.blankForm();
+  form: UpsertTenantBankAccountPayload = this.blankForm();
 
   constructor(private finance: FinanceService, private currencyService: CurrencyService) {}
 
@@ -46,7 +50,7 @@ export class MascaBanksComponent implements OnInit {
 
   refresh(): void {
     this.loading = true;
-    this.finance.listMascaBankAccounts().subscribe({
+    this.finance.listTenantBankAccounts().subscribe({
       next: (rows) => { this.rows = rows; this.loading = false; },
       error: (err) => {
         this.errorMessage = err?.error?.detail || 'Failed to load bank accounts';
@@ -62,15 +66,17 @@ export class MascaBanksComponent implements OnInit {
     this.showForm = true;
   }
 
-  edit(row: MascaBankAccount): void {
+  edit(row: TenantBankAccount): void {
     this.editingId = row.id;
     this.form = {
+      label: row.label,
       bankName: row.bankName,
       accountNumber: row.accountNumber,
       branchCode: row.branchCode || '',
       swiftCode: row.swiftCode || '',
       accountName: row.accountName,
       currencyCode: row.currencyCode,
+      notes: row.notes || '',
       nominated: row.nominated,
       active: row.active,
     };
@@ -83,14 +89,15 @@ export class MascaBanksComponent implements OnInit {
   }
 
   submit(): void {
-    if (!this.form.bankName.trim() || !this.form.accountNumber.trim() || !this.form.accountName.trim() || !this.form.currencyCode) {
-      this.errorMessage = 'Bank name, account number, account name and currency are required';
+    if (!this.form.label.trim() || !this.form.bankName.trim() || !this.form.accountNumber.trim()
+        || !this.form.accountName.trim() || !this.form.currencyCode) {
+      this.errorMessage = 'Label, bank name, account number, account name and currency are required';
       return;
     }
     this.busy = true;
     const obs = this.editingId
-      ? this.finance.updateMascaBankAccount(this.editingId, this.form)
-      : this.finance.createMascaBankAccount(this.form);
+      ? this.finance.updateTenantBankAccount(this.editingId, this.form)
+      : this.finance.createTenantBankAccount(this.form);
     obs.subscribe({
       next: () => {
         this.busy = false;
@@ -106,10 +113,10 @@ export class MascaBanksComponent implements OnInit {
     });
   }
 
-  remove(row: MascaBankAccount): void {
-    if (!confirm(`Delete ${row.bankName} (${row.accountNumber})?`)) return;
+  remove(row: TenantBankAccount): void {
+    if (!confirm(`Delete ${row.label} (${row.accountNumber})?`)) return;
     this.busy = true;
-    this.finance.deleteMascaBankAccount(row.id).subscribe({
+    this.finance.deleteTenantBankAccount(row.id).subscribe({
       next: () => {
         this.busy = false;
         this.successMessage = 'Bank account deleted.';
@@ -122,14 +129,16 @@ export class MascaBanksComponent implements OnInit {
     });
   }
 
-  private blankForm(): UpsertMascaBankAccountPayload {
+  private blankForm(): UpsertTenantBankAccountPayload {
     return {
+      label: '',
       bankName: '',
       accountNumber: '',
       branchCode: '',
       swiftCode: '',
       accountName: '',
       currencyCode: '',
+      notes: '',
       nominated: false,
       active: true,
     };

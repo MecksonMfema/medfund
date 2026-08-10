@@ -1,0 +1,144 @@
+<div class="bank-accounts-tab">
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+  }
+
+  <section class="section">
+    <header class="section-header">
+      <div>
+        <h3 class="section-title">Configured bank accounts</h3>
+        <p class="section-sub">Add or update the accounts this tenant uses for outbound payment runs and inbound receipt matching. One account per currency can be marked nominated — payment runs default to debiting the nominated account.</p>
+      </div>
+      <div class="section-actions">
+        <button type="button" class="btn btn-default" (click)="refresh()" [disabled]="loading">
+          <app-icon name="refresh-cw" [size]="16"></app-icon>
+          Refresh
+        </button>
+        <button type="button" class="btn btn-primary" (click)="newAccount()" [disabled]="showForm">
+          <app-icon name="plus" [size]="14"></app-icon>
+          Add account
+        </button>
+      </div>
+    </header>
+
+    @if (showForm) {
+      <form class="edit-form" (ngSubmit)="submit()" #f="ngForm">
+        <h4 class="section-subtitle">{{ editingId ? 'Edit' : 'New' }} bank account</h4>
+
+        <div class="grid">
+          <label class="field">
+            <span class="field-label">Label *</span>
+            <input type="text" [(ngModel)]="form.label" name="label" required maxlength="120" placeholder="e.g. Standard Chartered — Ops USD" />
+          </label>
+          <label class="field">
+            <span class="field-label">Currency *</span>
+            <app-select
+              [(ngModel)]="form.currencyCode"
+              name="currencyCode"
+              [options]="currencyOptions"
+              placeholder="Select currency…"
+              required
+            ></app-select>
+          </label>
+          <label class="field">
+            <span class="field-label">Bank name *</span>
+            <input type="text" [(ngModel)]="form.bankName" name="bankName" required maxlength="200" />
+          </label>
+          <label class="field">
+            <span class="field-label">Account name *</span>
+            <input type="text" [(ngModel)]="form.accountName" name="accountName" required maxlength="200" />
+          </label>
+          <label class="field">
+            <span class="field-label">Account number *</span>
+            <input type="text" [(ngModel)]="form.accountNumber" name="accountNumber" required maxlength="50" />
+          </label>
+          <label class="field">
+            <span class="field-label">Branch code</span>
+            <input type="text" [(ngModel)]="form.branchCode" name="branchCode" maxlength="50" />
+          </label>
+          <label class="field">
+            <span class="field-label">SWIFT code</span>
+            <input type="text" [(ngModel)]="form.swiftCode" name="swiftCode" maxlength="50" />
+          </label>
+        </div>
+
+        <label class="field">
+          <span class="field-label">Notes</span>
+          <textarea [(ngModel)]="form.notes" name="notes" rows="3" maxlength="4000"
+                    placeholder="Optional internal notes — e.g. which office manages this account."></textarea>
+        </label>
+
+        <div class="checkboxes">
+          <label class="check">
+            <input type="checkbox" [(ngModel)]="form.nominated" name="nominated" />
+            Nominated for this currency
+          </label>
+          <label class="check">
+            <input type="checkbox" [(ngModel)]="form.active" name="active" />
+            Active
+          </label>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-default" (click)="cancel()" [disabled]="busy">Cancel</button>
+          <button type="submit" class="btn btn-primary" [disabled]="busy || !f.valid">
+            {{ busy ? 'Saving…' : (editingId ? 'Update' : 'Create') }}
+          </button>
+        </div>
+      </form>
+    }
+
+    @if (loading) {
+      <app-skeleton></app-skeleton>
+    } @else if (rows.length === 0) {
+      <p class="empty-state">No bank accounts configured for this tenant yet.</p>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Label</th>
+            <th>Bank</th>
+            <th>Account name</th>
+            <th>Account #</th>
+            <th>Currency</th>
+            <th>Nominated</th>
+            <th>Active</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows; track row.id) {
+            <tr>
+              <td><strong>{{ row.label }}</strong></td>
+              <td>{{ row.bankName }}</td>
+              <td class="muted">{{ row.accountName }}</td>
+              <td><code>{{ row.accountNumber }}</code></td>
+              <td>{{ row.currencyCode }}</td>
+              <td>
+                @if (row.nominated) {
+                  <span class="badge ok">Nominated</span>
+                } @else {
+                  <span class="muted">—</span>
+                }
+              </td>
+              <td>
+                @if (row.active) {
+                  <span class="badge ok">Active</span>
+                } @else {
+                  <span class="badge muted">Inactive</span>
+                }
+              </td>
+              <td class="row-actions">
+                <button type="button" class="btn btn-sm" (click)="edit(row)" [disabled]="busy">Edit</button>
+                <button type="button" class="btn btn-sm btn-danger" (click)="remove(row)" [disabled]="busy">Delete</button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+</div>

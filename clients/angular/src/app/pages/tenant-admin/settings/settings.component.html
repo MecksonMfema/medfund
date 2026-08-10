@@ -512,6 +512,21 @@
   </div>
 }
 
+<!-- Bank Accounts -->
+@if (activeTab === 'bank-accounts') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <div class="section-header">
+        <div>
+          <h3 class="section-title">Bank Accounts</h3>
+          <p class="section-sub">The tenant's own bank accounts. Outbound payment runs are drawn from the nominated account for their currency.</p>
+        </div>
+      </div>
+      <app-tenant-bank-accounts-tab></app-tenant-bank-accounts-tab>
+    </div>
+  </div>
+}
+
 <!-- Roles & Permissions -->
 @if (activeTab === 'roles') {
   <div class="settings-section">

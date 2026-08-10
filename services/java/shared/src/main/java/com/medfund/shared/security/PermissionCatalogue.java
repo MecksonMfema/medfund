@@ -71,7 +71,6 @@ public final class PermissionCatalogue {
                     new Permission(Permissions.FINANCE_VIEW_MEMBER_PAYABLES,      "View member payables",              "View outstanding member-payable balances (approved claim amounts routing to members)."),
                     new Permission(Permissions.FINANCE_CONFIGURE_AUTO_CTC,        "Configure auto-CTC",                "Enable and configure automatic drafting of Claims-to-Contributions transfers from qualifying member-payee claim adjudications."),
                     new Permission(Permissions.FINANCE_MANAGE_RECEIPTS,           "Manage receipts",                   "Capture and post receipts for member or group payments."),
-                    new Permission(Permissions.FINANCE_MANAGE_BANKS,              "Manage bank accounts",              "Configure tenant bank accounts and routing."),
                     new Permission(Permissions.FINANCE_POST_ADJUSTMENTS,          "Post adjustments (legacy)",         "Deprecated V074: auto-expands to the three finance.notes:* permissions on login for compat. Do not assign to new roles."),
                     new Permission(Permissions.FINANCE_NOTES_READ,                "View notes",                        "Read access to debit / credit / memo notes."),
                     new Permission(Permissions.FINANCE_NOTES_WRITE,               "Create notes",                      "Create debit, credit, or memo notes (pending status)."),
@@ -103,7 +102,8 @@ public final class PermissionCatalogue {
                     new Permission(Permissions.ADMIN_MANAGE_USERS,                "Manage staff users",                "Invite, edit, and deactivate staff users."),
                     new Permission(Permissions.ADMIN_VIEW_AUDIT,                  "View audit log",                    "Read tenant audit events."),
                     new Permission(Permissions.ADMIN_MANAGE_SETTINGS,             "Manage tenant settings",            "Edit branding, insurance lines, email templates, etc."),
-                    new Permission(Permissions.ADMIN_MANAGE_RULES,                "Manage rules engine",               "Author and deploy tenant-specific business rules.")
+                    new Permission(Permissions.ADMIN_MANAGE_RULES,                "Manage rules engine",               "Author and deploy tenant-specific business rules."),
+                    new Permission(Permissions.ADMIN_BANK_ACCOUNTS_MANAGE,        "Manage bank accounts",              "Configure the tenant's own bank accounts used for outbound disbursements and inbound receipt matching.")
             )),
             new Domain("platform", "Platform administration", List.of(
                     new Permission(Permissions.PLATFORM_VIEW_JOBS,                "View scheduled jobs",               "View scheduled job configs and recent run history. Platform admins only."),

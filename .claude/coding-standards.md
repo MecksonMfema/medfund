@@ -587,7 +587,7 @@ The `AuditEvent.create(...)` factory takes both `entityId` (UUID for the join ba
 | BankReconciliation  | `getReferenceNumber()`                  |
 | AdvancePayment      | `getReference()` (user-supplied)        |
 | CtcPayment          | composed: `"CTC <amount> <currency>"` (no number field on entity yet) |
-| MascaBankAccount    | `getAccountName()`                      |
+| TenantBankAccount   | `getLabel()`                            |
 | DebitNote/CreditNote| `getReference()`                        |
 | Transaction         | `getTransactionNumber()`                |
 

@@ -86,10 +86,10 @@ These handle the **core business domain** where complex, tenant-specific rules d
 - Payment processing, payment runs, payment-run items
 - Provider balance management, advance payments
 - Notes ledger (unified debit/credit/memo notes with `direction ∈ {DEBIT, CREDIT}`; retired the V016 split `Adjustment`/`DebitNote`/`CreditNote` triad in V074)
-- Bank reconciliation, MASCA bank account management
+- Bank reconciliation, tenant bank-account management (per-tenant own accounts used for outbound disbursements)
 - CTC (Claims-to-Contributions) payments, payment advice records
 - Financial reporting and statements
-- Key entities: `Payment`, `PaymentRun`, `PaymentRunItem`, `ProviderBalance`, `Note`, `AdvancePayment`, `BankReconciliation`, `CtcPayment`, `PaymentAdviceRecord`, `MascaBankAccount`
+- Key entities: `Payment`, `PaymentRun`, `PaymentRunItem`, `ProviderBalance`, `Note`, `AdvancePayment`, `BankReconciliation`, `CtcPayment`, `PaymentAdviceRecord`, `TenantBankAccount`
 - **Per-tenant rules**: payment terms, withholding tax rates, payment method restrictions
 
 #### 4. Tenancy Service

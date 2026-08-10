@@ -36,8 +36,21 @@
         name="currencyCode"
         [options]="currencyOptions"
         placeholder="Select currency…"
+        (selectionChange)="onCurrencyChange()"
         required
       ></app-select>
+    </label>
+
+    <label class="field">
+      <span class="field-label">Source bank account *</span>
+      <app-select
+        [(ngModel)]="sourceBankAccountId"
+        name="sourceBankAccountId"
+        [options]="bankAccountOptions"
+        placeholder="Select a bank account…"
+        required
+      ></app-select>
+      <span class="field-hint">Only accounts in the selected currency appear here. The nominated account is picked by default.</span>
     </label>
 
     <label class="field">

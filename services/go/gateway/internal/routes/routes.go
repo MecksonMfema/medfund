@@ -112,15 +112,14 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// shim can respond in-band.
 	app.All("/api/v1/creditors", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/creditors/*", proxy.Handler(cfg.FinanceServiceURL))
-	app.All("/api/v1/adjustments/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Unified notes ledger — V074 replaced Adjustment / DebitNote / CreditNote
+	// with a single Note entity carrying `direction ∈ {DEBIT, CREDIT}`.
+	app.All("/api/v1/notes", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/notes/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reconciliations/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/payment-advices/*", proxy.Handler(cfg.FinanceServiceURL))
-	app.All("/api/v1/masca-bank-accounts", proxy.Handler(cfg.FinanceServiceURL))
-	app.All("/api/v1/masca-bank-accounts/*", proxy.Handler(cfg.FinanceServiceURL))
-	app.All("/api/v1/debit-notes", proxy.Handler(cfg.FinanceServiceURL))
-	app.All("/api/v1/debit-notes/*", proxy.Handler(cfg.FinanceServiceURL))
-	app.All("/api/v1/credit-notes", proxy.Handler(cfg.FinanceServiceURL))
-	app.All("/api/v1/credit-notes/*", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/tenant-bank-accounts", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/tenant-bank-accounts/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/advance-payments", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/advance-payments/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/ctc-payments", proxy.Handler(cfg.FinanceServiceURL))

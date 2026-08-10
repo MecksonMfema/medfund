@@ -61,9 +61,10 @@ class PaymentRunControllerTest {
         String body = """
                 {
                     "description": "January 2026 provider payments",
-                    "currencyCode": "USD"
+                    "currencyCode": "USD",
+                    "sourceBankAccountId": "%s"
                 }
-                """;
+                """.formatted(UUID.randomUUID());
 
         webTestClient.mutateWith(mockJwt())
                 .post().uri("/api/v1/payment-runs")

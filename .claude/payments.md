@@ -590,6 +590,25 @@ CREATE TABLE payment_config (
 
 **Important**: `provider_credentials` is encrypted at the application level (AES-256-GCM) using a per-tenant key from AWS KMS. The Payment Gateway Service decrypts credentials at runtime when calling the provider API.
 
+### Tenant bank accounts (V075)
+
+`payment_config` above describes the tenant's *provider* configuration (Paynow, Stripe, etc.). The tenant's own bank accounts — used as the debit source for outbound payment runs and the reconciliation target for inbound receipts — are a separate concern, stored per-tenant in `tenant_bank_accounts` and managed via the Tenant Admin `/admin/settings#bank-accounts` tab (permission `admin.bank_accounts:manage`). One nominated account per currency; a payment-run's `source_bank_account_id` is required and its currency must match the run's `currency_code`.
+
+The current stubbed settlement seam threads the tenant bank account and item list through the Kafka round-trip:
+
+```
+finance-service  ─medfund.payments.run.executed──▶  Go payment-gateway
+                          (fat payload: tenantId + sourceBankAccountId + items[])
+                                                          │
+                                                          │ per-item: MockProvider.Initiate(direction="outbound", bankAccountId)
+                                                          ▼
+finance-service  ◀─medfund.payments.gateway.settled──  Go payment-gateway
+   PaymentGatewaySettledConsumer flips Payment.status → paid,
+   stamps paid_at, re-publishes medfund.payments.committed
+```
+
+`account_number` and `swift_code` remain cleartext today; encryption is deferred until KMS wiring lands in this repo. Real payment-provider integration replaces the `MockProvider` stub but keeps the same seam.
+
 ## Portal Integration
 
 ### Angular — Finance Portal

@@ -15,6 +15,7 @@ import reactor.kafka.sender.KafkaSender;
 import reactor.kafka.sender.SenderRecord;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -74,13 +75,30 @@ public class FinanceEventPublisher {
         ));
     }
 
-    public Mono<Void> publishPaymentRunExecuted(String runId, String runNumber, int count) {
-        return publishEvent("medfund.payments.run.executed", runId, Map.of(
-            "event", "PAYMENT_RUN_EXECUTED",
-            "runId", runId,
-            "runNumber", runNumber,
-            "paymentCount", String.valueOf(count)
-        ));
+    /**
+     * V075 — fat payload consumed by the Go payment-gateway. Extends the
+     * historical shape (event, runId, runNumber, paymentCount) with tenant
+     * routing, source bank account, run currency, and inline items — new
+     * fields are additive so any existing readers of the old shape still
+     * parse.
+     *
+     * <p>Payload size: typical runs are tens of items; the plan caps this
+     * pattern at ~10k items before we need per-item events. Well under
+     * Kafka's default 1 MB message limit.
+     */
+    public Mono<Void> publishPaymentRunExecuted(
+            String runId, String runNumber, String tenantId, String sourceBankAccountId,
+            String currencyCode, int count, List<PaymentRunItemPayload> items) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("event", "PAYMENT_RUN_EXECUTED");
+        payload.put("runId", runId);
+        payload.put("runNumber", runNumber);
+        payload.put("tenantId", tenantId != null ? tenantId : "");
+        payload.put("sourceBankAccountId", sourceBankAccountId != null ? sourceBankAccountId : "");
+        payload.put("currencyCode", currencyCode != null ? currencyCode : "");
+        payload.put("paymentCount", String.valueOf(count));
+        payload.put("items", items != null ? items : List.of());
+        return publishEventObject("medfund.payments.run.executed", runId, payload);
     }
 
     public Mono<Void> publishPaymentRunCancelled(String runId, String runNumber, String reason) {
@@ -250,6 +268,26 @@ public class FinanceEventPublisher {
     }
 
     private Mono<Void> publishEvent(String topic, String key, Map<String, String> payload) {
+        try {
+            String json = objectMapper.writeValueAsString(payload);
+            var record = new ProducerRecord<>(topic, key, json);
+            var senderRecord = SenderRecord.create(record, key);
+            return kafkaSender.send(Mono.just(senderRecord))
+                .doOnError(e -> log.error("Failed to publish event to {}: {}", topic, e.getMessage()))
+                .then();
+        } catch (Exception e) {
+            log.error("Failed to serialize event for {}: {}", topic, e.getMessage());
+            return Mono.empty();
+        }
+    }
+
+    /**
+     * Same as {@link #publishEvent(String, String, Map)} but object-typed —
+     * needed for the V075 fat payload which carries a {@code List<record>}
+     * value alongside string fields. Jackson serialises the record list
+     * transparently.
+     */
+    private Mono<Void> publishEventObject(String topic, String key, Map<String, Object> payload) {
         try {
             String json = objectMapper.writeValueAsString(payload);
             var record = new ProducerRecord<>(topic, key, json);

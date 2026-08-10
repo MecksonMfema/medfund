@@ -73,7 +73,6 @@ domains:
       - { key: "finance:view_member_payables",      label: "View member payables",              description: "View outstanding member-payable balances (approved claim amounts routing to members)." }
       - { key: "finance:configure_auto_ctc",        label: "Configure auto-CTC",                description: "Enable and configure automatic drafting of Claims-to-Contributions transfers from qualifying member-payee claim adjudications." }
       - { key: "finance:manage_receipts",           label: "Manage receipts",                   description: "Capture and post receipts for member or group payments." }
-      - { key: "finance:manage_banks",              label: "Manage bank accounts",              description: "Configure tenant bank accounts and routing." }
       - { key: "finance:post_adjustments",          label: "Post adjustments (legacy)",         description: "Deprecated V074: auto-expands to the three finance.notes:* permissions on login for compat. Do not assign to new roles." }
       - { key: "finance.notes:read",                label: "View notes",                        description: "Read access to debit / credit / memo notes." }
       - { key: "finance.notes:write",               label: "Create notes",                      description: "Create debit, credit, or memo notes (pending status)." }
@@ -113,6 +112,7 @@ domains:
       - { key: "admin:view_audit",                  label: "View audit log",                    description: "Read tenant audit events." }
       - { key: "admin:manage_settings",             label: "Manage tenant settings",            description: "Edit branding, insurance lines, email templates, etc." }
       - { key: "admin:manage_rules",                label: "Manage rules engine",               description: "Author and deploy tenant-specific business rules." }
+      - { key: "admin.bank_accounts:manage",        label: "Manage bank accounts",              description: "Configure the tenant's own bank accounts used for outbound disbursements and inbound receipt matching." }
 
   - id: platform
     label: Platform administration

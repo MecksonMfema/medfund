@@ -23,6 +23,11 @@ public record PaymentRunResponse(
         /** V067 — moment the last item in the run transitioned to paid.
          *  Null until every item is settled. */
         Instant settlementDate,
+        /** V075 — id of the tenant bank account this run debits. */
+        UUID sourceBankAccountId,
+        /** V075 — friendly label for the source bank account.
+         *  Populated by the paginated list query; may be null on single-row loads. */
+        String sourceBankAccountLabel,
         Instant createdAt,
         Instant updatedAt,
         UUID createdBy
@@ -41,6 +46,8 @@ public record PaymentRunResponse(
                 run.getCarriedInAmount(),
                 run.getCarriedOutAmount(),
                 run.getSettlementDate(),
+                run.getSourceBankAccountId(),
+                run.getSourceBankAccountLabel(),
                 run.getCreatedAt(),
                 run.getUpdatedAt(),
                 run.getCreatedBy()

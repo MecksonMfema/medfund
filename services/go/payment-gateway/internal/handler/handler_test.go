@@ -73,6 +73,30 @@ func TestInitiatePayment_ResponseContainsID(t *testing.T) {
 	}
 }
 
+func TestInitiatePayment_OutboundDirection_RecordedOnLedger(t *testing.T) {
+	app, ledger := setupApp()
+	body := strings.NewReader(`{"amount":100,"currency":"USD","method":"bank_transfer","reference":"REF-OUT","direction":"outbound","bankAccountId":"bank-1"}`)
+	req := httptest.NewRequest("POST", "/api/v1/pay/initiate", body)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Tenant-ID", "tenant-a")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 201 {
+		t.Fatalf("expected 201, got %d", resp.StatusCode)
+	}
+
+	txns := ledger.ListByTenant("tenant-a")
+	if len(txns) != 1 {
+		t.Fatalf("expected 1 recorded transaction, got %d", len(txns))
+	}
+	if txns[0].Direction != "outbound" {
+		t.Fatalf("expected direction=outbound, got %q", txns[0].Direction)
+	}
+}
+
 func TestInitiatePayment_Idempotency_ReturnsSameTransaction(t *testing.T) {
 	app, _ := setupApp()
 

@@ -57,15 +57,16 @@ export class PaymentRunsListComponent implements OnInit {
   ];
 
   readonly columns: TableColumn[] = [
-    { key: 'runNumber',    label: 'Run #',      sortable: true },
-    { key: 'status',       label: 'Status',     sortable: true, type: 'status' },
-    { key: 'payeeType',    label: 'Payee type', sortable: true, type: 'label' },
-    { key: 'totalAmount',  label: 'Total',      sortable: true, type: 'currency' },
-    { key: 'currencyCode', label: 'Currency',   sortable: true },
-    { key: 'paymentCount', label: 'Payments',   sortable: true },
-    { key: 'description',  label: 'Description' },
-    { key: 'executedAt',   label: 'Executed',   sortable: true, type: 'date' },
-    { key: 'createdAt',    label: 'Created',    sortable: true, type: 'date' },
+    { key: 'runNumber',              label: 'Run #',        sortable: true },
+    { key: 'status',                 label: 'Status',       sortable: true, type: 'status' },
+    { key: 'payeeType',              label: 'Payee type',   sortable: true, type: 'label' },
+    { key: 'totalAmount',            label: 'Total',        sortable: true, type: 'currency' },
+    { key: 'currencyCode',           label: 'Currency',     sortable: true },
+    { key: 'sourceBankAccountLabel', label: 'From account' },
+    { key: 'paymentCount',           label: 'Payments',     sortable: true },
+    { key: 'description',            label: 'Description' },
+    { key: 'executedAt',             label: 'Executed',     sortable: true, type: 'date' },
+    { key: 'createdAt',              label: 'Created',      sortable: true, type: 'date' },
   ];
 
   readonly actions: TableAction[] = [
