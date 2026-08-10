@@ -34,7 +34,7 @@ public class MedfundEventListenerProviderFactory implements EventListenerProvide
 
     @Override
     public EventListenerProvider create(KeycloakSession session) {
-        return new MedfundEventListenerProvider(publisher);
+        return new MedfundEventListenerProvider(session, publisher);
     }
 
     @Override
