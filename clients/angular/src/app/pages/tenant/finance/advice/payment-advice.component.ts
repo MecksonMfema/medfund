@@ -1,9 +1,10 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import {
   FinanceService,
-  PaymentAdvice,
+  PaymentAdviceFilter,
   PaymentAdviceRecord,
 } from '../../../../core/services/finance.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
@@ -13,16 +14,17 @@ import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pip
 @Component({
   selector: 'app-payment-advice',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, CurrencyFormatPipe],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SkeletonComponent, CurrencyFormatPipe],
   templateUrl: './payment-advice.component.html',
   styleUrl: './payment-advice.component.scss',
 })
 export class PaymentAdviceComponent implements OnInit {
-  paymentRunId = '';
-  advice: PaymentAdvice | null = null;
   history: PaymentAdviceRecord[] = [];
   loading = false;
   errorMessage: string | null = null;
+
+  /** Month picker value in `YYYY-MM` form (native `<input type="month">`). */
+  monthFilter = '';
 
   constructor(private finance: FinanceService) {}
 
@@ -31,44 +33,54 @@ export class PaymentAdviceComponent implements OnInit {
   }
 
   refreshHistory(): void {
-    this.finance.listAdviceRecords().subscribe({
-      next: (rows) => { this.history = rows.slice(0, 20); },
-      error: () => { this.history = []; },
-    });
-  }
-
-  generate(): void {
-    if (!this.paymentRunId.trim()) {
-      this.errorMessage = 'Enter a payment run ID';
-      return;
-    }
     this.loading = true;
-    this.errorMessage = null;
-    this.finance.generateAdvice(this.paymentRunId.trim()).subscribe({
-      next: (advice) => {
-        this.advice = advice;
+    const filter: PaymentAdviceFilter = {};
+    if (this.monthFilter) {
+      const bounds = monthToPeriodBounds(this.monthFilter);
+      if (bounds) {
+        filter.periodStart = bounds.start;
+        filter.periodEnd = bounds.end;
+      }
+    }
+    this.finance.listAdviceRecords(filter).subscribe({
+      next: (rows) => {
+        this.history = rows.slice(0, 200);
         this.loading = false;
-        this.refreshHistory();
       },
-      error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to generate advice';
+      error: () => {
+        this.history = [];
         this.loading = false;
+        this.errorMessage = 'Failed to load payment advices';
       },
     });
   }
 
-  loadFromHistory(record: PaymentAdviceRecord): void {
-    if (!record.paymentRunId) return;
-    this.paymentRunId = record.paymentRunId;
-    this.generate();
+  onMonthChange(): void {
+    this.refreshHistory();
   }
 
-  print(): void {
-    window.print();
+  clearMonth(): void {
+    this.monthFilter = '';
+    this.refreshHistory();
   }
+}
 
-  totalApproved(): number {
-    if (!this.advice) return 0;
-    return this.advice.lines.reduce((s, l) => s + Number(l.approvedAmount || 0), 0);
-  }
+/**
+ * Translate the browser's `<input type="month">` value (`YYYY-MM`) into
+ * the inclusive ISO-8601 bounds the API expects.
+ * Uses UTC — matches how period_end_at is stored server-side (TIMESTAMPTZ
+ * from finance-service's clock, which is UTC). Local-time framing would
+ * make cross-timezone operators disagree on which month a boundary
+ * advice belongs to.
+ */
+function monthToPeriodBounds(month: string): { start: string; end: string } | null {
+  const m = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const monthIdx = Number(m[2]) - 1;
+  const start = new Date(Date.UTC(year, monthIdx, 1, 0, 0, 0, 0));
+  // Last millisecond of the month — Date.UTC with day 0 of next month
+  // returns the last day of the current month.
+  const end = new Date(Date.UTC(year, monthIdx + 1, 0, 23, 59, 59, 999));
+  return { start: start.toISOString(), end: end.toISOString() };
 }

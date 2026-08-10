@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Payment advice {{.AdviceNumber}}</title>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #222; line-height: 1.45; }
+      .wrap { max-width: 640px; margin: 0 auto; padding: 24px; }
+      h1 { font-size: 20px; margin: 0 0 4px; }
+      .sub { color: #666; margin: 0 0 20px; }
+      table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+      td { padding: 6px 8px; }
+      td.label { color: #666; }
+      td.amount { text-align: right; font-variant-numeric: tabular-nums; }
+      tr.credit td.amount { color: #b04040; }
+      tr.total td { border-top: 2px solid #ddd; padding-top: 10px; font-weight: 600; font-size: 15px; }
+      .foot { color: #888; font-size: 13px; margin-top: 24px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Payment advice {{.AdviceNumber}}</h1>
+      <p class="sub">
+        Hello {{.DisplayName}} — a payment run has been generated for you.
+        The ledger below summarises what changed since the prior run.
+      </p>
+
+      <table>
+        <tr><td class="label">Carried forward</td>       <td class="amount">{{.CurrencyCode}} {{.CarriedIn}}</td></tr>
+        <tr><td class="label">Claims paid</td>            <td class="amount">{{.CurrencyCode}} {{.ClaimsPaid}}</td></tr>
+        {{if .HasCtc}}<tr class="credit"><td class="label">CTCs applied</td>            <td class="amount">− {{.CurrencyCode}} {{.CtcApplied}}</td></tr>{{end}}
+        {{if .HasAdvance}}<tr class="credit"><td class="label">Advance payments applied</td> <td class="amount">− {{.CurrencyCode}} {{.AdvanceApplied}}</td></tr>{{end}}
+        {{if .HasTax}}<tr class="credit"><td class="label">Tax withheld</td>            <td class="amount">− {{.CurrencyCode}} {{.TaxWithheld}}</td></tr>{{end}}
+        {{if .HasShortfall}}<tr class="credit"><td class="label">Shortfalls</td>               <td class="amount">− {{.CurrencyCode}} {{.Shortfall}}</td></tr>{{end}}
+        <tr class="total"><td class="label">Net due</td>  <td class="amount">{{.CurrencyCode}} {{.NetDue}}</td></tr>
+      </table>
+
+      <p class="foot">
+        Full line-item detail (each claim, advance drawdown, and adjustment)
+        is available on the payment-advice page in your portal. This message
+        was sent automatically when payment run {{.PaymentRunID}} was executed.
+      </p>
+    </div>
+  </body>
+</html>

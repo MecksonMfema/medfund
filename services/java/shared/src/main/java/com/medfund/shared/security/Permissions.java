@@ -82,6 +82,7 @@ public final class Permissions {
     public static final String FINANCE_VIEW_SUBLEDGER            = "finance:view_subledger";
     public static final String FINANCE_MANAGE_BILLING_RECONCILE  = "finance:manage_billing_reconcile";
     public static final String FINANCE_VIEW_PAYMENT_ADVICE       = "finance:view_payment_advice";
+    public static final String FINANCE_GENERATE_PAYMENT_ADVICE   = "finance:generate_payment_advice";
     public static final String FINANCE_MANAGE_COPAYMENTS         = "finance:manage_copayments";
     public static final String FINANCE_VIEW_WITHHELD_TAX         = "finance:view_withheld_tax";
 
@@ -134,7 +135,7 @@ public final class Permissions {
             FINANCE_CONFIGURE_AUTO_CTC,
             FINANCE_MANAGE_RECEIPTS, FINANCE_MANAGE_BANKS,
             FINANCE_POST_ADJUSTMENTS, FINANCE_VIEW_DEBTORS, FINANCE_VIEW_SUBLEDGER,
-            FINANCE_MANAGE_BILLING_RECONCILE, FINANCE_VIEW_PAYMENT_ADVICE,
+            FINANCE_MANAGE_BILLING_RECONCILE, FINANCE_VIEW_PAYMENT_ADVICE, FINANCE_GENERATE_PAYMENT_ADVICE,
             FINANCE_MANAGE_COPAYMENTS, FINANCE_VIEW_WITHHELD_TAX,
 
             MEMBERS_VIEW, MEMBERS_CREATE, MEMBERS_UPDATE, MEMBERS_DEACTIVATE,

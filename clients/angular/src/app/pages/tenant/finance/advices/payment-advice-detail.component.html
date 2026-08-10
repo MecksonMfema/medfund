@@ -1,0 +1,140 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Payment advice</h1>
+      @if (advice) {
+        <p class="page-sub">
+          Ledger for {{ payeeName() || 'payee' }} covering
+          the window from {{ (advice.periodStartAt | date:'medium') || 'earliest activity' }}
+          to {{ advice.periodEndAt | date:'medium' }}.
+        </p>
+      }
+    </div>
+    <div class="actions">
+      <button class="btn" (click)="print()" [disabled]="!advice">
+        <app-icon name="check" [size]="14"></app-icon>
+        Print
+      </button>
+      <button class="btn btn-primary" (click)="downloadPdf()" [disabled]="!advice">
+        <app-icon name="download" [size]="14"></app-icon>
+        Download PDF
+      </button>
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (advice) {
+    <article class="advice card">
+      <header class="advice-header">
+        <h2>Advice #{{ advice.adviceNumber }}</h2>
+        <dl class="meta">
+          <dt>Payee</dt>
+          <dd>
+            {{ payeeName() || '—' }}
+            <span class="pill pill-{{ advice.payeeType | lowercase }}">{{ advice.payeeType }}</span>
+          </dd>
+          <dt>Run</dt>
+          <dd>
+            @if (advice.paymentRunId) {
+              <a [routerLink]="['/tenant/finance/runs', advice.paymentRunId]">
+                {{ advice.runNumber || advice.paymentRunId.substring(0, 8) }}
+              </a>
+            } @else {
+              —
+            }
+          </dd>
+          <dt>Currency</dt>
+          <dd>{{ advice.currencyCode }}</dd>
+          <dt>Generated</dt>
+          <dd>{{ advice.generatedAt | date:'medium' }}</dd>
+        </dl>
+      </header>
+
+      <section class="summary card-nested">
+        <div class="summary-row">
+          <span class="label">Carried forward</span>
+          <span class="right">{{ advice.carriedInAmount | currencyFormat:advice.currencyCode }}</span>
+        </div>
+        <div class="summary-row">
+          <span class="label">Claims paid</span>
+          <span class="right">{{ advice.claimsPaidAmount | currencyFormat:advice.currencyCode }}</span>
+        </div>
+        <div class="summary-row credit">
+          <span class="label">CTCs applied</span>
+          <span class="right">− {{ advice.ctcAppliedAmount | currencyFormat:advice.currencyCode }}</span>
+        </div>
+        <div class="summary-row credit">
+          <span class="label">Advance payments applied</span>
+          <span class="right">− {{ advice.advanceAppliedAmount | currencyFormat:advice.currencyCode }}</span>
+        </div>
+        <div class="summary-row credit">
+          <span class="label">Tax withheld</span>
+          <span class="right">− {{ advice.taxWithheldAmount | currencyFormat:advice.currencyCode }}</span>
+        </div>
+        <div class="summary-row credit">
+          <span class="label">Shortfalls</span>
+          <span class="right">− {{ advice.shortfallAmount | currencyFormat:advice.currencyCode }}</span>
+        </div>
+        <div class="summary-row total">
+          <span class="label">Net due</span>
+          <span class="right total-amount">
+            {{ advice.netDueAmount | currencyFormat:advice.currencyCode }}
+          </span>
+        </div>
+      </section>
+
+      @for (type of SECTION_ORDER; track type) {
+        @if (hasLinesOfType(type)) {
+          <section class="ledger-section">
+            <h3 class="section-title">{{ SECTION_LABEL[type] }}</h3>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Description</th>
+                  <th>Reference</th>
+                  <th>Posted</th>
+                  <th class="right">Debit</th>
+                  <th class="right">Credit</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (line of linesFor(type); track line.sequence) {
+                  <tr>
+                    <td>{{ line.description || SECTION_LABEL[type] }}</td>
+                    <td class="muted">
+                      @if (line.referenceType && line.referenceId) {
+                        <code>{{ line.referenceType }}:{{ line.referenceId.substring(0, 8) }}</code>
+                      } @else {
+                        —
+                      }
+                    </td>
+                    <td class="muted">{{ line.postedAt | date:'short' }}</td>
+                    <td class="right">
+                      @if (+line.debitAmount > 0) {
+                        {{ line.debitAmount | currencyFormat:line.currencyCode }}
+                      } @else {
+                        —
+                      }
+                    </td>
+                    <td class="right">
+                      @if (+line.creditAmount > 0) {
+                        {{ line.creditAmount | currencyFormat:line.currencyCode }}
+                      } @else {
+                        —
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </section>
+        }
+      }
+    </article>
+  }
+</div>

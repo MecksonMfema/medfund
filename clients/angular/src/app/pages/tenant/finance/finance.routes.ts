@@ -320,6 +320,12 @@ export const FINANCE_ROUTES: Routes = [
     data: { title: 'Payment Advice', sidebar: 'operational' },
   },
   cs('advice/member',                'Member Payment Advice',        '/member-payment-advice',  'Notifications to members.',                 ['finance:view_payment_advice']),
+  {
+    path: 'advices/:id',
+    canActivate: [permissionGuard(['finance:view_payment_advice'])],
+    loadComponent: () => import('./advices/payment-advice-detail.component').then(m => m.PaymentAdviceDetailComponent),
+    data: { title: 'Payment Advice Detail', sidebar: 'operational' },
+  },
 
   // ── Copayments ────────────────────────────────────────────────────────────
   // Copayments are contributions-service transactions with type=COPAYMENT.

@@ -17,11 +17,15 @@ import java.time.temporal.ChronoUnit;
  * Translates a {@link PaymentRunItem} candidate into a {@link PaymentRunFact}
  * (and a companion {@link TimeFact}) for rules-engine evaluation.
  *
- * <p>Three lookups beyond the item itself: provider verification status,
- * the previous payment-run date for that provider (so {@code daysSinceLastRun}
- * is meaningful), and the count of outstanding claims for the provider in the
- * current period. Each is defensive — empty results yield default values that
- * the rules can read as "not applicable" rather than failing the build.
+ * <p>Enrichment dispatches on {@code payee_type}:
+ * <ul>
+ *   <li><b>PROVIDER</b> — verification status from {@code providers}, previous
+ *       provider payout, outstanding provider claims.</li>
+ *   <li><b>MEMBER</b> — verification status from {@code members}, previous
+ *       member payout, outstanding member-payee claims.</li>
+ * </ul>
+ * Empty results yield default values so rules see "not applicable" rather
+ * than a failed build.
  */
 @Slf4j
 @Component
@@ -37,14 +41,24 @@ public class PaymentRunFactBuilder {
         PaymentRunFact base = toFact(item, advancePaid);
         TimeFact time = TimeFact.of(LocalDate.now());
 
+        if ("MEMBER".equalsIgnoreCase(item.getPayeeType())) {
+            if (item.getMemberId() == null) {
+                return Mono.just(new Facts(base, time));
+            }
+            String memberId = item.getMemberId().toString();
+            return enrichVerificationStatusMember(base, memberId)
+                    .flatMap(f -> enrichPreviousRunDateMember(f, memberId))
+                    .flatMap(f -> enrichOutstandingClaimsMember(f, memberId))
+                    .map(f -> new Facts(f, time));
+        }
+
         if (item.getProviderId() == null) {
             return Mono.just(new Facts(base, time));
         }
-
         String providerId = item.getProviderId().toString();
-        return enrichVerificationStatus(base, providerId)
-                .flatMap(f -> enrichPreviousRunDate(f, providerId))
-                .flatMap(f -> enrichOutstandingClaims(f, providerId))
+        return enrichVerificationStatusProvider(base, providerId)
+                .flatMap(f -> enrichPreviousRunDateProvider(f, providerId))
+                .flatMap(f -> enrichOutstandingClaimsProvider(f, providerId))
                 .map(f -> new Facts(f, time));
     }
 
@@ -52,6 +66,8 @@ public class PaymentRunFactBuilder {
         PaymentRunFact f = new PaymentRunFact();
         f.setPaymentRunId(item.getPaymentRunId() != null ? item.getPaymentRunId().toString() : null);
         f.setProviderId(item.getProviderId() != null ? item.getProviderId().toString() : null);
+        f.setMemberId(item.getMemberId() != null ? item.getMemberId().toString() : null);
+        f.setPayeeType(item.getPayeeType() != null ? item.getPayeeType() : "PROVIDER");
         f.setRunDate(LocalDate.now());
         f.setAmountDue(item.getAmount());
         f.setCurrencyCode(item.getCurrencyCode());
@@ -59,7 +75,9 @@ public class PaymentRunFactBuilder {
         return f;
     }
 
-    private Mono<PaymentRunFact> enrichVerificationStatus(PaymentRunFact f, String providerId) {
+    // ---- Provider branch --------------------------------------------------
+
+    private Mono<PaymentRunFact> enrichVerificationStatusProvider(PaymentRunFact f, String providerId) {
         return db.sql("SELECT status FROM public.providers WHERE id = :id")
                 .bind("id", java.util.UUID.fromString(providerId))
                 .fetch().one()
@@ -75,7 +93,7 @@ public class PaymentRunFactBuilder {
                 });
     }
 
-    private Mono<PaymentRunFact> enrichPreviousRunDate(PaymentRunFact f, String providerId) {
+    private Mono<PaymentRunFact> enrichPreviousRunDateProvider(PaymentRunFact f, String providerId) {
         return db.sql("""
                 SELECT MAX(pr.executed_at) AS last_run
                 FROM payment_runs pr
@@ -84,27 +102,20 @@ public class PaymentRunFactBuilder {
                 """)
                 .bind("id", java.util.UUID.fromString(providerId))
                 .fetch().one()
-                .map(row -> {
-                    Object lastRun = row.get("last_run");
-                    if (lastRun instanceof java.time.Instant inst) {
-                        LocalDate prev = inst.atZone(ZoneId.systemDefault()).toLocalDate();
-                        f.setPreviousRunDate(prev);
-                        f.setDaysSinceLastRun((int) ChronoUnit.DAYS.between(prev, LocalDate.now()));
-                    }
-                    return f;
-                })
+                .map(row -> applyPreviousRun(f, row.get("last_run")))
                 .defaultIfEmpty(f)
                 .onErrorResume(err -> {
-                    log.debug("[paymentrun-fact] previous-run query failed for {}: {}", providerId, err.getMessage());
+                    log.debug("[paymentrun-fact] previous-run query failed for provider {}: {}", providerId, err.getMessage());
                     return Mono.just(f);
                 });
     }
 
-    private Mono<PaymentRunFact> enrichOutstandingClaims(PaymentRunFact f, String providerId) {
+    private Mono<PaymentRunFact> enrichOutstandingClaimsProvider(PaymentRunFact f, String providerId) {
         return db.sql("""
                 SELECT COUNT(*) AS cnt
                 FROM claims
                 WHERE provider_id = :id
+                  AND payee_type = 'PROVIDER'
                   AND status IN ('ADJUDICATED', 'COMMITTED')
                 """)
                 .bind("id", java.util.UUID.fromString(providerId))
@@ -115,22 +126,84 @@ public class PaymentRunFactBuilder {
                 })
                 .defaultIfEmpty(f)
                 .onErrorResume(err -> {
-                    log.debug("[paymentrun-fact] outstanding-claims failed for {}: {}", providerId, err.getMessage());
+                    log.debug("[paymentrun-fact] outstanding-claims failed for provider {}: {}", providerId, err.getMessage());
                     return Mono.just(f);
                 });
+    }
+
+    // ---- Member branch ----------------------------------------------------
+
+    private Mono<PaymentRunFact> enrichVerificationStatusMember(PaymentRunFact f, String memberId) {
+        return db.sql("SELECT status FROM members WHERE id = :id")
+                .bind("id", java.util.UUID.fromString(memberId))
+                .fetch().one()
+                .map(row -> {
+                    String status = row.get("status") == null ? "" : row.get("status").toString();
+                    f.setProviderVerified("active".equalsIgnoreCase(status) || "verified".equalsIgnoreCase(status));
+                    return f;
+                })
+                .defaultIfEmpty(f)
+                .onErrorResume(err -> {
+                    log.debug("[paymentrun-fact] member lookup failed for {}: {}", memberId, err.getMessage());
+                    return Mono.just(f);
+                });
+    }
+
+    private Mono<PaymentRunFact> enrichPreviousRunDateMember(PaymentRunFact f, String memberId) {
+        return db.sql("""
+                SELECT MAX(pr.executed_at) AS last_run
+                FROM payment_runs pr
+                JOIN payment_run_items pri ON pri.payment_run_id = pr.id
+                WHERE pri.member_id = :id AND pri.status = 'paid'
+                """)
+                .bind("id", java.util.UUID.fromString(memberId))
+                .fetch().one()
+                .map(row -> applyPreviousRun(f, row.get("last_run")))
+                .defaultIfEmpty(f)
+                .onErrorResume(err -> {
+                    log.debug("[paymentrun-fact] previous-run query failed for member {}: {}", memberId, err.getMessage());
+                    return Mono.just(f);
+                });
+    }
+
+    private Mono<PaymentRunFact> enrichOutstandingClaimsMember(PaymentRunFact f, String memberId) {
+        return db.sql("""
+                SELECT COUNT(*) AS cnt
+                FROM claims
+                WHERE member_id = :id
+                  AND payee_type = 'MEMBER'
+                  AND status IN ('ADJUDICATED', 'COMMITTED')
+                """)
+                .bind("id", java.util.UUID.fromString(memberId))
+                .fetch().one()
+                .map(row -> {
+                    if (row.get("cnt") instanceof Number n) f.setOutstandingClaimsCount(n.intValue());
+                    return f;
+                })
+                .defaultIfEmpty(f)
+                .onErrorResume(err -> {
+                    log.debug("[paymentrun-fact] outstanding-claims failed for member {}: {}", memberId, err.getMessage());
+                    return Mono.just(f);
+                });
+    }
+
+    private PaymentRunFact applyPreviousRun(PaymentRunFact f, Object lastRun) {
+        if (lastRun instanceof java.time.Instant inst) {
+            LocalDate prev = inst.atZone(ZoneId.systemDefault()).toLocalDate();
+            f.setPreviousRunDate(prev);
+            f.setDaysSinceLastRun((int) ChronoUnit.DAYS.between(prev, LocalDate.now()));
+        }
+        return f;
     }
 
     /** Translate post-evaluation outcomes back onto the run item. */
     public void applyOutcomes(PaymentRunItem item, PaymentRunFact fact) {
         if (fact.isScheduled()) {
-            // status flip: 'pending' → 'scheduled' (or whatever the workflow uses)
             item.setStatus("scheduled");
         }
         if (fact.getWithholdAmount() != null
                 && fact.getWithholdAmount().compareTo(BigDecimal.ZERO) > 0
                 && item.getAmount() != null) {
-            // Subtract the withheld portion from what gets paid out. The
-            // separately-tracked withhold figure is on the fact.results trail.
             item.setAmount(item.getAmount().subtract(fact.getWithholdAmount()));
         }
     }

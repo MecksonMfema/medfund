@@ -65,6 +65,12 @@ class PaymentRunServiceTest {
     private PaymentRunDecisionService decisionService;
 
     @Mock
+    private PaymentRunGenerator paymentRunGenerator;
+
+    @Mock
+    private PaymentAdviceService paymentAdviceService;
+
+    @Mock
     private org.springframework.r2dbc.core.DatabaseClient databaseClient;
 
     @InjectMocks
@@ -95,6 +101,7 @@ class PaymentRunServiceTest {
             if (saved.getId() == null) saved.setId(UUID.randomUUID());
             return Mono.just(saved);
         });
+        when(paymentRunGenerator.populate(any())).thenReturn(Mono.just(0));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishPaymentRunCreated(any(), any(), any(), any(), anyInt()))
             .thenReturn(Mono.empty());
@@ -115,9 +122,36 @@ class PaymentRunServiceTest {
                 .verifyComplete();
 
         verify(paymentRunRepository).existsByRunNumber(any());
-        verify(paymentRunRepository).save(any());
+        verify(paymentRunRepository, times(2)).save(any());  // once for header, once for updated count
+        verify(paymentRunGenerator).populate(any());
         verify(auditPublisher).publish(any());
         verify(eventPublisher).publishPaymentRunCreated(any(), any(), any(), any(), anyInt());
+    }
+
+    @Test
+    void create_populateReturnsMultipleItems_countRecordedOnRun() {
+        var request = new CreatePaymentRunRequest("USD", "With populated items");
+        String actorId = UUID.randomUUID().toString();
+
+        when(paymentRunRepository.existsByRunNumber(any())).thenReturn(Mono.just(false));
+        when(paymentRunRepository.save(any())).thenAnswer(inv -> {
+            PaymentRun saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
+        when(paymentRunGenerator.populate(any())).thenReturn(Mono.just(3));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishPaymentRunCreated(any(), any(), any(), any(), anyInt()))
+            .thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                paymentRunService.create(request, actorId, "actor@test.example")
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getPaymentCount()).isEqualTo(3))
+                .verifyComplete();
+
+        verify(paymentRunGenerator).populate(any());
     }
 
     @Test
@@ -135,6 +169,7 @@ class PaymentRunServiceTest {
         // call findByPaymentRunId; an empty Flux exercises the wiring without
         // dragging rule logic into this test.
         when(paymentRunItemRepository.findByPaymentRunId(run.getId())).thenReturn(Flux.empty());
+        when(paymentAdviceService.generateAdvicesForRun(run.getId())).thenReturn(Flux.empty());
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishPaymentRunExecuted(any(), any(), anyInt())).thenReturn(Mono.empty());
 
@@ -156,6 +191,7 @@ class PaymentRunServiceTest {
         // settlement-date snapshot short-circuits on the empty-items path
         // and does not save.
         verify(paymentRunRepository, times(4)).save(any());
+        verify(paymentAdviceService).generateAdvicesForRun(run.getId());
         verify(auditPublisher).publish(any());
         verify(eventPublisher).publishPaymentRunExecuted(any(), any(), anyInt());
     }
@@ -277,6 +313,7 @@ class PaymentRunServiceTest {
         when(paymentRunRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(paymentRunItemRepository.findByPaymentRunId(run.getId())).thenReturn(Flux.just(item));
         when(paymentRunItemRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(paymentAdviceService.generateAdvicesForRun(run.getId())).thenReturn(Flux.empty());
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishPaymentRunExecuted(any(), any(), anyInt())).thenReturn(Mono.empty());
 

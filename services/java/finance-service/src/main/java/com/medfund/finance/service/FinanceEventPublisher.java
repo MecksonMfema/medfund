@@ -5,6 +5,7 @@ import com.medfund.finance.entity.AdvancePayment;
 import com.medfund.finance.entity.AdvancePaymentApplication;
 import com.medfund.finance.entity.CtcPayment;
 import com.medfund.finance.entity.MemberPayableApplication;
+import com.medfund.finance.entity.PaymentAdviceRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -188,6 +189,33 @@ public class FinanceEventPublisher {
         payload.put("currencyCode", application.getCurrencyCode());
         return publishEvent("medfund.finance.ctc.applied",
                 application.getMemberPayableId().toString(), payload);
+    }
+
+    /**
+     * Per-payee payment advice generated. One event per advice — payload
+     * carries payee identity, currency, and net-due so downstream
+     * consumers (notification-service for email/SMS delivery) can route
+     * without a re-fetch. Tenant on the payload so tenant-aware
+     * consumers can bind the R2DBC search path.
+     */
+    public Mono<Void> publishAdviceGenerated(PaymentAdviceRecord advice, String tenantId) {
+        Map<String, String> payload = new HashMap<>();
+        payload.put("event", "PAYMENT_ADVICE_GENERATED");
+        payload.put("adviceId", advice.getId().toString());
+        payload.put("adviceNumber", advice.getAdviceNumber() != null ? advice.getAdviceNumber() : "");
+        payload.put("paymentRunId",
+                advice.getPaymentRunId() != null ? advice.getPaymentRunId().toString() : "");
+        payload.put("payeeType", advice.getPayeeType() != null ? advice.getPayeeType() : "");
+        payload.put("providerId",
+                advice.getProviderId() != null ? advice.getProviderId().toString() : "");
+        payload.put("memberId",
+                advice.getMemberId() != null ? advice.getMemberId().toString() : "");
+        payload.put("currencyCode", advice.getCurrencyCode() != null ? advice.getCurrencyCode() : "");
+        payload.put("netDueAmount",
+                advice.getNetDueAmount() != null ? advice.getNetDueAmount().toPlainString() : "0");
+        payload.put("tenantId", tenantId != null ? tenantId : "");
+        return publishEvent("medfund.payments.advice.generated",
+                advice.getId().toString(), payload);
     }
 
     public Mono<Void> publishAdjustmentApplied(String adjustmentId, String type, String amount) {

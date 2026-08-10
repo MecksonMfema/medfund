@@ -112,29 +112,103 @@
       <p class="run-description">{{ run.description }}</p>
     }
 
-    <!-- ── Payments in this run ────────────────────────────────────── -->
-    <section class="payments-section">
-      <h2 class="section-title">Payments in this run</h2>
-      <app-data-table
-        [columns]="columns"
-        [data]="rows"
-        [actions]="actions"
-        [showActions]="true"
-        [serverSide]="true"
-        [loading]="paymentsLoading"
-        [pageSize]="pageSize"
-        [totalCount]="totalCount"
-        [totalPages]="totalPages"
-        [serverPage]="page"
-        [initialSortKey]="sortKey"
-        [initialSortDirection]="sortDirection"
-        searchPlaceholder="Search payment #, reference or provider"
-        emptyMessage="No payments in this run yet"
-        emptyDescription="Payments land here once the run is generated or executed."
-        (pageChange)="onPageChange($event)"
-        (searchChange)="onSearchChange($event)"
-        (sortChange)="onSortChange($event)">
-      </app-data-table>
-    </section>
+    <!-- ── Tabs: Payments | Advices ─────────────────────────────────── -->
+    <nav class="tab-strip">
+      <button class="tab" [class.tab--active]="activeTab === 'payments'"
+              (click)="showTab('payments')">
+        Payments ({{ totalCount }})
+      </button>
+      <button class="tab" [class.tab--active]="activeTab === 'advices'"
+              (click)="showTab('advices')">
+        Advices ({{ advices.length }})
+      </button>
+    </nav>
+
+    @if (activeTab === 'payments') {
+      <section class="payments-section">
+        <app-data-table
+          [columns]="columns"
+          [data]="rows"
+          [actions]="actions"
+          [showActions]="true"
+          [serverSide]="true"
+          [loading]="paymentsLoading"
+          [pageSize]="pageSize"
+          [totalCount]="totalCount"
+          [totalPages]="totalPages"
+          [serverPage]="page"
+          [initialSortKey]="sortKey"
+          [initialSortDirection]="sortDirection"
+          searchPlaceholder="Search payment #, reference, provider or member"
+          emptyMessage="No payments in this run yet"
+          emptyDescription="Payments land here once the run is generated or executed."
+          (pageChange)="onPageChange($event)"
+          (searchChange)="onSearchChange($event)"
+          (sortChange)="onSortChange($event)">
+        </app-data-table>
+      </section>
+    } @else {
+      <section class="advices-section card">
+        <header class="advices-header">
+          <h2 class="section-title">Payment advices</h2>
+          @if (canRegenerateAdvices()) {
+            <button class="btn btn-default" (click)="regenerateAdvices()"
+                    [disabled]="regenerating">
+              <app-icon name="rotate-cw" [size]="14"></app-icon>
+              Regenerate
+            </button>
+          }
+        </header>
+
+        @if (advicesLoading) {
+          <app-skeleton></app-skeleton>
+        } @else if (advices.length === 0) {
+          <div class="empty-inline">
+            <p>No advices generated yet.</p>
+            <p class="muted">Advices are created automatically when the run executes.</p>
+          </div>
+        } @else {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Advice #</th>
+                <th>Payee</th>
+                <th>Delivery</th>
+                <th class="right">Net due</th>
+                <th>Currency</th>
+                <th>Issued</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (a of advices; track a.id) {
+                <tr>
+                  <td><code>{{ a.adviceNumber || a.id.substring(0, 8) }}</code></td>
+                  <td>
+                    <span class="pill pill-{{ (a.payeeType || 'PROVIDER') | lowercase }}">
+                      {{ a.payeeType || 'PROVIDER' }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="status-badge status-{{ a.status }}">{{ a.status }}</span>
+                  </td>
+                  <td class="right">
+                    {{ (a.netDueAmount || a.totalAmount) | currencyFormat:a.currencyCode }}
+                  </td>
+                  <td>{{ a.currencyCode }}</td>
+                  <td class="muted">{{ a.issuedAt | date:'short' }}</td>
+                  <td>
+                    <a class="btn btn-ghost" [routerLink]="['/tenant/finance/advices', a.id]">
+                      <app-icon name="chevron-right" [size]="14"></app-icon>
+                      View
+                    </a>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+    }
   }
 </div>

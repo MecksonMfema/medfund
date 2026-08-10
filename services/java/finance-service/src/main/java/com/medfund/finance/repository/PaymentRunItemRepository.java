@@ -14,4 +14,7 @@ public interface PaymentRunItemRepository extends R2dbcRepository<PaymentRunItem
 
     @Query("SELECT * FROM payment_run_items WHERE provider_id = :providerId")
     Flux<PaymentRunItem> findByProviderId(UUID providerId);
+
+    @Query("SELECT * FROM payment_run_items WHERE member_id = :memberId")
+    Flux<PaymentRunItem> findByMemberId(UUID memberId);
 }

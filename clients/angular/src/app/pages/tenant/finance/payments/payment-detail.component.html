@@ -35,7 +35,13 @@
         <dt>Type</dt><dd>{{ payment.paymentType ? (payment.paymentType | humanize) : '—' }}</dd>
         <dt>Method</dt><dd>{{ payment.paymentMethod || '—' }}</dd>
         <dt>Reference</dt><dd>{{ payment.reference || '—' }}</dd>
-        <dt>Provider</dt><dd><code>{{ payment.providerId }}</code></dd>
+        <dt>Payee type</dt><dd>{{ payment.payeeType || 'PROVIDER' }}</dd>
+        @if (payment.providerId) {
+          <dt>Provider</dt><dd><code>{{ payment.providerId }}</code></dd>
+        }
+        @if (payment.memberId) {
+          <dt>Member</dt><dd><code>{{ payment.memberId }}</code></dd>
+        }
         <dt>Paid</dt><dd>{{ payment.paidAt ? (payment.paidAt | date:'medium') : '—' }}</dd>
         <dt>Created</dt><dd>{{ payment.createdAt | date:'medium' }}</dd>
         <dt>Updated</dt><dd>{{ payment.updatedAt ? (payment.updatedAt | date:'medium') : '—' }}</dd>

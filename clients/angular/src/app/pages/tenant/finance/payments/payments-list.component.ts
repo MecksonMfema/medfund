@@ -49,7 +49,8 @@ export class PaymentsListComponent implements OnInit {
 
   readonly columns: TableColumn[] = [
     { key: 'paymentNumber', label: 'Payment #',   sortable: true },
-    { key: 'providerName',  label: 'Provider',    sortable: true },
+    { key: 'payeeName',     label: 'Payee',       sortable: true },
+    { key: 'payeeType',     label: 'Payee type',  sortable: true, type: 'label' },
     { key: 'amount',        label: 'Amount',      sortable: true, type: 'currency' },
     { key: 'currencyCode',  label: 'Currency',    sortable: true },
     { key: 'paymentType',   label: 'Type',        sortable: true, type: 'label' },

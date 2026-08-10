@@ -35,11 +35,15 @@ export interface CreatePaymentRunPayload {
   description?: string;
 }
 
+export type PayeeType = 'PROVIDER' | 'MEMBER';
+
 export interface PaymentRunItem {
   id: string;
   paymentRunId: string;
   paymentId?: string;
-  providerId: string;
+  providerId?: string;
+  memberId?: string;
+  payeeType: PayeeType;
   amount: string;
   currencyCode: string;
   status: 'pending' | 'scheduled' | 'paid' | 'withheld' | 'skipped';
@@ -52,7 +56,9 @@ export type PaymentStatus = 'pending' | 'approved' | 'paid' | 'cancelled' | 'fai
 export interface Payment {
   id: string;
   paymentNumber: string;
-  providerId: string;
+  providerId?: string;
+  memberId?: string;
+  payeeType: PayeeType;
   amount: string;
   currencyCode: string;
   paymentType?: string;
@@ -322,6 +328,10 @@ export interface PaymentRow {
   paymentNumber: string;
   providerId?: string;
   providerName?: string;
+  memberId?: string;
+  memberName?: string;
+  payeeType: PayeeType;
+  payeeName?: string;
   amount: string;
   currencyCode: string;
   paymentType: string;
@@ -520,8 +530,11 @@ export interface CreateNotePayload {
 // ── Persisted advice records ────────────────────────────────────────────
 export interface PaymentAdviceRecord {
   id: string;
+  adviceNumber?: string;
   paymentRunId?: string;
+  payeeType: PayeeType;
   providerId?: string;
+  memberId?: string;
   currencyCode: string;
   totalAmount: string;
   claimCount: number;
@@ -529,26 +542,68 @@ export interface PaymentAdviceRecord {
   excelUrl?: string;
   status: 'generated' | 'sent' | 'failed';
   issuedAt: string;
+  periodStartAt?: string;
+  periodEndAt?: string;
+  carriedInAmount?: string;
+  claimsPaidAmount?: string;
+  ctcAppliedAmount?: string;
+  advanceAppliedAmount?: string;
+  taxWithheldAmount?: string;
+  shortfallAmount?: string;
+  netDueAmount?: string;
   createdAt: string;
 }
 
-// ── Payment advice ──────────────────────────────────────────────────────
+/** Optional filters accepted by GET /payment-advices. periodStart /
+ *  periodEnd match against period_end_at so "August 2026" = every
+ *  advice whose covering run executed in August. */
+export interface PaymentAdviceFilter {
+  paymentRunId?: string;
+  providerId?: string;
+  memberId?: string;
+  /** ISO-8601 datetime, inclusive lower bound. e.g. `2026-08-01T00:00:00Z`. */
+  periodStart?: string;
+  /** ISO-8601 datetime, inclusive upper bound. e.g. `2026-08-31T23:59:59Z`. */
+  periodEnd?: string;
+}
+
+// ── Payment advice ledger ───────────────────────────────────────────────
+export type PaymentAdviceLineType =
+  | 'CARRY_FORWARD' | 'CLAIM_PAID' | 'CTC_APPLIED'
+  | 'ADVANCE_APPLIED' | 'TAX_WITHHELD' | 'SHORTFALL';
+
 export interface PaymentAdviceLine {
-  claimNumber: string;
-  memberName: string;
-  claimedAmount: string;
-  approvedAmount: string;
-  paidAmount: string;
-  serviceDate: string;
+  lineType: PaymentAdviceLineType;
+  referenceType?: string;
+  referenceId?: string;
+  description?: string;
+  debitAmount: string;
+  creditAmount: string;
+  currencyCode: string;
+  postedAt: string;
+  sequence: number;
 }
 
 export interface PaymentAdvice {
   adviceNumber: string;
+  paymentRunId: string;
+  runNumber?: string;
+  payeeType: PayeeType;
   providerId?: string;
   providerName?: string;
-  totalAmount: string;
+  memberId?: string;
+  memberName?: string;
   currencyCode: string;
+  periodStartAt?: string;
+  periodEndAt?: string;
   generatedAt: string;
+  carriedInAmount: string;
+  claimsPaidAmount: string;
+  ctcAppliedAmount: string;
+  advanceAppliedAmount: string;
+  taxWithheldAmount: string;
+  shortfallAmount: string;
+  netDueAmount: string;
   lines: PaymentAdviceLine[];
 }
 
@@ -557,14 +612,23 @@ export class FinanceService {
   constructor(private api: ApiService) {}
 
   // ── Payment advice ──
-  generateAdvice(paymentRunId: string): Observable<PaymentAdvice> {
-    return this.api.get<PaymentAdvice>(`/payment-advices/run/${paymentRunId}`);
+  listAdviceRecords(filter?: PaymentAdviceFilter): Observable<PaymentAdviceRecord[]> {
+    const params: Record<string, string> = {};
+    if (filter?.paymentRunId) params['paymentRunId'] = filter.paymentRunId;
+    if (filter?.providerId)   params['providerId']   = filter.providerId;
+    if (filter?.memberId)     params['memberId']     = filter.memberId;
+    if (filter?.periodStart)  params['periodStart']  = filter.periodStart;
+    if (filter?.periodEnd)    params['periodEnd']    = filter.periodEnd;
+    return this.api.get<PaymentAdviceRecord[]>('/payment-advices', params);
   }
-  listAdviceRecords(): Observable<PaymentAdviceRecord[]> {
-    return this.api.get<PaymentAdviceRecord[]>('/payment-advices');
+  listAdvicesForRun(paymentRunId: string): Observable<PaymentAdviceRecord[]> {
+    return this.api.get<PaymentAdviceRecord[]>(`/payment-runs/${paymentRunId}/advices`);
   }
-  listAdviceRecordsForRun(paymentRunId: string): Observable<PaymentAdviceRecord[]> {
-    return this.api.get<PaymentAdviceRecord[]>('/payment-advices', { paymentRunId });
+  getAdvice(id: string): Observable<PaymentAdvice> {
+    return this.api.get<PaymentAdvice>(`/payment-advices/${id}`);
+  }
+  regenerateAdvicesForRun(paymentRunId: string): Observable<PaymentAdvice[]> {
+    return this.api.post<PaymentAdvice[]>(`/payment-runs/${paymentRunId}/advices/regenerate`, {});
   }
 
   // ── Payment runs ──

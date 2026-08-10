@@ -18,6 +18,12 @@ public interface PaymentRepository extends R2dbcRepository<Payment, UUID> {
     @Query("SELECT * FROM payments WHERE provider_id = :providerId ORDER BY created_at DESC")
     Flux<Payment> findByProviderId(UUID providerId);
 
+    @Query("SELECT * FROM payments WHERE member_id = :memberId ORDER BY created_at DESC")
+    Flux<Payment> findByMemberId(UUID memberId);
+
+    @Query("SELECT * FROM payments WHERE payee_type = :payeeType AND status = :status ORDER BY created_at DESC")
+    Flux<Payment> findByPayeeTypeAndStatus(String payeeType, String status);
+
     @Query("SELECT * FROM payments WHERE status = :status ORDER BY created_at DESC")
     Flux<Payment> findByStatus(String status);
 

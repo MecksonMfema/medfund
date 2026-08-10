@@ -31,6 +31,12 @@ public class PaymentAdviceRecord {
     @Column("provider_id")
     private UUID providerId;
 
+    @Column("member_id")
+    private UUID memberId;
+
+    @Column("payee_type")
+    private String payeeType = "PROVIDER";
+
     @Column("currency_code")
     private String currencyCode;
 
@@ -50,6 +56,36 @@ public class PaymentAdviceRecord {
 
     @Column("issued_at")
     private Instant issuedAt;
+
+    @Column("period_start_at")
+    private Instant periodStartAt;
+
+    @Column("period_end_at")
+    private Instant periodEndAt;
+
+    @Column("carried_in_amount")
+    private BigDecimal carriedInAmount = BigDecimal.ZERO;
+
+    @Column("claims_paid_amount")
+    private BigDecimal claimsPaidAmount = BigDecimal.ZERO;
+
+    @Column("ctc_applied_amount")
+    private BigDecimal ctcAppliedAmount = BigDecimal.ZERO;
+
+    @Column("advance_applied_amount")
+    private BigDecimal advanceAppliedAmount = BigDecimal.ZERO;
+
+    @Column("tax_withheld_amount")
+    private BigDecimal taxWithheldAmount = BigDecimal.ZERO;
+
+    @Column("shortfall_amount")
+    private BigDecimal shortfallAmount = BigDecimal.ZERO;
+
+    @Column("net_due_amount")
+    private BigDecimal netDueAmount = BigDecimal.ZERO;
+
+    @Column("advice_number")
+    private String adviceNumber;
 
     @CreatedDate
     @Column("created_at")

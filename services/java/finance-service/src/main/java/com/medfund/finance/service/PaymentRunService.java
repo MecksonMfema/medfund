@@ -53,6 +53,8 @@ public class PaymentRunService {
     private final AuditPublisher auditPublisher;
     private final FinanceEventPublisher eventPublisher;
     private final PaymentRunDecisionService decisionService;
+    private final PaymentRunGenerator paymentRunGenerator;
+    private final PaymentAdviceService paymentAdviceService;
     private final DatabaseClient databaseClient;
 
     public PaymentRunService(PaymentRunRepository paymentRunRepository,
@@ -67,6 +69,8 @@ public class PaymentRunService {
                              AuditPublisher auditPublisher,
                              FinanceEventPublisher eventPublisher,
                              PaymentRunDecisionService decisionService,
+                             PaymentRunGenerator paymentRunGenerator,
+                             PaymentAdviceService paymentAdviceService,
                              DatabaseClient databaseClient) {
         this.paymentRunRepository = paymentRunRepository;
         this.queryRepository = queryRepository;
@@ -80,6 +84,8 @@ public class PaymentRunService {
         this.auditPublisher = auditPublisher;
         this.eventPublisher = eventPublisher;
         this.decisionService = decisionService;
+        this.paymentRunGenerator = paymentRunGenerator;
+        this.paymentAdviceService = paymentAdviceService;
         this.databaseClient = databaseClient;
     }
 
@@ -127,12 +133,20 @@ public class PaymentRunService {
 
                 return paymentRunRepository.save(run);
             })
+            .flatMap(saved -> paymentRunGenerator.populate(saved)
+                .flatMap(count -> {
+                    saved.setPaymentCount(count);
+                    saved.setUpdatedAt(Instant.now());
+                    return paymentRunRepository.save(saved);
+                }))
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
                 return publishAudit(tenantId, "PaymentRun", saved.getId().toString(), saved.getRunNumber(),
                         "CREATE", actorId, actorEmail,
                         null,
-                        Map.of("runNumber", saved.getRunNumber(), "status", saved.getStatus()))
+                        Map.of("runNumber", saved.getRunNumber(),
+                               "status", saved.getStatus(),
+                               "paymentCount", String.valueOf(saved.getPaymentCount())))
                     .then(eventPublisher.publishPaymentRunCreated(
                         saved.getId().toString(),
                         saved.getRunNumber(),
@@ -172,6 +186,14 @@ public class PaymentRunService {
 
                         return paymentRunRepository.save(inProgress);
                     })
+                    .flatMap(completed -> paymentAdviceService.generateAdvicesForRun(completed.getId())
+                        .collectList()
+                        .onErrorResume(err -> {
+                            log.error("[payment-advice] generation failed for run {} (advices are re-generatable): ",
+                                completed.getRunNumber(), err);
+                            return Mono.just(java.util.List.of());
+                        })
+                        .thenReturn(completed))
                     .flatMap(completed -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
                         return publishAudit(tenantId, "PaymentRun", completed.getId().toString(), completed.getRunNumber(),

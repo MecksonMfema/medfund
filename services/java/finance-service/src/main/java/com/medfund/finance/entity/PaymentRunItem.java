@@ -24,6 +24,12 @@ public class PaymentRunItem {
     @Column("provider_id")
     private UUID providerId;
 
+    @Column("member_id")
+    private UUID memberId;
+
+    @Column("payee_type")
+    private String payeeType = "PROVIDER";
+
     private BigDecimal amount;
 
     @Column("currency_code")
@@ -47,6 +53,12 @@ public class PaymentRunItem {
 
     public UUID getProviderId() { return providerId; }
     public void setProviderId(UUID providerId) { this.providerId = providerId; }
+
+    public UUID getMemberId() { return memberId; }
+    public void setMemberId(UUID memberId) { this.memberId = memberId; }
+
+    public String getPayeeType() { return payeeType; }
+    public void setPayeeType(String payeeType) { this.payeeType = payeeType; }
 
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }

@@ -67,6 +67,7 @@ func (s *Subscriber) Run(ctx context.Context, handle func(payload []byte)) {
 // ── Publisher: NotificationSent ──────────────────────────────────────
 
 const TopicNotificationSent = "medfund.notifications.sent"
+const TopicAdviceNotificationSent = "medfund.notifications.advice.sent"
 
 // NotificationSent is emitted after a successful (or failed) email
 // dispatch — feeds audit + delivery dashboards.
@@ -81,15 +82,41 @@ type NotificationSent struct {
 	Error         string `json:"error,omitempty"`
 }
 
+// AdviceNotificationSent is emitted after each payment-advice dispatch
+// outcome so finance-service can flip PaymentAdviceRecord.status to
+// 'sent' / 'failed'. Status values:
+//   SENT           — dispatched successfully (initial or retry)
+//   FAILED         — initial dispatch failed; a retry is scheduled
+//   DEAD_LETTERED  — every retry exhausted; giving up
+type AdviceNotificationSent struct {
+	Event        string `json:"event"`
+	AdviceID     string `json:"adviceId"`
+	AdviceNumber string `json:"adviceNumber"`
+	TenantID     string `json:"tenantId"`
+	Recipient    string `json:"recipient"`
+	Channel      string `json:"channel"` // "EMAIL"
+	Status       string `json:"status"`  // "SENT" | "FAILED" | "DEAD_LETTERED"
+	Attempts     int    `json:"attempts,omitempty"`
+	Error        string `json:"error,omitempty"`
+}
+
 type Publisher struct {
-	writer *kafka.Writer
+	writer       *kafka.Writer
+	adviceWriter *kafka.Writer
 }
 
 func NewPublisher(brokers string) *Publisher {
+	addrs := kafka.TCP(strings.Split(brokers, ",")...)
 	return &Publisher{
 		writer: &kafka.Writer{
-			Addr:                   kafka.TCP(strings.Split(brokers, ",")...),
+			Addr:                   addrs,
 			Topic:                  TopicNotificationSent,
+			Balancer:               &kafka.LeastBytes{},
+			AllowAutoTopicCreation: true,
+		},
+		adviceWriter: &kafka.Writer{
+			Addr:                   addrs,
+			Topic:                  TopicAdviceNotificationSent,
 			Balancer:               &kafka.LeastBytes{},
 			AllowAutoTopicCreation: true,
 		},
@@ -115,4 +142,32 @@ func (p *Publisher) Publish(ctx context.Context, n NotificationSent) {
 	}
 }
 
-func (p *Publisher) Close() { _ = p.writer.Close() }
+// PublishAdviceOutcome fans the delivery outcome for one payment advice
+// out to finance-service's PaymentAdviceStatusConsumer, which flips
+// PaymentAdviceRecord.status.
+func (p *Publisher) PublishAdviceOutcome(ctx context.Context, n AdviceNotificationSent) {
+	if n.Event == "" {
+		n.Event = "PAYMENT_ADVICE_NOTIFICATION_SENT"
+	}
+	if n.Channel == "" {
+		n.Channel = "EMAIL"
+	}
+	body, err := json.Marshal(n)
+	if err != nil {
+		log.Printf("[notification] marshal AdviceNotificationSent: %v", err)
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	if err := p.adviceWriter.WriteMessages(ctx, kafka.Message{
+		Key:   []byte(n.AdviceID),
+		Value: body,
+	}); err != nil {
+		log.Printf("[notification] publish AdviceNotificationSent failed: %v", err)
+	}
+}
+
+func (p *Publisher) Close() {
+	_ = p.writer.Close()
+	_ = p.adviceWriter.Close()
+}

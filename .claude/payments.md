@@ -306,61 +306,95 @@ CREATE TABLE public.subscription_invoices (
 Finance clerk creates payment run (Angular Finance Portal)
    │
    ▼
-Select claims to include → Review amounts per provider → Approve
+POST /api/v1/payment-runs { currencyCode, description }
+   │
+   ▼
+PaymentRunGenerator auto-populates items in the same transaction:
+   ├── One PaymentRunItem per PROVIDER with a positive outstanding balance
+   │   (from provider_balances scoped to the run's currency)
+   └── One PaymentRunItem per MEMBER with an open member_payable
+       (default cash payout for MEMBER-payee claims — CTC is opt-in)
    │
    ▼
 Finance HoD approves payment run (dual-approval for high-value payouts)
    │
    ▼
-POST /api/v2/payments/payouts/execute
-{
-  "tenant_id": "uuid",
-  "payment_run_id": "uuid",
-  "payouts": [
-    {
-      "recipient_type": "provider",
-      "recipient_id": "uuid",
-      "amount": "15000.00",
-      "currency": "USD",
-      "method": "bank_transfer",
-      "bank_details": { "bank_name": "...", "account_number": "...", "branch_code": "..." }
-    },
-    {
-      "recipient_type": "member",
-      "recipient_id": "uuid",
-      "amount": "250.00",
-      "currency": "USD",
-      "method": "ecocash",
-      "mobile_number": "+263771234567"
-    }
-  ]
-}
+POST /api/v1/payment-runs/{id}/execute
    │
    ▼
-Payment Gateway Service:
-   ├── Validate all payouts (amounts, recipients, bank details)
+PaymentRunService.execute:
+   ├── Apply tenant PROVIDER_PAYMENT / RECONCILIATION rules per item
+   ├── FIFO drawdown of open advances against provider items
+   ├── Snapshot carried_out_amount + settlement_date
+   ├── Transition run to `executed`
+   └── PaymentAdviceService.generateAdvicesForRun:
+        one advice per (run, payee) with typed ledger lines
+        (CARRY_FORWARD, CLAIM_PAID, CTC_APPLIED, ADVANCE_APPLIED,
+         TAX_WITHHELD, SHORTFALL) → net_due_amount
+   │
+   ▼
+Publish medfund.payments.run.executed +
+        medfund.payments.advice.generated (per advice)
+   │
+   ▼
+Payment Gateway Service (downstream — not yet wired):
+   ├── Validate each payout (amounts, recipients, bank details)
    ├── Create payout_transactions records (status: PENDING)
    ├── For each payout:
    │   ├── Resolve provider (Paynow for ZW mobile money, Stripe for international bank)
    │   ├── Call PaymentProvider.InitiatePayout()
    │   └── Record provider reference
-   ├── Return batch status to client
    └── Publish medfund.payments.outbound per payout
    │
    ▼
 Provider processes payout (async — may take minutes to days for bank transfers)
    │
    ▼
-Webhook or polling confirms settlement
-   │
-   ▼
-Finance Service:
-   ├── Update payment record (status: PAID, bank_date)
-   ├── Update provider/member balance (debit)
-   ├── Create balance snapshot (audit)
-   ├── Generate payment advice PDF
-   └── Send notification to recipient (email/SMS/push)
+Webhook or polling confirms settlement → Finance Service updates
+payment.status = 'paid', debits payee balance, sends notification.
 ```
+
+### Advice delivery
+
+Every generated advice fans out on `medfund.payments.advice.generated`.
+`notification-service` consumes that topic, resolves the payee's email
+(providers.email for PROVIDER advices, members.email for MEMBER advices,
+same resolver used by the invoice + receipt pipelines), pulls the
+ledger totals from `<tenant>.payment_advices` for the email body, and
+sends via SMTP. Every dispatch outcome is fanned back out on
+`medfund.notifications.advice.sent` (payload:
+`{adviceId, tenantId, status: SENT | FAILED | DEAD_LETTERED, recipient,
+attempts, error?}`) so finance-service's `PaymentAdviceStatusConsumer`
+can flip `payment_advices.status`:
+
+| Outcome         | `status` flip           | Notes                                        |
+|-----------------|-------------------------|----------------------------------------------|
+| `SENT`          | `generated` → `sent`    | Terminal success. Idempotent on re-delivery. |
+| `FAILED`        | (unchanged)             | Interim — retry is in-flight; audit only.    |
+| `DEAD_LETTERED` | `generated` → `failed`  | Retries exhausted; error captured in audit.  |
+
+`issued_at` is preserved through the status flip — it stays "when the
+advice was generated." The audit event carries the moment of the
+delivery outcome.
+
+### Advice ledger
+
+Every executed run generates one `PaymentAdvice` per payee. The advice
+is a strict ledger bounded by
+`(prior_run.executed_at, this_run.executed_at]`:
+
+| Line type | Direction | Source table |
+|-----------|-----------|--------------|
+| `CARRY_FORWARD`   | Debit  | Prior advice's `net_due_amount`             |
+| `CLAIM_PAID`      | Debit  | `claims` (adjudicated in the period)        |
+| `CTC_APPLIED`     | Credit | `ctc_payments` (MEMBER only, committed)     |
+| `ADVANCE_APPLIED` | Credit | `advance_payment_applications` (PROVIDER)   |
+| `TAX_WITHHELD`    | Credit | `adjustments` where type='TAX_WITHHELD'     |
+| `SHORTFALL`       | Credit | `claims` where paid_amount < claimed_amount |
+
+`net_due_amount = carried_in + claims_paid − ctc_applied − advance_applied − tax_withheld − shortfall`.
+
+Schema lives at `services/java/tenancy-service/src/main/resources/db/migration/tenant/V071__payment_run_generation_and_advice_ledger.sql`; generator at `services/java/finance-service/src/main/java/com/medfund/finance/service/PaymentAdviceService.java`.
 
 ### Payout Methods
 
@@ -552,12 +586,15 @@ CREATE TABLE payment_config (
 
 | Route | Feature |
 |-------|---------|
-| `/finance/payments/inbound` | View all incoming contribution payments, filter by status/method/date |
-| `/finance/payments/inbound/:id` | Payment detail (provider ref, status timeline, receipt) |
-| `/finance/payouts` | View all outbound payouts, filter by status/provider/recipient |
-| `/finance/payouts/new` | Create payment run → select claims → review → submit for approval |
-| `/finance/payouts/:id` | Payout detail (provider ref, settlement status, payment advice) |
-| `/finance/reconciliation` | Match bank statements against platform transactions |
+| `/tenant/billing/transactions` | View all incoming contribution payments (receipts), filter by status/method/date |
+| `/tenant/finance/payments` | View all payments (provider + member payouts). Payee column shows the resolved name with a PROVIDER/MEMBER pill |
+| `/tenant/finance/payments/:id` | Payment detail (payee, status timeline, reference) |
+| `/tenant/finance/runs` | View all payment runs, filter by status/currency |
+| `/tenant/finance/runs/generate` | Create a payment run (auto-populates items from provider balances + open member payables) |
+| `/tenant/finance/runs/:id` | Run detail — tabs: Payments (items in the run) / Advices (per-payee ledger) |
+| `/tenant/finance/advices/:id` | Payment advice detail — carried-forward, claims paid, CTCs applied, advances applied, tax withheld, shortfalls, net due |
+| `/tenant/finance/advice` | Advice history with a month picker — filters by `period_end_at` bounds |
+| `/tenant/finance/reconciliations` | Match bank statements against platform transactions |
 
 ### Angular — Tenant Admin Portal
 

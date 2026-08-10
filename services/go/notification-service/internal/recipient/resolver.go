@@ -149,6 +149,32 @@ func (r *Resolver) ForMember(ctx context.Context, tenantID, memberID string) (Re
 	}, nil
 }
 
+// ForProvider returns the provider's contact email + display name.
+// Used by the payment-advice pipeline when the payee is a PROVIDER.
+func (r *Resolver) ForProvider(ctx context.Context, tenantID, providerID string) (Recipient, error) {
+	schema, err := r.lookupSchema(ctx, tenantID)
+	if err != nil {
+		return Recipient{}, err
+	}
+	q := fmt.Sprintf(`SELECT email, name FROM %s.providers WHERE id = $1`, schema)
+	var email, name *string
+	if err := r.pool.QueryRow(ctx, q, providerID).Scan(&email, &name); err != nil {
+		return Recipient{}, fmt.Errorf("lookup provider %s: %w", providerID, err)
+	}
+	if email == nil || *email == "" {
+		return Recipient{}, fmt.Errorf("provider %s has no email on file", providerID)
+	}
+	display := ""
+	if name != nil {
+		display = *name
+	}
+	return Recipient{
+		Email:       *email,
+		DisplayName: display,
+		Kind:        "PROVIDER",
+	}, nil
+}
+
 func (r *Resolver) lookupSchema(ctx context.Context, tenantID string) (string, error) {
 	var schema string
 	err := r.pool.QueryRow(ctx,

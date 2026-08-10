@@ -6,9 +6,11 @@ import { catchError, of } from 'rxjs';
 import {
   FinancePageResponse,
   FinanceService,
+  PaymentAdviceRecord,
   PaymentRow,
   PaymentRun,
 } from '../../../../core/services/finance.service';
+import { RouterLink } from '@angular/router';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
@@ -18,6 +20,7 @@ import {
   TableAction,
   TableColumn,
 } from '../../../../shared/components/data-table/data-table.component';
+import { PermissionService } from '../../../../core/security/permission.service';
 
 /**
  * Detail page for a single payment run — the folded landing spot for
@@ -32,6 +35,7 @@ import {
   imports: [
     CommonModule,
     FormsModule,
+    RouterLink,
     IconComponent,
     SkeletonComponent,
     CurrencyFormatPipe,
@@ -59,9 +63,16 @@ export class PaymentRunDetailComponent implements OnInit {
   sortDirection: 'asc' | 'desc' = 'desc';
   searchTerm = '';
 
+  // ── Advices for this run ─────────────────────────────────────────
+  advices: PaymentAdviceRecord[] = [];
+  advicesLoading = false;
+  regenerating = false;
+  activeTab: 'payments' | 'advices' = 'payments';
+
   readonly columns: TableColumn[] = [
     { key: 'paymentNumber', label: 'Payment #',   sortable: true },
-    { key: 'providerName',  label: 'Provider',    sortable: true },
+    { key: 'payeeName',     label: 'Payee',       sortable: true },
+    { key: 'payeeType',     label: 'Type',        sortable: true, type: 'label' },
     { key: 'amount',        label: 'Amount',      sortable: true, type: 'currency' },
     { key: 'currencyCode',  label: 'Currency',    sortable: true },
     { key: 'paymentType',   label: 'Type',        sortable: true, type: 'label' },
@@ -84,7 +95,12 @@ export class PaymentRunDetailComponent implements OnInit {
     private finance: FinanceService,
     private route: ActivatedRoute,
     private router: Router,
+    private permissions: PermissionService,
   ) {}
+
+  canRegenerateAdvices(): boolean {
+    return this.permissions.has('finance:generate_payment_advice');
+  }
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -102,12 +118,49 @@ export class PaymentRunDetailComponent implements OnInit {
         this.run = run;
         this.loading = false;
         this.fetchPayments();
+        this.fetchAdvices();
       },
       error: (err) => {
         this.errorMessage = err?.error?.detail || 'Failed to load payment run';
         this.loading = false;
       },
     });
+  }
+
+  fetchAdvices(): void {
+    if (!this.run) return;
+    this.advicesLoading = true;
+    this.finance.listAdvicesForRun(this.run.id).subscribe({
+      next: (rows) => {
+        this.advices = rows;
+        this.advicesLoading = false;
+      },
+      error: () => {
+        this.advices = [];
+        this.advicesLoading = false;
+      },
+    });
+  }
+
+  regenerateAdvices(): void {
+    if (!this.run) return;
+    if (!confirm('Regenerate advices for this run? Existing advice rows will be replaced.')) return;
+    this.regenerating = true;
+    this.finance.regenerateAdvicesForRun(this.run.id).subscribe({
+      next: () => {
+        this.successMessage = 'Advices regenerated.';
+        this.regenerating = false;
+        this.fetchAdvices();
+      },
+      error: (err) => {
+        this.errorMessage = err?.error?.detail || 'Failed to regenerate advices';
+        this.regenerating = false;
+      },
+    });
+  }
+
+  showTab(tab: 'payments' | 'advices'): void {
+    this.activeTab = tab;
   }
 
   fetchPayments(): void {

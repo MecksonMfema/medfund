@@ -19,15 +19,17 @@ import java.util.UUID;
 @Repository
 public class PaymentQueryRepository {
 
-    private static final Map<String, String> SORT_COLUMNS = Map.of(
-            "paymentNumber", "p.payment_number",
-            "providerName",  "COALESCE(pr.name, '')",
-            "amount",        "p.amount",
-            "currencyCode",  "p.currency_code",
-            "paymentType",   "p.payment_type",
-            "status",        "p.status",
-            "paidAt",        "p.paid_at",
-            "createdAt",     "p.created_at"
+    private static final Map<String, String> SORT_COLUMNS = Map.ofEntries(
+            Map.entry("paymentNumber", "p.payment_number"),
+            Map.entry("providerName",  "COALESCE(pr.name, m.first_name || ' ' || m.last_name, '')"),
+            Map.entry("payeeName",     "COALESCE(pr.name, m.first_name || ' ' || m.last_name, '')"),
+            Map.entry("payeeType",     "p.payee_type"),
+            Map.entry("amount",        "p.amount"),
+            Map.entry("currencyCode",  "p.currency_code"),
+            Map.entry("paymentType",   "p.payment_type"),
+            Map.entry("status",        "p.status"),
+            Map.entry("paidAt",        "p.paid_at"),
+            Map.entry("createdAt",     "p.created_at")
     );
 
     private final DatabaseClient db;
@@ -41,12 +43,15 @@ public class PaymentQueryRepository {
         String search = hasQ ? "%" + f.q().toLowerCase() + "%" : null;
 
         String sql = """
-                SELECT p.id, p.payment_number, p.provider_id, p.amount, p.currency_code,
+                SELECT p.id, p.payment_number, p.provider_id, p.member_id, p.payee_type,
+                       p.amount, p.currency_code,
                        p.payment_type, p.status, p.payment_method, p.reference,
                        p.paid_at, p.created_at, p.updated_at,
-                       pr.name AS provider_name
+                       pr.name AS provider_name,
+                       (m.first_name || ' ' || m.last_name) AS member_name
                   FROM payments p
                   LEFT JOIN providers pr ON pr.id = p.provider_id
+                  LEFT JOIN members   m  ON m.id  = p.member_id
                 """
                 + whereClause(f, hasQ)
                 + " ORDER BY " + sortClause(f.sortKey(), f.sortDirection())
@@ -63,6 +68,7 @@ public class PaymentQueryRepository {
 
         String sql = "SELECT COUNT(*) AS total FROM payments p "
                 + " LEFT JOIN providers pr ON pr.id = p.provider_id "
+                + " LEFT JOIN members   m  ON m.id  = p.member_id "
                 + whereClause(f, hasQ);
         var spec = bindFilters(db.sql(sql), f, hasQ, search);
         return spec.map(row -> ((Number) row.get("total")).longValue()).one();
@@ -92,7 +98,8 @@ public class PaymentQueryRepository {
         if (hasQ) {
             sb.append(" AND (LOWER(p.payment_number) LIKE :search "
                    + "     OR LOWER(COALESCE(p.reference, '')) LIKE :search "
-                   + "     OR LOWER(COALESCE(pr.name, '')) LIKE :search) ");
+                   + "     OR LOWER(COALESCE(pr.name, '')) LIKE :search "
+                   + "     OR LOWER(COALESCE(m.first_name || ' ' || m.last_name, '')) LIKE :search) ");
         }
         return sb.toString();
     }
@@ -117,11 +124,19 @@ public class PaymentQueryRepository {
     }
 
     private PaymentRow toRow(io.r2dbc.spi.Readable row) {
+        String providerName = row.get("provider_name", String.class);
+        String memberName = row.get("member_name", String.class);
+        String payeeType = row.get("payee_type", String.class);
+        String payeeName = "MEMBER".equals(payeeType) ? memberName : providerName;
         return new PaymentRow(
                 row.get("id", UUID.class),
                 row.get("payment_number", String.class),
                 row.get("provider_id", UUID.class),
-                row.get("provider_name", String.class),
+                providerName,
+                row.get("member_id", UUID.class),
+                memberName,
+                payeeType,
+                payeeName,
                 row.get("amount", BigDecimal.class),
                 row.get("currency_code", String.class),
                 row.get("payment_type", String.class),

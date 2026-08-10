@@ -24,6 +24,8 @@ public class PaymentRunFact {
 
     private String paymentRunId;
     private String providerId;
+    private String memberId;
+    private String payeeType = "PROVIDER";
     private LocalDate runDate;
     private LocalDate previousRunDate;
     private BigDecimal amountDue;

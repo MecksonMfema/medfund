@@ -1,11 +1,12 @@
 <div class="page">
   <header class="page-header">
     <div>
-      <h1>Payment advice</h1>
+      <h1>Payment advices</h1>
       <p class="page-sub">
-        Generates a printable advice for an executed payment run, listing
-        each line item and the total paid. Pick a run from the payment-runs
-        list, paste its ID below, and generate.
+        Per-payee ledger of every payment run. Advices are generated
+        automatically when a run executes. Click through to see the
+        typed line items (carry-forward, claims paid, CTC offsets,
+        advance drawdowns, tax withheld, shortfalls) and net due.
       </p>
     </div>
   </header>
@@ -14,97 +15,66 @@
     <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
   }
 
-  <div class="generator card no-print">
+  <div class="filter-bar card">
     <label class="field">
-      <span class="field-label">Payment run ID</span>
-      <input type="text" [(ngModel)]="paymentRunId" name="paymentRunId"
-             placeholder="e.g. 5f8c1234-…" />
+      <span class="field-label">Month</span>
+      <input type="month" [(ngModel)]="monthFilter" (change)="onMonthChange()" name="monthFilter" />
     </label>
-    <button class="btn btn-primary" (click)="generate()" [disabled]="loading">
-      <app-icon name="check" [size]="14"></app-icon>
-      Generate advice
-    </button>
+    @if (monthFilter) {
+      <button class="btn btn-ghost" (click)="clearMonth()">
+        <app-icon name="x" [size]="14"></app-icon>
+        Clear
+      </button>
+    }
+    <span class="filter-hint muted">
+      Filters advices whose period ended in the selected month.
+    </span>
   </div>
 
-  @if (history.length > 0 && !advice) {
-    <section class="card no-print">
-      <h2 class="section-title">Recently generated</h2>
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (history.length > 0) {
+    <section class="card">
       <table class="data-table">
         <thead>
           <tr>
+            <th>Advice #</th>
+            <th>Payee</th>
             <th>Run</th>
             <th>Status</th>
-            <th class="right">Total</th>
-            <th class="right">Lines</th>
+            <th class="right">Net due</th>
             <th>Issued</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           @for (h of history; track h.id) {
-            <tr (click)="loadFromHistory(h)" class="clickable">
-              <td><code>{{ h.paymentRunId ? h.paymentRunId.substring(0,8) : '—' }}</code></td>
+            <tr>
+              <td><code>{{ h.adviceNumber || h.id.substring(0, 8) }}</code></td>
+              <td>
+                <span class="pill pill-{{ (h.payeeType || 'PROVIDER') | lowercase }}">
+                  {{ h.payeeType || 'PROVIDER' }}
+                </span>
+              </td>
+              <td><code>{{ h.paymentRunId ? h.paymentRunId.substring(0, 8) : '—' }}</code></td>
               <td class="muted">{{ h.status }}</td>
-              <td class="right">{{ h.totalAmount | currencyFormat:h.currencyCode }}</td>
-              <td class="right">{{ h.claimCount }}</td>
+              <td class="right">{{ (h.netDueAmount || h.totalAmount) | currencyFormat:h.currencyCode }}</td>
               <td class="muted">{{ h.issuedAt | date:'short' }}</td>
+              <td>
+                <a class="btn btn-ghost" [routerLink]="['/tenant/finance/advices', h.id]">
+                  <app-icon name="chevron-right" [size]="14"></app-icon>
+                  View
+                </a>
+              </td>
             </tr>
           }
         </tbody>
       </table>
     </section>
-  }
-
-  @if (loading) {
-    <app-skeleton></app-skeleton>
-  } @else if (advice) {
-    <article class="advice card">
-      <div class="advice-actions no-print">
-        <button class="btn" (click)="print()">
-          <app-icon name="check" [size]="14"></app-icon>
-          Print
-        </button>
-      </div>
-
-      <header class="advice-header">
-        <h2>Payment Advice</h2>
-        <dl class="meta">
-          <dt>Advice #</dt><dd>{{ advice.adviceNumber }}</dd>
-          <dt>Generated</dt><dd>{{ advice.generatedAt | date:'medium' }}</dd>
-          <dt>Currency</dt><dd>{{ advice.currencyCode }}</dd>
-          @if (advice.providerName) { <dt>Provider</dt><dd>{{ advice.providerName }}</dd> }
-        </dl>
-      </header>
-
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Claim #</th>
-            <th>Member</th>
-            <th>Service date</th>
-            <th class="right">Claimed</th>
-            <th class="right">Approved</th>
-            <th class="right">Paid</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (line of advice.lines; track line.claimNumber) {
-            <tr>
-              <td><strong>{{ line.claimNumber }}</strong></td>
-              <td class="muted">{{ line.memberName || '—' }}</td>
-              <td class="muted">{{ line.serviceDate || '—' }}</td>
-              <td class="right">{{ line.claimedAmount | currencyFormat:advice.currencyCode }}</td>
-              <td class="right">{{ line.approvedAmount | currencyFormat:advice.currencyCode }}</td>
-              <td class="right">{{ line.paidAmount | currencyFormat:advice.currencyCode }}</td>
-            </tr>
-          }
-          <tr class="total-row">
-            <td colspan="3" class="total-label">Total paid</td>
-            <td class="right">{{ totalApproved() | currencyFormat:advice.currencyCode }}</td>
-            <td class="right">—</td>
-            <td class="right total-amount">{{ advice.totalAmount | currencyFormat:advice.currencyCode }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </article>
+  } @else {
+    <div class="empty-state card">
+      <p>No payment advices generated yet.</p>
+      <p class="muted">Advices are created automatically when a payment run is executed.</p>
+    </div>
   }
 </div>

@@ -76,6 +76,7 @@ domains:
       - { key: "finance:view_subledger",            label: "View subledger",                    description: "View detailed subledger journal entries." }
       - { key: "finance:manage_billing_reconcile",  label: "Reconcile billing to claims",       description: "Match billing runs against claim payments." }
       - { key: "finance:view_payment_advice",       label: "View payment advice",               description: "View payment-advice notifications sent to providers." }
+      - { key: "finance:generate_payment_advice",   label: "Generate payment advice",           description: "Manually generate or regenerate the per-payee payment advice ledger for a run." }
       - { key: "finance:manage_copayments",         label: "Manage copayments",                 description: "Create or adjust member copayment records." }
       - { key: "finance:view_withheld_tax",         label: "View withheld tax",                 description: "View tax-withheld claims and payments." }
 

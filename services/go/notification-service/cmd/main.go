@@ -15,6 +15,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/medfund/notification-service/internal/advice"
 	"github.com/medfund/notification-service/internal/config"
 	"github.com/medfund/notification-service/internal/events"
 	"github.com/medfund/notification-service/internal/arrears"
@@ -134,6 +135,23 @@ func main() {
 		log.Fatalf("lifecycle dispatcher: %v", err)
 	}
 
+	// Payment-advice pipeline: reacts to PAYMENT_ADVICE_GENERATED
+	// (finance-service emits one per (run, payee) at execute-time).
+	// Resolves the provider or member email via the same recipient
+	// resolver used by the invoice / receipt pipelines, looks up the
+	// ledger totals so the email body is a compact summary, and sends
+	// via SMTP. Falls back to a header-only email when the DB lookup
+	// fails so a slow secondary read doesn't stall delivery.
+	adviceTemplates := template.NewResolver(pool, advice.DefaultSubject, advice.DefaultHTMLBody())
+	var adviceLookup advice.AdviceLookup
+	if pool != nil {
+		adviceLookup = advice.NewDBLookup(pool)
+	}
+	adviceDispatcher, err := advice.NewDispatcher(resolver, sender, adviceTemplates, adviceLookup, cfg.SMTPFrom)
+	if err != nil {
+		log.Fatalf("advice dispatcher: %v", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	if cfg.KafkaBrokers != "" && fetcher != nil {
 		go runInvoiceConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID,
@@ -166,6 +184,12 @@ func main() {
 		go runGroupLifecycleConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, lifecycleDispatcher, retrySched)
 	} else {
 		log.Printf("[notification] lifecycle consumers disabled (kafka=%q postgres=%v)",
+			cfg.KafkaBrokers, pool != nil)
+	}
+	if cfg.KafkaBrokers != "" && pool != nil {
+		go runAdviceConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, adviceDispatcher, publisher, retrySched)
+	} else {
+		log.Printf("[notification] advice consumer disabled (kafka=%q postgres=%v)",
 			cfg.KafkaBrokers, pool != nil)
 	}
 
@@ -526,4 +550,96 @@ func dispatchLifecycle(ctx context.Context, dispatcher *lifecycle.Dispatcher,
 			log.Printf("[notification] lifecycle %s dead-lettered for %s %s after %d attempts: %v",
 				label, e.SubjectID, e.Status, o.Attempts, o.Err)
 		})
+}
+
+// runAdviceConsumer reads PAYMENT_ADVICE_GENERATED events and emails the
+// provider or member payee a compact summary of the ledger totals for
+// that run. Every dispatch outcome is fanned out to
+// medfund.notifications.advice.sent so finance-service's
+// PaymentAdviceStatusConsumer can flip PaymentAdviceRecord.status to
+// 'sent' or 'failed' — closing the loop from generated → sent.
+//
+// Retry contract mirrors the arrears / lifecycle consumers: transient
+// failures re-attempt via the retry scheduler; terminal failures
+// dead-letter with an attempt count. On success, only the terminal
+// SENT outcome is published (whether it took one attempt or five) —
+// the intermediate FAILED that fed the retry loop still lands, so
+// dashboards can distinguish first-try-clean from eventually-sent.
+func runAdviceConsumer(ctx context.Context, brokers, groupID string,
+	dispatcher *advice.Dispatcher, publisher *events.Publisher,
+	retrySched *retry.Scheduler) {
+
+	sub := events.NewSubscriber(brokers, "medfund.payments.advice.generated", groupID+"-advice")
+	sub.Run(ctx, func(payload []byte) {
+		var e advice.Event
+		if err := json.Unmarshal(payload, &e); err != nil {
+			log.Printf("[notification] drop malformed PAYMENT_ADVICE_GENERATED: %v", err)
+			return
+		}
+		res := dispatcher.Dispatch(ctx, e)
+		publisher.PublishAdviceOutcome(ctx, buildAdviceOutcome(e, res, "SENT", "FAILED", 1))
+		if res.Ok {
+			return
+		}
+		var lastResult advice.Result
+		retrySched.RunAsync(ctx, "advice:"+e.AdviceID,
+			func(ctx context.Context, _ int) error {
+				r := dispatcher.Dispatch(ctx, e)
+				lastResult = r
+				if r.Ok {
+					return nil
+				}
+				if r.Err != nil {
+					return r.Err
+				}
+				return errDispatchFailed
+			},
+			func(o retry.Outcome) {
+				if o.Ok {
+					log.Printf("[notification] advice retry succeeded for %s after %d attempts",
+						e.AdviceNumber, o.Attempts)
+					publisher.PublishAdviceOutcome(ctx,
+						buildAdviceOutcome(e, lastResult, "SENT", "SENT", o.Attempts))
+					return
+				}
+				log.Printf("[notification] advice dead-lettered for %s after %d attempts: %v",
+					e.AdviceNumber, o.Attempts, o.Err)
+				cause := "unknown"
+				if o.Err != nil {
+					cause = o.Err.Error()
+				}
+				publisher.PublishAdviceOutcome(ctx, events.AdviceNotificationSent{
+					AdviceID:     e.AdviceID,
+					AdviceNumber: e.AdviceNumber,
+					TenantID:     e.TenantID,
+					Recipient:    lastResult.Recipient,
+					Channel:      "EMAIL",
+					Status:       "DEAD_LETTERED",
+					Attempts:     o.Attempts,
+					Error:        cause,
+				})
+			})
+	})
+}
+
+func buildAdviceOutcome(e advice.Event, res advice.Result,
+	okStatus, failStatus string, attempts int) events.AdviceNotificationSent {
+
+	n := events.AdviceNotificationSent{
+		AdviceID:     e.AdviceID,
+		AdviceNumber: e.AdviceNumber,
+		TenantID:     e.TenantID,
+		Recipient:    res.Recipient,
+		Channel:      "EMAIL",
+		Attempts:     attempts,
+	}
+	if res.Ok {
+		n.Status = okStatus
+	} else {
+		n.Status = failStatus
+		if res.Err != nil {
+			n.Error = res.Err.Error()
+		}
+	}
+	return n
 }
