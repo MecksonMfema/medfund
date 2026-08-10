@@ -15,6 +15,8 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/medfund/shared/httpserver"
+
 	"github.com/medfund/notification-service/internal/advice"
 	"github.com/medfund/notification-service/internal/config"
 	"github.com/medfund/notification-service/internal/events"
@@ -35,7 +37,7 @@ import (
 func main() {
 	cfg := config.Load()
 
-	app := fiber.New(fiber.Config{AppName: "MedFund Notification Service"})
+	app := httpserver.New(httpserver.Options{AppName: "MedFund Notification Service"})
 	app.Use(recover.New())
 	app.Use(logger.New())
 	app.Get("/health", func(c *fiber.Ctx) error {

@@ -17,6 +17,7 @@ import (
 	"github.com/medfund/audit-service/internal/consumer"
 	"github.com/medfund/audit-service/internal/db"
 	"github.com/medfund/audit-service/internal/handler"
+	"github.com/medfund/shared/httpserver"
 )
 
 func main() {
@@ -58,7 +59,7 @@ func main() {
 	c.Start(ctx)
 
 	// ── HTTP server ────────────────────────────────────────────────────────
-	app := fiber.New(fiber.Config{AppName: "MedFund Audit Service"})
+	app := httpserver.New(httpserver.Options{AppName: "MedFund Audit Service"})
 	app.Use(recover.New())
 	app.Use(logger.New())
 

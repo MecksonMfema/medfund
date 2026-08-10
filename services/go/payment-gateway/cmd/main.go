@@ -8,14 +8,14 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
+	"github.com/medfund/shared/httpserver"
+
 	"github.com/medfund/payment-gateway/internal/handler"
 	"github.com/medfund/payment-gateway/internal/payment"
 )
 
 func main() {
-	app := fiber.New(fiber.Config{
-		AppName: "MedFund Payment Gateway",
-	})
+	app := httpserver.New(httpserver.Options{AppName: "MedFund Payment Gateway"})
 
 	app.Use(recover.New())
 	app.Use(logger.New())

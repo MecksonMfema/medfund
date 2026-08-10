@@ -12,19 +12,15 @@ import (
 	"github.com/medfund/gateway/internal/events"
 	"github.com/medfund/gateway/internal/middleware"
 	"github.com/medfund/gateway/internal/routes"
+	"github.com/medfund/shared/httpserver"
 )
 
 func main() {
 	cfg := config.Load()
 
-	app := fiber.New(fiber.Config{
+	app := httpserver.New(httpserver.Options{
 		AppName:      "MedFund API Gateway",
 		ServerHeader: "MedFund",
-		// Keycloak access tokens (with tenant realm-roles + resource-access claims)
-		// plus KEYCLOAK_IDENTITY/SESSION cookies routinely push request headers past
-		// Fiber's 4 KiB default, which triggers a 431 *before* the CORS middleware
-		// runs — the browser then surfaces it as a misleading CORS error.
-		ReadBufferSize: 32 * 1024,
 	})
 
 	// Global middleware
