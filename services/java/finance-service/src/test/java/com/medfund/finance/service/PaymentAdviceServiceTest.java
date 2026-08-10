@@ -1,10 +1,14 @@
 package com.medfund.finance.service;
 
+import com.medfund.finance.dto.PageResponse;
+import com.medfund.finance.dto.PaymentAdviceFilterParams;
+import com.medfund.finance.dto.PaymentAdviceRowResponse;
 import com.medfund.finance.entity.PaymentAdviceLine;
 import com.medfund.finance.entity.PaymentAdviceRecord;
 import com.medfund.finance.entity.PaymentRun;
 import com.medfund.finance.entity.PaymentRunItem;
 import com.medfund.finance.repository.PaymentAdviceLineRepository;
+import com.medfund.finance.repository.PaymentAdviceQueryRepository;
 import com.medfund.finance.repository.PaymentAdviceRecordRepository;
 import com.medfund.finance.repository.PaymentRunItemRepository;
 import com.medfund.finance.repository.PaymentRunRepository;
@@ -42,6 +46,7 @@ class PaymentAdviceServiceTest {
     @Mock private PaymentRunItemRepository paymentRunItemRepository;
     @Mock private PaymentAdviceRecordRepository adviceRepository;
     @Mock private PaymentAdviceLineRepository adviceLineRepository;
+    @Mock private PaymentAdviceQueryRepository queryRepository;
     @Mock private DatabaseClient db;
     @Mock private FinanceEventPublisher eventPublisher;
     @Mock private AuditPublisher auditPublisher;
@@ -129,56 +134,36 @@ class PaymentAdviceServiceTest {
     }
 
     @Test
-    void findFiltered_periodBounds_buildBoundedQuery() {
-        var builtSql = new java.util.concurrent.atomic.AtomicReference<String>();
-        when(db.sql(anyString())).thenAnswer(inv -> {
-            builtSql.set(inv.getArgument(0));
-            return spec;
-        });
-        when(spec.bind(anyString(), any())).thenReturn(spec);
-        when(spec.map(any(java.util.function.BiFunction.class))).thenReturn((FetchSpec) fetch);
-        when(spec.map(any(java.util.function.Function.class))).thenReturn((FetchSpec) fetch);
-        when(fetch.all()).thenReturn(Flux.empty());
+    void searchPaged_delegatesToQueryRepositoryAndClampsSize() {
+        var row = new PaymentAdviceRowResponse(
+                UUID.randomUUID(), "ADV-000001", UUID.randomUUID(), "RUN-000001",
+                "PROVIDER", UUID.randomUUID(), null, "Acme Clinic",
+                "USD", new BigDecimal("250.00"), 3, "generated",
+                Instant.now(), Instant.now().minusSeconds(30 * 86400), Instant.now(),
+                BigDecimal.ZERO, new BigDecimal("250.00"), BigDecimal.ZERO,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
+                new BigDecimal("250.00"), Instant.now());
 
-        Instant start = Instant.parse("2026-08-01T00:00:00Z");
-        Instant end   = Instant.parse("2026-08-31T23:59:59Z");
+        // size 999 must be clamped to 200; page 0 means offset 0.
+        when(queryRepository.search(any(PaymentAdviceFilterParams.class), org.mockito.ArgumentMatchers.eq(200), org.mockito.ArgumentMatchers.eq(0)))
+            .thenReturn(Flux.just(row));
+        when(queryRepository.count(any(PaymentAdviceFilterParams.class)))
+            .thenReturn(Mono.just(1L));
 
-        StepVerifier.create(service.findFiltered(null, null, null, start, end)
-                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+        var params = new PaymentAdviceFilterParams(
+                null, null, null, null, null, null, null, null, null,
+                "issuedAt", "desc", 0, 999);
+
+        StepVerifier.create(service.searchPaged(params))
+            .assertNext((PageResponse<PaymentAdviceRowResponse> page) -> {
+                assertThat(page.content()).hasSize(1);
+                assertThat(page.total()).isEqualTo(1L);
+                assertThat(page.page()).isZero();
+                assertThat(page.size()).isEqualTo(200);
+                assertThat(page.content().get(0).payeeName()).isEqualTo("Acme Clinic");
+                assertThat(page.content().get(0).runNumber()).isEqualTo("RUN-000001");
+            })
             .verifyComplete();
-
-        String sql = builtSql.get();
-        assertThat(sql).contains("period_end_at >= :periodStart");
-        assertThat(sql).contains("period_end_at <= :periodEnd");
-        // No payee-side WHERE clauses when only period bounds are set.
-        assertThat(sql).doesNotContain("payment_run_id = :runId");
-        assertThat(sql).doesNotContain("provider_id    = :providerId");
-        assertThat(sql).doesNotContain("member_id      = :memberId");
-        // Actually bound the params (guards against silent binding drops).
-        verify(spec).bind("periodStart", start);
-        verify(spec).bind("periodEnd", end);
-    }
-
-    @Test
-    void findFiltered_noFilters_selectsAll() {
-        var builtSql = new java.util.concurrent.atomic.AtomicReference<String>();
-        when(db.sql(anyString())).thenAnswer(inv -> {
-            builtSql.set(inv.getArgument(0));
-            return spec;
-        });
-        when(spec.map(any(java.util.function.BiFunction.class))).thenReturn((FetchSpec) fetch);
-        when(spec.map(any(java.util.function.Function.class))).thenReturn((FetchSpec) fetch);
-        when(fetch.all()).thenReturn(Flux.empty());
-
-        StepVerifier.create(service.findFiltered(null, null, null, null, null)
-                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
-            .verifyComplete();
-
-        String sql = builtSql.get();
-        assertThat(sql).contains("SELECT * FROM payment_advices");
-        assertThat(sql).contains("ORDER BY issued_at DESC");
-        assertThat(sql).doesNotContain(":periodStart");
-        assertThat(sql).doesNotContain(":providerId");
     }
 
     @Test

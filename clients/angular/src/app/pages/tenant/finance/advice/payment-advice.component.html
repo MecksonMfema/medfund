@@ -1,80 +1,62 @@
-<div class="page">
-  <header class="page-header">
-    <div>
-      <h1>Payment advices</h1>
-      <p class="page-sub">
-        Per-payee ledger of every payment run. Advices are generated
-        automatically when a run executes. Click through to see the
-        typed line items (carry-forward, claims paid, CTC offsets,
-        advance drawdowns, tax withheld, shortfalls) and net due.
-      </p>
-    </div>
-  </header>
-
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
-
-  <div class="filter-bar card">
-    <label class="field">
-      <span class="field-label">Month</span>
-      <input type="month" [(ngModel)]="monthFilter" (change)="onMonthChange()" name="monthFilter" />
-    </label>
-    @if (monthFilter) {
-      <button class="btn btn-ghost" (click)="clearMonth()">
-        <app-icon name="x" [size]="14"></app-icon>
-        Clear
-      </button>
-    }
-    <span class="filter-hint muted">
-      Filters advices whose period ended in the selected month.
-    </span>
+<header class="page-header">
+  <div>
+    <h1>{{ pageTitle }}</h1>
+    <p class="page-sub">{{ pageDescription }}</p>
   </div>
+</header>
 
-  @if (loading) {
-    <app-skeleton></app-skeleton>
-  } @else if (history.length > 0) {
-    <section class="card">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Advice #</th>
-            <th>Payee</th>
-            <th>Run</th>
-            <th>Status</th>
-            <th class="right">Net due</th>
-            <th>Issued</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (h of history; track h.id) {
-            <tr>
-              <td><code>{{ h.adviceNumber || h.id.substring(0, 8) }}</code></td>
-              <td>
-                <span class="pill pill-{{ (h.payeeType || 'PROVIDER') | lowercase }}">
-                  {{ h.payeeType || 'PROVIDER' }}
-                </span>
-              </td>
-              <td><code>{{ h.paymentRunId ? h.paymentRunId.substring(0, 8) : '—' }}</code></td>
-              <td class="muted">{{ h.status }}</td>
-              <td class="right">{{ (h.netDueAmount || h.totalAmount) | currencyFormat:h.currencyCode }}</td>
-              <td class="muted">{{ h.issuedAt | date:'short' }}</td>
-              <td>
-                <a class="btn btn-ghost" [routerLink]="['/tenant/finance/advices', h.id]">
-                  <app-icon name="chevron-right" [size]="14"></app-icon>
-                  View
-                </a>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </section>
-  } @else {
-    <div class="empty-state card">
-      <p>No payment advices generated yet.</p>
-      <p class="muted">Advices are created automatically when a payment run is executed.</p>
-    </div>
-  }
-</div>
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [actions]="actions"
+  [showActions]="true"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  [initialSortKey]="sortKey"
+  [initialSortDirection]="sortDirection"
+  searchPlaceholder="Search advice #, run #, provider or member"
+  emptyMessage="No payment advices match these filters"
+  emptyDescription="Advices are generated automatically when a payment run is executed."
+  (pageChange)="onPageChange($event)"
+  (searchChange)="onSearchChange($event)"
+  (sortChange)="onSortChange($event)">
+  <div table-filters class="toolbar-cell cell-payee-type">
+    <span class="cell-label">Payee</span>
+    <app-select
+      [(ngModel)]="payeeTypeFilter"
+      (selectionChange)="onFilterChange()"
+      name="payeeType"
+      [options]="payeeTypeOptions"
+      placeholder="All"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+  <div table-filters class="toolbar-cell cell-status">
+    <span class="cell-label">Status</span>
+    <app-select
+      [(ngModel)]="statusFilter"
+      (selectionChange)="onFilterChange()"
+      name="status"
+      [options]="statusOptions"
+      placeholder="All"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+  <div table-filters class="toolbar-cell cell-month">
+    <span class="cell-label">Month</span>
+    <input type="month"
+           [(ngModel)]="monthFilter"
+           (change)="onFilterChange()"
+           name="monthFilter" />
+  </div>
+</app-data-table>

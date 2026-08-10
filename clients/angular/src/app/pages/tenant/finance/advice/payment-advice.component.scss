@@ -1,124 +1,91 @@
-.page { padding: 1.5rem; }
-
-.page-header { margin-bottom: 1.25rem; }
-.page-header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
-.page-sub { margin: 0; color: var(--color-text-muted, #6b7280); font-size: 0.9rem; max-width: 70ch; }
-
-.banner {
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-md, 8px);
-  cursor: pointer;
-  margin-bottom: 1rem;
-}
-.banner-error { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
-
-.card {
-  background: var(--color-surface, #fff);
-  border: 1px solid var(--color-border-light, #e5e7eb);
-  border-radius: var(--radius-md, 8px);
-  padding: 1.5rem;
-  margin-bottom: 1rem;
-}
-
-.generator {
+.page-header {
   display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   gap: 1rem;
-  align-items: flex-end;
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
   flex-wrap: wrap;
 }
 
-.filter-bar {
-  display: flex;
-  align-items: flex-end;
-  gap: 1rem;
-  flex-wrap: wrap;
-  padding: 1rem 1.25rem;
-
-  .filter-hint {
-    margin-left: auto;
-    font-size: 0.85rem;
-  }
-
-  input[type="month"] {
-    padding: 0.4rem 0.6rem;
-    border: 1px solid var(--color-border-light, #e5e7eb);
-    border-radius: var(--radius-sm, 6px);
-    font: inherit;
-    min-width: 160px;
-  }
-}
-
-.field { display: flex; flex-direction: column; flex: 1; min-width: 280px; font-size: 0.875rem; }
-.field-label { font-weight: 500; margin-bottom: 0.25rem; }
-.field input {
-  padding: 0.6rem 0.75rem;
-  border: 1px solid var(--color-border, #d1d5db);
-  border-radius: var(--radius-md, 8px);
-  font-size: 0.95rem;
-  font-family: inherit;
-}
-
-.advice-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 1rem;
-}
-
-.advice-header {
-  border-bottom: 1px solid var(--color-border-light, #e5e7eb);
-  padding-bottom: 1rem;
-  margin-bottom: 1rem;
-}
-
-.advice-header h2 {
-  margin: 0 0 0.5rem;
+.page-header h1 {
+  margin: 0 0 0.25rem;
   font-size: 1.5rem;
 }
 
-.meta {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.4rem 1rem;
+.page-header .page-sub {
   margin: 0;
-  font-size: 0.875rem;
-}
-.meta dt { color: var(--color-text-muted, #6b7280); }
-.meta dd { margin: 0; }
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  max-width: 70ch;
 }
 
-.data-table th,
-.data-table td {
-  padding: 0.55rem 0.75rem;
-  text-align: left;
-  border-bottom: 1px solid var(--color-border-light, #e5e7eb);
-  font-size: 0.875rem;
+.banner {
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  margin: 0.75rem 24px 0;
+  border-radius: var(--radius-md, 8px);
+}
+.banner-error { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
+
+// DataTable's toolbar layout is [search][spacer][filters], which pushes
+// projected filters to the far right. Push the spacer past our cells via
+// flex order so filters sit flush against the search — same trick used
+// by /tenant/finance/runs.
+::ng-deep .table-toolbar .toolbar-spacer { order: 1; }
+
+.toolbar-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  min-height: 48px;
+  background: transparent;
+
+  .cell-label {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+    font-weight: var(--font-weight-medium);
+  }
 }
 
-.right { text-align: right; }
-.muted { color: var(--color-text-muted, #6b7280); }
+.toolbar-cell.cell-payee-type,
+.toolbar-cell.cell-status {
+  flex: 0 0 auto;
+  min-width: 180px;
 
-.total-row { border-top: 2px solid var(--color-border, #d1d5db); }
-.total-label { font-weight: 600; padding-top: 0.6rem; }
-.total-amount { font-weight: 700; padding-top: 0.6rem; font-size: 1rem; }
+  app-select { min-width: 120px; flex: 1; }
 
-.section-title {
-  margin: 0 0 0.75rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--color-text-muted, #6b7280);
+  // Strip SelectComponent's default border/rounded background so it sits
+  // flush inside the toolbar row (same as runs' cell-status).
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
 }
 
-.data-table tr.clickable { cursor: pointer; }
-.data-table tr.clickable:hover { background: var(--color-bg, #f8fdff); }
+.toolbar-cell.cell-month {
+  flex: 0 0 auto;
 
-@media print {
-  .no-print { display: none !important; }
-  .page { padding: 0; }
-  .card { border: none; box-shadow: none; }
+  input[type="month"] {
+    border: none;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    font: inherit;
+    color: inherit;
+  }
 }

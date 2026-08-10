@@ -1,13 +1,17 @@
 package com.medfund.finance.service;
 
+import com.medfund.finance.dto.PageResponse;
 import com.medfund.finance.dto.PaymentAdvice;
 import com.medfund.finance.dto.PaymentAdvice.PaymentAdviceLineDto;
+import com.medfund.finance.dto.PaymentAdviceFilterParams;
+import com.medfund.finance.dto.PaymentAdviceRowResponse;
 import com.medfund.finance.entity.PaymentAdviceLine;
 import com.medfund.finance.entity.PaymentAdviceRecord;
 import com.medfund.finance.entity.PaymentRun;
 import com.medfund.finance.entity.PaymentRunItem;
 import com.medfund.finance.exception.PaymentNotFoundException;
 import com.medfund.finance.repository.PaymentAdviceLineRepository;
+import com.medfund.finance.repository.PaymentAdviceQueryRepository;
 import com.medfund.finance.repository.PaymentAdviceRecordRepository;
 import com.medfund.finance.repository.PaymentRunItemRepository;
 import com.medfund.finance.repository.PaymentRunRepository;
@@ -47,85 +51,29 @@ public class PaymentAdviceService {
     private final PaymentRunItemRepository paymentRunItemRepository;
     private final PaymentAdviceRecordRepository adviceRepository;
     private final PaymentAdviceLineRepository adviceLineRepository;
+    private final PaymentAdviceQueryRepository queryRepository;
     private final DatabaseClient db;
     private final FinanceEventPublisher eventPublisher;
     private final AuditPublisher auditPublisher;
 
+    /**
+     * Server-side paginated payment-advices list. Mirrors
+     * {@code PaymentRunService.searchPaged}: caps size at 200 to keep any
+     * one page cheap, and delegates joins / sort / search to
+     * {@link PaymentAdviceQueryRepository}.
+     */
+    public Mono<PageResponse<PaymentAdviceRowResponse>> searchPaged(PaymentAdviceFilterParams params) {
+        int page = Math.max(params.page(), 0);
+        int size = Math.min(Math.max(params.size(), 1), 200);
+        int offset = page * size;
+        return queryRepository.search(params, size, offset)
+                .collectList()
+                .zipWith(queryRepository.count(params))
+                .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
+    }
+
     public Flux<PaymentAdviceRecord> findByRun(UUID paymentRunId) {
         return adviceRepository.findByPaymentRunId(paymentRunId);
-    }
-
-    public Flux<PaymentAdviceRecord> findByProvider(UUID providerId) {
-        return adviceRepository.findByProviderId(providerId);
-    }
-
-    public Flux<PaymentAdviceRecord> findByMember(UUID memberId) {
-        return adviceRepository.findByMemberId(memberId);
-    }
-
-    public Flux<PaymentAdviceRecord> findAll() {
-        return adviceRepository.findAllOrdered();
-    }
-
-    /**
-     * Filter advices by any combination of run, payee, and period bounds.
-     * {@code periodStart} / {@code periodEnd} match against
-     * {@code period_end_at} — an advice "belongs to" the month its
-     * covering run executed in, so filtering by that column matches the
-     * natural user question "show me August's advices."
-     *
-     * <p>All params are optional; when every filter is null this returns
-     * the same list as {@link #findAll()}. Kept in-service (using
-     * {@code DatabaseClient} directly) rather than as a separate query
-     * repository because the volume is low and there's no pagination to
-     * scaffold.
-     */
-    public Flux<PaymentAdviceRecord> findFiltered(UUID runId, UUID providerId, UUID memberId,
-                                                  Instant periodStart, Instant periodEnd) {
-        StringBuilder sql = new StringBuilder(
-            "SELECT * FROM payment_advices WHERE 1=1 ");
-        if (runId       != null) sql.append(" AND payment_run_id = :runId ");
-        if (providerId  != null) sql.append(" AND provider_id    = :providerId ");
-        if (memberId    != null) sql.append(" AND member_id      = :memberId ");
-        if (periodStart != null) sql.append(" AND period_end_at >= :periodStart ");
-        if (periodEnd   != null) sql.append(" AND period_end_at <= :periodEnd ");
-        sql.append(" ORDER BY issued_at DESC");
-
-        var spec = db.sql(sql.toString());
-        if (runId       != null) spec = spec.bind("runId",       runId);
-        if (providerId  != null) spec = spec.bind("providerId",  providerId);
-        if (memberId    != null) spec = spec.bind("memberId",    memberId);
-        if (periodStart != null) spec = spec.bind("periodStart", periodStart);
-        if (periodEnd   != null) spec = spec.bind("periodEnd",   periodEnd);
-        return spec.map(this::rowToRecord).all();
-    }
-
-    private PaymentAdviceRecord rowToRecord(io.r2dbc.spi.Readable row) {
-        var r = new PaymentAdviceRecord();
-        r.setId(row.get("id", UUID.class));
-        r.setPaymentRunId(row.get("payment_run_id", UUID.class));
-        r.setProviderId(row.get("provider_id", UUID.class));
-        r.setMemberId(row.get("member_id", UUID.class));
-        r.setPayeeType(row.get("payee_type", String.class));
-        r.setCurrencyCode(row.get("currency_code", String.class));
-        r.setTotalAmount(row.get("total_amount", BigDecimal.class));
-        r.setClaimCount(row.get("claim_count", Integer.class));
-        r.setDocumentUrl(row.get("document_url", String.class));
-        r.setExcelUrl(row.get("excel_url", String.class));
-        r.setStatus(row.get("status", String.class));
-        r.setIssuedAt(row.get("issued_at", Instant.class));
-        r.setPeriodStartAt(row.get("period_start_at", Instant.class));
-        r.setPeriodEndAt(row.get("period_end_at", Instant.class));
-        r.setCarriedInAmount(row.get("carried_in_amount", BigDecimal.class));
-        r.setClaimsPaidAmount(row.get("claims_paid_amount", BigDecimal.class));
-        r.setCtcAppliedAmount(row.get("ctc_applied_amount", BigDecimal.class));
-        r.setAdvanceAppliedAmount(row.get("advance_applied_amount", BigDecimal.class));
-        r.setTaxWithheldAmount(row.get("tax_withheld_amount", BigDecimal.class));
-        r.setShortfallAmount(row.get("shortfall_amount", BigDecimal.class));
-        r.setNetDueAmount(row.get("net_due_amount", BigDecimal.class));
-        r.setAdviceNumber(row.get("advice_number", String.class));
-        r.setCreatedAt(row.get("created_at", Instant.class));
-        return r;
     }
 
     public Mono<PaymentAdviceRecord> findById(UUID id) {

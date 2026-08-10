@@ -554,17 +554,52 @@ export interface PaymentAdviceRecord {
   createdAt: string;
 }
 
-/** Optional filters accepted by GET /payment-advices. periodStart /
- *  periodEnd match against period_end_at so "August 2026" = every
- *  advice whose covering run executed in August. */
-export interface PaymentAdviceFilter {
+// ── Paginated advice row ────────────────────────────────────────────────
+/** Row shape returned by GET /payment-advices/page — extends the
+ *  record with joined runNumber + payeeName so the list can render
+ *  friendly labels without a follow-up round-trip. */
+export interface PaymentAdviceRow {
+  id: string;
+  adviceNumber?: string;
+  paymentRunId?: string;
+  runNumber?: string;
+  payeeType: PayeeType;
+  providerId?: string;
+  memberId?: string;
+  payeeName?: string;
+  currencyCode: string;
+  totalAmount: string;
+  claimCount: number;
+  status: 'generated' | 'sent' | 'failed';
+  issuedAt: string;
+  periodStartAt?: string;
+  periodEndAt?: string;
+  carriedInAmount?: string;
+  claimsPaidAmount?: string;
+  ctcAppliedAmount?: string;
+  advanceAppliedAmount?: string;
+  taxWithheldAmount?: string;
+  shortfallAmount?: string;
+  netDueAmount?: string;
+  createdAt: string;
+}
+
+export interface PaymentAdvicePageParams {
   paymentRunId?: string;
   providerId?: string;
   memberId?: string;
-  /** ISO-8601 datetime, inclusive lower bound. e.g. `2026-08-01T00:00:00Z`. */
+  payeeType?: PayeeType | '';
+  status?: 'generated' | 'sent' | 'failed' | '';
+  currencyCode?: string;
+  /** ISO-8601 datetime, inclusive lower bound. */
   periodStart?: string;
-  /** ISO-8601 datetime, inclusive upper bound. e.g. `2026-08-31T23:59:59Z`. */
+  /** ISO-8601 datetime, inclusive upper bound. */
   periodEnd?: string;
+  q?: string;
+  sortKey?: string;
+  sortDirection?: 'asc' | 'desc';
+  page?: number;
+  size?: number;
 }
 
 // ── Payment advice ledger ───────────────────────────────────────────────
@@ -612,14 +647,26 @@ export class FinanceService {
   constructor(private api: ApiService) {}
 
   // ── Payment advice ──
-  listAdviceRecords(filter?: PaymentAdviceFilter): Observable<PaymentAdviceRecord[]> {
+  /**
+   * Server-side paginated payment-advices list. Feeds /tenant/finance/advice.
+   * Payee name + run number are pre-joined server-side.
+   */
+  listAdvicesPaged(opts: PaymentAdvicePageParams): Observable<FinancePageResponse<PaymentAdviceRow>> {
     const params: Record<string, string> = {};
-    if (filter?.paymentRunId) params['paymentRunId'] = filter.paymentRunId;
-    if (filter?.providerId)   params['providerId']   = filter.providerId;
-    if (filter?.memberId)     params['memberId']     = filter.memberId;
-    if (filter?.periodStart)  params['periodStart']  = filter.periodStart;
-    if (filter?.periodEnd)    params['periodEnd']    = filter.periodEnd;
-    return this.api.get<PaymentAdviceRecord[]>('/payment-advices', params);
+    if (opts.paymentRunId)   params['paymentRunId']  = opts.paymentRunId;
+    if (opts.providerId)     params['providerId']    = opts.providerId;
+    if (opts.memberId)       params['memberId']      = opts.memberId;
+    if (opts.payeeType)      params['payeeType']     = opts.payeeType;
+    if (opts.status)         params['status']        = opts.status;
+    if (opts.currencyCode)   params['currencyCode']  = opts.currencyCode;
+    if (opts.periodStart)    params['periodStart']   = opts.periodStart;
+    if (opts.periodEnd)      params['periodEnd']     = opts.periodEnd;
+    if (opts.q)              params['q']             = opts.q;
+    if (opts.sortKey)        params['sortKey']       = opts.sortKey;
+    if (opts.sortDirection)  params['sortDirection'] = opts.sortDirection;
+    if (opts.page !== undefined) params['page']      = String(opts.page);
+    if (opts.size !== undefined) params['size']      = String(opts.size);
+    return this.api.get<FinancePageResponse<PaymentAdviceRow>>('/payment-advices/page', params);
   }
   listAdvicesForRun(paymentRunId: string): Observable<PaymentAdviceRecord[]> {
     return this.api.get<PaymentAdviceRecord[]>(`/payment-runs/${paymentRunId}/advices`);

@@ -317,7 +317,7 @@ export const FINANCE_ROUTES: Routes = [
     path: 'advice',
     canActivate: [permissionGuard(['finance:view_payment_advice'])],
     loadComponent: () => import('./advice/payment-advice.component').then(m => m.PaymentAdviceComponent),
-    data: { title: 'Payment Advice', sidebar: 'operational' },
+    data: { title: 'Payment Advice', sidebar: 'operational', fullbleed: true },
   },
   cs('advice/member',                'Member Payment Advice',        '/member-payment-advice',  'Notifications to members.',                 ['finance:view_payment_advice']),
   {

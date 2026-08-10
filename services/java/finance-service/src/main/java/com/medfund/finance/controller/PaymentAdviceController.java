@@ -1,8 +1,11 @@
 package com.medfund.finance.controller;
 
+import com.medfund.finance.dto.PageResponse;
 import com.medfund.finance.dto.PaymentAdvice;
 import com.medfund.finance.dto.PaymentAdvice.PaymentAdviceLineDto;
+import com.medfund.finance.dto.PaymentAdviceFilterParams;
 import com.medfund.finance.dto.PaymentAdviceRecordResponse;
+import com.medfund.finance.dto.PaymentAdviceRowResponse;
 import com.medfund.finance.entity.PaymentAdviceLine;
 import com.medfund.finance.entity.PaymentAdviceRecord;
 import com.medfund.finance.service.PaymentAdviceService;
@@ -34,39 +37,34 @@ public class PaymentAdviceController {
 
     private final PaymentAdviceService paymentAdviceService;
 
-    @GetMapping("/payment-advices")
-    @Operation(summary = "List previously generated advices",
-        description = "Filter by any combination of run, payee, and period bounds. "
-                    + "periodStart / periodEnd match against the advice's period_end_at — "
-                    + "an advice \"belongs to\" the month its covering run executed in.")
+    @GetMapping("/payment-advices/page")
+    @Operation(summary = "Server-side paginated, sortable, filterable payment-advices list",
+        description = "Feeds /tenant/finance/advice. Sortable keys: adviceNumber, payeeType, "
+                + "status, netDueAmount, totalAmount, claimCount, currencyCode, issuedAt, "
+                + "periodEndAt, createdAt, runNumber. Free-text `q` searches advice number, "
+                + "run number, provider name, and member name.")
+    @ApiResponse(responseCode = "200", description = "Page of payment advices")
     @RequiresPermission(Permissions.FINANCE_VIEW_PAYMENT_ADVICE)
-    public Flux<PaymentAdviceRecordResponse> list(
+    public Mono<PageResponse<PaymentAdviceRowResponse>> searchPaged(
             @RequestParam(required = false) UUID paymentRunId,
             @RequestParam(required = false) UUID providerId,
             @RequestParam(required = false) UUID memberId,
+            @RequestParam(required = false) String payeeType,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String currencyCode,
             @Parameter(description = "Inclusive lower bound on period_end_at (ISO-8601, e.g. 2026-08-01T00:00:00Z)")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant periodStart,
             @Parameter(description = "Inclusive upper bound on period_end_at (ISO-8601, e.g. 2026-08-31T23:59:59Z)")
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant periodEnd) {
-        // Fast paths — preserve back-compat with the single-key filters.
-        if (paymentRunId != null && providerId == null && memberId == null
-                && periodStart == null && periodEnd == null) {
-            return paymentAdviceService.findByRun(paymentRunId).map(PaymentAdviceRecordResponse::from);
-        }
-        if (providerId != null && paymentRunId == null && memberId == null
-                && periodStart == null && periodEnd == null) {
-            return paymentAdviceService.findByProvider(providerId).map(PaymentAdviceRecordResponse::from);
-        }
-        if (memberId != null && paymentRunId == null && providerId == null
-                && periodStart == null && periodEnd == null) {
-            return paymentAdviceService.findByMember(memberId).map(PaymentAdviceRecordResponse::from);
-        }
-        if (paymentRunId == null && providerId == null && memberId == null
-                && periodStart == null && periodEnd == null) {
-            return paymentAdviceService.findAll().map(PaymentAdviceRecordResponse::from);
-        }
-        return paymentAdviceService.findFiltered(paymentRunId, providerId, memberId, periodStart, periodEnd)
-                .map(PaymentAdviceRecordResponse::from);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant periodEnd,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "issuedAt") String sortKey,
+            @RequestParam(required = false, defaultValue = "desc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "50") int size) {
+        var params = new PaymentAdviceFilterParams(
+                paymentRunId, providerId, memberId, payeeType, status, currencyCode,
+                periodStart, periodEnd, q, sortKey, sortDirection, page, size);
+        return paymentAdviceService.searchPaged(params);
     }
 
     @GetMapping("/payment-advices/{id}")
