@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import {
   FinancePageResponse,
   FinanceService,
+  PayeeType,
   PaymentRun,
   PaymentRunStatus,
 } from '../../../../core/services/finance.service';
@@ -29,6 +30,7 @@ export class PaymentRunsListComponent implements OnInit {
   pageDescription = 'Batched payouts to providers. Each run aggregates eligible adjudicated claims into a draft, then commits on execute.';
 
   statusFilter: PaymentRunStatus | '' = '';
+  payeeTypeFilter: PayeeType | '' = '';
 
   // Server-side pagination state.
   page = 1;
@@ -48,9 +50,16 @@ export class PaymentRunsListComponent implements OnInit {
     { value: 'cancelled', label: 'Cancelled' },
   ];
 
+  readonly payeeTypeOptions: SelectOption[] = [
+    { value: '', label: 'All' },
+    { value: 'PROVIDER', label: 'Providers' },
+    { value: 'MEMBER',   label: 'Members' },
+  ];
+
   readonly columns: TableColumn[] = [
     { key: 'runNumber',    label: 'Run #',      sortable: true },
     { key: 'status',       label: 'Status',     sortable: true, type: 'status' },
+    { key: 'payeeType',    label: 'Payee type', sortable: true, type: 'label' },
     { key: 'totalAmount',  label: 'Total',      sortable: true, type: 'currency' },
     { key: 'currencyCode', label: 'Currency',   sortable: true },
     { key: 'paymentCount', label: 'Payments',   sortable: true },
@@ -90,6 +99,7 @@ export class PaymentRunsListComponent implements OnInit {
     this.loading = true;
     this.finance.listRunsPaged({
       status: this.statusFilter || undefined,
+      payeeType: this.payeeTypeFilter || undefined,
       q: this.searchTerm || undefined,
       sortKey: this.sortKey,
       sortDirection: this.sortDirection,
@@ -113,6 +123,11 @@ export class PaymentRunsListComponent implements OnInit {
   }
 
   onStatusChange(): void {
+    this.page = 1;
+    this.fetchPage();
+  }
+
+  onPayeeTypeChange(): void {
     this.page = 1;
     this.fetchPage();
   }

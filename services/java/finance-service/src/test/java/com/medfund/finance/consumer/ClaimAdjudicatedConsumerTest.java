@@ -8,8 +8,10 @@ import com.medfund.finance.entity.CtcPayment;
 import com.medfund.finance.entity.MemberPayable;
 import com.medfund.finance.entity.ProviderBalance;
 import com.medfund.finance.repository.CtcPaymentRepository;
+import com.medfund.finance.entity.MemberBalance;
 import com.medfund.finance.repository.MemberContributionBalanceReader;
 import com.medfund.finance.repository.MemberPayableRepository;
+import com.medfund.finance.service.MemberBalanceService;
 import com.medfund.finance.service.ProviderBalanceService;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
@@ -39,6 +41,9 @@ class ClaimAdjudicatedConsumerTest {
     private ProviderBalanceService providerBalanceService;
 
     @Mock
+    private MemberBalanceService memberBalanceService;
+
+    @Mock
     private MemberPayableRepository memberPayableRepository;
 
     @Mock
@@ -62,9 +67,15 @@ class ClaimAdjudicatedConsumerTest {
     @BeforeEach
     void setUp() {
         consumer = new ClaimAdjudicatedConsumer(null, providerBalanceService,
+                memberBalanceService,
                 memberPayableRepository, auditPublisher, objectMapper,
                 tenantConfigClient, memberContributionBalanceReader,
                 ctcPaymentRepository, fxConverter);
+        // Balance bumps are lenient — many tests don't care but the new
+        // consumer path always tries to write member_balances first on any
+        // MEMBER event with a claimed or approved delta.
+        lenient().when(memberBalanceService.updateBalance(any(), any(), any(), any(), any(), any(), any()))
+                 .thenReturn(Mono.just(new MemberBalance()));
     }
 
     private static CtcAutoConfig disabled() {

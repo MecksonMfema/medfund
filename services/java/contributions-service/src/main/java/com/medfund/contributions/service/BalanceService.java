@@ -2,7 +2,7 @@ package com.medfund.contributions.service;
 
 import com.medfund.contributions.dto.BadDebtRow;
 import com.medfund.contributions.dto.BalanceRow;
-import com.medfund.contributions.dto.CreditorRow;
+import com.medfund.contributions.dto.DebtorRow;
 import com.medfund.contributions.dto.GroupBalanceResponse;
 import com.medfund.contributions.dto.MemberBalanceResponse;
 import com.medfund.contributions.dto.PageResponse;
@@ -202,29 +202,29 @@ public class BalanceService {
      *                    count (mirrors the payer-rejection rule in
      *                    feedback_grouped_members_cannot_pay).
      */
-    public Mono<PageResponse<CreditorRow>> listCreditors(String currency, String subjectType,
-                                                          String q, int page, int size) {
+    public Mono<PageResponse<DebtorRow>> listDebtors(String currency, String subjectType,
+                                                       String q, int page, int size) {
         int offset = page * size;
-        return queryRepo.findCreditors(currency, subjectType, q, size, offset)
-                .map(CreditorRow::from)
+        return queryRepo.findDebtors(currency, subjectType, q, size, offset)
+                .map(DebtorRow::from)
                 .collectList()
-                .zipWith(queryRepo.countCreditors(currency, subjectType, q))
+                .zipWith(queryRepo.countDebtors(currency, subjectType, q))
                 .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
     }
 
     /**
      * List bad debts — subjects with a positive running balance whose
      * status is {@code deactivated} or {@code terminated}. Symmetric to
-     * {@link #listCreditors} in every other respect (same subjectType
+     * {@link #listDebtors} in every other respect (same subjectType
      * routing, same grouped-member exclusion, same page shape); the
      * only difference is the status filter has flipped from
      * currently-billable to no-longer-billable.
      */
-    public Mono<PageResponse<CreditorRow>> listBadDebts(String currency, String subjectType,
-                                                          String q, int page, int size) {
+    public Mono<PageResponse<DebtorRow>> listBadDebts(String currency, String subjectType,
+                                                        String q, int page, int size) {
         int offset = page * size;
         return queryRepo.findBadDebts(currency, subjectType, q, size, offset)
-                .map(CreditorRow::from)
+                .map(DebtorRow::from)
                 .collectList()
                 .zipWith(queryRepo.countBadDebts(currency, subjectType, q))
                 .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));

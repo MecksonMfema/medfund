@@ -5,7 +5,7 @@ import { Subject, Subscription, debounceTime, distinctUntilChanged } from 'rxjs'
 import { DataTableComponent, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
-import { BalanceService, CreditorRow, PageResponse } from '../../../../core/services/balance.service';
+import { BalanceService, DebtorRow, PageResponse } from '../../../../core/services/balance.service';
 import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
 import { TenantService } from '../../../../core/services/tenant.service';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
@@ -17,7 +17,7 @@ type SubjectType = 'MEMBER' | 'GROUP';
  * {@code BOTH}-model tenants the strip renders Individuals + Groups; for
  * single-model tenants the strip is hidden and the subjectType filter is
  * pinned to whichever half applies. Kept structurally identical to the
- * creditors page so the two views feel like halves of one system.
+ * debtors page so the two views feel like halves of one system.
  */
 interface SubjectTab {
   value: SubjectType | null;   // null = show both halves (BOTH-model default)
@@ -32,7 +32,7 @@ interface SubjectTab {
   styleUrl: './bad-debts-list.component.scss',
 })
 export class BadDebtsListComponent implements OnInit, OnDestroy {
-  rows: CreditorRow[] = [];
+  rows: DebtorRow[] = [];
 
   // Server-side pagination + search. Page is 1-indexed in the UI (matches
   // the data-table's serverPage input) and 0-indexed in the API layer.
@@ -156,7 +156,7 @@ export class BadDebtsListComponent implements OnInit, OnDestroy {
       this.page - 1,
       this.pageSize,
     ).subscribe({
-      next: (resp: PageResponse<CreditorRow>) => {
+      next: (resp: PageResponse<DebtorRow>) => {
         this.rows       = resp.content;
         this.totalCount = resp.total;
         this.totalPages = resp.totalPages;

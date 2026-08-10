@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { CurrencyService, Currency } from '../../../../core/services/currency.service';
-import { FinanceService } from '../../../../core/services/finance.service';
+import { FinanceService, PayeeType } from '../../../../core/services/finance.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
@@ -17,9 +17,16 @@ import { SelectComponent, SelectOption } from '../../../../shared/components/sel
 export class PaymentRunGenerateComponent implements OnInit {
   currencies: Currency[] = [];
   currencyCode = '';
+  /** Homogeneous per run — the V072 trigger rejects mixed-payee items. */
+  payeeType: PayeeType = 'PROVIDER';
   description = '';
   busy = false;
   errorMessage: string | null = null;
+
+  readonly payeeTypeOptions: SelectOption[] = [
+    { value: 'PROVIDER', label: 'Providers' },
+    { value: 'MEMBER',   label: 'Members' },
+  ];
 
   constructor(
     private currencyService: CurrencyService,
@@ -50,6 +57,7 @@ export class PaymentRunGenerateComponent implements OnInit {
     this.finance.createRun({
       currencyCode: this.currencyCode,
       description: this.description.trim() || undefined,
+      payeeType: this.payeeType,
     }).subscribe({
       next: (run) => {
         this.busy = false;

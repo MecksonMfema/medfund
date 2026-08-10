@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { BalanceService, CreditorRow, PageResponse } from './balance.service';
+import { BalanceService, DebtorRow, PageResponse } from './balance.service';
 import { environment } from '../../../environments/environment';
 
 /**
@@ -34,7 +34,7 @@ describe('BalanceService (bad-debts endpoints)', () => {
       // typed — the backend expects them under those keys and matches
       // them case-sensitively for the enum, so any silent rename here
       // would cause a permanent empty list on the Groups tab.
-      const stubPage: PageResponse<CreditorRow> = {
+      const stubPage: PageResponse<DebtorRow> = {
         content: [], total: 0, page: 0, size: 20, totalPages: 1,
       };
       service.listBadDebts('USD', 'GROUP', 'Acme', 0, 20).subscribe(r => {

@@ -6,6 +6,7 @@ import com.medfund.finance.dto.CtcPaymentDtos.ReverseCtcPaymentRequest;
 import com.medfund.finance.dto.CtcPaymentFilterParams;
 import com.medfund.finance.dto.CtcPaymentRow;
 import com.medfund.finance.entity.CtcPayment;
+import com.medfund.finance.entity.MemberBalance;
 import com.medfund.finance.entity.MemberPayable;
 import com.medfund.finance.entity.MemberPayableApplication;
 import com.medfund.finance.repository.CtcPaymentQueryRepository;
@@ -45,6 +46,7 @@ class CtcPaymentServiceTest {
     @Mock private MemberPayableRepository memberPayableRepository;
     @Mock private MemberPayableApplicationRepository applicationRepository;
     @Mock private MemberPayableBalanceRepository balanceRepository;
+    @Mock private MemberBalanceService memberBalanceService;
     @Mock private AuditPublisher auditPublisher;
     @Mock private FinanceEventPublisher eventPublisher;
     @Mock private FxConverter fxConverter;
@@ -61,6 +63,8 @@ class CtcPaymentServiceTest {
         lenient().when(eventPublisher.publishCtcCommitted(any(), any())).thenReturn(Mono.empty());
         lenient().when(eventPublisher.publishCtcReversed(any(), any(), any(), any())).thenReturn(Mono.empty());
         lenient().when(eventPublisher.publishCtcApplied(any())).thenReturn(Mono.empty());
+        lenient().when(memberBalanceService.updateBalance(any(), any(), any(), any(), any(), any(), any()))
+                 .thenReturn(Mono.just(new MemberBalance()));
     }
 
     // ── create ────────────────────────────────────────────────────────

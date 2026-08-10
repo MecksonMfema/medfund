@@ -1,0 +1,210 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <button class="link-back" (click)="back()">
+        <app-icon name="arrow-left" [size]="14"></app-icon>
+        Back to creditors
+      </button>
+      <h1>Member — {{ displayName }}</h1>
+      @if (memberId) {
+        <p class="page-sub"><code>{{ memberId }}</code></p>
+      }
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else {
+    <section class="tab-body">
+      <h2 class="section-title">Balances</h2>
+      @if (balances.length === 0) {
+        <p class="empty-state">No balance rows for this member yet.</p>
+      } @else {
+        <table class="data-table balances-table">
+          <thead>
+            <tr>
+              <th>Currency</th>
+              <th class="right">Claimed</th>
+              <th class="right">Approved</th>
+              <th class="right">Paid</th>
+              <th class="right">Outstanding</th>
+              <th>Last updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (b of balances; track b.id) {
+              <tr>
+                <td><strong>{{ b.currencyCode }}</strong></td>
+                <td class="right">{{ b.totalClaimed | currencyFormat:b.currencyCode }}</td>
+                <td class="right">{{ b.totalApproved | currencyFormat:b.currencyCode }}</td>
+                <td class="right">{{ b.totalPaid | currencyFormat:b.currencyCode }}</td>
+                <td class="right strong">{{ b.outstandingBalance | currencyFormat:b.currencyCode }}</td>
+                <td class="muted">{{ b.lastUpdatedAt ? (b.lastUpdatedAt | date:'medium') : '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </section>
+
+    <div class="tabs" role="tablist">
+      <button class="tab" [class.active]="activeTab === 'payables'" (click)="setTab('payables')">
+        Payables ({{ payables.length }})
+      </button>
+      <button class="tab" [class.active]="activeTab === 'ctcs'" (click)="setTab('ctcs')">
+        CTCs ({{ ctcs.length }})
+      </button>
+      <button class="tab" [class.active]="activeTab === 'payments'" (click)="setTab('payments')">
+        Payments ({{ payments.length }})
+      </button>
+      <button class="tab" [class.active]="activeTab === 'adjustments'" (click)="setTab('adjustments')">
+        Adjustments ({{ adjustments.length }})
+      </button>
+    </div>
+
+    @if (activeTab === 'payables') {
+      <section class="tab-body">
+        @if (payables.length === 0) {
+          <p class="empty-state">No open payables.</p>
+        } @else {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Claim #</th>
+                <th>Status</th>
+                <th class="right">Amount</th>
+                <th>Currency</th>
+                <th>Recorded</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of payables; track p.id) {
+                <tr>
+                  <td><strong>{{ p.claimNumber || p.claimId }}</strong></td>
+                  <td><span class="status-badge status-{{ p.status }}">{{ p.status | humanize }}</span></td>
+                  <td class="right">{{ p.amount | currencyFormat:p.currencyCode }}</td>
+                  <td class="muted">{{ p.currencyCode }}</td>
+                  <td class="muted">{{ p.recordedAt | date:'shortDate' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+    }
+
+    @if (activeTab === 'ctcs') {
+      <section class="tab-body">
+        @if (ctcs.length === 0) {
+          <p class="empty-state">No CTC payments for this member.</p>
+        } @else {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Status</th>
+                <th class="right">Amount</th>
+                <th>Currency</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of ctcs; track c.id) {
+                <tr>
+                  <td class="muted">{{ (c.type || 'CTC') | humanize }}</td>
+                  <td><span class="status-badge status-{{ c.status || (c.committed ? 'applied' : 'pending') }}">{{ (c.status || (c.committed ? 'committed' : 'draft')) | humanize }}</span></td>
+                  <td class="right">{{ c.amount | currencyFormat:c.currencyCode }}</td>
+                  <td class="muted">{{ c.currencyCode }}</td>
+                  <td class="muted">{{ c.createdAt | date:'shortDate' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+    }
+
+    @if (activeTab === 'payments') {
+      <section class="tab-body">
+        @if (payments.length === 0) {
+          <p class="empty-state">No payments recorded.</p>
+        } @else {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Payment #</th>
+                <th>Status</th>
+                <th class="right">Amount</th>
+                <th>Type</th>
+                <th>Created</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of payments; track p.id) {
+                <tr>
+                  <td><strong>{{ p.paymentNumber }}</strong></td>
+                  <td><span class="status-badge status-{{ p.status }}">{{ p.status | humanize }}</span></td>
+                  <td class="right">{{ p.amount | currencyFormat:p.currencyCode }}</td>
+                  <td class="muted">{{ p.paymentType ? (p.paymentType | humanize) : '—' }}</td>
+                  <td class="muted">{{ p.createdAt | date:'shortDate' }}</td>
+                  <td class="right">
+                    @if (p.status === 'pending') {
+                      <button
+                        type="button"
+                        class="btn-inline-danger"
+                        [disabled]="revokingId === p.id"
+                        (click)="revoke(p)"
+                        title="Revoke — removes this payment from its run so the payee is picked up again on the next generation."
+                      >
+                        <app-icon name="x-circle" [size]="12"></app-icon>
+                        {{ revokingId === p.id ? 'Revoking…' : 'Revoke' }}
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+    }
+
+    @if (activeTab === 'adjustments') {
+      <section class="tab-body">
+        @if (adjustments.length === 0) {
+          <p class="empty-state">No adjustments recorded.</p>
+        } @else {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Adjustment #</th>
+                <th>Status</th>
+                <th>Type</th>
+                <th class="right">Amount</th>
+                <th>Reason</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (a of adjustments; track a.id) {
+                <tr>
+                  <td><strong>{{ a.adjustmentNumber }}</strong></td>
+                  <td><span class="status-badge status-{{ a.status }}">{{ a.status | humanize }}</span></td>
+                  <td class="muted">{{ a.adjustmentType | humanize }}</td>
+                  <td class="right">{{ a.amount | currencyFormat:a.currencyCode }}</td>
+                  <td class="muted">{{ a.reason || '—' }}</td>
+                  <td class="muted">{{ a.createdAt | date:'shortDate' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+    }
+  }
+</div>

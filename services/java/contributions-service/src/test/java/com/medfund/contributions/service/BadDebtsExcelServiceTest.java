@@ -1,6 +1,6 @@
 package com.medfund.contributions.service;
 
-import com.medfund.contributions.dto.CreditorRow;
+import com.medfund.contributions.dto.DebtorRow;
 import com.medfund.contributions.dto.PageResponse;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -33,7 +33,7 @@ import static org.mockito.Mockito.when;
  * filter, status-filter description, search term) or the table (subject
  * humanisation, money column, dates) is directly visible to the user, so
  * lock the columns in explicitly rather than trusting the mirror-of-
- * CreditorsExcelService pattern to stay aligned.
+ * DebtorsExcelService pattern to stay aligned.
  */
 @ExtendWith(MockitoExtension.class)
 class BadDebtsExcelServiceTest {
@@ -48,13 +48,13 @@ class BadDebtsExcelServiceTest {
         //  – the body row carries the correct humanized subject type +
         //    money + dates without the columns silently drifting.
         UUID groupId = UUID.randomUUID();
-        CreditorRow row = new CreditorRow(
+        DebtorRow row = new DebtorRow(
                 "GROUP", groupId, "GRP-42", "Acme Ltd", "billing@acme.example",
                 "USD", new BigDecimal("1250.75"),
                 Instant.parse("2026-01-15T00:00:00Z"),
                 Instant.parse("2026-02-20T00:00:00Z"),
                 135L);
-        PageResponse<CreditorRow> page = PageResponse.of(List.of(row), 1L, 0, 10_000);
+        PageResponse<DebtorRow> page = PageResponse.of(List.of(row), 1L, 0, 10_000);
         when(balanceService.listBadDebts(eq("USD"), eq("GROUP"), eq("Acme"), eq(0), anyInt()))
                 .thenReturn(Mono.just(page));
 
@@ -117,7 +117,7 @@ class BadDebtsExcelServiceTest {
         // Filter block must render "All (individuals + groups)" + "—" so
         // the operator opening the sheet later can tell it wasn't
         // filtered.
-        PageResponse<CreditorRow> page = PageResponse.of(List.of(), 0L, 0, 10_000);
+        PageResponse<DebtorRow> page = PageResponse.of(List.of(), 0L, 0, 10_000);
         when(balanceService.listBadDebts(eq("USD"), eq((String) null), eq((String) null),
                 eq(0), anyInt()))
                 .thenReturn(Mono.just(page));
@@ -136,10 +136,10 @@ class BadDebtsExcelServiceTest {
         // The Type column is the operator's primary at-a-glance filter
         // within the sheet — "MEMBER" would be jargon leaking through.
         UUID memberId = UUID.randomUUID();
-        CreditorRow member = new CreditorRow(
+        DebtorRow member = new DebtorRow(
                 "MEMBER", memberId, "M-01", "Jane Doe", "jane@example.com",
                 "USD", new BigDecimal("50.00"), null, null, null);
-        PageResponse<CreditorRow> page = PageResponse.of(List.of(member), 1L, 0, 10_000);
+        PageResponse<DebtorRow> page = PageResponse.of(List.of(member), 1L, 0, 10_000);
         when(balanceService.listBadDebts(eq("USD"), eq("MEMBER"), eq((String) null),
                 eq(0), anyInt()))
                 .thenReturn(Mono.just(page));

@@ -62,6 +62,7 @@ public class CtcPaymentService {
     private final MemberPayableRepository memberPayableRepository;
     private final MemberPayableApplicationRepository applicationRepository;
     private final MemberPayableBalanceRepository balanceRepository;
+    private final MemberBalanceService memberBalanceService;
     private final AuditPublisher auditPublisher;
     private final FinanceEventPublisher eventPublisher;
     private final FxConverter fxConverter;
@@ -180,6 +181,10 @@ public class CtcPaymentService {
                     .flatMap(saved -> writeApplication(saved, actorId)
                         .flatMap(app -> eventPublisher.publishCtcApplied(app).thenReturn(saved))
                         .then(maybeMarkPayableApplied(saved.getMemberPayableId()))
+                        .then(memberBalanceService.updateBalance(
+                                saved.getMemberId(), saved.getCurrencyCode(),
+                                null, null, saved.getAmount(),
+                                actor, actorEmail).then())
                         .then(publishAudit("UPDATE", saved, before, snapshot(saved), actor, actorEmail))
                         .then(Mono.deferContextual(ctx ->
                             eventPublisher.publishCtcCommitted(saved, TenantContext.get(ctx))))
@@ -229,6 +234,10 @@ public class CtcPaymentService {
                             .flatMap(app -> eventPublisher.publishCtcApplied(app)
                                     .thenReturn(savedCompensating))
                             .then(reopenPayable(savedOriginal.getMemberPayableId()))
+                            .then(memberBalanceService.updateBalance(
+                                    savedOriginal.getMemberId(), savedOriginal.getCurrencyCode(),
+                                    null, null, savedOriginal.getAmount().negate(),
+                                    actor, actorEmail).then())
                             .then(publishAudit("UPDATE", savedOriginal, beforeOriginal,
                                     snapshot(savedOriginal), actor, actorEmail))
                             .then(publishAudit("REVERSE", savedCompensating, null,

@@ -107,6 +107,11 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/payments/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/payment-runs/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/provider-balances/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Unified creditors surface (V072) — providers + members combined. The
+	// old provider-balances routes above still forward so the Phase 4 410
+	// shim can respond in-band.
+	app.All("/api/v1/creditors", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/creditors/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/adjustments/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reconciliations/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/payment-advices/*", proxy.Handler(cfg.FinanceServiceURL))

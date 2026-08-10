@@ -1,11 +1,11 @@
 package com.medfund.finance.service;
 
+import com.medfund.finance.entity.MemberBalance;
 import com.medfund.finance.entity.Payment;
 import com.medfund.finance.entity.PaymentRun;
 import com.medfund.finance.entity.PaymentRunItem;
 import com.medfund.finance.entity.ProviderBalance;
-import com.medfund.finance.repository.MemberPayableBalanceRepository;
-import com.medfund.finance.repository.MemberPayableBalanceRepository.OutstandingMemberPayableByMember;
+import com.medfund.finance.repository.MemberBalanceRepository;
 import com.medfund.finance.repository.PaymentRepository;
 import com.medfund.finance.repository.PaymentRunItemRepository;
 import com.medfund.finance.repository.ProviderBalanceRepository;
@@ -28,13 +28,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentRunGeneratorTest {
 
     @Mock private ProviderBalanceRepository providerBalanceRepository;
-    @Mock private MemberPayableBalanceRepository memberPayableBalanceRepository;
+    @Mock private MemberBalanceRepository memberBalanceRepository;
     @Mock private PaymentRepository paymentRepository;
     @Mock private PaymentRunItemRepository paymentRunItemRepository;
     @Mock private AuditPublisher auditPublisher;
@@ -42,11 +43,10 @@ class PaymentRunGeneratorTest {
     @InjectMocks private PaymentRunGenerator generator;
 
     @Test
-    void populate_noBalances_returnsZero() {
-        var run = draftRun("USD");
+    void populate_provider_noBalances_returnsZero() {
+        var run = draftRun("USD", "PROVIDER");
 
         when(providerBalanceRepository.findOutstandingByCurrency("USD")).thenReturn(Flux.empty());
-        when(memberPayableBalanceRepository.findOutstandingByCurrency("USD")).thenReturn(Flux.empty());
 
         StepVerifier.create(generator.populate(run)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
@@ -55,11 +55,12 @@ class PaymentRunGeneratorTest {
 
         verify(paymentRepository, times(0)).save(any());
         verify(paymentRunItemRepository, times(0)).save(any());
+        verifyNoInteractions(memberBalanceRepository);
     }
 
     @Test
-    void populate_providerBalancesOnly_createsProviderItems() {
-        var run = draftRun("USD");
+    void populate_provider_createsProviderItems() {
+        var run = draftRun("USD", "PROVIDER");
         UUID providerId = UUID.randomUUID();
 
         var bal = new ProviderBalance();
@@ -68,7 +69,6 @@ class PaymentRunGeneratorTest {
         bal.setOutstandingBalance(new BigDecimal("450.00"));
 
         when(providerBalanceRepository.findOutstandingByCurrency("USD")).thenReturn(Flux.just(bal));
-        when(memberPayableBalanceRepository.findOutstandingByCurrency("USD")).thenReturn(Flux.empty());
         when(paymentRepository.existsByPaymentNumber(anyString())).thenReturn(Mono.just(false));
         when(paymentRepository.save(any())).thenAnswer(inv -> {
             Payment saved = inv.getArgument(0);
@@ -99,16 +99,20 @@ class PaymentRunGeneratorTest {
         assertThat(itemCap.getValue().getPayeeType()).isEqualTo("PROVIDER");
         assertThat(itemCap.getValue().getProviderId()).isEqualTo(providerId);
         assertThat(itemCap.getValue().getPaymentRunId()).isEqualTo(run.getId());
+        verifyNoInteractions(memberBalanceRepository);
     }
 
     @Test
-    void populate_memberPayablesOnly_createsMemberItems() {
-        var run = draftRun("USD");
+    void populate_member_createsMemberItems() {
+        var run = draftRun("USD", "MEMBER");
         UUID memberId = UUID.randomUUID();
 
-        when(providerBalanceRepository.findOutstandingByCurrency("USD")).thenReturn(Flux.empty());
-        when(memberPayableBalanceRepository.findOutstandingByCurrency("USD"))
-            .thenReturn(Flux.just(new OutstandingMemberPayableByMember(memberId, "USD", new BigDecimal("120.00"))));
+        var bal = new MemberBalance();
+        bal.setMemberId(memberId);
+        bal.setCurrencyCode("USD");
+        bal.setOutstandingBalance(new BigDecimal("120.00"));
+
+        when(memberBalanceRepository.findOutstandingByCurrency("USD")).thenReturn(Flux.just(bal));
         when(paymentRepository.existsByPaymentNumber(anyString())).thenReturn(Mono.just(false));
         when(paymentRepository.save(any())).thenAnswer(inv -> {
             Payment saved = inv.getArgument(0);
@@ -138,47 +142,12 @@ class PaymentRunGeneratorTest {
         verify(paymentRunItemRepository).save(itemCap.capture());
         assertThat(itemCap.getValue().getPayeeType()).isEqualTo("MEMBER");
         assertThat(itemCap.getValue().getMemberId()).isEqualTo(memberId);
+        verifyNoInteractions(providerBalanceRepository);
     }
 
     @Test
-    void populate_mixedPayees_createsOneItemPerPayee() {
-        var run = draftRun("USD");
-        UUID providerId = UUID.randomUUID();
-        UUID memberId   = UUID.randomUUID();
-
-        var providerBal = new ProviderBalance();
-        providerBal.setProviderId(providerId);
-        providerBal.setCurrencyCode("USD");
-        providerBal.setOutstandingBalance(new BigDecimal("100.00"));
-
-        when(providerBalanceRepository.findOutstandingByCurrency("USD")).thenReturn(Flux.just(providerBal));
-        when(memberPayableBalanceRepository.findOutstandingByCurrency("USD"))
-            .thenReturn(Flux.just(new OutstandingMemberPayableByMember(memberId, "USD", new BigDecimal("50.00"))));
-        when(paymentRepository.existsByPaymentNumber(anyString())).thenReturn(Mono.just(false));
-        when(paymentRepository.save(any())).thenAnswer(inv -> {
-            Payment saved = inv.getArgument(0);
-            if (saved.getId() == null) saved.setId(UUID.randomUUID());
-            return Mono.just(saved);
-        });
-        when(paymentRunItemRepository.save(any())).thenAnswer(inv -> {
-            PaymentRunItem saved = inv.getArgument(0);
-            if (saved.getId() == null) saved.setId(UUID.randomUUID());
-            return Mono.just(saved);
-        });
-        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-
-        StepVerifier.create(generator.populate(run)
-                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
-            .expectNext(2)
-            .verifyComplete();
-
-        verify(paymentRepository, times(2)).save(any());
-        verify(paymentRunItemRepository, times(2)).save(any());
-    }
-
-    @Test
-    void populate_zeroBalanceRow_isSkipped() {
-        var run = draftRun("USD");
+    void populate_provider_zeroBalanceRow_isSkipped() {
+        var run = draftRun("USD", "PROVIDER");
 
         var zeroBal = new ProviderBalance();
         zeroBal.setProviderId(UUID.randomUUID());
@@ -186,7 +155,6 @@ class PaymentRunGeneratorTest {
         zeroBal.setOutstandingBalance(BigDecimal.ZERO);
 
         when(providerBalanceRepository.findOutstandingByCurrency("USD")).thenReturn(Flux.just(zeroBal));
-        when(memberPayableBalanceRepository.findOutstandingByCurrency("USD")).thenReturn(Flux.empty());
 
         StepVerifier.create(generator.populate(run)
                 .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
@@ -196,12 +164,13 @@ class PaymentRunGeneratorTest {
         verify(paymentRepository, times(0)).save(any());
     }
 
-    private PaymentRun draftRun(String currency) {
+    private PaymentRun draftRun(String currency, String payeeType) {
         var run = new PaymentRun();
         run.setId(UUID.randomUUID());
         run.setRunNumber("RUN-777777");
         run.setStatus("draft");
         run.setCurrencyCode(currency);
+        run.setPayeeType(payeeType);
         return run;
     }
 }

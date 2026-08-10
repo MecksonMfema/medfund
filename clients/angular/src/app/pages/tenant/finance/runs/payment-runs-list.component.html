@@ -43,4 +43,16 @@
       ></app-select>
     </div>
   }
+  <div table-filters class="toolbar-cell cell-payee-type">
+    <span class="cell-label">Payee type</span>
+    <app-select
+      [(ngModel)]="payeeTypeFilter"
+      (selectionChange)="onPayeeTypeChange()"
+      name="payeeType"
+      [options]="payeeTypeOptions"
+      placeholder="All"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
 </app-data-table>

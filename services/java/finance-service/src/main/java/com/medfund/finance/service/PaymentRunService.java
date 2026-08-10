@@ -125,6 +125,7 @@ public class PaymentRunService {
                 run.setRunNumber(runNumber);
                 run.setStatus("draft");
                 run.setCurrencyCode(request.currencyCode());
+                run.setPayeeType(request.payeeType());
                 run.setDescription(request.description());
                 run.setPaymentCount(0);
                 run.setCreatedAt(Instant.now());

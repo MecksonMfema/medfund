@@ -27,6 +27,11 @@ public class PaymentRun {
     @Column("currency_code")
     private String currencyCode;
 
+    /** V072 — 'PROVIDER' | 'MEMBER'. Homogeneous by construction; the
+     *  V072 trigger asserts every child payment_run_items row matches. */
+    @Column("payee_type")
+    private String payeeType = "PROVIDER";
+
     @Column("payment_count")
     private Integer paymentCount;
 
@@ -79,6 +84,9 @@ public class PaymentRun {
 
     public String getCurrencyCode() { return currencyCode; }
     public void setCurrencyCode(String currencyCode) { this.currencyCode = currencyCode; }
+
+    public String getPayeeType() { return payeeType; }
+    public void setPayeeType(String payeeType) { this.payeeType = payeeType; }
 
     public Integer getPaymentCount() { return paymentCount; }
     public void setPaymentCount(Integer paymentCount) { this.paymentCount = paymentCount; }

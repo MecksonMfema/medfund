@@ -5,7 +5,7 @@ test.describe('Billing — charge preview', () => {
   test('debounced typeahead picks a group and renders projected charge', async ({ page, apiMocks, signInAs }) => {
     await signInAs({
       realmRoles: ['operator'],
-      permissions: ['billing:view', 'billing:view_creditors'],
+      permissions: ['billing:view', 'billing:view_debtors'],
     });
 
     const seed = emptySeed();

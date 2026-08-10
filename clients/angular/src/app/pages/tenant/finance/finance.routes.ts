@@ -284,29 +284,28 @@ export const FINANCE_ROUTES: Routes = [
   },
 
   // ── Creditors ─────────────────────────────────────────────────────────────
+  // Unified surface — providers + members side by side. Old
+  // /creditors/provider and /creditors/member landing routes are
+  // deliberately removed (aggressive cutover, G7c). Detail routes stay
+  // typed so a link can point at a specific subject.
   {
-    path: 'creditors/provider',
-    canActivate: [permissionGuard(['billing:view_creditors'])],
+    path: 'creditors',
+    canActivate: [permissionGuard(['finance:view_creditors'])],
     loadComponent: () => import('./creditors/creditors-list.component').then(m => m.CreditorsListComponent),
-    data: { title: 'Provider Creditors', sidebar: 'operational' },
+    data: { title: 'Creditors', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'creditors/provider/:id',
-    canActivate: [permissionGuard(['billing:view_creditors'])],
+    canActivate: [permissionGuard(['finance:view_creditors'])],
     loadComponent: () => import('./creditors/provider-balance-detail.component').then(m => m.ProviderBalanceDetailComponent),
     data: { title: 'Provider Balance', sidebar: 'operational' },
   },
   {
-    path: 'creditors/member',
-    canActivate: [permissionGuard(['billing:view_creditors'])],
-    loadComponent: () => import('./creditors/creditors-list.component').then(m => m.CreditorsListComponent),
-    data: {
-      title: 'Member Creditors',
-      description: 'Member liabilities. Currently shares the provider list view; member-balance backend lands in a follow-up slice.',
-      sidebar: 'operational',
-    },
+    path: 'creditors/member/:id',
+    canActivate: [permissionGuard(['finance:view_creditors'])],
+    loadComponent: () => import('./creditors/member-balance-detail.component').then(m => m.MemberBalanceDetailComponent),
+    data: { title: 'Member Balance', sidebar: 'operational' },
   },
-  cs('creditors/:id',                'Creditor Detail',              '/view-creditor',          'Single creditor.',              ['billing:view_creditors']),
 
   // ── Currencies ────────────────────────────────────────────────────────────
   cs('currencies',                   'Currencies',                   '/view-currency',          'Configured currency / FX pairs.',          ['billing:view_currencies']),

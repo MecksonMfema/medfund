@@ -1,7 +1,7 @@
 import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
 import { fakeAsync, tick } from '@angular/core/testing';
 import { BadDebtsListComponent } from './bad-debts-list.component';
-import { BalanceService, CreditorRow, PageResponse } from '../../../../core/services/balance.service';
+import { BalanceService, DebtorRow, PageResponse } from '../../../../core/services/balance.service';
 import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
 import { TenantService } from '../../../../core/services/tenant.service';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
@@ -22,7 +22,7 @@ describe('BadDebtsListComponent', () => {
   let toast: jasmine.SpyObj<ToastService>;
   let component: BadDebtsListComponent;
 
-  const emptyPage: PageResponse<CreditorRow> = {
+  const emptyPage: PageResponse<DebtorRow> = {
     content: [], total: 0, page: 0, size: 20, totalPages: 1,
   };
   const usdCfg: TenantCurrencyConfig = {

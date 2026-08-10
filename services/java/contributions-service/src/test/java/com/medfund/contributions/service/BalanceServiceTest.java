@@ -255,7 +255,7 @@ class BalanceServiceTest {
 
     // ------------------------------------------------------------------
     // listBadDebts — bad-debts view (deactivated / terminated subjects
-    // that still owe money). Symmetrical to listCreditors but flipped on
+    // that still owe money). Symmetrical to listDebtors but flipped on
     // the status filter; the service layer's only real job is delegating
     // to the repo pair and doing the page → offset arithmetic. These
     // tests lock both in so a future refactor can't silently drop either.

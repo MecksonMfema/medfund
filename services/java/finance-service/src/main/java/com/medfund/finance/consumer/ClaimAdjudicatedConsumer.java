@@ -10,6 +10,7 @@ import com.medfund.finance.entity.MemberPayable;
 import com.medfund.finance.repository.CtcPaymentRepository;
 import com.medfund.finance.repository.MemberContributionBalanceReader;
 import com.medfund.finance.repository.MemberPayableRepository;
+import com.medfund.finance.service.MemberBalanceService;
 import com.medfund.finance.service.ProviderBalanceService;
 import com.medfund.finance.util.DbErrors;
 import com.medfund.shared.audit.AuditActor;
@@ -61,6 +62,7 @@ public class ClaimAdjudicatedConsumer {
 
     private final ReceiverOptions<String, String> receiverOptions;
     private final ProviderBalanceService providerBalanceService;
+    private final MemberBalanceService memberBalanceService;
     private final MemberPayableRepository memberPayableRepository;
     private final AuditPublisher auditPublisher;
     private final ObjectMapper objectMapper;
@@ -71,6 +73,7 @@ public class ClaimAdjudicatedConsumer {
 
     public ClaimAdjudicatedConsumer(ReceiverOptions<String, String> receiverOptions,
                                     ProviderBalanceService providerBalanceService,
+                                    MemberBalanceService memberBalanceService,
                                     MemberPayableRepository memberPayableRepository,
                                     AuditPublisher auditPublisher,
                                     ObjectMapper objectMapper,
@@ -80,6 +83,7 @@ public class ClaimAdjudicatedConsumer {
                                     FxConverter fxConverter) {
         this.receiverOptions = receiverOptions;
         this.providerBalanceService = providerBalanceService;
+        this.memberBalanceService = memberBalanceService;
         this.memberPayableRepository = memberPayableRepository;
         this.auditPublisher = auditPublisher;
         this.objectMapper = objectMapper;
@@ -131,45 +135,87 @@ public class ClaimAdjudicatedConsumer {
     }
 
     private Mono<Void> handleMemberPayee(JsonNode node, String decision, String tenantId) {
-        if (!isApprovedDecision(decision)) {
-            return Mono.empty();
-        }
         String memberIdStr = textOrNull(node, "memberId");
         String claimIdStr  = textOrNull(node, "claimId");
         String claimNumber = textOrNull(node, "claimNumber");
         String currency    = textOrNull(node, "currencyCode");
+        String claimed     = textOrNull(node, "claimedAmount");
         String approved    = textOrNull(node, "approvedAmount");
-        if (memberIdStr == null || claimIdStr == null || approved == null) {
-            log.info("Skipping MEMBER-payee event with missing fields: memberId={}, claimId={}, approved={}",
-                    memberIdStr, claimIdStr, approved);
-            return Mono.empty();
-        }
-        BigDecimal amount = new BigDecimal(approved);
-        if (amount.signum() <= 0) {
+        String decisionUpper = decision == null ? "" : decision.toUpperCase();
+
+        if (memberIdStr == null) {
+            log.info("Skipping MEMBER-payee event without memberId: decision={}", decision);
             return Mono.empty();
         }
 
-        MemberPayable mp = new MemberPayable();
-        mp.setMemberId(UUID.fromString(memberIdStr));
-        mp.setClaimId(UUID.fromString(claimIdStr));
-        mp.setClaimNumber(claimNumber);
-        mp.setAmount(amount);
-        mp.setCurrencyCode(currency != null ? currency : "USD");
-        mp.setStatus("open");
-        mp.setRecordedAt(Instant.now());
-        // System-initiated write; recordedBy=null is meaningful.
+        // Compute balance deltas — member parity with provider (line 288):
+        // total_claimed counts every event, total_approved bumps on APPROVED /
+        // PARTIAL_APPROVED, total_paid is NEVER bumped from claim events for
+        // members (finance-anchored settlement paths — CTC or Payment — own
+        // that column; see plan Phase 1 §5 for rationale).
+        BigDecimal claimedDelta = claimed != null ? new BigDecimal(claimed) : null;
+        BigDecimal approvedDelta = null;
+        switch (decisionUpper) {
+            case "APPROVED":
+            case "PARTIAL_APPROVED":
+                if (approved != null) approvedDelta = new BigDecimal(approved);
+                break;
+            case "REJECTED":
+                // claimed still counts (parity with provider path).
+                break;
+            case "COMMITTED":
+            case "PAID":
+                // Intentional no-op for members — see comment above.
+                break;
+            default:
+                log.info("Skipping MEMBER claim event with decision={}", decision);
+                return Mono.empty();
+        }
 
-        Mono<Void> write = memberPayableRepository.save(mp)
-            .flatMap(saved -> publishMemberPayableAudit(saved).thenReturn(saved))
-            .flatMap(this::maybeAutoDraftCtc)
-            .onErrorResume(e -> {
-                if (DbErrors.isUniqueViolation(e)) {
-                    log.info("Member payable already exists for claim {} — idempotent skip",
-                            claimIdStr);
-                    return Mono.empty();
-                }
-                return Mono.error(e);
-            });
+        String resolvedCurrency = currency != null ? currency : "USD";
+        UUID memberId = UUID.fromString(memberIdStr);
+        BigDecimal claimedDeltaFinal = claimedDelta;
+        BigDecimal approvedDeltaFinal = approvedDelta;
+
+        Mono<Void> bumpBalance = (claimedDeltaFinal == null && approvedDeltaFinal == null)
+            ? Mono.empty()
+            : memberBalanceService.updateBalance(
+                    memberId, resolvedCurrency,
+                    claimedDeltaFinal, approvedDeltaFinal, null,
+                    AuditActor.SYSTEM_ID, AuditActor.SYSTEM_EMAIL
+                ).then();
+
+        Mono<Void> writePayable;
+        if (isApprovedDecision(decision) && approved != null && claimIdStr != null) {
+            BigDecimal amount = new BigDecimal(approved);
+            if (amount.signum() > 0) {
+                MemberPayable mp = new MemberPayable();
+                mp.setMemberId(memberId);
+                mp.setClaimId(UUID.fromString(claimIdStr));
+                mp.setClaimNumber(claimNumber);
+                mp.setAmount(amount);
+                mp.setCurrencyCode(resolvedCurrency);
+                mp.setStatus("open");
+                mp.setRecordedAt(Instant.now());
+                writePayable = memberPayableRepository.save(mp)
+                    .flatMap(saved -> publishMemberPayableAudit(saved).thenReturn(saved))
+                    .flatMap(this::maybeAutoDraftCtc)
+                    .onErrorResume(e -> {
+                        if (DbErrors.isUniqueViolation(e)) {
+                            log.info("Member payable already exists for claim {} — idempotent skip",
+                                    claimIdStr);
+                            return Mono.empty();
+                        }
+                        return Mono.error(e);
+                    });
+            } else {
+                writePayable = Mono.empty();
+            }
+        } else {
+            writePayable = Mono.empty();
+        }
+
+        Mono<Void> write = bumpBalance.then(writePayable);
         return tenantId != null && !tenantId.isBlank()
                 ? write.contextWrite(Context.of(TenantContext.KEY, tenantId))
                 : write;

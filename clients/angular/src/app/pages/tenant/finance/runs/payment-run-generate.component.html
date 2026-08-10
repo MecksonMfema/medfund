@@ -18,6 +18,18 @@
     <h2 class="section-title">Run setup</h2>
 
     <label class="field">
+      <span class="field-label">Payee type *</span>
+      <app-select
+        [(ngModel)]="payeeType"
+        name="payeeType"
+        [options]="payeeTypeOptions"
+        [searchable]="false"
+        required
+      ></app-select>
+      <span class="field-hint">Runs are homogeneous — provider payees and member payees go into separate runs so bank-file export stays consistent.</span>
+    </label>
+
+    <label class="field">
       <span class="field-label">Currency *</span>
       <app-select
         [(ngModel)]="currencyCode"

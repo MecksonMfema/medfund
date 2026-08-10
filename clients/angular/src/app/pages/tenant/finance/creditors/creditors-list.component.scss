@@ -1,3 +1,6 @@
+// Layout mirrors /tenant/billing/debtors: full-bleed page-header banner,
+// subject-type tab strip, filter toolbar, then the shared data-table.
+
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -21,10 +24,136 @@
   max-width: 70ch;
 }
 
-.banner {
-  padding: 0.5rem 0.75rem;
-  cursor: pointer;
-  margin: 0.75rem 24px 0;
-  border-radius: var(--radius-md, 8px);
+// ── Subject-type tabs ─────────────────────────────────────────────────
+// Always shown on the finance-side creditors page — provider vs member
+// is the whole point of the unification, so operators need the strip
+// even when a tenant has zero of one half yet.
+
+.scheme-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
 }
-.banner-error { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
+
+.scheme-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 4px;
+  margin: 0 8px 0 0;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+
+  &:hover {
+    color: var(--color-text-primary);
+  }
+
+  &.is-active {
+    color: var(--color-primary);
+    border-bottom-color: var(--color-primary);
+    font-weight: var(--font-weight-semibold);
+  }
+}
+
+// ── Filter strip ─────────────────────────────────────────────────────
+
+.tx-toolbar {
+  display: flex;
+  align-items: stretch;
+  min-height: 48px;
+  padding: 0 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+  gap: 0;
+  flex-wrap: nowrap;
+}
+
+.toolbar-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-right: 1px solid var(--color-border-light);
+  min-height: 48px;
+  background: transparent;
+
+  &:last-of-type { border-right: none; }
+
+  .cell-label {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+    font-weight: var(--font-weight-medium);
+  }
+}
+
+.toolbar-cell.cell-search {
+  position: relative;
+  flex: 1 1 320px;
+  min-width: 240px;
+  max-width: 460px;
+
+  input[type="search"] {
+    flex: 1;
+    width: 100%;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: var(--font-family);
+    font-size: 14px;
+    color: var(--color-text-primary);
+
+    &::placeholder {
+      color: var(--color-text-muted);
+    }
+  }
+}
+
+.toolbar-cell.cell-currency {
+  flex: 0 0 auto;
+  min-width: 240px;
+
+  app-select { min-width: 180px; flex: 1; }
+
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+
+// ── Error banner (transient, above the table) ─────────────────────────
+
+.banner {
+  margin: 12px 24px 0;
+  padding: 10px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.banner-error {
+  background: var(--color-error-light);
+  color: var(--color-error, #991b1b);
+  border: 1px solid rgba(196, 22, 45, 0.25);
+}

@@ -9,6 +9,9 @@ export interface PaymentRun {
   id: string;
   runNumber: string;
   status: PaymentRunStatus;
+  /** V072 — every run is homogeneous over payeeType (either PROVIDER
+   *  or MEMBER); trigger on payment_run_items enforces the invariant. */
+  payeeType?: PayeeType;
   totalAmount: string;
   currencyCode: string;
   paymentCount: number;
@@ -33,6 +36,8 @@ export interface PaymentRun {
 export interface CreatePaymentRunPayload {
   currencyCode: string;
   description?: string;
+  /** PROVIDER | MEMBER — omit to accept the server default (PROVIDER). */
+  payeeType?: PayeeType;
 }
 
 export type PayeeType = 'PROVIDER' | 'MEMBER';
@@ -79,7 +84,9 @@ export interface CreatePaymentPayload {
   reference?: string;
 }
 
-// ── Provider balance ────────────────────────────────────────────────────
+// ── Provider balance (single-record shape; the paginated row shape lives
+//     under CreditorRow now that the finance-side Creditors listing unifies
+//     providers + members). ────────────────────────────────────────────────
 export interface ProviderBalance {
   id: string;
   providerId: string;
@@ -90,6 +97,27 @@ export interface ProviderBalance {
   currencyCode: string;
   lastUpdatedAt?: string;
   createdAt: string;
+}
+
+/**
+ * Member-side counterpart to {@link ProviderBalance}. A member can carry
+ * a distinct balance per currency, so the detail endpoint returns a Flux —
+ * consumers hold an array and render one row per currency in the summary
+ * card.
+ */
+export interface MemberBalance {
+  id: string;
+  memberId: string;
+  memberName?: string;
+  memberCode?: string;
+  memberEmail?: string;
+  totalClaimed: string;
+  totalApproved: string;
+  totalPaid: string;
+  outstandingBalance: string;
+  currencyCode: string;
+  lastUpdatedAt?: string;
+  createdAt?: string;
 }
 
 // ── Adjustment ──────────────────────────────────────────────────────────
@@ -295,6 +323,7 @@ export interface ReverseCtcPaymentPayload {
 export interface CtcPaymentPageParams {
   committed?: boolean;
   currencyCode?: string;
+  memberId?: string;
   q?: string;
   /**
    * Filter to auto-drafted rows (createdBy IS NULL) when true, or to
@@ -393,6 +422,8 @@ export interface AdvancePaymentPageParams {
 export interface PaymentRunPageParams {
   status?: string;
   currencyCode?: string;
+  /** PROVIDER | MEMBER — omit to show both. */
+  payeeType?: PayeeType | '';
   q?: string;
   sortKey?: string;
   sortDirection?: 'asc' | 'desc';
@@ -400,20 +431,29 @@ export interface PaymentRunPageParams {
   size?: number;
 }
 
-// ── Provider balance (creditor) paginated row ──────────────────────────
-export interface ProviderBalanceRow {
-  id: string;
-  providerId: string;
-  providerName?: string;
+// ── Unified creditor row (providers + members) — feeds the finance-side
+//     /tenant/finance/creditors page. Both halves render the same four
+//     money columns; subjectType disambiguates the row and drives the
+//     detail navigation. ────────────────────────────────────────────────────
+export type CreditorSubjectType = 'PROVIDER' | 'MEMBER';
+
+export interface CreditorRow {
+  subjectType: CreditorSubjectType;
+  subjectId: string;
+  subjectCode?: string;
+  subjectName?: string;
+  subjectEmail?: string;
+  currencyCode: string;
   totalClaimed: string;
   totalApproved: string;
   totalPaid: string;
   outstandingBalance: string;
-  currencyCode: string;
-  lastUpdatedAt?: string;
+  lastActivityAt?: string;
 }
 
-export interface ProviderBalancePageParams {
+export interface CreditorPageParams {
+  /** PROVIDER | MEMBER | BOTH — omit for BOTH. */
+  subjectType?: CreditorSubjectType | 'BOTH';
   currencyCode?: string;
   q?: string;
   sortKey?: string;
@@ -685,6 +725,7 @@ export class FinanceService {
     const params: Record<string, string> = {};
     if (opts.status)         params['status']         = opts.status;
     if (opts.currencyCode)   params['currencyCode']   = opts.currencyCode;
+    if (opts.payeeType)      params['payeeType']      = opts.payeeType;
     if (opts.q)              params['q']              = opts.q;
     if (opts.sortKey)        params['sortKey']        = opts.sortKey;
     if (opts.sortDirection)  params['sortDirection']  = opts.sortDirection;
@@ -703,6 +744,7 @@ export class FinanceService {
   listPayments(): Observable<Payment[]> { return this.api.get<Payment[]>('/payments'); }
   getPayment(id: string): Observable<Payment> { return this.api.get<Payment>(`/payments/${id}`); }
   getPaymentsByProvider(providerId: string): Observable<Payment[]> { return this.api.get<Payment[]>(`/payments/provider/${providerId}`); }
+  getPaymentsByMember(memberId: string): Observable<Payment[]> { return this.api.get<Payment[]>(`/payments/member/${memberId}`); }
   getPaymentsByStatus(status: PaymentStatus): Observable<Payment[]> { return this.api.get<Payment[]>(`/payments/status/${status}`); }
   /**
    * Server-side paginated payments list. Feeds /tenant/finance/payments.
@@ -725,24 +767,50 @@ export class FinanceService {
   createPayment(body: CreatePaymentPayload): Observable<Payment> { return this.api.post<Payment>('/payments', body); }
   payPayment(id: string): Observable<Payment> { return this.api.post<Payment>(`/payments/${id}/pay`, {}); }
   cancelPayment(id: string): Observable<Payment> { return this.api.post<Payment>(`/payments/${id}/cancel`, {}); }
+  /**
+   * Revoke (hard-delete) a pending payment from its parent run. Permitted
+   * only while payment.status='pending' AND the parent PaymentRun is in
+   * draft or approved status; the payee retains their outstanding balance
+   * and will be picked up by the next run generation.
+   */
+  revokePayment(id: string): Observable<void> { return this.api.delete<void>(`/payments/${id}`); }
 
-  // ── Provider balances ──
-  listProviderBalances(): Observable<ProviderBalance[]> { return this.api.get<ProviderBalance[]>('/provider-balances'); }
-  /** Server-side paginated provider-balances list — provider name joined. */
-  listProviderBalancesPaged(opts: ProviderBalancePageParams): Observable<FinancePageResponse<ProviderBalanceRow>> {
+  // ── Creditors (unified: providers + members) ──
+  /**
+   * Server-side paginated unified creditors list. Feeds
+   * /tenant/finance/creditors. subjectType=PROVIDER|MEMBER|BOTH.
+   */
+  listCreditorsPaged(opts: CreditorPageParams): Observable<FinancePageResponse<CreditorRow>> {
     const params: Record<string, string> = {};
+    if (opts.subjectType)    params['subjectType']   = opts.subjectType;
     if (opts.currencyCode)   params['currencyCode']  = opts.currencyCode;
     if (opts.q)              params['q']             = opts.q;
     if (opts.sortKey)        params['sortKey']       = opts.sortKey;
     if (opts.sortDirection)  params['sortDirection'] = opts.sortDirection;
     if (opts.page !== undefined) params['page']      = String(opts.page);
     if (opts.size !== undefined) params['size']      = String(opts.size);
-    return this.api.get<FinancePageResponse<ProviderBalanceRow>>('/provider-balances/page', params);
+    return this.api.get<FinancePageResponse<CreditorRow>>('/creditors/page', params);
   }
-  getProviderBalance(providerId: string): Observable<ProviderBalance> { return this.api.get<ProviderBalance>(`/provider-balances/provider/${providerId}`); }
+  /** Provider creditor detail — mirrors the pre-Phase-4 provider balance shape. */
+  getCreditorProviderDetail(providerId: string): Observable<ProviderBalance> {
+    return this.api.get<ProviderBalance>(`/creditors/provider/${providerId}`);
+  }
+  /** Member creditor detail — one row per currency the member carries a balance in. */
+  getCreditorMemberDetail(memberId: string): Observable<MemberBalance[]> {
+    return this.api.get<MemberBalance[]>(`/creditors/member/${memberId}`);
+  }
+  /** Excel export of the unified creditors list (same filter shape as listCreditorsPaged). */
+  exportCreditorsExcel(opts: { subjectType?: CreditorSubjectType | 'BOTH'; currencyCode?: string; q?: string }): Observable<Blob> {
+    const params: Record<string, string> = {};
+    if (opts.subjectType)  params['subjectType']  = opts.subjectType;
+    if (opts.currencyCode) params['currencyCode'] = opts.currencyCode;
+    if (opts.q)            params['q']            = opts.q;
+    return this.api.getBlob('/creditors/export/excel', params);
+  }
 
   // ── Adjustments ──
   getAdjustmentsByProvider(providerId: string): Observable<Adjustment[]> { return this.api.get<Adjustment[]>(`/adjustments/provider/${providerId}`); }
+  getAdjustmentsByMember(memberId: string): Observable<Adjustment[]> { return this.api.get<Adjustment[]>(`/adjustments/member/${memberId}`); }
   getAdjustmentsByStatus(status: AdjustmentStatus): Observable<Adjustment[]> { return this.api.get<Adjustment[]>(`/adjustments/status/${status}`); }
   /**
    * Server-side paginated adjustments list. Feeds both the general
@@ -790,6 +858,7 @@ export class FinanceService {
     const params: Record<string, string> = {};
     if (opts.committed !== undefined) params['committed']     = String(opts.committed);
     if (opts.currencyCode)            params['currencyCode']  = opts.currencyCode;
+    if (opts.memberId)                params['memberId']      = opts.memberId;
     if (opts.q)                       params['q']             = opts.q;
     if (opts.systemDrafted !== undefined) params['systemDrafted'] = String(opts.systemDrafted);
     if (opts.sortKey)                 params['sortKey']       = opts.sortKey;

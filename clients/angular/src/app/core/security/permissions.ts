@@ -28,9 +28,11 @@ export type PermissionKey =
   | 'billing:view_statements' | 'billing:post_transactions'
   | 'billing:view_currencies' | 'billing:manage_currencies'
   | 'billing:manage_billing_settings'
-  | 'billing:view_creditors' | 'billing:manage_bad_debts'
+  | 'billing:view_debtors' | 'billing:manage_bad_debts'
   // Finance
-  | 'finance:view' | 'finance:create_payment_run' | 'finance:approve_payment_run'
+  | 'finance:view' | 'finance:view_creditors'
+  | 'finance:create_payment_run' | 'finance:approve_payment_run'
+  | 'finance:manage_payment_runs' | 'finance:manage_payments'
   | 'finance:view_advance_payments' | 'finance:manage_advance_payments'
   | 'finance:approve_advance_payment' | 'finance:reverse_advance_payment'
   | 'finance:manage_ctc_payments' | 'finance:reverse_ctc_payment'
@@ -105,7 +107,7 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'billing:view_currencies',          label: 'View currencies',                  description: 'View configured currency / FX pairs.' },
       { key: 'billing:manage_currencies',        label: 'Manage currencies',                description: 'Add or edit currency / FX pair configurations.' },
       { key: 'billing:manage_billing_settings',  label: 'Manage billing settings',          description: 'Edit benefit-type, payment-method, transaction-type catalogues plus dunning and cycle configuration.' },
-      { key: 'billing:view_creditors',           label: 'View creditors',                   description: 'View outstanding balances owed by members and groups.' },
+      { key: 'billing:view_debtors',             label: 'View debtors',                     description: 'View outstanding balances owed by members and groups (arrears listing).' },
       { key: 'billing:manage_bad_debts',         label: 'Manage bad debts',                 description: 'Write off receivables that cannot be collected.' },
     ],
   },
@@ -114,8 +116,11 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
     label: 'Finance',
     permissions: [
       { key: 'finance:view',                     label: 'View finance',                     description: 'Read access to payment runs, payments, receipts, and reports.' },
+      { key: 'finance:view_creditors',           label: 'View creditors',                   description: 'View the unified Creditors page — providers and members the fund owes for approved claims.' },
       { key: 'finance:create_payment_run',       label: 'Create payment run',               description: 'Create a new draft batch payment run.' },
       { key: 'finance:approve_payment_run',      label: 'Approve payment run',              description: 'Execute a draft payment run — disburses funds.' },
+      { key: 'finance:manage_payment_runs',      label: 'Manage payment runs',              description: 'Full lifecycle management of payment runs (create, approve, execute, cancel).' },
+      { key: 'finance:manage_payments',          label: 'Manage payments',                  description: 'Row-level payment actions — revoke an item from a run, mark paid, cancel.' },
       { key: 'finance:view_advance_payments',    label: 'View advance payments',            description: 'View provider prepayments.' },
       { key: 'finance:manage_advance_payments',  label: 'Manage advance payments',          description: 'Create, edit, or cancel provider prepayments.' },
       { key: 'finance:approve_advance_payment',  label: 'Approve advance payment',          description: 'Approve a pending advance payment above the tenant threshold. Approver must differ from the recorder.' },

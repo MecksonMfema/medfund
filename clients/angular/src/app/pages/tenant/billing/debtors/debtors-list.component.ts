@@ -5,7 +5,7 @@ import { Subject, Subscription, debounceTime, distinctUntilChanged } from 'rxjs'
 import { DataTableComponent, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
-import { BalanceService, CreditorRow, PageResponse } from '../../../../core/services/balance.service';
+import { BalanceService, DebtorRow, PageResponse } from '../../../../core/services/balance.service';
 import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
 import { TenantService } from '../../../../core/services/tenant.service';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
@@ -24,14 +24,14 @@ interface SubjectTab {
 }
 
 @Component({
-  selector: 'app-creditors-list',
+  selector: 'app-debtors-list',
   standalone: true,
   imports: [CommonModule, FormsModule, DataTableComponent, IconComponent, SelectComponent],
-  templateUrl: './creditors-list.component.html',
-  styleUrl: './creditors-list.component.scss',
+  templateUrl: './debtors-list.component.html',
+  styleUrl: './debtors-list.component.scss',
 })
-export class CreditorsListComponent implements OnInit, OnDestroy {
-  rows: CreditorRow[] = [];
+export class DebtorsListComponent implements OnInit, OnDestroy {
+  rows: DebtorRow[] = [];
 
   // Server-side pagination + search. Page is 1-indexed in the UI (matches
   // the data-table's serverPage input) and 0-indexed in the API layer.
@@ -161,21 +161,21 @@ export class CreditorsListComponent implements OnInit, OnDestroy {
     if (!this.selectedCurrency) return;
     this.loading = true;
     this.errorMessage = null;
-    this.balanceService.listCreditors(
+    this.balanceService.listDebtors(
       this.selectedCurrency,
       this.activeTab ?? undefined,
       this.searchTerm || undefined,
       this.page - 1,
       this.pageSize,
     ).subscribe({
-      next: (resp: PageResponse<CreditorRow>) => {
+      next: (resp: PageResponse<DebtorRow>) => {
         this.rows       = resp.content;
         this.totalCount = resp.total;
         this.totalPages = resp.totalPages;
         this.loading    = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load creditors';
+        this.errorMessage = err?.error?.detail || 'Failed to load debtors';
         this.rows       = [];
         this.totalCount = 0;
         this.totalPages = 1;
@@ -207,7 +207,7 @@ export class CreditorsListComponent implements OnInit, OnDestroy {
   exportExcel(): void {
     if (!this.selectedCurrency || this.exporting) return;
     this.exporting = true;
-    this.balanceService.exportCreditorsExcel(
+    this.balanceService.exportDebtorsExcel(
       this.selectedCurrency,
       this.activeTab ?? undefined,
       this.searchTerm || undefined,
@@ -217,7 +217,7 @@ export class CreditorsListComponent implements OnInit, OnDestroy {
         const a = document.createElement('a');
         a.href = url;
         const tabSlug = this.activeTab ? '-' + this.activeTab.toLowerCase() : '';
-        a.download = `creditors-${this.selectedCurrency}${tabSlug}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        a.download = `debtors-${this.selectedCurrency}${tabSlug}-${new Date().toISOString().slice(0, 10)}.xlsx`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -225,7 +225,7 @@ export class CreditorsListComponent implements OnInit, OnDestroy {
         this.exporting = false;
       },
       error: (err) => {
-        this.toast.error(err?.error?.detail || 'Failed to export creditors');
+        this.toast.error(err?.error?.detail || 'Failed to export debtors');
         this.exporting = false;
       },
     });

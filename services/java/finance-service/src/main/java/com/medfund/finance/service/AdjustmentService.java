@@ -48,6 +48,10 @@ public class AdjustmentService {
         return adjustmentRepository.findByProviderId(providerId);
     }
 
+    public Flux<Adjustment> findByMemberId(UUID memberId) {
+        return adjustmentRepository.findByMemberId(memberId);
+    }
+
     public Flux<Adjustment> findByStatus(String status) {
         return adjustmentRepository.findByStatus(status);
     }

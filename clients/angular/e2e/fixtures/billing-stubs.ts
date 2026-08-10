@@ -15,7 +15,7 @@ export interface BillingSeed {
   dependants: BillingDependant[];
   invoices: BillingInvoice[];
   transactions: BillingTransaction[];
-  badDebts: CreditorRow[];
+  badDebts: DebtorRow[];
   jobRuns: JobRun[];
   groupChanges: GroupChange[];
   schemeChanges: SchemeChange[];
@@ -111,7 +111,7 @@ export interface BillingTransaction {
   createdAt: string;
 }
 
-export interface CreditorRow {
+export interface DebtorRow {
   subjectType: 'GROUP' | 'INDIVIDUAL';
   subjectId: string;
   subjectName: string;
@@ -778,7 +778,7 @@ export function stubBillingAPIs(apiMocks: ApiMocks, seed: BillingSeed): void {
     const url = new URL(req.url());
     return springPage(seed.badDebts, +(url.searchParams.get('page') ?? 0), +(url.searchParams.get('size') ?? 20));
   });
-  apiMocks.respond('GET /billing/balances/creditors', (req: Request) => {
+  apiMocks.respond('GET /billing/balances/debtors', (req: Request) => {
     const url = new URL(req.url());
     return springPage(seed.badDebts, +(url.searchParams.get('page') ?? 0), +(url.searchParams.get('size') ?? 20));
   });

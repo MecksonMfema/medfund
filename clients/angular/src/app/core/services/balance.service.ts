@@ -20,7 +20,7 @@ export interface GroupBalance {
   updatedAt?: string;
 }
 
-export interface CreditorRow {
+export interface DebtorRow {
   subjectType: 'MEMBER' | 'GROUP';
   subjectId: string;
   subjectCode?: string;
@@ -33,7 +33,7 @@ export interface CreditorRow {
   daysSinceLastActivity?: number;
 }
 
-export interface BadDebtRow extends CreditorRow {
+export interface BadDebtRow extends DebtorRow {
   agingStatus: 'GRACE' | 'SUSPENDED' | 'WRITE_OFF' | 'AGED';
 }
 
@@ -65,7 +65,7 @@ export class BalanceService {
   }
 
   /**
-   * List currently-billable subjects with an outstanding balance.
+   * List currently-billable subjects with an outstanding balance (debtors).
    *
    * @param subjectType {@code "MEMBER"} → only ungrouped individuals;
    *                    {@code "GROUP"} → only groups; omit to return
@@ -73,26 +73,26 @@ export class BalanceService {
    *                    filtered out server-side because their balance
    *                    rolls up to the group liaison.
    */
-  listCreditors(
+  listDebtors(
     currency: string,
     subjectType?: 'MEMBER' | 'GROUP',
     q?: string,
     page = 0,
     size = 20,
-  ): Observable<PageResponse<CreditorRow>> {
+  ): Observable<PageResponse<DebtorRow>> {
     const params: Record<string, string> = { currency, page: String(page), size: String(size) };
     if (subjectType) params['subjectType'] = subjectType;
     if (q) params['q'] = q;
-    return this.api.get<PageResponse<CreditorRow>>(`${this.base}/creditors`, params);
+    return this.api.get<PageResponse<DebtorRow>>(`${this.base}/debtors`, params);
   }
 
   /**
-   * Download the current creditor filter as an .xlsx workbook. Same
-   * filters as {@link listCreditors} — the backend applies them, so
+   * Download the current debtors filter as an .xlsx workbook. Same
+   * filters as {@link listDebtors} — the backend applies them, so
    * whatever tabs / search the operator has active on the page is
    * exactly what lands in the sheet.
    */
-  exportCreditorsExcel(
+  exportDebtorsExcel(
     currency: string,
     subjectType?: 'MEMBER' | 'GROUP',
     q?: string,
@@ -100,14 +100,14 @@ export class BalanceService {
     const params: Record<string, string> = { currency };
     if (subjectType) params['subjectType'] = subjectType;
     if (q) params['q'] = q;
-    return this.api.getBlob(`${this.base}/creditors/export/excel`, params);
+    return this.api.getBlob(`${this.base}/debtors/export/excel`, params);
   }
 
   /**
    * List subjects that have already fallen off the billing roster
    * (status IN deactivated/terminated) but still owe money — the
    * "bad-debts" view. Same row shape and paging as
-   * {@link listCreditors}; the difference is a server-side filter on
+   * {@link listDebtors}; the difference is a server-side filter on
    * subject status + `balance > 0`.
    */
   listBadDebts(
@@ -116,11 +116,11 @@ export class BalanceService {
     q?: string,
     page = 0,
     size = 20,
-  ): Observable<PageResponse<CreditorRow>> {
+  ): Observable<PageResponse<DebtorRow>> {
     const params: Record<string, string> = { currency, page: String(page), size: String(size) };
     if (subjectType) params['subjectType'] = subjectType;
     if (q) params['q'] = q;
-    return this.api.get<PageResponse<CreditorRow>>(`${this.base}/bad-debts`, params);
+    return this.api.get<PageResponse<DebtorRow>>(`${this.base}/bad-debts`, params);
   }
 
   /**

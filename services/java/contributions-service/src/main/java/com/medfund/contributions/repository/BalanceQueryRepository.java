@@ -31,14 +31,14 @@ public class BalanceQueryRepository {
      * {@code "MEMBER"} → ungrouped members only, {@code "GROUP"} →
      * groups only, null → both. Only rows in {@code status IN
      * ('active','suspended')} appear; terminated / deactivated
-     * subjects are excluded so the creditor list reflects
+     * subjects are excluded so the debtors list reflects
      * currently-billable payers, not historical loss records.
      */
-    public Flux<BalanceRow> findCreditors(String currency, String subjectType,
-                                            String q, int limit, int offset) {
+    public Flux<BalanceRow> findDebtors(String currency, String subjectType,
+                                          String q, int limit, int offset) {
         boolean hasSearch = q != null && !q.isBlank();
         String search = hasSearch ? "%" + q.toLowerCase() + "%" : null;
-        String sql = creditorBaseQuery(hasSearch, subjectType)
+        String sql = debtorBaseQuery(hasSearch, subjectType)
                 + " ORDER BY balance DESC LIMIT :limit OFFSET :offset";
         var spec = db.sql(sql)
                 .bind("currency", currency)
@@ -48,10 +48,10 @@ public class BalanceQueryRepository {
         return spec.map(this::toRow).all();
     }
 
-    public Mono<Long> countCreditors(String currency, String subjectType, String q) {
+    public Mono<Long> countDebtors(String currency, String subjectType, String q) {
         boolean hasSearch = q != null && !q.isBlank();
         String search = hasSearch ? "%" + q.toLowerCase() + "%" : null;
-        String sql = "SELECT COUNT(*) AS total FROM (" + creditorBaseQuery(hasSearch, subjectType) + ") sub";
+        String sql = "SELECT COUNT(*) AS total FROM (" + debtorBaseQuery(hasSearch, subjectType) + ") sub";
         var spec = db.sql(sql).bind("currency", currency);
         if (hasSearch) spec = spec.bind("search", search);
         return spec.map(row -> ((Number) row.get("total")).longValue()).one();
@@ -59,7 +59,7 @@ public class BalanceQueryRepository {
 
     /**
      * Bad debts — subjects that have been deactivated or terminated
-     * but still owe money. Symmetrical to {@link #findCreditors} in
+     * but still owe money. Symmetrical to {@link #findDebtors} in
      * every other respect (same UNION shape, same subjectType routing,
      * same COALESCEd group email including {@code g.email} fallback);
      * the only difference is the status filter flips from
@@ -116,7 +116,7 @@ public class BalanceQueryRepository {
 
     // ── SQL builders ──────────────────────────────────────────────────────
 
-    private String creditorBaseQuery(boolean hasSearch, String subjectType) {
+    private String debtorBaseQuery(boolean hasSearch, String subjectType) {
         String memberSearch = hasSearch
                 ? " AND (LOWER(m.first_name || ' ' || m.last_name) LIKE :search OR LOWER(COALESCE(m.email, '')) LIKE :search OR LOWER(COALESCE(m.member_number, '')) LIKE :search) "
                 : "";
@@ -128,7 +128,7 @@ public class BalanceQueryRepository {
         // grouped member is billed through their group, so surfacing
         // them here would double-count with the GROUP row for that
         // group. Status filter: only currently-billable subjects
-        // (active / suspended) appear on the operational creditors
+        // (active / suspended) appear on the operational debtors
         // list — terminated / deactivated rows belong on the bad-debts
         // page, not here.
         String memberBlock = """
@@ -157,7 +157,7 @@ public class BalanceQueryRepository {
     }
 
     /**
-     * Bad-debts base — mirrors {@link #creditorBaseQuery} but flips the
+     * Bad-debts base — mirrors {@link #debtorBaseQuery} but flips the
      * status filter to {@code deactivated / terminated}. Same "balance
      * > 0" guard so subjects that have been zero'd out (auto-write-off
      * created a bad_debts row + BalanceService.writeOffBalance drained

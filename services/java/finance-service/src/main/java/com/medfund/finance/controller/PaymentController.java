@@ -7,6 +7,8 @@ import com.medfund.finance.dto.PaymentResponse;
 import com.medfund.finance.dto.PaymentRow;
 import com.medfund.finance.service.PaymentService;
 import com.medfund.shared.audit.AuditActor;
+import com.medfund.shared.security.Permissions;
+import com.medfund.shared.security.RequiresPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -35,12 +37,14 @@ public class PaymentController {
     }
 
     @GetMapping
+    @RequiresPermission({Permissions.FINANCE_VIEW_CREDITORS, Permissions.FINANCE_MANAGE_PAYMENTS})
     @Operation(summary = "List all payments (unpaginated — prefer /page)")
     public Flux<PaymentResponse> findAll() {
         return paymentService.findAll().map(PaymentResponse::from);
     }
 
     @GetMapping("/page")
+    @RequiresPermission({Permissions.FINANCE_VIEW_CREDITORS, Permissions.FINANCE_MANAGE_PAYMENTS})
     @Operation(summary = "Server-side paginated, sortable, filterable payments list",
         description = "Feeds /tenant/finance/payments. Provider name joined into every row. "
                 + "Sortable keys: paymentNumber, providerName, amount, currencyCode, "
@@ -64,6 +68,7 @@ public class PaymentController {
     }
 
     @GetMapping("/{id}")
+    @RequiresPermission({Permissions.FINANCE_VIEW_CREDITORS, Permissions.FINANCE_MANAGE_PAYMENTS})
     @Operation(summary = "Get payment by ID")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Payment found"),
@@ -74,18 +79,29 @@ public class PaymentController {
     }
 
     @GetMapping("/provider/{providerId}")
+    @RequiresPermission({Permissions.FINANCE_VIEW_CREDITORS, Permissions.FINANCE_MANAGE_PAYMENTS})
     @Operation(summary = "List payments by provider")
     public Flux<PaymentResponse> findByProviderId(@PathVariable UUID providerId) {
         return paymentService.findByProviderId(providerId).map(PaymentResponse::from);
     }
 
+    @GetMapping("/member/{memberId}")
+    @RequiresPermission({Permissions.FINANCE_VIEW_CREDITORS, Permissions.FINANCE_MANAGE_PAYMENTS})
+    @Operation(summary = "List payments by member",
+        description = "Feeds the member-balance detail page under the finance Creditors surface.")
+    public Flux<PaymentResponse> findByMemberId(@PathVariable UUID memberId) {
+        return paymentService.findByMemberId(memberId).map(PaymentResponse::from);
+    }
+
     @GetMapping("/status/{status}")
+    @RequiresPermission({Permissions.FINANCE_VIEW_CREDITORS, Permissions.FINANCE_MANAGE_PAYMENTS})
     @Operation(summary = "List payments by status")
     public Flux<PaymentResponse> findByStatus(@PathVariable String status) {
         return paymentService.findByStatus(status).map(PaymentResponse::from);
     }
 
     @PostMapping
+    @RequiresPermission(Permissions.FINANCE_MANAGE_PAYMENTS)
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create a new payment",
         description = "Creates a payment record with auto-generated payment number")
@@ -98,6 +114,7 @@ public class PaymentController {
     }
 
     @PostMapping("/{id}/pay")
+    @RequiresPermission(Permissions.FINANCE_MANAGE_PAYMENTS)
     @Operation(summary = "Mark payment as paid")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Payment marked as paid"),
@@ -108,6 +125,7 @@ public class PaymentController {
     }
 
     @PostMapping("/{id}/cancel")
+    @RequiresPermission(Permissions.FINANCE_MANAGE_PAYMENTS)
     @Operation(summary = "Cancel an unpaid payment",
         description = "Paid payments cannot be cancelled — post a reversing adjustment instead.")
     @ApiResponses({
@@ -117,5 +135,22 @@ public class PaymentController {
     })
     public Mono<PaymentResponse> cancel(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
         return paymentService.cancel(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(PaymentResponse::from);
+    }
+
+    @DeleteMapping("/{id}")
+    @RequiresPermission(Permissions.FINANCE_MANAGE_PAYMENTS)
+    @Operation(summary = "Revoke (delete) a pending payment from its run",
+        description = "Deletes the Payment and its parent PaymentRunItem. Only permitted while "
+                + "the payment is pending AND the parent PaymentRun is in draft or approved status. "
+                + "The payee retains their outstanding balance and will be included in the next run "
+                + "generation.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Payment revoked"),
+        @ApiResponse(responseCode = "400", description = "Payment not pending, or parent run executed/cancelled"),
+        @ApiResponse(responseCode = "404", description = "Payment not found")
+    })
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public Mono<Void> revoke(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        return paymentService.revoke(id, AuditActor.id(jwt), AuditActor.email(jwt));
     }
 }

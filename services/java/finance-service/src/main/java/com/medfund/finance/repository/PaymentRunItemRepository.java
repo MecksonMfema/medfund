@@ -17,4 +17,7 @@ public interface PaymentRunItemRepository extends R2dbcRepository<PaymentRunItem
 
     @Query("SELECT * FROM payment_run_items WHERE member_id = :memberId")
     Flux<PaymentRunItem> findByMemberId(UUID memberId);
+
+    @Query("SELECT * FROM payment_run_items WHERE payment_id = :paymentId LIMIT 1")
+    reactor.core.publisher.Mono<PaymentRunItem> findByPaymentId(UUID paymentId);
 }

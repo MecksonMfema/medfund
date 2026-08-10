@@ -3,7 +3,7 @@ package com.medfund.finance.service;
 import com.medfund.finance.entity.Payment;
 import com.medfund.finance.entity.PaymentRun;
 import com.medfund.finance.entity.PaymentRunItem;
-import com.medfund.finance.repository.MemberPayableBalanceRepository;
+import com.medfund.finance.repository.MemberBalanceRepository;
 import com.medfund.finance.repository.PaymentRepository;
 import com.medfund.finance.repository.PaymentRunItemRepository;
 import com.medfund.finance.repository.ProviderBalanceRepository;
@@ -47,7 +47,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class PaymentRunGenerator {
 
     private final ProviderBalanceRepository providerBalanceRepository;
-    private final MemberPayableBalanceRepository memberPayableBalanceRepository;
+    private final MemberBalanceRepository memberBalanceRepository;
     private final PaymentRepository paymentRepository;
     private final PaymentRunItemRepository paymentRunItemRepository;
     private final AuditPublisher auditPublisher;
@@ -55,11 +55,13 @@ public class PaymentRunGenerator {
     public Mono<Integer> populate(PaymentRun run) {
         String currency = run.getCurrencyCode();
         UUID runId = run.getId();
-        return Flux.merge(
-                    populateProviderItems(runId, currency),
-                    populateMemberItems(runId, currency))
-                .count()
-                .map(Long::intValue);
+        String payeeType = run.getPayeeType() == null ? "PROVIDER" : run.getPayeeType().toUpperCase();
+        return switch (payeeType) {
+            case "PROVIDER" -> populateProviderItems(runId, currency).count().map(Long::intValue);
+            case "MEMBER"   -> populateMemberItems(runId, currency).count().map(Long::intValue);
+            default -> Mono.error(new IllegalStateException(
+                    "Unknown payeeType on payment run: " + payeeType));
+        };
     }
 
     private Flux<PaymentRunItem> populateProviderItems(UUID runId, String currency) {
@@ -72,11 +74,12 @@ public class PaymentRunGenerator {
     }
 
     private Flux<PaymentRunItem> populateMemberItems(UUID runId, String currency) {
-        return memberPayableBalanceRepository.findOutstandingByCurrency(currency)
-                .filter(bal -> bal.outstanding() != null && bal.outstanding().signum() > 0)
+        return memberBalanceRepository.findOutstandingByCurrency(currency)
+                .filter(bal -> bal.getOutstandingBalance() != null
+                        && bal.getOutstandingBalance().signum() > 0)
                 .flatMap(bal -> createPaymentAndItem(
                         runId, currency, "MEMBER",
-                        null, bal.memberId(), bal.outstanding()));
+                        null, bal.getMemberId(), bal.getOutstandingBalance()));
     }
 
     private Mono<PaymentRunItem> createPaymentAndItem(UUID runId, String currency,

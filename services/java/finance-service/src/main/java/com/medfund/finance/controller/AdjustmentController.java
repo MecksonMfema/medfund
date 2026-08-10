@@ -7,6 +7,8 @@ import com.medfund.finance.dto.CreateAdjustmentRequest;
 import com.medfund.finance.dto.PageResponse;
 import com.medfund.finance.service.AdjustmentService;
 import com.medfund.shared.audit.AuditActor;
+import com.medfund.shared.security.Permissions;
+import com.medfund.shared.security.RequiresPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -35,9 +37,18 @@ public class AdjustmentController {
     }
 
     @GetMapping("/provider/{providerId}")
+    @RequiresPermission({Permissions.FINANCE_VIEW_CREDITORS, Permissions.FINANCE_MANAGE_PAYMENTS})
     @Operation(summary = "List adjustments by provider")
     public Flux<AdjustmentResponse> findByProviderId(@PathVariable UUID providerId) {
         return adjustmentService.findByProviderId(providerId).map(AdjustmentResponse::from);
+    }
+
+    @GetMapping("/member/{memberId}")
+    @RequiresPermission({Permissions.FINANCE_VIEW_CREDITORS, Permissions.FINANCE_MANAGE_PAYMENTS})
+    @Operation(summary = "List adjustments by member",
+        description = "Feeds the member-balance detail page under the finance Creditors surface.")
+    public Flux<AdjustmentResponse> findByMemberId(@PathVariable UUID memberId) {
+        return adjustmentService.findByMemberId(memberId).map(AdjustmentResponse::from);
     }
 
     @GetMapping("/status/{status}")

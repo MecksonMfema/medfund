@@ -1,12 +1,12 @@
 package com.medfund.contributions.controller;
 
 import com.medfund.contributions.config.SecurityConfig;
-import com.medfund.contributions.dto.CreditorRow;
+import com.medfund.contributions.dto.DebtorRow;
 import com.medfund.contributions.dto.PageResponse;
 import com.medfund.contributions.service.BadDebtService;
 import com.medfund.contributions.service.BadDebtsExcelService;
 import com.medfund.contributions.service.BalanceService;
-import com.medfund.contributions.service.CreditorsExcelService;
+import com.medfund.contributions.service.DebtorsExcelService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +31,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.reactive.server.SecurityMockServerConfigurers.mockJwt;
 
 /**
- * WebFlux slice test for the bad-debts / aged-balances / creditors
+ * WebFlux slice test for the bad-debts / aged-balances / debtors
  * export endpoints. What this catches that the service tests can't:
  * <ul>
  *   <li>Route wiring — /bad-debts and /bad-debts/export/excel land on
@@ -52,7 +52,7 @@ class BalanceControllerTest {
 
     @MockBean private BalanceService balanceService;
     @MockBean private BadDebtService badDebtService;
-    @MockBean private CreditorsExcelService creditorsExcelService;
+    @MockBean private DebtorsExcelService debtorsExcelService;
     @MockBean private BadDebtsExcelService badDebtsExcelService;
 
     // ------------------------------------------------------------------
@@ -61,7 +61,7 @@ class BalanceControllerTest {
 
     @Test
     void listBadDebts_passesAllParamsToService() {
-        PageResponse<CreditorRow> empty = PageResponse.of(List.of(), 0L, 0, 20);
+        PageResponse<DebtorRow> empty = PageResponse.of(List.of(), 0L, 0, 20);
         when(balanceService.listBadDebts(any(), any(), any(), anyInt(), anyInt()))
                 .thenReturn(Mono.just(empty));
 
@@ -177,10 +177,10 @@ class BalanceControllerTest {
     }
 
     @Test
-    void exportBadDebtsExcel_delegatesToBadDebtsExcelService_notCreditorsExcel() {
+    void exportBadDebtsExcel_delegatesToBadDebtsExcelService_notDebtorsExcel() {
         // Regression guard: the two exports live side by side and their
         // service beans are wired by name — if the controller ever
-        // routes /bad-debts/export to the creditors bean the sheet would
+        // routes /bad-debts/export to the debtors bean the sheet would
         // list the wrong set of rows with the same filename.
         when(badDebtsExcelService.generate(any(), any(), any()))
                 .thenReturn(Mono.just(new byte[]{0x50, 0x4B, 0x03, 0x04}));
@@ -192,6 +192,56 @@ class BalanceControllerTest {
                 .expectStatus().isOk();
 
         verify(badDebtsExcelService).generate("USD", null, null);
+    }
+
+    // ------------------------------------------------------------------
+    // GET /api/v1/billing/balances/debtors
+    // ------------------------------------------------------------------
+
+    @Test
+    void listDebtors_passesAllParamsToService() {
+        PageResponse<DebtorRow> empty = PageResponse.of(List.of(), 0L, 0, 20);
+        when(balanceService.listDebtors(any(), any(), any(), anyInt(), anyInt()))
+                .thenReturn(Mono.just(empty));
+
+        webTestClient.mutateWith(mockJwt())
+                .get().uri(uri -> uri.path("/api/v1/billing/balances/debtors")
+                        .queryParam("currency", "USD")
+                        .queryParam("subjectType", "MEMBER")
+                        .queryParam("q", "smith")
+                        .queryParam("page", "1")
+                        .queryParam("size", "50")
+                        .build())
+                .header("X-Tenant-ID", "test-tenant")
+                .exchange()
+                .expectStatus().isOk();
+
+        verify(balanceService).listDebtors("USD", "MEMBER", "smith", 1, 50);
+    }
+
+    @Test
+    void exportDebtorsExcel_returnsXlsxContentType_andAttachmentHeader() {
+        // Filename prefix is "debtors-" (was "creditors-" before the
+        // rename). The prefix is user-visible when the browser saves
+        // the download; an operator sorting by filename groups all
+        // debtor exports together.
+        byte[] payload = "fake-xlsx".getBytes();
+        when(debtorsExcelService.generate(eq("USD"), isNull(), isNull()))
+                .thenReturn(Mono.just(payload));
+
+        webTestClient.mutateWith(mockJwt())
+                .get().uri("/api/v1/billing/balances/debtors/export/excel?currency=USD")
+                .header("X-Tenant-ID", "test-tenant")
+                .exchange()
+                .expectStatus().isOk()
+                .expectHeader().contentType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                .expectHeader().value("Content-Disposition", disp -> {
+                    assertThat(disp).startsWith("attachment; filename=\"debtors-USD-");
+                    assertThat(disp).contains(LocalDate.now().toString());
+                    assertThat(disp).endsWith(".xlsx\"");
+                })
+                .expectBody(byte[].class).isEqualTo(payload);
     }
 
     // ------------------------------------------------------------------
@@ -221,7 +271,7 @@ class BalanceControllerTest {
     @Test
     void listAged_atOldBadDebtsPath_isNoLongerRoutedThere() {
         // The old /bad-debts route now returns a different DTO
-        // (CreditorRow vs BadDebtRow). Prove /bad-debts no longer
+        // (DebtorRow vs BadDebtRow). Prove /bad-debts no longer
         // reaches listAged so callers who forgot to migrate their URL
         // fail loudly rather than silently getting a different shape.
         when(balanceService.listBadDebts(any(), any(), any(), anyInt(), anyInt()))
@@ -237,8 +287,8 @@ class BalanceControllerTest {
         verify(balanceService).listBadDebts(eq("USD"), isNull(), isNull(), eq(0), eq(20));
     }
 
-    private CreditorRow sampleRow() {
-        return new CreditorRow(
+    private DebtorRow sampleRow() {
+        return new DebtorRow(
                 "MEMBER", UUID.randomUUID(), "M-01", "Jane Doe", "j@example.com",
                 "USD", new BigDecimal("100"), null, null, null);
     }

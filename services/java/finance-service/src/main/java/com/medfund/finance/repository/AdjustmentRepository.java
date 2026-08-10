@@ -13,6 +13,9 @@ public interface AdjustmentRepository extends R2dbcRepository<Adjustment, UUID> 
     @Query("SELECT * FROM adjustments WHERE provider_id = :providerId ORDER BY created_at DESC")
     Flux<Adjustment> findByProviderId(UUID providerId);
 
+    @Query("SELECT * FROM adjustments WHERE member_id = :memberId ORDER BY created_at DESC")
+    Flux<Adjustment> findByMemberId(UUID memberId);
+
     @Query("SELECT * FROM adjustments WHERE status = :status ORDER BY created_at DESC")
     Flux<Adjustment> findByStatus(String status);
 

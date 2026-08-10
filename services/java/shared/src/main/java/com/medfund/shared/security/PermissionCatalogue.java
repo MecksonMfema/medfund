@@ -54,13 +54,16 @@ public final class PermissionCatalogue {
                     new Permission(Permissions.BILLING_POST_TRANSACTIONS,         "Post transactions",                 "Record contribution or invoice transactions."),
                     new Permission(Permissions.BILLING_VIEW_CURRENCIES,           "View currencies",                   "View configured currency / FX pairs."),
                     new Permission(Permissions.BILLING_MANAGE_CURRENCIES,         "Manage currencies",                 "Add or edit currency / FX pair configurations."),
-                    new Permission(Permissions.BILLING_VIEW_CREDITORS,            "View creditors",                    "View outstanding balances owed by members and groups."),
+                    new Permission(Permissions.BILLING_VIEW_DEBTORS,              "View debtors",                      "View outstanding balances owed by members and groups (arrears listing)."),
                     new Permission(Permissions.BILLING_MANAGE_BAD_DEBTS,          "Manage bad debts",                  "Write off receivables that cannot be collected.")
             )),
             new Domain("finance", "Finance", List.of(
                     new Permission(Permissions.FINANCE_VIEW,                      "View finance",                      "Read access to payment runs, payments, receipts, and reports."),
+                    new Permission(Permissions.FINANCE_VIEW_CREDITORS,            "View creditors",                    "View the unified Creditors page — providers and members the fund owes for approved claims."),
                     new Permission(Permissions.FINANCE_CREATE_PAYMENT_RUN,        "Create payment run",                "Create a new draft batch payment run."),
                     new Permission(Permissions.FINANCE_APPROVE_PAYMENT_RUN,       "Approve payment run",               "Execute a draft payment run — disburses funds."),
+                    new Permission(Permissions.FINANCE_MANAGE_PAYMENT_RUNS,       "Manage payment runs",               "Full lifecycle management of payment runs (create, approve, execute, cancel)."),
+                    new Permission(Permissions.FINANCE_MANAGE_PAYMENTS,           "Manage payments",                   "Row-level payment actions — revoke an item from a run, mark paid, cancel."),
                     new Permission(Permissions.FINANCE_VIEW_ADVANCE_PAYMENTS,     "View advance payments",             "View provider prepayments."),
                     new Permission(Permissions.FINANCE_MANAGE_ADVANCE_PAYMENTS,   "Manage advance payments",           "Create, edit, or cancel provider prepayments."),
                     new Permission(Permissions.FINANCE_MANAGE_CTC_PAYMENTS,       "Manage CTC payments",               "Create or commit Claims-to-Contributions transfers from finance."),

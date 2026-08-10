@@ -1,6 +1,6 @@
 package com.medfund.contributions.service;
 
-import com.medfund.contributions.dto.CreditorRow;
+import com.medfund.contributions.dto.DebtorRow;
 import com.medfund.contributions.dto.PageResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,8 +24,8 @@ import java.io.IOException;
 import java.time.LocalDate;
 
 /**
- * Renders the creditors list (from {@link BalanceService#listCreditors}) as
- * a formatted XLSX workbook. Same shape as {@link StatementExcelService}:
+ * Renders the debtors list (from {@link BalanceService#listDebtors}) as
+ * a formatted XLSX workbook. Same shape as {@link BadDebtsExcelService}:
  * header block with filter context, ledger-style table with columns, no
  * paging in the workbook (client sees all rows in one export).
  *
@@ -37,7 +37,7 @@ import java.time.LocalDate;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class CreditorsExcelService {
+public class DebtorsExcelService {
 
     /** Hard ceiling on the number of rows exported in one call. */
     private static final int MAX_ROWS = 10_000;
@@ -45,14 +45,14 @@ public class CreditorsExcelService {
     private final BalanceService balanceService;
 
     public Mono<byte[]> generate(String currency, String subjectType, String q) {
-        return balanceService.listCreditors(currency, subjectType, q, 0, MAX_ROWS)
+        return balanceService.listDebtors(currency, subjectType, q, 0, MAX_ROWS)
                 .map(page -> render(page, currency, subjectType, q));
     }
 
-    private byte[] render(PageResponse<CreditorRow> page, String currency,
+    private byte[] render(PageResponse<DebtorRow> page, String currency,
                            String subjectType, String q) {
         try (Workbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            Sheet sheet = wb.createSheet("Creditors");
+            Sheet sheet = wb.createSheet("Debtors");
 
             CellStyle title    = titleStyle(wb);
             CellStyle label    = labelStyle(wb);
@@ -65,7 +65,7 @@ public class CreditorsExcelService {
 
             int r = 0;
             Row titleRow = sheet.createRow(r++);
-            cell(titleRow, 0, "Creditors", title);
+            cell(titleRow, 0, "Debtors", title);
             sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 6));
             r++;
 
@@ -93,7 +93,7 @@ public class CreditorsExcelService {
             cell(head, 5, "Last payment", thHeader);
             cell(head, 6, "Days since",   thHeader);
 
-            for (CreditorRow row : page.content()) {
+            for (DebtorRow row : page.content()) {
                 Row xr = sheet.createRow(r++);
                 cell(xr, 0, humanizeSubjectType(row.subjectType()), null);
                 cell(xr, 1, row.subjectName() != null ? row.subjectName() : "", null);
@@ -111,7 +111,7 @@ public class CreditorsExcelService {
             wb.write(out);
             return out.toByteArray();
         } catch (IOException e) {
-            throw new RuntimeException("Failed to build creditors workbook", e);
+            throw new RuntimeException("Failed to build debtors workbook", e);
         }
     }
 

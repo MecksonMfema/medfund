@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-public record CreditorRow(
+public record DebtorRow(
         String subjectType,
         UUID subjectId,
         String subjectCode,
@@ -16,8 +16,8 @@ public record CreditorRow(
         Instant lastPaymentAt,
         Long daysSinceLastActivity
 ) {
-    public static CreditorRow from(BalanceRow r) {
-        return new CreditorRow(
+    public static DebtorRow from(BalanceRow r) {
+        return new DebtorRow(
                 r.subjectType(), r.subjectId(), r.subjectCode(), r.subjectName(), r.subjectEmail(),
                 r.currencyCode(), r.balance(), r.lastChargeAt(), r.lastPaymentAt(),
                 r.daysSinceLastActivity());

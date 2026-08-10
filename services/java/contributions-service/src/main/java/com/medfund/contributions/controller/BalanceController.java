@@ -2,7 +2,7 @@ package com.medfund.contributions.controller;
 
 import com.medfund.contributions.dto.BadDebtRow;
 import com.medfund.contributions.dto.BadDebtResponse;
-import com.medfund.contributions.dto.CreditorRow;
+import com.medfund.contributions.dto.DebtorRow;
 import com.medfund.contributions.dto.FlagBadDebtRequest;
 import com.medfund.contributions.dto.GroupBalanceResponse;
 import com.medfund.contributions.dto.MemberBalanceResponse;
@@ -10,8 +10,10 @@ import com.medfund.contributions.dto.PageResponse;
 import com.medfund.contributions.service.BadDebtService;
 import com.medfund.contributions.service.BadDebtsExcelService;
 import com.medfund.contributions.service.BalanceService;
-import com.medfund.contributions.service.CreditorsExcelService;
+import com.medfund.contributions.service.DebtorsExcelService;
 import com.medfund.shared.audit.AuditActor;
+import com.medfund.shared.security.Permissions;
+import com.medfund.shared.security.RequiresPermission;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -41,7 +43,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/billing/balances")
 @RequiredArgsConstructor
 @Tag(name = "Balances",
-        description = "Running balances per (member|group, currency). Drives the creditor list, bad-debt aging, and group-charge views.")
+        description = "Running balances per (member|group, currency). Drives the debtors list, bad-debt aging, and group-charge views.")
 @SecurityRequirement(name = "bearer-jwt")
 public class BalanceController {
 
@@ -50,10 +52,11 @@ public class BalanceController {
 
     private final BalanceService balanceService;
     private final BadDebtService badDebtService;
-    private final CreditorsExcelService creditorsExcelService;
+    private final DebtorsExcelService debtorsExcelService;
     private final BadDebtsExcelService badDebtsExcelService;
 
     @GetMapping("/members/{memberId}")
+    @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
     @Operation(summary = "Get a member's running balance for a currency",
             description = "Returns zeros if no balance row exists yet (member has not been billed in this currency).")
     @ApiResponse(responseCode = "200", description = "Balance returned")
@@ -64,6 +67,7 @@ public class BalanceController {
     }
 
     @GetMapping("/groups/{groupId}")
+    @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
     @Operation(summary = "Get a group's running balance for a currency")
     public Mono<GroupBalanceResponse> getGroupBalance(
             @PathVariable UUID groupId,
@@ -71,33 +75,35 @@ public class BalanceController {
         return balanceService.getGroupBalance(groupId, currency);
     }
 
-    @GetMapping("/creditors")
-    @Operation(summary = "List members and groups with outstanding balances",
+    @GetMapping("/debtors")
+    @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
+    @Operation(summary = "List members and groups with outstanding balances (debtors)",
             description = "Server-side paginated. Only currently-billable subjects "
                     + "(status IN active/suspended) appear. Filters: currency (required), "
                     + "subjectType (MEMBER = ungrouped individuals only; GROUP = groups only; "
                     + "omit for both), q (substring match on name/email/code).")
-    public Mono<PageResponse<CreditorRow>> listCreditors(
+    public Mono<PageResponse<DebtorRow>> listDebtors(
             @RequestParam String currency,
             @RequestParam(required = false) String subjectType,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
-        return balanceService.listCreditors(currency, subjectType, q,
+        return balanceService.listDebtors(currency, subjectType, q,
                 Math.max(page, 0), Math.min(Math.max(size, 1), 100));
     }
 
-    @GetMapping("/creditors/export/excel")
-    @Operation(summary = "Download the creditors list as XLSX",
-            description = "Same filter shape as the JSON /creditors endpoint; returns an .xlsx workbook "
+    @GetMapping("/debtors/export/excel")
+    @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
+    @Operation(summary = "Download the debtors list as XLSX",
+            description = "Same filter shape as the JSON /debtors endpoint; returns an .xlsx workbook "
                     + "with a header block (currency, subject-type filter, search term, export date, "
                     + "row count) and a table of every matching row up to a 10,000-row ceiling.")
-    public Mono<ResponseEntity<byte[]>> exportCreditorsExcel(
+    public Mono<ResponseEntity<byte[]>> exportDebtorsExcel(
             @RequestParam String currency,
             @RequestParam(required = false) String subjectType,
             @RequestParam(required = false) String q) {
-        String filename = "creditors-" + currency + "-" + java.time.LocalDate.now() + ".xlsx";
-        return creditorsExcelService.generate(currency, subjectType, q)
+        String filename = "debtors-" + currency + "-" + java.time.LocalDate.now() + ".xlsx";
+        return debtorsExcelService.generate(currency, subjectType, q)
                 .map(bytes -> ResponseEntity.ok()
                         .contentType(XLSX)
                         .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -106,13 +112,14 @@ public class BalanceController {
     }
 
     @GetMapping("/bad-debts")
+    @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
     @Operation(summary = "List deactivated / terminated subjects with an outstanding balance",
             description = "Server-side paginated. Only subjects that are no longer billable "
                     + "(status IN deactivated/terminated) AND whose running balance is > 0 are returned "
-                    + "— i.e. money we're owed by someone we can no longer bill. Filters mirror /creditors: "
+                    + "— i.e. money we're owed by someone we can no longer bill. Filters mirror /debtors: "
                     + "currency (required), subjectType (MEMBER = ungrouped individuals only; GROUP = groups "
                     + "only; omit for both), q (substring match on name/email/code).")
-    public Mono<PageResponse<CreditorRow>> listBadDebts(
+    public Mono<PageResponse<DebtorRow>> listBadDebts(
             @RequestParam String currency,
             @RequestParam(required = false) String subjectType,
             @RequestParam(required = false) String q,
@@ -123,6 +130,7 @@ public class BalanceController {
     }
 
     @GetMapping("/bad-debts/export/excel")
+    @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
     @Operation(summary = "Download the bad-debts list as XLSX",
             description = "Same filter shape as the JSON /bad-debts endpoint; returns an .xlsx workbook "
                     + "with a header block (currency, subject-type filter, status filter description, search "
@@ -142,6 +150,7 @@ public class BalanceController {
     }
 
     @GetMapping("/aged-balances")
+    @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
     @Operation(summary = "List aged balances (still-billable subjects)",
             description = "Returns balances older than minAgeDays (defaults to dunning_config.suspension_days). " +
                     "Each row carries an aging classification (GRACE / SUSPENDED / WRITE_OFF). " +
@@ -157,6 +166,7 @@ public class BalanceController {
     }
 
     @PostMapping("/bad-debts/flag")
+    @RequiresPermission(Permissions.BILLING_MANAGE_BAD_DEBTS)
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Flag a contribution as bad debt",
             description = "Persists a bad_debts row in FLAGGED status via the existing BadDebtService state machine. " +

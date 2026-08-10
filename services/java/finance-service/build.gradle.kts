@@ -6,6 +6,10 @@ dependencies {
     implementation(project(":shared"))
     implementation(project(":rules-engine"))
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    // Apache POI for the unified Creditors XLSX export in CreditorsExcelService.
+    // Same version as contributions-service so both surfaces produce workbooks
+    // Excel opens identically.
+    implementation("org.apache.poi:poi-ooxml:5.2.5")
     runtimeOnly("org.springframework.boot:spring-boot-starter-actuator")
 
     // Shared Testcontainers fixtures (Postgres + Kafka bases, @WithTenant).

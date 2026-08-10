@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Projection row used by both the creditor list and the bad-debt aging list.
+ * Projection row used by both the debtors list and the bad-debt aging list.
  * {@code subjectType} is "MEMBER" or "GROUP" — the UI renders one combined
  * list so the user sees every outstanding balance regardless of who owes it.
  */

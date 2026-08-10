@@ -60,13 +60,16 @@ public final class Permissions {
     public static final String BILLING_VIEW_CURRENCIES           = "billing:view_currencies";
     public static final String BILLING_MANAGE_CURRENCIES         = "billing:manage_currencies";
     public static final String BILLING_MANAGE_BILLING_SETTINGS   = "billing:manage_billing_settings";
-    public static final String BILLING_VIEW_CREDITORS            = "billing:view_creditors";
+    public static final String BILLING_VIEW_DEBTORS              = "billing:view_debtors";
     public static final String BILLING_MANAGE_BAD_DEBTS          = "billing:manage_bad_debts";
 
     // ── Finance ──────────────────────────────────────────────────────────────
     public static final String FINANCE_VIEW                      = "finance:view";
+    public static final String FINANCE_VIEW_CREDITORS            = "finance:view_creditors";
     public static final String FINANCE_CREATE_PAYMENT_RUN        = "finance:create_payment_run";
     public static final String FINANCE_APPROVE_PAYMENT_RUN       = "finance:approve_payment_run";
+    public static final String FINANCE_MANAGE_PAYMENT_RUNS       = "finance:manage_payment_runs";
+    public static final String FINANCE_MANAGE_PAYMENTS           = "finance:manage_payments";
     public static final String FINANCE_VIEW_ADVANCE_PAYMENTS     = "finance:view_advance_payments";
     public static final String FINANCE_MANAGE_ADVANCE_PAYMENTS   = "finance:manage_advance_payments";
     public static final String FINANCE_APPROVE_ADVANCE_PAYMENT   = "finance:approve_advance_payment";
@@ -126,9 +129,10 @@ public final class Permissions {
             BILLING_MANAGE_WAITING_PERIODS, BILLING_MANAGE_GROUPS, BILLING_MANAGE_DEPENDANTS,
             BILLING_GENERATE_BILLING, BILLING_VIEW_STATEMENTS, BILLING_POST_TRANSACTIONS,
             BILLING_VIEW_CURRENCIES, BILLING_MANAGE_CURRENCIES, BILLING_MANAGE_BILLING_SETTINGS,
-            BILLING_VIEW_CREDITORS, BILLING_MANAGE_BAD_DEBTS,
+            BILLING_VIEW_DEBTORS, BILLING_MANAGE_BAD_DEBTS,
 
-            FINANCE_VIEW, FINANCE_CREATE_PAYMENT_RUN, FINANCE_APPROVE_PAYMENT_RUN,
+            FINANCE_VIEW, FINANCE_VIEW_CREDITORS, FINANCE_CREATE_PAYMENT_RUN, FINANCE_APPROVE_PAYMENT_RUN,
+            FINANCE_MANAGE_PAYMENT_RUNS, FINANCE_MANAGE_PAYMENTS,
             FINANCE_VIEW_ADVANCE_PAYMENTS, FINANCE_MANAGE_ADVANCE_PAYMENTS,
             FINANCE_APPROVE_ADVANCE_PAYMENT, FINANCE_REVERSE_ADVANCE_PAYMENT,
             FINANCE_MANAGE_CTC_PAYMENTS, FINANCE_REVERSE_CTC_PAYMENT, FINANCE_VIEW_MEMBER_PAYABLES,

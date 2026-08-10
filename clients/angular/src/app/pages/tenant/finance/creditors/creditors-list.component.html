@@ -1,19 +1,71 @@
 <header class="page-header">
   <div>
-    <h1>Provider creditors</h1>
-    <p class="page-sub">Providers with outstanding balances. Sorted highest first.</p>
+    <h1>Creditors</h1>
+    <p class="page-sub">Providers and members the fund owes for approved claims. Every row shows total claimed vs approved vs paid so the outstanding balance is auditable in one glance.</p>
   </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="exporting"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
 </header>
+
+<nav class="scheme-tabs" role="tablist" aria-label="Filter creditors by subject type">
+  @for (tab of tabs; track tab.value) {
+    <button
+      type="button"
+      role="tab"
+      class="scheme-tab"
+      [class.is-active]="activeTab === tab.value"
+      [attr.aria-selected]="activeTab === tab.value"
+      (click)="selectTab(tab.value)"
+    >
+      {{ tab.label }}
+    </button>
+  }
+</nav>
 
 @if (errorMessage) {
   <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
 }
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-search">
+    <app-icon name="search" [size]="16"></app-icon>
+    <input
+      type="search"
+      [ngModel]="searchTerm"
+      (ngModelChange)="onSearch($event)"
+      name="search"
+      placeholder="Search name or code…"
+      aria-label="Search creditors"
+    />
+  </div>
+
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Currency</span>
+    <app-select
+      [(ngModel)]="selectedCurrency"
+      (selectionChange)="onCurrencyChange()"
+      name="currency"
+      [options]="currencyOptions"
+      placeholder="All"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+</div>
 
 <app-data-table
   [columns]="columns"
   [data]="rows"
   [actions]="actions"
   [showActions]="true"
+  [searchable]="false"
   [serverSide]="true"
   [loading]="loading"
   [pageSize]="pageSize"
@@ -22,10 +74,9 @@
   [serverPage]="page"
   [initialSortKey]="sortKey"
   [initialSortDirection]="sortDirection"
-  searchPlaceholder="Search provider name"
-  emptyMessage="No creditor balances"
-  emptyDescription="Provider balances appear here once claims are paid or approved."
+  [emptyMessage]="'No outstanding creditor balances'"
+  [emptyDescription]="'Rows appear here once claims are approved or paid.'"
+  [emptyIcon]="'wallet'"
   (pageChange)="onPageChange($event)"
-  (searchChange)="onSearchChange($event)"
   (sortChange)="onSortChange($event)">
 </app-data-table>

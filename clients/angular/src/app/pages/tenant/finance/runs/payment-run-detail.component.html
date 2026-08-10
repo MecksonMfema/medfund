@@ -9,6 +9,9 @@
         <h1>{{ run.runNumber }}</h1>
         <p class="page-sub">
           <span class="status-badge status-{{ run.status }}">{{ run.status | humanize }}</span>
+          @if (run.payeeType) {
+            · <span class="pill pill-{{ run.payeeType | lowercase }}">{{ run.payeeType }}</span>
+          }
           · {{ run.paymentCount }} payment{{ run.paymentCount === 1 ? '' : 's' }}
           · {{ run.totalAmount | currencyFormat:run.currencyCode }}
         </p>

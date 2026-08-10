@@ -92,7 +92,7 @@ class PaymentRunServiceTest {
 
     @Test
     void create_validRequest_createsRun() {
-        var request = new CreatePaymentRunRequest("USD", "Monthly provider payments");
+        var request = new CreatePaymentRunRequest("USD", "Monthly provider payments", "PROVIDER");
         String actorId = UUID.randomUUID().toString();
 
         when(paymentRunRepository.existsByRunNumber(any())).thenReturn(Mono.just(false));
@@ -130,7 +130,7 @@ class PaymentRunServiceTest {
 
     @Test
     void create_populateReturnsMultipleItems_countRecordedOnRun() {
-        var request = new CreatePaymentRunRequest("USD", "With populated items");
+        var request = new CreatePaymentRunRequest("USD", "With populated items", "PROVIDER");
         String actorId = UUID.randomUUID().toString();
 
         when(paymentRunRepository.existsByRunNumber(any())).thenReturn(Mono.just(false));

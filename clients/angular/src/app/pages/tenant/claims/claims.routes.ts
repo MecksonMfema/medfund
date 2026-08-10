@@ -231,7 +231,7 @@ export const CLAIMS_ROUTES: Routes = [
   // surfaced here so claims clerks don't have to switch sections. Angular
   // rejects a route that mixes `redirectTo` with `canActivate` (NG04014 —
   // redirects fire BEFORE guards, so the guard can never run). The billing
-  // side of the redirect already enforces `billing:view_creditors`, so
+  // side of the redirect already enforces `billing:view_debtors`, so
   // this side just redirects unconditionally.
   {
     path: 'group-charge',

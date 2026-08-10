@@ -1,6 +1,6 @@
 package com.medfund.contributions.service;
 
-import com.medfund.contributions.dto.CreditorRow;
+import com.medfund.contributions.dto.DebtorRow;
 import com.medfund.contributions.dto.PageResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +26,7 @@ import java.time.LocalDate;
 /**
  * Excel export for the bad-debts list (deactivated / terminated subjects
  * with a positive running balance). Same layout as
- * {@link CreditorsExcelService} so an operator switching between the
+ * {@link DebtorsExcelService} so an operator switching between the
  * two tabs sees a workbook they can visually compare row-for-row.
  */
 @Slf4j
@@ -44,7 +44,7 @@ public class BadDebtsExcelService {
                 .map(page -> render(page, currency, subjectType, q));
     }
 
-    private byte[] render(PageResponse<CreditorRow> page, String currency,
+    private byte[] render(PageResponse<DebtorRow> page, String currency,
                            String subjectType, String q) {
         try (Workbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = wb.createSheet("Bad debts");
@@ -87,7 +87,7 @@ public class BadDebtsExcelService {
             cell(head, 5, "Last payment", thHeader);
             cell(head, 6, "Days since",   thHeader);
 
-            for (CreditorRow row : page.content()) {
+            for (DebtorRow row : page.content()) {
                 Row xr = sheet.createRow(r++);
                 cell(xr, 0, humanizeSubjectType(row.subjectType()), null);
                 cell(xr, 1, row.subjectName() != null ? row.subjectName() : "", null);
@@ -108,7 +108,7 @@ public class BadDebtsExcelService {
         }
     }
 
-    // ── Helpers (mirror CreditorsExcelService) ────────────────────────
+    // ── Helpers (mirror DebtorsExcelService) ────────────────────────
 
     private static String humanizeSubjectType(String v) {
         if (v == null) return "—";

@@ -49,7 +49,7 @@ export class ProviderBalanceDetailComponent implements OnInit {
   refresh(providerId: string): void {
     this.loading = true;
     forkJoin({
-      balance: this.finance.getProviderBalance(providerId).pipe(catchError(() => of(null))),
+      balance: this.finance.getCreditorProviderDetail(providerId).pipe(catchError(() => of(null))),
       payments: this.finance.getPaymentsByProvider(providerId).pipe(catchError(() => of([] as Payment[]))),
       adjustments: this.finance.getAdjustmentsByProvider(providerId).pipe(catchError(() => of([] as Adjustment[]))),
     }).subscribe({
@@ -69,6 +69,6 @@ export class ProviderBalanceDetailComponent implements OnInit {
   setTab(tab: Tab): void { this.activeTab = tab; }
 
   back(): void {
-    this.router.navigate(['/tenant/finance/creditors/provider']);
+    this.router.navigate(['/tenant/finance/creditors']);
   }
 }

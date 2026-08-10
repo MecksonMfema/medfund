@@ -21,6 +21,7 @@ import {
   TableColumn,
 } from '../../../../shared/components/data-table/data-table.component';
 import { PermissionService } from '../../../../core/security/permission.service';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
 
 /**
  * Detail page for a single payment run — the folded landing spot for
@@ -89,6 +90,20 @@ export class PaymentRunDetailComponent implements OnInit {
       color: 'default',
       handler: (row: PaymentRow) => this.router.navigate(['/tenant/finance/payments', row.id]),
     },
+    {
+      label: 'Revoke',
+      icon: 'x-circle',
+      color: 'danger',
+      // Only visible while the payment is pending AND the parent run is
+      // still mutable (draft or approved). The backend enforces the same
+      // guard and 400s otherwise — this is a UX pre-check.
+      visible: (row: PaymentRow) =>
+        row.status === 'pending'
+        && !!this.run
+        && (this.run.status === 'draft' || this.run.status === 'approved')
+        && this.permissions.has('finance:manage_payments'),
+      handler: (row: PaymentRow) => this.revoke(row),
+    },
   ];
 
   constructor(
@@ -96,6 +111,7 @@ export class PaymentRunDetailComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private permissions: PermissionService,
+    private toast: ToastService,
   ) {}
 
   canRegenerateAdvices(): boolean {
@@ -239,5 +255,25 @@ export class PaymentRunDetailComponent implements OnInit {
 
   back(): void {
     this.router.navigate(['/tenant/finance/runs']);
+  }
+
+  /**
+   * Revoke a pending payment from this run. Deletes the Payment + its
+   * PaymentRunItem, then reloads the run so paymentCount / totalAmount
+   * reflect the new state. The payee's outstanding balance is unchanged
+   * and next run generation picks them up again.
+   */
+  revoke(row: PaymentRow): void {
+    if (!confirm(`Revoke payment ${row.paymentNumber}? The payee's outstanding balance is unchanged; they will be included in the next run generation.`)) return;
+    this.finance.revokePayment(row.id).subscribe({
+      next: () => {
+        this.toast.success(`Revoked ${row.paymentNumber}`);
+        // Reload the run summary + items — recomputeRunTotals ran server-side.
+        if (this.run) this.refresh(this.run.id);
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.detail || `Failed to revoke ${row.paymentNumber}`);
+      },
+    });
   }
 }

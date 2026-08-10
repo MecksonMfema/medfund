@@ -8,7 +8,7 @@ const loadComingSoon = () =>
 
 /**
  * Billing domain — covers the legacy "Contributions" admin (schemes,
- * generation, transactions, statements, currencies, creditors) from
+ * generation, transactions, statements, currencies, debtors) from
  * {@code MASCA-Frontend/src/setup/routes/index.js}. Renamed in our system
  * because "Billing" is the umbrella that fits contributions + group
  * invoices + transaction posting under one section.
@@ -244,28 +244,28 @@ export const BILLING_ROUTES: Routes = [
   // Currencies are managed in /tenant/admin/settings under the "Currencies" tab —
   // they're a tenant-admin concern, not an operational/billing day-to-day task.
 
-  // ── Receivables (creditors / bad debts) ────────────────────────────────────
+  // ── Receivables (debtors / bad debts) ──────────────────────────────────────
   {
-    path: 'creditors',
-    canActivate: [permissionGuard(['billing:view_creditors'])],
-    loadComponent: () => import('./creditors/creditors-list.component').then(m => m.CreditorsListComponent),
+    path: 'debtors',
+    canActivate: [permissionGuard(['billing:view_debtors'])],
+    loadComponent: () => import('./debtors/debtors-list.component').then(m => m.DebtorsListComponent),
     // fullbleed matches /tenant/billing/schemes so the shared page-header
     // banner + data-table live at the same visual scale as the rest of
     // the billing tenant pages.
-    data: { title: 'Creditors', sidebar: 'operational', fullbleed: true },
+    data: { title: 'Debtors', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'bad-debts',
     canActivate: [permissionGuard(['billing:manage_bad_debts'])],
     loadComponent: () => import('./bad-debts/bad-debts-list.component').then(m => m.BadDebtsListComponent),
     // fullbleed so the page-header banner + toolbar strip sit flush
-    // against the sidebar — matches /tenant/billing/creditors so the
+    // against the sidebar — matches /tenant/billing/debtors so the
     // two receivables views read as halves of one system.
     data: { title: 'Bad Debts', sidebar: 'operational', fullbleed: true },
   },
   {
     path: 'charge-preview',
-    canActivate: [permissionGuard(['billing:view_creditors'])],
+    canActivate: [permissionGuard(['billing:view_debtors'])],
     loadComponent: () => import('./charge-preview/charge-preview.component').then(m => m.ChargePreviewComponent),
     // fullbleed so the page-header banner + toolbar strip sit flush
     // against the sidebar — matches /tenant/billing/ledger and the
@@ -319,7 +319,7 @@ export const BILLING_ROUTES: Routes = [
     canActivate: [permissionGuard(['billing:view', 'billing:manage_groups']), tenantGroupsEnabledGuard],
     loadComponent: () => import('./groups/groups-list.component').then(m => m.GroupsListComponent),
     // fullbleed so the page-header banner + toolbar strip sit flush
-    // against the sidebar — matches /tenant/billing/creditors and the
+    // against the sidebar — matches /tenant/billing/debtors and the
     // rest of the billing list surfaces.
     data: { title: 'Groups', sidebar: 'operational', fullbleed: true },
   },
