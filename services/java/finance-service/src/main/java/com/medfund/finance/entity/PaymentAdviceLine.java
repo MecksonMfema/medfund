@@ -54,6 +54,17 @@ public class PaymentAdviceLine {
 
     private Integer sequence;
 
+    /**
+     * When set, this row is a late-arriving note whose {@code posted_at}
+     * fell inside a prior run's window but wasn't stamped onto that run's
+     * advice (e.g. the note was applied after that run had already
+     * executed). The pointer names the prior run whose advice would have
+     * carried the note; the note itself renders on the current advice.
+     * Added in V074 (see the Notes rename plan).
+     */
+    @Column("back_period_run_id")
+    private UUID backPeriodRunId;
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;

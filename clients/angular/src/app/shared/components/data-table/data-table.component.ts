@@ -54,6 +54,15 @@ export class DataTableComponent implements OnInit, OnDestroy {
   @Input() emptyIcon = 'folder-search';
   @Input() searchable = true;
   @Input() searchPlaceholder = 'Search';
+  /**
+   * Whether to render the built-in toolbar row (which always reserves
+   * 48px + a bottom border even when {@code searchable=false} and no
+   * {@code [table-filters]}/{@code [table-actions]} content is projected).
+   * Set to {@code false} on pages that render their own filter strip
+   * above the table — otherwise the empty built-in strip leaves a
+   * visible gap between your strip and the first table row.
+   */
+  @Input() showToolbar = true;
   @Input() pageSize = 20;
   // Server-side mode
   @Input() serverSide = false;

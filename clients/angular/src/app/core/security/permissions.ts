@@ -39,6 +39,7 @@ export type PermissionKey =
   | 'finance:view_member_payables' | 'finance:configure_auto_ctc'
   | 'finance:manage_receipts'
   | 'finance:manage_banks' | 'finance:post_adjustments'
+  | 'finance.notes:read' | 'finance.notes:write' | 'finance.notes:approve'
   | 'finance:view_debtors' | 'finance:view_subledger'
   | 'finance:manage_billing_reconcile' | 'finance:view_payment_advice'
   | 'finance:manage_copayments' | 'finance:view_withheld_tax'
@@ -131,7 +132,10 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'finance:configure_auto_ctc',       label: 'Configure auto-CTC',               description: 'Enable and configure automatic drafting of Claims-to-Contributions transfers from qualifying member-payee claim adjudications.' },
       { key: 'finance:manage_receipts',          label: 'Manage receipts',                  description: 'Capture and post receipts for member or group payments.' },
       { key: 'finance:manage_banks',             label: 'Manage bank accounts',             description: 'Configure tenant bank accounts and routing.' },
-      { key: 'finance:post_adjustments',         label: 'Post adjustments',                 description: 'Apply manual adjustments to payments or receipts.' },
+      { key: 'finance:post_adjustments',         label: 'Post adjustments (legacy)',        description: 'Deprecated V074: auto-expands to the three finance.notes:* permissions on login for compat. Do not assign to new roles.' },
+      { key: 'finance.notes:read',               label: 'View notes',                       description: 'Read access to debit / credit / memo notes.' },
+      { key: 'finance.notes:write',              label: 'Create notes',                     description: 'Create debit, credit, or memo notes (pending status).' },
+      { key: 'finance.notes:approve',            label: 'Approve, apply, or reverse notes', description: 'Move notes through approve → apply, and post compensating reversals for applied notes.' },
       { key: 'finance:view_debtors',             label: 'View debtors',                     description: 'View aged-debtors reports.' },
       { key: 'finance:view_subledger',           label: 'View subledger',                   description: 'View detailed subledger journal entries.' },
       { key: 'finance:manage_billing_reconcile', label: 'Reconcile billing to claims',      description: 'Match billing runs against claim payments.' },

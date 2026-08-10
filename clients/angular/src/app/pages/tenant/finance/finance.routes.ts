@@ -145,49 +145,50 @@ export const FINANCE_ROUTES: Routes = [
     data: { title: 'Platform Bank Accounts', sidebar: 'operational' },
   },
 
-  // ── Adjustments ───────────────────────────────────────────────────────────
+  // ── Notes (V074: unified debit / credit / memo notes) ────────────────────
+  // Single surface with filter chips — the split debit-notes / credit-notes
+  // pages were consolidated. Filtering by direction is a chip on the list
+  // (default: all directions).
   {
-    path: 'adjustments',
-    canActivate: [permissionGuard(['finance:post_adjustments'])],
-    loadComponent: () => import('./adjustments/adjustments-list.component').then(m => m.AdjustmentsListComponent),
-    data: { title: 'Adjustments', sidebar: 'operational', fullbleed: true },
+    path: 'notes',
+    canActivate: [permissionGuard(['finance.notes:read'])],
+    loadComponent: () => import('./notes/notes-list.component').then(m => m.NotesListComponent),
+    data: { title: 'Notes', sidebar: 'operational', fullbleed: true },
   },
   {
-    path: 'adjustments/new',
-    canActivate: [permissionGuard(['finance:post_adjustments'])],
-    loadComponent: () => import('./adjustments/adjustment-form.component').then(m => m.AdjustmentFormComponent),
-    data: { title: 'New Adjustment', sidebar: 'operational' },
+    path: 'notes/new',
+    canActivate: [permissionGuard(['finance.notes:write'])],
+    loadComponent: () => import('./notes/note-form.component').then(m => m.NoteFormComponent),
+    data: { title: 'New Note', sidebar: 'operational' },
   },
   {
-    path: 'adjustments/tax-withheld',
-    canActivate: [permissionGuard(['finance:post_adjustments'])],
-    loadComponent: () => import('./adjustments/adjustments-list.component').then(m => m.AdjustmentsListComponent),
+    path: 'notes/tax-withheld',
+    canActivate: [permissionGuard(['finance.notes:read'])],
+    loadComponent: () => import('./notes/notes-list.component').then(m => m.NotesListComponent),
     data: {
-      title: 'Tax-Withheld Adjustments',
-      description: 'Adjustments recording withheld tax against provider payouts.',
-      presetType: 'TAX_WITHHELD',
+      title: 'Tax-Withheld Notes',
+      description: 'Notes recording withheld tax against provider payouts.',
+      presetNoteType: 'TAX_WITHHELD',
       sidebar: 'operational',
       fullbleed: true,
     },
   },
   {
-    path: 'adjustments/:id',
-    canActivate: [permissionGuard(['finance:post_adjustments'])],
-    loadComponent: () => import('./adjustments/adjustment-detail.component').then(m => m.AdjustmentDetailComponent),
-    data: { title: 'Adjustment Detail', sidebar: 'operational' },
+    path: 'notes/:id',
+    canActivate: [permissionGuard(['finance.notes:read'])],
+    loadComponent: () => import('./notes/note-detail.component').then(m => m.NoteDetailComponent),
+    data: { title: 'Note Detail', sidebar: 'operational' },
   },
-  {
-    path: 'debit-notes',
-    canActivate: [permissionGuard(['finance:post_adjustments'])],
-    loadComponent: () => import('./notes/notes-list.component').then(m => m.NotesListComponent),
-    data: { title: 'Debit Notes', mode: 'debit', sidebar: 'operational', fullbleed: true },
-  },
-  {
-    path: 'credit-notes',
-    canActivate: [permissionGuard(['finance:post_adjustments'])],
-    loadComponent: () => import('./notes/notes-list.component').then(m => m.NotesListComponent),
-    data: { title: 'Credit Notes', mode: 'credit', sidebar: 'operational', fullbleed: true },
-  },
+
+  // ── Legacy redirects (retained one release; V074) ────────────────────────
+  { path: 'adjustments',              pathMatch: 'full', redirectTo: 'notes' },
+  { path: 'adjustments/new',          pathMatch: 'full', redirectTo: 'notes/new' },
+  { path: 'adjustments/tax-withheld', pathMatch: 'full', redirectTo: 'notes/tax-withheld' },
+  { path: 'adjustments/:id',          pathMatch: 'full', redirectTo: 'notes/:id' },
+  { path: 'debit-notes',              pathMatch: 'full', redirectTo: 'notes' },
+  { path: 'debit-notes/new',          pathMatch: 'full', redirectTo: 'notes/new' },
+  { path: 'credit-notes',             pathMatch: 'full', redirectTo: 'notes' },
+  { path: 'credit-notes/new',         pathMatch: 'full', redirectTo: 'notes/new' },
 
   // ── Reconciliation ────────────────────────────────────────────────────────
   {
@@ -226,8 +227,11 @@ export const FINANCE_ROUTES: Routes = [
   cs('reports/group-schemes',                'Group Schemes Report',             '/group-schemes-report',                     'Employer benefit schemes.',                       ['finance:view_subledger']),
   cs('reports/group-billing-to-claims',      'Group Billing → Claims',           '/group-billing-to-claims-list',             'Employer-level billing-to-claim reconcile.',      ['finance:manage_billing_reconcile']),
   cs('reports/group-billing-to-claims/:id',  'Group Billing → Claims Detail',    '/group-billing-to-claims-detail',           'Single employer reconciliation.',                 ['finance:manage_billing_reconcile']),
-  cs('reports/group-adjustments',            'Group Adjustments Report',         '/group-adjustments-report',                 'Employer-level adjustments.',                     ['finance:post_adjustments']),
-  cs('reports/group-adjustments/:id',        'Group Adjustment Detail',          '/group-adjustment-detail',                  'Single adjustment.',                              ['finance:post_adjustments']),
+  cs('reports/group-notes',                  'Group Notes Report',               '/group-notes-report',                       'Employer-level notes.',                           ['finance.notes:read']),
+  cs('reports/group-notes/:id',              'Group Note Detail',                '/group-note-detail',                        'Single note.',                                    ['finance.notes:read']),
+  // Legacy /reports/group-adjustments redirects
+  { path: 'reports/group-adjustments',     pathMatch: 'full', redirectTo: 'reports/group-notes' },
+  { path: 'reports/group-adjustments/:id', pathMatch: 'full', redirectTo: 'reports/group-notes/:id' },
   cs('reports/claims-status',                'Claims Status Report',             '/claims-status-report',                     'Claim state analytics.',                          ['finance:view']),
   cs('reports/member-payments',              'Member Payments',                  '/view-members-payments',                    'Member payment summary.',                         ['finance:view']),
   cs('reports/member-payments/:id',          'Member Payment Detail',            '/view-member-payments',                     'Single member payment list.',                     ['finance:view']),
@@ -273,11 +277,11 @@ export const FINANCE_ROUTES: Routes = [
   {
     path: 'reports/withheld-tax',
     canActivate: [permissionGuard(['finance:view_withheld_tax'])],
-    loadComponent: () => import('./adjustments/adjustments-list.component').then(m => m.AdjustmentsListComponent),
+    loadComponent: () => import('./notes/notes-list.component').then(m => m.NotesListComponent),
     data: {
       title: 'Withheld Tax Report',
-      description: 'Tax withheld from provider payouts. Filtered to TAX_WITHHELD adjustments.',
-      presetType: 'TAX_WITHHELD',
+      description: 'Tax withheld from provider payouts. Filtered to TAX_WITHHELD notes.',
+      presetNoteType: 'TAX_WITHHELD',
       sidebar: 'operational',
       fullbleed: true,
     },

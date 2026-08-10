@@ -4,11 +4,11 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import {
-  Adjustment,
   CtcPaymentRow,
   FinanceService,
   MemberBalance,
   MemberPayable,
+  Note,
   Payment,
 } from '../../../../core/services/finance.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
@@ -17,7 +17,7 @@ import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pip
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
 
-type Tab = 'payables' | 'ctcs' | 'payments' | 'adjustments';
+type Tab = 'payables' | 'ctcs' | 'payments' | 'notes';
 
 /**
  * Member-side counterpart to {@link ProviderBalanceDetailComponent}. Member
@@ -39,7 +39,7 @@ export class MemberBalanceDetailComponent implements OnInit {
   payables: MemberPayable[] = [];
   ctcs: CtcPaymentRow[] = [];
   payments: Payment[] = [];
-  adjustments: Adjustment[] = [];
+  notes: Note[] = [];
   loading = false;
   errorMessage: string | null = null;
   revokingId: string | null = null;
@@ -71,15 +71,15 @@ export class MemberBalanceDetailComponent implements OnInit {
       payables:   this.finance.listOpenPayablesForMember(this.memberId).pipe(catchError(() => of([] as MemberPayable[]))),
       ctcs:       this.finance.listCtcPaymentsPaged({ memberId: this.memberId, size: 200 }).pipe(catchError(() => of({ content: [] as CtcPaymentRow[], total: 0, page: 0, size: 0, totalPages: 0 }))),
       payments:   this.finance.getPaymentsByMember(this.memberId).pipe(catchError(() => of([] as Payment[]))),
-      adjustments: this.finance.getAdjustmentsByMember(this.memberId).pipe(catchError(() => of([] as Adjustment[]))),
+      notes: this.finance.getNotesByMember(this.memberId).pipe(catchError(() => of([] as Note[]))),
     }).subscribe({
-      next: ({ balances, payables, ctcs, payments, adjustments }) => {
-        this.balances    = balances;
-        this.payables    = payables;
-        this.ctcs        = ctcs.content;
-        this.payments    = payments;
-        this.adjustments = adjustments;
-        this.loading     = false;
+      next: ({ balances, payables, ctcs, payments, notes }) => {
+        this.balances = balances;
+        this.payables = payables;
+        this.ctcs     = ctcs.content;
+        this.payments = payments;
+        this.notes    = notes;
+        this.loading  = false;
       },
       error: (err) => {
         this.errorMessage = err?.error?.detail || 'Failed to load member';

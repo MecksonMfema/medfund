@@ -8,25 +8,27 @@
     </div>
   }
 
-  <div class="table-toolbar">
-    @if (searchable) {
-      <div class="table-search">
-        <app-icon name="search" [size]="16"></app-icon>
-        <input
-          type="text"
-          [placeholder]="searchPlaceholder"
-          [(ngModel)]="searchTerm"
-          (ngModelChange)="onSearch()"
-          class="search-input"
-        />
-      </div>
-    }
+  @if (showToolbar) {
+    <div class="table-toolbar">
+      @if (searchable) {
+        <div class="table-search">
+          <app-icon name="search" [size]="16"></app-icon>
+          <input
+            type="text"
+            [placeholder]="searchPlaceholder"
+            [(ngModel)]="searchTerm"
+            (ngModelChange)="onSearch()"
+            class="search-input"
+          />
+        </div>
+      }
 
-    <div class="toolbar-spacer"></div>
+      <div class="toolbar-spacer"></div>
 
-    <ng-content select="[table-filters]"></ng-content>
-    <ng-content select="[table-actions]"></ng-content>
-  </div>
+      <ng-content select="[table-filters]"></ng-content>
+      <ng-content select="[table-actions]"></ng-content>
+    </div>
+  }
 
   <div class="table-scroll">
     <table>

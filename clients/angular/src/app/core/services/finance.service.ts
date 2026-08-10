@@ -120,63 +120,76 @@ export interface MemberBalance {
   createdAt?: string;
 }
 
-// ── Adjustment ──────────────────────────────────────────────────────────
-export type AdjustmentType =
-  | 'IN_PAYMENT' | 'PAYOUT' | 'NON_CASH_IN' | 'NON_CASH_OUT' | 'TAX_WITHHELD';
-export type AdjustmentStatus = 'pending' | 'approved' | 'applied' | 'cancelled';
+// ── Note (V074: unified debit / credit / memo notes) ────────────────────
+export type NoteDirection = 'DEBIT' | 'CREDIT';
+export type NoteType =
+  | 'TAX_WITHHELD' | 'WRITE_OFF' | 'GOODWILL' | 'ENDORSEMENT_PREMIUM'
+  | 'PREMIUM_REFUND' | 'PROVIDER_OVERPAYMENT_RECOVERY' | 'MEMO';
+export type NoteStatus = 'pending' | 'approved' | 'applied' | 'reversed';
+export type NoteVariant = 'ORIGINAL' | 'REVERSAL';
 
-export interface Adjustment {
+export interface Note {
   id: string;
-  adjustmentNumber: string;
+  noteNumber: string;
   providerId?: string;
   memberId?: string;
-  adjustmentType: AdjustmentType;
+  direction: NoteDirection;
+  noteType: NoteType;
+  type: NoteVariant;
+  reversesNoteId?: string;
   amount: string;
   currencyCode: string;
   reason?: string;
-  status: AdjustmentStatus;
+  status: NoteStatus;
   approvedBy?: string;
   approvedAt?: string;
+  postedAt?: string;
   createdAt: string;
   updatedAt?: string;
 }
 
-export interface CreateAdjustmentPayload {
+export interface CreateNotePayload {
   providerId?: string;
   memberId?: string;
-  adjustmentType: AdjustmentType;
+  direction: NoteDirection;
+  noteType: NoteType;
   amount: string;
   currencyCode: string;
   reason?: string;
 }
 
 /**
- * Row shape returned by GET /adjustments/page. Member + provider display
+ * Row shape returned by GET /notes/page. Member + provider display
  * fields pre-joined server-side so tables render inline without a
  * second lookup.
  */
-export interface AdjustmentRow {
+export interface NoteRow {
   id: string;
-  adjustmentNumber: string;
+  noteNumber: string;
   providerId?: string;
   providerName?: string;
   memberId?: string;
   memberName?: string;
   memberNumber?: string;
-  adjustmentType: AdjustmentType;
+  direction: NoteDirection;
+  noteType: NoteType;
+  type: NoteVariant;
+  reversesNoteId?: string;
   amount: string;
   currencyCode: string;
   reason?: string;
-  status: AdjustmentStatus;
+  status: NoteStatus;
   approvedBy?: string;
   approvedAt?: string;
+  postedAt?: string;
   createdAt: string;
   updatedAt?: string;
 }
 
-export interface AdjustmentPageParams {
-  status?: AdjustmentStatus | '';
-  adjustmentType?: AdjustmentType | '';
+export interface NotePageParams {
+  status?: NoteStatus | '';
+  direction?: NoteDirection | '';
+  noteType?: NoteType | '';
   providerId?: string;
   memberId?: string;
   currencyCode?: string;
@@ -473,16 +486,6 @@ export interface BankReconciliationPageParams {
   size?: number;
 }
 
-// ── Finance-note paginated params ──────────────────────────────────────
-export interface FinanceNotePageParams {
-  currencyCode?: string;
-  q?: string;
-  sortKey?: string;
-  sortDirection?: 'asc' | 'desc';
-  page?: number;
-  size?: number;
-}
-
 export interface CreateCtcPaymentPayload {
   /** Member-only for MVP — group-only CTC is out of scope. */
   memberId: string;
@@ -545,26 +548,6 @@ export interface CreateAdvancePaymentPayload {
 
 export interface ReverseAdvancePaymentPayload {
   reason: string;
-}
-
-// ── Debit / credit notes ────────────────────────────────────────────────
-export interface FinanceNote {
-  id: string;
-  amount: string;
-  currencyCode: string;
-  reference?: string;
-  taskId?: string;
-  notes?: string;
-  createdAt: string;
-  createdBy?: string;
-}
-
-export interface CreateNotePayload {
-  amount: string;
-  currencyCode: string;
-  reference?: string;
-  taskId?: string;
-  notes?: string;
 }
 
 // ── Persisted advice records ────────────────────────────────────────────
@@ -644,8 +627,8 @@ export interface PaymentAdvicePageParams {
 
 // ── Payment advice ledger ───────────────────────────────────────────────
 export type PaymentAdviceLineType =
-  | 'CARRY_FORWARD' | 'CLAIM_PAID' | 'CTC_APPLIED'
-  | 'ADVANCE_APPLIED' | 'TAX_WITHHELD' | 'SHORTFALL';
+  | 'CARRY_FORWARD' | 'CLAIM_PAID' | 'NOTE_DEBIT' | 'CTC_APPLIED'
+  | 'ADVANCE_APPLIED' | 'TAX_WITHHELD' | 'SHORTFALL' | 'NOTE_CREDIT';
 
 export interface PaymentAdviceLine {
   lineType: PaymentAdviceLineType;
@@ -657,6 +640,13 @@ export interface PaymentAdviceLine {
   currencyCode: string;
   postedAt: string;
   sequence: number;
+  /**
+   * When set, this line is a late-arriving note whose {@code postedAt}
+   * fell inside a prior run's window but wasn't stamped onto that run's
+   * advice. Points at that prior run — the UI renders a "back-period
+   * from run …" badge to make the timing legible.
+   */
+  backPeriodRunId?: string;
 }
 
 export interface PaymentAdvice {
@@ -808,20 +798,22 @@ export class FinanceService {
     return this.api.getBlob('/creditors/export/excel', params);
   }
 
-  // ── Adjustments ──
-  getAdjustmentsByProvider(providerId: string): Observable<Adjustment[]> { return this.api.get<Adjustment[]>(`/adjustments/provider/${providerId}`); }
-  getAdjustmentsByMember(memberId: string): Observable<Adjustment[]> { return this.api.get<Adjustment[]>(`/adjustments/member/${memberId}`); }
-  getAdjustmentsByStatus(status: AdjustmentStatus): Observable<Adjustment[]> { return this.api.get<Adjustment[]>(`/adjustments/status/${status}`); }
+  // ── Notes (V074: unified debit / credit / memo — replaced Adjustment) ──
+  getNotesByProvider(providerId: string): Observable<Note[]> { return this.api.get<Note[]>(`/notes/provider/${providerId}`); }
+  getNotesByMember(memberId: string): Observable<Note[]> { return this.api.get<Note[]>(`/notes/member/${memberId}`); }
+  getNotesByStatus(status: NoteStatus): Observable<Note[]> { return this.api.get<Note[]>(`/notes/status/${status}`); }
   /**
-   * Server-side paginated adjustments list. Feeds both the general
-   * adjustments page and the tax-withheld page (which pins
-   * adjustmentType='TAX_WITHHELD'). Rows carry pre-joined member +
-   * provider names.
+   * Server-side paginated notes list. Feeds /tenant/finance/debit-notes
+   * (direction=DEBIT), /credit-notes (direction=CREDIT), /notes
+   * (combined), and /reports/withheld-tax (which pins
+   * noteType='TAX_WITHHELD'). Rows carry pre-joined member + provider
+   * names.
    */
-  listAdjustmentsPaged(opts: AdjustmentPageParams): Observable<FinancePageResponse<AdjustmentRow>> {
+  listNotesPaged(opts: NotePageParams): Observable<FinancePageResponse<NoteRow>> {
     const params: Record<string, string> = {};
     if (opts.status)          params['status']         = opts.status;
-    if (opts.adjustmentType)  params['adjustmentType'] = opts.adjustmentType;
+    if (opts.direction)       params['direction']      = opts.direction;
+    if (opts.noteType)        params['noteType']       = opts.noteType;
     if (opts.providerId)      params['providerId']     = opts.providerId;
     if (opts.memberId)        params['memberId']       = opts.memberId;
     if (opts.currencyCode)    params['currencyCode']   = opts.currencyCode;
@@ -830,13 +822,22 @@ export class FinanceService {
     if (opts.sortDirection)   params['sortDirection']  = opts.sortDirection;
     if (opts.page !== undefined) params['page']        = String(opts.page);
     if (opts.size !== undefined) params['size']        = String(opts.size);
-    return this.api.get<FinancePageResponse<AdjustmentRow>>('/adjustments/page', params);
+    return this.api.get<FinancePageResponse<NoteRow>>('/notes/page', params);
   }
-  getAdjustment(id: string): Observable<Adjustment> { return this.api.get<Adjustment>(`/adjustments/${id}`); }
-  createAdjustment(body: CreateAdjustmentPayload): Observable<Adjustment> { return this.api.post<Adjustment>('/adjustments', body); }
-  approveAdjustment(id: string): Observable<Adjustment> { return this.api.post<Adjustment>(`/adjustments/${id}/approve`, {}); }
-  applyAdjustment(id: string): Observable<Adjustment> { return this.api.post<Adjustment>(`/adjustments/${id}/apply`, {}); }
-  cancelAdjustment(id: string): Observable<Adjustment> { return this.api.post<Adjustment>(`/adjustments/${id}/cancel`, {}); }
+  getNote(id: string): Observable<Note> { return this.api.get<Note>(`/notes/${id}`); }
+  createNote(body: CreateNotePayload): Observable<Note> { return this.api.post<Note>('/notes', body); }
+  approveNote(id: string): Observable<Note> { return this.api.post<Note>(`/notes/${id}/approve`, {}); }
+  applyNote(id: string): Observable<Note> { return this.api.post<Note>(`/notes/${id}/apply`, {}); }
+  /**
+   * Applied notes go through reverse — inserts a compensating REVERSAL
+   * row of opposite direction and flips the original to
+   * status='reversed'. Pending / approved notes go through
+   * {@link deleteNote} instead (they never hit the ledger).
+   */
+  reverseNote(id: string, reason?: string): Observable<Note> {
+    return this.api.post<Note>(`/notes/${id}/reverse`, reason ? { reason } : {});
+  }
+  deleteNote(id: string): Observable<void> { return this.api.delete<void>(`/notes/${id}`); }
 
   // ── MASCA bank accounts ──
   listMascaBankAccounts(): Observable<MascaBankAccount[]> { return this.api.get<MascaBankAccount[]>('/masca-bank-accounts'); }
@@ -905,29 +906,6 @@ export class FinanceService {
   }
   listAdvancePaymentApplications(advanceId: string): Observable<AdvancePaymentApplication[]> {
     return this.api.get<AdvancePaymentApplication[]>(`/advance-payments/${advanceId}/applications`);
-  }
-
-  // ── Debit / credit notes ──
-  listDebitNotes(): Observable<FinanceNote[]> { return this.api.get<FinanceNote[]>('/debit-notes'); }
-  listDebitNotesPaged(opts: FinanceNotePageParams): Observable<FinancePageResponse<FinanceNote>> {
-    return this.notePage('/debit-notes/page', opts);
-  }
-  createDebitNote(body: CreateNotePayload): Observable<FinanceNote> { return this.api.post<FinanceNote>('/debit-notes', body); }
-  listCreditNotes(): Observable<FinanceNote[]> { return this.api.get<FinanceNote[]>('/credit-notes'); }
-  listCreditNotesPaged(opts: FinanceNotePageParams): Observable<FinancePageResponse<FinanceNote>> {
-    return this.notePage('/credit-notes/page', opts);
-  }
-  createCreditNote(body: CreateNotePayload): Observable<FinanceNote> { return this.api.post<FinanceNote>('/credit-notes', body); }
-
-  private notePage(path: string, opts: FinanceNotePageParams): Observable<FinancePageResponse<FinanceNote>> {
-    const params: Record<string, string> = {};
-    if (opts.currencyCode)   params['currencyCode']  = opts.currencyCode;
-    if (opts.q)              params['q']             = opts.q;
-    if (opts.sortKey)        params['sortKey']       = opts.sortKey;
-    if (opts.sortDirection)  params['sortDirection'] = opts.sortDirection;
-    if (opts.page !== undefined) params['page']      = String(opts.page);
-    if (opts.size !== undefined) params['size']      = String(opts.size);
-    return this.api.get<FinancePageResponse<FinanceNote>>(path, params);
   }
 
   // ── Reconciliations ──

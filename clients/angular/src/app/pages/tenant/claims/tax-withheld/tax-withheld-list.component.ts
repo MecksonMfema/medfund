@@ -3,10 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import {
-  AdjustmentRow,
-  AdjustmentStatus,
   FinancePageResponse,
   FinanceService,
+  NoteRow,
+  NoteStatus,
 } from '../../../../core/services/finance.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
@@ -27,9 +27,9 @@ import { DataTableComponent, TableColumn } from '../../../../shared/components/d
   styleUrl: './tax-withheld-list.component.scss',
 })
 export class TaxWithheldListComponent implements OnInit {
-  rows: AdjustmentRow[] = [];
+  rows: NoteRow[] = [];
   loading = false;
-  statusFilter: AdjustmentStatus | '' = '';
+  statusFilter: NoteStatus | '' = '';
   variant: 'medical' | 'drug' = 'medical';
 
   // Server-side pagination state.
@@ -46,11 +46,11 @@ export class TaxWithheldListComponent implements OnInit {
     { value: 'pending', label: 'Pending' },
     { value: 'approved', label: 'Approved' },
     { value: 'applied', label: 'Applied' },
-    { value: 'cancelled', label: 'Cancelled' },
+    { value: 'reversed', label: 'Reversed' },
   ];
 
   readonly columns: TableColumn[] = [
-    { key: 'adjustmentNumber', label: 'Adj #',      sortable: true },
+    { key: 'noteNumber',       label: 'Note #',     sortable: true },
     { key: 'memberName',       label: 'Member',     sortable: true },
     { key: 'providerName',     label: 'Provider',   sortable: true },
     { key: 'amount',           label: 'Amount',     sortable: true, type: 'currency' },
@@ -73,8 +73,8 @@ export class TaxWithheldListComponent implements OnInit {
 
   fetchPage(): void {
     this.loading = true;
-    this.finance.listAdjustmentsPaged({
-      adjustmentType: 'TAX_WITHHELD',
+    this.finance.listNotesPaged({
+      noteType: 'TAX_WITHHELD',
       status: this.statusFilter || undefined,
       q: this.searchTerm || undefined,
       sortKey: this.sortKey,
@@ -82,7 +82,7 @@ export class TaxWithheldListComponent implements OnInit {
       page: this.page - 1,
       size: this.pageSize,
     }).subscribe({
-      next: (resp: FinancePageResponse<AdjustmentRow>) => {
+      next: (resp: FinancePageResponse<NoteRow>) => {
         this.rows = resp.content;
         this.totalCount = resp.total;
         this.totalPages = resp.totalPages;

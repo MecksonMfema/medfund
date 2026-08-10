@@ -105,9 +105,20 @@
               <tbody>
                 @for (line of linesFor(type); track line.sequence) {
                   <tr>
-                    <td>{{ line.description || SECTION_LABEL[type] }}</td>
+                    <td>
+                      {{ line.description || SECTION_LABEL[type] }}
+                      @if (line.backPeriodRunId) {
+                        <span class="badge badge-warning" title="Note posted inside a prior run's window; back-dated to run {{ line.backPeriodRunId.substring(0, 8) }}">
+                          Back-period from run {{ line.backPeriodRunId.substring(0, 8) }}
+                        </span>
+                      }
+                    </td>
                     <td class="muted">
-                      @if (line.referenceType && line.referenceId) {
+                      @if (line.referenceType === 'note' && line.referenceId) {
+                        <a [routerLink]="['/tenant/finance/notes', line.referenceId]">
+                          <code>note:{{ line.referenceId.substring(0, 8) }}</code>
+                        </a>
+                      } @else if (line.referenceType && line.referenceId) {
                         <code>{{ line.referenceType }}:{{ line.referenceId.substring(0, 8) }}</code>
                       } @else {
                         —

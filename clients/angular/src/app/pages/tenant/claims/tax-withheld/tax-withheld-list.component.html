@@ -3,7 +3,7 @@
     <h1>{{ pageTitle }}</h1>
     <p class="page-sub">
       Payments where a portion was withheld as tax before payout. Drawn from
-      adjustments of type <code>TAX_WITHHELD</code>.
+      notes with <code>noteType=TAX_WITHHELD</code>.
     </p>
   </div>
 </header>
@@ -34,9 +34,9 @@
   [serverPage]="page"
   [initialSortKey]="sortKey"
   [initialSortDirection]="sortDirection"
-  searchPlaceholder="Search adj #, reason, member or provider"
+  searchPlaceholder="Search note #, reason, member or provider"
   emptyMessage="No tax-withheld records"
-  emptyDescription="Records show up here once tax-withheld adjustments are posted."
+  emptyDescription="Records show up here once TAX_WITHHELD notes are posted."
   (pageChange)="onPageChange($event)"
   (searchChange)="onSearchChange($event)"
   (sortChange)="onSortChange($event)">

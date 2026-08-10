@@ -387,14 +387,24 @@ is a strict ledger bounded by
 |-----------|-----------|--------------|
 | `CARRY_FORWARD`   | Debit  | Prior advice's `net_due_amount`             |
 | `CLAIM_PAID`      | Debit  | `claims` (adjudicated in the period)        |
+| `NOTE_DEBIT`      | Debit  | `notes` where `direction='CREDIT'`, `status='applied'`, `note_type NOT IN ('MEMO','TAX_WITHHELD')`, payee matches |
 | `CTC_APPLIED`     | Credit | `ctc_payments` (MEMBER only, committed)     |
 | `ADVANCE_APPLIED` | Credit | `advance_payment_applications` (PROVIDER)   |
-| `TAX_WITHHELD`    | Credit | `adjustments` where type='TAX_WITHHELD'     |
+| `TAX_WITHHELD`    | Credit | `notes` where `note_type='TAX_WITHHELD'`, `status='applied'` |
 | `SHORTFALL`       | Credit | `claims` where paid_amount < claimed_amount |
+| `NOTE_CREDIT`     | Credit | `notes` where `direction='DEBIT'`, `status='applied'`, `note_type NOT IN ('MEMO','TAX_WITHHELD')`, payee matches |
 
-`net_due_amount = carried_in + claims_paid − ctc_applied − advance_applied − tax_withheld − shortfall`.
+`net_due_amount = carried_in + claims_paid + note_debits − ctc_applied − advance_applied − tax_withheld − shortfall − note_credits`.
 
-Schema lives at `services/java/tenancy-service/src/main/resources/db/migration/tenant/V071__payment_run_generation_and_advice_ledger.sql`; generator at `services/java/finance-service/src/main/java/com/medfund/finance/service/PaymentAdviceService.java`.
+Late-arriving notes — those whose `posted_at` fell inside a prior run's
+window but weren't stamped onto that run's advice (e.g. the note was
+applied after that run had already executed) — appear on the next
+advice with `back_period_run_id` pointing at the prior run whose advice
+would have carried them otherwise. `MEMO` notes (payee-less) never
+render on any advice; `TAX_WITHHELD` renders as its own line type, not
+as a generic `NOTE_*` bucket.
+
+Schema lives at `services/java/tenancy-service/src/main/resources/db/migration/tenant/V071__payment_run_generation_and_advice_ledger.sql` (initial ledger) and `V074__rename_adjustments_to_notes.sql` (notes rename + line-type extension); generator at `services/java/finance-service/src/main/java/com/medfund/finance/service/PaymentAdviceService.java`.
 
 ### Payout Methods
 

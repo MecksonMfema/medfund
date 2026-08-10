@@ -1,0 +1,105 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>New note</h1>
+      <p class="page-sub">
+        Records a debit, credit, or memo note. Created notes start in
+        <em>pending</em> and require approval before they're applied
+        onto the payee's next payment advice.
+      </p>
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form class="card" (ngSubmit)="submit()" #f="ngForm">
+    <div class="row-2">
+      <label class="field">
+        <span class="field-label">Direction *</span>
+        <app-select
+          [(ngModel)]="direction"
+          name="direction"
+          [options]="directionOptions"
+          required
+        ></app-select>
+      </label>
+      <label class="field">
+        <span class="field-label">Type *</span>
+        <app-select
+          [(ngModel)]="noteType"
+          name="noteType"
+          [options]="noteTypeOptions"
+          required
+        ></app-select>
+      </label>
+    </div>
+
+    @if (!isMemo) {
+      <h2 class="section-title">Payee</h2>
+      <div class="segmented" role="tablist">
+        <label class="segment" [class.active]="target === 'provider'">
+          <input type="radio" name="target" value="provider" [(ngModel)]="target" />
+          Provider
+        </label>
+        <label class="segment" [class.active]="target === 'member'">
+          <input type="radio" name="target" value="member" [(ngModel)]="target" />
+          Member
+        </label>
+      </div>
+
+      @if (target === 'provider') {
+        <label class="field">
+          <span class="field-label">Provider *</span>
+          <app-entity-picker kind="provider" [(value)]="providerId"></app-entity-picker>
+        </label>
+      } @else {
+        <label class="field">
+          <span class="field-label">Member *</span>
+          <app-entity-picker kind="member" [(value)]="memberId"></app-entity-picker>
+        </label>
+      }
+    } @else {
+      <p class="hint">
+        Memo notes are payee-less by design — they don't render on any
+        payment advice and don't move money. Use them for one-off
+        book-keeping annotations.
+      </p>
+    }
+
+    <h2 class="section-title">Amount</h2>
+    <div class="row-2">
+      <label class="field">
+        <span class="field-label">Amount *</span>
+        <input type="number" step="0.01" min="0" [(ngModel)]="amount" name="amount" required
+               placeholder="0.00" />
+      </label>
+
+      <label class="field">
+        <span class="field-label">Currency *</span>
+        <app-select
+          [(ngModel)]="currencyCode"
+          name="currencyCode"
+          [options]="currencyOptions"
+          placeholder="Select currency…"
+          required
+        ></app-select>
+      </label>
+    </div>
+
+    <label class="field">
+      <span class="field-label">Reason</span>
+      <textarea [(ngModel)]="reason" name="reason" rows="3"
+                placeholder="Optional explanation"></textarea>
+    </label>
+
+    <div class="actions">
+      <button type="button" class="btn" (click)="cancel()" [disabled]="busy">Cancel</button>
+      <button type="submit" class="btn btn-primary" [disabled]="busy || !f.valid">
+        <app-icon name="plus" [size]="14"></app-icon>
+        Create note
+      </button>
+    </div>
+  </form>
+</div>

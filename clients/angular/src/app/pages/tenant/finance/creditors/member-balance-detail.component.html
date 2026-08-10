@@ -61,8 +61,8 @@
       <button class="tab" [class.active]="activeTab === 'payments'" (click)="setTab('payments')">
         Payments ({{ payments.length }})
       </button>
-      <button class="tab" [class.active]="activeTab === 'adjustments'" (click)="setTab('adjustments')">
-        Adjustments ({{ adjustments.length }})
+      <button class="tab" [class.active]="activeTab === 'notes'" (click)="setTab('notes')">
+        Notes ({{ notes.length }})
       </button>
     </div>
 
@@ -174,16 +174,17 @@
       </section>
     }
 
-    @if (activeTab === 'adjustments') {
+    @if (activeTab === 'notes') {
       <section class="tab-body">
-        @if (adjustments.length === 0) {
-          <p class="empty-state">No adjustments recorded.</p>
+        @if (notes.length === 0) {
+          <p class="empty-state">No notes recorded.</p>
         } @else {
           <table class="data-table">
             <thead>
               <tr>
-                <th>Adjustment #</th>
+                <th>Note #</th>
                 <th>Status</th>
+                <th>Direction</th>
                 <th>Type</th>
                 <th class="right">Amount</th>
                 <th>Reason</th>
@@ -191,14 +192,15 @@
               </tr>
             </thead>
             <tbody>
-              @for (a of adjustments; track a.id) {
+              @for (n of notes; track n.id) {
                 <tr>
-                  <td><strong>{{ a.adjustmentNumber }}</strong></td>
-                  <td><span class="status-badge status-{{ a.status }}">{{ a.status | humanize }}</span></td>
-                  <td class="muted">{{ a.adjustmentType | humanize }}</td>
-                  <td class="right">{{ a.amount | currencyFormat:a.currencyCode }}</td>
-                  <td class="muted">{{ a.reason || '—' }}</td>
-                  <td class="muted">{{ a.createdAt | date:'shortDate' }}</td>
+                  <td><strong>{{ n.noteNumber }}</strong></td>
+                  <td><span class="status-badge status-{{ n.status }}">{{ n.status | humanize }}</span></td>
+                  <td class="muted">{{ n.direction | humanize }}</td>
+                  <td class="muted">{{ n.noteType | humanize }}</td>
+                  <td class="right">{{ n.amount | currencyFormat:n.currencyCode }}</td>
+                  <td class="muted">{{ n.reason || '—' }}</td>
+                  <td class="muted">{{ n.createdAt | date:'shortDate' }}</td>
                 </tr>
               }
             </tbody>

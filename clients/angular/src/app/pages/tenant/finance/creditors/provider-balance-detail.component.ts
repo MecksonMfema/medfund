@@ -4,8 +4,8 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import {
-  Adjustment,
   FinanceService,
+  Note,
   Payment,
   ProviderBalance,
 } from '../../../../core/services/finance.service';
@@ -14,7 +14,7 @@ import { SkeletonComponent } from '../../../../shared/components/skeleton/skelet
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
 
-type Tab = 'payments' | 'adjustments';
+type Tab = 'payments' | 'notes';
 
 @Component({
   selector: 'app-provider-balance-detail',
@@ -26,7 +26,7 @@ type Tab = 'payments' | 'adjustments';
 export class ProviderBalanceDetailComponent implements OnInit {
   balance: ProviderBalance | null = null;
   payments: Payment[] = [];
-  adjustments: Adjustment[] = [];
+  notes: Note[] = [];
   loading = false;
   errorMessage: string | null = null;
   activeTab: Tab = 'payments';
@@ -51,12 +51,12 @@ export class ProviderBalanceDetailComponent implements OnInit {
     forkJoin({
       balance: this.finance.getCreditorProviderDetail(providerId).pipe(catchError(() => of(null))),
       payments: this.finance.getPaymentsByProvider(providerId).pipe(catchError(() => of([] as Payment[]))),
-      adjustments: this.finance.getAdjustmentsByProvider(providerId).pipe(catchError(() => of([] as Adjustment[]))),
+      notes: this.finance.getNotesByProvider(providerId).pipe(catchError(() => of([] as Note[]))),
     }).subscribe({
-      next: ({ balance, payments, adjustments }) => {
+      next: ({ balance, payments, notes }) => {
         this.balance = balance;
         this.payments = payments;
-        this.adjustments = adjustments;
+        this.notes = notes;
         this.loading = false;
       },
       error: (err) => {

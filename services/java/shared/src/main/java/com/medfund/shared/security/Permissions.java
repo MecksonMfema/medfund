@@ -80,7 +80,20 @@ public final class Permissions {
     public static final String FINANCE_CONFIGURE_AUTO_CTC        = "finance:configure_auto_ctc";
     public static final String FINANCE_MANAGE_RECEIPTS           = "finance:manage_receipts";
     public static final String FINANCE_MANAGE_BANKS              = "finance:manage_banks";
+    /**
+     * @deprecated V074 splits notes management into
+     *   {@link #FINANCE_NOTES_READ}, {@link #FINANCE_NOTES_WRITE}, and
+     *   {@link #FINANCE_NOTES_APPROVE}. The flat legacy key is retained
+     *   for the compat window: role assignments that still hold it
+     *   auto-expand into all three via {@link DefaultPermissionResolver}
+     *   so tenant admins don't lose access on cutover day. Remove after
+     *   all tenants have been migrated to the granular permissions.
+     */
+    @Deprecated
     public static final String FINANCE_POST_ADJUSTMENTS          = "finance:post_adjustments";
+    public static final String FINANCE_NOTES_READ                = "finance.notes:read";
+    public static final String FINANCE_NOTES_WRITE               = "finance.notes:write";
+    public static final String FINANCE_NOTES_APPROVE             = "finance.notes:approve";
     public static final String FINANCE_VIEW_DEBTORS              = "finance:view_debtors";
     public static final String FINANCE_VIEW_SUBLEDGER            = "finance:view_subledger";
     public static final String FINANCE_MANAGE_BILLING_RECONCILE  = "finance:manage_billing_reconcile";
@@ -138,7 +151,9 @@ public final class Permissions {
             FINANCE_MANAGE_CTC_PAYMENTS, FINANCE_REVERSE_CTC_PAYMENT, FINANCE_VIEW_MEMBER_PAYABLES,
             FINANCE_CONFIGURE_AUTO_CTC,
             FINANCE_MANAGE_RECEIPTS, FINANCE_MANAGE_BANKS,
-            FINANCE_POST_ADJUSTMENTS, FINANCE_VIEW_DEBTORS, FINANCE_VIEW_SUBLEDGER,
+            FINANCE_POST_ADJUSTMENTS,
+            FINANCE_NOTES_READ, FINANCE_NOTES_WRITE, FINANCE_NOTES_APPROVE,
+            FINANCE_VIEW_DEBTORS, FINANCE_VIEW_SUBLEDGER,
             FINANCE_MANAGE_BILLING_RECONCILE, FINANCE_VIEW_PAYMENT_ADVICE, FINANCE_GENERATE_PAYMENT_ADVICE,
             FINANCE_MANAGE_COPAYMENTS, FINANCE_VIEW_WITHHELD_TAX,
 

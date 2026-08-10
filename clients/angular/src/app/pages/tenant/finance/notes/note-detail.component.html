@@ -1,0 +1,89 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <button class="link-back" (click)="back()">
+        <app-icon name="arrow-left" [size]="14"></app-icon>
+        Back to notes
+      </button>
+      @if (note) {
+        <h1>{{ note.noteNumber }}</h1>
+        <p class="page-sub">
+          <span class="status-badge status-{{ note.status }}">{{ note.status | humanize }}</span>
+          · {{ note.direction | humanize }}
+          · {{ note.noteType | humanize }}
+          · {{ note.amount | currencyFormat:note.currencyCode }}
+        </p>
+      }
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+  }
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else if (note) {
+    <section class="tab-body">
+      <h2 class="section-title">Note</h2>
+      <dl class="header-grid">
+        <dt>Number</dt><dd><code>{{ note.noteNumber }}</code></dd>
+        <dt>Direction</dt><dd>{{ note.direction | humanize }}</dd>
+        <dt>Type</dt><dd>{{ note.noteType | humanize }}</dd>
+        <dt>Variant</dt><dd>{{ note.type }}</dd>
+        <dt>Status</dt><dd><span class="status-badge status-{{ note.status }}">{{ note.status | humanize }}</span></dd>
+        <dt>Amount</dt><dd>{{ note.amount | currencyFormat:note.currencyCode }}</dd>
+        <dt>Currency</dt><dd>{{ note.currencyCode }}</dd>
+        @if (note.providerId) { <dt>Provider</dt><dd><code>{{ note.providerId }}</code></dd> }
+        @if (note.memberId)   { <dt>Member</dt><dd><code>{{ note.memberId }}</code></dd> }
+        @if (note.reversesNoteId) {
+          <dt>Reverses</dt>
+          <dd>
+            <a [routerLink]="['/tenant/finance/notes', note.reversesNoteId]">
+              <code>{{ note.reversesNoteId }}</code>
+            </a>
+          </dd>
+        }
+        <dt>Reason</dt><dd>{{ note.reason || '—' }}</dd>
+        <dt>Posted</dt><dd>{{ note.postedAt ? (note.postedAt | date:'medium') : '—' }}</dd>
+        <dt>Approved</dt><dd>{{ note.approvedAt ? (note.approvedAt | date:'medium') : '—' }}</dd>
+        <dt>Approved by</dt><dd>{{ note.approvedBy || '—' }}</dd>
+        <dt>Created</dt><dd>{{ note.createdAt | date:'medium' }}</dd>
+      </dl>
+    </section>
+
+    <section class="action-bar">
+      @if (note.status === 'pending') {
+        <button class="btn btn-primary" (click)="approve()" [disabled]="busy">
+          <app-icon name="check" [size]="14"></app-icon>
+          Approve
+        </button>
+      }
+      @if (note.status === 'approved') {
+        <button class="btn btn-primary" (click)="apply()" [disabled]="busy">
+          <app-icon name="check" [size]="14"></app-icon>
+          Apply
+        </button>
+      }
+      @if (note.status === 'pending' || note.status === 'approved') {
+        <button class="btn btn-danger" (click)="deleteNote()" [disabled]="busy">
+          Delete
+        </button>
+      }
+      @if (note.status === 'applied' && note.type === 'ORIGINAL') {
+        <button class="btn btn-danger" (click)="reverse()" [disabled]="busy">
+          Reverse
+        </button>
+      }
+      @if (note.status === 'reversed') {
+        <span class="muted">No actions — note has been reversed.</span>
+      }
+      @if (note.type === 'REVERSAL') {
+        <span class="muted">Compensating REVERSAL rows cannot be reversed further.</span>
+      }
+    </section>
+  }
+</div>

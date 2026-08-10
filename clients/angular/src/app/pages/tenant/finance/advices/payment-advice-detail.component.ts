@@ -12,17 +12,19 @@ import { SkeletonComponent } from '../../../../shared/components/skeleton/skelet
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 
 const LINE_TYPE_ORDER: PaymentAdviceLineType[] = [
-  'CARRY_FORWARD', 'CLAIM_PAID', 'ADVANCE_APPLIED',
-  'CTC_APPLIED', 'TAX_WITHHELD', 'SHORTFALL',
+  'CARRY_FORWARD', 'CLAIM_PAID', 'NOTE_DEBIT', 'ADVANCE_APPLIED',
+  'CTC_APPLIED', 'TAX_WITHHELD', 'SHORTFALL', 'NOTE_CREDIT',
 ];
 
 const LINE_TYPE_LABEL: Record<PaymentAdviceLineType, string> = {
   CARRY_FORWARD:   'Carried forward from prior run',
   CLAIM_PAID:      'Claims paid',
+  NOTE_DEBIT:      'Note debits',
   ADVANCE_APPLIED: 'Advance payments applied',
   CTC_APPLIED:     'CTCs applied',
   TAX_WITHHELD:    'Tax withheld',
   SHORTFALL:       'Shortfalls',
+  NOTE_CREDIT:     'Note credits',
 };
 
 @Component({

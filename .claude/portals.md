@@ -146,10 +146,11 @@ InsureFlow has five distinct portal experiences, each serving a different audien
 | `/finance/payment-runs/:id` | Payment Run Detail | Payments in run, totals by currency, status |
 | `/finance/provider-balances` | Provider Balances | Outstanding balances per provider per currency |
 | `/finance/member-refunds` | Member Refunds | Process refunds to members |
-| `/finance/adjustments` | Adjustments | Create payment adjustments (linked to tickets) |
+| `/finance/notes` | Notes | Unified list of debit + credit + memo notes (V074) with direction / type / status filter chips; create, approve, apply, reverse |
 | `/finance/bank-reconciliation` | Bank Reconciliation | Match bank statements against recorded transactions |
-| `/finance/debit-notes` | Debit Notes | Issue and manage debit notes |
-| `/finance/credit-notes` | Credit Notes | Issue and manage credit notes |
+| ~~`/finance/adjustments`~~ | (redirect) | 301 → `/finance/notes` for one release (V074) |
+| ~~`/finance/debit-notes`~~ | (redirect) | 301 → `/finance/notes` (consolidated; use the Direction filter) |
+| ~~`/finance/credit-notes`~~ | (redirect) | 301 → `/finance/notes` (consolidated; use the Direction filter) |
 | `/finance/reports` | Financial Reports | Exportable reports (P&L, balance sheet, provider aging, payment summary) |
 | `/finance/forecasting` | AI Forecasting | Cash flow predictions, reserve adequacy (AI-generated) |
 
@@ -508,13 +509,11 @@ finance.payment_runs:read            — View payment runs
 finance.payment_runs:write           — Create payment runs
 finance.payment_runs:approve         — Approve/execute payment runs
 finance.provider_balances:read       — View provider balances
-finance.adjustments:read             — View adjustments
-finance.adjustments:write            — Create adjustments
-finance.adjustments:approve          — Approve adjustments
-finance.debit_notes:read             — View debit notes
-finance.debit_notes:write            — Create/edit debit notes
-finance.credit_notes:read            — View credit notes
-finance.credit_notes:write           — Create/edit credit notes
+finance.notes:read                   — View notes (V074 unified debit/credit/memo)
+finance.notes:write                  — Create notes
+finance.notes:approve                — Approve, apply, or reverse notes
+# Legacy: finance:post_adjustments auto-expands to the three finance.notes:* keys above
+# via DefaultPermissionResolver — retained for one release, do not assign to new roles.
 finance.reconciliation:read          — View reconciliation
 finance.reconciliation:write         — Perform reconciliation
 finance.reports:read                 — View finance reports

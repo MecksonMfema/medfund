@@ -1,55 +1,97 @@
 <header class="page-header">
   <div>
-    <h1>{{ pageTitle() }}</h1>
-    <p class="page-sub">{{ pageDescription() }}</p>
+    <h1>{{ pageTitle }}</h1>
+    <p class="page-sub">{{ pageDescription }}</p>
   </div>
-  <button class="btn btn-primary" (click)="newNote()" [disabled]="showForm">Record note</button>
+  <a class="btn btn-primary" routerLink="/tenant/finance/notes/new">
+    <app-icon name="plus" [size]="14"></app-icon>
+    New note
+  </a>
 </header>
 
 @if (errorMessage) {
   <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
 }
-@if (successMessage) {
-  <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
-}
 
-@if (showForm) {
-  <form (ngSubmit)="submit()" class="add-form card form-grid">
-    <label class="field">
-      <span class="field-label">Amount *</span>
-      <input type="number" step="0.01" min="0" [(ngModel)]="form.amount" name="amount" required />
-    </label>
-    <label class="field">
-      <span class="field-label">Currency *</span>
+<!-- ── Filter strip ─────────────────────────────────────────────────
+     Same shape as /tenant/billing/transactions and /creditors: flat
+     strip with column-like cells separated by 1px vertical dividers.
+     Search sits first as the wide cell, then Status / Direction /
+     Type. Clear button lives at the far right. Data-table's built-in
+     search is disabled ([searchable]="false") so we don't render two
+     search inputs on two rows. ─────────────────────────────────── -->
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-search">
+    <app-icon name="search" [size]="16"></app-icon>
+    <input
+      type="search"
+      [ngModel]="searchTerm"
+      (ngModelChange)="onSearchInput($event)"
+      name="search"
+      placeholder="Search note #, reason, member or provider…"
+      aria-label="Search notes"
+    />
+  </div>
+
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Status</span>
+    <app-select
+      [(ngModel)]="statusFilter"
+      (selectionChange)="onStatusChange()"
+      name="status"
+      size="sm"
+      [options]="statusOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Direction</span>
+    <app-select
+      [(ngModel)]="directionFilter"
+      (selectionChange)="onDirectionChange()"
+      name="direction"
+      size="sm"
+      [options]="directionOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  @if (!presetNoteType) {
+    <div class="toolbar-cell cell-select">
+      <span class="cell-label">Type</span>
       <app-select
-        [(ngModel)]="form.currencyCode"
-        name="currencyCode"
-        [options]="currencyOptions"
-        placeholder="Pick a currency"
-        required
+        [(ngModel)]="typeFilter"
+        (selectionChange)="onTypeChange()"
+        name="type"
+        size="sm"
+        [options]="typeOptions"
+        placeholder="Any"
+        [searchable]="false"
+        [autoSearchThreshold]="9999"
       ></app-select>
-    </label>
-    <label class="field span-2">
-      <span class="field-label">Reference</span>
-      <input type="text" [(ngModel)]="form.reference" name="reference" placeholder="Cheque #, txn ref, etc." />
-    </label>
-    <label class="field span-2">
-      <span class="field-label">Notes</span>
-      <input type="text" [(ngModel)]="form.notes" name="notes" placeholder="Optional context for auditors" />
-    </label>
-    <div class="form-actions span-2">
-      <button type="button" class="btn btn-default" (click)="cancel()">Cancel</button>
-      <button type="submit" class="btn btn-primary" [disabled]="busy">
-        {{ busy ? 'Recording…' : 'Record note' }}
-      </button>
     </div>
-  </form>
-}
+  }
+
+  <div class="toolbar-cell cell-clear">
+    <button type="button" class="clear-btn" (click)="clearFilters()">
+      <app-icon name="x-circle" [size]="14"></app-icon>
+      Clear
+    </button>
+  </div>
+</div>
 
 <app-data-table
   [columns]="columns"
   [data]="rows"
-  [showActions]="false"
+  [actions]="actions"
+  [showActions]="true"
+  [searchable]="false"
+  [showToolbar]="false"
   [serverSide]="true"
   [loading]="loading"
   [pageSize]="pageSize"
@@ -58,10 +100,8 @@
   [serverPage]="page"
   [initialSortKey]="sortKey"
   [initialSortDirection]="sortDirection"
-  searchPlaceholder="Search reference or notes"
-  emptyMessage="No notes recorded"
-  emptyDescription="One-off entries recorded outside the adjustments table show up here."
+  emptyMessage="No notes match these filters"
+  emptyDescription="Adjust the status, direction, or type filter, or record a new note."
   (pageChange)="onPageChange($event)"
-  (searchChange)="onSearchChange($event)"
   (sortChange)="onSortChange($event)">
 </app-data-table>

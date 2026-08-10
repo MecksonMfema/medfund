@@ -2,9 +2,9 @@ import { of } from 'rxjs';
 import { ActivatedRoute } from '@angular/router';
 import { TaxWithheldListComponent } from './tax-withheld-list.component';
 import {
-  AdjustmentRow,
   FinancePageResponse,
   FinanceService,
+  NoteRow,
 } from '../../../../core/services/finance.service';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
 
@@ -13,17 +13,18 @@ class StubActivatedRoute {
 }
 
 /**
- * Guards the "always pin adjustmentType=TAX_WITHHELD" contract on the
- * tax-withheld list. The previous incarnation did a client-side status
- * fan-out over 4 statuses and filtered client-side; the server now
- * takes both filter axes, so a regression here would silently reload
- * every adjustment ever posted.
+ * Guards the "always pin noteType=TAX_WITHHELD" contract on the
+ * tax-withheld list. V074 renamed adjustments → notes and split the
+ * discriminator into direction + noteType; TAX_WITHHELD is now a
+ * noteType (with implicit direction=DEBIT). The list still pins the
+ * filter server-side — a regression here would reload every note ever
+ * posted.
  */
 describe('TaxWithheldListComponent', () => {
   let finance: jasmine.SpyObj<FinanceService>;
   let toast: jasmine.SpyObj<ToastService>;
 
-  const emptyPage = (): FinancePageResponse<AdjustmentRow> => ({
+  const emptyPage = (): FinancePageResponse<NoteRow> => ({
     content: [], total: 0, page: 0, size: 50, totalPages: 1,
   });
 
@@ -35,16 +36,16 @@ describe('TaxWithheldListComponent', () => {
   }
 
   beforeEach(() => {
-    finance = jasmine.createSpyObj<FinanceService>('FinanceService', ['listAdjustmentsPaged']);
-    finance.listAdjustmentsPaged.and.returnValue(of(emptyPage()));
+    finance = jasmine.createSpyObj<FinanceService>('FinanceService', ['listNotesPaged']);
+    finance.listNotesPaged.and.returnValue(of(emptyPage()));
     toast = jasmine.createSpyObj<ToastService>('ToastService', ['error']);
   });
 
   it('ngOnInit fires a paginated request pinned to TAX_WITHHELD', () => {
     const component = makeComponent();
     expect(component.variant).toBe('medical');
-    expect(finance.listAdjustmentsPaged).toHaveBeenCalledOnceWith(jasmine.objectContaining({
-      adjustmentType: 'TAX_WITHHELD',
+    expect(finance.listNotesPaged).toHaveBeenCalledOnceWith(jasmine.objectContaining({
+      noteType: 'TAX_WITHHELD',
       page: 0,
       size: 50,
       sortKey: 'createdAt',
@@ -62,13 +63,13 @@ describe('TaxWithheldListComponent', () => {
     const component = makeComponent();
     component.page = 4;
     component.statusFilter = 'approved';
-    finance.listAdjustmentsPaged.calls.reset();
+    finance.listNotesPaged.calls.reset();
 
     component.onStatusChange();
 
     expect(component.page).toBe(1);
-    expect(finance.listAdjustmentsPaged).toHaveBeenCalledOnceWith(jasmine.objectContaining({
-      adjustmentType: 'TAX_WITHHELD',
+    expect(finance.listNotesPaged).toHaveBeenCalledOnceWith(jasmine.objectContaining({
+      noteType: 'TAX_WITHHELD',
       status: 'approved',
       page: 0,
     }));
@@ -77,13 +78,13 @@ describe('TaxWithheldListComponent', () => {
   it('onSearchChange resets to page 1 and forwards q', () => {
     const component = makeComponent();
     component.page = 3;
-    finance.listAdjustmentsPaged.calls.reset();
+    finance.listNotesPaged.calls.reset();
 
-    component.onSearchChange('ADJ-001');
+    component.onSearchChange('DN-000001');
 
     expect(component.page).toBe(1);
-    expect(finance.listAdjustmentsPaged).toHaveBeenCalledOnceWith(jasmine.objectContaining({
-      q: 'ADJ-001',
+    expect(finance.listNotesPaged).toHaveBeenCalledOnceWith(jasmine.objectContaining({
+      q: 'DN-000001',
       page: 0,
     }));
   });
@@ -91,14 +92,14 @@ describe('TaxWithheldListComponent', () => {
   it('onSortChange forwards sort key + direction, resets to page 1', () => {
     const component = makeComponent();
     component.page = 5;
-    finance.listAdjustmentsPaged.calls.reset();
+    finance.listNotesPaged.calls.reset();
 
     component.onSortChange({ key: 'amount', direction: 'asc' });
 
     expect(component.sortKey).toBe('amount');
     expect(component.sortDirection).toBe('asc');
     expect(component.page).toBe(1);
-    expect(finance.listAdjustmentsPaged).toHaveBeenCalledOnceWith(jasmine.objectContaining({
+    expect(finance.listNotesPaged).toHaveBeenCalledOnceWith(jasmine.objectContaining({
       sortKey: 'amount',
       sortDirection: 'asc',
     }));

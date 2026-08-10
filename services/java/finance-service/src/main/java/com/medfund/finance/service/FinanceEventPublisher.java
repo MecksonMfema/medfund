@@ -218,12 +218,34 @@ public class FinanceEventPublisher {
                 advice.getId().toString(), payload);
     }
 
-    public Mono<Void> publishAdjustmentApplied(String adjustmentId, String type, String amount) {
-        return publishEvent("medfund.finance.adjustment-applied", adjustmentId, Map.of(
-            "event", "ADJUSTMENT_APPLIED",
-            "adjustmentId", adjustmentId,
-            "adjustmentType", type,
+    /**
+     * Note transitioned to applied. Topic name reflects the V074 rename
+     * from Adjustment → Note. Downstream consumers (notification-service
+     * for email fanout, reporting) key off {@code noteId}.
+     */
+    public Mono<Void> publishNoteApplied(String noteId, String direction, String noteType, String amount) {
+        return publishEvent("medfund.finance.note-applied", noteId, Map.of(
+            "event", "NOTE_APPLIED",
+            "noteId", noteId,
+            "direction", direction,
+            "noteType", noteType,
             "amount", amount
+        ));
+    }
+
+    /**
+     * Note reversed — original marked {@code status='reversed'} and a
+     * compensating REVERSAL row was written. Same shape as
+     * {@link #publishAdvanceReversed}.
+     */
+    public Mono<Void> publishNoteReversed(String originalId, String compensatingId,
+                                          String amount, String currencyCode) {
+        return publishEvent("medfund.finance.note-reversed", originalId, Map.of(
+            "event", "NOTE_REVERSED",
+            "originalId", originalId,
+            "compensatingId", compensatingId,
+            "amount", amount,
+            "currencyCode", currencyCode
         ));
     }
 

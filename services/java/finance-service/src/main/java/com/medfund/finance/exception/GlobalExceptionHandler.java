@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler({PaymentNotFoundException.class, AdjustmentNotFoundException.class,
+    @ExceptionHandler({PaymentNotFoundException.class, NoteNotFoundException.class,
                        NoSuchElementException.class})
     public Mono<ProblemDetail> handleNotFound(RuntimeException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());

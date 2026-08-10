@@ -62,6 +62,7 @@ public class DefaultPermissionResolver implements PermissionResolver {
                     .map((row, meta) -> row.get("permission", String.class))
                     .all()
                     .collect(Collectors.toCollection(HashSet<String>::new))
+                    .map(DefaultPermissionResolver::applyCompatMappings)
                     .map(Set::copyOf)
                     .doOnNext(set -> cache.put(cacheKey, set))
                     .onErrorResume(e -> {
@@ -72,6 +73,28 @@ public class DefaultPermissionResolver implements PermissionResolver {
                         return Mono.just(Set.of());
                     });
         });
+    }
+
+    /**
+     * COMPAT (V074 → next release): tenants whose role assignments still
+     * carry the legacy flat {@link Permissions#FINANCE_POST_ADJUSTMENTS}
+     * key automatically pick up all three of the new granular
+     * {@code finance.notes:*} permissions. Applied after DB fetch so the
+     * cache holds the expanded set — that means downstream authorization
+     * checks against the new keys succeed without any tenant role-edit
+     * on cutover day (which is what Phase 3 of the notes-rename plan
+     * needs). Remove this once all tenants have been migrated.
+     *
+     * <p>Package-private so {@code DefaultPermissionResolverTest} can
+     * exercise the mapping in isolation.
+     */
+    static HashSet<String> applyCompatMappings(HashSet<String> permissions) {
+        if (permissions.contains(Permissions.FINANCE_POST_ADJUSTMENTS)) {
+            permissions.add(Permissions.FINANCE_NOTES_READ);
+            permissions.add(Permissions.FINANCE_NOTES_WRITE);
+            permissions.add(Permissions.FINANCE_NOTES_APPROVE);
+        }
+        return permissions;
     }
 
     @Override

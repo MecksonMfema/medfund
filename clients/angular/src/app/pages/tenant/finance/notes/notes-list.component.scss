@@ -1,3 +1,10 @@
+// Notes list — mirrors clients/angular/src/app/pages/tenant/billing/
+// transactions/transactions-list.component.scss so /notes shares the
+// same visual grammar as /billing/transactions and /finance/creditors:
+// flush page-header, single filter strip, data-table below. Route
+// uses `fullbleed: true` so the parent layout doesn't wrap us in its
+// own padding.
+
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -6,57 +13,149 @@
   padding: 20px 24px;
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border-light);
-  flex-wrap: wrap;
+
+  h1 {
+    margin: 0 0 0.25rem;
+    font-size: 1.5rem;
+  }
+
+  .page-sub {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    max-width: 65ch;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+
+    &.btn-primary {
+      background: var(--color-primary);
+      color: #fff;
+      &:hover { filter: brightness(1.05); }
+    }
+  }
 }
 
-.page-header h1 {
-  margin: 0 0 0.25rem;
-  font-size: 1.5rem;
-}
-
-.page-header .page-sub {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: 0.9rem;
-  max-width: 70ch;
-}
-
-.banner {
-  padding: 0.5rem 0.75rem;
+.banner-error {
+  margin: 12px 24px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  font-size: 13px;
   cursor: pointer;
-  margin: 0.75rem 24px 0;
-  border-radius: var(--radius-md, 8px);
-}
-.banner-error { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
-.banner-success { background: var(--success-bg, #d1fae5); color: var(--success-fg, #065f46); }
-
-.add-form { margin: 0.75rem 24px 0; }
-
-.card {
-  background: var(--color-surface, #fff);
-  border: 1px solid var(--color-border-light, #e5e7eb);
-  border-radius: var(--radius-md, 8px);
-  padding: 1.25rem;
 }
 
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.field { display: flex; flex-direction: column; }
-.field-label { font-weight: 500; font-size: 0.875rem; margin-bottom: 0.35rem; }
-.field input {
-  padding: 0.55rem 0.75rem;
-  border: 1px solid var(--color-border, #d1d5db);
-  border-radius: var(--radius-md, 8px);
-  font-size: 0.95rem;
-}
-.span-2 { grid-column: span 2; }
-
-.form-actions {
+// ── Filter strip (same shape as transactions toolbar) ─────────────
+.tx-toolbar {
   display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
+  align-items: stretch;
+  min-height: 48px;
+  padding: 0 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+  gap: 0;
+  flex-wrap: nowrap;
 }
+
+.toolbar-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-right: 1px solid var(--color-border-light);
+  min-height: 48px;
+  background: transparent;
+
+  &:last-of-type { border-right: none; }
+
+  .cell-label {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+    font-weight: var(--font-weight-medium);
+  }
+
+  app-icon { color: var(--color-text-muted); flex-shrink: 0; }
+}
+
+.toolbar-cell.cell-search {
+  flex: 1 1 260px;
+  min-width: 220px;
+  max-width: 380px;
+
+  input[type="search"] {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: none;
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    height: 32px;
+    padding: 0;
+    min-width: 0;
+    -webkit-appearance: none;
+    &::placeholder { color: var(--color-text-muted); }
+    &::-webkit-search-cancel-button { display: none; }
+  }
+}
+
+.toolbar-cell.cell-select {
+  flex: 0 0 auto;
+  min-width: 200px;
+
+  app-select { min-width: 160px; flex: 1; }
+
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.toolbar-cell.cell-clear {
+  margin-left: auto;
+  padding: 0 8px;
+  border-right: none;
+}
+
+.clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  color: var(--color-text-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+  }
+}
+

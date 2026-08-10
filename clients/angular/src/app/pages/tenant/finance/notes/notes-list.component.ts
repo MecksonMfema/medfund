@@ -1,37 +1,44 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
-import { CurrencyService, Currency } from '../../../../core/services/currency.service';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
-  CreateNotePayload,
-  FinanceNote,
   FinancePageResponse,
   FinanceService,
+  NoteDirection,
+  NoteRow,
+  NoteStatus,
+  NoteType,
 } from '../../../../core/services/finance.service';
+import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
-import { DataTableComponent, TableColumn } from '../../../../shared/components/data-table/data-table.component';
+import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 
-type Mode = 'debit' | 'credit';
-
+/**
+ * Unified notes list — single surface for debit, credit, and memo
+ * notes. Direction is always a filter chip (no route-pinned variant
+ * pages); the reports/tax-withheld route pins {@code presetNoteType} to
+ * scope the list without hiding the type chip.
+ */
 @Component({
   selector: 'app-notes-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, SelectComponent, DataTableComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, DataTableComponent],
   templateUrl: './notes-list.component.html',
   styleUrl: './notes-list.component.scss',
 })
 export class NotesListComponent implements OnInit {
-  mode: Mode = 'debit';
-  rows: FinanceNote[] = [];
-  currencies: Currency[] = [];
+  rows: NoteRow[] = [];
   loading = false;
-  busy = false;
   errorMessage: string | null = null;
-  successMessage: string | null = null;
 
-  showForm = false;
-  form: CreateNotePayload = this.blankForm();
+  presetNoteType: NoteType | '' = '';
+  pageTitle = 'Notes';
+  pageDescription = 'Debit, credit, and memo notes across providers and members.';
+
+  statusFilter: NoteStatus | '' = '';
+  directionFilter: NoteDirection | '' = '';
+  typeFilter: NoteType | '' = '';
 
   // Server-side pagination state.
   page = 1;
@@ -42,72 +49,91 @@ export class NotesListComponent implements OnInit {
   sortDirection: 'asc' | 'desc' = 'desc';
   searchTerm = '';
 
+  readonly statusOptions: SelectOption[] = [
+    { value: '', label: 'All' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'approved', label: 'Approved' },
+    { value: 'applied', label: 'Applied' },
+    { value: 'reversed', label: 'Reversed' },
+  ];
+
+  readonly directionOptions: SelectOption[] = [
+    { value: '', label: 'All' },
+    { value: 'DEBIT', label: 'Debit' },
+    { value: 'CREDIT', label: 'Credit' },
+  ];
+
+  readonly typeOptions: SelectOption[] = [
+    { value: '', label: 'All' },
+    { value: 'TAX_WITHHELD', label: 'Tax withheld' },
+    { value: 'WRITE_OFF', label: 'Write-off' },
+    { value: 'GOODWILL', label: 'Goodwill' },
+    { value: 'ENDORSEMENT_PREMIUM', label: 'Endorsement premium' },
+    { value: 'PREMIUM_REFUND', label: 'Premium refund' },
+    { value: 'PROVIDER_OVERPAYMENT_RECOVERY', label: 'Provider overpayment recovery' },
+    { value: 'MEMO', label: 'Memo (no payee)' },
+  ];
+
   readonly columns: TableColumn[] = [
-    { key: 'reference',    label: 'Reference',   sortable: true },
-    { key: 'amount',       label: 'Amount',      sortable: true, type: 'currency' },
-    { key: 'currencyCode', label: 'Currency',    sortable: true },
-    { key: 'notes',        label: 'Notes' },
-    { key: 'createdAt',    label: 'Created',     sortable: true, type: 'date' },
+    { key: 'noteNumber',   label: 'Note #',    sortable: true },
+    { key: 'memberName',   label: 'Member',    sortable: true },
+    { key: 'providerName', label: 'Provider',  sortable: true },
+    { key: 'direction',    label: 'Direction', sortable: true, type: 'label' },
+    { key: 'noteType',     label: 'Type',      sortable: true, type: 'label' },
+    { key: 'amount',       label: 'Amount',    sortable: true, type: 'currency' },
+    { key: 'status',       label: 'Status',    sortable: true, type: 'status' },
+    { key: 'reason',       label: 'Reason' },
+    { key: 'postedAt',     label: 'Posted',    sortable: true, type: 'date' },
+    { key: 'createdAt',    label: 'Created',   sortable: true, type: 'date' },
+  ];
+
+  readonly actions: TableAction[] = [
+    {
+      label: 'View',
+      icon: 'eye',
+      color: 'default',
+      handler: (row: NoteRow) => this.router.navigate(['/tenant/finance/notes', row.id]),
+    },
   ];
 
   constructor(
     private finance: FinanceService,
-    private currencyService: CurrencyService,
     private route: ActivatedRoute,
+    private router: Router,
   ) {}
 
-  get currencyOptions(): SelectOption[] {
-    return this.currencies.map(c => ({ value: c.code, label: `${c.code} — ${c.name}` }));
-  }
-
   ngOnInit(): void {
-    this.mode = (this.route.snapshot.data['mode'] as Mode) || 'debit';
+    const data = this.route.snapshot.data;
+    if (data['presetNoteType']) {
+      this.presetNoteType = data['presetNoteType'];
+      this.typeFilter = this.presetNoteType;
+    }
+    if (data['title']) this.pageTitle = data['title'];
+    if (data['description']) this.pageDescription = data['description'];
+
     this.fetchPage();
-    this.currencyService.listMaster(true).subscribe({
-      next: (rows) => {
-        this.currencies = rows;
-        if (!this.form.currencyCode && rows.length) this.form.currencyCode = rows[0].code;
-      },
-      error: () => {},
-    });
-  }
-
-  pageTitle(): string {
-    return this.mode === 'debit' ? 'Debit notes' : 'Credit notes';
-  }
-
-  pageDescription(): string {
-    return this.mode === 'debit'
-      ? 'One-off debits booked outside the adjustments table — bank fees, write-offs, manual debits.'
-      : 'Goodwill credits and reversals booked outside the adjustments table.';
   }
 
   fetchPage(): void {
     this.loading = true;
-    const stream = this.mode === 'debit'
-      ? this.finance.listDebitNotesPaged({
-          q: this.searchTerm || undefined,
-          sortKey: this.sortKey,
-          sortDirection: this.sortDirection,
-          page: this.page - 1,
-          size: this.pageSize,
-        })
-      : this.finance.listCreditNotesPaged({
-          q: this.searchTerm || undefined,
-          sortKey: this.sortKey,
-          sortDirection: this.sortDirection,
-          page: this.page - 1,
-          size: this.pageSize,
-        });
-    stream.subscribe({
-      next: (resp: FinancePageResponse<FinanceNote>) => {
+    this.finance.listNotesPaged({
+      status: this.statusFilter || undefined,
+      direction: this.directionFilter || undefined,
+      noteType: this.typeFilter || undefined,
+      q: this.searchTerm || undefined,
+      sortKey: this.sortKey,
+      sortDirection: this.sortDirection,
+      page: this.page - 1,
+      size: this.pageSize,
+    }).subscribe({
+      next: (resp: FinancePageResponse<NoteRow>) => {
         this.rows = resp.content;
         this.totalCount = resp.total;
         this.totalPages = resp.totalPages;
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load';
+        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load notes';
         this.rows = [];
         this.totalCount = 0;
         this.totalPages = 1;
@@ -116,8 +142,11 @@ export class NotesListComponent implements OnInit {
     });
   }
 
+  onStatusChange():    void { this.page = 1; this.fetchPage(); }
+  onDirectionChange(): void { this.page = 1; this.fetchPage(); }
+  onTypeChange():      void { this.page = 1; this.fetchPage(); }
+
   onPageChange(page: number): void { this.page = page; this.fetchPage(); }
-  onSearchChange(term: string): void { this.searchTerm = term; this.page = 1; this.fetchPage(); }
   onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
     this.sortKey = evt.key;
     this.sortDirection = evt.direction;
@@ -125,39 +154,26 @@ export class NotesListComponent implements OnInit {
     this.fetchPage();
   }
 
-  newNote(): void {
-    this.form = this.blankForm();
-    if (this.currencies.length) this.form.currencyCode = this.currencies[0].code;
-    this.showForm = true;
+  /**
+   * Toolbar search input — debounced so we don't fire a request per
+   * keystroke. Mirrors the pattern in TransactionsListComponent.
+   */
+  private searchDebounce: ReturnType<typeof setTimeout> | null = null;
+  onSearchInput(term: string): void {
+    this.searchTerm = term;
+    if (this.searchDebounce) clearTimeout(this.searchDebounce);
+    this.searchDebounce = setTimeout(() => {
+      this.page = 1;
+      this.fetchPage();
+    }, 300);
   }
 
-  cancel(): void { this.showForm = false; }
-
-  submit(): void {
-    if (!this.form.amount || !this.form.currencyCode) {
-      this.errorMessage = 'Amount and currency are required';
-      return;
-    }
-    this.busy = true;
-    const obs = this.mode === 'debit'
-      ? this.finance.createDebitNote(this.form)
-      : this.finance.createCreditNote(this.form);
-    obs.subscribe({
-      next: () => {
-        this.busy = false;
-        this.showForm = false;
-        this.successMessage = `${this.mode === 'debit' ? 'Debit' : 'Credit'} note recorded.`;
-        this.page = 1;
-        this.fetchPage();
-      },
-      error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to record note';
-        this.busy = false;
-      },
-    });
-  }
-
-  private blankForm(): CreateNotePayload {
-    return { amount: '', currencyCode: '', reference: '', notes: '' };
+  clearFilters(): void {
+    this.statusFilter = '';
+    this.directionFilter = '';
+    if (!this.presetNoteType) this.typeFilter = '';
+    this.searchTerm = '';
+    this.page = 1;
+    this.fetchPage();
   }
 }

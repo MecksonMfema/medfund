@@ -154,23 +154,45 @@ public class PaymentAdviceService {
         List<PaymentAdviceLine> lines = new ArrayList<>();
 
         return loadPayeeName(payeeType, providerId, memberId)
-            .flatMap(payeeName -> loadCarryForward(payeeType, providerId, memberId, currency, run.getId())
-                .flatMap(carry -> {
-                    if (carry.signum() > 0) {
-                        lines.add(newLine("CARRY_FORWARD", "payment_run", null,
-                                "Carried forward from prior run", carry, BigDecimal.ZERO,
-                                currency, periodStart, lines.size() + 1));
-                    }
-                    return loadClaimsPaidLines(payeeType, providerId, memberId, currency, periodStart, periodEnd, lines)
-                        .then(loadCtcAppliedLines(memberId, currency, periodStart, periodEnd, lines))
-                        .then(loadAdvanceAppliedLines(providerId, currency, periodStart, periodEnd, lines))
-                        .then(loadTaxWithheldLines(payeeType, providerId, memberId, currency, periodStart, periodEnd, lines))
-                        .then(loadShortfallLines(payeeType, providerId, memberId, currency, periodStart, periodEnd, lines))
-                        .thenReturn(carry);
-                })
-                .flatMap(carry -> persistAdvice(run, payeeType, providerId, memberId, payeeName,
-                        currency, periodStart, periodEnd, carry, lines))
-                .flatMap(this::publishAndAudit));
+            .flatMap(payeeName -> resolvePriorRunId(run)
+                .flatMap(priorRunOpt -> {
+                    UUID priorRunId = priorRunOpt.orElse(null);
+                    return loadCarryForward(payeeType, providerId, memberId, currency, run.getId())
+                        .flatMap(carry -> {
+                            if (carry.signum() > 0) {
+                                lines.add(newLine("CARRY_FORWARD", "payment_run", null,
+                                        "Carried forward from prior run", carry, BigDecimal.ZERO,
+                                        currency, periodStart, lines.size() + 1, null));
+                            }
+                            return loadClaimsPaidLines(payeeType, providerId, memberId, currency, periodStart, periodEnd, lines)
+                                .then(loadCtcAppliedLines(memberId, currency, periodStart, periodEnd, lines))
+                                .then(loadAdvanceAppliedLines(providerId, currency, periodStart, periodEnd, lines))
+                                .then(loadTaxWithheldLines(payeeType, providerId, memberId, currency, periodStart, periodEnd, lines))
+                                .then(loadShortfallLines(payeeType, providerId, memberId, currency, periodStart, periodEnd, lines))
+                                .then(loadNoteLines(payeeType, providerId, memberId, currency,
+                                        periodStart, periodEnd, priorRunId, lines))
+                                .thenReturn(carry);
+                        })
+                        .flatMap(carry -> persistAdvice(run, payeeType, providerId, memberId, payeeName,
+                                currency, periodStart, periodEnd, carry, lines))
+                        .flatMap(this::publishAndAudit);
+                }));
+    }
+
+    /**
+     * Prior payment-run id for the same currency (as an {@code Optional}
+     * because Reactor {@code Mono} can't emit {@code null}). Used to
+     * stamp late-arriving notes — those with {@code posted_at} inside a
+     * prior run's window but not yet stamped onto any advice — with
+     * {@code back_period_run_id}, so the UI can render them as
+     * "back-period from run …".
+     */
+    private Mono<java.util.Optional<UUID>> resolvePriorRunId(PaymentRun run) {
+        Instant runEnd = run.getExecutedAt() != null ? run.getExecutedAt() : Instant.now();
+        return paymentRunRepository.findMostRecentPriorExecuted(
+                run.getCurrencyCode(), runEnd, run.getId())
+            .map(prior -> java.util.Optional.ofNullable(prior.getId()))
+            .defaultIfEmpty(java.util.Optional.empty());
     }
 
     private Mono<String> loadPayeeName(String payeeType, UUID providerId, UUID memberId) {
@@ -243,7 +265,7 @@ public class PaymentAdviceService {
                         "Claim " + (claimNumber != null ? claimNumber : ""),
                         amount != null ? amount : BigDecimal.ZERO,
                         BigDecimal.ZERO, currency,
-                        postedAt != null ? postedAt : end, lines.size() + 1);
+                        postedAt != null ? postedAt : end, lines.size() + 1, null);
             })
             .all()
             .doOnNext(lines::add)
@@ -275,7 +297,7 @@ public class PaymentAdviceService {
                         "CTC offset applied", BigDecimal.ZERO,
                         amount != null ? amount : BigDecimal.ZERO,
                         currency,
-                        postedAt != null ? postedAt : end, lines.size() + 1);
+                        postedAt != null ? postedAt : end, lines.size() + 1, null);
             })
             .all()
             .doOnNext(lines::add)
@@ -307,7 +329,7 @@ public class PaymentAdviceService {
                         "Advance payment drawdown", BigDecimal.ZERO,
                         amount != null ? amount : BigDecimal.ZERO,
                         currency,
-                        postedAt != null ? postedAt : end, lines.size() + 1);
+                        postedAt != null ? postedAt : end, lines.size() + 1, null);
             })
             .all()
             .doOnNext(lines::add)
@@ -323,30 +345,103 @@ public class PaymentAdviceService {
         UUID payeeId = "MEMBER".equalsIgnoreCase(payeeType) ? memberId : providerId;
         if (payeeId == null) return Mono.empty();
 
-        String sql = "SELECT id, amount, reason, created_at "
-                + "  FROM adjustments "
-                + " WHERE adjustment_type = 'TAX_WITHHELD' "
+        // V074: source from renamed `notes` table with note_type='TAX_WITHHELD'.
+        // Filter on status='applied' (fixes a latent bug where pending/approved/
+        // cancelled TAX_WITHHELD adjustments were counted) and posted_at window
+        // instead of created_at — posted_at is the ledger-relevant timestamp.
+        String sql = "SELECT id, amount, reason, posted_at "
+                + "  FROM notes "
+                + " WHERE note_type = 'TAX_WITHHELD' "
+                + "   AND status = 'applied' "
                 + "   AND " + where
                 + "   AND currency_code = :currency "
-                + "   AND created_at > :start "
-                + "   AND created_at <= :end "
-                + " ORDER BY created_at";
+                + "   AND posted_at > :start "
+                + "   AND posted_at <= :end "
+                + " ORDER BY posted_at";
         return db.sql(sql)
             .bind("id", payeeId)
             .bind("currency", currency)
             .bind("start", start)
             .bind("end", end)
             .map((row, meta) -> {
-                UUID adjId = row.get("id", UUID.class);
+                UUID noteId = row.get("id", UUID.class);
                 BigDecimal amount = row.get("amount", BigDecimal.class);
                 String reason = row.get("reason", String.class);
-                Instant postedAt = row.get("created_at", Instant.class);
-                return newLine("TAX_WITHHELD", "adjustment", adjId,
+                Instant postedAt = row.get("posted_at", Instant.class);
+                return newLine("TAX_WITHHELD", "note", noteId,
                         reason != null && !reason.isBlank() ? reason : "Tax withheld",
                         BigDecimal.ZERO,
                         amount != null ? amount : BigDecimal.ZERO,
                         currency,
-                        postedAt != null ? postedAt : end, lines.size() + 1);
+                        postedAt != null ? postedAt : end, lines.size() + 1, null);
+            })
+            .all()
+            .doOnNext(lines::add)
+            .then();
+    }
+
+    /**
+     * NOTE_DEBIT / NOTE_CREDIT source (excludes MEMO and TAX_WITHHELD,
+     * which have their own handling). Two axes matter:
+     * <ul>
+     *   <li>{@code direction='DEBIT'} on the note → {@code NOTE_CREDIT}
+     *       line on the advice (a debit note is money owed <em>to us</em>
+     *       from the payee, which reduces what we pay them).</li>
+     *   <li>{@code direction='CREDIT'} → {@code NOTE_DEBIT} line (a
+     *       credit note is money we owe the payee <em>beyond</em> the
+     *       claims total; increases the payout).</li>
+     * </ul>
+     * Includes late-arriving notes: any {@code status='applied'} note
+     * whose {@code posted_at ≤ periodEnd} and payee matches, provided it
+     * isn't already stamped onto any advice line for the same payee. Late
+     * ones (those posted <em>before</em> {@code periodStart}) carry
+     * {@code back_period_run_id = priorRunId} so the UI can render a
+     * back-period badge.
+     */
+    private Mono<Void> loadNoteLines(String payeeType, UUID providerId, UUID memberId,
+                                     String currency, Instant start, Instant end,
+                                     UUID priorRunId,
+                                     List<PaymentAdviceLine> lines) {
+        String where = "MEMBER".equalsIgnoreCase(payeeType)
+                ? "n.member_id = :id"
+                : "n.provider_id = :id";
+        UUID payeeId = "MEMBER".equalsIgnoreCase(payeeType) ? memberId : providerId;
+        if (payeeId == null) return Mono.empty();
+
+        String sql = "SELECT n.id, n.amount, n.reason, n.direction, n.note_type, n.posted_at "
+                + "  FROM notes n "
+                + " WHERE n.status = 'applied' "
+                + "   AND n.note_type NOT IN ('MEMO', 'TAX_WITHHELD') "
+                + "   AND n.currency_code = :currency "
+                + "   AND n.posted_at <= :end "
+                + "   AND " + where + " "
+                + "   AND NOT EXISTS ("
+                + "        SELECT 1 FROM payment_advice_lines pal "
+                + "         WHERE pal.reference_type = 'note' "
+                + "           AND pal.reference_id = n.id"
+                + "   ) "
+                + " ORDER BY n.posted_at";
+        return db.sql(sql)
+            .bind("id", payeeId)
+            .bind("currency", currency)
+            .bind("end", end)
+            .map((row, meta) -> {
+                UUID noteId = row.get("id", UUID.class);
+                BigDecimal amount = row.get("amount", BigDecimal.class);
+                String reason = row.get("reason", String.class);
+                String direction = row.get("direction", String.class);
+                Instant postedAt = row.get("posted_at", Instant.class);
+
+                boolean late = postedAt != null && postedAt.isBefore(start);
+                String lineType = "DEBIT".equalsIgnoreCase(direction) ? "NOTE_CREDIT" : "NOTE_DEBIT";
+                BigDecimal debit  = "NOTE_DEBIT".equals(lineType)
+                        ? (amount != null ? amount : BigDecimal.ZERO) : BigDecimal.ZERO;
+                BigDecimal credit = "NOTE_CREDIT".equals(lineType)
+                        ? (amount != null ? amount : BigDecimal.ZERO) : BigDecimal.ZERO;
+                String desc = reason != null && !reason.isBlank() ? reason : lineType;
+                return newLine(lineType, "note", noteId, desc, debit, credit, currency,
+                        postedAt != null ? postedAt : end, lines.size() + 1,
+                        late ? priorRunId : null);
             })
             .all()
             .doOnNext(lines::add)
@@ -389,7 +484,7 @@ public class PaymentAdviceService {
                         BigDecimal.ZERO,
                         amount != null ? amount : BigDecimal.ZERO,
                         currency,
-                        postedAt != null ? postedAt : end, lines.size() + 1);
+                        postedAt != null ? postedAt : end, lines.size() + 1, null);
             })
             .all()
             .doOnNext(lines::add)
@@ -398,7 +493,8 @@ public class PaymentAdviceService {
 
     private PaymentAdviceLine newLine(String lineType, String referenceType, UUID referenceId,
                                       String description, BigDecimal debit, BigDecimal credit,
-                                      String currency, Instant postedAt, int sequence) {
+                                      String currency, Instant postedAt, int sequence,
+                                      UUID backPeriodRunId) {
         var line = new PaymentAdviceLine();
         line.setLineType(lineType);
         line.setReferenceType(referenceType);
@@ -409,6 +505,7 @@ public class PaymentAdviceService {
         line.setCurrencyCode(currency);
         line.setPostedAt(postedAt);
         line.setSequence(sequence);
+        line.setBackPeriodRunId(backPeriodRunId);
         return line;
     }
 
@@ -423,11 +520,18 @@ public class PaymentAdviceService {
         BigDecimal advanceApplied = sumBy(lines, "ADVANCE_APPLIED", false);
         BigDecimal taxWithheld = sumBy(lines, "TAX_WITHHELD", false);
         BigDecimal shortfall = sumBy(lines, "SHORTFALL", false);
-        BigDecimal netDue = carriedIn.add(claimsPaid)
+        BigDecimal noteDebits  = sumBy(lines, "NOTE_DEBIT",  true);
+        BigDecimal noteCredits = sumBy(lines, "NOTE_CREDIT", false);
+        // V074 formula (Notes rename plan G-decisions):
+        //   net_due = carried_in + claims_paid + note_debits
+        //             - ctc_applied - advance_applied - tax_withheld
+        //             - shortfall - note_credits
+        BigDecimal netDue = carriedIn.add(claimsPaid).add(noteDebits)
                 .subtract(ctcApplied)
                 .subtract(advanceApplied)
                 .subtract(taxWithheld)
-                .subtract(shortfall);
+                .subtract(shortfall)
+                .subtract(noteCredits);
 
         var record = new PaymentAdviceRecord();
         record.setPaymentRunId(run.getId());
@@ -474,7 +578,8 @@ public class PaymentAdviceService {
             .map(l -> new PaymentAdviceLineDto(
                     l.getLineType(), l.getReferenceType(), l.getReferenceId(),
                     l.getDescription(), l.getDebitAmount(), l.getCreditAmount(),
-                    l.getCurrencyCode(), l.getPostedAt(), l.getSequence()))
+                    l.getCurrencyCode(), l.getPostedAt(), l.getSequence(),
+                    l.getBackPeriodRunId()))
             .toList();
         return new PaymentAdvice(
                 record.getAdviceNumber(),

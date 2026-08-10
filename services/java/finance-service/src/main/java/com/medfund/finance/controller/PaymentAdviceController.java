@@ -105,7 +105,8 @@ public class PaymentAdviceController {
             .map(l -> new PaymentAdviceLineDto(
                 l.getLineType(), l.getReferenceType(), l.getReferenceId(),
                 l.getDescription(), l.getDebitAmount(), l.getCreditAmount(),
-                l.getCurrencyCode(), l.getPostedAt(), l.getSequence()))
+                l.getCurrencyCode(), l.getPostedAt(), l.getSequence(),
+                l.getBackPeriodRunId()))
             .toList();
         return new PaymentAdvice(
             r.getAdviceNumber(),

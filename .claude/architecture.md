@@ -85,11 +85,11 @@ These handle the **core business domain** where complex, tenant-specific rules d
 #### 3. Finance Service
 - Payment processing, payment runs, payment-run items
 - Provider balance management, advance payments
-- Debit/credit notes and adjustments
+- Notes ledger (unified debit/credit/memo notes with `direction ∈ {DEBIT, CREDIT}`; retired the V016 split `Adjustment`/`DebitNote`/`CreditNote` triad in V074)
 - Bank reconciliation, MASCA bank account management
 - CTC (Claims-to-Contributions) payments, payment advice records
 - Financial reporting and statements
-- Key entities: `Payment`, `PaymentRun`, `PaymentRunItem`, `ProviderBalance`, `Adjustment`, `AdvancePayment`, `DebitNote`, `CreditNote`, `BankReconciliation`, `CtcPayment`, `PaymentAdviceRecord`, `MascaBankAccount`
+- Key entities: `Payment`, `PaymentRun`, `PaymentRunItem`, `ProviderBalance`, `Note`, `AdvancePayment`, `BankReconciliation`, `CtcPayment`, `PaymentAdviceRecord`, `MascaBankAccount`
 - **Per-tenant rules**: payment terms, withholding tax rates, payment method restrictions
 
 #### 4. Tenancy Service
@@ -603,7 +603,7 @@ PostgreSQL 17 Cluster
 │   ├── tariff_codes, tariff_categories, tariff_modifiers, icd_codes, drugs  (health-vertical adjudication)
 │   ├── schemes, scheme_benefits, benefits, benefit_types, age_groups, tariff_benefit_mappings
 │   ├── contributions, invoices, group_running_balances, billing_cycle_config, dunning_config, bad_debts
-│   ├── payments, payment_runs, payment_run_items, adjustments, debit_notes, credit_notes, bank_reconciliations, provider_balances
+│   ├── payments, payment_runs, payment_run_items, notes (V074 unified debit/credit/memo), bank_reconciliations, provider_balances
 │   ├── audit_events (immutable, partitioned by month)
 │   ├── security_events (immutable, partitioned by month)
 │   ├── ai_predictions (model outputs + human feedback)
