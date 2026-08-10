@@ -106,7 +106,7 @@ public class StatementExcelService {
                 String dateStr = line.date() != null ? line.date().toString().substring(0, 10) : "";
                 String desc = line.description() != null ? line.description() : "";
                 if (StatementLine.TYPE_OPENING_BALANCE.equals(line.type())) desc += " (B/F)";
-                if (StatementLine.TYPE_CLOSING_BALANCE.equals(line.type())) desc += " (C/F · amount due)";
+                if (StatementLine.TYPE_CLOSING_BALANCE.equals(line.type())) desc += " (C/F)";
 
                 cell(row, 0, dateStr, textStyle);
                 cell(row, 1, desc, textStyle);
@@ -120,7 +120,7 @@ public class StatementExcelService {
             r++;
             r = writeLabelMoney(sheet, r, label, money, "Contributions this period", h.totalCharges());
             r = writeLabelMoney(sheet, r, label, money, "Payments received",        h.totalPayments());
-            r = writeLabelMoney(sheet, r, label, moneyBold, "Amount due",           h.closingBalance());
+            r = writeLabelMoney(sheet, r, label, moneyBold, "Amount Due",           h.closingBalance());
 
             // Freeze the table header row.
             sheet.createFreezePane(0, tableHeaderRow + 1);

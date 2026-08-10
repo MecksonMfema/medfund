@@ -36,7 +36,7 @@ import static org.mockito.Mockito.when;
  *       total-charges / total-payments here.</li>
  *   <li>Ledger table iterates every line including OPENING_BALANCE
  *       and CLOSING_BALANCE — bookend rows get the description
- *       suffixes {@code (B/F)} and {@code (C/F · amount due)} so an
+ *       suffixes {@code (B/F)} and {@code (C/F)} so an
  *       operator reading the sheet sees the double-entry structure at
  *       a glance.</li>
  *   <li>Ledger footer carries the period activity totals
@@ -103,7 +103,7 @@ class StatementExcelServiceTest {
             assertThat(descriptions).anySatisfy(d ->
                     assertThat(d).contains("Balance brought forward").contains("(B/F)"));
             assertThat(descriptions).anySatisfy(d ->
-                    assertThat(d).contains("Balance carried forward").contains("(C/F"));
+                    assertThat(d).contains("Amount Due").contains("(C/F)"));
 
             // ── Ledger table header row present ──────────────────────
             assertThat(descriptions).contains("Description");
@@ -111,12 +111,12 @@ class StatementExcelServiceTest {
             // ── Ledger footer ────────────────────────────────────────
             //
             // Contributions this period + Payments received + Amount
-            // due land BELOW the ledger table. Amount due is the last
+            // Due land BELOW the ledger table. Amount Due is the last
             // label (row furthest down the sheet).
             assertThat(firstColLabels).contains(
                     "Contributions this period",
                     "Payments received",
-                    "Amount due");
+                    "Amount Due");
         }
     }
 
@@ -151,7 +151,7 @@ class StatementExcelServiceTest {
                 new StatementLine(Instant.parse("2026-08-15T00:00:00Z"),
                         StatementLine.TYPE_TRANSACTION, "PAYMENT — MOMO", "REF-1",
                         null, new BigDecimal("100.00"), new BigDecimal("-50.00"), UUID.randomUUID()),
-                bookend(StatementLine.TYPE_CLOSING_BALANCE, "Balance carried forward",
+                bookend(StatementLine.TYPE_CLOSING_BALANCE, "Amount Due",
                         new BigDecimal("-50.00"))
         );
         when(statementService.generate(any(), any(), any(), any(), any()))
@@ -181,7 +181,7 @@ class StatementExcelServiceTest {
                 new StatementLine(Instant.parse("2026-08-20T00:00:00Z"),
                         StatementLine.TYPE_TRANSACTION, "Payment — bank transfer", "REF-A",
                         null, new BigDecimal("0.00"), new BigDecimal("250.00"), UUID.randomUUID()),
-                bookend(StatementLine.TYPE_CLOSING_BALANCE, "Balance carried forward",
+                bookend(StatementLine.TYPE_CLOSING_BALANCE, "Amount Due",
                         new BigDecimal("250.00"))
         );
     }
@@ -190,7 +190,7 @@ class StatementExcelServiceTest {
         return statementWith(
                 bookend(StatementLine.TYPE_OPENING_BALANCE, "Balance brought forward",
                         new BigDecimal("0.00")),
-                bookend(StatementLine.TYPE_CLOSING_BALANCE, "Balance carried forward",
+                bookend(StatementLine.TYPE_CLOSING_BALANCE, "Amount Due",
                         new BigDecimal("0.00"))
         );
     }

@@ -27,7 +27,7 @@ interface SchemeGroup {
  *      its members + dependants with names + amounts
  *   4. Transactions section — chronological payments + adjustments
  *      from /invoices/{id}/statement, filtered to non-CONTRIBUTION lines
- *   5. Amount due (closing_balance from the snapshot)
+ *   5. Amount Due (closing_balance from the snapshot)
  *
  * Page is full-width — billing tables benefit from horizontal room.
  */
@@ -145,7 +145,7 @@ export class InvoiceStatementComponent implements OnInit {
     return (this.statement?.lines ?? []).find(l => l.type === 'OPENING_BALANCE') ?? null;
   }
 
-  /** Closing balance ("Balance carried forward") row — bookend at the
+  /** Closing balance ("Amount Due") row - bookend at the
    *  bottom, and next period's opening. */
   get closingBalanceLine(): StatementLine | null {
     return (this.statement?.lines ?? []).find(l => l.type === 'CLOSING_BALANCE') ?? null;

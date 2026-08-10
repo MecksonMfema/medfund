@@ -153,7 +153,7 @@
       {{if .ClosingRow}}
       <tr class="bookend">
         <td>{{.ClosingRow.Date}}</td>
-        <td>{{.ClosingRow.Description}}<span class="marker">C/F · amount due</span></td>
+        <td>{{.ClosingRow.Description}}<span class="marker">C/F</span></td>
         <td></td>
         <td class="right"></td>
         <td class="right"></td>
@@ -176,29 +176,9 @@
     {{if .TotalAdjustments}}
     <tr><td class="row-label">Adjustments</td><td class="right num-cell">{{.CurrencyCode}} {{.TotalAdjustments}}</td></tr>
     {{end}}
-    <tr class="grand"><td>Amount due</td><td class="right num-cell">{{.CurrencyCode}} {{.AmountDue}}</td></tr>
+    <tr class="grand"><td>Amount Due</td><td class="right num-cell">{{.CurrencyCode}} {{.AmountDue}}</td></tr>
   </table>
 
-  {{else}}
-  <table>
-    <thead>
-      <tr>
-        <th>Description</th>
-        <th class="right">Amount</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td>Contributions for {{.PeriodStart}} &mdash; {{.PeriodEnd}}</td>
-        <td class="right num-cell">{{.CurrencyCode}} {{.SubtotalAmount}}</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <table class="totals">
-    <tr><td class="row-label">Subtotal</td><td class="right num-cell">{{.CurrencyCode}} {{.SubtotalAmount}}</td></tr>
-    <tr class="grand"><td>Total due</td><td class="right num-cell">{{.CurrencyCode}} {{.AmountDue}}</td></tr>
-  </table>
   {{end}}
 
   <div class="footer">

@@ -196,7 +196,7 @@ class StatementServiceTest {
         // late back-dated posts). Snapshot is authoritative.
         var last = resp.lines().get(resp.lines().size() - 1);
         assertThat(last.type()).isEqualTo(com.medfund.contributions.dto.StatementLine.TYPE_CLOSING_BALANCE);
-        assertThat(last.description()).isEqualTo("Balance carried forward");
+        assertThat(last.description()).isEqualTo("Amount Due");
         assertThat(last.runningBalance()).isEqualByComparingTo("250.00");
         assertThat(last.debit()).isNull();
         assertThat(last.credit()).isNull();

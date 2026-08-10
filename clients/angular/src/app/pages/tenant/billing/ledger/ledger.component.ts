@@ -398,7 +398,7 @@ export class LedgerComponent implements OnInit {
     doc.line(pageWidth - margin - 140, fy, pageWidth - margin, fy);
     fy += 14;
     doc.setFontSize(11).setFont('helvetica', 'bold').setTextColor(...bodyColor);
-    doc.text('Amount due', margin, fy);
+    doc.text('Amount Due', margin, fy);
     doc.text(`${currency} ${this.money(h.closingBalance)}`, pageWidth - margin, fy, { align: 'right' });
 
     const filename = this.exportFilename('pdf');

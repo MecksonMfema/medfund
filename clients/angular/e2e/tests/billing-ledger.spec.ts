@@ -35,7 +35,7 @@ test.describe('Billing — ledger', () => {
         { date: '2026-08-01', description: 'Balance brought forward', runningBalance: 0,   type: 'OPENING_BALANCE' } as any,
         { date: '2026-08-05', description: 'August contribution',      runningBalance: 250, debit: 250, type: 'CONTRIBUTION' } as any,
         { date: '2026-08-15', description: 'Payment',                  runningBalance: 150, credit: 100, type: 'TRANSACTION' } as any,
-        { date: '2026-08-31', description: 'Balance carried forward',  runningBalance: 150, type: 'CLOSING_BALANCE' } as any,
+        { date: '2026-08-31', description: 'Amount Due',  runningBalance: 150, type: 'CLOSING_BALANCE' } as any,
       ],
     };
     stubBillingAPIs(apiMocks, seed);

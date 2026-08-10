@@ -40,7 +40,7 @@
            - Balance brought forward (snapshot opening_balance)
            - Contributions, grouped by scheme, with member/dependant names
            - Transactions (payments + adjustments) chronologically
-           - Amount due (snapshot closing_balance)
+           - Amount Due (snapshot closing_balance)
          Contributions are debits (increase the balance the holder owes);
          payments are credits; adjustments may go either way per the
          transaction_types catalogue.
@@ -124,14 +124,14 @@
             }
           }
 
-          <!-- Balance carried forward — emitted by the backend as a
-               CLOSING_BALANCE line. This IS the amount due, and it is
-               next period's opening balance too. -->
+          <!-- Amount Due - emitted by the backend as a CLOSING_BALANCE
+               line. This IS the amount due, and it is next period's
+               opening balance too. -->
           @if (closingBalanceLine) {
             <tr class="row-due">
               <td>{{ closingBalanceLine.date | date:'dd MMM yyyy' }}</td>
               <td><strong>{{ closingBalanceLine.description }}</strong>
-                  <span class="muted small">· C/F · amount due</span></td>
+                  <span class="muted small">· C/F</span></td>
               <td></td>
               <td class="num"></td>
               <td class="num"></td>

@@ -733,7 +733,7 @@ export function stubBillingAPIs(apiMocks: ApiMocks, seed: BillingSeed): void {
       },
       lines: [
         { date: invoice.periodStart, description: 'Balance brought forward', runningBalance: 0, type: 'OPENING_BALANCE' },
-        { date: invoice.periodEnd, description: 'Amount due', runningBalance: invoice.amountDue, type: 'CLOSING_BALANCE' },
+        { date: invoice.periodEnd, description: 'Amount Due', runningBalance: invoice.amountDue, type: 'CLOSING_BALANCE' },
       ],
     };
   });

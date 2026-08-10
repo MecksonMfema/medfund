@@ -61,7 +61,7 @@ describe('InvoiceStatementComponent bookend routing', () => {
   it('extracts CLOSING_BALANCE into closingBalanceLine', () => {
     const closing = line({
       type: 'CLOSING_BALANCE',
-      description: 'Balance carried forward',
+      description: 'Amount Due',
       runningBalance: '250.00',
     });
     const c = makeComp([line({ description: 'mid' }), closing]);

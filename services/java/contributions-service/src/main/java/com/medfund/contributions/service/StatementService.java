@@ -209,7 +209,7 @@ public class StatementService {
         lines.add(new StatementLine(
                 periodEndExclusive.minusNanos(1),
                 StatementLine.TYPE_CLOSING_BALANCE,
-                "Balance carried forward",
+                "Amount Due",
                 null, null, null, closing, null));
 
         StatementResponse.Header outHeader = new StatementResponse.Header(
@@ -490,7 +490,7 @@ public class StatementService {
         lines.add(new StatementLine(
                 closingInstant,
                 StatementLine.TYPE_CLOSING_BALANCE,
-                "Balance carried forward",
+                "Amount Due",
                 null, null, null, snapshotClosing, null));
 
         StatementResponse.Header outHeader = new StatementResponse.Header(

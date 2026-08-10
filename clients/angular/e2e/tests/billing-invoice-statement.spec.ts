@@ -38,7 +38,7 @@ test.describe('Billing — invoices list + statement', () => {
       },
       lines: [
         { date: inv.periodStart, description: 'Balance brought forward', runningBalance: 0, type: 'OPENING_BALANCE' },
-        { date: inv.periodEnd,   description: 'Amount due',              runningBalance: 250, type: 'CLOSING_BALANCE' },
+        { date: inv.periodEnd,   description: 'Amount Due',              runningBalance: 250, type: 'CLOSING_BALANCE' },
       ],
     };
     stubBillingAPIs(apiMocks, seed);

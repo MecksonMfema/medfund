@@ -18,11 +18,11 @@ import (
 //go:embed template.html
 var defaultTemplate string
 
-// Payload is the identity envelope for one PDF render. It is the input
-// to Render — a caller populates the fields it knows from the
-// InvoiceIssued Kafka event and (optionally) the enriched RenderPayload
-// pulled from contributions-service. When RenderData is nil the
-// renderer falls back to the legacy summary view (period + total only).
+// Payload is the identity envelope for one PDF render. RenderData is
+// REQUIRED - Render and HTML return an error when it's nil. The prior
+// silent fallback to a legacy summary view was removed (2026-08-09
+// contribution-statement-pdf-divergence plan) because it shipped
+// financially-incorrect documents to end users.
 type Payload struct {
 	InvoiceID      string
 	InvoiceNumber  string
@@ -68,9 +68,12 @@ func NewRenderer(pdf PdfGenerator) (*Renderer, error) {
 
 // Render binds the payload to the template and produces the final PDF
 // bytes. RecipientLabel is computed from group/member ids if it isn't
-// already set — caller can override (e.g. after looking up the actual
+// already set - caller can override (e.g. after looking up the actual
 // liaison name) by populating Payload.RecipientLabel before calling.
 func (r *Renderer) Render(ctx context.Context, p Payload) ([]byte, error) {
+	if p.RenderData == nil {
+		return nil, fmt.Errorf("render payload required: invoice=%s tenant=%s", p.InvoiceNumber, p.TenantID)
+	}
 	if p.RecipientLabel == "" {
 		p.RecipientLabel = defaultRecipientLabel(p)
 	}
@@ -86,10 +89,13 @@ func (r *Renderer) Render(ctx context.Context, p Payload) ([]byte, error) {
 	return r.pdf.GeneratePDF(ctx, buf.Bytes())
 }
 
-// HTML returns the rendered HTML without invoking the PDF generator —
+// HTML returns the rendered HTML without invoking the PDF generator -
 // useful for tests and for the future "preview in browser" affordance
 // without paying the wkhtmltopdf round-trip.
 func (r *Renderer) HTML(p Payload) ([]byte, error) {
+	if p.RenderData == nil {
+		return nil, fmt.Errorf("render payload required: invoice=%s tenant=%s", p.InvoiceNumber, p.TenantID)
+	}
 	if p.RecipientLabel == "" {
 		p.RecipientLabel = defaultRecipientLabel(p)
 	}
@@ -126,7 +132,6 @@ type templateView struct {
 	TotalPayments   string
 	TotalAdjustments string
 	AmountDue       string
-	SubtotalAmount  string
 
 	Schemes      []schemeGroup
 	Transactions []transactionRow
@@ -170,22 +175,21 @@ type transactionRow struct {
 
 func buildView(p Payload) templateView {
 	v := templateView{
-		InvoiceNumber:  p.InvoiceNumber,
-		IssuedDate:     p.IssuedDate,
-		DueDate:        p.DueDate,
-		PeriodStart:    p.PeriodStart,
-		PeriodEnd:      p.PeriodEnd,
-		Recipient:      p.RecipientLabel,
-		CurrencyCode:   p.CurrencyCode,
-		SubtotalAmount: money2dpStr(p.TotalAmount),
-		AmountDue:      money2dpStr(p.TotalAmount),
+		InvoiceNumber: p.InvoiceNumber,
+		IssuedDate:    p.IssuedDate,
+		DueDate:       p.DueDate,
+		PeriodStart:   p.PeriodStart,
+		PeriodEnd:     p.PeriodEnd,
+		Recipient:     p.RecipientLabel,
+		CurrencyCode:  p.CurrencyCode,
+		AmountDue:     money2dpStr(p.TotalAmount),
 	}
 
+	// Render/HTML guard nil RenderData with an explicit error, so buildView
+	// only ever runs with a populated RenderData. HasSnapshot stays true
+	// unconditionally to avoid churning the template's {{if .HasSnapshot}}
+	// guard (dropping the guard is a follow-up cleanup).
 	rd := p.RenderData
-	if rd == nil {
-		return v
-	}
-
 	v.HasSnapshot = true
 	// Prefer statement header's balances; fall back to invoice snapshot fields.
 	v.OpeningBalance = money2dpNum(pickNumber(rd.Statement.Header.OpeningBalance, rd.Invoice.OpeningBalance))

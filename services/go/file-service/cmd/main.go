@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -234,14 +235,18 @@ func runInvoiceConsumer(ctx context.Context, brokers string, renderer *invoice.R
 		log.Printf("[file-service] rendering invoice %s (tenant=%s)", evt.InvoiceNumber, evt.TenantID)
 
 		// Pull the full statement + per-contribution rows so the PDF
-		// mirrors the Angular statement page. Falls back to the sparse
-		// event data on failure so we still ship *some* PDF — the
-		// legacy summary layout — rather than nothing.
-		renderData, err := contribClient.FetchRenderPayload(ctx, evt.TenantID, evt.InvoiceID)
+		// mirrors the Angular statement page. Bounded retry then
+		// commit-and-skip: a persistent fetch failure MUST NOT ship a
+		// fallback PDF (prior silent fallback shipped a stripped
+		// summary shape that misrepresented the ledger). Operators
+		// recover via POST /invoice-pdf/render once the underlying
+		// cause is fixed.
+		renderData, err := fetchRenderPayloadWithRetry(ctx, contribClient,
+			evt.TenantID, evt.InvoiceID, evt.InvoiceNumber)
 		if err != nil {
-			log.Printf("[file-service] render payload fetch failed invoice=%s: %v — falling back to summary layout",
-				evt.InvoiceNumber, err)
-			renderData = nil
+			log.Printf("[file-service] ALERT render payload fetch exhausted retries invoice=%s tenant=%s: %v - skipping (no PDF uploaded, InvoicePdfReady NOT published; operator can rerender via POST /invoice-pdf/render)",
+				evt.InvoiceNumber, evt.TenantID, err)
+			return
 		}
 
 		pdf, err := renderer.Render(ctx, invoice.Payload{
@@ -289,6 +294,39 @@ func runInvoiceConsumer(ctx context.Context, brokers string, renderer *invoice.R
 		log.Printf("[file-service] published InvoicePdfReady for %s (%d bytes at %s)",
 			evt.InvoiceNumber, len(pdf), key)
 	})
+}
+
+// fetchRenderPayloadWithRetry calls FetchRenderPayload with a bounded
+// retry (3 attempts total: immediate, +500ms, +2s). The 5s per-attempt
+// client timeout (contributions.Client) is unchanged, so the worst-case
+// budget across all three attempts is ~17s, well inside the Kafka
+// consumer's rebalance interval. Returns the LAST error verbatim so the
+// operator log carries the terminal cause.
+func fetchRenderPayloadWithRetry(ctx context.Context, client *contributions.Client,
+	tenantID, invoiceID, invoiceNumber string) (*contributions.RenderPayload, error) {
+
+	backoffs := []time.Duration{0, 500 * time.Millisecond, 2 * time.Second}
+	var lastErr error
+	for i, wait := range backoffs {
+		if wait > 0 {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(wait):
+			}
+		}
+		rd, err := client.FetchRenderPayload(ctx, tenantID, invoiceID)
+		if err == nil {
+			if i > 0 {
+				log.Printf("[file-service] render payload fetch recovered on attempt %d invoice=%s", i+1, invoiceNumber)
+			}
+			return rd, nil
+		}
+		log.Printf("[file-service] render payload fetch attempt %d/3 failed invoice=%s: %v",
+			i+1, invoiceNumber, err)
+		lastErr = err
+	}
+	return nil, lastErr
 }
 
 // runInvoicePdfDeletedConsumer reacts to a billing revoke from

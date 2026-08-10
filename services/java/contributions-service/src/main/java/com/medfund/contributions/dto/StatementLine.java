@@ -26,7 +26,7 @@ public record StatementLine(
          *       adjustment) with debit XOR credit set.</li>
          *   <li>{@code CONTRIBUTION_PAID} — synthetic credit row emitted
          *       by the legacy mark-paid path.</li>
-         *   <li>{@code CLOSING_BALANCE} — "Balance carried forward"
+         *   <li>{@code CLOSING_BALANCE} — "Amount Due"
          *       bookend row at the end of the period. Same shape as
          *       {@code OPENING_BALANCE}; the runningBalance carries the
          *       closing figure that will be next period's opening.</li>

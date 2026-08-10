@@ -23,6 +23,9 @@ func TestRender_groupPayload_HTMLContainsExpectedFields(t *testing.T) {
 		PeriodEnd:     "2026-06-30",
 		DueDate:       "2026-07-30",
 		IssuedDate:    "2026-06-27",
+		RenderData: &contributions.RenderPayload{
+			Invoice: contributions.Invoice{ClosingBalance: "150.0000"},
+		},
 	})
 	if err != nil {
 		t.Fatalf("html: %v", err)
@@ -56,6 +59,7 @@ func TestRender_individualPayload_HTMLLabelsMember(t *testing.T) {
 		PeriodStart:   "2026-06-01",
 		PeriodEnd:     "2026-06-30",
 		DueDate:       "2026-07-30",
+		RenderData:    &contributions.RenderPayload{},
 	})
 	if err != nil {
 		t.Fatalf("html: %v", err)
@@ -78,6 +82,7 @@ func TestRender_callerSuppliedLabel_isPreserved(t *testing.T) {
 		PeriodEnd:      "2026-06-30",
 		DueDate:        "2026-07-30",
 		RecipientLabel: "Acme Holdings (Pty) Ltd",
+		RenderData:     &contributions.RenderPayload{},
 	})
 	if err != nil {
 		t.Fatalf("html: %v", err)
@@ -294,7 +299,7 @@ func TestBuildView_bookendLines_routeToOpeningAndClosingRow(t *testing.T) {
 	rd.Statement.Lines = append(rd.Statement.Lines, contributions.StatementLine{
 		Date:           "2026-08-31T12:00:00Z",
 		Type:           "CLOSING_BALANCE",
-		Description:    "Balance carried forward",
+		Description:    "Amount Due",
 		RunningBalance: "240.0000",
 	})
 
@@ -324,7 +329,7 @@ func TestBuildView_bookendLines_routeToOpeningAndClosingRow(t *testing.T) {
 	// the balance on the row list AND as the bookend, which is what the
 	// pre-cleanup renderer accidentally did.
 	for _, tx := range v.Transactions {
-		if tx.Description == "Balance brought forward" || tx.Description == "Balance carried forward" {
+		if tx.Description == "Balance brought forward" || tx.Description == "Amount Due" {
 			t.Errorf("bookend row leaked into Transactions: %+v", tx)
 		}
 	}
@@ -354,25 +359,32 @@ func TestBuildView_noBookendLines_openingClosingRowsAreNil(t *testing.T) {
 	}
 }
 
-// Fallback path: without RenderData, HasSnapshot must be false so the
-// template renders the legacy single-line summary. This is what keeps
-// dev/test invocations of file-service usable when contributions-service
-// is unreachable.
-func TestBuildView_noRenderData_fallsBackToSummary(t *testing.T) {
-	v := buildView(Payload{
-		InvoiceNumber: "INV-000999",
+// After the 2026-08-09 fix, Render and HTML must reject a Payload
+// without RenderData rather than silently rendering a summary shape -
+// the summary shape was financially incorrect for real invoices.
+func TestRender_nilRenderData_returnsError(t *testing.T) {
+	r, _ := NewRenderer(StubPdfGenerator{})
+	_, err := r.Render(context.Background(), Payload{
+		InvoiceNumber: "CS-000001",
 		CurrencyCode:  "USD",
 		TotalAmount:   "42.5",
 	})
-	if v.HasSnapshot {
-		t.Errorf("expected HasSnapshot=false when RenderData is nil")
+	if err == nil {
+		t.Fatal("expected error when RenderData is nil, got nil")
 	}
-	if v.SubtotalAmount != "42.50" || v.AmountDue != "42.50" {
-		t.Errorf("fallback money = (%q,%q), want ('42.50','42.50')", v.SubtotalAmount, v.AmountDue)
+	if !strings.Contains(err.Error(), "render payload required") {
+		t.Errorf("error should mention 'render payload required', got: %v", err)
 	}
-	if len(v.Schemes) != 0 || len(v.Transactions) != 0 {
-		t.Errorf("fallback should have zero schemes/transactions, got %d/%d",
-			len(v.Schemes), len(v.Transactions))
+}
+
+func TestHTML_nilRenderData_returnsError(t *testing.T) {
+	r, _ := NewRenderer(StubPdfGenerator{})
+	_, err := r.HTML(Payload{
+		InvoiceNumber: "CS-000002",
+		CurrencyCode:  "USD",
+	})
+	if err == nil {
+		t.Fatal("expected error when RenderData is nil, got nil")
 	}
 }
 
@@ -416,7 +428,7 @@ func TestRender_richPayload_HTMLHasAllSections(t *testing.T) {
 		"Ledger",
 		"opening deposit",             // transaction row description
 		"USD 65.00", "USD 50.00", "USD 115.00", // 2-decimal-place formatting
-		"Amount due",                  // ledger-footer grand-total label
+		"Amount Due",                  // ledger-footer grand-total label
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("rendered HTML missing %q", want)
@@ -430,35 +442,6 @@ func TestRender_richPayload_HTMLHasAllSections(t *testing.T) {
 	}
 }
 
-// Snapshot=false path should render the legacy single-description table
-// with two-decimal totals — used in the "contributions-service is
-// down" degraded mode.
-func TestRender_fallbackPayload_HTMLHasSummaryOnly(t *testing.T) {
-	r, _ := NewRenderer(StubPdfGenerator{})
-	html, err := r.HTML(Payload{
-		InvoiceNumber: "INV-000199",
-		GroupID:       "aaaaaaaa-2222-3333-4444-555555555555",
-		CurrencyCode:  "USD",
-		TotalAmount:   "60.0000",
-		PeriodStart:   "2026-06-01",
-		PeriodEnd:     "2026-06-30",
-		DueDate:       "2026-07-30",
-	})
-	if err != nil {
-		t.Fatalf("html: %v", err)
-	}
-	body := string(html)
-	if !strings.Contains(body, "USD 60.00") {
-		t.Errorf("fallback should format total to 2dp, got:\n%s", body)
-	}
-	if strings.Contains(body, "Balance brought forward") {
-		t.Errorf("fallback should NOT render snapshot sections; got:\n%s", body)
-	}
-	if strings.Contains(body, ".0000") {
-		t.Errorf("fallback rendered a 4-decimal amount:\n%s", body)
-	}
-}
-
 func TestRender_PDFstub_returnsHeaderBytes(t *testing.T) {
 	r, _ := NewRenderer(StubPdfGenerator{})
 	pdf, err := r.Render(context.Background(), Payload{
@@ -469,6 +452,7 @@ func TestRender_PDFstub_returnsHeaderBytes(t *testing.T) {
 		PeriodStart:   "2026-06-01",
 		PeriodEnd:     "2026-06-30",
 		DueDate:       "2026-07-30",
+		RenderData:    &contributions.RenderPayload{},
 	})
 	if err != nil {
 		t.Fatalf("render: %v", err)
