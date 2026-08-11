@@ -1,6 +1,7 @@
 package com.medfund.contributions.service;
 
 import com.medfund.contributions.dto.GroupBillingSummaryRow;
+import com.medfund.contributions.dto.MemberBillingSummaryRow;
 import com.medfund.contributions.dto.SchemeBillingSummaryRow;
 import com.medfund.shared.report.FxRateReader;
 import com.medfund.shared.report.ReportWorkbook;
@@ -70,6 +71,28 @@ public class BillingReportExcelService {
                         return loadFxRates(rows, GroupBillingSummaryRow::currencyCode,
                                 reportingCurrency, tenantId, periodEnd)
                                 .map(fx -> renderGroupWorkbook(rows, periodStart, periodEnd,
+                                        reportingCurrency, fx));
+                    });
+        });
+    }
+
+    public Mono<byte[]> memberReportExcel(LocalDate periodStart, LocalDate periodEnd,
+                                          String search, String insuranceLine, UUID schemeId,
+                                          String reportingCurrency) {
+        return Mono.deferContextual(ctx -> {
+            String tenantIdStr = TenantContext.get(ctx);
+            UUID tenantId = parseTenantId(tenantIdStr);
+            return billingReportService.perMemberSummary(periodStart, periodEnd,
+                            search, insuranceLine, schemeId, 0, ROW_CEILING)
+                    .flatMap(page -> {
+                        if (page.total() > ROW_CEILING) {
+                            return Mono.error(new IllegalArgumentException(
+                                    "Row count " + page.total() + " exceeds " + ROW_CEILING
+                                            + " — refine filters (search / insurance line / scheme)."));
+                        }
+                        return loadFxRates(page.content(), MemberBillingSummaryRow::currencyCode,
+                                reportingCurrency, tenantId, periodEnd)
+                                .map(fx -> renderMemberWorkbook(page.content(), periodStart, periodEnd,
                                         reportingCurrency, fx));
                     });
         });
@@ -159,6 +182,44 @@ public class BillingReportExcelService {
             if (converted) {
                 sw.money(convert(row.totalBilled(), row.currencyCode(), fx));
             }
+        });
+
+        return sheet.freezeAtHeader().autoSize().toBytes();
+    }
+
+    private byte[] renderMemberWorkbook(List<MemberBillingSummaryRow> rows,
+                                        LocalDate periodStart, LocalDate periodEnd,
+                                        String reportingCurrency, Map<String, BigDecimal> fx) {
+        boolean converted = reportingCurrency != null && !reportingCurrency.isBlank();
+        int span = converted ? 9 : 8;
+        ReportWorkbook.SheetWriter sheet = ReportWorkbook.newBook()
+                .sheet("Billing by member")
+                .titleMerged("Billing report — per member", span)
+                .meta("Period start", periodStart != null ? periodStart.toString() : "—")
+                .meta("Period end",   periodEnd   != null ? periodEnd.toString()   : "—")
+                .meta("Reporting currency", converted ? reportingCurrency : "(native)")
+                .meta("Rows", String.valueOf(rows.size()))
+                .blankRow();
+
+        if (converted) {
+            sheet.header("Member #", "Member", "Line", "Scheme", "Currency",
+                    "Contributions", "Total billed", "Total paid",
+                    "Total billed (" + reportingCurrency + ")");
+        } else {
+            sheet.header("Member #", "Member", "Line", "Scheme", "Currency",
+                    "Contributions", "Total billed", "Total paid");
+        }
+
+        sheet.forEach(rows, (sw, row) -> {
+            sw.text(row.memberNumber())
+                    .text(row.memberName())
+                    .text(row.insuranceLine())
+                    .text(row.schemeName())
+                    .text(row.currencyCode())
+                    .number(row.contributionCount())
+                    .moneyBold(row.totalBilled())
+                    .money(row.totalPaid());
+            if (converted) sw.money(convert(row.totalBilled(), row.currencyCode(), fx));
         });
 
         return sheet.freezeAtHeader().autoSize().toBytes();

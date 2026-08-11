@@ -28,8 +28,8 @@ public enum ReportKey {
     GROUP_BILLING_DETAIL        ("Group billing detail",                    ReportFamily.BILLING,          false),
 
     // ── Receipts (Phase 3) ───────────────────────────────────────────────────
-    RECEIPTS_REPORT             ("Receipts — per group",                    ReportFamily.RECEIPTS,         false),
-    RECEIPTS_AGGREGATE          ("Receipts — aggregate",                    ReportFamily.RECEIPTS,         false),
+    RECEIPTS_REPORT             ("Receipts — per scheme / group / member",  ReportFamily.RECEIPTS,         false),
+    RECEIPTS_AGGREGATE          ("Receipts — drill-down",                   ReportFamily.RECEIPTS,         false),
     COLLECTION_RATE             ("Collection rate (receipts vs billing)",   ReportFamily.RECEIPTS,         true),
 
     // ── Debtors & member/group balances (Phase 1 retrofit) ───────────────────

@@ -103,13 +103,22 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/beneficiary-annual-totals", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/beneficiary-annual-totals/*", proxy.Handler(cfg.ContribServiceURL))
 	// Phase 2 billing-report family + cross-service billing aggregate.
-	// /api/v1/reports/billing/* — per-scheme / per-group / detail / export.
+	// /api/v1/reports/billing/* — per-scheme / per-group / per-member (Phase 3 §8) / detail / export.
 	// /api/v1/reports/aggregate/billing — Phase 3 collection-rate and
 	// Phase 5 loss-ratio consumer. Aggregate paths for other families
-	// (receipts / claims) fan out to their owning services in later phases.
+	// (receipts / claims) fan out to their owning services.
 	app.All("/api/v1/reports/billing", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/reports/billing/*", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/reports/aggregate/billing", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/reports/aggregate/billing/*", proxy.Handler(cfg.ContribServiceURL))
+	// Phase 3 receipts-report family + cross-service receipts aggregate.
+	// Same shape as billing — receipts summary+detail per scheme/group/member
+	// plus /aggregate/receipts + /aggregate/receipts/monthly consumed by
+	// Phase 3 collection-rate + Phase 8 cash-flow forecast.
+	app.All("/api/v1/reports/receipts", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/reports/receipts/*", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/reports/aggregate/receipts", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/reports/aggregate/receipts/*", proxy.Handler(cfg.ContribServiceURL))
 
 	// ── Finance Service ───────────────────────────────────────────────────────
 	app.All("/api/v1/payments/*", proxy.Handler(cfg.FinanceServiceURL))
@@ -136,6 +145,12 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/member-payables/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/member-cost-share-liabilities", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/member-cost-share-liabilities/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 3 collection-rate report — composes billing + receipts monthly
+	// aggregates from contributions-service. Path-specific rather than a
+	// catch-all /api/v1/reports/* so Phase 5+ cross-service reports on
+	// finance-service can add their own siblings without route conflicts.
+	app.All("/api/v1/reports/collection-rate", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/collection-rate/*", proxy.Handler(cfg.FinanceServiceURL))
 
 	// ── Rules Service (per-tenant Drools rules) ───────────────────────────────
 	app.All("/api/v1/rules", proxy.Handler(cfg.RulesServiceURL))

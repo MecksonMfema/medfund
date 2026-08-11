@@ -130,7 +130,9 @@ export const FINANCE_ROUTES: Routes = [
   // dashboard would need a new aggregate endpoint in contributions-service.
   { path: 'receipts',        pathMatch: 'full', redirectTo: '/tenant/billing/transactions' },
   { path: 'receipts/groups', pathMatch: 'full', redirectTo: '/tenant/billing/transactions' },
-  cs('receipts/report',           'Receipts Report',           '/view-receipts-report',      'Receipts analytics dashboard.',                ['finance:manage_receipts']),
+  // Phase 3 (G38) — retire the receipts-report ComingSoon stub in favour of
+  // the real per-group receipts surface (the treasurer's default entry).
+  { path: 'receipts/report',        pathMatch: 'full', redirectTo: 'reports/receipts-groups' },
 
   // ── Notes (V074: unified debit / credit / memo notes) ────────────────────
   // Single surface with filter chips — the split debit-notes / credit-notes
@@ -203,8 +205,11 @@ export const FINANCE_ROUTES: Routes = [
   cs('debtors-report',                    'Debtors Report',             '/view-debtors-report',        'Aged-debtors analytics.',                ['finance:view_debtors']),
   cs('billing-to-claims',                 'Billing → Claims',           '/billing-to-claims',          'Reconcile billing runs against claims.', ['finance:manage_billing_reconcile']),
   cs('billing-to-claims/:id',             'Billing → Claims Detail',    '/view-billing-to-claims',     'Single reconciliation entry.',          ['finance:manage_billing_reconcile']),
-  cs('receipts-to-billing',               'Receipts → Billing',         '/receipts-to-billing',        'Match receipts against billing rows.',   ['finance:manage_billing_reconcile']),
-  cs('receipts-to-billing/:id',           'Receipts → Billing Detail',  '/view-receipts-to-billing',   'Single match detail.',                   ['finance:manage_billing_reconcile']),
+  // Phase 3 (G38) — retire the receipts-to-billing ComingSoon stubs in
+  // favour of the real collection-rate report. The detail stub had no
+  // consumer; the primary redirects to /reports/collection-rate.
+  { path: 'receipts-to-billing',     pathMatch: 'full', redirectTo: 'reports/collection-rate' },
+  { path: 'receipts-to-billing/:id', pathMatch: 'full', redirectTo: 'reports/collection-rate' },
 
   // ── Reports ───────────────────────────────────────────────────────────────
   {
@@ -240,6 +245,110 @@ export const FINANCE_ROUTES: Routes = [
       sidebar: 'operational',
       fullbleed: true,
       reportKey: 'GROUP_BILLING_REPORT',
+    },
+  },
+  // Phase 3 §8 — per-member billing (owed-back to Phase 2).
+  {
+    path: 'reports/member-billing',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/member-billing/member-billing-report.component').then(m => m.MemberBillingReportComponent),
+    data: {
+      title: 'Billing report — per member',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'BILLING_REPORT',
+    },
+  },
+  cs('reports/member-billing/:id', 'Member Billing Detail', '/view-member-billing',
+    'Per-member billing detail.', ['finance:view_subledger']),
+  // Phase 3 receipts family — replaces the receipts/report + receipts-to-billing
+  // ComingSoon stubs. Detail route is a single component with a dimension input.
+  {
+    path: 'reports/receipts-schemes',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/receipts/scheme-receipts-report.component').then(m => m.SchemeReceiptsReportComponent),
+    data: {
+      title: 'Receipts — per scheme',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'RECEIPTS_REPORT',
+    },
+  },
+  {
+    path: 'reports/receipts-groups',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/receipts/group-receipts-report.component').then(m => m.GroupReceiptsReportComponent),
+    data: {
+      title: 'Receipts — per group',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'RECEIPTS_REPORT',
+    },
+  },
+  {
+    path: 'reports/receipts-members',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/receipts/member-receipts-report.component').then(m => m.MemberReceiptsReportComponent),
+    data: {
+      title: 'Receipts — per member',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'RECEIPTS_REPORT',
+    },
+  },
+  {
+    path: 'reports/receipts-scheme/:id',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/receipts/receipts-detail.component').then(m => m.ReceiptsDetailComponent),
+    data: {
+      title: 'Scheme receipts detail',
+      dimension: 'scheme',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'RECEIPTS_AGGREGATE',
+    },
+  },
+  {
+    path: 'reports/receipts-group/:id',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/receipts/receipts-detail.component').then(m => m.ReceiptsDetailComponent),
+    data: {
+      title: 'Group receipts detail',
+      dimension: 'group',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'RECEIPTS_AGGREGATE',
+    },
+  },
+  {
+    path: 'reports/receipts-member/:id',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/receipts/receipts-detail.component').then(m => m.ReceiptsDetailComponent),
+    data: {
+      title: 'Member receipts detail',
+      dimension: 'member',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'RECEIPTS_AGGREGATE',
+    },
+  },
+  {
+    path: 'reports/collection-rate',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/collection-rate/collection-rate-report.component').then(m => m.CollectionRateReportComponent),
+    data: {
+      title: 'Collection rate',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'COLLECTION_RATE',
     },
   },
   cs('reports/group-schemes',                'Group Schemes Report',             '/group-schemes-report',                     'Employer benefit schemes.',                       ['finance:view_subledger']),

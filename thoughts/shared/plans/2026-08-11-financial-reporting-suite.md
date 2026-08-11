@@ -8,6 +8,14 @@ research:
 steer: "Do not use any masca reference but we need all the reports in the masca reports fully implemented and excel exports. If possible research the web and check other possible insurance reports. The tenant should be able to turn on and off the reports that they need in the tenant settings."
 services_touched: [tenancy-service, contributions-service, finance-service, claims-service, user-service, shared, gateway, notification-service, ai-service, angular]
 status: draft
+phases_status:
+  "0": landed 2026-08-11 (commit bb3268f)
+  "1": landed 2026-08-11 (§A + §B, commit 273f895)
+  "2": landed 2026-08-11 (commit af9ed8d)
+  "3": landed 2026-08-11
+  "4-19": outline depth; each needs its own grilling pass before implementation
+last_grilled_phase: 3
+last_grilled_date: 2026-08-11
 ---
 
 # Financial Reporting Suite Implementation Plan
@@ -103,6 +111,7 @@ Distributed by data ownership (G2): billing/receipts/debtors reports in **contri
 4. Every controller endpoint carries full Swagger annotations (Rule 7).
 5. Every entity mutation emits an `AuditEvent` (Rule 8); every export emits a `SecurityEvent` (Rule 9).
 6. All amount arithmetic is `BigDecimal`; no cross-currency additions without `FxConverter` (Rule 1). **Missing FX rate semantics per G28**: when the server actually converts a value (a grand-total scalar), a missing rate throws `ReportGenerationException` naming (base, quote, date). When the server populates the envelope's `fxRates` map for optional client-side display, missing currencies are **omitted** from the map and named in the envelope's `warnings: List<String>` block — the report itself still succeeds.
+7. **Cross-service peer-failure semantics per G37 (Phase 3)**: cross-service WebClient fanout uses timeout + retry + fallback + envelope `warnings` capture (via the shared `CrossServiceCallHelper`). A peer down → warnings populated + partial data rendered; the calling report still succeeds. Same "best-effort with warnings" spirit as invariant #6. Do NOT introduce Resilience4j unless a platform-wide grill approves the dep — this is a repo-wide precedent decision, not a per-phase choice.
 
 ---
 
@@ -675,26 +684,429 @@ Server-side SQL aggregations (never in-memory) — column set:
 
 ## Phase 3: Receipts Family (contributions-service + finance-service aggregator)
 
+> **Grilled 2026-08-11.** Outline expanded to code altitude via G30-G40 (see Decisions Log
+> below). Scope amended: adds per-member dimension (user note) and reshapes the
+> Collection Rate report with monthly bucketing (G34). Resilience4j deferred to a
+> platform-wide grill; WebClient operators used for cross-service resilience (G37).
+
 ### Overview
 
-Ship: receipts-report (per-group aggregate), receipts-aggregate (per-group with transaction detail), receipts-vs-billing (collection-rate cross-service report).
+Ship the receipts-report suite across three dimensions (scheme, group, member) with detail
+drill-downs; a monthly-bucketed Collection Rate cross-service report; and the
+`/aggregate/receipts` endpoints that Phase 5 will also consume. Every "receipt" here means a
+completed money-flow transaction (PAYMENT, COPAYMENT_RECEIPT, CTC_OFFSET, netted against
+REFUND, PAYMENT_REVERSAL, CTC_OFFSET_REVERSAL per the `transaction_types.sign` catalog — G30 /
+F25). Per-scheme rollup attributes group-owned transactions via `contribution_id` back-link
+when present; unattributable rows land in a synthetic "Unallocated group payments" bucket
+(G33).
 
-### Changes Required
+### 1. Data model + query semantics (F25, G30)
 
-- **contributions-service**: `ReceiptsReportController` with per-group aggregate + detail + XLSX; new `ReceiptsQueryRepository`. Report keys: `RECEIPTS_REPORT`, `RECEIPTS_AGGREGATE`.
-- **contributions-service**: `GET /api/v1/reports/aggregate/receipts?periodStart&periodEnd&reportingCurrency` for cross-service consumers.
-- **finance-service**: `CollectionRateReportController` → `GET /api/v1/reports/receipts-vs-billing` — calls the billing-aggregate + receipts-aggregate endpoints in parallel via `WebClient`; computes collection rate = receipts / billing per scheme/group; XLSX export. Report key `COLLECTION_RATE`.
-- **Angular**: `receipts-report.component.ts`, `receipts-aggregate-report.component.ts`, `collection-rate-report.component.ts`; replaces `receipts/report`, `receipts-to-billing` stubs.
+**Receipt WHERE clause** (used by every Phase-3 aggregate SQL):
+
+```sql
+SELECT ... 
+FROM transactions t
+JOIN transaction_types tt ON tt.code = t.transaction_type
+WHERE tt.code IN ('PAYMENT', 'COPAYMENT_RECEIPT', 'CTC_OFFSET',
+                  'REFUND', 'PAYMENT_REVERSAL', 'CTC_OFFSET_REVERSAL')
+  AND t.status = 'completed'
+  AND t.transaction_date >= :periodStart
+  AND t.transaction_date <  :periodEnd + INTERVAL '1 day'
+GROUP BY ... ;
+```
+
+**Net-receipt amount** (respects `transaction_types.sign` per F25):
+
+```sql
+SUM(CASE tt.sign WHEN '-' THEN t.amount ELSE -t.amount END) AS net_receipts
+```
+
+Sign convention: `-` = credit-balance = money-in for the fund; `+` = debit-balance = money-out
+or reversal. Amounts always stored positive.
+
+**Group-to-scheme attribution** (G33): every SQL that dimensions by scheme uses
+`LEFT JOIN contributions c ON c.id = t.contribution_id` and `COALESCE(c.scheme_id,
+'<UNALLOCATED>')`. Member-owned rows attribute via `member_scheme_enrolments` active at
+`transaction_date`. Group-owned rows without a `contribution_id` back-link land in the
+`<UNALLOCATED>` bucket, rendered as "Unallocated group payments" in XLSX and Angular.
+
+### 2. Report endpoints (contributions-service)
+
+**File**: `services/java/contributions-service/src/main/java/com/medfund/contributions/controller/ReceiptsReportController.java` (new)
+
+**File**: `services/java/contributions-service/src/main/java/com/medfund/contributions/controller/ReceiptsAggregateController.java` (new — mirrors Phase 2's `BillingAggregateController` pattern; ungated, no report key)
+
+Endpoint table (G31, G32-amended, G36, G40):
+
+| Endpoint | Report key | Wrap? | Notes |
+|---|---|---|---|
+| `GET /api/v1/reports/receipts/schemes?periodStart&periodEnd&reportingCurrency` | `RECEIPTS_REPORT` | wrap | One row per (scheme, currency); envelope carries `perCurrency`; totals include `<UNALLOCATED>` synthetic scheme |
+| `GET /api/v1/reports/receipts/schemes/export/excel?...` | `RECEIPTS_REPORT` | — | XLSX; `SecurityEvent` before bytes |
+| `GET /api/v1/reports/receipts/schemes/{schemeId}?periodStart&periodEnd&page&size&transactionType&currency&reportingCurrency` | `RECEIPTS_AGGREGATE` | wrap | Detail: monthly-strip + paginated ledger (G40) |
+| `GET /api/v1/reports/receipts/schemes/{schemeId}/export/excel?...` | `RECEIPTS_AGGREGATE` | — | Two-sheet XLSX (summary + ledger) |
+| `GET /api/v1/reports/receipts/groups?periodStart&periodEnd&reportingCurrency` | `RECEIPTS_REPORT` | wrap | One row per (group, currency); "Ungrouped" bucket for member-only tenants |
+| `GET /api/v1/reports/receipts/groups/export/excel?...` | `RECEIPTS_REPORT` | — | XLSX |
+| `GET /api/v1/reports/receipts/groups/{groupId}?...` | `RECEIPTS_AGGREGATE` | wrap | Same detail shape as scheme drill-down |
+| `GET /api/v1/reports/receipts/groups/{groupId}/export/excel?...` | `RECEIPTS_AGGREGATE` | — | Two-sheet XLSX |
+| `GET /api/v1/reports/receipts/members?periodStart&periodEnd&page&size&search&insuranceLine&scheme&reportingCurrency` | `RECEIPTS_REPORT` | wrap | Paginated + search (G36); server-side trigram search on `member_number` + `full_name` |
+| `GET /api/v1/reports/receipts/members/export/excel?...` | `RECEIPTS_REPORT` | — | XLSX capped 10k rows; forces caller to filter |
+| `GET /api/v1/reports/receipts/members/{memberId}?...` | `RECEIPTS_AGGREGATE` | wrap | Same detail shape |
+| `GET /api/v1/reports/receipts/members/{memberId}/export/excel?...` | `RECEIPTS_AGGREGATE` | — | Two-sheet XLSX |
+| `GET /api/v1/reports/aggregate/receipts?periodStart&periodEnd&reportingCurrency` | — (ungated per G31) | wrap | Narrow: `(scheme|group|member, currency, totalReceived)` — Phase 5 shape |
+| `GET /api/v1/reports/aggregate/receipts/monthly?periodStart&periodEnd&dimension&reportingCurrency` | — (ungated) | wrap | Monthly-bucketed per-dimension aggregate (G35) — Phase 3 collection-rate + Phase 8+ consumers |
+
+**Also NEW on contributions-service** (owed-back to Phase 2 fixup, per G32 amendment):
+`GET /api/v1/reports/billing/members` + `/{memberId}` + `/export/excel` + `/aggregate/billing/monthly` — same shape as receipts but on the billing side. Billing per-member surface is the symmetry-fix for individual-line policies (LIFE / TRAVEL / DISABILITY / VEHICLE / PROPERTY / individual HEALTH) that were missing from Phase 2.
+
+### 3. DTOs (shared package)
+
+**File**: `services/java/contributions-service/src/main/java/com/medfund/contributions/dto/ReceiptsAggregateRow.java` (new)
+
+```java
+/**
+ * Narrow cross-service receipts aggregate row consumed by Phase 3 collection-rate
+ * and Phase 5 loss-ratio reports. Symmetric to {@link BillingAggregateRow}.
+ */
+public record ReceiptsAggregateRow(
+        String dimension,          // "SCHEME" | "GROUP" | "MEMBER"
+        UUID dimensionId,          // may be null for the "<UNALLOCATED>" synthetic scheme
+        String dimensionName,
+        String currencyCode,
+        BigDecimal totalReceived
+) {}
+```
+
+**File**: `services/java/shared/src/main/java/com/medfund/shared/report/MonthlyAggregateRow.java` (new — shared between billing + receipts)
+
+```java
+public record MonthlyAggregateRow(
+        String dimension,          // "SCHEME" | "GROUP" | "MEMBER"
+        UUID dimensionId,
+        String dimensionName,
+        String currencyCode,
+        LocalDate month,           // first-of-month bucket
+        BigDecimal totalAmount
+) {}
+```
+
+**File**: `services/java/contributions-service/src/main/java/com/medfund/contributions/dto/ReceiptsSummaryRow.java` (new — per-dimension summary)
+
+```java
+public record ReceiptsSummaryRow(
+        UUID dimensionId,          // null for "<UNALLOCATED>" scheme
+        String dimensionName,
+        String insuranceLine,      // populated for MEMBER dimension only; null otherwise
+        String currencyCode,
+        BigDecimal totalReceived,
+        long transactionCount
+) {}
+```
+
+**File**: `services/java/contributions-service/src/main/java/com/medfund/contributions/dto/ReceiptsDetailResponse.java` (new — drill-down payload)
+
+```java
+public record ReceiptsDetailResponse(
+        UUID dimensionId,
+        String dimensionName,
+        List<MonthlyBucket> monthlyBuckets,
+        PageResponse<TransactionLedgerRow> transactions
+) {
+    public record MonthlyBucket(LocalDate month, BigDecimal totalReceived, long transactionCount) {}
+    public record TransactionLedgerRow(
+            UUID id, String transactionNumber, Instant transactionDate,
+            String transactionType, String paymentMethod, String reference,
+            BigDecimal amount, String currencyCode) {}
+}
+```
+
+### 4. Service + repository (contributions-service)
+
+**File**: `services/java/contributions-service/src/main/java/com/medfund/contributions/service/ReceiptsReportService.java` (new — thin facade, same shape as `BillingReportService`)
+
+Methods:
+- `Mono<List<ReceiptsSummaryRow>> perScheme(LocalDate, LocalDate)` — includes `<UNALLOCATED>` bucket
+- `Mono<Map<String, PerCurrencyTotal>> perSchemePerCurrencyTotals(LocalDate, LocalDate)`
+- `Mono<List<ReceiptsSummaryRow>> perGroup(LocalDate, LocalDate)`
+- `Mono<Map<String, PerCurrencyTotal>> perGroupPerCurrencyTotals(LocalDate, LocalDate)`
+- `Mono<PageResponse<ReceiptsSummaryRow>> perMember(LocalDate, LocalDate, Pageable, String search, String insuranceLine, UUID scheme)`
+- `Mono<Map<String, PerCurrencyTotal>> perMemberPerCurrencyTotals(...)` (respects the same filters)
+- `Mono<ReceiptsDetailResponse> detail(String dimension, UUID id, LocalDate, LocalDate, Pageable, String txnType, String currency)`
+- `Mono<List<ReceiptsAggregateRow>> aggregate(LocalDate, LocalDate)` — narrow
+- `Flux<MonthlyAggregateRow> aggregateMonthly(String dimension, LocalDate, LocalDate)`
+
+**File**: `services/java/contributions-service/src/main/java/com/medfund/contributions/repository/ReceiptsReportQueryRepository.java` (new)
+
+All queries use `DatabaseClient` + R2DBC. Server-side SQL only — never `.collectList()` and
+aggregate in memory (per plan §Performance).
+
+Key SQL fragments:
+
+```sql
+-- per-scheme summary (G30 + G33)
+WITH receipts AS (
+    SELECT t.*, tt.sign,
+           COALESCE(c.scheme_id, '<UNALLOCATED>') AS attributed_scheme_id
+    FROM transactions t
+    JOIN transaction_types tt ON tt.code = t.transaction_type
+    LEFT JOIN contributions c ON c.id = t.contribution_id
+    WHERE tt.code IN ('PAYMENT','COPAYMENT_RECEIPT','CTC_OFFSET',
+                       'REFUND','PAYMENT_REVERSAL','CTC_OFFSET_REVERSAL')
+      AND t.status = 'completed'
+      AND t.transaction_date >= :periodStart
+      AND t.transaction_date <  :periodEnd + INTERVAL '1 day'
+)
+SELECT r.attributed_scheme_id AS scheme_id,
+       COALESCE(s.name, 'Unallocated group payments') AS scheme_name,
+       r.currency_code,
+       SUM(CASE r.sign WHEN '-' THEN r.amount ELSE -r.amount END) AS total_received,
+       COUNT(*) AS transaction_count
+FROM receipts r
+LEFT JOIN schemes s ON s.id = r.attributed_scheme_id::uuid
+GROUP BY r.attributed_scheme_id, s.name, r.currency_code
+ORDER BY (r.attributed_scheme_id = '<UNALLOCATED>'), s.name, r.currency_code;
+```
+
+Per-member summary uses `WHERE t.member_id IS NOT NULL` and joins to `members` + `member_scheme_enrolments` for the `insurance_line` filter. Trigram index on `members.full_name` + `members.member_number` supports the `search` param (add migration V05x if not present).
+
+### 5. Collection Rate report (finance-service)
+
+**File**: `services/java/finance-service/src/main/java/com/medfund/finance/controller/CollectionRateReportController.java` (new)
+
+- `GET /api/v1/reports/collection-rate?periodStart&periodEnd&reportingCurrency` → `Mono<ReportResponse<CollectionRateReportResponse>>`. Report key `COLLECTION_RATE`.
+- `GET /api/v1/reports/collection-rate/export/excel?...` → `Mono<ResponseEntity<byte[]>>` with two sheets (per-scheme, per-group) plus a member sheet when member data exists.
+
+**File**: `services/java/finance-service/src/main/java/com/medfund/finance/service/CollectionRateReportService.java` (new)
+
+Fanout pattern:
+
+```java
+public Mono<CollectionRateReportResponse> compute(LocalDate periodStart, LocalDate periodEnd, String reportingCurrency) {
+    Mono<List<MonthlyAggregateRow>> billing = contributionsClient
+            .aggregateBillingMonthly(periodStart, periodEnd)
+            .timeout(Duration.ofSeconds(2))
+            .retry(1)
+            .onErrorResume(e -> {
+                warnings.add("billing-aggregate call failed: " + e.getMessage());
+                return Mono.just(List.of());
+            });
+    Mono<List<MonthlyAggregateRow>> receipts = contributionsClient
+            .aggregateReceiptsMonthly(periodStart, periodEnd)
+            .timeout(Duration.ofSeconds(2))
+            .retry(1)
+            .onErrorResume(e -> {
+                warnings.add("receipts-aggregate call failed: " + e.getMessage());
+                return Mono.just(List.of());
+            });
+    return Mono.zip(billing, receipts).map(t -> composeCollectionRate(t.getT1(), t.getT2()));
+}
+```
+
+`composeCollectionRate` groups both sides by `(dimension, dimensionId, currency)` and produces
+monthly buckets `{month, billed, received, ratePct}` per dimension row. Per-currency rates —
+never cross-currency conversion in the rate itself (G34). Warnings surface on the envelope's
+`warnings: List<String>` block per G28.
+
+**File**: `services/java/shared/src/main/java/com/medfund/shared/report/CrossServiceCallHelper.java` (new)
+
+Encapsulates the timeout + retry + fallback + warnings-capture pattern so Phase 5+
+cross-service reports reuse the same operators. Phase 3 adds the pattern; Phase 5 wires it
+into loss-ratio without re-hand-rolling.
+
+**Response DTO**:
+
+```java
+public record CollectionRateReportResponse(
+        LocalDate periodStart,
+        LocalDate periodEnd,
+        List<DimensionRow> byScheme,
+        List<DimensionRow> byGroup,
+        List<DimensionRow> byMember   // populated only when member data present
+) {
+    public record DimensionRow(
+            UUID dimensionId, String dimensionName, String currencyCode,
+            List<MonthlyBucket> monthlyBuckets,
+            BigDecimal totalBilled, BigDecimal totalReceived, BigDecimal totalRatePct) {}
+    public record MonthlyBucket(
+            LocalDate month, BigDecimal billed, BigDecimal received, BigDecimal ratePct) {}
+}
+```
+
+### 6. Angular (G38, G36, G40)
+
+**Files** (new components):
+- `clients/angular/src/app/pages/tenant/finance/reports/receipts/scheme-receipts-report.component.ts`
+- `.../receipts/group-receipts-report.component.ts`
+- `.../receipts/member-receipts-report.component.ts` (paginated + search + `InsuranceLine` filter)
+- `.../receipts/receipts-detail.component.ts` (dimension: `scheme`|`group`|`member`; monthly strip + paginated ledger)
+- `.../collection-rate/collection-rate-report.component.ts` (per-dimension per-currency, monthly trend chart)
+
+**Routes** (edit `clients/angular/src/app/pages/tenant/finance/finance.routes.ts`):
+
+Delete/redirect the existing receipts stubs:
+- Delete `cs('receipts/report', ...)` at line 133 → replace with
+  `{ path: 'receipts/report', pathMatch: 'full', redirectTo: 'reports/receipts-groups' }`
+- Delete `cs('receipts-to-billing', ...)` at line 206 → replace with
+  `{ path: 'receipts-to-billing', pathMatch: 'full', redirectTo: 'reports/collection-rate' }`
+- Delete `cs('receipts-to-billing/:id', ...)` at line 207 outright (no detail view for collection rate)
+
+Add new routes (in the `// ── Reports ─────` block, after the Phase 2 billing entries):
+
+```typescript
+{
+  path: 'reports/receipts-schemes',
+  canActivate: [permissionGuard(['finance:view_subledger'])],
+  loadComponent: () => import('./reports/receipts/scheme-receipts-report.component')
+      .then(m => m.SchemeReceiptsReportComponent),
+  data: { title: 'Receipts — per scheme', sidebar: 'operational', fullbleed: true,
+          reportKey: 'RECEIPTS_REPORT' },
+},
+{
+  path: 'reports/receipts-groups',
+  canActivate: [permissionGuard(['finance:view_subledger'])],
+  loadComponent: () => import('./reports/receipts/group-receipts-report.component')
+      .then(m => m.GroupReceiptsReportComponent),
+  data: { title: 'Receipts — per group', sidebar: 'operational', fullbleed: true,
+          reportKey: 'RECEIPTS_REPORT' },
+},
+{
+  path: 'reports/receipts-members',
+  canActivate: [permissionGuard(['finance:view_subledger'])],
+  loadComponent: () => import('./reports/receipts/member-receipts-report.component')
+      .then(m => m.MemberReceiptsReportComponent),
+  data: { title: 'Receipts — per member', sidebar: 'operational', fullbleed: true,
+          reportKey: 'RECEIPTS_REPORT' },
+},
+{
+  path: 'reports/receipts-scheme/:id',
+  canActivate: [permissionGuard(['finance:view_subledger'])],
+  loadComponent: () => import('./reports/receipts/receipts-detail.component')
+      .then(m => m.ReceiptsDetailComponent),
+  data: { title: 'Scheme receipts detail', dimension: 'scheme',
+          sidebar: 'operational', fullbleed: true, reportKey: 'RECEIPTS_AGGREGATE' },
+},
+{
+  path: 'reports/receipts-group/:id',
+  canActivate: [permissionGuard(['finance:view_subledger'])],
+  loadComponent: () => import('./reports/receipts/receipts-detail.component')
+      .then(m => m.ReceiptsDetailComponent),
+  data: { title: 'Group receipts detail', dimension: 'group',
+          sidebar: 'operational', fullbleed: true, reportKey: 'RECEIPTS_AGGREGATE' },
+},
+{
+  path: 'reports/receipts-member/:id',
+  canActivate: [permissionGuard(['finance:view_subledger'])],
+  loadComponent: () => import('./reports/receipts/receipts-detail.component')
+      .then(m => m.ReceiptsDetailComponent),
+  data: { title: 'Member receipts detail', dimension: 'member',
+          sidebar: 'operational', fullbleed: true, reportKey: 'RECEIPTS_AGGREGATE' },
+},
+{
+  path: 'reports/collection-rate',
+  canActivate: [permissionGuard(['finance:view_subledger'])],
+  loadComponent: () => import('./reports/collection-rate/collection-rate-report.component')
+      .then(m => m.CollectionRateReportComponent),
+  data: { title: 'Collection rate', sidebar: 'operational', fullbleed: true,
+          reportKey: 'COLLECTION_RATE' },
+},
+```
+
+**Angular service** (edit `clients/angular/src/app/core/services/finance.service.ts`):
+- `getReceiptsPerScheme(period, reportingCurrency?)` → `Observable<ReportResponse<ReceiptsSummaryRow[]>>`
+- `getReceiptsPerGroup(period, reportingCurrency?)` → `Observable<ReportResponse<ReceiptsSummaryRow[]>>`
+- `getReceiptsPerMember(period, options)` → `Observable<ReportResponse<PageResponse<ReceiptsSummaryRow>>>` (`options` = page/size/search/insuranceLine/scheme/reportingCurrency)
+- `getReceiptsDetail(dimension, id, period, options)` → `Observable<ReportResponse<ReceiptsDetailResponse>>`
+- `getCollectionRate(period, reportingCurrency?)` → `Observable<ReportResponse<CollectionRateReportResponse>>`
+- Corresponding `download*Xlsx(...)` methods for the four exports.
+
+**Reports hub** (`.../reports/reports-hub.component.ts`) auto-picks up the new report keys via
+the existing `ReportCatalogueService`; no code changes needed. F28.
+
+**Gateway routing** (edit `services/go/gateway/internal/routing/routes.go` or equivalent —
+follow the Phase 2 gateway addition pattern per plan Deviation entry line 1400): add
+`/api/v1/reports/receipts`, `/api/v1/reports/receipts/*`, `/api/v1/reports/aggregate/receipts`,
+`/api/v1/reports/aggregate/receipts/monthly` → contributions-service;
+`/api/v1/reports/collection-rate`, `/api/v1/reports/collection-rate/*` → finance-service.
+
+### 7. XLSX exports (F29)
+
+**File**: `services/java/contributions-service/src/main/java/com/medfund/contributions/service/ReceiptsExcelService.java` (new — uses shared `ReportWorkbook`)
+
+- Per-scheme / per-group / per-member: single sheet, header row + data rows + totals footer, one column set (dimensionName, currency, totalReceived, transactionCount) + a rightmost "Amount in {reportingCurrency}" column when `?reportingCurrency=` supplied (mirrors Phase 1 §B `NotesExcelService` pattern).
+- Detail (drill-down): two sheets — sheet 1 monthly buckets (month, totalReceived, transactionCount), sheet 2 transaction ledger with all fields.
+- Every export publishes `SecurityEventPublisher.publishDataAccess(tenantId, actorId, actorEmail, reportKey, details)` before returning bytes. `details.dimension` populated for detail exports.
+- 10k-row cap on the ledger export (repo convention); 400 with "refine filters" if exceeded.
+
+**File**: `services/java/finance-service/src/main/java/com/medfund/finance/service/CollectionRateExcelService.java` (new)
+
+Two/three sheets: `Per Scheme`, `Per Group`, and `Per Member` when member data present. Each
+sheet has: dimension name + currency in leftmost cols; monthly columns spanning the period
+(one column per month per {billed, received, ratePct}); totals in rightmost columns. Warnings
+render as a highlighted top-of-sheet ribbon when populated.
+
+### 8. Owed-back to Phase 2: `/billing/members` symmetry fix
+
+Phase 2 shipped `/billing/schemes` + `/billing/groups` but has no `/billing/members` surface.
+Individual-line contributions (LIFE / TRAVEL / DISABILITY / VEHICLE / PROPERTY / individual
+HEALTH) bill members and `Contribution.memberId` exists. Phase 3 implementer adds:
+- `GET /api/v1/reports/billing/members` + `/{memberId}` + `/export/excel`
+- Extends `BillingReportService` with `perMember(...)`, `perMemberPerCurrencyTotals(...)`, `detail(...)`
+- Extends `BillingReportQueryRepository`
+- New Angular routes `/reports/member-billing` + `/reports/member-billing/:id`
+- Same paginated + search + `insuranceLine` filter shape as G36 receipts-per-member
+
+Enum key: reuse `BILLING_REPORT` (broad key per G21) — no new report key.
+
+### 9. Enum label fix
+
+**File**: `services/java/shared/src/main/java/com/medfund/shared/report/ReportKey.java`
+
+Rename `RECEIPTS_AGGREGATE` label from `"Receipts — aggregate"` to `"Receipts — drill-down"` for
+clarity. Its purpose (drill-down detail — G31) is easier to read than "aggregate", which
+overlaps with the cross-service `/aggregate/*` URL family that doesn't have a report key.
+
+### 10. Testing (F26)
+
+**Files** (new unit tests):
+- `services/java/contributions-service/src/test/java/com/medfund/contributions/service/ReceiptsReportServiceTest.java`
+- `.../contributions/controller/ReceiptsReportControllerTest.java`
+- `.../contributions/controller/ReceiptsAggregateControllerTest.java`
+- `services/java/finance-service/src/test/java/com/medfund/finance/service/CollectionRateReportServiceTest.java` — must cover the fanout warnings path (peer WebClient failure → warnings populated, report succeeds with partial data)
+- `.../finance/controller/CollectionRateReportControllerTest.java`
+
+**Mockito 5 note** (per Phase 2 deviation line 1411): stub every `Mono`-returning service in
+`@BeforeEach`; `any(Mono.class)` rejects nulls.
+
+Per-controller ITs (`ReceiptsReportControllerIT`, `CollectionRateReportControllerIT`) deferred
+to the family-phase testcontainer harness pickup, consuming the shared
+`ReportRetrofitAssertions` helper — same pattern as Phase 1 §B and Phase 2.
 
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `make test-java` + `make test-integration` — per-service + cross-service round-trip with mocked WebClient.
-- [ ] `verify` on all three new routes.
-- [ ] Playwright coverage for the collection-rate page.
+- [x] `cd services/java/contributions-service && ../gradlew build test` — `ReceiptsReportServiceTest` (9 cases), `ReceiptsReportControllerTest` (7 cases), `ReceiptsAggregateControllerTest` (2 cases) all green; existing `BillingReportServiceTest` + `BillingReportControllerTest` still green.
+- [x] `cd services/java/finance-service && ../gradlew build test` — `CollectionRateReportServiceTest` (5 cases, incl. peer-down warnings path) and `CollectionRateReportControllerTest` (3 cases) both green. Residual 7-test failures (`ReconciliationServiceTest`, `PaymentServiceTest.create_validRequest_createsPayment`, `ProviderBalanceServiceTest.updateBalance_newProvider_createsBalance`) are the pre-existing `bug_claim_save_mock_id_npe` set carried through Phases 0–2, untouched by Phase 3.
+- [x] `cd services/java/shared && ../gradlew test` — new `CrossServiceCallHelperTest` (5 cases — happy path, retry-then-fallback, timeout, warnings capture, null-tolerant) green.
+- [x] Gateway `cd services/go/gateway && go build ./...` green after the routing additions (7 new route entries: `/reports/receipts`, `/receipts/*`, `/aggregate/receipts`, `/aggregate/receipts/*`, `/aggregate/billing/*`, `/collection-rate`, `/collection-rate/*`).
+- [x] Angular `ng build --configuration=development` green — 7 new components (scheme/group/member receipts + receipts-detail + collection-rate + member-billing-report), 9 new routes (3 receipts summaries + 3 receipts details + collection-rate + member-billing + member-billing detail stub), 3 legacy stubs retired via `pathMatch:'full'` redirect.
+- [ ] Playwright: `receipts-report.spec.ts` — golden path (set period → filter → export XLSX) — **deferred to family-phase pickup per F26 rationale**.
+- [ ] `make test-integration` — per-controller ITs — **deferred to family-phase pickup per F26 rationale**.
 
 #### Manual Verification
-- [ ] Cross-service report: kill finance-service → confirm collection-rate page shows a clear error (not silent zero); restart → recovers.
+- [ ] For a two-currency tenant, per-scheme receipts totals reconcile against a manual sum of the underlying transactions rows (SIGN-aware: PAYMENT adds, REFUND subtracts).
+- [ ] For a tenant with group-owned transactions and `contribution_id` NULL, an "Unallocated group payments" scheme row appears in the per-scheme report with the correct total.
+- [ ] For an individual-line member (e.g., LIFE), per-member receipts report shows their direct payments.
+- [ ] Collection Rate report: kill contributions-service → collection-rate page loads with a warning banner "receipts-aggregate call failed: ..." and the billing side rendered; restart → recovers on next load.
+- [ ] For a mixed-currency tenant, collection-rate report shows per-currency rows (USD rate + ZWL rate side by side), not a single conflated rate.
+- [ ] XLSX export from the detail page has both sheets (monthly + ledger); the ledger sheet cap error fires with a "refine filters" body when a group has >10k transactions in the period.
+- [ ] Retire-stub verification: `receipts/report` and `receipts-to-billing` old URLs redirect to `reports/receipts-groups` and `reports/collection-rate` respectively.
+- [ ] Kafka `medfund.security.events` carries `reportKey=RECEIPTS_REPORT` / `RECEIPTS_AGGREGATE` / `COLLECTION_RATE` on every export.
+- [ ] Owed-back Phase-2 `/billing/members` surface loads and reconciles for an individual-line member.
+
+**Implementation Note**: pause for human acceptance before Phase 4. Phase 3 introduces a new
+cross-service pattern (WebClient operator resilience via `CrossServiceCallHelper`) that Phase
+5 loss-ratio will reuse — verify the helper's warnings-envelope shape looks reasonable to a
+treasurer before scaling the pattern.
 
 ---
 
@@ -727,7 +1139,7 @@ Add the aggregator controller in finance-service that composes contributions-ser
 ### Changes Required
 
 - **finance-service** `CrossServiceReportController` with `GET /api/v1/reports/billing-vs-claims` (report key `LOSS_RATIO`) and `GET /api/v1/reports/member-payments` (report key `MEMBER_PAYMENTS_UNIFIED`).
-- WebClient calls to `/api/v1/reports/aggregate/billing`, `/receipts`, `/claims` in parallel with proper timeouts + circuit-breaker via Resilience4j.
+- WebClient calls to `/api/v1/reports/aggregate/billing`, `/receipts`, `/claims` in parallel using the shared `CrossServiceCallHelper` (from Phase 3 §5 / G37 / invariant #7): `.timeout(2s) + .retry(1) + .onErrorResume(...)` with envelope `warnings` capture. ~~circuit-breaker via Resilience4j~~ superseded per G37 — Resilience4j deferred to a platform-wide grill.
 - **Angular**: `loss-ratio-report.component.ts`, `member-payments-report.component.ts`; replaces `billing-to-claims`, `reports/member-payments`, `reports/group-billing-to-claims` stubs.
 
 ### Success Criteria
@@ -798,7 +1210,7 @@ Cash-flow forecasting (13-week rolling) + collection-rate report + refresh of th
 ### Changes Required
 
 - **contributions-service** `AgedDebtorsForecastController.forecast(rollingWeeks=13)` → aggregates expected receipts by ISO week; combines with `finance-service/PaymentRunController` upcoming outflows via WebClient. Report keys `CASH_FLOW_FORECAST_13W`, `COLLECTION_RATE_TREND`.
-- **Angular**: `cash-flow-forecast.component.ts` with a stacked line chart via `@swimlane/ngx-charts`; replaces `reports/receipts-to-billing` and any forecasting placeholder.
+- **Angular**: `cash-flow-forecast.component.ts` with a stacked line chart via `@swimlane/ngx-charts`. ~~replaces `reports/receipts-to-billing`~~ — Phase 3 already retired that stub to `/reports/collection-rate`. Phase 8 fills any remaining forecasting placeholder.
 
 ### Success Criteria
 
@@ -1049,7 +1461,7 @@ Ties the existing fraud-detection AI outputs into a fraud referral + savings rep
 ## Performance Considerations
 
 - **Server-side SQL only** — never `.collectList()` into memory before aggregating (this was the naive `ReportController` sin).
-- **Cross-service reports** need Resilience4j timeout (2s per hop) + circuit-breaker; report fails-loud if a dependency is down.
+- **Cross-service reports** use the shared `CrossServiceCallHelper` — `.timeout(2s per hop) + .retry(1) + .onErrorResume(...)` — with envelope `warnings` capture on peer failure (report succeeds with partial data; treasurer sees warning banner). Per G37 + invariant #7. ~~need Resilience4j timeout + circuit-breaker; report fails-loud if a dependency is down~~ — superseded; Resilience4j deferred to a platform-wide grill.
 - **Snapshots** double write cost on payment-run finalisation; snapshot table needs periodic partitioning by year if run volume grows.
 - **Actuarial calls to Python** are synchronous — set a 30s ceiling; cache results by (tenant, report-key, period) in Redis for 1h.
 - **Angular bundle**: reports hub lazy-loads per-family chunks; hub itself must stay under 200KB gzipped.
@@ -1432,6 +1844,150 @@ places worth recording:
   are deferred until the family-phase drill flow (Phase 4 claims
   financial detail cross-links here).
 
+**2026-08-11 (Phase 3 grilling — expansion to code altitude, before implementation)**
+
+Phase 3 shipped as a 12-line outline. Grilled 2026-08-11 with G30-G40 (plus F18-F29
+verification findings). Deviations from the pre-grill outline:
+
+- **Scope expansion — per-member dimension added (user note during grilling).** Original
+  outline said "per-group aggregate" only. User pointed out that some insurance lines bill
+  members directly, not groups (individual medical aid, LIFE, TRAVEL, DISABILITY, VEHICLE,
+  PROPERTY per `.claude/CLAUDE.md`'s `InsuranceLine.isPersonCentric` split). V039 already
+  supports member-owned transactions. Phase 3 now ships three summary surfaces (scheme,
+  group, member) + three detail drill-downs. Angular gets a new
+  `member-receipts-report.component.ts` with paginated + searchable list + `insuranceLine`
+  filter (G36). By symmetry, Phase 2 has the same per-member gap on the billing side —
+  folded into Phase 3 as an owed-back §8 (add `/billing/members` + companion Angular
+  routes).
+- **Collection Rate reshape — monthly bucketing (G34).** Outline described only "collection
+  rate = receipts / billing per scheme/group". Grilling settled on per-dimension,
+  per-currency, monthly-trend response shape so a treasurer sees drift over the period, not
+  just a period-total. Consequence: Phase 2's narrow `BillingAggregateRow` is insufficient;
+  Phase 3 adds new `/aggregate/{billing,receipts}/monthly` endpoints returning
+  `MonthlyAggregateRow` alongside the existing narrow ones (G35). Phase 5 loss-ratio still
+  consumes the narrow contract.
+- **Resilience approach — WebClient operators, not Resilience4j (G37).** Outline said
+  "Resilience4j timeout + circuit-breaker". Verified `grep -rn resilience4j services/java`
+  returns nothing — Resilience4j is not on the classpath of any service, and adding it is a
+  repo-wide precedent (Phase 5, 8, 14 would follow suit). Deferred to a platform-wide grill.
+  Phase 3 uses `.timeout(2s) + .retry(1) + .onErrorResume(...)` with envelope `warnings`
+  capture. New shared helper `CrossServiceCallHelper` in `services/java/shared/report/`
+  encapsulates the pattern for Phase 5+ consumers.
+- **`RECEIPTS_AGGREGATE` semantics + label rename (G31).** Enum label "Receipts —
+  aggregate" is confusing because it overlaps with the ungated `/aggregate/*` URL family.
+  Phase 3 uses `RECEIPTS_AGGREGATE` as the drill-down detail key (mirrors G29 pattern of
+  drilldown-gets-its-own-key). Rename label from `"Receipts — aggregate"` to
+  `"Receipts — drill-down"` (§9). Cross-service `/aggregate/receipts` lives on separate
+  `ReceiptsAggregateController`, ungated, no report key — mirrors Phase 2 deviation §1.
+- **Receipt definition — accountant view (G30).** Includes CTC_OFFSET as a receipt (satisfies
+  a bill via advance-credit) rather than the narrower bank-cash-in view. Overrides the
+  auto-memory `project_ctc_is_opt_in`'s framing for reporting only — CTC remains an opt-in
+  contribution-satisfaction flow, but shows in collections. This is a deliberate override —
+  future implementers reading the memory should not re-narrow the report scope.
+- **Group-to-scheme attribution — Unallocated bucket (G33).** Group-owned transactions with
+  `contribution_id NULL` are unattributable to a scheme (groups can span schemes; verified
+  `Group` entity has no `scheme_id`). Rather than pro-rate, ship a synthetic "Unallocated
+  group payments" scheme row — cheap SQL, honest about what's unattributable. Consequence:
+  tenants that pay group-level without allocating to contributions will see a large
+  "Unallocated" row in per-scheme reports; documented in the report help text.
+- **Angular route flat under `/reports/*` + old-stub retirement (G38).** Existing
+  `receipts/report` and `receipts-to-billing` stubs retired via `pathMatch:'full',
+  redirectTo:` redirects. Canonical paths follow Phase 2's flat naming (`reports/schemes`
+  not `reports/billing/schemes`): `reports/receipts-schemes`, `-groups`, `-members`,
+  `-{dim}/:id`, `collection-rate`. Legacy permission scopes `finance:manage_receipts` and
+  `finance:manage_billing_reconcile` become unreferenced by wired routes — flagged in
+  `permissions.ts` but left defined.
+- **Scheduled delivery for `COLLECTION_RATE` deferred to Phase 17 (G39).** `cadenced=true`
+  in the enum stays aspirational; Phase 3 ships the on/off toggle only. Phase 17 lands the
+  schedule table + admin UI + `@Scheduled` job + notification-service dispatcher as one
+  coherent tranche.
+- **Detail drill-down shape (G40).** Detail page + XLSX carry a monthly-buckets strip +
+  paginated transaction ledger. XLSX = two sheets, ledger capped at 10k rows. Same shape
+  for scheme / group / member — one `receipts-detail.component.ts` with a `dimension` input.
+- **Cross-cutting invariant #6 — extended.** G28 covered missing-FX best-effort warnings.
+  G37 extends the same warnings pattern to cross-service peer failures (billing-aggregate
+  or receipts-aggregate down → warnings populated, report succeeds with partial data). No
+  wording change needed to invariant #6 — the "best-effort with warnings" spirit already
+  covers it — but a reader tracing peer-failure semantics should look at G37 alongside G28.
+
+**Phase 3 deferred (family-phase pickup — same rationale as Phase 1 §B and Phase 2)**:
+
+- `ReceiptsReportControllerIT`, `ReceiptsAggregateControllerIT`, `CollectionRateReportControllerIT`
+  — deferred to family-phase testcontainer harness pickup, consuming the shared
+  `ReportRetrofitAssertions` helper.
+- Playwright `receipts-report.spec.ts` + `collection-rate.spec.ts` — same rationale.
+- Phase 5+ consumers of the new `CrossServiceCallHelper` — Phase 5 loss-ratio (this plan)
+  and any Phase 8 cash-flow-forecast cross-service call reuse the helper; Phase 3 ships the
+  helper + its unit tests, not the downstream consumers.
+
+**2026-08-11 (Phase 3 implementation — receipts family + collection rate + billing per-member owed-back)**
+
+Phase 3 as grilled to code altitude expanded further during implementation. Deviations
+from the pre-implementation plan text worth recording:
+
+- **`member_scheme_enrolments` doesn't exist — use `members.scheme_id` directly.** Plan
+  §1 said "Member-owned rows attribute via `member_scheme_enrolments` active at
+  `transaction_date`". Verified `grep -rn "member_scheme_enrolments" services/java/tenancy-service/src/main/resources/db/migration/tenant/` returns nothing — the codebase never introduced that table; `members.scheme_id` is the direct FK. Repo now uses
+  `COALESCE(c.scheme_id, m.scheme_id) AS attributed_scheme_id` — contribution-back-link
+  first, member's current scheme second, `<UNALLOCATED>` (NULL) only for group-owned
+  transactions without a back-link (matches G33 intent exactly).
+- **Search uses ILIKE, not trigram.** Plan §4 said "Server-side trigram search on
+  `member_number` + `full_name`. Trigram index on `members.full_name` + `members.member_number` supports the `search` param (add migration V05x if not present)". Verified
+  `grep -rn "pg_trgm\|CREATE EXTENSION" services/java/tenancy-service/src/main/resources/db/migration/tenant/` returns nothing — the codebase doesn't use pg_trgm anywhere,
+  and existing member-search paths (`user-service/MemberRepository.search`,
+  `contributions-service/InvoiceListService`) all use plain `LOWER(...) LIKE
+  LOWER(CONCAT('%', :q, '%'))` on first/last name + member_number. Kept consistent —
+  no new extension migration, no new index. If future performance work needs it a
+  platform-wide grill would introduce pg_trgm and retrofit every search path.
+- **CollectionRate envelope is hand-built, not via `ReportEnvelopeBuilder`.** Plan §5
+  showed the builder path. Deviation reason: the builder's `bestEffortFxRates` pass
+  populates its own `warnings` list — using it would either double-populate warnings
+  (fx + peer-failure) or drop the peer-failure ones. Since collection-rate is
+  per-currency native by design (never cross-currency, G34) it doesn't need the FX
+  best-effort pass at all. The controller composes a `ReportResponse` directly with
+  the currency resolver + peer-failure warnings — cleaner than teaching the builder to
+  skip the FX pass conditionally.
+- **`ContributionsClient` decodes envelope via `bodyToMono(String) + Jackson`** rather
+  than `bodyToMono(ReportResponse<List<MonthlyAggregateRow>>>)`. Reason: WebClient's
+  reactive codec doesn't handle the doubly-parametrised generic envelope type through
+  a `Class<T>` alone — needs a `TypeReference`. Simpler to grab the raw JSON and
+  deserialise with the existing `ObjectMapper` bean. Same tests pass.
+- **`billing/members` DTO shape simplified.** Plan §8 didn't spell out the shape;
+  chose `MemberBillingSummaryRow(memberId, memberNumber, memberName, insuranceLine,
+  schemeName, currencyCode, contributionCount, totalBilled, totalPaid)` and
+  `MemberBillingDetailResponse(memberId, memberNumber, memberName, insuranceLine,
+  summary, monthly)`. Matches the scheme + group symmetry so an Angular list +
+  detail component reuses the same styles.
+- **`ReportKey.RECEIPTS_REPORT` label change.** Plan §9 said rename
+  `RECEIPTS_AGGREGATE` label to `"Receipts — drill-down"` (done). Also updated
+  `RECEIPTS_REPORT` label from `"Receipts — per group"` to `"Receipts — per scheme /
+  group / member"` because the report now spans all three dimensions per G32-amended.
+- **Receipts detail exports use the same route with the `unallocated=true` flag.**
+  Plan §2 listed a separate URL for the unallocated bucket; kept it on the same
+  scheme-detail endpoint with a query flag to keep the surface count small. Angular
+  routes to `/reports/receipts-scheme/unallocated` — the detail component sees the
+  literal `unallocated` segment and sets the flag.
+- **Gateway routing added 7 entries.** Plan §6 called for path-specific routing; done
+  as: `/api/v1/reports/receipts`, `/receipts/*`, `/aggregate/receipts`,
+  `/aggregate/receipts/*`, `/aggregate/billing/*` → contributions;
+  `/collection-rate`, `/collection-rate/*` → finance. Also extended the existing
+  `/aggregate/billing` → `/aggregate/billing/*` so the new `/aggregate/billing/monthly`
+  route from Phase 3 §8 forwards correctly.
+- **Sidebar filter — no per-report entries added.** Reports sidebar link stays as a
+  single entry pointing at the hub, matching Phase 0's decision "individual reports
+  are dynamically catalogued *inside* the hub, not as sidebar children". The new
+  Phase 3 reports show up in the hub via the existing `TenantReportConfigService`
+  wiring — no code change needed to surface them.
+- **Test infra deviations:**
+  - `CrossServiceCallHelperTest` initially failed because `Retry.backoff(...).retryWhen(...)` wraps the original error in `RetryExhaustedException`. Fixed by unwrapping
+    `err.getCause()` before pulling the message. Now every warning message names the
+    actual peer failure ("peer down") rather than the retry envelope ("Retries
+    exhausted 1/1"). Same fix in production code path — treasurer-facing warnings are
+    the same shape as unit-test-asserted ones.
+  - `ReceiptsAggregateControllerTest` needs `.mutateWith(mockJwt())` — controller
+    unwrapped by `@RequiresPermission(FINANCE_VIEW_SUBLEDGER)` but Spring Security
+    still enforces authentication. Fixed same shape as `ReceiptsReportControllerTest`.
+
 ## Decisions Log
 
 Grilling on 2026-08-11 settled the following. G* = user preference; F* = settled by fact / codebase reality.
@@ -1449,7 +2005,7 @@ Grilling on 2026-08-11 settled the following. G* = user preference; F* = settled
 - **G4** — Deliverable shape: **single mega-plan** (this document). Trade-off accepted: 12-18 months of engineering across 20 tranches.
 - **G5** — Tenant toggle: new `public.tenant_report_config` table + `TenantConfigClient.getEnabledReportKeys()` + `@RequiresReport` filter + Angular settings tab.
 - **G6** — Reporting currency: hybrid. Optional `?reportingCurrency=` per endpoint; default = tenant's `is_default` currency; response returns both a converted total AND `perCurrency: { CCY: … }`.
-- **G7** — Cross-service data plumbing: sync HTTP fanout via per-service `/api/v1/reports/aggregate/{family}` endpoints. Resilience4j timeout + circuit-breaker.
+- **G7** — Cross-service data plumbing: sync HTTP fanout via per-service `/api/v1/reports/aggregate/{family}` endpoints. ~~Resilience4j timeout + circuit-breaker~~ **superseded by G37 (Phase 3 grilling)** — WebClient operators + shared `CrossServiceCallHelper` + envelope `warnings` capture. Resilience4j deferred to a platform-wide grill.
 - **G8** — Scheduled delivery: fixed cadences per report code. Tenant admin picks on/off + recipient email list. New `tenant_report_schedule` table (Phase 17).
 - **G9** — Balance snapshots: yes. New `provider_balance_snapshot` + `member_balance_snapshot` tables, written by `PaymentRunExecutor` in the finalise transaction.
 - **G10** — Actuarial home: `services/python/ai-service`. New `app/actuarial/` package. Java calls Python via HTTP.
@@ -1484,6 +2040,35 @@ G16-G29 settle Phase-1-specific forks that surfaced when the outline was expande
 - **G27** — Angular sidebar filter: **`reportKey?` on route data**. `data.reportKey?: string` added to each report-route entry; `operational-nav.service` consumes `TenantReportConfigService.list(tenantId)` and filters disabled routes. Uses the existing service — no new one.
 - **G28** — Missing FX rate behaviour: **server FX arithmetic fails loud; envelope `fxRates` is best-effort**. When the server converts a value (grand-total scalar), missing rate throws `ReportGenerationException` naming (base, quote, date). When the server populates the envelope's `fxRates` map for optional client display, missing currencies are omitted from the map and named in the envelope's `warnings: List<String>` block — the report itself still succeeds. **Softens cross-cutting invariant #6** as originally written.
 - **G29** — `@RequiresReport` gates reads only; **mutations stay ungated**. GET endpoints (list, detail, export) carry the annotation. POST/PUT/DELETE (create/approve/execute/cancel/reverse/delete) are never gated by the report toggle — they're operations gated by `@RequiresPermission`. **Narrows G16's "every endpoint" claim** and **softens cross-cutting invariant #2** as originally written.
+
+### 2026-08-11 Phase 3 grilling additions
+
+G30-G40 settle Phase-3-specific forks. F18-F25 record facts uncovered during grilling (Transaction schema, `transaction_types` catalog with sign convention, existing aggregate DTO shape, absence of Resilience4j).
+
+- **F18** — `Transaction` (`services/java/contributions-service/src/main/java/com/medfund/contributions/entity/Transaction.java:1-120`) is the receipts source. Columns: `currency_code`, `group_id | member_id` XOR (V039), `transaction_type` (string, ~12 values in active use), `payment_method`, `status`, `transaction_date`.
+- **F19** — `TransactionService.isReceiptEligible` (`services/java/contributions-service/src/main/java/com/medfund/contributions/service/TransactionService.java:272`) is narrow: only `PAYMENT` triggers a receipt email. Reporting definition is separate — settled by G30.
+- **F20** — `ReportKey.java:31-33` already ships `RECEIPTS_REPORT`, `RECEIPTS_AGGREGATE`, `COLLECTION_RATE`. No enum additions needed. `COLLECTION_RATE.cadenced = true`. Label rename recommended (G31).
+- **F21** — Phase 2 pattern to mirror: `BillingReportController` + `BillingAggregateController` + `BillingReportQueryRepository` + `BillingReportExcelService`. Aggregate controller ungated per Phase 2 deviation §1.
+- **F22** — Angular routes: `receipts` and `receipts/groups` redirect to `/tenant/billing/transactions` (intentional aliases); `receipts/report` and `receipts-to-billing` are ComingSoon stubs. Phase 2 shipped `/reports/schemes` + `/reports/group-billing` (flat naming, no `billing/` prefix — deviating from its own plan text). Phase 3 mirrors the flat convention per G38.
+- **F23** — Resilience4j is not on the classpath of any Java service. All existing WebClient usage (InvoiceController file-service proxy, UserServiceClient, AiPricingClient) uses vanilla WebClient. Settled by G37 — Phase 3 uses WebClient operators; Resilience4j deferred to a platform-wide grill.
+- **F24** — `ReportEnvelopeBuilder` has three overloads (SQL-string, pre-computed-Mono, `buildNoAggregate`); `@RequiresReport(ReportKey)` gates via `ReportGuardAspect`; `FxRateReader.findRate` (best-effort empty) vs `.convert` (fail-loud `ReportGenerationException`) — infra ready for Phase 3.
+- **F25** — Amount + sign convention: transactions store positive amounts; `transaction_types.sign` (`+`/`-`) is a tenant-configurable catalog (V008/V041/V069/V079 seeds). `-` = credit-balance = money-in for the fund (PAYMENT, COPAYMENT_RECEIPT, CTC_OFFSET); `+` = debit-balance = money-out or reversal (REFUND, PAYMENT_REVERSAL, CTC_OFFSET_REVERSAL). SQL uses `SUM(CASE tt.sign WHEN '-' THEN t.amount ELSE -t.amount END)`.
+- **F26** — Testing strategy: per Phase 1 §B and Phase 2 precedent, unit tests ship with Phase 3; per-controller ITs land alongside the family-phase testcontainer harness pickup, consuming the shared `ReportRetrofitAssertions` helper.
+- **F27** — Sidebar catalogue: extend `OperationalNavItem` entries with `reportKey` per G27 — no new service.
+- **F28** — Reports hub grouping: all Phase 3 keys are `ReportFamily.RECEIPTS`; render as a single card cluster.
+- **F29** — XLSX shape: single-sheet for summary reports; two-sheet (monthly + ledger) for detail drill-down; uses shared `ReportWorkbook` builder from Phase 0.
+
+- **G30** — Receipt definition: **all money-flow types** (`transaction_type IN ('PAYMENT','COPAYMENT_RECEIPT','CTC_OFFSET','REFUND','PAYMENT_REVERSAL','CTC_OFFSET_REVERSAL') AND status='completed'`), netted via `SUM(CASE tt.sign WHEN '-' THEN amount ELSE -amount END)`. Includes CTC_OFFSET as a "receipt from advance-payment credit" — ledger-accountant view of collections, not the narrower bank-cash-in view. Overrides the auto-memory `project_ctc_is_opt_in`'s framing for reporting only — CTC is opt-in as a flow, but shows in collections as receipts.
+- **G31** — `RECEIPTS_AGGREGATE` = **drill-down detail key on the report page**, not the cross-service key. `ReceiptsReportController` has `/receipts/{dim}` (summary, `RECEIPTS_REPORT`) and `/receipts/{dim}/{id}` (detail, `RECEIPTS_AGGREGATE`). Cross-service `/aggregate/receipts` on separate `ReceiptsAggregateController`, ungated, no report key. Mirrors Phase 2 pattern. **Enum label rename**: `"Receipts — aggregate"` → `"Receipts — drill-down"`.
+- **G32** (amended per user) — Dimensions: **per-scheme + per-group + per-member**. Original G32 was per-scheme + per-group only; user amendment added the per-member dimension because some insurance lines (LIFE / TRAVEL / DISABILITY / VEHICLE / PROPERTY / individual HEALTH) bill members directly per `.claude/CLAUDE.md`'s `InsuranceLine.isPersonCentric` split. V039 already supports `member_id NOT NULL` transactions. Phase 2 has the same gap by symmetry — **owed back to Phase 2**: add `/billing/members` surface (folded into Phase 3 implementation per §8).
+- **G33** — Group-to-scheme attribution: **`contribution_id` back-link when present, else "Unallocated group payments" bucket**. `LEFT JOIN contributions c ON c.id = t.contribution_id`; per-scheme sum uses `COALESCE(c.scheme_id, '<UNALLOCATED>')`. Group-owned transactions with `contribution_id NULL` land in a synthetic scheme labelled "Unallocated group payments" (rendered clearly in XLSX + Angular; sorted last). No pro-rating maths.
+- **G34** — Collection Rate shape: **per-dimension, per-currency, monthly trend + totals**. Never cross-currency conversion in the rate itself (avoids G28 fail-loud on missing FX). Response carries `byScheme`, `byGroup`, `byMember` each with `monthlyBuckets: [{month, billed, received, ratePct}]` + `totals`. XLSX: one sheet per dimension.
+- **G35** — Aggregate contract extension: **new richer endpoints alongside the narrow ones**. `/aggregate/{billing,receipts}` stays narrow (Phase 5 loss-ratio consumes it). Add `/aggregate/{billing,receipts}/monthly` returning `MonthlyAggregateRow(dimension, dimensionId, dimensionName, currencyCode, month, totalAmount)` for Phase 3 collection-rate + Phase 8+ consumers. Contracts stay single-purpose.
+- **G36** — Per-member surface: **paginated + search + `insuranceLine` filter, with detail drill-down**. Row shape `{memberId, memberNumber, memberName, insuranceLine, schemeName, currencyCode, totalReceived, transactionCount}`. Server-side trigram search on `member_number` + `full_name`. Includes all members regardless of group status (grouped-line members can still make direct top-up payments).
+- **G37** — Resilience: **WebClient operators for Phase 3; defer Resilience4j to a platform initiative**. `.timeout(2s) + .retry(1) + .onErrorResume(...)` on each cross-service call. Failures return partial data + envelope `warnings: List<String>` per G28. New shared helper `CrossServiceCallHelper` in `shared/report/` encapsulates the pattern for Phase 5+ consumers. **Contradicts Phase 3 outline's "Resilience4j timeout + circuit-breaker" wording** — recorded as a Phase 3 deviation.
+- **G38** — Angular routes: **flat under `/reports/*`, retire old stubs with redirects**. Canonical paths: `reports/receipts-schemes`, `reports/receipts-groups`, `reports/receipts-members`, `reports/receipts-{dim}/:id`, `reports/collection-rate`. Retire `receipts/report` → `reports/receipts-groups` (redirect); `receipts-to-billing` → `reports/collection-rate` (redirect). Uses `finance:view_subledger` permission (Phase 2 pattern).
+- **G39** — Cadenced pre-wiring: **defer to Phase 17**. Phase 3 ships COLLECTION_RATE with the on/off toggle only. `cadenced=true` on the enum stays aspirational. Phase 17 lands the schedule table + admin UI + `@Scheduled` job + dispatcher as one coherent tranche.
+- **G40** — Detail-drilldown shape: **paginated transaction ledger + monthly totals strip**. Detail page (`/receipts-{dim}/:id`) shows a monthly-buckets strip on top + paginated transaction listing with filters (month, type, currency). XLSX = two sheets (monthly summary + full transaction ledger, capped at 10k rows). Same shape for scheme / group / member drill-downs — reuse `receipts-detail.component.ts` with a `dimension` input.
 
 ## References
 

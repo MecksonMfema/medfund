@@ -1,0 +1,91 @@
+<header class="page-header">
+  <div>
+    <h1>Collection rate</h1>
+    <p class="page-sub">
+      Per-dimension, per-currency rate — net receipts divided by committed billing
+      for the reporting window. Never cross-currency conversion in the rate itself.
+      Monthly trend appears in the table below.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="exporting || loading || activeRows.length === 0"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input type="date" [(ngModel)]="periodStart" (change)="onFilterChange()" name="periodStart" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input type="date" [(ngModel)]="periodEnd" (change)="onFilterChange()" name="periodEnd" />
+  </div>
+  <div class="toolbar-cell cell-line">
+    <span class="cell-label">Dimension</span>
+    <app-select
+      [(ngModel)]="dimension"
+      name="dimension"
+      [options]="dimensionOptions"
+      [searchable]="false"
+    ></app-select>
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (envelope?.warnings?.length) {
+  <div class="banner banner-warning">
+    @for (w of envelope!.warnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+@if (activeRows.length === 0) {
+  <p>No billing or receipts recorded for this window and dimension.</p>
+} @else {
+  <table class="rate-table">
+    <thead>
+      <tr>
+        <th>Dimension</th>
+        <th>Currency</th>
+        <th class="num">Total billed</th>
+        <th class="num">Total received</th>
+        <th class="num">Rate %</th>
+        <th class="num">Months</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of activeRows; track row.dimensionId + '-' + row.currencyCode) {
+        <tr>
+          <td>{{ row.dimensionName }}</td>
+          <td>{{ row.currencyCode }}</td>
+          <td class="num">{{ row.totalBilled | number:'1.2-2' }}</td>
+          <td class="num">{{ row.totalReceived | number:'1.2-2' }}</td>
+          <td class="num">{{ row.totalRatePct !== null ? (row.totalRatePct | number:'1.2-2') + '%' : '—' }}</td>
+          <td class="num">{{ row.monthlyBuckets.length }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

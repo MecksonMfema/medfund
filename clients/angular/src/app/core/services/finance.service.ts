@@ -977,6 +977,64 @@ export class FinanceService {
   exportGroupBillingExcel(opts: BillingReportParams): Observable<Blob> {
     return this.api.getBlob('/reports/billing/groups/export/excel', billingParams(opts));
   }
+
+  // ── Billing per-member (Phase 3 §8 owed-back to Phase 2) ───────────────
+  /** Per-member billing aggregate — paginated + searchable. */
+  getMemberBillingReport(opts: MemberBillingReportParams): Observable<ReportResponse<FinancePageResponse<MemberBillingSummaryRow>>> {
+    return this.api.get<ReportResponse<FinancePageResponse<MemberBillingSummaryRow>>>(
+      '/reports/billing/members', memberReportParams(opts));
+  }
+  getMemberBillingDetail(memberId: string, opts: BillingReportParams): Observable<ReportResponse<MemberBillingDetailResponse>> {
+    return this.api.get<ReportResponse<MemberBillingDetailResponse>>(
+      `/reports/billing/members/${memberId}`, billingParams(opts));
+  }
+  exportMemberBillingExcel(opts: MemberBillingReportParams): Observable<Blob> {
+    return this.api.getBlob('/reports/billing/members/export/excel', memberReportParams(opts));
+  }
+
+  // ── Receipts reports (Phase 3) ─────────────────────────────────────────
+  getSchemeReceiptsReport(opts: BillingReportParams): Observable<ReportResponse<ReceiptsSummaryRow[]>> {
+    return this.api.get<ReportResponse<ReceiptsSummaryRow[]>>('/reports/receipts/schemes', billingParams(opts));
+  }
+  exportSchemeReceiptsExcel(opts: BillingReportParams): Observable<Blob> {
+    return this.api.getBlob('/reports/receipts/schemes/export/excel', billingParams(opts));
+  }
+  getGroupReceiptsReport(opts: BillingReportParams): Observable<ReportResponse<ReceiptsSummaryRow[]>> {
+    return this.api.get<ReportResponse<ReceiptsSummaryRow[]>>('/reports/receipts/groups', billingParams(opts));
+  }
+  exportGroupReceiptsExcel(opts: BillingReportParams): Observable<Blob> {
+    return this.api.getBlob('/reports/receipts/groups/export/excel', billingParams(opts));
+  }
+  getMemberReceiptsReport(opts: MemberBillingReportParams): Observable<ReportResponse<FinancePageResponse<ReceiptsSummaryRow>>> {
+    return this.api.get<ReportResponse<FinancePageResponse<ReceiptsSummaryRow>>>(
+      '/reports/receipts/members', memberReportParams(opts));
+  }
+  exportMemberReceiptsExcel(opts: MemberBillingReportParams): Observable<Blob> {
+    return this.api.getBlob('/reports/receipts/members/export/excel', memberReportParams(opts));
+  }
+
+  /**
+   * Receipts drill-down for a single scheme / group / member. Pass
+   * {@code unallocated=true} on the scheme dimension to fetch the
+   * synthetic "Unallocated group payments" bucket.
+   */
+  getReceiptsDetail(dimension: 'scheme' | 'group' | 'member', id: string,
+                    opts: ReceiptsDetailParams): Observable<ReportResponse<ReceiptsDetailResponse>> {
+    return this.api.get<ReportResponse<ReceiptsDetailResponse>>(
+      `/reports/receipts/${dimension}s/${id}`, receiptsDetailParams(opts));
+  }
+  exportReceiptsDetailExcel(dimension: 'scheme' | 'group' | 'member', id: string,
+                            opts: ReceiptsDetailParams): Observable<Blob> {
+    return this.api.getBlob(`/reports/receipts/${dimension}s/${id}/export/excel`, receiptsDetailParams(opts));
+  }
+
+  // ── Collection rate (Phase 3) ──────────────────────────────────────────
+  getCollectionRate(opts: BillingReportParams): Observable<ReportResponse<CollectionRateReportResponse>> {
+    return this.api.get<ReportResponse<CollectionRateReportResponse>>('/reports/collection-rate', billingParams(opts));
+  }
+  exportCollectionRateExcel(opts: BillingReportParams): Observable<Blob> {
+    return this.api.getBlob('/reports/collection-rate/export/excel', billingParams(opts));
+  }
 }
 
 // ── Billing report types (Phase 2) ─────────────────────────────────────────
@@ -1045,4 +1103,143 @@ export interface GroupBillingDetailResponse {
   groupName: string;
   perCurrencySummary: GroupBillingSummaryRow[];
   monthlyBreakdown: BillingMonthlyBucket[];
+}
+
+// ── Billing per-member + receipts + collection-rate (Phase 3) ──────────────
+
+export interface MemberBillingReportParams {
+  periodStart: string;
+  periodEnd: string;
+  reportingCurrency?: string;
+  search?: string;
+  insuranceLine?: string;
+  schemeId?: string;
+  page?: number;
+  size?: number;
+}
+
+function memberReportParams(opts: MemberBillingReportParams): Record<string, string> {
+  const p: Record<string, string> = {
+    periodStart: opts.periodStart,
+    periodEnd:   opts.periodEnd,
+  };
+  if (opts.reportingCurrency) p['reportingCurrency'] = opts.reportingCurrency;
+  if (opts.search)            p['search']            = opts.search;
+  if (opts.insuranceLine)     p['insuranceLine']     = opts.insuranceLine;
+  if (opts.schemeId)          p['schemeId']          = opts.schemeId;
+  if (opts.page  !== undefined) p['page'] = String(opts.page);
+  if (opts.size  !== undefined) p['size'] = String(opts.size);
+  return p;
+}
+
+export interface MemberBillingSummaryRow {
+  memberId: string;
+  memberNumber: string;
+  memberName: string;
+  insuranceLine: string;
+  schemeName: string;
+  currencyCode: string;
+  contributionCount: number;
+  totalBilled: string;
+  totalPaid: string;
+}
+
+export interface MemberBillingDetailResponse {
+  memberId: string;
+  memberNumber: string;
+  memberName: string;
+  insuranceLine: string;
+  summary: MemberBillingSummaryRow[];
+  monthly: BillingMonthlyBucket[];
+}
+
+/**
+ * Receipts summary row — same shape for scheme / group / member. The
+ * {@code dimensionName} carries whatever a treasurer scans by:
+ * "Gold Plan" for schemes, "Acme Corp" for groups,
+ * "M-001 — Alice Zulu" for members. {@code dimensionId} is
+ * {@code null} for the synthetic "Unallocated group payments" bucket.
+ */
+export interface ReceiptsSummaryRow {
+  dimensionId: string | null;
+  dimensionName: string;
+  insuranceLine: string | null;
+  currencyCode: string;
+  totalReceived: string;
+  transactionCount: number;
+}
+
+export interface ReceiptsDetailParams {
+  periodStart: string;
+  periodEnd: string;
+  transactionType?: string;
+  currency?: string;
+  reportingCurrency?: string;
+  unallocated?: boolean;
+  page?: number;
+  size?: number;
+}
+
+function receiptsDetailParams(opts: ReceiptsDetailParams): Record<string, string> {
+  const p: Record<string, string> = {
+    periodStart: opts.periodStart,
+    periodEnd:   opts.periodEnd,
+  };
+  if (opts.transactionType)   p['transactionType']  = opts.transactionType;
+  if (opts.currency)          p['currency']         = opts.currency;
+  if (opts.reportingCurrency) p['reportingCurrency'] = opts.reportingCurrency;
+  if (opts.unallocated)       p['unallocated']      = 'true';
+  if (opts.page !== undefined) p['page'] = String(opts.page);
+  if (opts.size !== undefined) p['size'] = String(opts.size);
+  return p;
+}
+
+export interface ReceiptsDetailResponse {
+  dimensionId: string | null;
+  dimensionName: string;
+  monthlyBuckets: ReceiptsMonthlyBucket[];
+  transactions: FinancePageResponse<TransactionLedgerRow>;
+}
+
+export interface ReceiptsMonthlyBucket {
+  month: string;
+  currencyCode: string;
+  totalReceived: string;
+  transactionCount: number;
+}
+
+export interface TransactionLedgerRow {
+  id: string;
+  transactionNumber: string;
+  transactionDate: string;
+  transactionType: string;
+  paymentMethod: string;
+  reference: string;
+  amount: string;
+  currencyCode: string;
+}
+
+export interface CollectionRateReportResponse {
+  periodStart: string;
+  periodEnd: string;
+  byScheme: CollectionRateDimensionRow[];
+  byGroup: CollectionRateDimensionRow[];
+  byMember: CollectionRateDimensionRow[];
+}
+
+export interface CollectionRateDimensionRow {
+  dimensionId: string;
+  dimensionName: string;
+  currencyCode: string;
+  monthlyBuckets: CollectionRateMonthlyBucket[];
+  totalBilled: string;
+  totalReceived: string;
+  totalRatePct: string | null;
+}
+
+export interface CollectionRateMonthlyBucket {
+  month: string;
+  billed: string;
+  received: string;
+  ratePct: string | null;
 }

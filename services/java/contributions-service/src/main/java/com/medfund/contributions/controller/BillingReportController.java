@@ -3,6 +3,9 @@ package com.medfund.contributions.controller;
 import com.medfund.contributions.dto.BillingAggregateRow;
 import com.medfund.contributions.dto.GroupBillingDetailResponse;
 import com.medfund.contributions.dto.GroupBillingSummaryRow;
+import com.medfund.contributions.dto.MemberBillingDetailResponse;
+import com.medfund.contributions.dto.MemberBillingSummaryRow;
+import com.medfund.contributions.dto.PageResponse;
 import com.medfund.contributions.dto.SchemeBillingDetailResponse;
 import com.medfund.contributions.dto.SchemeBillingSummaryRow;
 import com.medfund.contributions.service.BillingReportExcelService;
@@ -220,5 +223,94 @@ public class BillingReportController {
                 period,
                 reportingCurrency,
                 billingReportService.groupDetail(groupId, period.periodStart(), period.periodEnd()));
+    }
+
+    // ── Per-member — Phase 3 §8 owed-back to Phase 2 ────────────────────────
+    // Symmetry-fix for individual-line policies (LIFE / TRAVEL / DISABILITY /
+    // VEHICLE / PROPERTY / individual HEALTH) that were missing a billing surface
+    // in Phase 2. Reuses the broad BILLING_REPORT key per G21.
+
+    @GetMapping("/members")
+    @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
+    @RequiresReport(ReportKey.BILLING_REPORT)
+    @Operation(summary = "Per-member billing aggregate — paginated + searchable",
+            description = "Covers individual-line policies (LIFE / TRAVEL / DISABILITY / VEHICLE / "
+                        + "PROPERTY / individual HEALTH). Only contributions where member_id is set "
+                        + "AND invoice_id IS NOT NULL are counted.")
+    public Mono<ReportResponse<PageResponse<MemberBillingSummaryRow>>> membersReport(
+            @RequestParam String periodStart,
+            @RequestParam String periodEnd,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String insuranceLine,
+            @RequestParam(required = false) UUID schemeId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) String reportingCurrency) {
+        ReportPeriod period = ReportPeriod.parseFromQueryParams(periodStart, periodEnd, null);
+        return envelopeBuilder.build(
+                ReportKey.BILLING_REPORT,
+                period,
+                reportingCurrency,
+                billingReportService.perMemberSummary(period.periodStart(), period.periodEnd(),
+                        search, insuranceLine, schemeId, page, size),
+                billingReportService.perMemberPerCurrencyTotals(period.periodStart(), period.periodEnd(),
+                        search, insuranceLine, schemeId));
+    }
+
+    @GetMapping("/members/export/excel")
+    @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
+    @RequiresReport(ReportKey.BILLING_REPORT)
+    @Operation(summary = "Download the per-member billing report as XLSX",
+            description = "Capped at 10 000 rows; refine filters if exceeded.")
+    public Mono<ResponseEntity<byte[]>> exportMembersExcel(
+            @RequestParam String periodStart,
+            @RequestParam String periodEnd,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String insuranceLine,
+            @RequestParam(required = false) UUID schemeId,
+            @RequestParam(required = false) String reportingCurrency,
+            @AuthenticationPrincipal Jwt jwt) {
+        ReportPeriod period = ReportPeriod.parseFromQueryParams(periodStart, periodEnd, null);
+        String filename = "billing-members-" + period.periodStart() + "-to-" + period.periodEnd() + ".xlsx";
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("periodStart", period.periodStart().toString());
+        details.put("periodEnd",   period.periodEnd().toString());
+        if (search != null) details.put("search", search);
+        if (insuranceLine != null) details.put("insuranceLine", insuranceLine);
+        if (schemeId != null) details.put("schemeId", schemeId.toString());
+        if (reportingCurrency != null && !reportingCurrency.isBlank()) {
+            details.put("reportingCurrency", reportingCurrency);
+        }
+        return billingReportExcelService.memberReportExcel(period.periodStart(), period.periodEnd(),
+                        search, insuranceLine, schemeId, reportingCurrency)
+                .flatMap(bytes -> Mono.deferContextual(ctx -> securityEventPublisher.publishDataAccess(
+                                TenantContext.get(ctx),
+                                AuditActor.id(jwt),
+                                AuditActor.email(jwt),
+                                ReportKey.BILLING_REPORT.name(),
+                                details))
+                        .thenReturn(bytes))
+                .map(bytes -> ResponseEntity.ok()
+                        .contentType(XLSX)
+                        .header(HttpHeaders.CONTENT_DISPOSITION,
+                                "attachment; filename=\"" + filename + "\"")
+                        .body(bytes));
+    }
+
+    @GetMapping("/members/{memberId}")
+    @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
+    @RequiresReport(ReportKey.BILLING_REPORT)
+    @Operation(summary = "Single-member billing detail with monthly breakdown")
+    public Mono<ReportResponse<MemberBillingDetailResponse>> memberDetail(
+            @PathVariable UUID memberId,
+            @RequestParam String periodStart,
+            @RequestParam String periodEnd,
+            @RequestParam(required = false) String reportingCurrency) {
+        ReportPeriod period = ReportPeriod.parseFromQueryParams(periodStart, periodEnd, null);
+        return envelopeBuilder.buildNoAggregate(
+                ReportKey.BILLING_REPORT,
+                period,
+                reportingCurrency,
+                billingReportService.memberDetail(memberId, period.periodStart(), period.periodEnd()));
     }
 }

@@ -1,0 +1,104 @@
+<header class="page-header">
+  <div>
+    <h1>Receipts report — per member</h1>
+    <p class="page-sub">
+      Direct member payments — including individual-line policies (LIFE, TRAVEL,
+      DISABILITY, VEHICLE, PROPERTY, individual HEALTH) plus any top-up payments
+      made directly by grouped-line members.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="exporting || loading || !page.total"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input type="date" [(ngModel)]="periodStart" (change)="onFilterChange()" name="periodStart" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input type="date" [(ngModel)]="periodEnd" (change)="onFilterChange()" name="periodEnd" />
+  </div>
+  <div class="toolbar-cell cell-search">
+    <span class="cell-label">Search</span>
+    <input type="text" [(ngModel)]="search" (input)="onSearchInput()" name="search"
+           placeholder="Member number or name…" />
+  </div>
+  <div class="toolbar-cell cell-line">
+    <span class="cell-label">Insurance line</span>
+    <app-select
+      [(ngModel)]="insuranceLine"
+      (selectionChange)="onFilterChange()"
+      name="insuranceLine"
+      [options]="insuranceLineOptions"
+      placeholder="All lines"
+      [searchable]="false"
+    ></app-select>
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (envelope?.warnings?.length) {
+  <div class="banner banner-warning">
+    @for (w of envelope!.warnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+@if (envelope && perCurrencyEntries.length) {
+  <div class="kpi-strip">
+    @for (entry of perCurrencyEntries; track entry.currency) {
+      <div class="kpi-card">
+        <span class="kpi-label">{{ entry.currency }}</span>
+        <span class="kpi-value">{{ entry.totalAmount | number:'1.2-2' }}</span>
+        <span class="kpi-meta">{{ entry.rowCount }} rows</span>
+      </div>
+    }
+    @if (envelope.reportingCurrency) {
+      <div class="kpi-card kpi-reporting">
+        <span class="kpi-label">Reporting</span>
+        <span class="kpi-value">{{ envelope.reportingCurrency }}</span>
+        <span class="kpi-meta">as of {{ envelope.generatedAt | date:'shortDate' }}</span>
+      </div>
+    }
+  </div>
+}
+
+<app-data-table
+  [data]="page.content"
+  [columns]="columns"
+  [loading]="loading"
+  [searchable]="false"
+  [showToolbar]="false"
+  [serverSide]="true"
+  [totalCount]="page.total"
+  [totalPages]="page.totalPages"
+  [serverPage]="pageIndex + 1"
+  [pageSize]="pageSize"
+  emptyMessage="No receipts recorded for this window."
+  (rowClick)="onRowClick($event)"
+  (pageChange)="onPageChange($event - 1)"
+></app-data-table>
