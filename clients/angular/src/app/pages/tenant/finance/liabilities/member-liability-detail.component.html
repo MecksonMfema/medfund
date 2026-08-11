@@ -1,0 +1,75 @@
+<div class="detail-page">
+  <header class="page-header">
+    <div>
+      <a class="back-link" routerLink="/tenant/finance/member-liabilities">
+        <app-icon name="arrow-left" [size]="14"></app-icon>
+        Back to liabilities
+      </a>
+      <h1>Liability detail</h1>
+    </div>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+    <p class="muted">Loading…</p>
+  } @else if (detail) {
+    <section class="card">
+      <header class="card-head">
+        <div>
+          <span class="muted">Claim</span>
+          <strong>{{ detail.claimNumber || detail.claimId }}</strong>
+        </div>
+        <span class="chip" [class.chip--warn]="detail.status === 'OPEN' || detail.status === 'PARTIALLY_SETTLED'"
+                            [class.chip--good]="detail.status === 'SETTLED'"
+                            [class.chip--danger]="detail.status === 'WRITTEN_OFF'">
+          {{ detail.status }}
+        </span>
+      </header>
+
+      <div class="grid">
+        <div class="cell"><span class="label">Deductible</span> <span class="value">{{ detail.deductible }} {{ detail.currencyCode }}</span></div>
+        <div class="cell"><span class="label">Copay</span>       <span class="value">{{ detail.copay }} {{ detail.currencyCode }}</span></div>
+        <div class="cell"><span class="label">Coinsurance</span> <span class="value">{{ detail.coinsurance }} {{ detail.currencyCode }}</span></div>
+        <div class="cell"><span class="label">Shortfall</span>   <span class="value">{{ detail.shortfall }} {{ detail.currencyCode }}</span></div>
+        <div class="cell"><span class="label">Not covered</span> <span class="value">{{ detail.notCovered }} {{ detail.currencyCode }}</span></div>
+        <div class="cell cell--strong"><span class="label">Total owed</span>   <span class="value">{{ detail.totalOwed }} {{ detail.currencyCode }}</span></div>
+        <div class="cell cell--strong"><span class="label">Total settled</span> <span class="value">{{ detail.totalSettled }} {{ detail.currencyCode }}</span></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <header class="card-head">
+        <h2>Settlements</h2>
+      </header>
+      @if (detail.settlements.length === 0) {
+        <p class="muted">No settlements applied yet.</p>
+      } @else {
+        <table class="settlements">
+          <thead>
+            <tr>
+              <th>Source</th>
+              <th class="num">Amount</th>
+              <th>Currency</th>
+              <th>Receipt</th>
+              <th>Settled at</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (s of detail.settlements; track s.id) {
+              <tr>
+                <td>{{ s.source }}</td>
+                <td class="num">{{ s.amount }}</td>
+                <td>{{ s.currencyCode }}</td>
+                <td>{{ s.receiptTransactionId || '—' }}</td>
+                <td>{{ s.settledAt | date: 'medium' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </section>
+  }
+</div>

@@ -1,6 +1,8 @@
 package com.medfund.claims.service;
 
 import com.medfund.claims.dto.QuotationRequest;
+import com.medfund.claims.entity.Claim;
+import com.medfund.claims.entity.ClaimLine;
 import com.medfund.claims.entity.Quotation;
 import com.medfund.claims.repository.QuotationRepository;
 import com.medfund.shared.audit.AuditEvent;
@@ -16,6 +18,8 @@ import reactor.core.publisher.Mono;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -99,30 +103,78 @@ public class QuotationService {
     public Mono<Quotation> review(UUID id, BigDecimal coveredAmount, BigDecimal coPaymentAmount,
                                    String notes, String actorId, String actorEmail) {
         return quotationRepository.findById(id)
-            .flatMap(q -> {
+            .flatMap(q -> autoComputeCopay(q).flatMap(computed -> {
                 q.setStatus("REVIEWED");
                 q.setCoveredAmount(coveredAmount);
                 q.setCoPaymentAmount(coPaymentAmount);
+                q.setComputedCoPaymentAmount(computed);
                 q.setNotes(notes);
                 q.setReviewedBy(UUID.fromString(actorId));
                 q.setReviewedAt(Instant.now());
                 q.setUpdatedAt(Instant.now());
-
                 return quotationRepository.save(q);
-            })
+            }))
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
+                // Record BOTH the computed and the reviewer-entered override so the
+                // audit trail shows an operator-set value that diverged from the
+                // system suggestion (Phase 2 quotation-review override warning).
+                Map<String, Object> newValue = new HashMap<>();
+                newValue.put("status", "REVIEWED");
+                newValue.put("coveredAmount",
+                        saved.getCoveredAmount() != null ? saved.getCoveredAmount().toPlainString() : "");
+                newValue.put("coPaymentAmount",
+                        saved.getCoPaymentAmount() != null ? saved.getCoPaymentAmount().toPlainString() : "");
+                newValue.put("computedCoPaymentAmount",
+                        saved.getComputedCoPaymentAmount() != null ? saved.getComputedCoPaymentAmount().toPlainString() : "");
                 var event = AuditEvent.create(
                     tenantId != null ? tenantId : "unknown",
                     "Quotation", saved.getId().toString(), saved.getQuotationNumber(),
                     "UPDATE", actorId, actorEmail,
                     Map.of("status", "PENDING"),
-                    Map.of("status", "REVIEWED", "coveredAmount", saved.getCoveredAmount().toPlainString()),
-                    new String[]{"status", "coveredAmount", "coPaymentAmount"},
+                    newValue,
+                    new String[]{"status", "coveredAmount", "coPaymentAmount", "computedCoPaymentAmount"},
                     UUID.randomUUID().toString()
                 );
                 return auditPublisher.publish(event).thenReturn(saved);
             }));
+    }
+
+    /**
+     * Auto-compute the copay a reviewer sees before entering their override.
+     * A quotation has no persisted lines so we synthesise a single-line claim
+     * from the {@code estimatedAmount} and hand it to {@link CoPaymentService}
+     * — same math a submitted claim would run at Stage 5, minus the tariff
+     * lookup (the quote is coarser than a real claim by design). Errors and
+     * missing tariffs fall through to zero rather than blocking review.
+     */
+    private Mono<BigDecimal> autoComputeCopay(Quotation q) {
+        if (q.getEstimatedAmount() == null || q.getEstimatedAmount().signum() <= 0) {
+            return Mono.just(BigDecimal.ZERO);
+        }
+        Claim synthetic = new Claim();
+        synthetic.setId(q.getId());
+        synthetic.setMemberId(q.getMemberId());
+        synthetic.setProviderId(q.getProviderId());
+        synthetic.setSchemeId(q.getSchemeId());
+        synthetic.setClaimedAmount(q.getEstimatedAmount());
+        synthetic.setCurrencyCode(q.getCurrencyCode());
+
+        ClaimLine line = new ClaimLine();
+        line.setId(UUID.randomUUID());
+        line.setClaimId(q.getId());
+        line.setTariffCode(q.getProcedureCodes() != null ? q.getProcedureCodes() : "QUOTE");
+        line.setQuantity(1);
+        line.setClaimedAmount(q.getEstimatedAmount());
+        line.setUnitPrice(q.getEstimatedAmount());
+        line.setCurrencyCode(q.getCurrencyCode());
+
+        return coPaymentService.calculate(synthetic, List.of(line))
+                .map(r -> r.totalCoPayment() != null ? r.totalCoPayment() : BigDecimal.ZERO)
+                .onErrorResume(e -> {
+                    log.debug("Quotation copay auto-compute skipped: {}", e.getMessage());
+                    return Mono.just(BigDecimal.ZERO);
+                });
     }
 
     @Transactional

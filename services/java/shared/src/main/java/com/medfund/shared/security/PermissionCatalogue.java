@@ -40,7 +40,8 @@ public final class PermissionCatalogue {
                     new Permission(Permissions.CLAIMS_MANAGE_VERIFICATION_CODES,  "Manage verification codes",         "Issue and revoke claim verification OTPs."),
                     new Permission(Permissions.CLAIMS_ASSIGN,                     "Assign claims",                     "Allocate claims to staff for assessment."),
                     new Permission(Permissions.CLAIMS_VIEW_CTC_PAYMENTS,          "View CTC payments",                 "View Claims-to-Contributions transfers (member claim payouts credited against the member's own contribution bill)."),
-                    new Permission(Permissions.CLAIMS_COMMIT_CTC_PAYMENT,         "Commit CTC payments",               "Commit a Claims-to-Contributions transfer — the member's payable is applied against their contribution bill.")
+                    new Permission(Permissions.CLAIMS_COMMIT_CTC_PAYMENT,         "Commit CTC payments",               "Commit a Claims-to-Contributions transfer — the member's payable is applied against their contribution bill."),
+                    new Permission(Permissions.CLAIMS_REQUEST_QUOTE,              "Request eligibility quote",         "Request a pre-service cost-share quote for a member.")
             )),
             new Domain("billing", "Billing", List.of(
                     new Permission(Permissions.BILLING_VIEW,                      "View billing",                      "Read access to schemes, contributions, invoices, and statements."),
@@ -79,7 +80,8 @@ public final class PermissionCatalogue {
                     new Permission(Permissions.FINANCE_VIEW_SUBLEDGER,            "View subledger",                    "View detailed subledger journal entries."),
                     new Permission(Permissions.FINANCE_MANAGE_BILLING_RECONCILE,  "Reconcile billing to claims",       "Match billing runs against claim payments."),
                     new Permission(Permissions.FINANCE_VIEW_PAYMENT_ADVICE,       "View payment advice",               "View payment-advice notifications sent to providers."),
-                    new Permission(Permissions.FINANCE_MANAGE_COPAYMENTS,         "Manage copayments",                 "Create or adjust member copayment records."),
+                    new Permission(Permissions.FINANCE_MANAGE_COPAYMENTS,         "Manage cost-share receipts",        "Record or adjust member cost-share (copayment) receipts."),
+                    new Permission(Permissions.FINANCE_VIEW_MEMBER_LIABILITIES,   "View member liabilities",           "View the fund-issued 'the member owes' ledger — one row per adjudicated claim with a cost-share balance."),
                     new Permission(Permissions.FINANCE_VIEW_WITHHELD_TAX,         "View withheld tax",                 "View tax-withheld claims and payments.")
             )),
             new Domain("members", "Members", List.of(

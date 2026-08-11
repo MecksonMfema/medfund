@@ -75,6 +75,32 @@ public class ClaimLine {
     @Column("created_at")
     private Instant createdAt;
 
+    // ── V077 per-line cost-share breakdown (Phase 2 copayments, G3) ─────────
+    // All nullable — populated by CostShareCalculator on the auto-approve branch;
+    // manual-review / reject leaves them null and the EOB page falls back to
+    // the "breakdown unavailable" banner.
+
+    @Column("allowed_amount")
+    private BigDecimal allowedAmount;
+
+    @Column("deductible_applied")
+    private BigDecimal deductibleApplied;
+
+    @Column("copay_amount")
+    private BigDecimal copayAmount;
+
+    @Column("coinsurance_amount")
+    private BigDecimal coinsuranceAmount;
+
+    @Column("not_covered_amount")
+    private BigDecimal notCoveredAmount;
+
+    @Column("shortfall_amount")
+    private BigDecimal shortfallAmount;
+
+    @Column("member_responsibility")
+    private BigDecimal memberResponsibility;
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
@@ -122,4 +148,25 @@ public class ClaimLine {
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    public BigDecimal getAllowedAmount() { return allowedAmount; }
+    public void setAllowedAmount(BigDecimal allowedAmount) { this.allowedAmount = allowedAmount; }
+
+    public BigDecimal getDeductibleApplied() { return deductibleApplied; }
+    public void setDeductibleApplied(BigDecimal deductibleApplied) { this.deductibleApplied = deductibleApplied; }
+
+    public BigDecimal getCopayAmount() { return copayAmount; }
+    public void setCopayAmount(BigDecimal copayAmount) { this.copayAmount = copayAmount; }
+
+    public BigDecimal getCoinsuranceAmount() { return coinsuranceAmount; }
+    public void setCoinsuranceAmount(BigDecimal coinsuranceAmount) { this.coinsuranceAmount = coinsuranceAmount; }
+
+    public BigDecimal getNotCoveredAmount() { return notCoveredAmount; }
+    public void setNotCoveredAmount(BigDecimal notCoveredAmount) { this.notCoveredAmount = notCoveredAmount; }
+
+    public BigDecimal getShortfallAmount() { return shortfallAmount; }
+    public void setShortfallAmount(BigDecimal shortfallAmount) { this.shortfallAmount = shortfallAmount; }
+
+    public BigDecimal getMemberResponsibility() { return memberResponsibility; }
+    public void setMemberResponsibility(BigDecimal memberResponsibility) { this.memberResponsibility = memberResponsibility; }
 }

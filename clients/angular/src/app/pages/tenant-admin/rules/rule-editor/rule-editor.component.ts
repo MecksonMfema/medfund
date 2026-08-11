@@ -274,6 +274,23 @@ export class RuleEditorComponent implements OnInit {
     return !!this.actionValueHint;
   }
 
+  /**
+   * V077 copay-waiver check (G14). True when the operator has authored an
+   * APPLY_COPAY action whose value resolves to zero — either the literal
+   * "0" or the "FIXED:0" shape CoPaymentTemplates uses for waivers. The
+   * template surfaces a non-blocking warning banner so a silent waiver
+   * doesn't slip into production; the save path stays green.
+   */
+  get isCopayWaiver(): boolean {
+    if (this.form.actionType !== 'APPLY_COPAY') return false;
+    const raw = (this.form.actionValue ?? '').trim();
+    if (!raw) return false;
+    if (/^FIXED:\s*0(?:\.0+)?$/i.test(raw)) return true;
+    // Bare-number: match "0", "0.0", "0.00" — anything that parses to zero.
+    const asNumber = Number(raw);
+    return !isNaN(asNumber) && asNumber === 0;
+  }
+
   private formFromTemplate(t: RuleTemplate): EditorFormState {
     const def = t.definition;
     const cond = def.conditions ?? { operator: 'AND', items: [] };

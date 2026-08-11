@@ -46,6 +46,12 @@ public class Quotation {
     @Column("co_payment_amount")
     private BigDecimal coPaymentAmount;
 
+    /** V077 — copay auto-computed by CostShareCalculator during review. The
+     *  operator's manual entry lands in {@link #coPaymentAmount}; the two are
+     *  compared so the review UI can warn on override and both are audited. */
+    @Column("computed_copay_amount")
+    private BigDecimal computedCoPaymentAmount;
+
     @Column("currency_code")
     private String currencyCode;
 
@@ -99,6 +105,8 @@ public class Quotation {
     public void setCoveredAmount(BigDecimal coveredAmount) { this.coveredAmount = coveredAmount; }
     public BigDecimal getCoPaymentAmount() { return coPaymentAmount; }
     public void setCoPaymentAmount(BigDecimal coPaymentAmount) { this.coPaymentAmount = coPaymentAmount; }
+    public BigDecimal getComputedCoPaymentAmount() { return computedCoPaymentAmount; }
+    public void setComputedCoPaymentAmount(BigDecimal computedCoPaymentAmount) { this.computedCoPaymentAmount = computedCoPaymentAmount; }
     public String getCurrencyCode() { return currencyCode; }
     public void setCurrencyCode(String currencyCode) { this.currencyCode = currencyCode; }
     public String getStatus() { return status; }

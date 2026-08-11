@@ -1,5 +1,6 @@
 package com.medfund.claims.controller;
 
+import com.medfund.claims.dto.ClaimEobResponse;
 import com.medfund.claims.dto.ClaimFilterParams;
 import com.medfund.claims.dto.ClaimLineResponse;
 import com.medfund.claims.dto.ClaimResponse;
@@ -149,6 +150,20 @@ public class ClaimController {
     @Operation(summary = "Get claim lines for a claim")
     public Flux<ClaimLineResponse> getClaimLines(@PathVariable UUID claimId) {
         return claimLineRepository.findByClaimId(claimId).map(ClaimLineResponse::from);
+    }
+
+    @GetMapping("/{id}/eob")
+    @Operation(summary = "Get the explanation-of-benefits (EOB) view for an adjudicated claim",
+        description = "Returns the persisted 7-bucket cost-share breakdown plus CARC/RARC pairs "
+                + "for member-facing rendering (V078, Phase 4 copayments). Pre-V077 claims land "
+                + "with breakdownAvailable=false so the caller can show a 'breakdown unavailable' "
+                + "banner.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "EOB view"),
+        @ApiResponse(responseCode = "404", description = "Claim not found")
+    })
+    public Mono<ClaimEobResponse> getEob(@PathVariable UUID id) {
+        return claimService.findById(id).map(ClaimEobResponse::from);
     }
 
     @PostMapping("/{id}/lines/decisions")

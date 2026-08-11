@@ -6,9 +6,13 @@ import com.medfund.finance.client.FxConverter;
 import com.medfund.finance.client.TenantConfigClient;
 import com.medfund.finance.client.TenantConfigClient.CtcAutoConfig;
 import com.medfund.finance.entity.CtcPayment;
+import com.medfund.finance.entity.MemberCostShareLiability;
+import com.medfund.finance.entity.MemberCostShareSettlement;
 import com.medfund.finance.entity.MemberPayable;
 import com.medfund.finance.repository.CtcPaymentRepository;
 import com.medfund.finance.repository.MemberContributionBalanceReader;
+import com.medfund.finance.repository.MemberCostShareLiabilityRepository;
+import com.medfund.finance.repository.MemberCostShareSettlementRepository;
 import com.medfund.finance.repository.MemberPayableRepository;
 import com.medfund.finance.service.MemberBalanceService;
 import com.medfund.finance.service.ProviderBalanceService;
@@ -64,6 +68,8 @@ public class ClaimAdjudicatedConsumer {
     private final ProviderBalanceService providerBalanceService;
     private final MemberBalanceService memberBalanceService;
     private final MemberPayableRepository memberPayableRepository;
+    private final MemberCostShareLiabilityRepository liabilityRepository;
+    private final MemberCostShareSettlementRepository settlementRepository;
     private final AuditPublisher auditPublisher;
     private final ObjectMapper objectMapper;
     private final TenantConfigClient tenantConfigClient;
@@ -75,6 +81,8 @@ public class ClaimAdjudicatedConsumer {
                                     ProviderBalanceService providerBalanceService,
                                     MemberBalanceService memberBalanceService,
                                     MemberPayableRepository memberPayableRepository,
+                                    MemberCostShareLiabilityRepository liabilityRepository,
+                                    MemberCostShareSettlementRepository settlementRepository,
                                     AuditPublisher auditPublisher,
                                     ObjectMapper objectMapper,
                                     TenantConfigClient tenantConfigClient,
@@ -85,6 +93,8 @@ public class ClaimAdjudicatedConsumer {
         this.providerBalanceService = providerBalanceService;
         this.memberBalanceService = memberBalanceService;
         this.memberPayableRepository = memberPayableRepository;
+        this.liabilityRepository = liabilityRepository;
+        this.settlementRepository = settlementRepository;
         this.auditPublisher = auditPublisher;
         this.objectMapper = objectMapper;
         this.tenantConfigClient = tenantConfigClient;
@@ -122,16 +132,172 @@ public class ClaimAdjudicatedConsumer {
             String payeeType = textOrNull(node, "payeeType");
             String tenantId  = textOrNull(node, "tenantId");
 
-            if ("MEMBER".equalsIgnoreCase(payeeType)) {
-                return handleMemberPayee(node, decision, tenantId);
-            }
-            // Default to the provider-balance branch — matches the pre-V069
-            // behaviour for consumers that don't emit payeeType yet.
-            return handleProviderPayee(node, decision);
+            // V078 (Phase 4): write the member cost-share liability row for
+            // every APPROVED / PARTIAL_APPROVED with a non-empty memberResponsibility.
+            // Cash-first (payeeType=MEMBER) closes it at creation via a
+            // synthetic MEMBER_PAID_PROVIDER settlement (G12); PROVIDER-payee
+            // leaves it OPEN for downstream receipt matching. Runs alongside
+            // the existing balance/payable path, not instead of it.
+            Mono<Void> liabilityWrite = writeMemberLiabilityIfApplicable(node, decision, payeeType);
+
+            Mono<Void> balanceWrite = "MEMBER".equalsIgnoreCase(payeeType)
+                    ? handleMemberPayee(node, decision, tenantId)
+                    : handleProviderPayee(node, decision);
+
+            Mono<Void> composed = balanceWrite.then(liabilityWrite);
+            return tenantId != null && !tenantId.isBlank()
+                    ? composed.contextWrite(Context.of(TenantContext.KEY, tenantId))
+                    : composed;
         } catch (Exception e) {
             log.error("Failed to parse claim adjudicated event: ", e);
             return Mono.error(e);
         }
+    }
+
+    /**
+     * V078: write a {@code member_cost_share_liability} row when the enriched
+     * payload carries a non-null {@code memberResponsibility} and the decision
+     * is auto-approved (or partial-approved). Idempotent — the UNIQUE index
+     * on {@code claim_id} bounces off duplicate deliveries via
+     * {@link DbErrors#isUniqueViolation(Throwable)}.
+     *
+     * <p>MEMBER-payee (cash-first, G12): sets {@code status=SETTLED},
+     * {@code total_settled=total_owed}, and writes a synthetic
+     * {@link MemberCostShareSettlement} row with {@code source='MEMBER_PAID_PROVIDER'}
+     * so the ledger reads clean without waiting for a receipt that will
+     * never arrive.
+     */
+    private Mono<Void> writeMemberLiabilityIfApplicable(JsonNode node, String decision, String payeeType) {
+        if (!isApprovedDecision(decision)) return Mono.empty();
+        String memberIdStr = textOrNull(node, "memberId");
+        String claimIdStr  = textOrNull(node, "claimId");
+        String memberResp  = textOrNull(node, "memberResponsibility");
+        if (memberIdStr == null || claimIdStr == null || memberResp == null) {
+            return Mono.empty();
+        }
+        BigDecimal totalOwed;
+        try {
+            totalOwed = new BigDecimal(memberResp);
+        } catch (NumberFormatException e) {
+            log.warn("Skipping liability write — memberResponsibility not a decimal: {}", memberResp);
+            return Mono.empty();
+        }
+        // Zero owings still get a row so the EOB has something to reference
+        // (per the plan's Phase 4 success-criteria bullet on memberResponsibility=0).
+        String currency = firstNonBlank(textOrNull(node, "currencyCode"), "USD");
+
+        MemberCostShareLiability liability = new MemberCostShareLiability();
+        liability.setMemberId(UUID.fromString(memberIdStr));
+        liability.setClaimId(UUID.fromString(claimIdStr));
+        liability.setClaimNumber(textOrNull(node, "claimNumber"));
+        liability.setDeductible(parseOrZero(textOrNull(node, "deductibleApplied")));
+        liability.setCopay(parseOrZero(textOrNull(node, "copayAmount")));
+        liability.setCoinsurance(parseOrZero(textOrNull(node, "coinsuranceAmount")));
+        liability.setShortfall(parseOrZero(textOrNull(node, "shortfallAmount")));
+        liability.setNotCovered(parseOrZero(textOrNull(node, "notCoveredAmount")));
+        liability.setTotalOwed(totalOwed);
+        liability.setCurrencyCode(currency);
+        Instant now = Instant.now();
+        liability.setCreatedAt(now);
+        liability.setUpdatedAt(now);
+
+        boolean cashFirst = "MEMBER".equalsIgnoreCase(payeeType);
+        if (cashFirst) {
+            liability.setStatus("SETTLED");
+            liability.setTotalSettled(totalOwed);
+        } else {
+            liability.setStatus("OPEN");
+            liability.setTotalSettled(BigDecimal.ZERO);
+        }
+
+        return liabilityRepository.save(liability)
+                .flatMap(saved -> publishLiabilityAudit(saved)
+                        .then(cashFirst ? writeSyntheticSettlement(saved) : Mono.empty()))
+                .onErrorResume(err -> {
+                    if (DbErrors.isUniqueViolation(err)) {
+                        log.info("Member cost-share liability already exists for claim {} — idempotent skip",
+                                claimIdStr);
+                        return Mono.empty();
+                    }
+                    return Mono.error(err);
+                });
+    }
+
+    /** Cash-first companion (G12) — matches the pre-set SETTLED status
+     *  with an actual settlement row so aggregates line up (total_settled =
+     *  sum of settlements). */
+    private Mono<Void> writeSyntheticSettlement(MemberCostShareLiability liability) {
+        MemberCostShareSettlement s = new MemberCostShareSettlement();
+        s.setLiabilityId(liability.getId());
+        s.setAmount(liability.getTotalOwed());
+        s.setCurrencyCode(liability.getCurrencyCode());
+        s.setSource("MEMBER_PAID_PROVIDER");
+        s.setSettledAt(Instant.now());
+        // receiptTransactionId + createdBy null — no receipt exists, and the
+        // consumer runs as SYSTEM.
+        return settlementRepository.save(s)
+                .flatMap(saved -> publishSettlementAudit(saved))
+                .then();
+    }
+
+    private Mono<Void> publishLiabilityAudit(MemberCostShareLiability liability) {
+        return Mono.deferContextual(ctx -> {
+            String tenantId = TenantContext.get(ctx);
+            String entityName = "Cost-share liability for member " + liability.getMemberId()
+                    + " claim " + firstNonBlank(liability.getClaimNumber(), liability.getClaimId().toString())
+                    + " — " + liability.getTotalOwed().toPlainString() + " " + liability.getCurrencyCode();
+            Map<String, Object> newValue = new LinkedHashMap<>();
+            newValue.put("memberId", liability.getMemberId().toString());
+            newValue.put("claimId", liability.getClaimId().toString());
+            newValue.put("totalOwed", liability.getTotalOwed().toPlainString());
+            newValue.put("totalSettled", liability.getTotalSettled().toPlainString());
+            newValue.put("currencyCode", liability.getCurrencyCode());
+            newValue.put("status", liability.getStatus());
+            var event = AuditEvent.create(
+                    tenantId != null ? tenantId : "unknown",
+                    "MemberCostShareLiability",
+                    liability.getId().toString(),
+                    entityName,
+                    "CREATE",
+                    AuditActor.SYSTEM_ID, AuditActor.SYSTEM_EMAIL,
+                    null, newValue,
+                    new String[]{"totalOwed", "totalSettled", "status", "currencyCode"},
+                    UUID.randomUUID().toString());
+            return auditPublisher.publish(event);
+        });
+    }
+
+    private Mono<Void> publishSettlementAudit(MemberCostShareSettlement s) {
+        return Mono.deferContextual(ctx -> {
+            String tenantId = TenantContext.get(ctx);
+            String entityName = "Cost-share settlement " + s.getAmount().toPlainString()
+                    + " " + s.getCurrencyCode() + " (" + s.getSource() + ") on liability " + s.getLiabilityId();
+            Map<String, Object> newValue = new LinkedHashMap<>();
+            newValue.put("liabilityId", s.getLiabilityId().toString());
+            newValue.put("amount", s.getAmount().toPlainString());
+            newValue.put("currencyCode", s.getCurrencyCode());
+            newValue.put("source", s.getSource());
+            var event = AuditEvent.create(
+                    tenantId != null ? tenantId : "unknown",
+                    "MemberCostShareSettlement",
+                    s.getId().toString(),
+                    entityName,
+                    "CREATE",
+                    AuditActor.SYSTEM_ID, AuditActor.SYSTEM_EMAIL,
+                    null, newValue,
+                    new String[]{"amount", "currencyCode", "source"},
+                    UUID.randomUUID().toString());
+            return auditPublisher.publish(event);
+        });
+    }
+
+    private static BigDecimal parseOrZero(String s) {
+        if (s == null || s.isBlank()) return BigDecimal.ZERO;
+        try { return new BigDecimal(s); } catch (NumberFormatException e) { return BigDecimal.ZERO; }
+    }
+
+    private static String firstNonBlank(String a, String b) {
+        return (a != null && !a.isBlank()) ? a : b;
     }
 
     private Mono<Void> handleMemberPayee(JsonNode node, String decision, String tenantId) {

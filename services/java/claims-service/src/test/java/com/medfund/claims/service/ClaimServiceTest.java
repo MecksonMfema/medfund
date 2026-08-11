@@ -486,6 +486,12 @@ class ClaimServiceTest {
         when(eventPublisher.publishClaimAdjudicated(any(), any(), any(), any(), any(), any(), any(),
                         any(), any(), any(), any(), any(), any()))
                 .thenReturn(Mono.empty());
+        // V077 — ClaimService now uses the 20-arg overload when the calculator
+        // ran (auto-approve branch). Stub both so any decision path completes.
+        when(eventPublisher.publishClaimAdjudicated(any(), any(), any(), any(), any(), any(), any(),
+                        any(), any(), any(), any(), any(), any(),
+                        any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(Mono.empty());
 
         StepVerifier.create(
                 claimService.adjudicate(claim.getId(), actorId, ACTOR_EMAIL)
@@ -498,8 +504,10 @@ class ClaimServiceTest {
                 .verifyComplete();
 
         verify(adjudicationPipeline).execute(any(Claim.class), anyList());
+        // V077 — the auto-approve branch calls the 20-arg overload (with the 7 cost-share fields).
         verify(eventPublisher).publishClaimAdjudicated(any(), any(), any(), any(), any(), any(), eq("HEALTH"),
-                any(), any(), any(), any(), any(), any());
+                any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any(), any());
     }
 
     // ── V063 ingestion — line.benefit_id resolved from tariff ────────

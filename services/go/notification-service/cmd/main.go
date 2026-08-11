@@ -19,6 +19,7 @@ import (
 
 	"github.com/medfund/notification-service/internal/advice"
 	"github.com/medfund/notification-service/internal/config"
+	"github.com/medfund/notification-service/internal/eob"
 	"github.com/medfund/notification-service/internal/events"
 	"github.com/medfund/notification-service/internal/arrears"
 	"github.com/medfund/notification-service/internal/handler"
@@ -154,6 +155,17 @@ func main() {
 		log.Fatalf("advice dispatcher: %v", err)
 	}
 
+	// EOB pipeline (Phase 4 copayments): reacts to CLAIM_EOB_ISSUED
+	// (claims-service emits one per adjudicated claim that produced a
+	// cost-share breakdown). Same recipient resolver as receipts —
+	// ForMember resolves to the member's own email. HTML-only for MVP;
+	// PDF generation deferred to a follow-up.
+	eobTemplates := template.NewResolver(pool, eob.DefaultSubject, eob.DefaultHTMLBody())
+	eobDispatcher, err := eob.NewDispatcher(resolver, sender, eobTemplates, cfg.SMTPFrom)
+	if err != nil {
+		log.Fatalf("eob dispatcher: %v", err)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	if cfg.KafkaBrokers != "" && fetcher != nil {
 		go runInvoiceConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID,
@@ -192,6 +204,12 @@ func main() {
 		go runAdviceConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, adviceDispatcher, publisher, retrySched)
 	} else {
 		log.Printf("[notification] advice consumer disabled (kafka=%q postgres=%v)",
+			cfg.KafkaBrokers, pool != nil)
+	}
+	if cfg.KafkaBrokers != "" && pool != nil {
+		go runEobConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, eobDispatcher, retrySched)
+	} else {
+		log.Printf("[notification] eob consumer disabled (kafka=%q postgres=%v)",
 			cfg.KafkaBrokers, pool != nil)
 	}
 
@@ -644,4 +662,46 @@ func buildAdviceOutcome(e advice.Event, res advice.Result,
 		}
 	}
 	return n
+}
+
+// runEobConsumer reads CLAIM_EOB_ISSUED events and sends the member an
+// explanation-of-benefits email. Same retry contract as receipts: transient
+// failures go through the retry scheduler; terminal failures land in the log.
+// No per-attempt NotificationSent chatter for now (EOB deliveries are not
+// tracked in the notification-sent audit stream yet).
+func runEobConsumer(ctx context.Context, brokers, groupID string,
+	dispatcher *eob.Dispatcher, retrySched *retry.Scheduler) {
+
+	sub := events.NewSubscriber(brokers, "medfund.claims.eob-issued", groupID+"-eob")
+	sub.Run(ctx, func(payload []byte) {
+		var e eob.Event
+		if err := json.Unmarshal(payload, &e); err != nil {
+			log.Printf("[notification] drop malformed CLAIM_EOB_ISSUED: %v", err)
+			return
+		}
+		res := dispatcher.Dispatch(ctx, e)
+		if res.Ok {
+			return
+		}
+		retrySched.RunAsync(ctx, "eob:"+e.ClaimID,
+			func(ctx context.Context, _ int) error {
+				r := dispatcher.Dispatch(ctx, e)
+				if r.Ok {
+					return nil
+				}
+				if r.Err != nil {
+					return r.Err
+				}
+				return errDispatchFailed
+			},
+			func(o retry.Outcome) {
+				if o.Ok {
+					log.Printf("[notification] eob retry succeeded for claim %s after %d attempts",
+						e.ClaimNumber, o.Attempts)
+					return
+				}
+				log.Printf("[notification] eob dead-lettered for claim %s after %d attempts: %v",
+					e.ClaimNumber, o.Attempts, o.Err)
+			})
+	})
 }

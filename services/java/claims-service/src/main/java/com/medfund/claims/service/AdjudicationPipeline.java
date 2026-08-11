@@ -3,6 +3,7 @@ package com.medfund.claims.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.claims.client.AiServiceClient;
+import com.medfund.claims.costshare.AppliedRuleAction;
 import com.medfund.claims.dto.AdjudicationResult;
 import com.medfund.claims.dto.AdjudicationResult.StageResult;
 import com.medfund.claims.dto.AiSignals;
@@ -109,6 +110,47 @@ public class AdjudicationPipeline {
     }
 
     public Mono<AdjudicationResult> execute(Claim claim, List<ClaimLine> lines) {
+        return evaluate(claim, lines)
+                .flatMap(eval -> decisionEngine.decide(
+                        claim, lines,
+                        eval.stages(), eval.aiSignals(),
+                        eval.ruleAdjustedTotal(), eval.ruleActions()));
+    }
+
+    /**
+     * Read-only evaluation of a transient claim shape — same stages, same rule
+     * fires, same AI call as {@link #execute(Claim, List)}, but stops short of
+     * the decision matrix and skips the sync Kafka publish + DB persistence
+     * the caller (ClaimService) layers around it. Used by
+     * {@link EligibilityQuoteService} to answer point-of-service eligibility
+     * quotes without leaving a row in {@code claims}.
+     *
+     * <p>The returned {@link DryRunResult} carries the four intermediates a
+     * caller needs to reconstruct the same numbers the real pipeline would
+     * produce: stage results (for coverage classification), AI signals,
+     * {@code ruleAdjustedTotal} (post-modifier total to hand the calculator),
+     * and the raw {@link AppliedRuleAction} list (for APPLY_COPAY overrides).
+     *
+     * <p>Note: {@link #runModifierRules} mutates the supplied {@code lines}'
+     * approvedAmount in place. That's fine for a dry-run over a transient
+     * list built by {@code EligibilityQuoteService} — those objects live only
+     * for the duration of the request. Do not pass a persisted line list.
+     */
+    public Mono<DryRunResult> dryRun(Claim claim, List<ClaimLine> lines) {
+        return evaluate(claim, lines);
+    }
+
+    /**
+     * Shared body of {@link #execute} and {@link #dryRun}. Returns the four
+     * intermediates every downstream branch needs. All queries here are
+     * SELECTs against the tenant search-path — no mutation, no Kafka publish.
+     */
+    private Mono<DryRunResult> evaluate(Claim claim, List<ClaimLine> lines) {
+        // Snapshot tenant-rule results so the calculator can consume APPLY_COPAY
+        // overrides (Phase 2, G4). Cached so both the stage builder and the
+        // decision path resolve the same evaluation, not a double-fire.
+        Mono<TenantRuleBundle> tenantRulesWithResultsMono = evaluateTenantRulesWithResults(claim).cache();
+
         // Run the deterministic stages sequentially (each may depend on the
         // claim's enrichment from the prior step). Run the AI evaluation in
         // parallel — it doesn't depend on stage outcomes and we don't want
@@ -136,8 +178,8 @@ public class AdjudicationPipeline {
                 results.add(s6);
                 return results;
             }))
-            .flatMap(results -> evaluateTenantRules(claim).map(s7 -> {
-                results.add(s7);
+            .flatMap(results -> tenantRulesWithResultsMono.map(bundle -> {
+                results.add(bundle.stage());
                 return results;
             }));
 
@@ -152,10 +194,29 @@ public class AdjudicationPipeline {
         // base for the auto-approve amount.
         Mono<BigDecimal> ruleAdjustedTotalMono = runModifierRules(claim, lines);
 
-        return Mono.zip(stagesMono, aiMono, ruleAdjustedTotalMono)
-                .map(tuple -> decisionEngine.decide(
-                        claim, tuple.getT1(), tuple.getT2(), tuple.getT3()));
+        Mono<List<AppliedRuleAction>> ruleActionsMono = tenantRulesWithResultsMono
+                .map(bundle -> AppliedRuleAction.fromAll(bundle.results()));
+
+        return Mono.zip(stagesMono, aiMono, ruleAdjustedTotalMono, ruleActionsMono)
+                .map(tuple -> new DryRunResult(tuple.getT1(), tuple.getT2(), tuple.getT3(), tuple.getT4()));
     }
+
+    /**
+     * Snapshot of a read-only pipeline run. Carries just enough to reconstruct
+     * the numbers {@link AdjudicationDecisionEngine#decide} + {@link CostShareCalculator}
+     * would produce, without committing to a final decision.
+     */
+    public record DryRunResult(
+            List<StageResult> stages,
+            AiSignals aiSignals,
+            BigDecimal ruleAdjustedTotal,
+            List<AppliedRuleAction> ruleActions) {}
+
+    /** Bundle of Stage 7's summarised {@link StageResult} + the raw rule fires
+     *  that produced it. The raw list is what {@link CostShareCalculator}
+     *  needs to detect APPLY_COPAY overrides; the summarised stage is what
+     *  the decision matrix + operator UI consume unchanged. */
+    private record TenantRuleBundle(StageResult stage, List<RuleResult> results) {}
 
     /**
      * Build per-line {@link ClaimDetailFact}s from the loaded lines, fire the
@@ -826,18 +887,29 @@ public class AdjudicationPipeline {
      * "No tenant rules configured — passed" with no other side effects.
      */
     private Mono<StageResult> evaluateTenantRules(Claim claim) {
+        return evaluateTenantRulesWithResults(claim).map(TenantRuleBundle::stage);
+    }
+
+    /**
+     * Same shape as {@link #evaluateTenantRules} but keeps the raw {@link RuleResult}
+     * list alongside the summarised {@link StageResult}. Phase 2 uses the raw list
+     * to detect {@code APPLY_COPAY} fires so {@link CostShareCalculator} can honour
+     * rule overrides — the stage string can't be parsed back into structured amounts
+     * without ambiguity.
+     */
+    private Mono<TenantRuleBundle> evaluateTenantRulesWithResults(Claim claim) {
         return Mono.deferContextual(ctx -> {
             String tenant = TenantContext.get(ctx);
             UUID tenantId = parseTenant(tenant);
             if (tenantId == null) {
-                return Mono.just(new StageResult("TenantRules", true,
-                        "No tenant context — skipping tenant rules"));
+                return Mono.just(new TenantRuleBundle(new StageResult("TenantRules", true,
+                        "No tenant context — skipping tenant rules"), List.of()));
             }
             return tenantRuleLoader.ensureLoaded(tenantId)
                 .then(factBuilder.build(claim))
                 .flatMap(facts -> ruleEvaluationService
                     .evaluateClaim(tenantId.toString(), facts.claim(), facts.member(), facts.provider())
-                    .map(this::summariseRuleResults));
+                    .map(results -> new TenantRuleBundle(summariseRuleResults(results), results)));
         });
     }
 

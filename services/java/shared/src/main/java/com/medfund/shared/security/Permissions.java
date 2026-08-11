@@ -46,6 +46,7 @@ public final class Permissions {
     public static final String CLAIMS_ASSIGN                     = "claims:assign";
     public static final String CLAIMS_VIEW_CTC_PAYMENTS          = "claims:view_ctc_payments";
     public static final String CLAIMS_COMMIT_CTC_PAYMENT         = "claims:commit_ctc_payment";
+    public static final String CLAIMS_REQUEST_QUOTE              = "claims:request_quote";
 
     // ── Billing ──────────────────────────────────────────────────────────────
     public static final String BILLING_VIEW                      = "billing:view";
@@ -99,6 +100,7 @@ public final class Permissions {
     public static final String FINANCE_VIEW_PAYMENT_ADVICE       = "finance:view_payment_advice";
     public static final String FINANCE_GENERATE_PAYMENT_ADVICE   = "finance:generate_payment_advice";
     public static final String FINANCE_MANAGE_COPAYMENTS         = "finance:manage_copayments";
+    public static final String FINANCE_VIEW_MEMBER_LIABILITIES   = "finance:view_member_liabilities";
     public static final String FINANCE_VIEW_WITHHELD_TAX         = "finance:view_withheld_tax";
 
     // ── Members ──────────────────────────────────────────────────────────────
@@ -137,6 +139,7 @@ public final class Permissions {
             CLAIMS_MANAGE_MODIFIERS, CLAIMS_MANAGE_REJECTION_REASONS,
             CLAIMS_MANAGE_VERIFICATION_CODES, CLAIMS_ASSIGN,
             CLAIMS_VIEW_CTC_PAYMENTS, CLAIMS_COMMIT_CTC_PAYMENT,
+            CLAIMS_REQUEST_QUOTE,
 
             BILLING_VIEW, BILLING_MANAGE_SCHEMES, BILLING_MANAGE_AGE_GROUPS,
             BILLING_MANAGE_WAITING_PERIODS, BILLING_MANAGE_GROUPS, BILLING_MANAGE_DEPENDANTS,
@@ -155,7 +158,8 @@ public final class Permissions {
             FINANCE_NOTES_READ, FINANCE_NOTES_WRITE, FINANCE_NOTES_APPROVE,
             FINANCE_VIEW_DEBTORS, FINANCE_VIEW_SUBLEDGER,
             FINANCE_MANAGE_BILLING_RECONCILE, FINANCE_VIEW_PAYMENT_ADVICE, FINANCE_GENERATE_PAYMENT_ADVICE,
-            FINANCE_MANAGE_COPAYMENTS, FINANCE_VIEW_WITHHELD_TAX,
+            FINANCE_MANAGE_COPAYMENTS, FINANCE_VIEW_MEMBER_LIABILITIES,
+            FINANCE_VIEW_WITHHELD_TAX,
 
             MEMBERS_VIEW, MEMBERS_CREATE, MEMBERS_UPDATE, MEMBERS_DEACTIVATE,
             MEMBERS_VIEW_DEPENDANTS, MEMBERS_MANAGE_WAIVERS, MEMBERS_VIEW_HISTORY,

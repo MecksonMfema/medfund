@@ -1,21 +1,27 @@
 package com.medfund.contributions.controller;
 
 import com.medfund.contributions.dto.*;
+import com.medfund.contributions.service.SchemeCostShareService;
 import com.medfund.contributions.service.SchemeService;
 import com.medfund.shared.audit.AuditActor;
+import com.medfund.shared.security.Permissions;
+import com.medfund.shared.security.RequiresPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 @RestController
@@ -25,11 +31,14 @@ import java.util.UUID;
 public class SchemeController {
 
     private final SchemeService schemeService;
+    private final SchemeCostShareService schemeCostShareService;
     private final com.medfund.contributions.repository.BenefitTariffCategoryRepository benefitTariffCategoryRepository;
 
     public SchemeController(SchemeService schemeService,
+                            SchemeCostShareService schemeCostShareService,
                             com.medfund.contributions.repository.BenefitTariffCategoryRepository benefitTariffCategoryRepository) {
         this.schemeService = schemeService;
+        this.schemeCostShareService = schemeCostShareService;
         this.benefitTariffCategoryRepository = benefitTariffCategoryRepository;
     }
 
@@ -293,5 +302,126 @@ public class SchemeController {
     })
     public Mono<AgeGroupResponse> activateAgeGroup(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
         return schemeService.activateAgeGroup(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(AgeGroupResponse::from);
+    }
+
+    // ── Cost-share configuration (Phase 1 — copayments standard flow) ────────
+    //
+    // Temporal (G15): edits create new rows keyed by effective_from; there is
+    // no PUT. Reads resolve the effective row via {asOf, policy_year}.
+    // Gated by the existing billing:manage_schemes permission — cost-share is
+    // part of the scheme surface, no new permission introduced.
+
+    @GetMapping("/{schemeId}/cost-share")
+    @Operation(summary = "Get the effective scheme-level cost-share config",
+        description = "Resolves the row whose window covers asOf (default today) for the "
+                    + "given scheme + policy year. Returns 404 when no row is effective.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Cost-share row returned"),
+        @ApiResponse(responseCode = "404", description = "No effective cost-share configured for this scheme/year")
+    })
+    public Mono<SchemeCostShareResponse> getSchemeCostShare(
+            @PathVariable UUID schemeId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf,
+            @RequestParam(required = false) Integer policyYear) {
+        LocalDate effectiveDate = asOf != null ? asOf : LocalDate.now();
+        int year = policyYear != null ? policyYear : effectiveDate.getYear();
+        return schemeCostShareService.findEffectiveScheme(schemeId, year, effectiveDate)
+                .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "No cost-share row effective for scheme " + schemeId + " year " + year + " on " + effectiveDate)))
+                .map(SchemeCostShareResponse::from);
+    }
+
+    @GetMapping("/{schemeId}/cost-share/history")
+    @Operation(summary = "List every scheme-level cost-share row for a policy year, newest first")
+    public Flux<SchemeCostShareResponse> getSchemeCostShareHistory(
+            @PathVariable UUID schemeId,
+            @RequestParam Integer policyYear) {
+        return schemeCostShareService.findSchemeHistory(schemeId, policyYear)
+                .map(SchemeCostShareResponse::from);
+    }
+
+    @PostMapping("/{schemeId}/cost-share")
+    @ResponseStatus(HttpStatus.CREATED)
+    @RequiresPermission(Permissions.BILLING_MANAGE_SCHEMES)
+    @Operation(summary = "Create a scheme-level cost-share row",
+        description = "Temporal insert — never in-place edit. Reads resolve the newest row "
+                    + "whose window covers the target date; superseding an existing row is "
+                    + "done by inserting a new row with a later effective_from.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Row created"),
+        @ApiResponse(responseCode = "400", description = "Validation error")
+    })
+    public Mono<SchemeCostShareResponse> createSchemeCostShare(
+            @PathVariable UUID schemeId,
+            @Valid @RequestBody CreateSchemeCostShareRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return schemeCostShareService.createScheme(schemeId, request, AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(SchemeCostShareResponse::from);
+    }
+
+    @GetMapping("/benefits/{benefitId}/cost-share")
+    @Operation(summary = "Get the effective benefit-level cost-share config",
+        description = "Resolves the row whose window covers asOf (default today) for the benefit. "
+                    + "Returns 404 when the benefit has no cost-share configured for that date.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Cost-share row returned"),
+        @ApiResponse(responseCode = "404", description = "No effective cost-share configured for this benefit")
+    })
+    public Mono<BenefitCostShareResponse> getBenefitCostShare(
+            @PathVariable UUID benefitId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf) {
+        LocalDate effectiveDate = asOf != null ? asOf : LocalDate.now();
+        return schemeCostShareService.findEffectiveBenefit(benefitId, effectiveDate)
+                .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "No cost-share row effective for benefit " + benefitId + " on " + effectiveDate)))
+                .map(BenefitCostShareResponse::from);
+    }
+
+    @GetMapping("/benefits/{benefitId}/cost-share/history")
+    @Operation(summary = "List every benefit-level cost-share row, newest first")
+    public Flux<BenefitCostShareResponse> getBenefitCostShareHistory(@PathVariable UUID benefitId) {
+        return schemeCostShareService.findBenefitHistory(benefitId).map(BenefitCostShareResponse::from);
+    }
+
+    @PostMapping("/benefits/{benefitId}/cost-share")
+    @ResponseStatus(HttpStatus.CREATED)
+    @RequiresPermission(Permissions.BILLING_MANAGE_SCHEMES)
+    @Operation(summary = "Create a benefit-level cost-share row (temporal insert)")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Row created"),
+        @ApiResponse(responseCode = "400", description = "Validation error")
+    })
+    public Mono<BenefitCostShareResponse> createBenefitCostShare(
+            @PathVariable UUID benefitId,
+            @Valid @RequestBody CreateBenefitCostShareRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return schemeCostShareService.createBenefit(benefitId, request, AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(BenefitCostShareResponse::from);
+    }
+
+    @GetMapping("/benefits/cost-share/{benefitCostShareId}/tiers")
+    @Operation(summary = "List tiered copay rows attached to a benefit cost-share row",
+        description = "Only meaningful when the parent benefit_cost_share.copay_type = 'TIERED'.")
+    public Flux<BenefitCostShareTierResponse> getBenefitCostShareTiers(
+            @PathVariable UUID benefitCostShareId) {
+        return schemeCostShareService.findTiers(benefitCostShareId)
+                .map(BenefitCostShareTierResponse::from);
+    }
+
+    @PostMapping("/benefits/cost-share/{benefitCostShareId}/tiers")
+    @ResponseStatus(HttpStatus.CREATED)
+    @RequiresPermission(Permissions.BILLING_MANAGE_SCHEMES)
+    @Operation(summary = "Add a tiered copay row to a benefit cost-share configuration")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Tier created"),
+        @ApiResponse(responseCode = "400", description = "Validation error or duplicate tier_name")
+    })
+    public Mono<BenefitCostShareTierResponse> createBenefitCostShareTier(
+            @PathVariable UUID benefitCostShareId,
+            @Valid @RequestBody CreateBenefitCostShareTierRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        return schemeCostShareService.createTier(benefitCostShareId, request,
+                        AuditActor.id(jwt), AuditActor.email(jwt))
+                .map(BenefitCostShareTierResponse::from);
     }
 }

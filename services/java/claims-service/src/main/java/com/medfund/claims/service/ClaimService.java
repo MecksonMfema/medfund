@@ -706,6 +706,20 @@ public class ClaimService {
             default -> claim.setStatus("PENDING_INFO");
         }
 
+        // V077 — persist the 7-bucket cost-share breakdown when the calculator ran
+        // (auto-approve branch only). Reject / manual-review leaves them NULL and
+        // the EOB page falls back to the "breakdown unavailable" banner.
+        AdjudicationResult.CostShareBreakdown cs = result.costShare();
+        if (cs != null) {
+            claim.setAllowedAmount(cs.allowedAmount());
+            claim.setDeductibleApplied(cs.deductibleApplied());
+            claim.setCopayAmount(cs.copayAmount());
+            claim.setCoinsuranceAmount(cs.coinsuranceAmount());
+            claim.setNotCoveredAmount(cs.notCoveredAmount());
+            claim.setShortfallAmount(cs.shortfallAmount());
+            claim.setMemberResponsibility(cs.memberResponsibility());
+        }
+
         claim.setAdjudicatedAt(Instant.now());
         claim.setAdjudicatedBy(UUID.fromString(actorId));
         claim.setUpdatedAt(Instant.now());
@@ -714,10 +728,17 @@ public class ClaimService {
         return claimRepository.save(claim)
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
-                return publishAudit(tenantId, "Claim", saved.getId().toString(), saved.getClaimNumber(), "UPDATE",
-                        actorId, actorEmail,
-                        Map.of("status", previousStatus),
-                        Map.of("status", saved.getStatus(), "decision", result.decision()))
+                // V078 — bump the member cost-share accumulator (Phase 4, G8).
+                // Runs only when the calculator produced a breakdown; family-aware
+                // via scheme_cost_share.deductible_scope.
+                Mono<Void> accWrite = cs != null
+                        ? incrementCostShareAccumulator(saved, cs)
+                        : Mono.empty();
+                return accWrite
+                    .then(publishAudit(tenantId, "Claim", saved.getId().toString(), saved.getClaimNumber(), "UPDATE",
+                            actorId, actorEmail,
+                            Map.of("status", previousStatus),
+                            Map.of("status", saved.getStatus(), "decision", result.decision())))
                     .then(eventPublisher.publishClaimAdjudicated(
                         saved.getId().toString(),
                         saved.getClaimNumber(),
@@ -730,9 +751,188 @@ public class ClaimService {
                         saved.getDependantId() != null ? saved.getDependantId().toString() : null,
                         saved.getBenefitId()   != null ? saved.getBenefitId().toString()   : null,
                         String.valueOf(java.time.LocalDate.now().getYear()),
-                        saved.getPayeeType(), tenantId))
+                        saved.getPayeeType(), tenantId,
+                        // V077 — 7-bucket breakdown, populated only when the calculator ran.
+                        plain(cs != null ? cs.allowedAmount()         : null),
+                        plain(cs != null ? cs.deductibleApplied()     : null),
+                        plain(cs != null ? cs.copayAmount()           : null),
+                        plain(cs != null ? cs.coinsuranceAmount()     : null),
+                        plain(cs != null ? cs.notCoveredAmount()      : null),
+                        plain(cs != null ? cs.shortfallAmount()       : null),
+                        plain(cs != null ? cs.memberResponsibility()  : null)))
+                    // V078 (Phase 4) — emit medfund.claims.eob-issued only when
+                    // the calculator produced a breakdown; notification-service
+                    // renders the EOB email + SMS + PDF from this event.
+                    .then(cs != null && isApproved(result.decision())
+                            ? publishEobEvent(saved, cs, tenantId)
+                            : Mono.empty())
                     .thenReturn(saved);
             }));
+    }
+
+    private static boolean isApproved(String decision) {
+        return "APPROVED".equalsIgnoreCase(decision) || "PARTIAL_APPROVED".equalsIgnoreCase(decision);
+    }
+
+    /**
+     * V078: publish {@code medfund.claims.eob-issued}. Serialises the
+     * CARC/RARC list to a JSON string so the flat Kafka payload stays
+     * homogeneous with every other topic's shape.
+     */
+    private Mono<Void> publishEobEvent(Claim saved, AdjudicationResult.CostShareBreakdown cs, String tenantId) {
+        var reasonCodes = CarcRarcMapper.forCostShare(
+                plain(cs.deductibleApplied()),
+                plain(cs.copayAmount()),
+                plain(cs.coinsuranceAmount()),
+                plain(cs.notCoveredAmount()),
+                plain(cs.shortfallAmount()));
+        String reasonCodesJson;
+        try {
+            reasonCodesJson = JSON.writeValueAsString(reasonCodes);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialise CARC/RARC list for claim {}: {}", saved.getId(), e.getMessage());
+            reasonCodesJson = "[]";
+        }
+        return eventPublisher.publishEobIssued(
+                saved.getId().toString(),
+                saved.getClaimNumber(),
+                saved.getMemberId() != null ? saved.getMemberId().toString() : null,
+                saved.getCurrencyCode(),
+                plain(cs.allowedAmount()),
+                plain(cs.deductibleApplied()),
+                plain(cs.copayAmount()),
+                plain(cs.coinsuranceAmount()),
+                plain(cs.notCoveredAmount()),
+                plain(cs.shortfallAmount()),
+                plain(cs.memberResponsibility()),
+                reasonCodesJson, tenantId);
+    }
+
+    /**
+     * V078 (Phase 4, G8): upsert the {@code member_cost_share_accumulator}
+     * row for the (member, dependant?, scheme, year) tuple. Family-scope
+     * lookup on {@code scheme_cost_share.deductible_scope}:
+     * <ul>
+     *   <li>{@code INDIVIDUAL} — per-beneficiary row (dependantId as-is).</li>
+     *   <li>{@code FAMILY} — family pot on the principal (dependantId=NULL).</li>
+     *   <li>{@code EMBEDDED} — both rows: the family pot AND the per-beneficiary
+     *       row are incremented so per-person and family caps both track.</li>
+     * </ul>
+     *
+     * <p>Concurrency: the UNIQUE index on
+     * {@code (member_id, COALESCE(dependant_id, sentinel), scheme_id, policy_year)}
+     * makes seed-then-update safe under parallel adjudications; the seed's
+     * {@code ON CONFLICT DO NOTHING} loses cleanly and the UPDATE still lands
+     * on the winner. Failures are logged and swallowed — a broken accumulator
+     * write must NOT roll back the claim decision.
+     */
+    private Mono<Void> incrementCostShareAccumulator(Claim claim,
+                                                       AdjudicationResult.CostShareBreakdown cs) {
+        if (claim.getSchemeId() == null || claim.getMemberId() == null || cs == null) {
+            return Mono.empty();
+        }
+        int year = claim.getServiceDate() != null
+                ? claim.getServiceDate().getYear()
+                : java.time.LocalDate.now().getYear();
+        String currency = claim.getCurrencyCode() != null ? claim.getCurrencyCode() : "USD";
+        java.math.BigDecimal deductibleMet = cs.deductibleApplied() != null
+                ? cs.deductibleApplied() : java.math.BigDecimal.ZERO;
+        java.math.BigDecimal oopMet = cs.memberResponsibility() != null
+                ? cs.memberResponsibility() : java.math.BigDecimal.ZERO;
+
+        return loadDeductibleScope(claim.getSchemeId(), year, claim.getServiceDate())
+                .flatMap(scope -> {
+                    boolean writeFamily = "FAMILY".equalsIgnoreCase(scope) || "EMBEDDED".equalsIgnoreCase(scope);
+                    boolean writeIndividual = "INDIVIDUAL".equalsIgnoreCase(scope) || "EMBEDDED".equalsIgnoreCase(scope);
+                    // Default (no scheme_cost_share row) treated as INDIVIDUAL —
+                    // matches the placeholder in CostShareCalculator.
+                    if (!writeFamily && !writeIndividual) writeIndividual = true;
+
+                    Mono<Void> familyWrite = writeFamily
+                            ? upsertAccumulatorRow(claim.getMemberId(), null, claim.getSchemeId(),
+                                    year, currency, deductibleMet, oopMet)
+                            : Mono.empty();
+                    Mono<Void> individualWrite = writeIndividual
+                            ? upsertAccumulatorRow(claim.getMemberId(), claim.getDependantId(),
+                                    claim.getSchemeId(), year, currency, deductibleMet, oopMet)
+                            : Mono.empty();
+                    return familyWrite.then(individualWrite);
+                })
+                .onErrorResume(e -> {
+                    log.warn("Failed to increment cost-share accumulator for claim {}: {}",
+                            claim.getId(), e.toString());
+                    return Mono.empty();
+                });
+    }
+
+    private Mono<String> loadDeductibleScope(UUID schemeId, int policyYear, java.time.LocalDate asOf) {
+        java.time.LocalDate at = asOf != null ? asOf : java.time.LocalDate.now();
+        return databaseClient.sql("""
+                SELECT deductible_scope
+                  FROM scheme_cost_share
+                 WHERE scheme_id = :schemeId
+                   AND policy_year = :year
+                   AND effective_from <= :asOf
+                   AND (effective_to IS NULL OR effective_to >= :asOf)
+                 ORDER BY effective_from DESC
+                 LIMIT 1
+                """)
+                .bind("schemeId", schemeId)
+                .bind("year", policyYear)
+                .bind("asOf", at)
+                .fetch().one()
+                .map(row -> row.get("deductible_scope") != null
+                        ? row.get("deductible_scope").toString() : "INDIVIDUAL")
+                .defaultIfEmpty("INDIVIDUAL");
+    }
+
+    /**
+     * Seed-then-update pattern — same shape as {@link #incrementAnnualCap}.
+     * The seed rides through {@code ON CONFLICT DO NOTHING} on the partial
+     * UNIQUE index; the UPDATE always lands on the winning row (post-race).
+     */
+    private Mono<Void> upsertAccumulatorRow(UUID memberId, UUID dependantId, UUID schemeId,
+                                              int policyYear, String currency,
+                                              java.math.BigDecimal deductibleMet,
+                                              java.math.BigDecimal oopMet) {
+        Mono<Long> seed = databaseClient.sql("""
+                INSERT INTO member_cost_share_accumulator
+                    (member_id, dependant_id, scheme_id, policy_year, deductible_met,
+                     oop_met, copay_count, currency_code)
+                VALUES
+                    (:memberId, :dependantId, :schemeId, :year, 0, 0, 0, :currency)
+                ON CONFLICT DO NOTHING
+                """)
+                .bind("memberId", memberId)
+                .bind("dependantId", dependantId != null ? dependantId : (UUID) null)
+                .bind("schemeId", schemeId)
+                .bind("year", policyYear)
+                .bind("currency", currency)
+                .fetch().rowsUpdated();
+        Mono<Long> bump = databaseClient.sql("""
+                UPDATE member_cost_share_accumulator
+                   SET deductible_met = deductible_met + :deductibleMet,
+                       oop_met        = oop_met + :oopMet,
+                       copay_count    = copay_count + 1,
+                       updated_at     = NOW()
+                 WHERE member_id = :memberId
+                   AND ((:dependantId IS NULL AND dependant_id IS NULL)
+                        OR dependant_id = :dependantId)
+                   AND scheme_id = :schemeId
+                   AND policy_year = :year
+                """)
+                .bind("memberId", memberId)
+                .bind("dependantId", dependantId != null ? dependantId : (UUID) null)
+                .bind("schemeId", schemeId)
+                .bind("year", policyYear)
+                .bind("deductibleMet", deductibleMet)
+                .bind("oopMet", oopMet)
+                .fetch().rowsUpdated();
+        return seed.then(bump).then();
+    }
+
+    private static String plain(java.math.BigDecimal v) {
+        return v != null ? v.toPlainString() : null;
     }
 
     public Flux<Claim> findByClaimType(String claimType) {

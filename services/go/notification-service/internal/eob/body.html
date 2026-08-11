@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+           color: #111827; background: #f9fafb; padding: 24px; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
+            padding: 24px; max-width: 640px; margin: 0 auto; }
+    h1 { font-size: 20px; margin: 0 0 8px; }
+    .sub { color: #6b7280; margin: 0 0 24px; }
+    table { width: 100%; border-collapse: collapse; }
+    td { padding: 8px 12px; border-bottom: 1px solid #f3f4f6; }
+    td.label { color: #6b7280; }
+    td.value { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+    tr.total td { border-top: 2px solid #111827; border-bottom: none;
+                  padding-top: 12px; padding-bottom: 12px; font-size: 16px; }
+    .foot { color: #6b7280; font-size: 12px; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Explanation of benefits</h1>
+    <p class="sub">Hello {{.DisplayName}} — here's the breakdown for claim <strong>{{.ClaimNumber}}</strong>.</p>
+
+    <table>
+      <tr><td class="label">Allowed amount</td>            <td class="value">{{.AllowedAmount}} {{.CurrencyCode}}</td></tr>
+      {{if .HasDeductible}}<tr><td class="label">Deductible applied</td>  <td class="value">{{.DeductibleApplied}} {{.CurrencyCode}}</td></tr>{{end}}
+      {{if .HasCopay}}<tr><td class="label">Copayment</td>          <td class="value">{{.CopayAmount}} {{.CurrencyCode}}</td></tr>{{end}}
+      {{if .HasCoinsurance}}<tr><td class="label">Coinsurance</td>     <td class="value">{{.CoinsuranceAmount}} {{.CurrencyCode}}</td></tr>{{end}}
+      {{if .HasShortfall}}<tr><td class="label">Shortfall (over tariff)</td> <td class="value">{{.ShortfallAmount}} {{.CurrencyCode}}</td></tr>{{end}}
+      {{if .HasNotCovered}}<tr><td class="label">Not covered</td>     <td class="value">{{.NotCoveredAmount}} {{.CurrencyCode}}</td></tr>{{end}}
+      <tr class="total"><td class="label">You owe</td>          <td class="value">{{.MemberResponsibility}} {{.CurrencyCode}}</td></tr>
+      <tr class="total"><td class="label">Plan paid</td>        <td class="value">{{.PlanPaid}} {{.CurrencyCode}}</td></tr>
+    </table>
+
+    <p class="foot">This is an EOB — not a bill. Any amount you owe will be
+       reflected on your next statement.</p>
+  </div>
+</body>
+</html>

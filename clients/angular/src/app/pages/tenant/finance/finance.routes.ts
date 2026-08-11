@@ -317,18 +317,18 @@ export const FINANCE_ROUTES: Routes = [
     data: { title: 'Payment Advice Detail', sidebar: 'operational' },
   },
 
-  // ── Copayments ────────────────────────────────────────────────────────────
-  // Copayments are contributions-service transactions with type=COPAYMENT.
-  // Route-data presets reuse the billing transaction list / form so the
-  // operator lands on the same surface they already know from billing.
+  // ── Cost-share receipts (renamed from Copayments, V079) ──────────────────
+  // Money-in path: member paid the tenant against their cost-share balance.
+  // Transaction-type filter renamed COPAYMENT → COPAYMENT_RECEIPT in the
+  // same PR that shipped V079 (G13 rename).
   {
     path: 'copayments',
     canActivate: [permissionGuard(['finance:manage_copayments'])],
     loadComponent: () => import('../billing/transactions/transactions-list.component').then(m => m.TransactionsListComponent),
     data: {
-      title: 'Copayments',
-      description: 'Member cost-share receipts. Filtered to COPAYMENT transaction type.',
-      presetTransactionType: 'COPAYMENT',
+      title: 'Cost-share receipts',
+      description: 'Member cost-share receipts. Filtered to COPAYMENT_RECEIPT transactions.',
+      presetTransactionType: 'COPAYMENT_RECEIPT',
       sidebar: 'operational',
     },
   },
@@ -336,7 +336,24 @@ export const FINANCE_ROUTES: Routes = [
     path: 'copayments/create',
     canActivate: [permissionGuard(['finance:manage_copayments'])],
     loadComponent: () => import('../billing/transactions/transaction-form.component').then(m => m.TransactionFormComponent),
-    data: { title: 'Record Copayment', sidebar: 'operational' },
+    data: { title: 'Record Cost-share Receipt', sidebar: 'operational' },
+  },
+
+  // ── Member liabilities (V078, Phase 4 copayments) ────────────────────────
+  // Money-out path: what the fund has billed the member for their cost share
+  // on each adjudicated claim. Reads from finance-service's
+  // member_cost_share_liability + member_cost_share_settlement tables.
+  {
+    path: 'member-liabilities',
+    canActivate: [permissionGuard(['finance:view_member_liabilities'])],
+    loadComponent: () => import('./liabilities/member-liabilities-list.component').then(m => m.MemberLiabilitiesListComponent),
+    data: { title: 'Member Liabilities', sidebar: 'operational', fullbleed: true },
+  },
+  {
+    path: 'member-liabilities/:id',
+    canActivate: [permissionGuard(['finance:view_member_liabilities'])],
+    loadComponent: () => import('./liabilities/member-liability-detail.component').then(m => m.MemberLiabilityDetailComponent),
+    data: { title: 'Liability Detail', sidebar: 'operational' },
   },
 
 ];

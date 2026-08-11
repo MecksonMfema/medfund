@@ -9,6 +9,12 @@ public class ProviderFact {
     private String providerId;
     private String registrationStatus;
     private String ahfozSpecialty;
+    /** True when the provider is contracted with the fund. Referenced by
+     *  {@code CoPaymentTemplates.CP01} and {@code WAIVE_IN_NETWORK_TIER_1}. */
+    private Boolean inNetwork;
+    /** Free-text tier label (V077, MVP for G16). Values like "TIER_1",
+     *  "IN_NETWORK", "PREFERRED". Formal reference table deferred as F5. */
+    private String networkTier;
 
     public ProviderFact() {
     }
@@ -37,5 +43,21 @@ public class ProviderFact {
 
     public void setAhfozSpecialty(String ahfozSpecialty) {
         this.ahfozSpecialty = ahfozSpecialty;
+    }
+
+    public Boolean getInNetwork() {
+        return inNetwork;
+    }
+
+    public void setInNetwork(Boolean inNetwork) {
+        this.inNetwork = inNetwork;
+    }
+
+    public String getNetworkTier() {
+        return networkTier;
+    }
+
+    public void setNetworkTier(String networkTier) {
+        this.networkTier = networkTier;
     }
 }

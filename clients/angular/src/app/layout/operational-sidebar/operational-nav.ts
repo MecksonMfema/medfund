@@ -120,6 +120,7 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
       // Tariffs are all children that would otherwise keep this item highlighted.
       { label: 'All Claims',         icon: 'file-medical',  route: '/tenant/claims',         permissions: ['claims:view', 'claims:view_drug'], exactMatch: true },
       { label: 'Submit Claim',       icon: 'file-text',     route: '/tenant/claims/submit',  permissions: ['claims:create'] },
+      { label: 'Eligibility Quote',  icon: 'calculator',    route: '/tenant/claims/eligibility-quote', permissions: ['claims:request_quote'] },
       { label: 'Pre-Authorizations', icon: 'check-circle',  route: '/tenant/claims/preauth', permissions: ['claims:manage_preauth'], featureFlag: 'preauthAvailable', exactMatch: true },
       { label: 'New Pre-Auth',       icon: 'plus',          route: '/tenant/claims/preauth/new', permissions: ['claims:manage_preauth'], featureFlag: 'preauthAvailable' },
       { label: 'Tariffs',            icon: 'banknote',      route: '/tenant/claims/tariffs', permissions: ['claims:manage_tariffs'] },
@@ -140,7 +141,8 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
       { label: 'Reconciliation',     icon: 'wallet',       route: '/tenant/finance/reconciliations',       permissions: ['finance:view'] },
       { label: 'Notes',              icon: 'edit',         route: '/tenant/finance/notes',                 permissions: ['finance.notes:read'] },
       { label: 'Payment Advice',     icon: 'wallet',       route: '/tenant/finance/advice',                permissions: ['finance:view_payment_advice'] },
-      { label: 'Copayments',         icon: 'wallet',       route: '/tenant/finance/copayments',            permissions: ['finance:manage_copayments'] },
+      { label: 'Cost-share receipts', icon: 'wallet',      route: '/tenant/finance/copayments',            permissions: ['finance:manage_copayments'] },
+      { label: 'Member Liabilities', icon: 'wallet',       route: '/tenant/finance/member-liabilities',    permissions: ['finance:view_member_liabilities'] },
       { label: 'Reports',            icon: 'chart',        route: '/tenant/finance/reports',               permissions: ['finance:view_debtors', 'finance:view_subledger'] },
     ],
   },

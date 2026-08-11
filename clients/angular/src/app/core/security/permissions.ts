@@ -20,6 +20,7 @@ export type PermissionKey =
   | 'claims:manage_rejection_reasons' | 'claims:manage_verification_codes'
   | 'claims:assign'
   | 'claims:view_ctc_payments' | 'claims:commit_ctc_payment'
+  | 'claims:request_quote'
   // Billing
   | 'billing:view' | 'billing:manage_schemes' | 'billing:manage_age_groups'
   | 'billing:manage_waiting_periods' | 'billing:manage_groups'
@@ -42,7 +43,7 @@ export type PermissionKey =
   | 'finance.notes:read' | 'finance.notes:write' | 'finance.notes:approve'
   | 'finance:view_debtors' | 'finance:view_subledger'
   | 'finance:manage_billing_reconcile' | 'finance:view_payment_advice'
-  | 'finance:manage_copayments' | 'finance:view_withheld_tax'
+  | 'finance:manage_copayments' | 'finance:view_member_liabilities' | 'finance:view_withheld_tax'
   // Members
   | 'members:view' | 'members:create' | 'members:update' | 'members:deactivate'
   | 'members:view_dependants' | 'members:manage_waivers' | 'members:view_history'
@@ -91,6 +92,7 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'claims:assign',                    label: 'Assign claims',                    description: 'Allocate claims to staff for assessment.' },
       { key: 'claims:view_ctc_payments',         label: 'View CTC payments',                description: "View Claims-to-Contributions transfers (member claim payouts credited against the member's own contribution bill)." },
       { key: 'claims:commit_ctc_payment',        label: 'Commit CTC payments',              description: "Commit a Claims-to-Contributions transfer — the member's payable is applied against their contribution bill." },
+      { key: 'claims:request_quote',             label: 'Request eligibility quote',        description: 'Request a pre-service cost-share quote for a member.' },
     ],
   },
   {
@@ -140,7 +142,8 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'finance:view_subledger',           label: 'View subledger',                   description: 'View detailed subledger journal entries.' },
       { key: 'finance:manage_billing_reconcile', label: 'Reconcile billing to claims',      description: 'Match billing runs against claim payments.' },
       { key: 'finance:view_payment_advice',      label: 'View payment advice',              description: 'View payment-advice notifications sent to providers.' },
-      { key: 'finance:manage_copayments',        label: 'Manage copayments',                description: 'Create or adjust member copayment records.' },
+      { key: 'finance:manage_copayments',        label: 'Manage cost-share receipts',       description: 'Record or adjust member cost-share (copayment) receipts.' },
+      { key: 'finance:view_member_liabilities',  label: 'View member liabilities',          description: "View the fund-issued 'the member owes' ledger — one row per adjudicated claim with a cost-share balance." },
       { key: 'finance:view_withheld_tax',        label: 'View withheld tax',                description: 'View tax-withheld claims and payments.' },
     ],
   },

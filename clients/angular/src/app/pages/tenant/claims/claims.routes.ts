@@ -121,6 +121,16 @@ export const CLAIMS_ROUTES: Routes = [
     loadComponent: () => import('./tax-withheld/tax-withheld-list.component').then(m => m.TaxWithheldListComponent),
     data: { title: 'Tax-Withheld Claims', variant: 'medical', sidebar: 'operational', fullbleed: true },
   },
+  {
+    path: 'eligibility-quote',
+    canActivate: [permissionGuard(['claims:request_quote'])],
+    loadComponent: () => import('./eligibility-quote/eligibility-quote.component').then(m => m.EligibilityQuoteComponent),
+    data: {
+      title: 'Eligibility Quote',
+      description: 'Pre-service cost-share estimate for a proposed treatment.',
+      sidebar: 'operational',
+    },
+  },
 
   // ── Pre-authorisation ──────────────────────────────────────────────────────
   // NOTE: The catch-all ":id" claim-detail route lives at the bottom of

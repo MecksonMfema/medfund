@@ -1,0 +1,50 @@
+<header class="page-header">
+  <div>
+    <h1>Member Liabilities</h1>
+    <p class="page-sub">Cost-share balances owed by members from adjudicated claims. Each row is one claim's member share — drill in to see settlements applied against it.</p>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="filter-strip">
+  <label class="field">
+    <span class="field-label">Status</span>
+    <app-select
+      [(ngModel)]="statusFilter"
+      (selectionChange)="onStatusChange()"
+      name="status"
+      [options]="statusOptions"
+      size="sm"
+    ></app-select>
+  </label>
+  <label class="field">
+    <span class="field-label">Currency</span>
+    <input class="field-control field-control--sm" type="text" maxlength="3"
+           [(ngModel)]="currencyFilter" (blur)="onCurrencyChange()"
+           name="currency" placeholder="Any" />
+  </label>
+</div>
+
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [actions]="actions"
+  [showActions]="true"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  [initialSortKey]="sortKey"
+  [initialSortDirection]="sortDirection"
+  searchPlaceholder="Search member name, member # or claim #"
+  emptyMessage="No member liabilities match these filters"
+  emptyDescription="Adjust the filters above, or wait for new adjudicated claims to land."
+  (pageChange)="onPageChange($event)"
+  (searchChange)="onSearchChange($event)"
+  (sortChange)="onSortChange($event)">
+</app-data-table>
