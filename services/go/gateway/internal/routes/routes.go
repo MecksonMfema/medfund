@@ -102,6 +102,14 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// Annual cap totals aggregated per (member, scheme, policy year).
 	app.All("/api/v1/beneficiary-annual-totals", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/beneficiary-annual-totals/*", proxy.Handler(cfg.ContribServiceURL))
+	// Phase 2 billing-report family + cross-service billing aggregate.
+	// /api/v1/reports/billing/* — per-scheme / per-group / detail / export.
+	// /api/v1/reports/aggregate/billing — Phase 3 collection-rate and
+	// Phase 5 loss-ratio consumer. Aggregate paths for other families
+	// (receipts / claims) fan out to their owning services in later phases.
+	app.All("/api/v1/reports/billing", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/reports/billing/*", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/reports/aggregate/billing", proxy.Handler(cfg.ContribServiceURL))
 
 	// ── Finance Service ───────────────────────────────────────────────────────
 	app.All("/api/v1/payments/*", proxy.Handler(cfg.FinanceServiceURL))

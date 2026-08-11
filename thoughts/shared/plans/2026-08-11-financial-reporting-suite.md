@@ -658,14 +658,18 @@ Server-side SQL aggregations (never in-memory) — column set:
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `cd services/java/contributions-service && ../gradlew build test`
-- [ ] `make test-integration` — `BillingReportControllerIT` covers per-scheme + per-group + aggregate + export + toggle-off 403.
-- [ ] `verify` on `/tenant/finance/reports/billing/schemes` and `/reports/billing/groups`.
-- [ ] Playwright: `billing-report.spec.ts` — set period, change reportingCurrency, download XLSX, verify file contents.
+- [x] `cd services/java/contributions-service && ../gradlew build test` — `./gradlew :contributions-service:test` green (all suites pass including new `BillingReportServiceTest` (6 cases) and `BillingReportControllerTest` (6 cases); pre-existing finance-service `bug_claim_save_mock_id_npe` 7-test set unchanged). `./gradlew :shared:test` green (125/0). Gateway `go build ./...` green. Angular `ng build --configuration=development` green (only pre-existing warnings).
+- [ ] `make test-integration` — `BillingReportControllerIT` covers per-scheme + per-group + aggregate + export + toggle-off 403. **Deferred to family-phase pickup** — same pattern as Phase 1 §B's deferred per-controller ITs; the shared `ReportRetrofitAssertions` helper is in place and the IT lands alongside the other family-phase ITs (see Phase-1 §B deviations).
+- [ ] `verify` on `/tenant/finance/reports/billing/schemes` and `/reports/billing/groups` — Angular bundle compiles clean; browser walkthrough deferred to human acceptance (Manual Verification below).
+- [ ] Playwright: `billing-report.spec.ts` — set period, change reportingCurrency, download XLSX, verify file contents. **Deferred alongside the family-phase ITs** — same rationale.
 
 #### Manual Verification
 - [ ] Compare billing-report totals against a known scheme's manual sum for one month — must reconcile exactly.
 - [ ] XLSX file opens in Excel with correct age-band columns and per-currency stratification.
+- [ ] `perCurrency` envelope block matches the ledger row-by-row native totals for a multi-currency tenant.
+- [ ] Missing FX rate for a currency in the data produces a `warnings` entry naming (base, quote, date) and OMITS the currency from `fxRates` — the report itself succeeds (G28).
+- [ ] Cross-service `/api/v1/reports/aggregate/billing` returns the same total for a scheme+currency as the primary `/reports/billing/schemes` payload (Phase 3+5 will consume this).
+- [ ] `SecurityEventMessage` on Kafka `medfund.security.events` topic carries `reportKey=BILLING_REPORT` on the schemes export and `reportKey=GROUP_BILLING_REPORT` on the groups export.
 
 ---
 
@@ -1359,6 +1363,74 @@ for the three §B wraps.
   "Every report endpoint short-circuits with `403 Forbidden`". G29 clarified this
   is reads only; mutations stay ungated. Update was made to the Implementation
   Approach section above.
+
+**2026-08-11 (Phase 2 implementation — billing family)**
+
+Phase 2 as written was outline-depth. Implementation expanded to concrete
+files against the current codebase, deviating from the outline in three
+places worth recording:
+
+- **Aggregate endpoint on a separate controller.** The outline put
+  `/api/v1/reports/aggregate/billing` on `BillingReportController` alongside
+  the per-scheme + per-group endpoints. Split into a dedicated
+  `BillingAggregateController` because the aggregate is a
+  service-to-service surface with different gating semantics: intentionally
+  **ungated by `@RequiresReport`** (a tenant admin disabling
+  `BILLING_REPORT` should not cascade into breaking Phase 3+5 cross-service
+  reports across the platform). Same JSON envelope shape either way; the
+  split is purely a concern boundary.
+- **"Committed contributions" = `invoice_id IS NOT NULL`.** The outline
+  said "committed contributions only" for the group report without
+  defining the SQL. Chose the invoice-back-link filter because that's the
+  ledger's "this row has been billed" marker (see `Contribution.invoiceId`
+  Javadoc: "Back-link to the invoice that aggregated this contribution
+  row. NULL during the brief preview/commit window before invoices are
+  generated"). Applied to both the per-scheme and per-group aggregates
+  for consistency — preview-only rows never distort report numbers.
+- **Age bands are computed at query time from `date_of_birth`, not from
+  the frozen `age_group_id`.** Contribution rows carry both — an
+  `age_group_id` snapshot (frozen at billing time for price
+  reproducibility) and enough back-references (`member_id`, `dependant_id`)
+  to compute age at `period_start`. The age-band buckets in the plan
+  (0-18 / 19-35 / 36-55 / 56+) don't map onto the tenant-configurable
+  `age_groups` schedule, so the query uses
+  `EXTRACT(YEAR FROM AGE(period_start, dob))` on the beneficiary's DOB
+  instead. Historical reproducibility is inherent: `period_start` is
+  immutable, so the bucket a row lands in doesn't change over time.
+- **Gateway routing added for `/api/v1/reports/*`.** The gateway had
+  no route for the new report prefix — added
+  `/api/v1/reports/billing`, `/api/v1/reports/billing/*`, and
+  `/api/v1/reports/aggregate/billing` → contributions-service. Deliberately
+  path-specific rather than a catch-all `/api/v1/reports/*` because
+  Phase 5's `CrossServiceReportController` in finance-service will need
+  the same prefix (`/api/v1/reports/billing-vs-claims`,
+  `/api/v1/reports/member-payments`), Phase 3's `/api/v1/reports/aggregate/receipts`
+  stays in contributions-service, and Phase 4's `/api/v1/reports/aggregate/claims`
+  goes to claims-service. A catch-all would prevent this per-family
+  fanout later.
+- **`BillingReportControllerTest` — Mockito 5 null-matcher gotcha.**
+  First test-run failed with empty-body 200s because `any(Mono.class)`
+  in Mockito 5 rejects nulls, and the default `MockBean` return for a
+  `Mono<T>` method is null, breaking the envelope-builder mock match.
+  Fix was to stub the `BillingReportService` `Mono`-returning methods
+  in `@BeforeEach` so the arguments the controller passes into
+  `envelopeBuilder.build(...)` are non-null. Worth recording because
+  every future controller slice test that composes multiple `MockBean`s
+  through a reactive chain hits the same trap.
+
+**Phase 2 deferred (family-phase pickup)**:
+
+- `BillingReportControllerIT` and Playwright `billing-report.spec.ts` —
+  same rationale as Phase 1 §B's deferred per-controller ITs. The
+  shared `ReportRetrofitAssertions` helper is in place; the IT class
+  lands alongside the other family-phase ITs once the family-phase
+  testcontainer harness is in place.
+- Detail routes wiring in Angular — `/reports/scheme/:id` and
+  `/reports/group/:id` are still `ComingSoon` stubs. The detail
+  endpoints (`/schemes/{id}`, `/groups/{id}`) exist and return the
+  monthly-breakdown payload; the UI landing pages that consume them
+  are deferred until the family-phase drill flow (Phase 4 claims
+  financial detail cross-links here).
 
 ## Decisions Log
 

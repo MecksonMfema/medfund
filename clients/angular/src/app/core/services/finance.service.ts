@@ -955,4 +955,94 @@ export class FinanceService {
   matchReconciliation(id: string): Observable<BankReconciliation> { return this.api.post<BankReconciliation>(`/reconciliations/${id}/match`, {}); }
   investigateReconciliation(id: string): Observable<BankReconciliation> { return this.api.post<BankReconciliation>(`/reconciliations/${id}/investigate`, {}); }
   resolveReconciliation(id: string): Observable<BankReconciliation> { return this.api.post<BankReconciliation>(`/reconciliations/${id}/resolve`, {}); }
+
+  // ── Billing reports (Phase 2) ──────────────────────────────────────────
+  /** Per-scheme billing aggregate for a window. Rows stay native currency. */
+  getSchemeBillingReport(opts: BillingReportParams): Observable<ReportResponse<SchemeBillingSummaryRow[]>> {
+    return this.api.get<ReportResponse<SchemeBillingSummaryRow[]>>('/reports/billing/schemes', billingParams(opts));
+  }
+  getSchemeBillingDetail(schemeId: string, opts: BillingReportParams): Observable<ReportResponse<SchemeBillingDetailResponse>> {
+    return this.api.get<ReportResponse<SchemeBillingDetailResponse>>(`/reports/billing/schemes/${schemeId}`, billingParams(opts));
+  }
+  exportSchemeBillingExcel(opts: BillingReportParams): Observable<Blob> {
+    return this.api.getBlob('/reports/billing/schemes/export/excel', billingParams(opts));
+  }
+  /** Per-group billing aggregate — only rows with a group_id + committed. */
+  getGroupBillingReport(opts: BillingReportParams): Observable<ReportResponse<GroupBillingSummaryRow[]>> {
+    return this.api.get<ReportResponse<GroupBillingSummaryRow[]>>('/reports/billing/groups', billingParams(opts));
+  }
+  getGroupBillingDetail(groupId: string, opts: BillingReportParams): Observable<ReportResponse<GroupBillingDetailResponse>> {
+    return this.api.get<ReportResponse<GroupBillingDetailResponse>>(`/reports/billing/groups/${groupId}`, billingParams(opts));
+  }
+  exportGroupBillingExcel(opts: BillingReportParams): Observable<Blob> {
+    return this.api.getBlob('/reports/billing/groups/export/excel', billingParams(opts));
+  }
+}
+
+// ── Billing report types (Phase 2) ─────────────────────────────────────────
+
+export interface BillingReportParams {
+  periodStart: string;                 // ISO date, inclusive
+  periodEnd: string;                   // ISO date, inclusive
+  reportingCurrency?: string;          // ISO-4217 override; blank = tenant default
+}
+
+function billingParams(opts: BillingReportParams): Record<string, string> {
+  const params: Record<string, string> = {
+    periodStart: opts.periodStart,
+    periodEnd:   opts.periodEnd,
+  };
+  if (opts.reportingCurrency) params['reportingCurrency'] = opts.reportingCurrency;
+  return params;
+}
+
+export interface SchemeBillingSummaryRow {
+  schemeId: string;
+  schemeName: string;
+  insuranceLine: string;
+  currencyCode: string;
+  principalCount: number;
+  dependantCount: number;
+  livesCovered: number;
+  ageBand0_18: string;
+  ageBand19_35: string;
+  ageBand36_55: string;
+  ageBand56Plus: string;
+  totalBilled: string;
+  totalPaid: string;
+}
+
+export interface GroupBillingSummaryRow {
+  groupId: string;
+  groupName: string;
+  currencyCode: string;
+  principalCount: number;
+  dependantCount: number;
+  livesCovered: number;
+  totalBilled: string;
+  totalPaid: string;
+}
+
+export interface BillingMonthlyBucket {
+  periodStart: string;                 // ISO date — first day of the month
+  currencyCode: string;
+  principalCount: number;
+  dependantCount: number;
+  totalBilled: string;
+  totalPaid: string;
+}
+
+export interface SchemeBillingDetailResponse {
+  schemeId: string;
+  schemeName: string;
+  insuranceLine: string;
+  perCurrencySummary: SchemeBillingSummaryRow[];
+  monthlyBreakdown: BillingMonthlyBucket[];
+}
+
+export interface GroupBillingDetailResponse {
+  groupId: string;
+  groupName: string;
+  perCurrencySummary: GroupBillingSummaryRow[];
+  monthlyBreakdown: BillingMonthlyBucket[];
 }

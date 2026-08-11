@@ -214,9 +214,34 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () => import('./reports/reports-hub.component').then(m => m.ReportsHubComponent),
     data: { title: 'Reports', description: 'Every enabled report, grouped by family.', sidebar: 'operational' },
   },
-  cs('reports/schemes',                      'Schemes Report',                   '/schemes-list',                             'Per-scheme aggregated metrics.',                  ['finance:view_subledger']),
+  // Phase 2 billing family — replaces the ComingSoon stubs for
+  // /reports/schemes and /reports/group-billing. Detail routes stay
+  // ComingSoon until Phase 4 (claims-financial) needs the drill target.
+  {
+    path: 'reports/schemes',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/billing/scheme-billing-report.component').then(m => m.SchemeBillingReportComponent),
+    data: {
+      title: 'Billing report — per scheme',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'BILLING_REPORT',
+    },
+  },
   cs('reports/scheme/:id',                   'Scheme Report Detail',             '/view-scheme-report',                       'Single scheme analytics.',                        ['finance:view_subledger']),
-  cs('reports/group-billing',                'Group Billing Report',             '/group-billing-list',                       'Employer group billing aggregates.',              ['finance:view_subledger']),
+  {
+    path: 'reports/group-billing',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/billing/group-billing-report.component').then(m => m.GroupBillingReportComponent),
+    data: {
+      title: 'Billing report — per group',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'GROUP_BILLING_REPORT',
+    },
+  },
   cs('reports/group-schemes',                'Group Schemes Report',             '/group-schemes-report',                     'Employer benefit schemes.',                       ['finance:view_subledger']),
   cs('reports/group-billing-to-claims',      'Group Billing → Claims',           '/group-billing-to-claims-list',             'Employer-level billing-to-claim reconcile.',      ['finance:manage_billing_reconcile']),
   cs('reports/group-billing-to-claims/:id',  'Group Billing → Claims Detail',    '/group-billing-to-claims-detail',           'Single employer reconciliation.',                 ['finance:manage_billing_reconcile']),
