@@ -327,9 +327,10 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () => import('../billing/transactions/transactions-list.component').then(m => m.TransactionsListComponent),
     data: {
       title: 'Cost-share receipts',
-      description: 'Member cost-share receipts. Filtered to COPAYMENT_RECEIPT transactions.',
+      description: 'Member cost-share receipts recorded against adjudicated claims.',
       presetTransactionType: 'COPAYMENT_RECEIPT',
       sidebar: 'operational',
+      fullbleed: true,
     },
   },
   {

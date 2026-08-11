@@ -1,7 +1,7 @@
 <header class="page-header">
   <div>
     <h1>Member Liabilities</h1>
-    <p class="page-sub">Cost-share balances owed by members from adjudicated claims. Each row is one claim's member share — drill in to see settlements applied against it.</p>
+    <p class="page-sub">Cost-share balances owed by members from adjudicated claims. Each row is one claim's member share. Drill in to see settlements applied against it.</p>
   </div>
 </header>
 
@@ -9,23 +9,53 @@
   <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
 }
 
-<div class="filter-strip">
-  <label class="field">
-    <span class="field-label">Status</span>
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-search">
+    <app-icon name="search" [size]="16"></app-icon>
+    <input
+      type="search"
+      [ngModel]="searchTerm"
+      (ngModelChange)="onSearchInput($event)"
+      name="search"
+      placeholder="Search member name, member # or claim #…"
+      aria-label="Search member liabilities"
+    />
+  </div>
+
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Status</span>
     <app-select
       [(ngModel)]="statusFilter"
-      (selectionChange)="onStatusChange()"
+      (selectionChange)="onFilterChange()"
       name="status"
-      [options]="statusOptions"
       size="sm"
+      [options]="statusOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
     ></app-select>
-  </label>
-  <label class="field">
-    <span class="field-label">Currency</span>
-    <input class="field-control field-control--sm" type="text" maxlength="3"
-           [(ngModel)]="currencyFilter" (blur)="onCurrencyChange()"
-           name="currency" placeholder="Any" />
-  </label>
+  </div>
+
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Currency</span>
+    <app-select
+      [(ngModel)]="currencyFilter"
+      (selectionChange)="onFilterChange()"
+      name="currency"
+      size="sm"
+      [options]="currencyOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-clear">
+    <button type="button" class="clear-btn" (click)="clearFilters()">
+      <app-icon name="x-circle" [size]="14"></app-icon>
+      Clear
+    </button>
+  </div>
 </div>
 
 <app-data-table
@@ -33,6 +63,8 @@
   [data]="rows"
   [actions]="actions"
   [showActions]="true"
+  [searchable]="false"
+  [showToolbar]="false"
   [serverSide]="true"
   [loading]="loading"
   [pageSize]="pageSize"
@@ -41,10 +73,8 @@
   [serverPage]="page"
   [initialSortKey]="sortKey"
   [initialSortDirection]="sortDirection"
-  searchPlaceholder="Search member name, member # or claim #"
   emptyMessage="No member liabilities match these filters"
   emptyDescription="Adjust the filters above, or wait for new adjudicated claims to land."
   (pageChange)="onPageChange($event)"
-  (searchChange)="onSearchChange($event)"
   (sortChange)="onSortChange($event)">
 </app-data-table>

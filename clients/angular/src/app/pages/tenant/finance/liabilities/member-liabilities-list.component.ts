@@ -1,14 +1,19 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import {
   MemberLiabilityRow,
   MemberLiabilityService,
 } from '../../../../core/services/member-liability.service';
 import { FinancePageResponse } from '../../../../core/services/finance.service';
+import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
+import { TenantService } from '../../../../core/services/tenant.service';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
+import { IconComponent } from '../../../../shared/components/icon/icon.component';
 
 /**
  * V078 member cost-share liabilities list (Phase 4 copayments). Every row
@@ -21,17 +26,20 @@ import { DataTableComponent, TableAction, TableColumn } from '../../../../shared
 @Component({
   selector: 'app-member-liabilities-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, SelectComponent, DataTableComponent],
+  imports: [CommonModule, FormsModule, SelectComponent, DataTableComponent, IconComponent],
   templateUrl: './member-liabilities-list.component.html',
   styleUrl: './member-liabilities-list.component.scss',
 })
-export class MemberLiabilitiesListComponent implements OnInit {
+export class MemberLiabilitiesListComponent implements OnInit, OnDestroy {
   rows: MemberLiabilityRow[] = [];
   loading = false;
   errorMessage: string | null = null;
 
-  statusFilter: string = '';
-  currencyFilter: string = '';
+  currencies: TenantCurrencyConfig[] = [];
+
+  statusFilter = '';
+  currencyFilter = '';
+  searchTerm = '';
 
   page = 1;
   pageSize = 50;
@@ -39,15 +47,27 @@ export class MemberLiabilitiesListComponent implements OnInit {
   totalPages = 1;
   sortKey = 'createdAt';
   sortDirection: 'asc' | 'desc' = 'desc';
-  searchTerm = '';
+
+  private readonly search$ = new Subject<string>();
+  private searchSub?: Subscription;
 
   readonly statusOptions: SelectOption[] = [
-    { value: '',                  label: 'All statuses' },
+    { value: '',                  label: 'Any status' },
     { value: 'OPEN',              label: 'Open' },
     { value: 'PARTIALLY_SETTLED', label: 'Partially settled' },
     { value: 'SETTLED',           label: 'Settled' },
     { value: 'WRITTEN_OFF',       label: 'Written off' },
   ];
+
+  get currencyOptions(): SelectOption[] {
+    return [
+      { value: '', label: 'Any currency' },
+      ...this.currencies.map(c => ({
+        value: c.currencyCode,
+        label: `${c.currencyCode}${c.isDefault ? ' (default)' : ''}`,
+      })),
+    ];
+  }
 
   readonly columns: TableColumn[] = [
     { key: 'memberName',    label: 'Member',      sortable: true },
@@ -71,11 +91,33 @@ export class MemberLiabilitiesListComponent implements OnInit {
 
   constructor(
     private service: MemberLiabilityService,
+    private currencyService: CurrencyService,
+    private tenantService: TenantService,
     private router: Router,
   ) {}
 
   ngOnInit(): void {
+    const tenantId = this.tenantService.getTenantId();
+    if (tenantId) {
+      this.currencyService.listForTenant(tenantId).subscribe({
+        next: (configs) => { this.currencies = configs.filter(c => c.isActive); },
+        error: () => {},
+      });
+    }
+
+    this.searchSub = this.search$
+      .pipe(debounceTime(350), distinctUntilChanged())
+      .subscribe((term) => {
+        this.searchTerm = term;
+        this.page = 1;
+        this.fetchPage();
+      });
+
     this.fetchPage();
+  }
+
+  ngOnDestroy(): void {
+    this.searchSub?.unsubscribe();
   }
 
   fetchPage(): void {
@@ -106,13 +148,20 @@ export class MemberLiabilitiesListComponent implements OnInit {
     });
   }
 
-  onStatusChange(): void { this.page = 1; this.fetchPage(); }
-  onCurrencyChange(): void { this.page = 1; this.fetchPage(); }
+  onSearchInput(value: string): void { this.search$.next(value ?? ''); }
+  onFilterChange(): void { this.page = 1; this.fetchPage(); }
   onPageChange(page: number): void { this.page = page; this.fetchPage(); }
-  onSearchChange(term: string): void { this.searchTerm = term; this.page = 1; this.fetchPage(); }
   onSortChange(evt: { key: string; direction: 'asc' | 'desc' }): void {
     this.sortKey = evt.key;
     this.sortDirection = evt.direction;
+    this.page = 1;
+    this.fetchPage();
+  }
+
+  clearFilters(): void {
+    this.statusFilter = '';
+    this.currencyFilter = '';
+    this.searchTerm = '';
     this.page = 1;
     this.fetchPage();
   }

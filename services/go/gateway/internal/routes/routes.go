@@ -126,6 +126,8 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/ctc-payments/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/member-payables", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/member-payables/*", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/member-cost-share-liabilities", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/member-cost-share-liabilities/*", proxy.Handler(cfg.FinanceServiceURL))
 
 	// ── Rules Service (per-tenant Drools rules) ───────────────────────────────
 	app.All("/api/v1/rules", proxy.Handler(cfg.RulesServiceURL))
