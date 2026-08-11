@@ -32,6 +32,12 @@ dependencies {
     // the starter itself.
     api("org.springframework.boot:spring-boot-starter-validation")
 
+    // Apache POI — backs shared.report.ReportWorkbook so every service that
+    // exports XLSX from a report endpoint uses one builder and one set of
+    // cell styles. Both contributions-service and finance-service previously
+    // declared this directly; they now pick it up transitively.
+    api("org.apache.poi:poi-ooxml:5.2.5")
+
     // ── Test fixtures (java-test-fixtures plugin) ─────────────────────────
     // Downstream services pull these via:
     //   testImplementation(testFixtures(project(":shared")))

@@ -109,6 +109,17 @@
             <input type="text" class="form-input" [value]="generalReadonly.status" disabled />
           </div>
 
+          <div class="form-field">
+            <label class="form-label">Regulator jurisdiction</label>
+            <p class="color-hint">Regulator-templated reports (IPEC quarterly return, CMS ASR, NAIC schedules, VAT return) only appear when the tenant's jurisdiction matches.</p>
+            <app-select
+              [(ngModel)]="general.jurisdictionCode"
+              name="jurisdictionCode"
+              [options]="jurisdictionSelectOptions"
+              placeholder="— None —"
+            ></app-select>
+          </div>
+
         </div>
       }
     </div>
@@ -523,6 +534,15 @@
         </div>
       </div>
       <app-tenant-bank-accounts-tab></app-tenant-bank-accounts-tab>
+    </div>
+  </div>
+}
+
+<!-- Reports catalogue -->
+@if (activeTab === 'reports') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <app-tenant-reports-tab></app-tenant-reports-tab>
     </div>
   </div>
 }

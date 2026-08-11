@@ -1,0 +1,61 @@
+<div class="reports-hub">
+  <div class="page-header">
+    <div>
+      <h1>Reports</h1>
+      <p class="page-subtitle">
+        Every enabled report, grouped by family. Toggle the catalogue in
+        <strong>Settings → Reports</strong>.
+      </p>
+    </div>
+    @if (!loading && !errorMessage) {
+      <div class="hub-counter">
+        <span class="hub-count">{{ totalEnabled }}</span>
+        <span class="hub-count-label">enabled</span>
+      </div>
+    }
+  </div>
+
+  @if (loading) {
+    <div class="hub-grid">
+      @for (_ of [0, 1, 2, 3, 4, 5]; track $index) {
+        <div class="hub-family-card">
+          <app-skeleton variant="line" width="60%" height="18px"></app-skeleton>
+          <div style="height: 8px"></div>
+          @for (_ of [0, 1, 2]; track $index) {
+            <app-skeleton variant="line" width="100%" height="28px"></app-skeleton>
+          }
+        </div>
+      }
+    </div>
+  } @else if (errorMessage) {
+    <div class="general-error">{{ errorMessage }}</div>
+  } @else if (groups.length === 0) {
+    <div class="hub-empty">
+      <app-icon name="chart" [size]="48"></app-icon>
+      <h3>No reports are enabled yet</h3>
+      <p>
+        Ask an admin to enable at least one report in
+        <strong>Settings → Reports</strong>. Once a report is turned on it
+        will appear here.
+      </p>
+    </div>
+  } @else {
+    <div class="hub-grid">
+      @for (group of groups; track group.family) {
+        <div class="hub-family-card">
+          <h3 class="hub-family-title">{{ group.familyLabel }}</h3>
+          <ul class="hub-report-list">
+            @for (r of group.reports; track r.reportKey) {
+              <li class="hub-report-item">
+                <span class="hub-report-name">{{ r.label }}</span>
+                @if (r.cadenced) {
+                  <span class="badge badge-cadenced">Cadenced</span>
+                }
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+  }
+</div>

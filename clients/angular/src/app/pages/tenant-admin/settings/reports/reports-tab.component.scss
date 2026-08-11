@@ -1,0 +1,148 @@
+.reports-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.reports-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.reports-family-card {
+  background: var(--surface, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.reports-family-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.reports-family-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.reports-family-actions {
+  display: flex;
+  gap: 4px;
+
+  .btn-sm {
+    padding: 2px 8px;
+    font-size: 12px;
+  }
+}
+
+.reports-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reports-list-item {
+  border-top: 1px dashed var(--border, #e5e7eb);
+  padding-top: 6px;
+
+  &:first-child {
+    border-top: none;
+    padding-top: 0;
+  }
+}
+
+.switch-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.report-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.report-name {
+  font-size: 14px;
+  color: var(--text, #1f2937);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.report-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--muted, #9ca3af);
+  white-space: nowrap;
+}
+
+.badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+
+  &.badge-cadenced {
+    background: rgba(0, 119, 182, 0.1);
+    color: #0369a1;
+  }
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.section-sub {
+  margin: 4px 0 0;
+  color: var(--muted, #6b7280);
+  font-size: 13px;
+  max-width: 640px;
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.saved-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--success, #16a34a);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.general-error {
+  padding: 10px 14px;
+  background: rgba(220, 38, 38, 0.1);
+  color: #b91c1c;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}

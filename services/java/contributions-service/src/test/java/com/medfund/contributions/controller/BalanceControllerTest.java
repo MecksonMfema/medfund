@@ -7,6 +7,8 @@ import com.medfund.contributions.service.BadDebtService;
 import com.medfund.contributions.service.BadDebtsExcelService;
 import com.medfund.contributions.service.BalanceService;
 import com.medfund.contributions.service.DebtorsExcelService;
+import com.medfund.shared.security.SecurityEventPublisher;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,6 +56,15 @@ class BalanceControllerTest {
     @MockBean private BadDebtService badDebtService;
     @MockBean private DebtorsExcelService debtorsExcelService;
     @MockBean private BadDebtsExcelService badDebtsExcelService;
+    @MockBean private SecurityEventPublisher securityEventPublisher;
+
+    @BeforeEach
+    void stubSecurityEventPublisher() {
+        // Every export endpoint fires DATA_ACCESS through this bean before returning
+        // bytes; the reactive chain `.thenReturn(bytes)` would NPE on a null Mono.
+        when(securityEventPublisher.publishDataAccess(any(), any(), any(), any(), any()))
+                .thenReturn(Mono.empty());
+    }
 
     // ------------------------------------------------------------------
     // GET /api/v1/billing/balances/bad-debts

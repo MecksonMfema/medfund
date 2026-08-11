@@ -207,7 +207,13 @@ export const FINANCE_ROUTES: Routes = [
   cs('receipts-to-billing/:id',           'Receipts → Billing Detail',  '/view-receipts-to-billing',   'Single match detail.',                   ['finance:manage_billing_reconcile']),
 
   // ── Reports ───────────────────────────────────────────────────────────────
-  cs('reports',                              'Reports',                          '/reports',                                  'Finance reporting hub.',                          ['finance:view']),
+  {
+    path: 'reports',
+    pathMatch: 'full',
+    canActivate: [permissionGuard(['finance:view'])],
+    loadComponent: () => import('./reports/reports-hub.component').then(m => m.ReportsHubComponent),
+    data: { title: 'Reports', description: 'Every enabled report, grouped by family.', sidebar: 'operational' },
+  },
   cs('reports/schemes',                      'Schemes Report',                   '/schemes-list',                             'Per-scheme aggregated metrics.',                  ['finance:view_subledger']),
   cs('reports/scheme/:id',                   'Scheme Report Detail',             '/view-scheme-report',                       'Single scheme analytics.',                        ['finance:view_subledger']),
   cs('reports/group-billing',                'Group Billing Report',             '/group-billing-list',                       'Employer group billing aggregates.',              ['finance:view_subledger']),

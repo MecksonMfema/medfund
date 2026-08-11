@@ -12,8 +12,12 @@ import com.medfund.contributions.service.BadDebtsExcelService;
 import com.medfund.contributions.service.BalanceService;
 import com.medfund.contributions.service.DebtorsExcelService;
 import com.medfund.shared.audit.AuditActor;
+import com.medfund.shared.report.ReportKey;
+import com.medfund.shared.report.RequiresReport;
 import com.medfund.shared.security.Permissions;
 import com.medfund.shared.security.RequiresPermission;
+import com.medfund.shared.security.SecurityEventPublisher;
+import com.medfund.shared.tenant.TenantContext;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +41,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -54,6 +60,7 @@ public class BalanceController {
     private final BadDebtService badDebtService;
     private final DebtorsExcelService debtorsExcelService;
     private final BadDebtsExcelService badDebtsExcelService;
+    private final SecurityEventPublisher securityEventPublisher;
 
     @GetMapping("/members/{memberId}")
     @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
@@ -77,6 +84,7 @@ public class BalanceController {
 
     @GetMapping("/debtors")
     @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
+    @RequiresReport(ReportKey.AGED_DEBTORS)
     @Operation(summary = "List members and groups with outstanding balances (debtors)",
             description = "Server-side paginated. Only currently-billable subjects "
                     + "(status IN active/suspended) appear. Filters: currency (required), "
@@ -94,6 +102,7 @@ public class BalanceController {
 
     @GetMapping("/debtors/export/excel")
     @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
+    @RequiresReport(ReportKey.AGED_DEBTORS)
     @Operation(summary = "Download the debtors list as XLSX",
             description = "Same filter shape as the JSON /debtors endpoint; returns an .xlsx workbook "
                     + "with a header block (currency, subject-type filter, search term, export date, "
@@ -101,9 +110,21 @@ public class BalanceController {
     public Mono<ResponseEntity<byte[]>> exportDebtorsExcel(
             @RequestParam String currency,
             @RequestParam(required = false) String subjectType,
-            @RequestParam(required = false) String q) {
+            @RequestParam(required = false) String q,
+            @AuthenticationPrincipal Jwt jwt) {
         String filename = "debtors-" + currency + "-" + java.time.LocalDate.now() + ".xlsx";
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("currency", currency);
+        if (subjectType != null && !subjectType.isBlank()) details.put("subjectType", subjectType);
+        if (q != null && !q.isBlank()) details.put("q", q);
         return debtorsExcelService.generate(currency, subjectType, q)
+                .flatMap(bytes -> Mono.deferContextual(ctx -> securityEventPublisher.publishDataAccess(
+                                TenantContext.get(ctx),
+                                AuditActor.id(jwt),
+                                AuditActor.email(jwt),
+                                ReportKey.AGED_DEBTORS.name(),
+                                details))
+                        .thenReturn(bytes))
                 .map(bytes -> ResponseEntity.ok()
                         .contentType(XLSX)
                         .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -139,9 +160,21 @@ public class BalanceController {
     public Mono<ResponseEntity<byte[]>> exportBadDebtsExcel(
             @RequestParam String currency,
             @RequestParam(required = false) String subjectType,
-            @RequestParam(required = false) String q) {
+            @RequestParam(required = false) String q,
+            @AuthenticationPrincipal Jwt jwt) {
         String filename = "bad-debts-" + currency + "-" + java.time.LocalDate.now() + ".xlsx";
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("currency", currency);
+        if (subjectType != null && !subjectType.isBlank()) details.put("subjectType", subjectType);
+        if (q != null && !q.isBlank()) details.put("q", q);
         return badDebtsExcelService.generate(currency, subjectType, q)
+                .flatMap(bytes -> Mono.deferContextual(ctx -> securityEventPublisher.publishDataAccess(
+                                TenantContext.get(ctx),
+                                AuditActor.id(jwt),
+                                AuditActor.email(jwt),
+                                ReportKey.BAD_DEBTS.name(),
+                                details))
+                        .thenReturn(bytes))
                 .map(bytes -> ResponseEntity.ok()
                         .contentType(XLSX)
                         .header(HttpHeaders.CONTENT_DISPOSITION,

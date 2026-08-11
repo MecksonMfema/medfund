@@ -70,6 +70,12 @@ export interface Tenant {
    * the same base.
    */
   memberNumberScheme?: 'INDEPENDENT' | 'SHARED_WITH_SUFFIX';
+  /**
+   * Regulator jurisdiction code (V131). Gates regulator-templated
+   * reports — e.g. ZW_IPEC_SHORT_TERM, ZA_CMS_MEDICAL_SCHEME, US_NAIC.
+   * Empty / undefined = no regulator-format reports surfaced.
+   */
+  jurisdictionCode?: string;
   createdAt: string;
 }
 
@@ -410,7 +416,7 @@ export class AdminService {
     return this.api.post<Tenant>('/tenants', data);
   }
 
-  updateTenant(id: string, data: { name?: string; domain?: string; contactEmail?: string; timezone?: string; membershipModel?: string; settings?: string; branding?: string; pricingModel?: 'STANDARD' | 'INDIVIDUAL' | 'AI_DRIVEN'; memberNumberScheme?: 'INDEPENDENT' | 'SHARED_WITH_SUFFIX' }): Observable<Tenant> {
+  updateTenant(id: string, data: { name?: string; domain?: string; contactEmail?: string; timezone?: string; membershipModel?: string; settings?: string; branding?: string; pricingModel?: 'STANDARD' | 'INDIVIDUAL' | 'AI_DRIVEN'; memberNumberScheme?: 'INDEPENDENT' | 'SHARED_WITH_SUFFIX'; jurisdictionCode?: string }): Observable<Tenant> {
     return this.api.put<Tenant>(`/tenants/${id}`, data);
   }
 

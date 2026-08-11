@@ -8,6 +8,9 @@ import com.medfund.contributions.repository.InvoiceRepository;
 import com.medfund.contributions.service.BillingService;
 import com.medfund.contributions.service.InvoiceListService;
 import com.medfund.contributions.service.StatementService;
+import com.medfund.shared.audit.AuditActor;
+import com.medfund.shared.report.ReportKey;
+import com.medfund.shared.security.SecurityEventPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -18,11 +21,14 @@ import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -35,12 +41,14 @@ public class InvoiceController {
     private final InvoiceRepository invoiceRepository;
     private final InvoiceListService invoiceListService;
     private final StatementService statementService;
+    private final SecurityEventPublisher securityEventPublisher;
     private final WebClient fileServiceWebClient;
 
     public InvoiceController(BillingService billingService,
                              InvoiceRepository invoiceRepository,
                              InvoiceListService invoiceListService,
                              StatementService statementService,
+                             SecurityEventPublisher securityEventPublisher,
                              WebClient.Builder webClientBuilder,
                              @org.springframework.beans.factory.annotation.Value("${medfund.file-service.base-url:http://localhost:3003}")
                              String fileServiceBaseUrl) {
@@ -48,6 +56,7 @@ public class InvoiceController {
         this.invoiceRepository = invoiceRepository;
         this.invoiceListService = invoiceListService;
         this.statementService = statementService;
+        this.securityEventPublisher = securityEventPublisher;
         this.fileServiceWebClient = webClientBuilder.baseUrl(fileServiceBaseUrl).build();
     }
 
@@ -107,9 +116,22 @@ public class InvoiceController {
             @ApiResponse(responseCode = "200", description = "PDF stream"),
             @ApiResponse(responseCode = "404", description = "PDF not yet rendered")
     })
-    public Mono<ResponseEntity<Flux<DataBuffer>>> downloadPdf(@PathVariable UUID id) {
+    public Mono<ResponseEntity<Flux<DataBuffer>>> downloadPdf(@PathVariable UUID id,
+                                                              @AuthenticationPrincipal Jwt jwt) {
         return loadPdfPointer(id)
                 .flatMap(ptr -> Mono.deferContextual(ctx -> {
+                    String tenantId = TenantContext.get(ctx);
+                    // Emit DATA_ACCESS before the download starts — Rule 9 audit
+                    // coverage. Fire-and-forget on the publisher so a Kafka hiccup
+                    // never blocks the download.
+                    return securityEventPublisher.publishDataAccess(
+                                    tenantId,
+                                    AuditActor.id(jwt),
+                                    AuditActor.email(jwt),
+                                    ReportKey.INVOICE_DETAIL_PDF.name(),
+                                    Map.of("invoiceId", id.toString()))
+                            .thenReturn(ptr);
+                })).flatMap(ptr -> Mono.deferContextual(ctx -> {
                     String tenantId = TenantContext.get(ctx);
                     Flux<DataBuffer> body = fileServiceWebClient.get()
                             .uri(uri -> uri.path("/invoice-pdf")

@@ -6,8 +6,13 @@ import com.medfund.finance.dto.MemberBalanceResponse;
 import com.medfund.finance.dto.PageResponse;
 import com.medfund.finance.dto.ProviderBalanceResponse;
 import com.medfund.finance.service.CreditorService;
+import com.medfund.shared.audit.AuditActor;
+import com.medfund.shared.report.ReportKey;
+import com.medfund.shared.report.RequiresReport;
 import com.medfund.shared.security.Permissions;
 import com.medfund.shared.security.RequiresPermission;
+import com.medfund.shared.security.SecurityEventPublisher;
+import com.medfund.shared.tenant.TenantContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -16,6 +21,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,6 +32,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -49,9 +58,11 @@ public class CreditorController {
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
     private final CreditorService service;
+    private final SecurityEventPublisher securityEventPublisher;
 
     @GetMapping("/page")
     @RequiresPermission(Permissions.FINANCE_VIEW_CREDITORS)
+    @RequiresReport(ReportKey.CREDITORS)
     @Operation(summary = "Paginated, sortable, filterable unified creditors list",
             description = "Feeds /tenant/finance/creditors. subjectType=PROVIDER|MEMBER|BOTH; "
                     + "sortable keys: subjectName, subjectCode, totalClaimed, totalApproved, "
@@ -90,18 +101,31 @@ public class CreditorController {
 
     @GetMapping("/export/excel")
     @RequiresPermission(Permissions.FINANCE_VIEW_CREDITORS)
+    @RequiresReport(ReportKey.CREDITORS)
     @Operation(summary = "Excel export of the unified Creditors list",
             description = "Same filter shape as GET /page; the workbook mirrors what the operator sees "
                     + "on-screen. 10,000-row ceiling.")
     public Mono<ResponseEntity<byte[]>> exportExcel(
             @RequestParam(required = false) String subjectType,
             @RequestParam(required = false) String currencyCode,
-            @RequestParam(required = false) String q) {
+            @RequestParam(required = false) String q,
+            @AuthenticationPrincipal Jwt jwt) {
         String subjectSlug = subjectType != null && !subjectType.isBlank()
                 ? subjectType.toUpperCase() : "BOTH";
         String currencySlug = currencyCode != null && !currencyCode.isBlank() ? currencyCode : "ALL";
         String filename = "creditors-" + subjectSlug + "-" + currencySlug + "-" + LocalDate.now() + ".xlsx";
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("subjectType", subjectSlug);
+        details.put("currencyCode", currencySlug);
+        if (q != null && !q.isBlank()) details.put("q", q);
         return service.exportExcel(subjectType, currencyCode, q)
+                .flatMap(bytes -> Mono.deferContextual(ctx -> securityEventPublisher.publishDataAccess(
+                                TenantContext.get(ctx),
+                                AuditActor.id(jwt),
+                                AuditActor.email(jwt),
+                                ReportKey.CREDITORS.name(),
+                                details))
+                        .thenReturn(bytes))
                 .map(bytes -> ResponseEntity.ok()
                         .contentType(XLSX)
                         .header(HttpHeaders.CONTENT_DISPOSITION,

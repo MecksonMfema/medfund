@@ -6,6 +6,7 @@ import com.medfund.contributions.repository.InvoiceRepository;
 import com.medfund.contributions.service.BillingService;
 import com.medfund.contributions.service.InvoiceListService;
 import com.medfund.contributions.service.StatementService;
+import com.medfund.shared.security.SecurityEventPublisher;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,6 +53,9 @@ class InvoiceControllerTest {
 
     @MockBean
     private StatementService statementService;
+
+    @MockBean
+    private SecurityEventPublisher securityEventPublisher;
 
 
     @Test

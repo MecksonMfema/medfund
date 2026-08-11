@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Size;
 
 import java.util.UUID;
 
+
 public record UpdateTenantRequest(
         @Size(max = 200)
         String name,
@@ -30,6 +31,12 @@ public record UpdateTenantRequest(
         /** "INDEPENDENT" or "SHARED_WITH_SUFFIX" — see V120 plus
          *  MemberNumberService. Default INDEPENDENT; DB CHECK enforces. */
         String memberNumberScheme,
+
+        /** Regulator jurisdiction code (V131). Free-form string chosen from a
+         *  fixed dropdown in the tenant-admin form; blank / null unsets. Gates
+         *  regulator-templated reports (Phase 16 of the financial-reporting suite). */
+        @Size(max = 40)
+        String jurisdictionCode,
 
         String settings,
 

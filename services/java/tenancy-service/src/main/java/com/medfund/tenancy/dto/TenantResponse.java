@@ -23,6 +23,8 @@ public record TenantResponse(
         String pricingModel,
         /** INDEPENDENT or SHARED_WITH_SUFFIX — see V120. */
         String memberNumberScheme,
+        /** Regulator jurisdiction (V131) — gates regulator-templated reports. Nullable. */
+        String jurisdictionCode,
         String keycloakRealm,
         Instant createdAt,
         Instant updatedAt
@@ -44,6 +46,7 @@ public record TenantResponse(
                 tenant.getMembershipModel(),
                 tenant.getPricingModel() != null ? tenant.getPricingModel() : "STANDARD",
                 tenant.getMemberNumberScheme() != null ? tenant.getMemberNumberScheme() : "INDEPENDENT",
+                tenant.getJurisdictionCode(),
                 tenant.getKeycloakRealm(),
                 tenant.getCreatedAt(),
                 tenant.getUpdatedAt()

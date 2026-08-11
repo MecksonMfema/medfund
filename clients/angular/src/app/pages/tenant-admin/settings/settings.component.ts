@@ -15,6 +15,7 @@ import { TenantCurrenciesTabComponent } from './currencies/currencies-tab.compon
 import { TenantBillingTabComponent } from './billing/billing-tab.component';
 import { TenantProrationTabComponent } from './proration/proration-tab.component';
 import { TenantBankAccountsTabComponent } from './bank-accounts/bank-accounts-tab.component';
+import { TenantReportsTabComponent } from './reports/reports-tab.component';
 import { TenantService } from '../../../core/services/tenant.service';
 import {
   BrandingService,
@@ -41,6 +42,8 @@ interface GeneralForm {
   contactEmail: string;
   timezone: string;
   membershipModel: string;
+  /** V131 — regulator jurisdiction code, gates regulator-templated reports. */
+  jurisdictionCode: string;
 }
 
 const MEMBERSHIP_MODELS = [
@@ -49,7 +52,18 @@ const MEMBERSHIP_MODELS = [
   { value: 'BOTH',            label: 'Both individual and group' },
 ];
 
-type TabId = 'general' | 'branding' | 'insurance-lines' | 'currencies' | 'billing' | 'proration' | 'bank-accounts' | 'email-templates' | 'roles';
+/**
+ * Regulator jurisdictions that gate regulator-templated reports. Kept short
+ * in Phase 0 — Phase 16 expands as each regulator's XLSX template lands.
+ */
+const JURISDICTIONS = [
+  { value: '',                       label: '— None —' },
+  { value: 'ZW_IPEC_SHORT_TERM',     label: 'Zimbabwe — IPEC short-term insurance' },
+  { value: 'ZA_CMS_MEDICAL_SCHEME',  label: 'South Africa — CMS medical scheme' },
+  { value: 'US_NAIC',                label: 'United States — NAIC' },
+];
+
+type TabId = 'general' | 'branding' | 'insurance-lines' | 'currencies' | 'billing' | 'proration' | 'bank-accounts' | 'email-templates' | 'reports' | 'roles';
 
 interface Tab {
   id: TabId;
@@ -67,7 +81,7 @@ interface Tab {
 @Component({
   selector: 'app-tenant-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, EditorComponent, TenantRolesTabComponent, TenantCurrenciesTabComponent, TenantBillingTabComponent, TenantProrationTabComponent, TenantBankAccountsTabComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, EditorComponent, TenantRolesTabComponent, TenantCurrenciesTabComponent, TenantBillingTabComponent, TenantProrationTabComponent, TenantBankAccountsTabComponent, TenantReportsTabComponent, SelectComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
 })
@@ -83,8 +97,15 @@ export class TenantSettingsComponent implements OnInit {
     { id: 'proration',       label: 'Proration',              icon: 'divide' },
     { id: 'bank-accounts',   label: 'Bank Accounts',          icon: 'building' },
     { id: 'email-templates', label: 'Email Templates',        icon: 'file-text' },
+    { id: 'reports',         label: 'Reports',                icon: 'chart' },
     { id: 'roles',           label: 'Roles & Permissions',    icon: 'shield' },
   ];
+
+  /** Jurisdiction dropdown options for the general tab. */
+  jurisdictions = JURISDICTIONS;
+  get jurisdictionSelectOptions(): SelectOption[] {
+    return this.jurisdictions.map(j => ({ value: j.value, label: j.label }));
+  }
 
   // ── Branding state (lifted verbatim from AdminComponent) ──────────────────
   templates: TenantTemplate[] = TENANT_TEMPLATES;
@@ -94,7 +115,7 @@ export class TenantSettingsComponent implements OnInit {
 
   // ── General state ─────────────────────────────────────────────────────────
   membershipModels = MEMBERSHIP_MODELS;
-  general: GeneralForm = { name: '', domain: '', contactEmail: '', timezone: '', membershipModel: '' };
+  general: GeneralForm = { name: '', domain: '', contactEmail: '', timezone: '', membershipModel: '', jurisdictionCode: '' };
   /** Read-only fields exposed to the form for display. */
   generalReadonly = { slug: '', countryCode: '', status: '' };
   generalLoading = false;
@@ -291,11 +312,12 @@ export class TenantSettingsComponent implements OnInit {
     this.adminService.getTenantById(tenantId).subscribe({
       next: (t: AdminTenant) => {
         this.general = {
-          name:            t.name            ?? '',
-          domain:          t.domain          ?? '',
-          contactEmail:    t.contactEmail    ?? '',
-          timezone:        t.timezone        ?? '',
-          membershipModel: t.membershipModel ?? '',
+          name:             t.name             ?? '',
+          domain:           t.domain           ?? '',
+          contactEmail:     t.contactEmail     ?? '',
+          timezone:         t.timezone         ?? '',
+          membershipModel:  t.membershipModel  ?? '',
+          jurisdictionCode: t.jurisdictionCode ?? '',
         };
         this.generalReadonly = {
           slug:        t.slug        ?? '',
@@ -450,11 +472,12 @@ export class TenantSettingsComponent implements OnInit {
     this.generalError  = null;
 
     this.adminService.updateTenant(tenant.id, {
-      name:            this.general.name.trim(),
-      domain:          this.general.domain.trim() || undefined,
-      contactEmail:    this.general.contactEmail.trim() || undefined,
-      timezone:        this.general.timezone || undefined,
-      membershipModel: this.general.membershipModel || undefined,
+      name:             this.general.name.trim(),
+      domain:           this.general.domain.trim() || undefined,
+      contactEmail:     this.general.contactEmail.trim() || undefined,
+      timezone:         this.general.timezone || undefined,
+      membershipModel:  this.general.membershipModel || undefined,
+      jurisdictionCode: this.general.jurisdictionCode || '',
     }).subscribe({
       next: (updated) => {
         // Refresh the cached TenantService snapshot so the sidebar / dashboard

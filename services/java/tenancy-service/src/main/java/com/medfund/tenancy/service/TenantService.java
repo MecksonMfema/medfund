@@ -181,6 +181,8 @@ public class TenantService {
                     if (request.membershipModel() != null) existing.setMembershipModel(request.membershipModel());
                     if (request.pricingModel() != null)    existing.setPricingModel(request.pricingModel());
                     if (request.memberNumberScheme() != null) existing.setMemberNumberScheme(request.memberNumberScheme());
+                    if (request.jurisdictionCode() != null) existing.setJurisdictionCode(
+                            request.jurisdictionCode().isBlank() ? null : request.jurisdictionCode());
                     if (request.settings() != null)        existing.setSettings(JsonString.of(request.settings()));
                     if (request.branding() != null)        existing.setBranding(JsonString.of(request.branding()));
                     existing.setUpdatedAt(Instant.now());
@@ -313,6 +315,7 @@ public class TenantService {
         m.put("planId", t.getPlanId() != null ? t.getPlanId().toString() : null);
         m.put("schemaName", t.getSchemaName());
         m.put("keycloakRealm", t.getKeycloakRealm());
+        m.put("jurisdictionCode", t.getJurisdictionCode());
         m.put("settings", t.getSettings() != null ? t.getSettings().value() : null);
         m.put("branding", t.getBranding() != null ? t.getBranding().value() : null);
         m.put("createdAt", t.getCreatedAt() != null ? t.getCreatedAt().toString() : null);
@@ -346,6 +349,7 @@ public class TenantService {
         copy.setTimezone(source.getTimezone());
         copy.setMembershipModel(source.getMembershipModel());
         copy.setKeycloakRealm(source.getKeycloakRealm());
+        copy.setJurisdictionCode(source.getJurisdictionCode());
         copy.setCreatedAt(source.getCreatedAt());
         copy.setUpdatedAt(source.getUpdatedAt());
         return copy;
