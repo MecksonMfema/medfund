@@ -64,6 +64,7 @@ public class BalanceController {
 
     @GetMapping("/members/{memberId}")
     @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
+    @RequiresReport(ReportKey.MEMBER_BALANCE)
     @Operation(summary = "Get a member's running balance for a currency",
             description = "Returns zeros if no balance row exists yet (member has not been billed in this currency).")
     @ApiResponse(responseCode = "200", description = "Balance returned")
@@ -75,6 +76,7 @@ public class BalanceController {
 
     @GetMapping("/groups/{groupId}")
     @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
+    @RequiresReport(ReportKey.GROUP_BALANCE)
     @Operation(summary = "Get a group's running balance for a currency")
     public Mono<GroupBalanceResponse> getGroupBalance(
             @PathVariable UUID groupId,
@@ -84,7 +86,7 @@ public class BalanceController {
 
     @GetMapping("/debtors")
     @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
-    @RequiresReport(ReportKey.AGED_DEBTORS)
+    @RequiresReport(ReportKey.DEBTORS_LIST)
     @Operation(summary = "List members and groups with outstanding balances (debtors)",
             description = "Server-side paginated. Only currently-billable subjects "
                     + "(status IN active/suspended) appear. Filters: currency (required), "
@@ -102,7 +104,7 @@ public class BalanceController {
 
     @GetMapping("/debtors/export/excel")
     @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
-    @RequiresReport(ReportKey.AGED_DEBTORS)
+    @RequiresReport(ReportKey.DEBTORS_LIST)
     @Operation(summary = "Download the debtors list as XLSX",
             description = "Same filter shape as the JSON /debtors endpoint; returns an .xlsx workbook "
                     + "with a header block (currency, subject-type filter, search term, export date, "
@@ -122,7 +124,7 @@ public class BalanceController {
                                 TenantContext.get(ctx),
                                 AuditActor.id(jwt),
                                 AuditActor.email(jwt),
-                                ReportKey.AGED_DEBTORS.name(),
+                                ReportKey.DEBTORS_LIST.name(),
                                 details))
                         .thenReturn(bytes))
                 .map(bytes -> ResponseEntity.ok()
@@ -134,6 +136,7 @@ public class BalanceController {
 
     @GetMapping("/bad-debts")
     @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
+    @RequiresReport(ReportKey.BAD_DEBTS)
     @Operation(summary = "List deactivated / terminated subjects with an outstanding balance",
             description = "Server-side paginated. Only subjects that are no longer billable "
                     + "(status IN deactivated/terminated) AND whose running balance is > 0 are returned "
@@ -152,6 +155,7 @@ public class BalanceController {
 
     @GetMapping("/bad-debts/export/excel")
     @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
+    @RequiresReport(ReportKey.BAD_DEBTS)
     @Operation(summary = "Download the bad-debts list as XLSX",
             description = "Same filter shape as the JSON /bad-debts endpoint; returns an .xlsx workbook "
                     + "with a header block (currency, subject-type filter, status filter description, search "
@@ -184,6 +188,7 @@ public class BalanceController {
 
     @GetMapping("/aged-balances")
     @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
+    @RequiresReport(ReportKey.AGED_BALANCES)
     @Operation(summary = "List aged balances (still-billable subjects)",
             description = "Returns balances older than minAgeDays (defaults to dunning_config.suspension_days). " +
                     "Each row carries an aging classification (GRACE / SUSPENDED / WRITE_OFF). " +

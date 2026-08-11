@@ -10,6 +10,7 @@ import com.medfund.contributions.service.InvoiceListService;
 import com.medfund.contributions.service.StatementService;
 import com.medfund.shared.audit.AuditActor;
 import com.medfund.shared.report.ReportKey;
+import com.medfund.shared.report.RequiresReport;
 import com.medfund.shared.security.SecurityEventPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import io.swagger.v3.oas.annotations.Operation;
@@ -63,6 +64,7 @@ public class InvoiceController {
     // ── Paginated listing (the per-invoice /tenant/billing/view fronts this) ──
 
     @GetMapping
+    @RequiresReport(ReportKey.INVOICE_LIST)
     @Operation(summary = "List invoices (paginated, joined with holder/scheme names)",
             description = "One row per invoice. Names always joined server-side so the UI never displays UUIDs.")
     public Mono<InvoicesPage> list(@RequestParam(required = false) Integer year,
@@ -108,6 +110,7 @@ public class InvoiceController {
     // ── PDF streaming (delegates to file-service) ───────────────────────────
 
     @GetMapping(value = "/{id}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    @RequiresReport(ReportKey.INVOICE_DETAIL_PDF)
     @Operation(summary = "Stream the rendered invoice PDF",
             description = "Looks up invoice_pdfs for the bucket+object_key pointer, then proxies the " +
                     "MinIO object through file-service. 404 with detail when the PDF hasn't been " +

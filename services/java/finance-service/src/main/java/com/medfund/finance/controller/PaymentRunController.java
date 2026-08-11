@@ -7,6 +7,8 @@ import com.medfund.finance.dto.PaymentRunItemResponse;
 import com.medfund.finance.dto.PaymentRunResponse;
 import com.medfund.finance.service.PaymentRunService;
 import com.medfund.shared.audit.AuditActor;
+import com.medfund.shared.report.ReportKey;
+import com.medfund.shared.report.RequiresReport;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -35,12 +37,14 @@ public class PaymentRunController {
     }
 
     @GetMapping
+    @RequiresReport(ReportKey.PAYMENT_RUNS)
     @Operation(summary = "List all payment runs (unpaginated — prefer /page)")
     public Flux<PaymentRunResponse> findAll() {
         return paymentRunService.findAll().map(PaymentRunResponse::from);
     }
 
     @GetMapping("/page")
+    @RequiresReport(ReportKey.PAYMENT_RUNS)
     @Operation(summary = "Server-side paginated, sortable, filterable payment-runs list",
         description = "Feeds /tenant/finance/runs. Sortable keys: runNumber, status, "
                 + "totalAmount, currencyCode, paymentCount, executedAt, createdAt.")
@@ -60,6 +64,7 @@ public class PaymentRunController {
     }
 
     @GetMapping("/{id}")
+    @RequiresReport(ReportKey.PAYMENT_RUNS)
     @Operation(summary = "Get payment run by ID")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Payment run found"),
@@ -70,6 +75,7 @@ public class PaymentRunController {
     }
 
     @GetMapping("/{id}/items")
+    @RequiresReport(ReportKey.PAYMENT_RUN_ITEMS)
     @Operation(summary = "Get items for a payment run")
     public Flux<PaymentRunItemResponse> findItems(@PathVariable UUID id) {
         return paymentRunService.findItems(id).map(PaymentRunItemResponse::from);

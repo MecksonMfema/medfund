@@ -9,6 +9,7 @@ import {
   NoteRow,
   NoteStatus,
   NoteType,
+  ReportResponse,
 } from '../../../../core/services/finance.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
@@ -126,10 +127,11 @@ export class NotesListComponent implements OnInit {
       page: this.page - 1,
       size: this.pageSize,
     }).subscribe({
-      next: (resp: FinancePageResponse<NoteRow>) => {
-        this.rows = resp.content;
-        this.totalCount = resp.total;
-        this.totalPages = resp.totalPages;
+      next: (envelope: ReportResponse<FinancePageResponse<NoteRow>>) => {
+        const page = envelope.data;
+        this.rows = page.content;
+        this.totalCount = page.total;
+        this.totalPages = page.totalPages;
         this.loading = false;
       },
       error: (err) => {

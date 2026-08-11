@@ -30,6 +30,14 @@ export interface OperationalNavItem {
   route: string;
   permissions?: PermissionKey[];
   exactMatch?: boolean;
+  /**
+   * Tenant report-catalogue key. When present, the sidebar hides the item
+   * if the tenant admin has toggled that report off in
+   * {@code /tenant/admin/settings/reports}. Matches the Java-side
+   * {@code @RequiresReport} annotation so the sidebar entry disappears
+   * before an operator clicks through to a 403.
+   */
+  reportKey?: string;
   featureFlag?:
       | 'drugClaims'
       | 'ageGroupsAvailable'
@@ -134,13 +142,13 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
       // (/tenant/finance/runs/:id), which shows the payments-in-run table
       // inline with the run summary. The /tenant/finance/payments route
       // still resolves for direct URLs / legacy bookmarks.
-      { label: 'Payment Runs',       icon: 'play-circle',  route: '/tenant/finance/runs',                  permissions: ['finance:view', 'finance:create_payment_run'] },
-      { label: 'Advance Payments',   icon: 'credit-card',  route: '/tenant/finance/payments/advance',      permissions: ['finance:view_advance_payments'] },
-      { label: 'CTC Payments',       icon: 'credit-card',  route: '/tenant/finance/payments/ctc',          permissions: ['finance:manage_ctc_payments'] },
-      { label: 'Creditors',          icon: 'building',     route: '/tenant/finance/creditors',             permissions: ['finance:view_creditors'] },
-      { label: 'Reconciliation',     icon: 'wallet',       route: '/tenant/finance/reconciliations',       permissions: ['finance:view'] },
-      { label: 'Notes',              icon: 'edit',         route: '/tenant/finance/notes',                 permissions: ['finance.notes:read'] },
-      { label: 'Payment Advice',     icon: 'wallet',       route: '/tenant/finance/advice',                permissions: ['finance:view_payment_advice'] },
+      { label: 'Payment Runs',       icon: 'play-circle',  route: '/tenant/finance/runs',                  permissions: ['finance:view', 'finance:create_payment_run'], reportKey: 'PAYMENT_RUNS' },
+      { label: 'Advance Payments',   icon: 'credit-card',  route: '/tenant/finance/payments/advance',      permissions: ['finance:view_advance_payments'], reportKey: 'ADVANCE_PAYMENTS' },
+      { label: 'CTC Payments',       icon: 'credit-card',  route: '/tenant/finance/payments/ctc',          permissions: ['finance:manage_ctc_payments'], reportKey: 'CTC_PAYMENTS' },
+      { label: 'Creditors',          icon: 'building',     route: '/tenant/finance/creditors',             permissions: ['finance:view_creditors'], reportKey: 'CREDITORS' },
+      { label: 'Reconciliation',     icon: 'wallet',       route: '/tenant/finance/reconciliations',       permissions: ['finance:view'], reportKey: 'RECONCILIATIONS' },
+      { label: 'Notes',              icon: 'edit',         route: '/tenant/finance/notes',                 permissions: ['finance.notes:read'], reportKey: 'NOTES' },
+      { label: 'Payment Advice',     icon: 'wallet',       route: '/tenant/finance/advice',                permissions: ['finance:view_payment_advice'], reportKey: 'PAYMENT_ADVICE' },
       { label: 'Cost-share receipts', icon: 'wallet',      route: '/tenant/finance/copayments',            permissions: ['finance:manage_copayments'] },
       { label: 'Member Liabilities', icon: 'wallet',       route: '/tenant/finance/member-liabilities',    permissions: ['finance:view_member_liabilities'] },
       { label: 'Reports',            icon: 'chart',        route: '/tenant/finance/reports',               permissions: ['finance:view_debtors', 'finance:view_subledger'] },

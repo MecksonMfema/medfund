@@ -1,6 +1,9 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
+import { ReportResponse } from './report-envelope';
+
+export type { ReportResponse } from './report-envelope';
 
 // ── Payment runs ────────────────────────────────────────────────────────
 export type PaymentRunStatus = 'draft' | 'approved' | 'executing' | 'executed' | 'cancelled';
@@ -693,7 +696,9 @@ export class FinanceService {
    * Server-side paginated payment-advices list. Feeds /tenant/finance/advice.
    * Payee name + run number are pre-joined server-side.
    */
-  listAdvicesPaged(opts: PaymentAdvicePageParams): Observable<FinancePageResponse<PaymentAdviceRow>> {
+  listAdvicesPaged(
+    opts: PaymentAdvicePageParams & { reportingCurrency?: string },
+  ): Observable<ReportResponse<FinancePageResponse<PaymentAdviceRow>>> {
     const params: Record<string, string> = {};
     if (opts.paymentRunId)   params['paymentRunId']  = opts.paymentRunId;
     if (opts.providerId)     params['providerId']    = opts.providerId;
@@ -708,7 +713,10 @@ export class FinanceService {
     if (opts.sortDirection)  params['sortDirection'] = opts.sortDirection;
     if (opts.page !== undefined) params['page']      = String(opts.page);
     if (opts.size !== undefined) params['size']      = String(opts.size);
-    return this.api.get<FinancePageResponse<PaymentAdviceRow>>('/payment-advices/page', params);
+    if (opts.reportingCurrency) params['reportingCurrency'] = opts.reportingCurrency;
+    return this.api.get<ReportResponse<FinancePageResponse<PaymentAdviceRow>>>(
+      '/payment-advices/page', params,
+    );
   }
   listAdvicesForRun(paymentRunId: string): Observable<PaymentAdviceRecord[]> {
     return this.api.get<PaymentAdviceRecord[]>(`/payment-runs/${paymentRunId}/advices`);
@@ -782,16 +790,21 @@ export class FinanceService {
    * Server-side paginated unified creditors list. Feeds
    * /tenant/finance/creditors. subjectType=PROVIDER|MEMBER|BOTH.
    */
-  listCreditorsPaged(opts: CreditorPageParams): Observable<FinancePageResponse<CreditorRow>> {
+  listCreditorsPaged(
+    opts: CreditorPageParams & { reportingCurrency?: string },
+  ): Observable<ReportResponse<FinancePageResponse<CreditorRow>>> {
     const params: Record<string, string> = {};
-    if (opts.subjectType)    params['subjectType']   = opts.subjectType;
-    if (opts.currencyCode)   params['currencyCode']  = opts.currencyCode;
-    if (opts.q)              params['q']             = opts.q;
-    if (opts.sortKey)        params['sortKey']       = opts.sortKey;
-    if (opts.sortDirection)  params['sortDirection'] = opts.sortDirection;
-    if (opts.page !== undefined) params['page']      = String(opts.page);
-    if (opts.size !== undefined) params['size']      = String(opts.size);
-    return this.api.get<FinancePageResponse<CreditorRow>>('/creditors/page', params);
+    if (opts.subjectType)      params['subjectType']       = opts.subjectType;
+    if (opts.currencyCode)     params['currencyCode']      = opts.currencyCode;
+    if (opts.q)                params['q']                 = opts.q;
+    if (opts.sortKey)          params['sortKey']           = opts.sortKey;
+    if (opts.sortDirection)    params['sortDirection']     = opts.sortDirection;
+    if (opts.page !== undefined)   params['page']          = String(opts.page);
+    if (opts.size !== undefined)   params['size']          = String(opts.size);
+    if (opts.reportingCurrency)    params['reportingCurrency'] = opts.reportingCurrency;
+    return this.api.get<ReportResponse<FinancePageResponse<CreditorRow>>>(
+      '/creditors/page', params,
+    );
   }
   /** Provider creditor detail — mirrors the pre-Phase-4 provider balance shape. */
   getCreditorProviderDetail(providerId: string): Observable<ProviderBalance> {
@@ -821,7 +834,9 @@ export class FinanceService {
    * noteType='TAX_WITHHELD'). Rows carry pre-joined member + provider
    * names.
    */
-  listNotesPaged(opts: NotePageParams): Observable<FinancePageResponse<NoteRow>> {
+  listNotesPaged(
+    opts: NotePageParams & { reportingCurrency?: string },
+  ): Observable<ReportResponse<FinancePageResponse<NoteRow>>> {
     const params: Record<string, string> = {};
     if (opts.status)          params['status']         = opts.status;
     if (opts.direction)       params['direction']      = opts.direction;
@@ -834,7 +849,8 @@ export class FinanceService {
     if (opts.sortDirection)   params['sortDirection']  = opts.sortDirection;
     if (opts.page !== undefined) params['page']        = String(opts.page);
     if (opts.size !== undefined) params['size']        = String(opts.size);
-    return this.api.get<FinancePageResponse<NoteRow>>('/notes/page', params);
+    if (opts.reportingCurrency) params['reportingCurrency'] = opts.reportingCurrency;
+    return this.api.get<ReportResponse<FinancePageResponse<NoteRow>>>('/notes/page', params);
   }
   getNote(id: string): Observable<Note> { return this.api.get<Note>(`/notes/${id}`); }
   createNote(body: CreateNotePayload): Observable<Note> { return this.api.post<Note>('/notes', body); }

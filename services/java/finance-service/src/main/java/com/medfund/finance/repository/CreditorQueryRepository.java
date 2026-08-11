@@ -2,6 +2,7 @@ package com.medfund.finance.repository;
 
 import com.medfund.finance.dto.CreditorFilterParams;
 import com.medfund.finance.dto.CreditorRow;
+import com.medfund.shared.report.PerCurrencyTotal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Repository;
@@ -61,6 +62,33 @@ public class CreditorQueryRepository {
         var spec = bindFilters(db.sql(sql), f);
         return spec.map(row -> ((Number) row.get("total")).longValue()).one();
     }
+
+    /**
+     * Filtered-set per-currency totals (G18) — same WHERE clause as the
+     * paged query, grouped by currency. Sums {@code outstanding_balance}
+     * across both branches so the envelope's {@code perCurrency} map
+     * reflects the same slice the caller sees on-page.
+     */
+    public Mono<Map<String, PerCurrencyTotal>> perCurrencyTotals(CreditorFilterParams f) {
+        String union = buildUnion(f);
+        String sql = "SELECT currency_code,"
+                + "        COALESCE(SUM(outstanding_balance), 0) AS total_amount,"
+                + "        COUNT(*)                                AS row_count"
+                + "   FROM (" + union + ") u"
+                + "  WHERE currency_code IS NOT NULL"
+                + "  GROUP BY currency_code";
+        var spec = bindFilters(db.sql(sql), f);
+        return spec.map((row, meta) -> Map.entry(
+                        row.get("currency_code", String.class),
+                        new PerCurrencyTotal(
+                                nz(row.get("total_amount", BigDecimal.class)),
+                                nzLong(row.get("row_count", Long.class)))))
+                .all()
+                .collectMap(Map.Entry::getKey, Map.Entry::getValue);
+    }
+
+    private static BigDecimal nz(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
+    private static long nzLong(Long v) { return v != null ? v : 0L; }
 
     private String buildUnion(CreditorFilterParams f) {
         String subjectType = f.subjectType() == null ? "BOTH" : f.subjectType().toUpperCase();

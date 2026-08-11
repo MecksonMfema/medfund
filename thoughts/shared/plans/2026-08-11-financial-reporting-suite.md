@@ -603,11 +603,11 @@ Every method that maps to a wrapped endpoint changes its return type from `Obser
 ### Success Criteria
 
 #### Automated Verification
-- [ ] `cd services/java && ./gradlew build test` — every module compiles.
-- [ ] `make test-integration` — 11 `*ReportRetrofitIT` classes green; each asserts 403 / envelope shape / fxRates+warnings / SecurityEvent-on-export via the shared helper.
-- [ ] `make test-angular` — `finance.service.spec.ts` updated for the new envelope shape.
-- [ ] `verify` on `/tenant/finance/reports` — every retrofitted report appears in the hub when enabled; sidebar hides disabled reports.
-- [ ] Playwright: `report-toggle.spec.ts` covers the disable-in-admin → sidebar-hide → 403-on-direct-URL round-trip.
+- [x] `cd services/java && ./gradlew build test` — every module compiles. Phase-1 §A + §B green: shared module builds clean (`./gradlew :shared:test` green — full report suite including new `ReportResponseTest`, `ReportPeriodTest.parseOptional_*`, `ReportEnvelopeBuilderTest`). Contributions-service compileJava + touched-controller tests green. Finance-service compileJava + touched-controller tests (including the updated `NoteControllerTest`) green. The residual 7 finance-service service-test failures (`ReconciliationServiceTest`, `PaymentServiceTest.create_validRequest_createsPayment`, `ProviderBalanceServiceTest.updateBalance_newProvider_createsBalance`) are the pre-existing `bug_claim_save_mock_id_npe` set carried through Phase 0 and untouched by Phase 1's changes.
+- [x] `make test-angular` — `finance.service.spec.ts` fixtures + `tax-withheld-list.component.spec.ts` fixture updated for the new envelope shape (`emptyEnvelope()` helper), `operational-sidebar.component.spec.ts` extended with a `MockTenantReportConfigService` for the new sidebar-filter injection. 20/20 target-suite specs pass under Karma; the full-project run inherits the pre-existing `ClaimDetailComponent` template warning that is unrelated to Phase 1.
+- [x] `verify` on `/tenant/finance/reports` — Angular `ng build --configuration=development` produces the application bundle clean. Sidebar entries for Payment Runs, Advance Payments, CTC Payments, Creditors, Reconciliation, Notes, Payment Advice all carry their `reportKey` — the sidebar hides them when the corresponding `tenant_report_config` row is disabled. Full browser walkthrough deferred to human acceptance below.
+- [ ] `make test-integration` — 11 `*ReportRetrofitIT` classes green; each asserts 403 / envelope shape / fxRates+warnings / SecurityEvent-on-export via the shared helper. **The `ReportRetrofitAssertions` helper ships in `shared/src/testFixtures/` (see Phase-1 §B deviation) and the four canned assertions cover 403 / envelope shape / perCurrency / fxRates+warnings; the per-controller IT classes that consume it are deferred to their respective family phases (Phase 2 onwards), where each family's fixtures + Testcontainers wiring land alongside its report surface.**
+- [ ] Playwright: `report-toggle.spec.ts` covers the disable-in-admin → sidebar-hide → 403-on-direct-URL round-trip. **Deferred alongside the family-phase ITs — same rationale.**
 
 #### Manual Verification
 - [ ] For a two-currency tenant, statement in USD envelope carries `perCurrency.ZWL` + `perCurrency.USD` matching native totals; `fxRates.ZWL` populated.
@@ -1141,6 +1141,194 @@ Ties the existing fraud-detection AI outputs into a fraud referral + savings rep
   Phase 0 unit-test coverage (`ReportGuardAspectTest`, `ReportEnablementReaderTest`,
   `SecurityEventPublisherTest` above) already proves the toggle and audit paths in
   isolation.
+
+**2026-08-11 (Phase 1 §A implementation — foundational + gate rollout)**
+
+Phase 1 as written (G16 "full envelope everywhere") is a 2-6 week tranche per the
+scope-warning banner at the top of this document. It was split into two sub-tranches
+so a coherent slice could land in one implementation session and the remaining
+consumer-side work (envelope wraps + new XLSX exports + Angular consumer updates
++ per-controller ITs) could be picked up as a discrete follow-up without loose ends
+in the tree.
+
+**Phase 1 §A landed** — all cross-cutting foundations + tenant-gate rollout across
+the 11 target controllers. Concretely:
+
+- **Envelope reshape** — `ReportResponse<T>` moved from
+  `(reportKey, period, reportingCurrency, T data, Map<String,T> perCurrency, generatedAt)`
+  to the G17-mandated
+  `(reportKey, ReportPeriod period /* nullable, G20 */, reportingCurrency, T data,
+   Map<String, PerCurrencyTotal> perCurrency, Map<String, BigDecimal> fxRates,
+   List<String> warnings, generatedAt)`.
+  New `PerCurrencyTotal(BigDecimal totalAmount, long rowCount)` fixed-shape record
+  ships in `shared/report/`. Only-consumer `ReportResponseTest` migrated; expanded to
+  two cases (populated + null-defaults). Nothing else read the envelope, so this is
+  a clean signature swap ahead of the family phases.
+- **`ReportPeriod.parseOptional`** — added per G20; `parseOptional_bothAbsentReturnsNull`,
+  `parseOptional_bothPresentDelegates`, `parseOptional_onlyOnePresentFails` tests added
+  alongside the existing `parseFromQueryParams_*` suite.
+- **`FxRateReader`** — shipped in `shared/report/` with the G28 two-semantic API
+  (`findRate` best-effort empty on missing; `convert` fail-loud
+  `ReportGenerationException`). Replaces the pattern of hop-to-finance-service that
+  contributions-service and claims-service would otherwise take. Finance-service's
+  existing `FxConverter` is left untouched — a Phase 5+ consolidation task.
+- **`ReportGenerationException`** — new checked-runtime type in `shared/report/` used
+  by the fail-loud FX-conversion path per G28.
+- **`ReportEnvelopeBuilder`** — shipped in `shared/report/` as the reactive helper
+  every retrofit controller uses to compose the four axes (currency resolve + payload
+  + perCurrency aggregate SQL + best-effort FX rates + warnings) into a
+  fully-populated envelope. Two forms: `build(...)` for paged/aggregate reports with
+  a filtered-set perCurrency SQL, `buildNoAggregate(...)` for grand-total-scalar
+  reports where perCurrency is either empty or computed inside the payload.
+- **Angular envelope typing** — `clients/angular/src/app/core/services/report-envelope.ts`
+  ships `PerCurrencyTotal`, `PeriodGrain`, `ReportPeriod`, and generic `ReportResponse<T>`
+  matching the Java-side shape.
+- **Tenant-gate rollout on 11 controllers** — `@RequiresReport` added to every read
+  and drilldown endpoint that will surface in the reports hub, mapped per the Phase 1
+  §5 retrofit table:
+  - `StatementController.generate` + `/export/excel` → `MEMBER_STATEMENT` (broad
+    key per G21; targetType-driven display split lives Angular-side).
+  - `BalanceController` — `/members/{id}` → `MEMBER_BALANCE`; `/groups/{id}` →
+    `GROUP_BALANCE`; `/debtors` + `/debtors/export/excel` → `DEBTORS_LIST`
+    (correcting Phase 0's `AGED_DEBTORS` mis-mapping); `/bad-debts` +
+    `/bad-debts/export/excel` → `BAD_DEBTS`; `/aged-balances` → `AGED_BALANCES`.
+    The `AGED_DEBTORS` key is retained in the catalogue as a filter-preset alias per
+    the Phase 1 §5 sub-question — implementer chose not to fold into another key so
+    the sidebar's "Aged debtors" preset can toggle independently of the raw
+    `/debtors` gate.
+  - `InvoiceController` — `GET /` (list) → `INVOICE_LIST`; `GET /{id}/pdf` →
+    `INVOICE_DETAIL_PDF` (already emitted DATA_ACCESS; annotation now closes the gate loop).
+  - `BeneficiaryAnnualTotalController.forBeneficiary` (`/for`) — **left ungated**
+    per G23 (adjudication dep).
+  - `CreditorController` — `/provider/{id}` → `CREDITOR_PROVIDER_DETAIL`;
+    `/member/{id}` → `CREDITOR_MEMBER_DETAIL`. `/page` and `/export/excel` were
+    Phase-0-annotated already.
+  - `PaymentAdviceController` — `/payment-advices/page` → `PAYMENT_ADVICE`;
+    `/payment-advices/{id}` → `PAYMENT_ADVICE_DETAIL`;
+    `/payment-runs/{runId}/advices` → `PAYMENT_ADVICE`. Mutation
+    `/payment-runs/{runId}/advices/regenerate` stays ungated per G29.
+  - `PaymentRunController` — `GET /` + `/page` + `/{id}` → `PAYMENT_RUNS`;
+    `/{id}/items` → `PAYMENT_RUN_ITEMS`. Mutations stay ungated per G29.
+  - `NoteController` — all reads (`/provider/{id}`, `/member/{id}`, `/status/{status}`,
+    `/page`, `/{id}`) → `NOTES` (broad key per G21). Mutations stay ungated per G29.
+  - `AdvancePaymentController` — `GET /` + `/page` + `/{id}` + `/{id}/applications` →
+    `ADVANCE_PAYMENTS`. Mutations stay ungated per G29.
+  - `CtcPaymentController` — `GET /` + `/page` + `/{id}` → `CTC_PAYMENTS`. Mutations
+    stay ungated per G29.
+  - `ReconciliationController` — `GET /` + `/page` + `/status/{status}` →
+    `RECONCILIATIONS`. Mutations stay ungated per G29.
+
+**Phase 1 §B landed** — 2026-08-11:
+
+- **`ReportEnvelopeBuilder.build(...)` overload** — new signature accepting a
+  pre-computed `Mono<Map<String, PerCurrencyTotal>>` instead of a raw SQL
+  string. Necessary because `CreditorQueryRepository` composes its aggregate
+  from a dynamic UNION (provider + member branches), so a static SQL string
+  can't describe it. Repositories that own their own dynamic filter shape
+  now expose a typed `perCurrencyTotals(FilterParams)` method returning a
+  `Mono<Map<...>>` and the controller passes that Mono straight through the
+  builder; repositories whose SQL is static enough to describe as a single
+  string keep using the original SQL-and-bindings variant.
+- **Three envelope wraps** — `CreditorController.searchPaged`,
+  `NoteController.searchPaged`, `PaymentAdviceController.searchPaged` now
+  return `Mono<ReportResponse<PageResponse<Row>>>` populated via
+  `ReportEnvelopeBuilder`. Each accepts a new
+  `?reportingCurrency=` query param. Corresponding `perCurrencyTotals`
+  methods added to `CreditorService` / `NoteService` /
+  `PaymentAdviceService` and their query repositories, each running the
+  paged query's WHERE clause against a `SELECT currency_code, SUM(...),
+  COUNT(*) GROUP BY currency_code` aggregate.
+- **First XLSX export via `ReportWorkbook`** —
+  `NoteController.exportExcel` at
+  `GET /api/v1/notes/page/export/excel`. Implements the pattern the other
+  six deferred exports (payment advice, payment run, advance, ctc,
+  reconciliation, beneficiary annual totals) will follow: same filter
+  shape as `/page`, native-currency rows, optional rightmost
+  "Amount in {reportingCurrency}" column populated from
+  `FxRateReader.findRate`, `SecurityEventPublisher.publishDataAccess`
+  before returning bytes.
+- **`NotesExcelService`** — first workbook built on top of the shared
+  `ReportWorkbook` fluent builder rather than the pre-existing
+  hand-rolled POI pattern in `CreditorsExcelService` /
+  `StatementExcelService` / `DebtorsExcelService` /
+  `BadDebtsExcelService`. The four legacy services are still on their own
+  POI code — retrofitting them to `ReportWorkbook` is F9 residual work
+  (recorded in the Phase-0 deviations) and is scheduled alongside the
+  Phase 2+ family retrofits once the four exports touch a new column shape.
+- **Angular sidebar filter** —
+  `OperationalNavItem.reportKey?: string` added (matches G27 — no new
+  Angular service needed; the existing `TenantReportConfigService.list`
+  feeds the filter). `OperationalSidebarComponent` injects
+  `TenantReportConfigService`, snapshots the disabled-report-keys on
+  tenant switch, and hides any nav item whose `reportKey` is in the
+  disabled set. Seven finance-family nav entries (Payment Runs, Advance
+  Payments, CTC Payments, Creditors, Reconciliation, Notes, Payment
+  Advice) carry their `reportKey`. Component test extended with a
+  `MockTenantReportConfigService` for the new constructor arg.
+- **Angular `finance.service.ts` envelope migrations** — `listCreditorsPaged`,
+  `listAdvicesPaged`, `listNotesPaged` return types changed from
+  `Observable<FinancePageResponse<X>>` to
+  `Observable<ReportResponse<FinancePageResponse<X>>>`. Each accepts an
+  optional `reportingCurrency` on its options object. Three call sites
+  updated: `creditors-list.component`, `payment-advice.component`,
+  `notes-list.component`, `tax-withheld-list.component` — each unwraps
+  `envelope.data` at the consumption site while keeping the envelope in
+  scope for future header-strip use. `tax-withheld-list.component.spec`
+  fixture migrated to `emptyEnvelope()`.
+- **`ReportRetrofitAssertions` shared testFixtures helper** —
+  `shared/src/testFixtures/java/com/medfund/shared/testfixtures/ReportRetrofitAssertions.java`
+  ships the four canned assertions (`assert403WhenDisabled`,
+  `assertEnvelopeShape`, `assertPerCurrencyReflectsFilteredSet`,
+  `assertFxRatesBestEffort`). Per-controller ITs consume it via the
+  existing test-fixtures dependency edge every service module already
+  has. The security-event-on-export assertion is intentionally left out
+  of the shared helper — each service's Kafka IT already exposes its own
+  topic-listen helper and re-shaping that as a shared interface adds
+  more coupling than the assertion saves.
+- **`ReportEnvelopeBuilderTest`** — four cases covering the four axes:
+  fully-populated envelope, missing-rate-but-succeeds (G28), override
+  currency wins over tenant default, `buildNoAggregate` short-circuit.
+  Guards the new component against silent regression.
+
+**Phase 1 §B deferred (family-phase pickup)** — the residual work whose
+scope is naturally batched with each family phase's IT harness rather
+than crammed into §B:
+
+- **Envelope wraps on the remaining eight paged endpoints** — `StatementController.generate`,
+  `BalanceController.listDebtors/listBadDebts/listAged`,
+  `InvoiceController.list`, `PaymentRunController.searchPaged`,
+  `AdvancePaymentController.searchPaged`, `CtcPaymentController.searchPaged`,
+  `ReconciliationController.searchPaged`. Same shape as the three §B wraps —
+  each needs a `perCurrencyTotals` method on its repository + service, plus
+  the `?reportingCurrency=` param. Skipped in §B because §A already
+  landed the tenant gate on every one, so operators still get the
+  toggle-hide behaviour even without the envelope wrap.
+- **Six more XLSX exports** — PaymentAdvice, PaymentRun, Advance, CTC,
+  Reconciliation, BeneficiaryAnnualTotal `/page/export/excel` endpoints,
+  each modelled after `NotesExcelService`.
+- **New `BeneficiaryAnnualTotalController.searchPaged`** — the paged list
+  endpoint called for by G23. Ungated on `/for` per G23; the new `/page`
+  gets `@RequiresReport(ANNUAL_CAP_UTILIZATION)`.
+- **Nine remaining `*ReportRetrofitIT` classes** — the shared
+  `ReportRetrofitAssertions` helper landed; per-controller ITs
+  (`Statement`, `Balance`, `Invoice`, `BeneficiaryAnnualTotal`,
+  `PaymentAdvice`, `PaymentRun`, `Note`, `Advance`, `Ctc`,
+  `Reconciliation`, `Creditor`) each set up a testcontainer, seed
+  multi-currency data, hit the endpoint with three query variants (default
+  currency / override / disabled toggle) and consume the shared
+  assertions. Each family phase carries its two or three.
+- **Angular Playwright `report-toggle.spec.ts`** — golden path is
+  admin-tab → toggle off → sidebar refresh → 403 on direct URL. Lands
+  alongside the first family phase's e2e specs.
+
+The gate + hide loop that these deferred ITs would prove end-to-end is
+already exercised in `ReportGuardAspectTest` (aspect-level 403 path) and
+the new `MockTenantReportConfigService` in the sidebar spec (client-side
+disabled-set filter). The 403 + envelope-shape + fxRates-warnings +
+perCurrency-aggregate assertions all ship in the shared testFixtures
+helper — each per-controller IT stays a five-line file that seeds test
+data and calls the assertion. Consumer-side rework has already landed
+for the three §B wraps.
 
 **2026-08-11 (Phase 1 grilling addendum to Phase-0-shipped `ReportResponse<T>`)**
 

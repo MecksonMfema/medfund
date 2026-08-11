@@ -1,7 +1,9 @@
 import { Router } from '@angular/router';
+import { of } from 'rxjs';
 import { OperationalSidebarComponent } from './operational-sidebar.component';
 import { NavigationService } from '../../core/services/navigation.service';
 import { TenantService } from '../../core/services/tenant.service';
+import { TenantReportConfigService } from '../../core/services/tenant-report-config.service';
 import { PermissionService } from '../../core/security/permission.service';
 import { KeycloakService } from 'keycloak-angular';
 import { MockKeycloakService } from '../../_test-utils/mock-keycloak.service';
@@ -9,6 +11,15 @@ import { MockTenantService, buildTenant } from '../../_test-utils/mock-tenant.se
 import { MockPermissionService } from '../../_test-utils/mock-permission.service';
 import { MockNavigationService } from '../../_test-utils/mock-navigation.service';
 import { RouterHarness } from '../../_test-utils/router-harness';
+
+class MockTenantReportConfigService {
+  private rows: Array<{ reportKey: string; enabled: boolean }> = [];
+  setDisabled(keys: string[]) {
+    this.rows = keys.map(k => ({ reportKey: k, enabled: false }));
+  }
+  list() { return of(this.rows as never); }
+  empty() { return of([] as never); }
+}
 
 function instantiate(opts: {
   initialPerms?: ReadonlyArray<string>,
@@ -27,15 +38,17 @@ function instantiate(opts: {
   const permissions = new MockPermissionService(opts.initialPerms ?? [], { superAdmin: opts.superAdmin });
   const keycloak = new MockKeycloakService({ roles: opts.superAdmin ? ['super_admin'] : ['operator'] });
   const router = new RouterHarness();
+  const reportConfig = new MockTenantReportConfigService();
 
   const comp = new OperationalSidebarComponent(
     nav as unknown as NavigationService,
     tenant as unknown as TenantService,
+    reportConfig as unknown as TenantReportConfigService,
     permissions as unknown as PermissionService,
     keycloak as unknown as KeycloakService,
     router as unknown as Router,
   );
-  return { comp, nav, tenant, permissions, keycloak, router };
+  return { comp, nav, tenant, permissions, keycloak, router, reportConfig };
 }
 
 describe('OperationalSidebarComponent', () => {

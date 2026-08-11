@@ -2,6 +2,7 @@ package com.medfund.finance.repository;
 
 import com.medfund.finance.dto.NoteFilterParams;
 import com.medfund.finance.dto.NoteRow;
+import com.medfund.shared.report.PerCurrencyTotal;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
@@ -65,6 +66,35 @@ public class NoteQueryRepository {
         var spec = bindFilters(db.sql(sql), f, hasQ, search);
         return spec.map(row -> ((Number) row.get("total")).longValue()).one();
     }
+
+    /**
+     * Filtered-set per-currency totals (G18) — same WHERE clause as the
+     * paged query, grouped by {@code n.currency_code}. Sums {@code n.amount}
+     * across the filtered slice so the envelope's {@code perCurrency} map
+     * matches what the caller sees on-page.
+     */
+    public Mono<Map<String, PerCurrencyTotal>> perCurrencyTotals(NoteFilterParams f) {
+        boolean hasQ = f.q() != null && !f.q().isBlank();
+        String search = hasQ ? "%" + f.q().toLowerCase() + "%" : null;
+        String sql = "SELECT n.currency_code AS currency_code,"
+                + "        COALESCE(SUM(n.amount), 0) AS total_amount,"
+                + "        COUNT(*)                    AS row_count"
+                + baseFrom()
+                + whereClause(f, hasQ)
+                + " AND n.currency_code IS NOT NULL"
+                + " GROUP BY n.currency_code";
+        var spec = bindFilters(db.sql(sql), f, hasQ, search);
+        return spec.map((row, meta) -> Map.entry(
+                        row.get("currency_code", String.class),
+                        new PerCurrencyTotal(
+                                nz(row.get("total_amount", BigDecimal.class)),
+                                nzLong(row.get("row_count", Long.class)))))
+                .all()
+                .collectMap(Map.Entry::getKey, Map.Entry::getValue);
+    }
+
+    private static BigDecimal nz(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
+    private static long nzLong(Long v) { return v != null ? v : 0L; }
 
     private String selectClause() {
         return """

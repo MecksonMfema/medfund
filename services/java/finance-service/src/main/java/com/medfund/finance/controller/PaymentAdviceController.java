@@ -9,6 +9,11 @@ import com.medfund.finance.dto.PaymentAdviceRowResponse;
 import com.medfund.finance.entity.PaymentAdviceLine;
 import com.medfund.finance.entity.PaymentAdviceRecord;
 import com.medfund.finance.service.PaymentAdviceService;
+import com.medfund.shared.report.ReportEnvelopeBuilder;
+import com.medfund.shared.report.ReportKey;
+import com.medfund.shared.report.ReportPeriod;
+import com.medfund.shared.report.ReportResponse;
+import com.medfund.shared.report.RequiresReport;
 import com.medfund.shared.security.Permissions;
 import com.medfund.shared.security.RequiresPermission;
 import io.swagger.v3.oas.annotations.Operation;
@@ -36,16 +41,20 @@ import java.util.UUID;
 public class PaymentAdviceController {
 
     private final PaymentAdviceService paymentAdviceService;
+    private final ReportEnvelopeBuilder envelopeBuilder;
 
     @GetMapping("/payment-advices/page")
+    @RequiresReport(ReportKey.PAYMENT_ADVICE)
     @Operation(summary = "Server-side paginated, sortable, filterable payment-advices list",
         description = "Feeds /tenant/finance/advice. Sortable keys: adviceNumber, payeeType, "
                 + "status, netDueAmount, totalAmount, claimCount, currencyCode, issuedAt, "
                 + "periodEndAt, createdAt, runNumber. Free-text `q` searches advice number, "
-                + "run number, provider name, and member name.")
-    @ApiResponse(responseCode = "200", description = "Page of payment advices")
+                + "run number, provider name, and member name. Wrapped in ReportResponse<T> — "
+                + "envelope perCurrency reflects the filtered-set net-due totals; supports "
+                + "reportingCurrency= override.")
+    @ApiResponse(responseCode = "200", description = "Envelope wrapping the page of payment advices")
     @RequiresPermission(Permissions.FINANCE_VIEW_PAYMENT_ADVICE)
-    public Mono<PageResponse<PaymentAdviceRowResponse>> searchPaged(
+    public Mono<ReportResponse<PageResponse<PaymentAdviceRowResponse>>> searchPaged(
             @RequestParam(required = false) UUID paymentRunId,
             @RequestParam(required = false) UUID providerId,
             @RequestParam(required = false) UUID memberId,
@@ -60,14 +69,28 @@ public class PaymentAdviceController {
             @RequestParam(required = false, defaultValue = "issuedAt") String sortKey,
             @RequestParam(required = false, defaultValue = "desc") String sortDirection,
             @RequestParam(required = false, defaultValue = "0") int page,
-            @RequestParam(required = false, defaultValue = "50") int size) {
+            @RequestParam(required = false, defaultValue = "50") int size,
+            @RequestParam(required = false) String reportingCurrency) {
         var params = new PaymentAdviceFilterParams(
                 paymentRunId, providerId, memberId, payeeType, status, currencyCode,
                 periodStart, periodEnd, q, sortKey, sortDirection, page, size);
-        return paymentAdviceService.searchPaged(params);
+        ReportPeriod period = null;
+        if (periodStart != null && periodEnd != null) {
+            period = new ReportPeriod(
+                    periodStart.atZone(java.time.ZoneOffset.UTC).toLocalDate(),
+                    periodEnd.atZone(java.time.ZoneOffset.UTC).toLocalDate(),
+                    ReportPeriod.PeriodGrain.CUSTOM);
+        }
+        return envelopeBuilder.build(
+                ReportKey.PAYMENT_ADVICE,
+                period,
+                reportingCurrency,
+                paymentAdviceService.searchPaged(params),
+                paymentAdviceService.perCurrencyTotals(params));
     }
 
     @GetMapping("/payment-advices/{id}")
+    @RequiresReport(ReportKey.PAYMENT_ADVICE_DETAIL)
     @Operation(summary = "Fetch a payment advice with its typed ledger lines")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Advice returned"),
@@ -82,6 +105,7 @@ public class PaymentAdviceController {
     }
 
     @GetMapping("/payment-runs/{runId}/advices")
+    @RequiresReport(ReportKey.PAYMENT_ADVICE)
     @Operation(summary = "List advices generated for a payment run")
     @RequiresPermission(Permissions.FINANCE_VIEW_PAYMENT_ADVICE)
     public Flux<PaymentAdviceRecordResponse> listForRun(@PathVariable UUID runId) {

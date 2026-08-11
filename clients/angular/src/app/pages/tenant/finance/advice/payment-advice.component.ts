@@ -6,6 +6,7 @@ import {
   FinancePageResponse,
   FinanceService,
   PaymentAdviceRow,
+  ReportResponse,
 } from '../../../../core/services/finance.service';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
@@ -94,10 +95,11 @@ export class PaymentAdviceComponent implements OnInit {
       page: this.page - 1,
       size: this.pageSize,
     }).subscribe({
-      next: (resp: FinancePageResponse<PaymentAdviceRow>) => {
-        this.rows = resp.content;
-        this.totalCount = resp.total;
-        this.totalPages = resp.totalPages;
+      next: (envelope: ReportResponse<FinancePageResponse<PaymentAdviceRow>>) => {
+        const page = envelope.data;
+        this.rows = page.content;
+        this.totalCount = page.total;
+        this.totalPages = page.totalPages;
         this.loading = false;
       },
       error: (err) => {

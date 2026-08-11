@@ -6,6 +6,8 @@ import com.medfund.finance.dto.CreateReconciliationRequest;
 import com.medfund.finance.dto.PageResponse;
 import com.medfund.finance.service.ReconciliationService;
 import com.medfund.shared.audit.AuditActor;
+import com.medfund.shared.report.ReportKey;
+import com.medfund.shared.report.RequiresReport;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -34,12 +36,14 @@ public class ReconciliationController {
     }
 
     @GetMapping
+    @RequiresReport(ReportKey.RECONCILIATIONS)
     @Operation(summary = "List all reconciliation records (unpaginated — prefer /page)")
     public Flux<BankReconciliationResponse> findAll() {
         return reconciliationService.findAll().map(BankReconciliationResponse::from);
     }
 
     @GetMapping("/page")
+    @RequiresReport(ReportKey.RECONCILIATIONS)
     @Operation(summary = "Server-side paginated, sortable, filterable reconciliations list",
         description = "Feeds /tenant/finance/reconciliations. Sortable keys: referenceNumber, "
                     + "statementAmount, systemAmount, difference, currencyCode, status, "
@@ -60,6 +64,7 @@ public class ReconciliationController {
     }
 
     @GetMapping("/status/{status}")
+    @RequiresReport(ReportKey.RECONCILIATIONS)
     @Operation(summary = "List reconciliation records by status")
     public Flux<BankReconciliationResponse> findByStatus(@PathVariable String status) {
         return reconciliationService.findByStatus(status).map(BankReconciliationResponse::from);

@@ -8,6 +8,8 @@ import com.medfund.finance.dto.CtcPaymentRow;
 import com.medfund.finance.dto.PageResponse;
 import com.medfund.finance.service.CtcPaymentService;
 import com.medfund.shared.audit.AuditActor;
+import com.medfund.shared.report.ReportKey;
+import com.medfund.shared.report.RequiresReport;
 import com.medfund.shared.security.Permissions;
 import com.medfund.shared.security.RequiresPermission;
 import io.swagger.v3.oas.annotations.Operation;
@@ -37,6 +39,7 @@ public class CtcPaymentController {
 
     @GetMapping
     @RequiresPermission({Permissions.CLAIMS_VIEW_CTC_PAYMENTS, Permissions.FINANCE_MANAGE_CTC_PAYMENTS})
+    @RequiresReport(ReportKey.CTC_PAYMENTS)
     @Operation(summary = "List CTC payments (unpaginated — prefer /page)")
     public Flux<CtcPaymentResponse> list(@RequestParam(required = false) Boolean committed) {
         return (committed != null ? service.findByCommitted(committed) : service.findAll())
@@ -45,6 +48,7 @@ public class CtcPaymentController {
 
     @GetMapping("/page")
     @RequiresPermission({Permissions.CLAIMS_VIEW_CTC_PAYMENTS, Permissions.FINANCE_MANAGE_CTC_PAYMENTS})
+    @RequiresReport(ReportKey.CTC_PAYMENTS)
     @Operation(summary = "Server-side paginated, sortable, filterable CTC list",
         description = "Feeds /tenant/claims/ctc/{pending,committed}. Joins member + "
                     + "group names into every row so the beneficiary chip renders inline. "
@@ -68,6 +72,7 @@ public class CtcPaymentController {
 
     @GetMapping("/{id}")
     @RequiresPermission({Permissions.CLAIMS_VIEW_CTC_PAYMENTS, Permissions.FINANCE_MANAGE_CTC_PAYMENTS})
+    @RequiresReport(ReportKey.CTC_PAYMENTS)
     @Operation(summary = "Get a CTC payment")
     public Mono<CtcPaymentResponse> get(@PathVariable UUID id) {
         return service.findById(id).map(CtcPaymentResponse::from);

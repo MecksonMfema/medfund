@@ -40,6 +40,24 @@ public record ReportPeriod(
         return new ReportPeriod(start, end, g);
     }
 
+    /**
+     * Optional-friendly parse for controllers whose primary shape is a
+     * current-state snapshot (creditors, notes, payment runs — no natural
+     * time window). Both dates absent → {@code null}; only one present →
+     * {@link IllegalArgumentException}. Envelope carries {@code null} in
+     * the {@code period} slot per G20; the client renders the "As of" header
+     * from {@code generatedAt} instead.
+     */
+    public static ReportPeriod parseOptional(String periodStart, String periodEnd, String grain) {
+        boolean startBlank = periodStart == null || periodStart.isBlank();
+        boolean endBlank   = periodEnd   == null || periodEnd.isBlank();
+        if (startBlank && endBlank) return null;
+        if (startBlank || endBlank) {
+            throw new IllegalArgumentException("periodStart and periodEnd must be supplied together");
+        }
+        return parseFromQueryParams(periodStart, periodEnd, grain);
+    }
+
     private static PeriodGrain inferGrain(LocalDate start, LocalDate end) {
         long days = ChronoUnit.DAYS.between(start, end) + 1;
         if (days <= 1)  return PeriodGrain.DAILY;

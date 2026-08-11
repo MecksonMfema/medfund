@@ -7,7 +7,9 @@ import com.medfund.finance.dto.PageResponse;
 import com.medfund.finance.dto.ProviderBalanceResponse;
 import com.medfund.finance.service.CreditorService;
 import com.medfund.shared.audit.AuditActor;
+import com.medfund.shared.report.ReportEnvelopeBuilder;
 import com.medfund.shared.report.ReportKey;
+import com.medfund.shared.report.ReportResponse;
 import com.medfund.shared.report.RequiresReport;
 import com.medfund.shared.security.Permissions;
 import com.medfund.shared.security.RequiresPermission;
@@ -59,6 +61,7 @@ public class CreditorController {
 
     private final CreditorService service;
     private final SecurityEventPublisher securityEventPublisher;
+    private final ReportEnvelopeBuilder envelopeBuilder;
 
     @GetMapping("/page")
     @RequiresPermission(Permissions.FINANCE_VIEW_CREDITORS)
@@ -66,23 +69,33 @@ public class CreditorController {
     @Operation(summary = "Paginated, sortable, filterable unified creditors list",
             description = "Feeds /tenant/finance/creditors. subjectType=PROVIDER|MEMBER|BOTH; "
                     + "sortable keys: subjectName, subjectCode, totalClaimed, totalApproved, "
-                    + "totalPaid, outstandingBalance, currencyCode, lastActivityAt.")
-    @ApiResponse(responseCode = "200", description = "Page of creditor rows")
-    public Mono<PageResponse<CreditorRow>> searchPaged(
+                    + "totalPaid, outstandingBalance, currencyCode, lastActivityAt. Wrapped "
+                    + "in ReportResponse<T> — envelope carries perCurrency ledger totals for "
+                    + "the filtered set, plus best-effort FX rates to the reporting currency "
+                    + "(reportingCurrency= override, or tenant default).")
+    @ApiResponse(responseCode = "200", description = "Envelope wrapping the page of creditor rows")
+    public Mono<ReportResponse<PageResponse<CreditorRow>>> searchPaged(
             @RequestParam(required = false) String subjectType,
             @RequestParam(required = false) String currencyCode,
             @RequestParam(required = false) String q,
             @RequestParam(required = false, defaultValue = "outstandingBalance") String sortKey,
             @RequestParam(required = false, defaultValue = "desc") String sortDirection,
             @RequestParam(required = false, defaultValue = "0") int page,
-            @RequestParam(required = false, defaultValue = "50") int size) {
+            @RequestParam(required = false, defaultValue = "50") int size,
+            @RequestParam(required = false) String reportingCurrency) {
         var params = new CreditorFilterParams(
                 subjectType, currencyCode, q, sortKey, sortDirection, page, size);
-        return service.searchPaged(params);
+        return envelopeBuilder.build(
+                ReportKey.CREDITORS,
+                null,                              // no natural period on a current-state creditors snapshot (G20)
+                reportingCurrency,
+                service.searchPaged(params),
+                service.perCurrencyTotals(params));
     }
 
     @GetMapping("/provider/{providerId}")
     @RequiresPermission(Permissions.FINANCE_VIEW_CREDITORS)
+    @RequiresReport(ReportKey.CREDITOR_PROVIDER_DETAIL)
     @Operation(summary = "Provider creditor detail",
             description = "Delegates to ProviderBalanceService.findByProviderId — same shape as the "
                     + "pre-Phase-4 GET /provider-balances/provider/{id}.")
@@ -92,6 +105,7 @@ public class CreditorController {
 
     @GetMapping("/member/{memberId}")
     @RequiresPermission(Permissions.FINANCE_VIEW_CREDITORS)
+    @RequiresReport(ReportKey.CREDITOR_MEMBER_DETAIL)
     @Operation(summary = "Member creditor detail",
             description = "One row per currency the member carries a balance in; empty flux when the "
                     + "member has no balance row yet.")

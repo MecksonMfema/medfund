@@ -83,6 +83,27 @@ class ReportPeriodTest {
     }
 
     @Test
+    void parseOptional_bothAbsentReturnsNull() {
+        assertThat(ReportPeriod.parseOptional(null, null, null)).isNull();
+        assertThat(ReportPeriod.parseOptional("", "  ", null)).isNull();
+    }
+
+    @Test
+    void parseOptional_bothPresentDelegates() {
+        var period = ReportPeriod.parseOptional("2026-08-01", "2026-08-31", null);
+        assertThat(period).isNotNull();
+        assertThat(period.grain()).isEqualTo(ReportPeriod.PeriodGrain.MONTHLY);
+    }
+
+    @Test
+    void parseOptional_onlyOnePresentFails() {
+        assertThatThrownBy(() -> ReportPeriod.parseOptional("2026-08-01", null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> ReportPeriod.parseOptional(null, "2026-08-31", null))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void periodGrainValuesIsExhaustive() {
         assertThat(ReportPeriod.PeriodGrain.values()).containsExactly(
                 ReportPeriod.PeriodGrain.DAILY,

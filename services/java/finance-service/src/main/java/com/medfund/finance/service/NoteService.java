@@ -11,6 +11,7 @@ import com.medfund.finance.repository.NoteRepository;
 import com.medfund.finance.util.Actors;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
+import com.medfund.shared.report.PerCurrencyTotal;
 import com.medfund.shared.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -64,6 +65,12 @@ public class NoteService {
                 .collectList()
                 .zipWith(queryRepository.count(params))
                 .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
+    }
+
+    /** Filtered-set per-currency totals matching the paged query — feeds
+     *  {@link com.medfund.shared.report.ReportResponse#perCurrency()}. */
+    public Mono<Map<String, PerCurrencyTotal>> perCurrencyTotals(NoteFilterParams params) {
+        return queryRepository.perCurrencyTotals(params);
     }
 
     public Mono<Note> findById(UUID id) {

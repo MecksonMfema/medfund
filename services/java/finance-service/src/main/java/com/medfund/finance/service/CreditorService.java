@@ -7,12 +7,14 @@ import com.medfund.finance.dto.PageResponse;
 import com.medfund.finance.dto.ProviderBalanceResponse;
 import com.medfund.finance.repository.CreditorQueryRepository;
 import com.medfund.finance.repository.MemberBalanceQueryRepository;
+import com.medfund.shared.report.PerCurrencyTotal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -46,6 +48,12 @@ public class CreditorService {
                 .collectList()
                 .zipWith(queryRepository.count(effective))
                 .map(tuple -> PageResponse.of(tuple.getT1(), tuple.getT2(), page, size));
+    }
+
+    /** Filtered-set per-currency totals matching the paged query — feeds
+     *  {@link com.medfund.shared.report.ReportResponse#perCurrency()}. */
+    public Mono<Map<String, PerCurrencyTotal>> perCurrencyTotals(CreditorFilterParams params) {
+        return queryRepository.perCurrencyTotals(params);
     }
 
     public Mono<ProviderBalanceResponse> providerDetail(UUID providerId) {

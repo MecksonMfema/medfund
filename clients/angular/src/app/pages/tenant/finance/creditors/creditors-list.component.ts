@@ -9,6 +9,7 @@ import {
   CreditorSubjectType,
   FinancePageResponse,
   FinanceService,
+  ReportResponse,
 } from '../../../../core/services/finance.service';
 import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services/currency.service';
 import { TenantService } from '../../../../core/services/tenant.service';
@@ -153,10 +154,11 @@ export class CreditorsListComponent implements OnInit, OnDestroy {
       size: this.pageSize,
     };
     this.finance.listCreditorsPaged(opts).subscribe({
-      next: (resp: FinancePageResponse<CreditorRow>) => {
-        this.rows       = resp.content;
-        this.totalCount = resp.total;
-        this.totalPages = resp.totalPages;
+      next: (envelope: ReportResponse<FinancePageResponse<CreditorRow>>) => {
+        const page = envelope.data;
+        this.rows       = page.content;
+        this.totalCount = page.total;
+        this.totalPages = page.totalPages;
         this.loading    = false;
       },
       error: (err) => {

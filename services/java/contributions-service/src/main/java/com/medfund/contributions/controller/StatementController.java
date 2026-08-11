@@ -5,6 +5,7 @@ import com.medfund.contributions.service.StatementExcelService;
 import com.medfund.contributions.service.StatementService;
 import com.medfund.shared.audit.AuditActor;
 import com.medfund.shared.report.ReportKey;
+import com.medfund.shared.report.RequiresReport;
 import com.medfund.shared.security.SecurityEventPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import io.swagger.v3.oas.annotations.Operation;
@@ -47,12 +48,16 @@ public class StatementController {
     private final SecurityEventPublisher securityEventPublisher;
 
     @GetMapping
+    @RequiresReport(ReportKey.MEMBER_STATEMENT)
     @Operation(summary = "Generate a contribution statement",
             description = "Builds a statement for a member or group across the supplied date range. " +
-                    "If currency is omitted, picks the first currency seen on the target's contributions.")
+                    "If currency is omitted, picks the first currency seen on the target's contributions. " +
+                    "Gate uses MEMBER_STATEMENT for both target types — the sub-key is a display catalogue " +
+                    "toggle in Angular (G21), not a backend split.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Statement generated"),
-            @ApiResponse(responseCode = "400", description = "Invalid filters")
+            @ApiResponse(responseCode = "400", description = "Invalid filters"),
+            @ApiResponse(responseCode = "403", description = "Report disabled for tenant")
     })
     public Mono<StatementResponse> generate(
             @Parameter(description = "GROUP or MEMBER") @RequestParam String targetType,
@@ -64,6 +69,7 @@ public class StatementController {
     }
 
     @GetMapping("/export/excel")
+    @RequiresReport(ReportKey.MEMBER_STATEMENT)
     @Operation(summary = "Generate a contribution statement as XLSX",
             description = "Same filters as the JSON endpoint; streams an .xlsx workbook with a header summary, " +
                     "ledger table, and totals.")

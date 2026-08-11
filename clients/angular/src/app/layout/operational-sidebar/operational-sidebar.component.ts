@@ -5,6 +5,7 @@ import { Subscription } from 'rxjs';
 import { KeycloakService } from 'keycloak-angular';
 import { NavigationService } from '../../core/services/navigation.service';
 import { TenantService } from '../../core/services/tenant.service';
+import { TenantReportConfigService } from '../../core/services/tenant-report-config.service';
 import { PermissionService } from '../../core/security/permission.service';
 import { OPERATIONAL_NAV, OperationalNavGroup, OperationalNavItem } from './operational-nav';
 import { IconComponent } from '../../shared/components/icon/icon.component';
@@ -40,11 +41,20 @@ export class OperationalSidebarComponent implements OnInit, OnDestroy {
   /** Visible groups + items — recomputed whenever the user's permission set changes. */
   visibleGroups: OperationalNavGroup[] = [];
 
+  /**
+   * Report keys the tenant admin has explicitly disabled — nav items whose
+   * {@code reportKey} is in this set are hidden. Populated from
+   * {@link TenantReportConfigService.list} on tenant switch; empty when
+   * every catalogue entry is enabled (the default).
+   */
+  private disabledReportKeys = new Set<string>();
+
   private subs: Subscription[] = [];
 
   constructor(
     private navService: NavigationService,
     private tenantService: TenantService,
+    private reportConfig: TenantReportConfigService,
     private permissions: PermissionService,
     private keycloak: KeycloakService,
     private router: Router,
@@ -63,7 +73,26 @@ export class OperationalSidebarComponent implements OnInit, OnDestroy {
     this.subs.push(this.permissions.permissions$.subscribe(() => this.rebuildNav()));
     // Rebuild when the tenant's label settings change (e.g. admin saves new
     // scheme terminology) so the sidebar relabels without a page reload.
-    this.subs.push(this.tenantService.tenant$.subscribe(() => this.rebuildNav()));
+    this.subs.push(this.tenantService.tenant$.subscribe(tenant => {
+      this.rebuildNav();
+      // Refresh the report-toggle snapshot on tenant switch. Failures don't
+      // break the sidebar — an empty disabled-set means every catalogue entry
+      // stays visible, matching the "absent row = enabled" default.
+      if (tenant?.id) {
+        this.subs.push(this.reportConfig.list(tenant.id).subscribe({
+          next: rows => {
+            this.disabledReportKeys = new Set(
+              rows.filter(r => !r.enabled).map(r => r.reportKey),
+            );
+            this.rebuildNav();
+          },
+          error: () => {
+            this.disabledReportKeys = new Set();
+            this.rebuildNav();
+          },
+        }));
+      }
+    }));
   }
 
   /**
@@ -82,11 +111,23 @@ export class OperationalSidebarComponent implements OnInit, OnDestroy {
         items: group.items
           .filter(item => this.allowed(item, set))
           .filter(item => this.featureFlagPasses(item, tenant))
+          .filter(item => this.reportEnabled(item))
           // Substitute the tenant's plural for "Schemes" wherever the label
           // appears verbatim. Keeps the canonical nav config tenant-agnostic.
           .map(item => item.label === 'Schemes' ? { ...item, label: schemePlural } : item),
       }))
       .filter(group => group.items.length > 0);
+  }
+
+  /**
+   * True when the tenant admin has NOT disabled the item's report catalogue
+   * key (or the item declares no {@code reportKey}). Absent-row default is
+   * enabled per the Java-side {@code ReportEnablementReader} contract, so
+   * an empty {@link disabledReportKeys} keeps every item visible.
+   */
+  private reportEnabled(item: OperationalNavItem): boolean {
+    if (!item.reportKey) return true;
+    return !this.disabledReportKeys.has(item.reportKey);
   }
 
   /**

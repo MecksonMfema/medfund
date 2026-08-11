@@ -5,6 +5,7 @@ import {
   FinancePageResponse,
   FinanceService,
   NoteRow,
+  ReportResponse,
 } from '../../../../core/services/finance.service';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
 
@@ -28,6 +29,17 @@ describe('TaxWithheldListComponent', () => {
     content: [], total: 0, page: 0, size: 50, totalPages: 1,
   });
 
+  const emptyEnvelope = (): ReportResponse<FinancePageResponse<NoteRow>> => ({
+    reportKey: 'NOTES',
+    period: null,
+    reportingCurrency: 'USD',
+    data: emptyPage(),
+    perCurrency: {},
+    fxRates: {},
+    warnings: [],
+    generatedAt: '2026-08-11T00:00:00Z',
+  });
+
   function makeComponent(data: Record<string, unknown> = {}): TaxWithheldListComponent {
     const route = new StubActivatedRoute({ data }) as unknown as ActivatedRoute;
     const c = new TaxWithheldListComponent(finance, toast, route);
@@ -37,7 +49,7 @@ describe('TaxWithheldListComponent', () => {
 
   beforeEach(() => {
     finance = jasmine.createSpyObj<FinanceService>('FinanceService', ['listNotesPaged']);
-    finance.listNotesPaged.and.returnValue(of(emptyPage()));
+    finance.listNotesPaged.and.returnValue(of(emptyEnvelope()));
     toast = jasmine.createSpyObj<ToastService>('ToastService', ['error']);
   });
 

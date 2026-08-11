@@ -3,6 +3,9 @@ package com.medfund.finance.controller;
 import com.medfund.finance.config.SecurityConfig;
 import com.medfund.finance.entity.Note;
 import com.medfund.finance.service.NoteService;
+import com.medfund.finance.service.NotesExcelService;
+import com.medfund.shared.report.ReportEnvelopeBuilder;
+import com.medfund.shared.security.SecurityEventPublisher;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
@@ -30,6 +33,18 @@ class NoteControllerTest {
 
     @MockBean
     private NoteService noteService;
+
+    // Phase 1 §B added new dependencies to NoteController for the envelope
+    // wrap and the /page/export/excel endpoint. They're mocked here so the
+    // WebFlux slice can spin up; only the pre-existing tests need to react.
+    @MockBean
+    private NotesExcelService notesExcelService;
+
+    @MockBean
+    private ReportEnvelopeBuilder reportEnvelopeBuilder;
+
+    @MockBean
+    private SecurityEventPublisher securityEventPublisher;
 
     @Test
     void findByProviderId_returns200() {

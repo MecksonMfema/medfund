@@ -6,9 +6,16 @@ import com.medfund.finance.dto.NoteResponse;
 import com.medfund.finance.dto.NoteRow;
 import com.medfund.finance.dto.PageResponse;
 import com.medfund.finance.service.NoteService;
+import com.medfund.finance.service.NotesExcelService;
 import com.medfund.shared.audit.AuditActor;
+import com.medfund.shared.report.ReportEnvelopeBuilder;
+import com.medfund.shared.report.ReportKey;
+import com.medfund.shared.report.ReportResponse;
+import com.medfund.shared.report.RequiresReport;
 import com.medfund.shared.security.Permissions;
 import com.medfund.shared.security.RequiresPermission;
+import com.medfund.shared.security.SecurityEventPublisher;
+import com.medfund.shared.tenant.TenantContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -16,7 +23,10 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -31,6 +41,8 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
@@ -41,10 +53,17 @@ import java.util.UUID;
 @SecurityRequirement(name = "bearer-jwt")
 public class NoteController {
 
+    private static final MediaType XLSX = MediaType.parseMediaType(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
     private final NoteService noteService;
+    private final NotesExcelService notesExcelService;
+    private final ReportEnvelopeBuilder envelopeBuilder;
+    private final SecurityEventPublisher securityEventPublisher;
 
     @GetMapping("/provider/{providerId}")
     @RequiresPermission({Permissions.FINANCE_VIEW_CREDITORS, Permissions.FINANCE_MANAGE_PAYMENTS})
+    @RequiresReport(ReportKey.NOTES)
     @Operation(summary = "List notes by provider")
     public Flux<NoteResponse> findByProviderId(@PathVariable UUID providerId) {
         return noteService.findByProviderId(providerId).map(NoteResponse::from);
@@ -52,6 +71,7 @@ public class NoteController {
 
     @GetMapping("/member/{memberId}")
     @RequiresPermission({Permissions.FINANCE_VIEW_CREDITORS, Permissions.FINANCE_MANAGE_PAYMENTS})
+    @RequiresReport(ReportKey.NOTES)
     @Operation(summary = "List notes by member",
         description = "Feeds the member-balance detail page under the finance Creditors surface.")
     public Flux<NoteResponse> findByMemberId(@PathVariable UUID memberId) {
@@ -59,19 +79,23 @@ public class NoteController {
     }
 
     @GetMapping("/status/{status}")
+    @RequiresReport(ReportKey.NOTES)
     @Operation(summary = "List notes by status (unpaginated — prefer /page)")
     public Flux<NoteResponse> findByStatus(@PathVariable String status) {
         return noteService.findByStatus(status).map(NoteResponse::from);
     }
 
     @GetMapping("/page")
+    @RequiresReport(ReportKey.NOTES)
     @Operation(summary = "Server-side paginated, sortable, filterable notes list",
         description = "Feeds /tenant/finance/debit-notes, /credit-notes, /notes, "
                 + "and /claims/tax-withheld (which pins noteType=TAX_WITHHELD). "
                 + "Rows carry member + provider names joined server-side so the "
-                + "tables render inline.")
-    @ApiResponse(responseCode = "200", description = "Page of notes")
-    public Mono<PageResponse<NoteRow>> searchPaged(
+                + "tables render inline. Wrapped in ReportResponse<T> — envelope "
+                + "carries perCurrency ledger totals for the filtered set plus "
+                + "best-effort FX rates to reportingCurrency.")
+    @ApiResponse(responseCode = "200", description = "Envelope wrapping the page of notes")
+    public Mono<ReportResponse<PageResponse<NoteRow>>> searchPaged(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String direction,
             @RequestParam(required = false) String noteType,
@@ -82,14 +106,70 @@ public class NoteController {
             @RequestParam(required = false, defaultValue = "createdAt") String sortKey,
             @RequestParam(required = false, defaultValue = "desc") String sortDirection,
             @RequestParam(required = false, defaultValue = "0") int page,
-            @RequestParam(required = false, defaultValue = "50") int size) {
+            @RequestParam(required = false, defaultValue = "50") int size,
+            @RequestParam(required = false) String reportingCurrency) {
         var params = new NoteFilterParams(
                 status, direction, noteType, providerId, memberId, currencyCode, q,
                 sortKey, sortDirection, page, size);
-        return noteService.searchPaged(params);
+        return envelopeBuilder.build(
+                ReportKey.NOTES,
+                null,                              // notes list is a current-state snapshot; no period (G20)
+                reportingCurrency,
+                noteService.searchPaged(params),
+                noteService.perCurrencyTotals(params));
+    }
+
+    @GetMapping("/page/export/excel")
+    @RequiresReport(ReportKey.NOTES)
+    @Operation(summary = "Download the notes list as XLSX",
+        description = "Same filter shape as GET /page; returns an .xlsx workbook mirroring "
+                + "what the operator sees on-screen. 10,000-row ceiling; emits a DATA_ACCESS "
+                + "SecurityEvent before returning bytes.")
+    @ApiResponse(responseCode = "200", description = "Notes list XLSX")
+    public Mono<ResponseEntity<byte[]>> exportExcel(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String direction,
+            @RequestParam(required = false) String noteType,
+            @RequestParam(required = false) UUID providerId,
+            @RequestParam(required = false) UUID memberId,
+            @RequestParam(required = false) String currencyCode,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false, defaultValue = "createdAt") String sortKey,
+            @RequestParam(required = false, defaultValue = "desc") String sortDirection,
+            @RequestParam(required = false) String reportingCurrency,
+            @AuthenticationPrincipal Jwt jwt) {
+        // Fixed page + oversized size to reach the workbook ceiling.
+        var params = new NoteFilterParams(
+                status, direction, noteType, providerId, memberId, currencyCode, q,
+                sortKey, sortDirection, 0, 10_000);
+        String currencySlug = currencyCode != null && !currencyCode.isBlank() ? currencyCode : "ALL";
+        String directionSlug = direction != null && !direction.isBlank() ? direction.toUpperCase() : "ALL";
+        String filename = "notes-" + directionSlug + "-" + currencySlug + "-" + LocalDate.now() + ".xlsx";
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("direction", directionSlug);
+        details.put("currency", currencySlug);
+        if (status != null && !status.isBlank())    details.put("status", status);
+        if (noteType != null && !noteType.isBlank()) details.put("noteType", noteType);
+        if (q != null && !q.isBlank())              details.put("q", q);
+        if (reportingCurrency != null && !reportingCurrency.isBlank())
+            details.put("reportingCurrency", reportingCurrency);
+        return notesExcelService.generate(params, reportingCurrency)
+                .flatMap(bytes -> Mono.deferContextual(ctx -> securityEventPublisher.publishDataAccess(
+                                TenantContext.get(ctx),
+                                AuditActor.id(jwt),
+                                AuditActor.email(jwt),
+                                ReportKey.NOTES.name(),
+                                details))
+                        .thenReturn(bytes))
+                .map(bytes -> ResponseEntity.ok()
+                        .contentType(XLSX)
+                        .header(HttpHeaders.CONTENT_DISPOSITION,
+                                "attachment; filename=\"" + filename + "\"")
+                        .body(bytes));
     }
 
     @GetMapping("/{id}")
+    @RequiresReport(ReportKey.NOTES)
     @Operation(summary = "Get note by ID")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Note found"),

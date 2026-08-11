@@ -2,6 +2,7 @@ package com.medfund.finance.repository;
 
 import com.medfund.finance.dto.PaymentAdviceFilterParams;
 import com.medfund.finance.dto.PaymentAdviceRowResponse;
+import com.medfund.shared.report.PerCurrencyTotal;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
@@ -86,6 +87,38 @@ public class PaymentAdviceQueryRepository {
         var spec = bindFilters(db.sql(sql), f, hasQ, search);
         return spec.map(row -> ((Number) row.get("total")).longValue()).one();
     }
+
+    /**
+     * Filtered-set per-currency totals (G18) — same WHERE clause as the
+     * paged query. Sums {@code pa.net_due_amount} across the filtered slice
+     * so the envelope's {@code perCurrency} map reflects the true
+     * outstanding-to-pay ledger, not the gross approved amount.
+     */
+    public Mono<Map<String, PerCurrencyTotal>> perCurrencyTotals(PaymentAdviceFilterParams f) {
+        boolean hasQ = f.q() != null && !f.q().isBlank();
+        String search = hasQ ? "%" + f.q().toLowerCase() + "%" : null;
+        String sql = "SELECT pa.currency_code AS currency_code,"
+                + "        COALESCE(SUM(pa.net_due_amount), 0) AS total_amount,"
+                + "        COUNT(*)                             AS row_count"
+                + "   FROM payment_advices pa "
+                + "  LEFT JOIN payment_runs pr ON pr.id = pa.payment_run_id "
+                + "  LEFT JOIN providers    pv ON pv.id = pa.provider_id "
+                + "  LEFT JOIN members      mb ON mb.id = pa.member_id "
+                + whereClause(f, hasQ)
+                + " AND pa.currency_code IS NOT NULL"
+                + " GROUP BY pa.currency_code";
+        var spec = bindFilters(db.sql(sql), f, hasQ, search);
+        return spec.map((row, meta) -> Map.entry(
+                        row.get("currency_code", String.class),
+                        new PerCurrencyTotal(
+                                nz(row.get("total_amount", BigDecimal.class)),
+                                nzLong(row.get("row_count", Long.class)))))
+                .all()
+                .collectMap(Map.Entry::getKey, Map.Entry::getValue);
+    }
+
+    private static BigDecimal nz(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
+    private static long nzLong(Long v) { return v != null ? v : 0L; }
 
     private String whereClause(PaymentAdviceFilterParams f, boolean hasQ) {
         StringBuilder sb = new StringBuilder(" WHERE 1 = 1 ");
