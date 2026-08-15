@@ -13,8 +13,9 @@ phases_status:
   "1": landed 2026-08-11 (§A + §B, commit 273f895)
   "2": landed 2026-08-11 (commit af9ed8d)
   "3": landed 2026-08-11
-  "4-19": outline depth; each needs its own grilling pass before implementation
-last_grilled_phase: 3
+  "4": grilled 2026-08-11 (§A + §B split); ready for implement
+  "5-19": outline depth; each needs its own grilling pass before implementation
+last_grilled_phase: 4
 last_grilled_date: 2026-08-11
 ---
 
@@ -1112,21 +1113,655 @@ treasurer before scaling the pattern.
 
 ## Phase 4: Claims-Financial (claims-service)
 
+> **Grilled 2026-08-11.** Outline expanded to code altitude via G41-G51 (see Decisions Log
+> below). Six report keys, six report surfaces (PRE_AUTH_UTILIZATION reshaped to
+> PRE_AUTH_ACTIVITY per G43 — see §6). Split into **§A** (V132 threshold config + enum rename +
+> primary CLAIMS_SUMMARY dimensions scheme + provider + aggregate + HIGH_COST_CLAIMANT +
+> PRE_AUTH_ACTIVITY) and **§B** (secondary CLAIMS_SUMMARY dimensions group + member +
+> CLAIM_STATUS_LIST aging matrix + DENIAL_ANALYSIS + CLAIMS_FREQUENCY_SEVERITY + per-controller
+> ITs). §A unblocks Phase 5 (needs `/aggregate/claims`); §B carries the ops/actuarial views.
+
 ### Overview
 
-Ship the claims-financial family: claim-status list, claims summary, claim frequency & severity, denial analysis, high-cost claimant, pre-auth utilisation. All in `services/java/claims-service`.
+Ship the claims-financial family in `services/java/claims-service`, applying Phase 0-3 infra
+(no new cross-cutting infrastructure): `@RequiresReport` gate, `ReportEnvelopeBuilder`,
+`ReportingCurrencyResolver`, `SecurityEventPublisher`, `FxRateReader`, `CrossServiceCallHelper`,
+`ReportGuardAspect`, `ReportWorkbook` are all available on the classpath (F57). Every wrapped
+report endpoint renders the **three-column funnel** — `claimedAmount` / `approvedAmount` /
+`paidAmount` — with a per-report primary aggregation column (G42). Each report filters on a
+**per-report period clock** (G41): `adjudicatedAt` for financial-exposure views (`CLAIMS_SUMMARY`,
+`DENIAL_ANALYSIS`, `HIGH_COST_CLAIMANT`), `serviceDate` for actuarial (`CLAIMS_FREQUENCY_SEVERITY`),
+`submissionDate` for ops (`CLAIM_STATUS_LIST`), `requestedDate` for pre-auth (`PRE_AUTH_ACTIVITY`).
+Each report header names its clock so cross-report totals not reconciling is expected.
 
-### Changes Required
+### 1. Data model + query semantics (F52-F55, G41, G42)
 
-- **claims-service** new controller `ClaimsFinancialReportController` with report keys `CLAIMS_SUMMARY`, `CLAIM_STATUS_LIST`, `CLAIMS_FREQUENCY_SEVERITY`, `DENIAL_ANALYSIS`, `HIGH_COST_CLAIMANT`, `PRE_AUTH_UTILIZATION`. Each with XLSX + toggle + reporting-currency.
-- Aggregate endpoint `GET /api/v1/reports/aggregate/claims?periodStart&periodEnd&reportingCurrency` for Phase 5.
-- New `ClaimsFinancialQueryRepository` — server-side SQL only.
-- **Angular**: 6 new report pages under `pages/tenant/finance/reports/claims/`; replaces `reports/claims-status`, `reports/member-payment-status` stubs.
+**Claim WHERE clause** (used by every claims-financial aggregate SQL; period column varies per G41):
+
+```sql
+-- CLAIMS_SUMMARY / DENIAL_ANALYSIS / HIGH_COST_CLAIMANT (period clock = adjudicated_at)
+SELECT ...
+FROM claims c
+LEFT JOIN rejection_reasons r ON r.code = c.rejection_reason
+WHERE c.adjudicated_at >= :periodStart
+  AND c.adjudicated_at <  :periodEnd + INTERVAL '1 day'
+GROUP BY ...;
+
+-- CLAIMS_FREQUENCY_SEVERITY (period clock = service_date)
+WHERE c.service_date >= :periodStart AND c.service_date < :periodEnd + INTERVAL '1 day'
+
+-- CLAIM_STATUS_LIST (period clock = submission_date; renders age matrix)
+WHERE c.submission_date >= :periodStart AND c.submission_date < :periodEnd + INTERVAL '1 day'
+
+-- PRE_AUTH_ACTIVITY (period clock = requested_date, on pre_authorizations not claims)
+WHERE pa.requested_date >= :periodStart AND pa.requested_date < :periodEnd + INTERVAL '1 day'
+```
+
+**Funnel column set** (G42) rendered on every wrapped report row:
+
+```sql
+SUM(c.claimed_amount)  AS total_claimed,
+SUM(c.approved_amount) AS total_approved,
+SUM(c.paid_amount)     AS total_paid
+```
+
+Note: `paidAmount` is populated on the `Claim` entity by finance-service's payment-run flow;
+claims-service reads it as a foreign write. When the payment run hasn't executed yet, `paidAmount`
+is 0 by default — that's the correct "actual cash out" number at report time.
+
+**Insurance-line filter** — an optional `?insuranceLine=` query param on every wrapped endpoint;
+maps to a `members.insurance_line = :line` join filter (G45). The claims table doesn't carry
+`insurance_line` directly — it joins through `members` — so filter application requires an
+extra JOIN on member-dimensioned reports and a scheme-through-member join on scheme reports.
+
+### 2. §A: V132 migration + enum rename (G43, G46)
+
+**File**: `services/java/tenancy-service/src/main/resources/db/migration/public/V132__tenant_high_cost_claimant_config.sql`
+
+```sql
+CREATE TABLE IF NOT EXISTS public.tenant_high_cost_claimant_config (
+    id                UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id         UUID         NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE,
+    threshold_amount  NUMERIC(19,4) NOT NULL,
+    currency_code     CHAR(3)      NOT NULL,
+    updated_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_by        UUID,
+    CONSTRAINT uq_tenant_high_cost_config UNIQUE (tenant_id)
+);
+COMMENT ON TABLE  public.tenant_high_cost_claimant_config IS
+    'Per-tenant threshold above which a member''s cumulative paid claims flag them as high-cost.';
+COMMENT ON COLUMN public.tenant_high_cost_claimant_config.threshold_amount IS
+    'The cumulative-paid threshold. Denominated in currency_code; converted to report currency at report time via FxRateReader.convert (fail-loud on missing rate per G28).';
+```
+
+Verify V132 doesn't collide with the applied Flyway history at implement time — see
+`bug_public_flyway_history_load_bearing` memory for the historical-numbering trap.
+
+**File**: `services/java/shared/src/main/java/com/medfund/shared/report/ReportKey.java`
+
+Rename per G43:
+
+```java
+// was: PRE_AUTH_UTILIZATION("Pre-auth utilisation", ReportFamily.CLAIMS_FINANCIAL, false),
+PRE_AUTH_ACTIVITY("Pre-auth activity", ReportFamily.CLAIMS_FINANCIAL, false),
+```
+
+Consumers of the old key:
+- `RequiresReport` annotations — none yet (Phase 4 is greenfield for claims).
+- `ReportCatalogueService` (Angular) — driven by backend enum, picks up on next tenant switch.
+- No tenant is holding `enabled=false` for the old key today (Phase 4 §A is the first surface).
+
+Chosen over adding a duplicate key + deprecation window because there's no rollout risk — no
+tenant config row exists for either key today. Update `ReportKey` unit test.
+
+**File**: `services/java/tenancy-service/.../entity/TenantHighCostClaimantConfig.java` (new)
+
+```java
+@Getter @Setter
+@Table("tenant_high_cost_claimant_config")
+public class TenantHighCostClaimantConfig {
+    @Id private UUID id;
+    private UUID tenantId;
+    private BigDecimal thresholdAmount;
+    private String currencyCode;
+    private OffsetDateTime updatedAt;
+    private UUID updatedBy;
+}
+```
+
+**File**: `services/java/tenancy-service/.../service/TenantHighCostClaimantConfigService.java` + `.../controller/TenantHighCostClaimantConfigController.java`
+
+REST at `/api/v1/tenants/{tenantId}/high-cost-claimant-config` (GET / PUT). Emit `AuditEvent`
+on PUT via the shared `AuditActor` helper (per `feedback_audit_actor_email` memory —
+`actorEmail` never null; per `feedback_audit_entity_name` — `entityName` is
+`"HighCostClaimantConfig for tenant <slug>"`, never the UUID).
+
+**File**: `services/java/shared/src/main/java/com/medfund/shared/config/TenantConfigClient.java` (extend)
+
+```java
+public Mono<HighCostClaimantConfig> getHighCostClaimantConfig(UUID tenantId) { ... }
+
+public record HighCostClaimantConfig(BigDecimal thresholdAmount, String currencyCode) {}
+```
+
+Reads `public.tenant_high_cost_claimant_config` via the same `DatabaseClient` pattern as the
+existing V128/V129 config lookups.
+
+### 3. §A: ClaimsAggregateController (Phase 5 dependency, G44)
+
+**File**: `services/java/claims-service/src/main/java/com/medfund/claims/controller/ClaimsAggregateController.java` (new)
+
+Mirrors `BillingAggregateController` + `ReceiptsAggregateController`:
+- **UNGATED** by `@RequiresReport` per Phase 2 deviation §1 rationale — tenant disabling
+  `CLAIMS_SUMMARY` should not cascade into breaking Phase 5 loss-ratio across the platform.
+- Two endpoints:
+
+| Endpoint | Wrap? | Notes |
+|---|---|---|
+| `GET /api/v1/reports/aggregate/claims?periodStart&periodEnd&reportingCurrency` | wrap | Narrow row per (dimension, dimensionId, dimensionName, currency, totalClaimed, totalApproved, totalPaid) per G44 — Phase 5 loss-ratio consumer |
+| `GET /api/v1/reports/aggregate/claims/monthly?periodStart&periodEnd&dimension&reportingCurrency` | wrap | Monthly-bucketed per-dimension aggregate per G44 mirroring G35 — Phase 8 cash-flow forecast + KPI-dashboard consumers |
+
+Envelope-builder path — same as Phase 3 aggregate. Uses `adjudicatedAt` clock (G41). Dimension
+values on both endpoints: `SCHEME | GROUP | MEMBER | PROVIDER` (G45).
+
+### 4. §A: ClaimsReportController (scheme + provider dims, §A slice of G45)
+
+**File**: `services/java/claims-service/src/main/java/com/medfund/claims/controller/ClaimsReportController.java` (new)
+
+§A endpoints:
+
+| Endpoint | Report key | Wrap? | Notes |
+|---|---|---|---|
+| `GET /api/v1/reports/claims/schemes?periodStart&periodEnd&reportingCurrency&insuranceLine` | `CLAIMS_SUMMARY` | wrap | One row per (scheme, currency); funnel columns; envelope carries `perCurrency` |
+| `GET /api/v1/reports/claims/schemes/export/excel?...` | `CLAIMS_SUMMARY` | — | XLSX; `SecurityEvent` before bytes |
+| `GET /api/v1/reports/claims/schemes/{schemeId}?periodStart&periodEnd&page&size&status&providerId&currency&reportingCurrency` | `CLAIMS_SUMMARY` | wrap | Detail: monthly-strip + paginated claim ledger (mirror Phase 3 receipts-detail G40) |
+| `GET /api/v1/reports/claims/schemes/{schemeId}/export/excel?...` | `CLAIMS_SUMMARY` | — | Two-sheet XLSX (monthly summary + ledger, 10k cap) |
+| `GET /api/v1/reports/claims/providers?periodStart&periodEnd&reportingCurrency&insuranceLine` | `CLAIMS_SUMMARY` | wrap | One row per (provider, currency); funnel columns |
+| `GET /api/v1/reports/claims/providers/export/excel?...` | `CLAIMS_SUMMARY` | — | XLSX |
+| `GET /api/v1/reports/claims/providers/{providerId}?...` | `CLAIMS_SUMMARY` | wrap | Same detail shape as scheme drill-down |
+| `GET /api/v1/reports/claims/providers/{providerId}/export/excel?...` | `CLAIMS_SUMMARY` | — | Two-sheet XLSX |
+
+§A also includes:
+
+| Endpoint | Report key | Wrap? | Notes |
+|---|---|---|---|
+| `GET /api/v1/reports/claims/high-cost-claimants?periodStart&periodEnd&reportingCurrency` | `HIGH_COST_CLAIMANT` | wrap | One row per (member, currency) whose cumulative-paid > threshold — `HAVING SUM(paid_amount_reporting) > :threshold_reporting`; threshold + payload converted via `FxRateReader.convert` at `period.periodEnd` (fail-loud on missing rate per G28 / invariant #6) |
+| `GET /api/v1/reports/claims/high-cost-claimants/{memberId}?...` | `HIGH_COST_CLAIMANT` | wrap | Detail: paginated ledger of this member's contributing claims |
+| `GET /api/v1/reports/claims/high-cost-claimants/export/excel?...` | `HIGH_COST_CLAIMANT` | — | XLSX; includes cumulative + individual columns |
+| `GET /api/v1/reports/claims/pre-auth-activity?periodStart&periodEnd&reportingCurrency&status&providerId` | `PRE_AUTH_ACTIVITY` | wrap | Per (status, currency); count, requestedAmount total, approvedAmount total, avg decision-time-days; secondary rejection-rate-via-R04/R05 signal joined from claims-side (G43) |
+| `GET /api/v1/reports/claims/pre-auth-activity/export/excel?...` | `PRE_AUTH_ACTIVITY` | — | XLSX; single sheet |
+
+Repository additions: `ClaimsReportQueryRepository` in §A supports scheme + provider +
+high-cost + pre-auth queries. Group + member dims land in §B.
+
+### 5. §A: HIGH_COST_CLAIMANT specifics (G46)
+
+Threshold-config lookup goes through `TenantConfigClient.getHighCostClaimantConfig(tenantId)`.
+Report semantics:
+
+1. Resolve reporting currency (defaults to tenant `is_default`, override via `?reportingCurrency=`).
+2. Resolve threshold — if the config table has no row, the report renders empty with a
+   `warnings: List<String>` entry: `"High-cost threshold not configured for tenant"`. The
+   report itself succeeds (matches G28's best-effort-with-warnings spirit for a *config gap*;
+   distinguished from an FX gap which is fail-loud when actually converting).
+3. Convert threshold from its native currency to reporting currency via `FxRateReader.convert`
+   at `period.periodEnd`. Missing FX rate → `ReportGenerationException` (invariant #6 / G28).
+4. Aggregate SQL:
+
+```sql
+WITH member_totals AS (
+    SELECT c.member_id, c.currency_code,
+           SUM(c.paid_amount) AS native_paid
+    FROM claims c
+    WHERE c.adjudicated_at >= :periodStart
+      AND c.adjudicated_at <  :periodEnd + INTERVAL '1 day'
+      AND c.paid_amount > 0
+    GROUP BY c.member_id, c.currency_code
+)
+SELECT m.id             AS member_id,
+       m.member_number,
+       CONCAT(m.first_name, ' ', m.last_name) AS member_name,
+       mt.currency_code,
+       mt.native_paid,
+       COUNT(*)         OVER (PARTITION BY m.id) AS contributing_claims
+FROM member_totals mt
+JOIN members m ON m.id = mt.member_id
+-- filter in the service layer using FX-converted native_paid > threshold_reporting;
+-- SQL returns all rows, service layer applies threshold post-convert
+ORDER BY mt.native_paid DESC;
+```
+
+Reason for post-SQL filter: mixed-currency members would need a per-row FX lookup inside SQL
+which is not portable across Postgres versions and complicates testcontainers seeding.
+Post-SQL filter keeps the query pure and the FX contract clear.
+
+Drill-down endpoint returns paginated ledger of the member's individual contributing claims.
+
+### 6. §A: PRE_AUTH_ACTIVITY specifics (G43)
+
+Report reads `pre_authorizations` on `requested_date` clock. Data shape:
+
+```java
+public record PreAuthActivityRow(
+        String status,                    // PENDING | APPROVED | REJECTED | EXPIRED
+        String currencyCode,
+        long   count,
+        BigDecimal totalRequested,
+        BigDecimal totalApproved,
+        BigDecimal avgDecisionDays,       // NULL for PENDING
+        BigDecimal approvalRatePct,       // filled in per-status where meaningful
+        BigDecimal expiryRatePct
+) {}
+
+public record PreAuthActivityResponse(
+        List<PreAuthActivityRow> byStatus,
+        R04R05SignalRow r04r05Signal
+) {
+    /**
+     * Proxy-utilisation signal from the claims side: how often claims are rejected because
+     * a pre-auth was required-but-missing (R04) or expired (R05) during the same period.
+     * A companion metric to the pre-auth activity rows — indicative, not authoritative.
+     */
+    public record R04R05SignalRow(long r04Count, long r05Count, BigDecimal totalClaimedInR04R05) {}
+}
+```
+
+SQL: two independent aggregates (per-status pre-auth counts + claims-side R04/R05 count),
+composed at the service layer.
+
+### 7. §A: DTOs
+
+**File**: `services/java/claims-service/.../dto/ClaimsSummaryRow.java` (new)
+
+```java
+public record ClaimsSummaryRow(
+        UUID   dimensionId,       // schemeId | providerId | groupId | memberId
+        String dimensionName,
+        String insuranceLine,     // populated when dimension = MEMBER
+        String currencyCode,
+        long   claimCount,
+        BigDecimal totalClaimed,
+        BigDecimal totalApproved,
+        BigDecimal totalPaid
+) {}
+```
+
+**File**: `services/java/claims-service/.../dto/ClaimsAggregateRow.java` (new)
+
+```java
+public record ClaimsAggregateRow(
+        String dimension,         // "SCHEME" | "GROUP" | "MEMBER" | "PROVIDER"
+        UUID   dimensionId,
+        String dimensionName,
+        String currencyCode,
+        BigDecimal totalClaimed,
+        BigDecimal totalApproved,
+        BigDecimal totalPaid       // primary Phase 5 loss-ratio consumer field
+) {}
+```
+
+**File**: `services/java/claims-service/.../dto/ClaimsDetailResponse.java` (new — mirrors Phase 3 `ReceiptsDetailResponse` shape)
+
+```java
+public record ClaimsDetailResponse(
+        UUID   dimensionId,
+        String dimensionName,
+        List<MonthlyBucket> monthlyBuckets,
+        PageResponse<ClaimLedgerRow> claims
+) {
+    public record MonthlyBucket(
+            LocalDate month, long claimCount,
+            BigDecimal totalClaimed, BigDecimal totalApproved, BigDecimal totalPaid) {}
+    public record ClaimLedgerRow(
+            UUID id, String claimNumber, String memberName, String providerName,
+            Instant submissionDate, Instant serviceDate, Instant adjudicatedAt,
+            String status, String rejectionCode, BigDecimal claimedAmount,
+            BigDecimal approvedAmount, BigDecimal paidAmount, String currencyCode) {}
+}
+```
+
+`MonthlyAggregateRow` (Phase 3 shared) is reused for the `/aggregate/claims/monthly` endpoint —
+no new shared DTO needed. Phase 3 shipped it in `shared/report/MonthlyAggregateRow.java`.
+
+### 8. §A: Angular + tenant-admin config UI
+
+**Files** (new components in §A):
+- `clients/angular/src/app/pages/tenant/finance/reports/claims/scheme-claims-report.component.ts`
+- `.../claims/provider-claims-report.component.ts`
+- `.../claims/high-cost-claimants-report.component.ts`
+- `.../claims/pre-auth-activity-report.component.ts`
+- `.../claims/claims-detail.component.ts` (dimension: `scheme|provider`; monthly strip + paged ledger; reused in §B for `group|member`)
+
+**Routes** (edit `clients/angular/src/app/pages/tenant/finance/finance.routes.ts`) — §A adds:
+
+```typescript
+{
+  path: 'reports/claims-schemes',
+  canActivate: [permissionGuard(['finance:view_subledger'])],
+  loadComponent: () => import('./reports/claims/scheme-claims-report.component')
+      .then(m => m.SchemeClaimsReportComponent),
+  data: { title: 'Claims — per scheme', sidebar: 'operational', fullbleed: true,
+          reportKey: 'CLAIMS_SUMMARY' },
+},
+{
+  path: 'reports/claims-providers',
+  canActivate: [permissionGuard(['finance:view_subledger'])],
+  loadComponent: () => import('./reports/claims/provider-claims-report.component')
+      .then(m => m.ProviderClaimsReportComponent),
+  data: { title: 'Claims — per provider', sidebar: 'operational', fullbleed: true,
+          reportKey: 'CLAIMS_SUMMARY' },
+},
+{
+  path: 'reports/claims-scheme/:id',
+  canActivate: [permissionGuard(['finance:view_subledger'])],
+  loadComponent: () => import('./reports/claims/claims-detail.component')
+      .then(m => m.ClaimsDetailComponent),
+  data: { title: 'Scheme claims detail', dimension: 'scheme',
+          sidebar: 'operational', fullbleed: true, reportKey: 'CLAIMS_SUMMARY' },
+},
+{
+  path: 'reports/claims-provider/:id',
+  canActivate: [permissionGuard(['finance:view_subledger'])],
+  loadComponent: () => import('./reports/claims/claims-detail.component')
+      .then(m => m.ClaimsDetailComponent),
+  data: { title: 'Provider claims detail', dimension: 'provider',
+          sidebar: 'operational', fullbleed: true, reportKey: 'CLAIMS_SUMMARY' },
+},
+{
+  path: 'reports/high-cost-claimants',
+  canActivate: [permissionGuard(['finance:view_subledger'])],
+  loadComponent: () => import('./reports/claims/high-cost-claimants-report.component')
+      .then(m => m.HighCostClaimantsReportComponent),
+  data: { title: 'High-cost claimants', sidebar: 'operational', fullbleed: true,
+          reportKey: 'HIGH_COST_CLAIMANT' },
+},
+{
+  path: 'reports/pre-auth-activity',
+  canActivate: [permissionGuard(['finance:view_subledger'])],
+  loadComponent: () => import('./reports/claims/pre-auth-activity-report.component')
+      .then(m => m.PreAuthActivityReportComponent),
+  data: { title: 'Pre-auth activity', sidebar: 'operational', fullbleed: true,
+          reportKey: 'PRE_AUTH_ACTIVITY' },
+},
+```
+
+**Stub retirement (G51)** — deferred to §B so the redirect target exists. §A leaves the
+existing `reports/claims-status` ComingSoon stub in place; §B section 15 replaces it with:
+
+```typescript
+// was: cs('reports/claims-status', 'Claims Status Report', '/claims-status-report', ...)
+{ path: 'reports/claims-status', pathMatch: 'full', redirectTo: 'reports/claim-status' },
+```
+
+`reports/member-payments` and `reports/member-payment-status` stubs stay untouched throughout
+Phase 4 — Phase 5 territory (loss-ratio + member-payments-unified).
+
+**Tenant-admin config UI** for HIGH_COST_CLAIMANT threshold:
+- Extend `clients/angular/src/app/pages/tenant-admin/settings/reports/reports-tab.component.ts`
+  (Phase-0 file) with a threshold form section, OR add a co-located
+  `.../settings/reports/high-cost-claimant-config.component.ts`. Implementer's call.
+- Wraps `PUT /api/v1/tenants/{tenantId}/high-cost-claimant-config`.
+- Currency picker uses the same tenant-currency dropdown pattern as the existing currencies-tab.
+
+**Angular service** (edit `clients/angular/src/app/core/services/claims.service.ts` — file
+already exists per F58) or new `claims-report.service.ts`:
+- `getClaimsPerScheme(period, reportingCurrency?, insuranceLine?)` → `Observable<ReportResponse<ClaimsSummaryRow[]>>`
+- `getClaimsPerProvider(period, reportingCurrency?, insuranceLine?)` → same
+- `getClaimsDetail(dimension, id, period, options)` → `Observable<ReportResponse<ClaimsDetailResponse>>`
+- `getHighCostClaimants(period, reportingCurrency?)` → `Observable<ReportResponse<HighCostClaimantRow[]>>`
+- `getPreAuthActivity(period, reportingCurrency?, options)` → `Observable<ReportResponse<PreAuthActivityResponse>>`
+- Corresponding `download*Xlsx(...)` methods.
+
+**Reports hub** picks up new keys automatically via `ReportCatalogueService` — no code change.
+
+### 9. §A: Gateway routing
+
+**File**: `services/go/gateway/internal/routes/routes.go` (edit — 5 new entries mirroring
+Phase 3 pattern lines 110-121):
+
+```go
+// claims-service report routes
+{Path: "/api/v1/reports/claims", Backend: claimsBackend},
+{Path: "/api/v1/reports/claims/*", Backend: claimsBackend},
+{Path: "/api/v1/reports/aggregate/claims", Backend: claimsBackend},
+{Path: "/api/v1/reports/aggregate/claims/*", Backend: claimsBackend},
+
+// tenancy-service: new high-cost config
+{Path: "/api/v1/tenants/*/high-cost-claimant-config", Backend: tenancyBackend},
+```
+
+Path-specific per Phase 2 deviation §4 rationale.
+
+### 10. §A: XLSX + Testing
+
+**File**: `services/java/claims-service/.../service/ClaimsExcelService.java` (new — uses shared `ReportWorkbook`)
+
+- **Summary XLSX** (scheme, provider, high-cost): single sheet; header row + data rows + totals footer; funnel columns (Claimed / Approved / Paid) + rightmost "Amount in {reportingCurrency}" column when `?reportingCurrency=` supplied on `totalPaid` (matches Phase 1 §B `NotesExcelService` pattern).
+- **Detail XLSX** (scheme/provider drill-down): two sheets — sheet 1 monthly buckets, sheet 2 claim ledger.
+- **Pre-auth activity XLSX**: single sheet with per-status rows + a footer for the R04/R05 signal.
+- Every export publishes `SecurityEventPublisher.publishDataAccess(tenantId, actorId, actorEmail, reportKey, details)` before returning bytes.
+- 10k-row cap on the ledger export; 400 with "refine filters" if exceeded.
+
+**Testing** (F26 precedent — unit tests in §A; per-controller ITs deferred to family-phase testcontainer harness pickup):
+
+**Files** (new unit tests):
+- `services/java/claims-service/.../service/ClaimsReportServiceTest.java`
+- `.../claims/service/HighCostClaimantServiceTest.java`
+- `.../claims/service/PreAuthActivityServiceTest.java` — covers the R04/R05 side-signal composition
+- `.../claims/controller/ClaimsReportControllerTest.java`
+- `.../claims/controller/ClaimsAggregateControllerTest.java`
+- `services/java/tenancy-service/.../service/TenantHighCostClaimantConfigServiceTest.java`
+- Mockito 5 note per Phase 2 deviation line 1823 — stub every `Mono`-returning service in `@BeforeEach`.
+- Watch for `bug_claim_save_mock_id_npe` — the 4 pre-broken claims-service test files should stay pre-broken; don't fold Phase 4 fixes into that regression.
+
+---
+
+### §B: Secondary dimensions + ops/actuarial reports
+
+Everything below lands in Phase 4 §B, after §A ships.
+
+### 11. §B: CLAIMS_SUMMARY per-group + per-member (G45)
+
+**Endpoint additions on `ClaimsReportController`**:
+
+| Endpoint | Report key | Wrap? | Notes |
+|---|---|---|---|
+| `GET /api/v1/reports/claims/groups?periodStart&periodEnd&reportingCurrency&insuranceLine` | `CLAIMS_SUMMARY` | wrap | One row per (group, currency); groups joined via `members.group_id` |
+| `GET /api/v1/reports/claims/groups/export/excel?...` | `CLAIMS_SUMMARY` | — | XLSX |
+| `GET /api/v1/reports/claims/groups/{groupId}?...` | `CLAIMS_SUMMARY` | wrap | Same detail shape (reuse `ClaimsDetailResponse`) |
+| `GET /api/v1/reports/claims/groups/{groupId}/export/excel?...` | `CLAIMS_SUMMARY` | — | Two-sheet XLSX |
+| `GET /api/v1/reports/claims/members?periodStart&periodEnd&page&size&search&insuranceLine&scheme&providerId&reportingCurrency` | `CLAIMS_SUMMARY` | wrap | Paginated + search (member_number + first/last-name ILIKE — Phase 3 deviation memory: pg_trgm is NOT on the classpath, use plain ILIKE) |
+| `GET /api/v1/reports/claims/members/export/excel?...` | `CLAIMS_SUMMARY` | — | XLSX capped 10k rows |
+| `GET /api/v1/reports/claims/members/{memberId}?...` | `CLAIMS_SUMMARY` | wrap | Same detail shape |
+| `GET /api/v1/reports/claims/members/{memberId}/export/excel?...` | `CLAIMS_SUMMARY` | — | Two-sheet XLSX |
+
+Repository extension: `ClaimsReportQueryRepository.perGroup(...)`, `.perMember(...)`,
+`.perGroupPerCurrencyTotals(...)`, `.perMemberPerCurrencyTotals(...)`. Group SQL joins
+`members m ON m.id = c.member_id` and `groups g ON g.id = m.group_id`. Member SQL joins
+`members m ON m.id = c.member_id` and applies the trigram-style search (deviation memory:
+plain ILIKE, no pg_trgm).
+
+### 12. §B: CLAIM_STATUS_LIST (G49) — pipeline aging matrix
+
+**Endpoint**:
+
+| Endpoint | Report key | Wrap? | Notes |
+|---|---|---|---|
+| `GET /api/v1/reports/claims/status-matrix?submittedFrom&submittedTo&reportingCurrency&insuranceLine` | `CLAIM_STATUS_LIST` | wrap | Returns matrix rows: one per (status, age_bucket); cells carry `claim_count`, funnel amounts |
+| `GET /api/v1/reports/claims/status-matrix/drill?status&ageBucket&page&size&submittedFrom&submittedTo&reportingCurrency` | `CLAIM_STATUS_LIST` | wrap | Paginated claim ledger for a cell |
+| `GET /api/v1/reports/claims/status-matrix/export/excel?...` | `CLAIM_STATUS_LIST` | — | Two-sheet XLSX (matrix + drill) |
+
+Data shape:
+
+```java
+public record ClaimStatusMatrixCell(
+        String status,           // DRAFT | VERIFIED | IN_ADJUDICATION | ADJUDICATED | REJECTED | PENDING_INFO
+        String ageBucket,        // "0-3" | "4-7" | "8-14" | "15-30" | ">30"
+        long   claimCount,
+        BigDecimal totalClaimed,
+        BigDecimal totalApproved,
+        BigDecimal totalPaid,
+        String currencyCode      // NULL when the cell mixes currencies — service layer decides
+) {}
+
+public record ClaimStatusMatrixResponse(
+        LocalDate submittedFrom, LocalDate submittedTo,
+        List<ClaimStatusMatrixCell> cells,
+        Instant asOf              // "NOW()" at report time; ages computed relative to this
+) {}
+```
+
+Age bucket SQL uses `EXTRACT(EPOCH FROM (NOW() - c.submission_date))/86400` and CASE-when.
+Bucket boundaries are hard-coded per G49 caveat; tenant-configurable bucketing is a follow-up.
+
+Angular renders as a compact grid (status rows × age columns) with cell-click drill-down to
+the paged list surface.
+
+### 13. §B: DENIAL_ANALYSIS (G47) — three-view report
+
+**Endpoint**:
+
+| Endpoint | Report key | Wrap? | Notes |
+|---|---|---|---|
+| `GET /api/v1/reports/claims/denial-analysis?periodStart&periodEnd&reportingCurrency&category&code&providerId` | `DENIAL_ANALYSIS` | wrap | Composite response: byCategory + byCodeWithinCategory + byProvider + monthlyTrend |
+| `GET /api/v1/reports/claims/denial-analysis/export/excel?...` | `DENIAL_ANALYSIS` | — | Three-sheet XLSX (Categories / Codes / Providers) |
+
+Data shape:
+
+```java
+public record DenialAnalysisResponse(
+        List<CategoryRow> byCategory,
+        List<CodeRow>     byCode,
+        List<ProviderRow> byProvider,
+        List<MonthlyRow>  monthlyTrend   // populated only when period spans > 1 month
+) {
+    public record CategoryRow(String category, long claimCount, BigDecimal totalClaimed) {}
+    public record CodeRow(String code, String category, String description,
+                          long claimCount, BigDecimal totalClaimed) {}
+    public record ProviderRow(UUID providerId, String providerName,
+                              long claimCount, BigDecimal totalClaimed,
+                              BigDecimal denialRatePct /* denied/total for this provider */) {}
+    public record MonthlyRow(LocalDate month, long claimCount, BigDecimal totalClaimed) {}
+}
+```
+
+Primary aggregation column = `claimedAmount` per G42/G47 (approved is 0 by definition of
+REJECTED). Provider denial rate is a share ratio, always safe from FX conversion.
+
+### 14. §B: CLAIMS_FREQUENCY_SEVERITY (G48)
+
+**Endpoint**:
+
+| Endpoint | Report key | Wrap? | Notes |
+|---|---|---|---|
+| `GET /api/v1/reports/claims/frequency-severity?serviceFrom&serviceTo&reportingCurrency&insuranceLine` | `CLAIMS_FREQUENCY_SEVERITY` | wrap | Scheme × line matrix of frequency + severity stats |
+| `GET /api/v1/reports/claims/frequency-severity/export/excel?...` | `CLAIMS_FREQUENCY_SEVERITY` | — | Single-sheet XLSX |
+
+Data shape:
+
+```java
+public record FrequencySeverityRow(
+        UUID   schemeId,
+        String schemeName,
+        String insuranceLine,
+        BigDecimal exposureMemberMonths,   // active-member-months (proxy — see below)
+        long       claimCount,
+        BigDecimal frequency,               // claimCount / exposureMemberMonths * 12 (annualised)
+        String     currencyCode,
+        BigDecimal severityMean,
+        BigDecimal severityMedian,          // PERCENTILE_CONT(0.5)
+        BigDecimal severityP95              // PERCENTILE_CONT(0.95)
+) {}
+```
+
+Exposure proxy: `SUM(days_active_in_period) / avg_days_per_month` per (scheme, line), where
+`days_active_in_period` is computed from `members.status` transitions if a
+`member_status_history` table exists, else falls back to `COUNT(members WHERE
+scheme_id=X AND status='ACTIVE') * days_in_period` — verified during implementation.
+Envelope `warnings` records the fallback so a reader knows the caveat.
+
+`PERCENTILE_CONT` is Postgres-native; testcontainers-friendly. Server-side aggregate — never
+`.collectList()` before computing.
+
+### 15. §B: Angular for §B reports
+
+**Files** (new components in §B):
+- `.../claims/group-claims-report.component.ts`
+- `.../claims/member-claims-report.component.ts` (paginated + search + insuranceLine filter, mirrors Phase 3 receipts member component)
+- `.../claims/claim-status-matrix.component.ts`
+- `.../claims/denial-analysis-report.component.ts`
+- `.../claims/frequency-severity-report.component.ts`
+
+**Routes** (edit `.../finance.routes.ts`):
+
+```typescript
+{ path: 'reports/claims-groups', ..., data: { reportKey: 'CLAIMS_SUMMARY', ... } },
+{ path: 'reports/claims-members', ..., data: { reportKey: 'CLAIMS_SUMMARY', ... } },
+{ path: 'reports/claims-group/:id', ..., data: { dimension: 'group', reportKey: 'CLAIMS_SUMMARY', ... } },
+{ path: 'reports/claims-member/:id', ..., data: { dimension: 'member', reportKey: 'CLAIMS_SUMMARY', ... } },
+{ path: 'reports/claim-status', ..., data: { reportKey: 'CLAIM_STATUS_LIST', ... } },
+{ path: 'reports/denial-analysis', ..., data: { reportKey: 'DENIAL_ANALYSIS', ... } },
+{ path: 'reports/claims-frequency-severity', ..., data: { reportKey: 'CLAIMS_FREQUENCY_SEVERITY', ... } },
+// Stub retirement per G51 — target (reports/claim-status) now exists so the redirect is safe.
+{ path: 'reports/claims-status', pathMatch: 'full', redirectTo: 'reports/claim-status' },
+```
+
+### 16. §B: Per-controller ITs + Playwright
+
+Files (per F26 precedent — deferred from §A to §B where the family surface is complete):
+
+- `ClaimsReportControllerIT` — full envelope + 403-on-disabled + fxRates-warnings + perCurrency-aggregate + SecurityEvent-on-export across all four dimensions
+- `ClaimsAggregateControllerIT` — narrow + monthly shapes; ungated verification
+- `HighCostClaimantReportIT` — threshold config lookup, FX conversion path, missing-rate fail-loud, empty-config warnings
+- `PreAuthActivityReportIT` — status buckets, R04/R05 signal join
+- `ClaimStatusMatrixIT` — age-bucket boundaries, drill nav
+- `DenialAnalysisReportIT` — category/code/provider views, monthly trend gating
+- `ClaimsFrequencySeverityIT` — exposure fallback path (with and without member-status-history)
+- `TenantHighCostClaimantConfigIT` (tenancy-service side)
+
+Each uses shared `ReportRetrofitAssertions` helper from Phase 1 §B testFixtures.
+
+**Playwright**: `claims-reports.spec.ts` — golden path (open hub → find CLAIMS_SUMMARY → set
+period → filter insuranceLine → drill → export XLSX). Toggle spec: `claims-reports-toggle.spec.ts`.
 
 ### Success Criteria
 
-- Automated: `cd services/java/claims-service && ../gradlew build test`; `make test-integration`; per-report Playwright.
-- Manual: high-cost claimant page for a known member reconciles against manual claim sum.
+#### §A Automated Verification
+- [ ] `cd services/java/tenancy-service && ../gradlew build test` — V132 migration + new entity + controller unit tests green.
+- [ ] `cd services/java/shared && ../gradlew build test` — `ReportKey` enum test updated for the PRE_AUTH_UTILIZATION → PRE_AUTH_ACTIVITY rename.
+- [ ] `cd services/java/claims-service && ../gradlew build test` — `ClaimsReportServiceTest`, `HighCostClaimantServiceTest`, `PreAuthActivityServiceTest`, `ClaimsReportControllerTest`, `ClaimsAggregateControllerTest` green. Pre-existing `bug_claim_save_mock_id_npe` set stays untouched.
+- [ ] Gateway `cd services/go/gateway && go build ./...` — 5 new route entries compile clean.
+- [ ] Angular `ng build --configuration=development` — 5 new report components + config UI + 6 new routes + 1 redirect compile clean; sidebar hides disabled report keys.
+
+#### §A Manual Verification
+- [ ] For a two-currency tenant, per-scheme claims report renders the funnel; `perCurrency` reconciles against a hand sum of underlying claims.
+- [ ] Per-provider claims report top-N rows match a hand sort of `SUM(paid_amount) BY provider_id`.
+- [ ] Configure `tenant_high_cost_claimant_config` with USD 25,000 threshold; verify a known cumulative-paid member above threshold appears; verify another below threshold does not.
+- [ ] Missing high-cost config produces `warnings: ["High-cost threshold not configured for tenant"]` and empty rows — report succeeds.
+- [ ] Missing FX rate for HIGH_COST_CLAIMANT threshold conversion produces `ReportGenerationException` (fail-loud per G28).
+- [ ] Pre-auth activity report shows per-status counts and R04/R05 signal row.
+- [ ] `/aggregate/claims` returns three-total row per (dimension, currency); `/aggregate/claims/monthly` returns per-month rows.
+- [ ] `reports/claims-status` still renders the existing ComingSoon page (retirement deferred to §B per G51 so the redirect target exists first).
+- [ ] Kafka `medfund.security.events` carries `reportKey=CLAIMS_SUMMARY / HIGH_COST_CLAIMANT / PRE_AUTH_ACTIVITY` on every export.
+- [ ] `AuditEvent` on tenant-admin threshold PUT carries `actorEmail` + `entityName` per `feedback_audit_actor_email` and `feedback_audit_entity_name` memories.
+
+#### §B Automated Verification
+- [ ] Java build/test green across shared + tenancy + claims after §B additions.
+- [ ] `make test-integration` — 8 new IT classes green.
+- [ ] Angular build green with 5 new §B components + 7 new §B routes.
+- [ ] `make test-e2e` — `claims-reports.spec.ts` + `claims-reports-toggle.spec.ts` green.
+
+#### §B Manual Verification
+- [ ] Per-group + per-member CLAIMS_SUMMARY reconciles against manual sums.
+- [ ] Claim status matrix ages compute against `NOW()` at report time; a claim submitted 10 days ago lands in the `8-14` bucket.
+- [ ] Denial analysis XLSX has three sheets (Categories / Codes / Providers) with cross-consistent totals.
+- [ ] Frequency/severity exposure fallback warning fires when `member_status_history` is absent; the number is still rendered but the caveat is visible.
+- [ ] Toggling `CLAIMS_SUMMARY` off in tenant-admin hides all 4 dimensions from the sidebar and returns 403 on direct URL access; per-scheme aggregate at `/aggregate/claims` still responds (ungated per G50 / Phase 2 precedent).
+- [ ] `reports/claims-status` now redirects to `reports/claim-status` (retired per G51 in §B).
+
+**Implementation Note**: pause for human acceptance between §A and §B, and again after §B before
+moving to Phase 5. Phase 5 loss-ratio consumes `/aggregate/claims` — verify its rich three-total
+row satisfies loss-ratio's needs before scaling the aggregate contract further.
 
 ---
 
@@ -2069,6 +2704,31 @@ G30-G40 settle Phase-3-specific forks. F18-F25 record facts uncovered during gri
 - **G38** — Angular routes: **flat under `/reports/*`, retire old stubs with redirects**. Canonical paths: `reports/receipts-schemes`, `reports/receipts-groups`, `reports/receipts-members`, `reports/receipts-{dim}/:id`, `reports/collection-rate`. Retire `receipts/report` → `reports/receipts-groups` (redirect); `receipts-to-billing` → `reports/collection-rate` (redirect). Uses `finance:view_subledger` permission (Phase 2 pattern).
 - **G39** — Cadenced pre-wiring: **defer to Phase 17**. Phase 3 ships COLLECTION_RATE with the on/off toggle only. `cadenced=true` on the enum stays aspirational. Phase 17 lands the schedule table + admin UI + `@Scheduled` job + dispatcher as one coherent tranche.
 - **G40** — Detail-drilldown shape: **paginated transaction ledger + monthly totals strip**. Detail page (`/receipts-{dim}/:id`) shows a monthly-buckets strip on top + paginated transaction listing with filters (month, type, currency). XLSX = two sheets (monthly summary + full transaction ledger, capped at 10k rows). Same shape for scheme / group / member drill-downs — reuse `receipts-detail.component.ts` with a `dimension` input.
+
+### 2026-08-11 Phase 4 grilling additions
+
+G41-G51 settle Phase-4-specific forks. F52-F59 record facts uncovered during grilling (`Claim` and `PreAuthorization` entity shapes, denial-code catalogue, existing shared infrastructure availability, Angular stub inventory, existing TenantConfigClient precedents).
+
+- **F52** — `Claim` (`services/java/claims-service/src/main/java/com/medfund/claims/entity/Claim.java`) has all columns Phase 4 needs: `claimedAmount`, `approvedAmount`, `paidAmount`, `currencyCode` (single-currency-native per row), `serviceDate`, `submissionDate`, `adjudicatedAt`, `status` (VARCHAR — no enum), `rejectionReason` (FK to `rejection_reasons.code`), `rejectionNotes`, plus V077 cost-share fields (`allowedAmount`, `deductibleApplied`, `copayAmount`, `coinsuranceAmount`, `shortfallAmount`, `memberResponsibility`). No cross-currency arithmetic hazard on a row.
+- **F53** — Claim status values in use: `DRAFT`, `VERIFIED`, `IN_ADJUDICATION`, `ADJUDICATED`, `REJECTED`, `PENDING_INFO`. Stored as VARCHAR — Phase 4 code compares against string literals.
+- **F54** — `RejectionReason` lookup at `services/java/claims-service/.../entity/RejectionReason.java`; seed data in `V014__claims_schema.sql:116-135`. 18 codes (R01-R18) grouped into 7 categories (ELIGIBILITY, WAITING_PERIOD, BENEFIT, PREAUTH, TARIFF, CLINICAL, FRAUD). `DENIAL_ANALYSIS` drills at both levels + provider dimension.
+- **F55** — `PreAuthorization` (`services/java/claims-service/.../entity/PreAuthorization.java`) has `requestedAmount`, `approvedAmount`, `status ∈ {PENDING, APPROVED, REJECTED, EXPIRED}`, `expiryDate`, `requestedDate`, `decisionDate`. **NO `claim_id` back-link**; **NO `used_amount` column**. Verified `grep` returns nothing for `claim_id` on pre_authorizations or `auth_number`/`pre_auth_id` on claims. Classical utilisation calc impossible from stored data — settled by G43.
+- **F56** — All 6 Phase-4 report keys already ship in `ReportKey.java:66-72` mapped to `ReportFamily.CLAIMS_FINANCIAL`. `CLAIMS_SUMMARY.cadenced=true`; others not cadenced. Phase 4 renames `PRE_AUTH_UTILIZATION` → `PRE_AUTH_ACTIVITY` per G43 (no rollout risk — no tenant config row for the old key today).
+- **F57** — claims-service has `ReportEnvelopeBuilder`, `ReportingCurrencyResolver`, `SecurityEventPublisher`, `FxRateReader`, `CrossServiceCallHelper`, `ReportGuardAspect`, `ReportWorkbook` on classpath. No new shared infra needed for Phase 4.
+- **F58** — Angular finance routes carry three ComingSoon stubs relevant to Phase 4: `reports/claims-status`, `reports/member-payments`, `reports/member-payment-status` at `clients/angular/src/app/pages/tenant/finance/finance.routes.ts:362-366`. Settled by G51 (retire only the first).
+- **F59** — `TenantConfigClient` in finance-service reads per-tenant public config from `public.tenant_advance_payment_config` (V128) and `public.tenant_ctc_auto_config` (V129) — pattern-obvious precedent for a new V132 threshold config table.
+
+- **G41** — Per-report period clock: **each report picks the clock that fits its audience**. `CLAIMS_SUMMARY` + `DENIAL_ANALYSIS` + `HIGH_COST_CLAIMANT` on `adjudicatedAt` (financial exposure); `CLAIMS_FREQUENCY_SEVERITY` on `serviceDate` (actuarial norm); `CLAIM_STATUS_LIST` on `submissionDate` (pipeline aging); `PRE_AUTH_ACTIVITY` on `requestedDate`. Each report header names its clock so a reader knows why cross-report totals don't reconcile. **Chosen over uniform-clock options** — treasurer, actuary, and ops manager fundamentally want different windows onto the same claim.
+- **G42** — Money column: **three-column funnel rendered on every report + per-report primary aggregation**. Every row shows `claimedAmount` / `approvedAmount` / `paidAmount`; envelope `perCurrency` aggregate + primary sort/rank uses one of them per report (`approvedAmount` for CLAIMS_SUMMARY / HIGH_COST_CLAIMANT / severity; `claimedAmount` for DENIAL_ANALYSIS — approved is 0 for rejected claims). Aggregate `/aggregate/claims` returns all three totals per row (G44). Downside accepted — three columns wider XLSX; three SUMs per aggregate SQL.
+- **G43** — `PRE_AUTH_UTILIZATION` reshape: **rename to `PRE_AUTH_ACTIVITY`, skip classical utilisation calc**. Report on pre-auth approval/expiry rates, decision-time avg, per-status counts + amounts, and a claims-side R04/R05 rejection-rate proxy for "pre-auth-would-have-helped". Chosen because F55 makes the classical `sum(paid_claim) / pre_auth.approved` un-computable from stored data alone. Alternatives rejected: schema back-link (expands adjudication-service refactor + heuristic-match + backfill), heuristic query-time join (over-attribution + hard to reconcile), deferring the whole report (loses pre-auth visibility). Rename `ReportKey.PRE_AUTH_UTILIZATION` to `PRE_AUTH_ACTIVITY` outright — no deprecation window (no tenant config row exists for either key today, F56).
+- **G44** — `/aggregate/claims` shape: **rich row on the narrow endpoint**. Returns per (dimension, dimensionId, dimensionName, currencyCode) all three totals (`totalClaimed`, `totalApproved`, `totalPaid`). Also adds `/aggregate/claims/monthly` returning `MonthlyAggregateRow` (reuses Phase 3 shared DTO) for Phase 8+ consumers. Contradicts G35's "contracts stay single-purpose" wording — trade-off accepted because Phase 5 loss-ratio may want either paid-ratio or approved-liability-ratio and this saves a second API round trip.
+- **G45** — Four CLAIMS_SUMMARY dimensions: **scheme + group + member + provider**. Provider is new to claims (didn't apply to receipts) and material — a treasurer's "top 20 providers by paid claims" is a first-class question. Insurance line is a cross-cut `?insuranceLine=` filter, not its own dimension. Benefit dimension deferred to Phase 13 (Provider Network Utilisation) — overlaps with actuarial Phase 14 territory. `/aggregate/claims?dimension=SCHEME|GROUP|MEMBER|PROVIDER`.
+- **G46** — `HIGH_COST_CLAIMANT`: **cumulative-per-period, threshold in new public schema table**. New V132 `public.tenant_high_cost_claimant_config(tenant_id, threshold_amount, currency_code)` mirroring V128/V129 pattern. `TenantConfigClient.getHighCostClaimantConfig(tenantId)` returns it. Report criterion: `SUM(claim.paidAmount)` per member for the period > threshold in reporting currency, converted via `FxRateReader.convert` at `period.periodEnd` (missing FX rate throws `ReportGenerationException` per invariant #6 / G28). Missing config row → empty result + `warnings: ["High-cost threshold not configured for tenant"]` (best-effort with warnings, since it's a config gap not a data gap). Drill-down shows the member's contributing individual claims. Threshold configurable via new tenant-admin settings UI.
+- **G47** — `DENIAL_ANALYSIS`: **both levels + provider view + monthly trend**. Response carries `byCategory` (7 rows), `byCode` (up to 18 rows, code within category), `byProvider` (top-N with denial rate), and `monthlyTrend` (populated when period > 1 month). Three-sheet XLSX (Categories, Codes-within-Categories, Providers). Primary aggregation is `claimedAmount` (approved is 0 by definition of REJECTED). Filter row supports `?category=&code=&providerId=`. Provider view raises a visibility concern (revealing which providers get denied most) — mitigated because tenant admin can toggle the report off via `DENIAL_ANALYSIS` key.
+- **G48** — `CLAIMS_FREQUENCY_SEVERITY`: **scheme + insurance-line dimensions; exposure = active-member-months proxy; severity = mean + median + P95**. Frequency = `claim_count / exposureMemberMonths` (annualised ×12). Exposure computed from `members.status` transitions via `member_status_history` if the table exists at implementation time; else falls back to `COUNT(members WHERE scheme_id=X AND status='ACTIVE') * days_in_period` with a `warnings` entry. Severity uses Postgres `PERCENTILE_CONT`. Deliberately a tactical management report — the actuarial-heavy chain-ladder + persistency package lives in Phase 14.
+- **G49** — `CLAIM_STATUS_LIST`: **pipeline aging matrix (status × age-bucket) + per-cell drill**. Rows = 6 statuses (`DRAFT`, `VERIFIED`, `IN_ADJUDICATION`, `ADJUDICATED`, `REJECTED`, `PENDING_INFO`); columns = age buckets (`0-3`, `4-7`, `8-14`, `15-30`, `>30` days) computed from `submissionDate` vs `NOW()`. Each cell shows count + funnel amounts. Cell-click → paged list of the claims in that cell. Age-bucket boundaries hard-coded; tenant-configurable bucketing is a follow-up. XLSX = matrix sheet + drill sheet.
+- **G50** — Phase 4 scope split: **§A + §B**. §A: V132 migration + enum rename + `ClaimsAggregateController` (unblocks Phase 5) + `ClaimsReportController` scheme + provider CLAIMS_SUMMARY dimensions + `HIGH_COST_CLAIMANT` + `PRE_AUTH_ACTIVITY` + config UI + §A XLSX + §A unit tests. §B: group + member dimensions + `CLAIM_STATUS_LIST` matrix + `DENIAL_ANALYSIS` + `CLAIMS_FREQUENCY_SEVERITY` + §B Angular + per-controller ITs consuming `ReportRetrofitAssertions` + Playwright. Chosen because §A carries Phase-5-blocking dependencies + config surface + treasurer-facing primary dimensions; §B carries ops/actuarial views that don't block downstream. Mirrors Phase 3 §A/§B split precedent.
+- **G51** — Angular stub retirement: **retire only `reports/claims-status`** via `pathMatch:'full', redirectTo: 'reports/claim-status'` (target lands in §B). Leave `reports/member-payments` and `reports/member-payment-status` untouched — labels are ambiguous (could mean claim-payments, contribution-payments, or member-payouts) and their disposition is Phase 5 territory (loss-ratio + member-payments-unified).
 
 ## References
 
