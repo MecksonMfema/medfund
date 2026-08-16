@@ -8,6 +8,7 @@ import {
   TenantReportConfigRow,
   TenantReportConfigService,
 } from '../../../../core/services/tenant-report-config.service';
+import { HighCostClaimantConfigComponent } from './high-cost-claimant-config.component';
 
 interface FamilyGroup {
   family: string;
@@ -24,7 +25,7 @@ interface FamilyGroup {
 @Component({
   selector: 'app-tenant-reports-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, HighCostClaimantConfigComponent],
   templateUrl: './reports-tab.component.html',
   styleUrl: './reports-tab.component.scss',
 })

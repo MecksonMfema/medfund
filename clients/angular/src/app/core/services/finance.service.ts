@@ -1035,6 +1035,36 @@ export class FinanceService {
   exportCollectionRateExcel(opts: BillingReportParams): Observable<Blob> {
     return this.api.getBlob('/reports/collection-rate/export/excel', billingParams(opts));
   }
+
+  // ── Cross-service reports (Phase 5) ─────────────────────────────────────
+  getLossRatio(opts: BillingReportParams): Observable<ReportResponse<LossRatioReportResponse>> {
+    return this.api.get<ReportResponse<LossRatioReportResponse>>('/reports/billing-vs-claims', billingParams(opts));
+  }
+  exportLossRatioExcel(opts: BillingReportParams): Observable<Blob> {
+    return this.api.getBlob('/reports/billing-vs-claims/export/excel', billingParams(opts));
+  }
+  getMemberPayments(opts: BillingReportParams): Observable<ReportResponse<MemberPaymentsReportResponse>> {
+    return this.api.get<ReportResponse<MemberPaymentsReportResponse>>('/reports/member-payments', billingParams(opts));
+  }
+  exportMemberPaymentsExcel(opts: BillingReportParams): Observable<Blob> {
+    return this.api.getBlob('/reports/member-payments/export/excel', billingParams(opts));
+  }
+
+  // ── Balance history (Phase 6) ─────────────────────────────────────────────
+  getProviderBalanceHistory(providerId: string, opts: BalanceHistoryParams = {}): Observable<ReportResponse<BalanceHistoryResponse>> {
+    return this.api.get<ReportResponse<BalanceHistoryResponse>>(
+      `/reports/balance-history/provider/${providerId}`, balanceHistoryParams(opts));
+  }
+  exportProviderBalanceHistoryExcel(providerId: string, opts: BalanceHistoryParams = {}): Observable<Blob> {
+    return this.api.getBlob(`/reports/balance-history/provider/${providerId}/export/excel`, balanceHistoryParams(opts));
+  }
+  getMemberBalanceHistory(memberId: string, opts: BalanceHistoryParams = {}): Observable<ReportResponse<BalanceHistoryResponse>> {
+    return this.api.get<ReportResponse<BalanceHistoryResponse>>(
+      `/reports/balance-history/member/${memberId}`, balanceHistoryParams(opts));
+  }
+  exportMemberBalanceHistoryExcel(memberId: string, opts: BalanceHistoryParams = {}): Observable<Blob> {
+    return this.api.getBlob(`/reports/balance-history/member/${memberId}/export/excel`, balanceHistoryParams(opts));
+  }
 }
 
 // ── Billing report types (Phase 2) ─────────────────────────────────────────
@@ -1242,4 +1272,93 @@ export interface CollectionRateMonthlyBucket {
   billed: string;
   received: string;
   ratePct: string | null;
+}
+
+// ── Cross-service reports (Phase 5) ────────────────────────────────────────
+
+/**
+ * Loss ratio — billing vs claims at scheme level, per currency. Mirrors the
+ * Java record `LossRatioReportResponse`. {@code paidRatioPct} is null when
+ * nothing was billed for the window (server renders it as a dash).
+ */
+export interface LossRatioReportResponse {
+  periodStart: string;
+  periodEnd: string;
+  rows: LossRatioRow[];
+}
+
+export interface LossRatioRow {
+  schemeId: string;
+  schemeName: string;
+  currencyCode: string;
+  totalBilled: string;
+  totalClaimed: string;
+  totalApproved: string;
+  totalPaid: string;
+  paidRatioPct: string | null;
+  billedMinusPaid: string;
+}
+
+/**
+ * Member payments — unified billing / receipts / claims-paid per member, per
+ * currency. Mirrors the Java record `MemberPaymentsReportResponse`.
+ */
+export interface MemberPaymentsReportResponse {
+  periodStart: string;
+  periodEnd: string;
+  rows: MemberPaymentRow[];
+}
+
+export interface MemberPaymentRow {
+  memberId: string;
+  memberName: string;
+  currencyCode: string;
+  totalBilled: string;
+  totalReceived: string;
+  totalClaimsPaid: string;
+  netPosition: string;
+}
+
+// ── Balance history (Phase 6) ───────────────────────────────────────────────
+
+/**
+ * Filters for the per-payee balance-history report. {@code asAtRun} is an
+ * exact payment-run id — omitted → full history, newest first (D6-4).
+ * {@code currency} narrows to one native currency.
+ */
+export interface BalanceHistoryParams {
+  asAtRun?: string;
+  currency?: string;
+}
+
+function balanceHistoryParams(opts: BalanceHistoryParams): Record<string, string> {
+  const params: Record<string, string> = {};
+  if (opts.asAtRun) params['asAtRun'] = opts.asAtRun;
+  if (opts.currency) params['currency'] = opts.currency;
+  return params;
+}
+
+/**
+ * Balance history — freeze-frame of a payee's balance at each executed
+ * payment run. Mirrors the Java record `BalanceHistoryResponse`.
+ * {@code payeeName} is the joined display name ("" when the payee no
+ * longer exists). Amounts are native per-currency strings (G34).
+ */
+export interface BalanceHistoryResponse {
+  payeeId: string;
+  payeeName: string;
+  rows: BalanceHistoryRow[];
+}
+
+export interface BalanceHistoryRow {
+  runId: string;
+  runNumber: string;
+  executedAt: string;
+  currencyCode: string;
+  openingBalance: string;
+  closingBalance: string;
+  totalClaimed: string;
+  totalApproved: string;
+  totalPaid: string;
+  netDue: string;
 }

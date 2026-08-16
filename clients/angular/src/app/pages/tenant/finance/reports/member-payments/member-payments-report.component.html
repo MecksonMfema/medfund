@@ -1,0 +1,81 @@
+<header class="page-header">
+  <div>
+    <h1>Member payments</h1>
+    <p class="page-sub">
+      Unified billing, receipts and claims-paid per member and currency. Net
+      position is receipts minus claims-paid. Never cross-currency arithmetic.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="exporting || loading || activeRows.length === 0"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input type="date" [(ngModel)]="periodStart" (change)="onFilterChange()" name="periodStart" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input type="date" [(ngModel)]="periodEnd" (change)="onFilterChange()" name="periodEnd" />
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (envelope?.warnings?.length) {
+  <div class="banner banner-warning">
+    @for (w of envelope!.warnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+@if (activeRows.length === 0) {
+  <p>No billing, receipts or claims recorded for this window.</p>
+} @else {
+  <table class="rate-table">
+    <thead>
+      <tr>
+        <th>Member</th>
+        <th>Currency</th>
+        <th class="num">Total billed</th>
+        <th class="num">Total received</th>
+        <th class="num">Total claims paid</th>
+        <th class="num">Net position</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of activeRows; track row.memberId + '-' + row.currencyCode) {
+        <tr>
+          <td>{{ row.memberName }}</td>
+          <td>{{ row.currencyCode }}</td>
+          <td class="num">{{ row.totalBilled | number:'1.2-2' }}</td>
+          <td class="num">{{ row.totalReceived | number:'1.2-2' }}</td>
+          <td class="num">{{ row.totalClaimsPaid | number:'1.2-2' }}</td>
+          <td class="num">{{ row.netPosition | number:'1.2-2' }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

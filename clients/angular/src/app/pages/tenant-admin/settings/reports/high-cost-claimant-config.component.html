@@ -1,0 +1,81 @@
+<section class="hcc-config">
+  <div class="section-header">
+    <div>
+      <h3 class="section-title">High-cost claimant threshold</h3>
+      <p class="section-sub">
+        Any member whose cumulative paid claims in a report window clear this
+        threshold shows up on the <strong>High-cost claimants</strong> report.
+        The threshold is stored in its own currency and converted to the
+        reporting currency at report time.
+      </p>
+    </div>
+    <div class="section-actions">
+      @if (saved) {
+        <span class="saved-badge">
+          <app-icon name="check-circle" [size]="16"></app-icon> Saved
+        </span>
+      }
+      <button
+        type="button"
+        class="btn btn-primary"
+        (click)="save()"
+        [disabled]="saving || loading || !canConfigure()"
+      >
+        {{ saving ? 'Saving…' : 'Save threshold' }}
+      </button>
+    </div>
+  </div>
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else {
+    @if (errorMessage) {
+      <div class="general-error">{{ errorMessage }}</div>
+    }
+
+    <div class="form-grid">
+      <div class="form-field">
+        <label for="hccThreshold">Threshold amount</label>
+        <input
+          id="hccThreshold"
+          type="number"
+          min="0"
+          step="0.01"
+          placeholder="e.g. 10000"
+          [(ngModel)]="thresholdAmount"
+          [disabled]="saving || !canConfigure()"
+          name="thresholdAmount"
+        />
+        <p class="hint">
+          @if (config && config.thresholdAmount != null) {
+            Currently {{ config.thresholdAmount | number:'1.2-2' }} {{ config.currencyCode }}
+          } @else {
+            Not configured yet — the report renders empty until a threshold is set.
+          }
+        </p>
+      </div>
+
+      <div class="form-field">
+        <label for="hccCurrency">Threshold currency</label>
+        <select
+          id="hccCurrency"
+          [(ngModel)]="currencyCode"
+          [disabled]="saving || !canConfigure()"
+          name="currencyCode"
+        >
+          <option value="USD" *ngIf="tenantCurrencies.length === 0">USD</option>
+          @for (currency of tenantCurrencies; track currency.currencyCode) {
+            <option [value]="currency.currencyCode">
+              {{ currency.currencyCode }}{{ currency.isDefault ? ' (default)' : '' }}
+            </option>
+          }
+        </select>
+        <p class="hint">Converted to the reporting currency at period end when they differ.</p>
+      </div>
+    </div>
+
+    <p *ngIf="!canConfigure()" class="hint muted">
+      You have read-only access — the <code>admin:manage_settings</code> permission is required to save changes.
+    </p>
+  }
+</section>

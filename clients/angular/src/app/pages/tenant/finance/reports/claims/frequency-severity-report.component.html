@@ -1,0 +1,75 @@
+<header class="page-header">
+  <div>
+    <h1>Claims frequency &amp; severity</h1>
+    <p class="page-sub">
+      Annualised claim frequency and severity statistics per scheme × insurance
+      line × currency, clocked by service date. Frequency = claims ÷ exposure
+      member-months; severity percentiles are Postgres-native (mean / median /
+      P95). Exposure uses a documented proxy until member-status history exists —
+      the warning banner explains when the proxy was applied.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="exporting || loading || !rows.length"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Service from</span>
+    <input type="date" [(ngModel)]="serviceFrom" (change)="onFilterChange()" name="serviceFrom" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Service to</span>
+    <input type="date" [(ngModel)]="serviceTo" (change)="onFilterChange()" name="serviceTo" />
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Insurance line</span>
+    <app-select
+      [(ngModel)]="insuranceLine"
+      (selectionChange)="onFilterChange()"
+      name="insuranceLine"
+      [options]="lineOptions"
+      placeholder="All lines"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (envelope?.warnings?.length) {
+  <div class="banner banner-warning">
+    @for (w of envelope!.warnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+<app-data-table
+  [data]="rows"
+  [columns]="columns"
+  [loading]="loading"
+  [searchable]="false"
+  [showToolbar]="false"
+  emptyMessage="No claims with service dates in this window."
+></app-data-table>

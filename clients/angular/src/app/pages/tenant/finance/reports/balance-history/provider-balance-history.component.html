@@ -1,0 +1,104 @@
+<header class="page-header">
+  <div>
+    <h1>Provider balance history</h1>
+    <p class="page-sub">
+      Frozen provider balance at each executed payment run — newest first.
+      @if (payeeName) { <code>{{ envelope?.data?.payeeId }}</code> · {{ payeeName }} }
+    </p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="exporting || loading || activeRows.length === 0"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">As at run</span>
+    <app-select
+      [(ngModel)]="asAtRun"
+      (selectionChange)="onFilterChange()"
+      name="asAtRun"
+      [options]="runOptions"
+      placeholder="All runs"
+      [searchable]="false"
+    ></app-select>
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Currency</span>
+    <app-select
+      [(ngModel)]="currency"
+      (selectionChange)="onFilterChange()"
+      name="currency"
+      [options]="currencyOptions"
+      placeholder="All currencies"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (envelope?.warnings?.length) {
+  <div class="banner banner-warning">
+    @for (w of envelope!.warnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+@if (perCurrencyEntries.length > 0) {
+  <div class="kpi-strip">
+    @for (pc of perCurrencyEntries; track pc.code) {
+      <div class="kpi-card">
+        <span class="kpi-label">Latest outstanding — {{ pc.code }}</span>
+        <span class="kpi-value">{{ pc.totalAmount | number:'1.2-2' }}</span>
+        <span class="kpi-meta">{{ pc.rowCount }} run(s)</span>
+      </div>
+    }
+  </div>
+}
+
+@if (loading) {
+  <p>Loading…</p>
+} @else if (activeRows.length === 0) {
+  <p>No balance snapshots recorded for this provider.</p>
+} @else {
+  <table class="rate-table">
+    <thead>
+      <tr>
+        <th>Run #</th>
+        <th>Date</th>
+        <th>Currency</th>
+        <th class="num">Opening</th>
+        <th class="num">Closing</th>
+        <th class="num">Claimed</th>
+        <th class="num">Approved</th>
+        <th class="num">Paid</th>
+        <th class="num">Net due</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of activeRows; track row.runId + '-' + row.currencyCode) {
+        <tr>
+          <td><strong>#{{ row.runNumber }}</strong></td>
+          <td>{{ row.executedAt | date:'medium' }}</td>
+          <td>{{ row.currencyCode }}</td>
+          <td class="num">{{ row.openingBalance | number:'1.2-2' }}</td>
+          <td class="num">{{ row.closingBalance | number:'1.2-2' }}</td>
+          <td class="num">{{ row.totalClaimed | number:'1.2-2' }}</td>
+          <td class="num">{{ row.totalApproved | number:'1.2-2' }}</td>
+          <td class="num">{{ row.totalPaid | number:'1.2-2' }}</td>
+          <td class="num">{{ row.netDue | number:'1.2-2' }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

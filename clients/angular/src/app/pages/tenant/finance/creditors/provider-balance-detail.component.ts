@@ -71,4 +71,9 @@ export class ProviderBalanceDetailComponent implements OnInit {
   back(): void {
     this.router.navigate(['/tenant/finance/creditors']);
   }
+
+  balanceHistory(): void {
+    const id = this.balance?.providerId ?? this.route.snapshot.paramMap.get('id');
+    if (id) this.router.navigate(['/tenant/finance/reports/balance-history/provider', id]);
+  }
 }

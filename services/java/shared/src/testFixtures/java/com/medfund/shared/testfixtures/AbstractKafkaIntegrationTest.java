@@ -10,8 +10,6 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.KafkaContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.Duration;
@@ -33,13 +31,17 @@ import java.util.UUID;
  * fresh consumer (unique group id) on each call so previous tests don't
  * leak offsets — each call sees every retained event in the topic.
  */
-@Testcontainers
 public abstract class AbstractKafkaIntegrationTest {
 
-    @Container
     protected static final KafkaContainer KAFKA =
-        new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.0"))
-            .withReuse(true);
+        new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.0"));
+
+    static {
+        // Started once per JVM, NOT per test class — the @Testcontainers
+        // extension would otherwise stop the container at the end of each class
+        // and invalidate any cached Spring context pool (see AbstractIntegrationTest).
+        KAFKA.start();
+    }
 
     @DynamicPropertySource
     static void kafkaProperties(DynamicPropertyRegistry registry) {

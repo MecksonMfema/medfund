@@ -94,6 +94,10 @@ export class MemberBalanceDetailComponent implements OnInit {
     this.router.navigate(['/tenant/finance/creditors']);
   }
 
+  balanceHistory(): void {
+    if (this.memberId) this.router.navigate(['/tenant/finance/reports/balance-history/member', this.memberId]);
+  }
+
   get displayName(): string {
     const withName = this.balances.find(b => b.memberName);
     if (withName?.memberName) return withName.memberName;

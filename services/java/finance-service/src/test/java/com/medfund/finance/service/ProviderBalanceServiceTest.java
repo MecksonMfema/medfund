@@ -89,7 +89,11 @@ class ProviderBalanceServiceTest {
 
         when(providerBalanceRepository.findByProviderIdAndCurrencyCode(providerId, "USD"))
                 .thenReturn(Mono.just(balance));
-        when(providerBalanceRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(providerBalanceRepository.save(any())).thenAnswer(inv -> {
+            ProviderBalance e = inv.getArgument(0);
+            if (e.getId() == null) { e.setId(UUID.randomUUID()); }
+            return Mono.just(e);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(
@@ -118,7 +122,11 @@ class ProviderBalanceServiceTest {
 
         when(providerBalanceRepository.findByProviderIdAndCurrencyCode(providerId, "USD"))
                 .thenReturn(Mono.empty());
-        when(providerBalanceRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(providerBalanceRepository.save(any())).thenAnswer(inv -> {
+            ProviderBalance e = inv.getArgument(0);
+            if (e.getId() == null) { e.setId(UUID.randomUUID()); }
+            return Mono.just(e);
+        });
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(

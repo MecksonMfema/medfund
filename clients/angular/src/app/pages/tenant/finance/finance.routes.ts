@@ -203,8 +203,11 @@ export const FINANCE_ROUTES: Routes = [
     },
   },
   cs('debtors-report',                    'Debtors Report',             '/view-debtors-report',        'Aged-debtors analytics.',                ['finance:view_debtors']),
-  cs('billing-to-claims',                 'Billing → Claims',           '/billing-to-claims',          'Reconcile billing runs against claims.', ['finance:manage_billing_reconcile']),
-  cs('billing-to-claims/:id',             'Billing → Claims Detail',    '/view-billing-to-claims',     'Single reconciliation entry.',          ['finance:manage_billing_reconcile']),
+  // Phase 5 (G51) — retire the billing-to-claims ComingSoon stubs in favour
+  // of the real loss-ratio report (reports/billing-vs-claims). The detail
+  // stub had no consumer; both redirect to the report.
+  { path: 'billing-to-claims',     pathMatch: 'full', redirectTo: 'reports/billing-vs-claims' },
+  { path: 'billing-to-claims/:id', pathMatch: 'full', redirectTo: 'reports/billing-vs-claims' },
   // Phase 3 (G38) — retire the receipts-to-billing ComingSoon stubs in
   // favour of the real collection-rate report. The detail stub had no
   // consumer; the primary redirects to /reports/collection-rate.
@@ -351,19 +354,240 @@ export const FINANCE_ROUTES: Routes = [
       reportKey: 'COLLECTION_RATE',
     },
   },
+  // Phase 4 §A claims-financial family — per-scheme / per-provider summaries,
+  // high-cost claimants, and pre-auth activity.
+  {
+    path: 'reports/claims-schemes',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/claims/scheme-claims-report.component').then(m => m.SchemeClaimsReportComponent),
+    data: {
+      title: 'Claims — per scheme',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'CLAIMS_SUMMARY',
+    },
+  },
+  {
+    path: 'reports/claims-providers',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/claims/provider-claims-report.component').then(m => m.ProviderClaimsReportComponent),
+    data: {
+      title: 'Claims — per provider',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'CLAIMS_SUMMARY',
+    },
+  },
+  {
+    path: 'reports/claims-scheme/:id',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/claims/claims-detail.component').then(m => m.ClaimsDetailComponent),
+    data: {
+      title: 'Scheme claims detail',
+      dimension: 'scheme',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'CLAIMS_SUMMARY',
+    },
+  },
+  {
+    path: 'reports/claims-provider/:id',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/claims/claims-detail.component').then(m => m.ClaimsDetailComponent),
+    data: {
+      title: 'Provider claims detail',
+      dimension: 'provider',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'CLAIMS_SUMMARY',
+    },
+  },
+  {
+    path: 'reports/high-cost-claimants',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/claims/high-cost-claimants-report.component').then(m => m.HighCostClaimantsReportComponent),
+    data: {
+      title: 'High-cost claimants',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'HIGH_COST_CLAIMANT',
+    },
+  },
+  {
+    path: 'reports/pre-auth-activity',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/claims/pre-auth-activity-report.component').then(m => m.PreAuthActivityReportComponent),
+    data: {
+      title: 'Pre-auth activity',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'PRE_AUTH_ACTIVITY',
+    },
+  },
+  // Phase 4 §B — group / member legs of CLAIMS_SUMMARY, the status matrix,
+  // denial analysis, and frequency & severity.
+  {
+    path: 'reports/claims-groups',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/claims/group-claims-report.component').then(m => m.GroupClaimsReportComponent),
+    data: {
+      title: 'Claims — per group',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'CLAIMS_SUMMARY',
+    },
+  },
+  {
+    path: 'reports/claims-members',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/claims/member-claims-report.component').then(m => m.MemberClaimsReportComponent),
+    data: {
+      title: 'Claims — per member',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'CLAIMS_SUMMARY',
+    },
+  },
+  {
+    path: 'reports/claims-group/:id',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/claims/claims-detail.component').then(m => m.ClaimsDetailComponent),
+    data: {
+      title: 'Group claims detail',
+      dimension: 'group',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'CLAIMS_SUMMARY',
+    },
+  },
+  {
+    path: 'reports/claims-member/:id',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/claims/claims-detail.component').then(m => m.ClaimsDetailComponent),
+    data: {
+      title: 'Member claims detail',
+      dimension: 'member',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'CLAIMS_SUMMARY',
+    },
+  },
+  {
+    path: 'reports/claim-status',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/claims/claim-status-matrix.component').then(m => m.ClaimStatusMatrixComponent),
+    data: {
+      title: 'Claim status matrix',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'CLAIM_STATUS_LIST',
+    },
+  },
+  {
+    path: 'reports/denial-analysis',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/claims/denial-analysis-report.component').then(m => m.DenialAnalysisReportComponent),
+    data: {
+      title: 'Denial analysis',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'DENIAL_ANALYSIS',
+    },
+  },
+  {
+    path: 'reports/claims-frequency-severity',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/claims/frequency-severity-report.component').then(m => m.FrequencySeverityReportComponent),
+    data: {
+      title: 'Claims frequency & severity',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'CLAIMS_FREQUENCY_SEVERITY',
+    },
+  },
+  // Stub retirement per G51 — target (reports/claim-status) now exists so the redirect is safe.
+  { path: 'reports/claims-status', pathMatch: 'full', redirectTo: 'reports/claim-status' },
   cs('reports/group-schemes',                'Group Schemes Report',             '/group-schemes-report',                     'Employer benefit schemes.',                       ['finance:view_subledger']),
-  cs('reports/group-billing-to-claims',      'Group Billing → Claims',           '/group-billing-to-claims-list',             'Employer-level billing-to-claim reconcile.',      ['finance:manage_billing_reconcile']),
-  cs('reports/group-billing-to-claims/:id',  'Group Billing → Claims Detail',    '/group-billing-to-claims-detail',           'Single employer reconciliation.',                 ['finance:manage_billing_reconcile']),
+  // Phase 5 (G51) — replace the group-billing-to-claims ComingSoon stub with
+  // the real loss-ratio report. The detail stub had no consumer; it
+  // redirects to the report.
+  {
+    path: 'reports/billing-vs-claims',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/loss-ratio/loss-ratio-report.component').then(m => m.LossRatioReportComponent),
+    data: {
+      title: 'Loss ratio',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'LOSS_RATIO',
+    },
+  },
+  { path: 'reports/group-billing-to-claims/:id', pathMatch: 'full', redirectTo: 'reports/billing-vs-claims' },
   cs('reports/group-notes',                  'Group Notes Report',               '/group-notes-report',                       'Employer-level notes.',                           ['finance.notes:read']),
   cs('reports/group-notes/:id',              'Group Note Detail',                '/group-note-detail',                        'Single note.',                                    ['finance.notes:read']),
   // Legacy /reports/group-adjustments redirects
   { path: 'reports/group-adjustments',     pathMatch: 'full', redirectTo: 'reports/group-notes' },
   { path: 'reports/group-adjustments/:id', pathMatch: 'full', redirectTo: 'reports/group-notes/:id' },
-  cs('reports/claims-status',                'Claims Status Report',             '/claims-status-report',                     'Claim state analytics.',                          ['finance:view']),
-  cs('reports/member-payments',              'Member Payments',                  '/view-members-payments',                    'Member payment summary.',                         ['finance:view']),
+  // Phase 5 (G51 + D5) — replace the member-payments ComingSoon stub with the
+  // real unified member-payments report. Permission tightened to
+  // finance:view_subledger (matches the other subledger reports). The detail
+  // stubs below stay ComingSoon.
+  {
+    path: 'reports/member-payments',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/member-payments/member-payments-report.component').then(m => m.MemberPaymentsReportComponent),
+    data: {
+      title: 'Member payments',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'MEMBER_PAYMENTS_UNIFIED',
+    },
+  },
   cs('reports/member-payments/:id',          'Member Payment Detail',            '/view-member-payments',                     'Single member payment list.',                     ['finance:view']),
   cs('reports/member-payments/:id/details',  'Member Payment Details',           '/view-member-payment-details',              'Transaction-level member payment.',               ['finance:view']),
   cs('reports/member-payment-status',        'Member Payment Status',            '/member-payment-status',                    'Member payment state aggregates.',                ['finance:view']),
+  // Phase 6 (D6-7) — per-payee balance history (frozen at each executed run).
+  // Entry point is the "Balance history" button on the creditors detail pages;
+  // the reports hub stays as-is (no routerLinks for any report yet).
+  {
+    path: 'reports/balance-history/provider/:id',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/balance-history/provider-balance-history.component').then(m => m.ProviderBalanceHistoryComponent),
+    data: {
+      title: 'Provider balance history',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'PROVIDER_BALANCE_HISTORY',
+    },
+  },
+  {
+    path: 'reports/balance-history/member/:id',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/balance-history/member-balance-history.component').then(m => m.MemberBalanceHistoryComponent),
+    data: {
+      title: 'Member balance history',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'MEMBER_BALANCE_HISTORY',
+    },
+  },
   {
     path: 'reports/provider-payments',
     canActivate: [permissionGuard(['finance:view'])],

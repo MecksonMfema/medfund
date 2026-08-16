@@ -7,10 +7,14 @@ import com.medfund.finance.entity.TenantBankAccount;
 import com.medfund.finance.repository.AdvancePaymentApplicationRepository;
 import com.medfund.finance.repository.AdvancePaymentBalanceRepository;
 import com.medfund.finance.repository.AdvancePaymentRepository;
+import com.medfund.finance.repository.MemberBalanceRepository;
+import com.medfund.finance.repository.MemberBalanceSnapshotRepository;
+import com.medfund.finance.repository.PaymentAdviceRecordRepository;
 import com.medfund.finance.repository.PaymentRepository;
 import com.medfund.finance.repository.PaymentRunItemRepository;
 import com.medfund.finance.repository.PaymentRunRepository;
 import com.medfund.finance.repository.ProviderBalanceRepository;
+import com.medfund.finance.repository.ProviderBalanceSnapshotRepository;
 import com.medfund.finance.repository.TenantBankAccountRepository;
 import com.medfund.shared.audit.AuditPublisher;
 import org.junit.jupiter.api.Test;
@@ -25,6 +29,7 @@ import reactor.test.StepVerifier;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -77,6 +82,18 @@ class PaymentRunServiceTest {
 
     @Mock
     private org.springframework.r2dbc.core.DatabaseClient databaseClient;
+
+    @Mock
+    private MemberBalanceRepository memberBalanceRepository;
+
+    @Mock
+    private ProviderBalanceSnapshotRepository providerBalanceSnapshotRepository;
+
+    @Mock
+    private MemberBalanceSnapshotRepository memberBalanceSnapshotRepository;
+
+    @Mock
+    private PaymentAdviceRecordRepository paymentAdviceRecordRepository;
 
     @InjectMocks
     private PaymentRunService paymentRunService;
@@ -408,6 +425,19 @@ class PaymentRunServiceTest {
         // advancePaymentRepository.save(...) is only called when the advance is fully
         // drawn down (remaining <= 0). In this scenario 200 remain, so save is not invoked.
 
+        // Phase 6 snapshot step: the run executes with one provider item — no live
+        // balance row, no advice (advice errors are swallowed upstream) — so the
+        // freeze-frame must fall back to zeros + item-sum net_due and still save.
+        when(providerBalanceRepository.findByProviderIdAndCurrencyCode(providerId, "USD"))
+                .thenReturn(Mono.empty());
+        when(paymentAdviceRecordRepository.findByPaymentRunIdAndProviderId(run.getId(), providerId))
+                .thenReturn(Mono.empty());
+        when(providerBalanceSnapshotRepository.save(any())).thenAnswer(inv -> {
+            com.medfund.finance.entity.ProviderBalanceSnapshot saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
+
         // snapshotSettlementDate uses the DatabaseClient directly to project
         // BOOL_AND(status='paid') across items; stub the whole fluent chain so
         // the empty result short-circuits without NPE'ing.
@@ -433,6 +463,173 @@ class PaymentRunServiceTest {
         assertThat(appCap.getValue().getAdvancePaymentId()).isEqualTo(advanceId);
         assertThat(appCap.getValue().getPaymentRunItemId()).isEqualTo(item.getId());
         verify(eventPublisher).publishAdvanceApplied(any());
+    }
+
+    @Test
+    void execute_writesProviderSnapshot_frozenFromLiveBalance() {
+        var run = createTestRun();
+        UUID providerId = UUID.randomUUID();
+
+        var item = new com.medfund.finance.entity.PaymentRunItem();
+        item.setId(UUID.randomUUID());
+        item.setPaymentRunId(run.getId());
+        item.setProviderId(providerId);
+        item.setPaymentId(UUID.randomUUID());
+        item.setAmount(new BigDecimal("300.00"));
+        item.setCurrencyCode("USD");
+        item.setStatus("pending");
+        stubStandardExecute(run, item);
+
+        var balance = new com.medfund.finance.entity.ProviderBalance();
+        balance.setProviderId(providerId);
+        balance.setCurrencyCode("USD");
+        balance.setTotalClaimed(new BigDecimal("1000.00"));
+        balance.setTotalApproved(new BigDecimal("800.00"));
+        balance.setTotalPaid(new BigDecimal("300.00"));
+        balance.setOutstandingBalance(new BigDecimal("500.00"));
+        when(providerBalanceRepository.findByProviderIdAndCurrencyCode(providerId, "USD"))
+                .thenReturn(Mono.just(balance));
+        // No advice generated — net_due must fall back to the item sum.
+        when(paymentAdviceRecordRepository.findByPaymentRunIdAndProviderId(run.getId(), providerId))
+                .thenReturn(Mono.empty());
+
+        AtomicReference<com.medfund.finance.entity.ProviderBalanceSnapshot> captured = new AtomicReference<>();
+        when(providerBalanceSnapshotRepository.save(any())).thenAnswer(inv -> {
+            com.medfund.finance.entity.ProviderBalanceSnapshot saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            captured.set(saved);
+            return Mono.just(saved);
+        });
+
+        StepVerifier.create(
+                paymentRunService.execute(run.getId(), "actor", "actor@test.example")
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("executed"))
+                .verifyComplete();
+
+        assertThat(captured.get()).isNotNull();
+        assertThat(captured.get().getProviderId()).isEqualTo(providerId);
+        assertThat(captured.get().getCurrencyCode()).isEqualTo("USD");
+        assertThat(captured.get().getOpeningBalance()).isEqualByComparingTo("500.00");
+        assertThat(captured.get().getClosingBalance()).isEqualByComparingTo("500.00");
+        assertThat(captured.get().getTotalClaimed()).isEqualByComparingTo("1000.00");
+        assertThat(captured.get().getTotalApproved()).isEqualByComparingTo("800.00");
+        assertThat(captured.get().getTotalPaid()).isEqualByComparingTo("300.00");
+        assertThat(captured.get().getNetDue()).isEqualByComparingTo("300.00");
+        assertThat(captured.get().getTakenAt()).isEqualTo(run.getExecutedAt());
+    }
+
+    @Test
+    void execute_snapshotNetDue_readsAdviceWhenPresent() {
+        var run = createTestRun();
+        UUID providerId = UUID.randomUUID();
+
+        var item = new com.medfund.finance.entity.PaymentRunItem();
+        item.setId(UUID.randomUUID());
+        item.setPaymentRunId(run.getId());
+        item.setProviderId(providerId);
+        item.setPaymentId(UUID.randomUUID());
+        item.setAmount(new BigDecimal("400.00"));
+        item.setCurrencyCode("USD");
+        item.setStatus("pending");
+        stubStandardExecute(run, item);
+
+        when(providerBalanceRepository.findByProviderIdAndCurrencyCode(providerId, "USD"))
+                .thenReturn(Mono.empty());
+        var advice = new com.medfund.finance.entity.PaymentAdviceRecord();
+        advice.setPaymentRunId(run.getId());
+        advice.setProviderId(providerId);
+        advice.setNetDueAmount(new BigDecimal("250.00"));
+        when(paymentAdviceRecordRepository.findByPaymentRunIdAndProviderId(run.getId(), providerId))
+                .thenReturn(Mono.just(advice));
+
+        AtomicReference<com.medfund.finance.entity.ProviderBalanceSnapshot> captured = new AtomicReference<>();
+        when(providerBalanceSnapshotRepository.save(any())).thenAnswer(inv -> {
+            com.medfund.finance.entity.ProviderBalanceSnapshot saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            captured.set(saved);
+            return Mono.just(saved);
+        });
+
+        StepVerifier.create(
+                paymentRunService.execute(run.getId(), "actor", "actor@test.example")
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("executed"))
+                .verifyComplete();
+
+        assertThat(captured.get()).isNotNull();
+        assertThat(captured.get().getNetDue()).isEqualByComparingTo("250.00");
+        assertThat(captured.get().getClosingBalance()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void execute_writesMemberSnapshot_forMemberRun() {
+        var run = createTestRun();
+        UUID memberId = UUID.randomUUID();
+
+        var item = new com.medfund.finance.entity.PaymentRunItem();
+        item.setId(UUID.randomUUID());
+        item.setPaymentRunId(run.getId());
+        item.setMemberId(memberId);
+        item.setPaymentId(UUID.randomUUID());
+        item.setAmount(new BigDecimal("150.00"));
+        item.setCurrencyCode("USD");
+        item.setStatus("pending");
+        stubStandardExecute(run, item);
+
+        var balance = new com.medfund.finance.entity.MemberBalance();
+        balance.setMemberId(memberId);
+        balance.setCurrencyCode("USD");
+        balance.setOutstandingBalance(new BigDecimal("420.00"));
+        when(memberBalanceRepository.findByMemberIdAndCurrencyCode(memberId, "USD"))
+                .thenReturn(Mono.just(balance));
+        when(paymentAdviceRecordRepository.findByPaymentRunIdAndMemberId(run.getId(), memberId))
+                .thenReturn(Mono.empty());
+
+        AtomicReference<com.medfund.finance.entity.MemberBalanceSnapshot> captured = new AtomicReference<>();
+        when(memberBalanceSnapshotRepository.save(any())).thenAnswer(inv -> {
+            com.medfund.finance.entity.MemberBalanceSnapshot saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            captured.set(saved);
+            return Mono.just(saved);
+        });
+
+        StepVerifier.create(
+                paymentRunService.execute(run.getId(), "actor", "actor@test.example")
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("executed"))
+                .verifyComplete();
+
+        assertThat(captured.get()).isNotNull();
+        assertThat(captured.get().getMemberId()).isEqualTo(memberId);
+        assertThat(captured.get().getClosingBalance()).isEqualByComparingTo("420.00");
+        assertThat(captured.get().getNetDue()).isEqualByComparingTo("150.00");
+        assertThat(captured.get().getTakenAt()).isEqualTo(run.getExecutedAt());
+    }
+
+    /** Shared execute() wiring: pass-through saves, no rules, no advances, empty advice. */
+    private void stubStandardExecute(PaymentRun run, com.medfund.finance.entity.PaymentRunItem... items) {
+        when(paymentRunRepository.findById(run.getId())).thenReturn(Mono.just(run));
+        when(paymentRunRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(paymentRunItemRepository.findByPaymentRunId(run.getId())).thenReturn(Flux.fromArray(items));
+        when(paymentRunItemRepository.save(any())).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        // lenient: provider items resolve advance balances, member items short-circuit (never call it)
+        lenient().when(advanceBalanceRepository.findOutstandingByProvider(any())).thenReturn(Flux.empty());        when(decisionService.decide(any(), any()))
+                .thenReturn(Mono.just(new com.medfund.rules.fact.PaymentRunFact()));
+        when(paymentAdviceService.generateAdvicesForRun(run.getId())).thenReturn(Flux.empty());
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishPaymentRunExecuted(any(), any(), any(), any(), any(), anyInt(), any()))
+                .thenReturn(Mono.empty());
+
+        var stubSpec = org.mockito.Mockito.mock(org.springframework.r2dbc.core.DatabaseClient.GenericExecuteSpec.class);
+        var stubFetch = org.mockito.Mockito.mock(org.springframework.r2dbc.core.FetchSpec.class);
+        when(databaseClient.sql(anyString())).thenReturn(stubSpec);
+        when(stubSpec.bind(anyString(), any())).thenReturn(stubSpec);
+        when(stubSpec.fetch()).thenReturn(stubFetch);
+        when(stubFetch.one()).thenReturn(Mono.empty());
     }
 
     // ---- Helper ----

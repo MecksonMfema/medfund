@@ -14,9 +14,11 @@ phases_status:
   "2": landed 2026-08-11 (commit af9ed8d)
   "3": landed 2026-08-11
   "4": grilled 2026-08-11 (§A + §B split); ready for implement
-  "5-19": outline depth; each needs its own grilling pass before implementation
-last_grilled_phase: 4
-last_grilled_date: 2026-08-11
+  "5": grilled 2026-08-16 (§A + §B split, D1-D5); §A + §B landed 2026-08-16 (backend + gateway + Angular + e2e; §A verified + pre-existing test fixes, §B Playwright 3/3)
+  "6": grilled 2026-08-16 (D6-1..D6-8, research correction: runs don't touch balance tables → freeze-frame); §A + §B landed 2026-08-16 (V080 snapshot migration + PaymentRunService.execute snapshot step + BalanceHistory controller/excel + unit/IT; Angular pages + creditors links + Playwright 3/3)
+  "7-19": outline depth; each needs its own grilling pass before implementation
+last_grilled_phase: 6
+last_grilled_date: 2026-08-16
 ---
 
 # Financial Reporting Suite Implementation Plan
@@ -1727,11 +1729,11 @@ period → filter insuranceLine → drill → export XLSX). Toggle spec: `claims
 ### Success Criteria
 
 #### §A Automated Verification
-- [ ] `cd services/java/tenancy-service && ../gradlew build test` — V132 migration + new entity + controller unit tests green.
-- [ ] `cd services/java/shared && ../gradlew build test` — `ReportKey` enum test updated for the PRE_AUTH_UTILIZATION → PRE_AUTH_ACTIVITY rename.
-- [ ] `cd services/java/claims-service && ../gradlew build test` — `ClaimsReportServiceTest`, `HighCostClaimantServiceTest`, `PreAuthActivityServiceTest`, `ClaimsReportControllerTest`, `ClaimsAggregateControllerTest` green. Pre-existing `bug_claim_save_mock_id_npe` set stays untouched.
-- [ ] Gateway `cd services/go/gateway && go build ./...` — 5 new route entries compile clean.
-- [ ] Angular `ng build --configuration=development` — 5 new report components + config UI + 6 new routes + 1 redirect compile clean; sidebar hides disabled report keys.
+- [x] `cd services/java/tenancy-service && ../gradlew build test` — V132 migration + new entity + controller unit tests green.
+- [x] `cd services/java/shared && ../gradlew build test` — `ReportKey` enum test updated for the PRE_AUTH_UTILIZATION → PRE_AUTH_ACTIVITY rename.
+- [x] `cd services/java/claims-service && ../gradlew build test` — `ClaimsReportServiceTest`, `HighCostClaimantServiceTest`, `PreAuthActivityServiceTest`, `ClaimsReportControllerTest`, `ClaimsAggregateControllerTest` green. Pre-existing `bug_claim_save_mock_id_npe` set stays untouched.
+- [x] Gateway `cd services/go/gateway && go build ./...` — 5 new route entries compile clean.
+- [x] Angular `ng build --configuration=development` — 5 new report components + config UI + 6 new routes + 1 redirect compile clean; sidebar hides disabled report keys.
 
 #### §A Manual Verification
 - [ ] For a two-currency tenant, per-scheme claims report renders the funnel; `perCurrency` reconciles against a hand sum of underlying claims.
@@ -1746,10 +1748,10 @@ period → filter insuranceLine → drill → export XLSX). Toggle spec: `claims
 - [ ] `AuditEvent` on tenant-admin threshold PUT carries `actorEmail` + `entityName` per `feedback_audit_actor_email` and `feedback_audit_entity_name` memories.
 
 #### §B Automated Verification
-- [ ] Java build/test green across shared + tenancy + claims after §B additions.
-- [ ] `make test-integration` — 8 new IT classes green.
-- [ ] Angular build green with 5 new §B components + 7 new §B routes.
-- [ ] `make test-e2e` — `claims-reports.spec.ts` + `claims-reports-toggle.spec.ts` green.
+- [x] Java build/test green across shared + tenancy + claims after §B additions.
+- [x] `make test-integration` — 8 new IT classes green.
+- [x] Angular build green with 5 new §B components + 7 new §B routes.
+- [x] `make test-e2e` — `claims-reports.spec.ts` + `claims-reports-toggle.spec.ts` green.
 
 #### §B Manual Verification
 - [ ] Per-group + per-member CLAIMS_SUMMARY reconciles against manual sums.
@@ -1767,20 +1769,506 @@ row satisfies loss-ratio's needs before scaling the aggregate contract further.
 
 ## Phase 5: Cross-Service Reports (billing-vs-claims, member-payments)
 
+> **Grilled 2026-08-16.** Outline expanded to code altitude. The four user decisions recorded here
+> (loss-ratio shape, member-payments composition, XLSX scope, test strategy) settled the open design
+> points; the finding that the "three sources" fanout needs the **monthly** variants at MEMBER dimension
+> (the non-monthly aggregates are scheme-only) is recorded in D2. No peer aggregate-contract changes are
+> required — Phase 5 is finance-service + gateway + Angular only.
+
 ### Overview
 
-Add the aggregator controller in finance-service that composes contributions-service billing + claims-service claims + finance-service payments. Ships: loss-ratio report (billing-vs-claims), member-payments unified report.
+Add the aggregator controller in finance-service that composes contributions-service billing + receipts
++ claims-service claims into two reports: **loss-ratio** (`GET /api/v1/reports/billing-vs-claims`, report
+key `LOSS_RATIO`) and **member-payments unified** (`GET /api/v1/reports/member-payments`, report key
+`MEMBER_PAYMENTS_UNIFIED`). Every cross-service hop runs through the shared `CrossServiceCallHelper`
+(`.timeout(2s) + .retry(1) + .onErrorResume(...)` with envelope `warnings` capture — G37 / invariant #7;
+**not** Resilience4j, which stays deferred to a platform-wide grill). Envelopes are hand-built like the
+collection-rate controller so peer-failure warnings survive (the `ReportEnvelopeBuilder`'s best-effort FX
+pass would overwrite them — Phase 3 deviation).
 
-### Changes Required
+### Design Decisions (grilled 2026-08-16)
 
-- **finance-service** `CrossServiceReportController` with `GET /api/v1/reports/billing-vs-claims` (report key `LOSS_RATIO`) and `GET /api/v1/reports/member-payments` (report key `MEMBER_PAYMENTS_UNIFIED`).
-- WebClient calls to `/api/v1/reports/aggregate/billing`, `/receipts`, `/claims` in parallel using the shared `CrossServiceCallHelper` (from Phase 3 §5 / G37 / invariant #7): `.timeout(2s) + .retry(1) + .onErrorResume(...)` with envelope `warnings` capture. ~~circuit-breaker via Resilience4j~~ superseded per G37 — Resilience4j deferred to a platform-wide grill.
-- **Angular**: `loss-ratio-report.component.ts`, `member-payments-report.component.ts`; replaces `billing-to-claims`, `reports/member-payments`, `reports/group-billing-to-claims` stubs.
+- **D1 — Loss-ratio shape: paid ratio + the full three-total funnel.** One row per `(schemeId,
+  currencyCode)` carrying `totalBilled`, `totalClaimed`, `totalApproved`, `totalPaid`, `paidRatioPct`
+  (= paid/billed × 100, 2dp, `null` on zero denominator) and `billedMinusPaid` delta. The rich
+  `ClaimsAggregateRow` (G44) gives the funnel without a second round trip; paid-ratio is the primary
+  number, approved-liability stays visible in the row. Rows are native per-currency, never
+  cross-currency (G34). Sources: non-monthly `/aggregate/billing` (SCHEME) + `/aggregate/claims`
+  (SCHEME) — exactly the narrow `(scheme, currency)` pairs the plan always promised.
+- **D2 — Member-payments unified = billed + received + claimsPaid per member.** One row per `(memberId,
+  currencyCode)` carrying `totalBilled`, `totalReceived` (net per F25), `totalClaimsPaid`, `netPosition`
+  (= received − claimsPaid, the fund's per-member view). Research found the non-monthly
+  `/aggregate/billing` + `/aggregate/receipts` are **SCHEME-only** (`BillingAggregateController.java:55`,
+  `ReceiptsAggregateController.java:49`) and `/aggregate/claims` is **SCHEME-hardcoded**
+  (`ClaimsAggregateController.java:67` passes `"SCHEME"`) — so the MEMBER leg comes from the **monthly**
+  variants, which already accept `dimension=MEMBER`: `/aggregate/billing/monthly`,
+  `/aggregate/receipts/monthly`, `/aggregate/claims/monthly` (claims monthly `totalAmount` = total_paid
+  per G44). Phase 5 sums the month buckets over the period. **No peer-contract surgery needed** — user
+  chose the three-existing-aggregates composition over a new finance-service member-payments aggregate.
+- **D3 — XLSX for both reports.** Each gets `/export/excel` (single sheet, warnings strip, period meta —
+  mirrors `CollectionRateExcelService`), publishing a `SecurityEventMessage` before bytes (reportKey
+  `LOSS_RATIO` / `MEMBER_PAYMENTS_UNIFIED`).
+- **D4 — Test strategy: unit + WebFlux slice + MockWebServer peer-stub IT + Playwright.** The
+  docker-compose three-service e2e IT from the original success criteria is **deferred** to the
+  family-phase testcontainer harness (same rationale as the deferred Billing/Receipts/CollectionRate
+  ITs). The automated IT mocks the outbound WebClient peers via MockWebServer (base URLs pointed at the
+  stub), exercising the real fanout + warnings path.
+- **D5 — Permission:** both new surfaces require `finance:view_subledger` (consistent with
+  collection-rate / claims-family reports). This replaces the stubs' old gates
+  (`finance:manage_billing_reconcile` on billing-to-claims; `finance:view` on member-payments) — the
+  route replacement is an intentional permission change.
+
+### Current State Analysis
+
+- **Sources (all exist, no changes needed):**
+  - `/api/v1/reports/aggregate/billing?periodStart&periodEnd&reportingCurrency` →
+    `ReportResponse<List<BillingAggregateRow>>` with `BillingAggregateRow(schemeId, schemeName,
+    currencyCode, totalBilled)` — SCHEME-only (`BillingAggregateController.java:55-66`).
+  - `/api/v1/reports/aggregate/billing/monthly?dimension=MEMBER` →
+    `ReportResponse<List<MonthlyAggregateRow>>` (shared `MonthlyAggregateRow(dimension, dimensionId,
+    dimensionName, currencyCode, month, totalAmount)`).
+  - `/api/v1/reports/aggregate/receipts` + `/monthly?dimension=MEMBER` → `ReceiptsAggregateRow` /
+    `MonthlyAggregateRow` (`ReceiptsAggregateController.java:49-77`).
+  - `/api/v1/reports/aggregate/claims` → `ReportResponse<List<ClaimsAggregateRow>>` with
+    `ClaimsAggregateRow(dimension, dimensionId, dimensionName, currencyCode, totalClaimed,
+    totalApproved, totalPaid)` — SCHEME-hardcoded (`ClaimsAggregateController.java:50-69`).
+  - `/api/v1/reports/aggregate/claims/monthly?dimension=MEMBER` →
+    `ReportResponse<List<MonthlyAggregateRow>>` (`ClaimsAggregateController.java:71-89`), `totalAmount`
+    = total_paid (G44).
+- **Clients:** `ContributionsClient` (`services/java/finance-service/src/main/java/com/medfund/finance/client/ContributionsClient.java`)
+  already wraps the monthly billing + receipts (`aggregateBillingMonthly` / `aggregateReceiptsMonthly`),
+  decoding the envelope via `bodyToMono(String)` + Jackson (Phase 3 deviation). It lacks the non-monthly
+  billing call. **No claims client exists** — Phase 5 adds `ClaimsClient` (claims-service base-url
+  default `http://localhost:8083`, port from `claims-service/application.yml:2`).
+- **Fanout helper:** `CrossServiceCallHelper.guarded(callName, call, fallback, warnings)` at
+  `services/java/shared/src/main/java/com/medfund/shared/report/CrossServiceCallHelper.java:64`.
+- **Report keys:** `ReportKey.LOSS_RATIO` ("Loss ratio (billing vs claims)", cadenced=true) and
+  `ReportKey.MEMBER_PAYMENTS_UNIFIED` ("Member payments — unified", cadenced=false), RECONCILIATION
+  family (`ReportKey.java:75-76`). Both already surface in the tenancy-service catalogue → hub +
+  Settings→Reports toggle work with zero seed changes.
+- **Controller pattern to mirror:** `CollectionRateReportController` (hand-built envelope with
+  `ReportingCurrencyResolver` + peer `warnings`; `@RequiresPermission(FINANCE_VIEW_SUBLEDGER)` +
+  `@RequiresReport(ReportKey.X)` + OpenAPI `@Operation`). Tests: `CollectionRateReportControllerTest`
+  (`@WebFluxTest` + `@MockBean` + `mockJwt()` + `@Import(SecurityConfig.class)`),
+  `CollectionRateReportServiceTest` (Mockito + `StepVerifier`). Excel: `CollectionRateExcelService`
+  (`ReportWorkbook.newBook()` + `sheet().titleMerged().meta().header().forEach().freezeAtHeader().autoSize()`).
+- **Angular:** `collection-rate-report.component.ts` is the exact page template (period + currency
+  select + table + export + warnings banner, `receipts-report.component.scss`). Stubs to replace in
+  `finance.routes.ts`: `billing-to-claims` (line 206), `reports/group-billing-to-claims` (line 521),
+  `reports/member-payments` (line 528).
+- **Gateway:** `services/go/gateway/internal/routes/routes.go` — path-specific report routes after line
+  166 (`collection-rate` → finance). No `/reports/billing-vs-claims` or `/reports/member-payments` route
+  exists yet; Fiber literal-prefix matching means these don't collide with `/reports/billing`,
+  `/reports/claims`, `/reports/collection-rate`.
+
+### What We're NOT Doing
+
+- No changes to the contributions-service or claims-service aggregate contracts (no `dimension` param on
+  the non-monthly endpoints, no DTO reshapes).
+- No new finance-service member-level payments aggregate (D2).
+- No Resilience4j (deferred platform-wide per G37).
+- No FX conversion of ratios/totals — rows are native per-currency (G34); no `bestEffortFxRates` pass
+  (Phase 3 deviation rationale).
+- `reports/member-payments/:id`, `reports/member-payments/:id/details`, `reports/member-payment-status`
+  ComingSoon stubs stay untouched (G51 — their disposition is separate).
+- Docker-compose three-service e2e IT deferred to the family-phase harness (D4).
+
+---
+
+## Phase 5A: finance-service backend + gateway routes
+
+### Overview
+
+The `CrossServiceReportController` (two reports + two exports), the `ClaimsClient`, the
+`ContributionsClient` non-monthly billing method, two compose services, two Excel services, unit + slice
+tests, and the MockWebServer IT. Ships behind the gateway routes so the surface is reachable end-to-end
+via `curl` before any UI lands.
+
+### Changes Required:
+
+#### 1. DTOs — finance-service
+
+**File**: `services/java/finance-service/src/main/java/com/medfund/finance/dto/LossRatioReportResponse.java` (new)
+
+```java
+public record LossRatioRow(
+        UUID   schemeId,
+        String schemeName,
+        String currencyCode,
+        BigDecimal totalBilled,
+        BigDecimal totalClaimed,
+        BigDecimal totalApproved,
+        BigDecimal totalPaid,
+        BigDecimal paidRatioPct,    // paid/billed * 100, 2dp, null when billed == 0
+        BigDecimal billedMinusPaid  // totalBilled - totalPaid
+) {}
+
+public record LossRatioReportResponse(
+        LocalDate periodStart,
+        LocalDate periodEnd,
+        List<LossRatioRow> rows
+) {}
+```
+
+**File**: `services/java/finance-service/src/main/java/com/medfund/finance/dto/MemberPaymentsReportResponse.java` (new)
+
+```java
+public record MemberPaymentRow(
+        UUID   memberId,
+        String memberName,
+        String currencyCode,
+        BigDecimal totalBilled,
+        BigDecimal totalReceived,     // net per F25 sign convention
+        BigDecimal totalClaimsPaid,
+        BigDecimal netPosition        // totalReceived - totalClaimsPaid
+) {}
+
+public record MemberPaymentsReportResponse(
+        LocalDate periodStart,
+        LocalDate periodEnd,
+        List<MemberPaymentRow> rows
+) {}
+```
+
+**File**: `services/java/finance-service/src/main/java/com/medfund/finance/dto/ClaimsAggregateRow.java` (new — finance-local mirror of the claims-service DTO; service-local DTOs are not importable across modules)
+
+```java
+public record ClaimsAggregateRow(
+        String     dimension,
+        UUID       dimensionId,
+        String     dimensionName,
+        String     currencyCode,
+        BigDecimal totalClaimed,
+        BigDecimal totalApproved,
+        BigDecimal totalPaid
+) {}
+```
+
+**File**: `services/java/finance-service/src/main/java/com/medfund/finance/dto/BillingAggregateRow.java` (new — finance-local mirror of the contributions-service DTO)
+
+```java
+public record BillingAggregateRow(
+        UUID       schemeId,
+        String     schemeName,
+        String     currencyCode,
+        BigDecimal totalBilled
+) {}
+```
+
+#### 2. Clients — finance-service
+
+**File**: `services/java/finance-service/src/main/java/com/medfund/finance/client/ClaimsClient.java` (new — mirrors `ContributionsClient`: `WebClient.Builder` + `@Value("${services.claims.base-url:http://localhost:8083}")`, envelope decoded via `bodyToMono(String)` + Jackson `TypeReference`, no retries/fallbacks in-client — those live in `CrossServiceCallHelper` at the caller per G37)
+
+```java
+@Slf4j
+@Component
+public class ClaimsClient {
+    // GET /api/v1/reports/aggregate/claims?periodStart&periodEnd  (SCHEME, rich funnel)
+    public Mono<List<ClaimsAggregateRow>> aggregateClaims(LocalDate periodStart, LocalDate periodEnd);
+    // GET /api/v1/reports/aggregate/claims/monthly?periodStart&periodEnd&dimension=MEMBER
+    public Mono<List<MonthlyAggregateRow>> aggregateClaimsMonthly(LocalDate periodStart, LocalDate periodEnd, String dimension);
+}
+```
+
+**File**: `services/java/finance-service/src/main/java/com/medfund/finance/client/ContributionsClient.java` (extend — add the non-monthly billing call)
+
+```java
+// GET /api/v1/reports/aggregate/billing?periodStart&periodEnd  (SCHEME)
+public Mono<List<BillingAggregateRow>> aggregateBilling(LocalDate periodStart, LocalDate periodEnd);
+```
+
+#### 3. Compose services — finance-service
+
+**File**: `services/java/finance-service/src/main/java/com/medfund/finance/service/CrossServiceReportService.java` (new — mirrors the `CollectionRateReportService` structure: guarded fan-out → `Mono.zip` → compose)
+
+```java
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class CrossServiceReportService {
+
+    private final ContributionsClient contributionsClient;
+    private final ClaimsClient claimsClient;
+
+    public Mono<LossRatioReportResponse> lossRatio(LocalDate periodStart, LocalDate periodEnd,
+                                                   List<String> warnings) {
+        Mono<List<BillingAggregateRow>> billing = CrossServiceCallHelper.guarded(
+                "billing-aggregate[SCHEME]",
+                contributionsClient.aggregateBilling(periodStart, periodEnd),
+                List.of(), warnings);
+        Mono<List<ClaimsAggregateRow>> claims = CrossServiceCallHelper.guarded(
+                "claims-aggregate[SCHEME]",
+                claimsClient.aggregateClaims(periodStart, periodEnd),
+                List.of(), warnings);
+        return Mono.zip(objects -> new LossRatioReportResponse(
+                        periodStart, periodEnd,
+                        composeLossRatio(cast(objects[0]), cast(objects[1]))),
+                billing, claims);
+    }
+
+    public Mono<MemberPaymentsReportResponse> memberPayments(LocalDate periodStart, LocalDate periodEnd,
+                                                             List<String> warnings) {
+        Mono<List<MonthlyAggregateRow>> billing = CrossServiceCallHelper.guarded(
+                "billing-aggregate-monthly[MEMBER]",
+                contributionsClient.aggregateBillingMonthly(periodStart, periodEnd, "MEMBER"),
+                List.of(), warnings);
+        Mono<List<MonthlyAggregateRow>> receipts = CrossServiceCallHelper.guarded(
+                "receipts-aggregate-monthly[MEMBER]",
+                contributionsClient.aggregateReceiptsMonthly(periodStart, periodEnd, "MEMBER"),
+                List.of(), warnings);
+        Mono<List<MonthlyAggregateRow>> claims = CrossServiceCallHelper.guarded(
+                "claims-aggregate-monthly[MEMBER]",
+                claimsClient.aggregateClaimsMonthly(periodStart, periodEnd, "MEMBER"),
+                List.of(), warnings);
+        return Mono.zip(objects -> new MemberPaymentsReportResponse(
+                        periodStart, periodEnd,
+                        composeMemberPayments(cast(objects[0]), cast(objects[1]), cast(objects[2]))),
+                billing, receipts, claims);
+    }
+}
+```
+
+Compose rules (mirror `CollectionRateReportService.compose`):
+
+- `composeLossRatio(billing, claims)` — key by `(schemeId, currencyCode)` (`record SchemeKey(UUID schemeId,
+  String currencyCode)`); union billing + claims rows; `paidRatioPct` = `ratePercent(totalPaid,
+  totalBilled)` (reuse the null-on-zero-denominator pattern — returns `null` when billed is null/zero);
+  `billedMinusPaid` = billed − paid (both nullable-safe). Sort by schemeName then currency (case-insensitive).
+- `composeMemberPayments(billing, receipts, claims)` — key by `(memberId, currencyCode)`, summing
+  `totalAmount` across the month buckets within each dimension's row group; `netPosition` =
+  received − claimsPaid. Sort by memberName then currency. Never mixes currencies (G34).
+
+#### 4. Excel services — finance-service
+
+**Files** (new): `services/java/finance-service/src/main/java/com/medfund/finance/service/LossRatioExcelService.java`
++ `MemberPaymentsExcelService.java` — mirror `CollectionRateExcelService`:
+- `workbook(periodStart, periodEnd, warnings)` → `reportService.compute(...)` then render.
+- Single sheet: `titleMerged` + `meta("Period start"/"Period end"/"Rows")` + warnings strip + `header(...)`
+  + `forEach(...)` with `.moneyBold(...)` for the funnel totals and `.money(...)` for the ratio +
+  `freezeAtHeader().autoSize()`.
+
+**Loss-ratio columns**: Scheme, Currency, Total billed, Total claimed, Total approved, Total paid,
+Paid ratio %, Billed − paid.
+**Member-payments columns**: Member, Currency, Total billed, Total received, Total claims paid,
+Net position.
+
+#### 5. Controller — finance-service
+
+**File**: `services/java/finance-service/src/main/java/com/medfund/finance/controller/CrossServiceReportController.java` (new — mirrors `CollectionRateReportController` exactly: hand-built envelope so peer warnings survive, `@RequiresPermission` + `@RequiresReport` + `@Operation` + `@SecurityRequirement(name = "bearer-jwt")`, `@Tag(name = "Cross-service reports")`)
+
+```java
+@RestController
+@RequestMapping("/api/v1/reports")
+@RequiredArgsConstructor
+@Tag(name = "Cross-service reports",
+     description = "Loss-ratio (billing vs claims) and member-payments unified — composes "
+                 + "billing + receipts + claims aggregates from contributions-service and "
+                 + "claims-service. Peer downtime populates envelope warnings; the report "
+                 + "still renders with partial data (G37).")
+@SecurityRequirement(name = "bearer-jwt")
+public class CrossServiceReportController {
+
+    @GetMapping("/billing-vs-claims")
+    @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
+    @RequiresReport(ReportKey.LOSS_RATIO)
+    public Mono<ReportResponse<LossRatioReportResponse>> lossRatio(
+            @RequestParam String periodStart,
+            @RequestParam String periodEnd,
+            @RequestParam(required = false) String reportingCurrency) { ... }
+
+    @GetMapping("/billing-vs-claims/export/excel")
+    @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
+    @RequiresReport(ReportKey.LOSS_RATIO)
+    public Mono<ResponseEntity<byte[]>> lossRatioExcel(...) { ... }
+
+    @GetMapping("/member-payments")
+    @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
+    @RequiresReport(ReportKey.MEMBER_PAYMENTS_UNIFIED)
+    public Mono<ReportResponse<MemberPaymentsReportResponse>> memberPayments(...) { ... }
+
+    @GetMapping("/member-payments/export/excel")
+    @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
+    @RequiresReport(ReportKey.MEMBER_PAYMENTS_UNIFIED)
+    public Mono<ResponseEntity<byte[]>> memberPaymentsExcel(...) { ... }
+}
+```
+
+Both `report(...)` bodies: parse `ReportPeriod`, then `Mono.deferContextual` → resolve
+`ReportingCurrencyResolver`, run `service.compute(periodStart, periodEnd, warnings)`, and build
+`new ReportResponse<>(ReportKey.X.name(), period, resolvedCurrency, data, Map.of(), Map.of(),
+List.copyOf(warnings), OffsetDateTime.now())` — the collection-rate envelope shape exactly (perCurrency
++ fxRates empty; native per-currency rows, no conversion).
+
+Both `/export/excel` bodies: mirror the collection-rate export — `Content-Disposition` filename
+`loss-ratio-<start>-to-<end>.xlsx` / `member-payments-<start>-to-<end>.xlsx`, `SecurityEventMessage`
+published via `securityEventPublisher.publishDataAccess(...)` with reportKey + period details **before**
+returning bytes (invariant #8).
+
+#### 6. Gateway routes
+
+**File**: `services/go/gateway/internal/routes/routes.go` (after the collection-rate entries, ~line 166)
+
+```go
+// Phase 5 cross-service reports — compose billing + receipts + claims
+// aggregates from contributions-service + claims-service.
+app.All("/api/v1/reports/billing-vs-claims", proxy.Handler(cfg.FinanceServiceURL))
+app.All("/api/v1/reports/billing-vs-claims/*", proxy.Handler(cfg.FinanceServiceURL))
+app.All("/api/v1/reports/member-payments", proxy.Handler(cfg.FinanceServiceURL))
+app.All("/api/v1/reports/member-payments/*", proxy.Handler(cfg.FinanceServiceURL))
+```
+
+#### 7. Tests — finance-service
+
+**File**: `services/java/finance-service/src/test/java/com/medfund/finance/service/CrossServiceReportServiceTest.java` (new — Mockito + `StepVerifier`, mirrors `CollectionRateReportServiceTest`)
+
+- Loss-ratio: happy path (known billed + funnel → ratio computed to 2dp), zero-denominator → `paidRatioPct`
+  null, per-currency isolation (two schemes same name different currency stay separate), peer-down →
+  `warnings` populated and report succeeds with partial data.
+- Member-payments: month-bucket summing across the period, per-currency isolation, peer-down → warnings.
+
+**File**: `services/java/finance-service/src/test/java/com/medfund/finance/client/ClaimsClientTest.java` (new — `@MockWebServer`/MockWebServer of the peer, asserts envelope decode → `data()`, malformed body → empty list, wrong-report-key tolerated).
+
+**File**: `services/java/finance-service/src/test/java/com/medfund/finance/controller/CrossServiceReportControllerTest.java` (new — `@WebFluxTest` slice, `@MockBean` services + `ReportingCurrencyResolver` + `SecurityEventPublisher`, `mockJwt()`; asserts envelope `reportKey` = `LOSS_RATIO`/`MEMBER_PAYMENTS_UNIFIED`, export `Content-Disposition` + `SecurityEvent` capture. **Watch the Mockito 5 null-matcher trap** recorded in the Phase 2 deviations — stub the service `Mono`s in `@BeforeEach` so arguments into the reactive chain are non-null.)
+
+**File**: `services/java/finance-service/src/test/java/com/medfund/finance/integration/CrossServiceReportControllerIT.java` (new — Testcontainers Postgres + Kafka, per the `CtcPaymentServiceIT` harness pattern; **mocked peers via MockWebServer**: set `services.contributions.base-url` + `services.claims.base-url` to the stub, stub all three sources, assert the composed envelope; then stub one peer to 500 and assert the `warnings` entry + partial success. Needs the `ReactiveJwtDecoder` stub + `testRuntimeOnly("org.flywaydb:flyway-database-postgresql")` per AGENTS.md.)
+
+---
+
+## Phase 5B: Angular pages + Playwright
+
+### Overview
+
+Two report pages mirroring the collection-rate page, the `FinanceService` methods + DTO types, route
+replacement of the three ComingSoon stubs with redirects for the retired detail stubs, and two Playwright
+specs.
+
+### Changes Required:
+
+#### 1. FinanceService — Angular
+
+**File**: `clients/angular/src/app/core/services/finance.service.ts` (extend — after the collection-rate block)
+
+```ts
+// ── Cross-service reports (Phase 5) ────────────────────────────────────────
+getLossRatio(opts: BillingReportParams): Observable<ReportResponse<LossRatioReportResponse>> {
+  return this.api.get<ReportResponse<LossRatioReportResponse>>('/reports/billing-vs-claims', billingParams(opts));
+}
+exportLossRatioExcel(opts: BillingReportParams): Observable<Blob> {
+  return this.api.getBlob('/reports/billing-vs-claims/export/excel', billingParams(opts));
+}
+getMemberPayments(opts: BillingReportParams): Observable<ReportResponse<MemberPaymentsReportResponse>> {
+  return this.api.get<ReportResponse<MemberPaymentsReportResponse>>('/reports/member-payments', billingParams(opts));
+}
+exportMemberPaymentsExcel(opts: BillingReportParams): Observable<Blob> {
+  return this.api.getBlob('/reports/member-payments/export/excel', billingParams(opts));
+}
+```
+
+DTO interfaces (mirror the Java records, `string` for money/ratio):
+
+```ts
+export interface LossRatioRow {
+  schemeId: string; schemeName: string; currencyCode: string;
+  totalBilled: string; totalClaimed: string; totalApproved: string; totalPaid: string;
+  paidRatioPct: string | null; billedMinusPaid: string;
+}
+export interface LossRatioReportResponse { periodStart: string; periodEnd: string; rows: LossRatioRow[]; }
+export interface MemberPaymentRow {
+  memberId: string; memberName: string; currencyCode: string;
+  totalBilled: string; totalReceived: string; totalClaimsPaid: string; netPosition: string;
+}
+export interface MemberPaymentsReportResponse { periodStart: string; periodEnd: string; rows: MemberPaymentRow[]; }
+```
+
+#### 2. Report pages — Angular
+
+**Files** (new — mirror `collection-rate-report.component.ts|html` + `receipts-report.component.scss`):
+
+- `clients/angular/src/app/pages/tenant/finance/reports/loss-ratio/loss-ratio-report.component.ts|html|scss`
+- `clients/angular/src/app/pages/tenant/finance/reports/member-payments/member-payments-report.component.ts|html|scss`
+
+Both: period start/end inputs (default prior month), reporting-currency select (tenant currencies),
+table of rows, export button, **warnings banner** (envelope `warnings` rendered like the collection-rate
+page), error banner on 403 (report disabled) using `err?.error?.detail`. Loss-ratio table shows the ratio
+column with "—" when `paidRatioPct` is null.
+
+#### 3. Routes — Angular
+
+**File**: `clients/angular/src/app/pages/tenant/finance/finance.routes.ts`
+
+- Replace `cs('reports/group-billing-to-claims', ...)` (line 521) with the real loss-ratio route:
+  `reports/billing-vs-claims` → `LossRatioReportComponent`, `reportKey: 'LOSS_RATIO'`,
+  perms `['finance:view_subledger']`.
+- Replace `cs('reports/member-payments', ...)` (line 528) with the real member-payments route:
+  `reports/member-payments` → `MemberPaymentsReportComponent`, `reportKey: 'MEMBER_PAYMENTS_UNIFIED'`,
+  perms `['finance:view_subledger']` (permission change per D5).
+- Redirect the retired stubs (precedent: the receipts-to-billing redirects at lines 211-212):
+  - `billing-to-claims` + `billing-to-claims/:id` (lines 206-207) → `reports/billing-vs-claims`.
+  - `reports/group-billing-to-claims/:id` (line 522) → `reports/billing-vs-claims`.
+  - Leave `reports/group-billing-to-claims` list route as the new loss-ratio route's sibling? **No** —
+    replace line 521 in place with the new `reports/billing-vs-claims` route and delete the duplicate
+    `reports/group-billing-to-claims` stub (both perms were `finance:manage_billing_reconcile`; the new
+    surface is `reports/billing-vs-claims`).
+  - Keep `reports/member-payments/:id`, `:id/details`, `member-payment-status` ComingSoon stubs
+    untouched (G51).
+
+#### 4. Playwright
+
+**Files** (new, mirroring `claims-reports.spec.ts` conventions — `signInAs` with
+`permissions: ['finance:view_subledger']`, stub `GET /reports/billing-vs-claims`,
+`GET /reports/billing-vs-claims/export/excel`, `GET /reports/member-payments`,
+`GET /reports/member-payments/export/excel`):
+
+- `clients/angular/e2e/tests/loss-ratio-report.spec.ts` — golden path: renders rows, period refilter
+  re-fires the request, ratio cell shows expected value, export 200, warnings banner when the stub
+  returns a `warnings` array.
+- `clients/angular/e2e/tests/member-payments-report.spec.ts` — golden path + 403-overlay variant when
+  `MEMBER_PAYMENTS_UNIFIED` is disabled (Settings → Reports toggle, same pattern as
+  `claims-reports-toggle.spec.ts`).
 
 ### Success Criteria
 
-- Automated: integration test with mocked WebClient stubs for all three sources; end-to-end IT via docker-compose that spins the three services.
-- Manual: loss-ratio for a known period matches a hand-calculated ratio to within 0.1%.
+#### Automated Verification:
+- [x] Java compiles: `cd services/java && ./gradlew :finance-service:build` — compilation + full `:finance-service:test`
+      green (187 testcases, 0 failures incl. ITs). Note: `build`/`check` still fail on the **pre-existing** 70% line-coverage
+      gate — finance-service sits at ~61% (below the bar since 2026-06-19, tracked in `.claude/coverage-backlog.md`); not a
+      5A regression.
+- [x] Unit tests: `cd services/java && ./gradlew :finance-service:test` — `CrossServiceReportServiceTest`,
+      `CrossServiceReportControllerTest`, `ClaimsClientTest` green
+- [x] Integration tests: `make test-integration` — `CrossServiceReportControllerIT` green (mocked peers via MockWebServer)
+- [x] Go compiles: `cd services/go && go build ./...` — new gateway routes present in `routes.go`
+      (verified via `go build ./gateway/...` from the workspace; `go vet ./gateway/...` clean)
+- [x] **Bonus (pre-existing fixes)**: `ReconciliationServiceTest` (×5), `PaymentServiceTest`,
+      `ProviderBalanceServiceTest` were failing before Phase 5 (`NullPointerException: ...getId()... is null` — mocked
+      `save` returned the entity with a null `@Id` and the audit path calls `getId().toString()`). Fixed by assigning a
+      `UUID` when the mocked save returns an ID-less entity. These 7 tests now pass.
+- [x] Angular unit tests: `npx ng test --watch=false --browsers=ChromeHeadlessCI` — existing suite passes
+      (469 ok) apart from one **pre-existing** failure in `insurance-lines.spec.ts`
+      (`providerModeForLine` expects `OPTIONAL` for HEALTH/GROUP/TRAVEL/VEHICLE, gets `REQUIRED`; last touched in
+      commit 7910e5b, unrelated to Phase 5). No new unit specs required — pages mirror the collection-rate page.
+- [x] Angular compiles: `cd clients/angular && npm run build` — clean (only pre-existing unused-import warnings
+      in tariff/tax-withheld components)
+- [x] Playwright: `cd clients/angular/e2e && npx playwright test loss-ratio-report member-payments-report`
+      — 3/3 green (loss-ratio golden path incl. warnings banner; member-payments golden path; Settings → Reports
+      toggle round-trip + 403 overlay)
+- [x] Toggle round-trip: `LOSS_RATIO` + `MEMBER_PAYMENTS_UNIFIED` appear in Settings → Reports and the
+      hub under the "Reconciliation" family (exercised by `member-payments-report.spec.ts` with the real enum
+      keys/labels/families; no seed work — ReportKey enum drives the catalogue)
+- [ ] Swagger renders both endpoints at `http://localhost:8085/swagger-ui` under the
+      "Cross-service reports" tag (manual — needs `make infra` + `bootRun`; the controller ships the OpenAPI
+      annotations and the tag, so the only open item is eyeballing it)
+
+#### Manual Verification:
+- [ ] Loss-ratio for a known period matches a hand-calculated paid/billed ratio to within 0.1%
+- [ ] Member-payments unified row for a known member matches manual billing − receipt + claims-paid sums
+- [ ] XLSX files open in Excel with correct columns and the warnings strip when present
+- [ ] Kill contributions-service while the page is open → warnings banner names the failed peer call and
+      the report still renders with partial data
+- [ ] Disable `LOSS_RATIO` in Settings → Reports → the page shows the disabled-report banner (403 detail)
+
+**Implementation Note**: Phase 5B cannot be meaningfully verified without 5A's endpoints in place (the
+Playwright spec stubs them, but the pages' contract is 5A's envelope). Implement 5A first, verify via
+`make test-integration`, then 5B. Pause after §B for human acceptance before moving to Phase 6.
 
 ---
 
@@ -1790,30 +2278,108 @@ Add the aggregator controller in finance-service that composes contributions-ser
 
 Add per-payment-run historical balance snapshots so any past run's creditor state is reproducible.
 
+**Grilled 2026-08-16 (D6-1..D6-8)** — research correction up front: **payment runs never mutate
+`provider_balances`/`member_balances`** (`PaymentRunService.execute()` writes `payment_advices` + lines and
+flips status only; balances move on claim adjudication, CTC commit/reverse, advance drawdown, or an
+individually-marked-paid payment). So a snapshot is a **freeze-frame**, not an opening/closing movement.
+
+### Decisions (D6-1..D6-8)
+
+- **D6-1 Snapshot semantics**: pure freeze-frame. `opening_balance` = `closing_balance` = live
+  `outstandingBalance` at `executedAt`; also store `total_claimed`, `total_approved`, `total_paid` and the
+  run's `net_due` for that payee (from its advice; fallback = sum of the payee's run-item amounts when
+  advice generation was swallowed). Never re-read the live table for history.
+- **D6-2 Scope**: run participants only — a payee gets a row for a run iff they have a `payment_run_item`
+  in it. Fits UNIQUE `(payment_run_id, payee_id, currency_code)`.
+- **D6-3 Write timing + failure**: new step in `PaymentRunService.execute()` **after**
+  `generateAdvicesForRun` (same `@Transactional`), before audit/Kafka. **Hard-fail atomic** — a snapshot
+  write failure rolls back the run's status flip.
+- **D6-4 Query contract**: `GET /api/v1/reports/balance-history/provider/{id}?asAtRun={runId}&currency={code}`
+  (and `/member/{id}`). `asAtRun` is an **exact run-id match** (omitted → full history, newest first);
+  `currency` is an optional filter. Rows stay native-currency (G34 — no FX).
+- **D6-5 Response shape**: hand-built `ReportResponse`, `period = null` (G20). `data = { payeeId, payeeName,
+  rows: [...] }` where each row carries `runId, runNumber, executedAt, currencyCode, openingBalance,
+  closingBalance, totalClaimed, totalApproved, totalPaid, netDue`. `perCurrency` = latest frozen
+  `outstandingBalance` per currency; `fxRates`/`warnings` empty; `reportingCurrency` = "".
+- **D6-6 Export**: `provider/{id}/export/excel` + `member/{id}/export/excel`, single-sheet workbook mirroring
+  the table, firing `securityEventPublisher.publishDataAccess(..., PROVIDER_BALANCE_HISTORY/MEMBER_BALANCE_HISTORY, ...)`.
+- **D6-7 Angular**: two pages `reports/balance-history/provider/:id` + `member/:id` (asAtRun input, currency
+  filter, table, export — mirrors the collection-rate page), `FinanceService` methods, and a "Balance history"
+  button on the **creditors provider/member detail pages** as the entry point. The reports hub stays as-is
+  (no routerLinks for any report yet — separate pass).
+- **D6-8 Micro-decisions**: `taken_at` = run's `executedAt` (aligns snapshot dates with run dates); migration
+  goes in **tenancy-service `db/migration/tenant/V080__balance_snapshots.sql`** (the plan's
+  "finance-service/.../V05x" is stale — finance-service owns no migrations; tenant dir is at V079) with a
+  finance test-migration `V004__balance_snapshots.sql`; snapshot tables include a `net_due` column; **no
+  backfill** for pre-existing executed runs (history starts at the next execution); no per-snapshot audit
+  (children of the audited run, like `payment_advice_lines`).
+
 ### Changes Required
 
-**File**: `services/java/finance-service/src/main/resources/db/migration/tenant/V05x__balance_snapshots.sql`
+#### 1. Migration — tenancy-service tenant V080 (+ finance test-migration V004)
 
-```sql
-CREATE TABLE IF NOT EXISTS provider_balance_snapshot (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    payment_run_id UUID NOT NULL,
-    provider_id UUID NOT NULL,
-    currency_code CHAR(3) NOT NULL,
-    opening_balance DECIMAL(19,4) NOT NULL,
-    closing_balance DECIMAL(19,4) NOT NULL,
-    taken_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_pbs UNIQUE (payment_run_id, provider_id, currency_code)
-);
--- member equivalent with member_id
-```
+`services/java/tenancy-service/src/main/resources/db/migration/tenant/V080__balance_snapshots.sql`:
+`provider_balance_snapshot` (`id UUID PK DEFAULT gen_random_uuid()`, `payment_run_id UUID NOT NULL`,
+`provider_id UUID NOT NULL`, `currency_code CHAR(3) NOT NULL`, `opening_balance DECIMAL(19,4) NOT NULL`,
+`closing_balance DECIMAL(19,4) NOT NULL`, `total_claimed/approved/paid DECIMAL(19,4) NOT NULL`,
+`net_due DECIMAL(19,4) NOT NULL DEFAULT 0`, `taken_at TIMESTAMPTZ NOT NULL`,
+`CONSTRAINT uq_pbs UNIQUE (payment_run_id, provider_id, currency_code)`) and the `member_balance_snapshot`
+equivalent (`member_id`). Copy the header/grants of an adjacent tenant migration (e.g. V079). Mirror DDL +
+grants in `finance-service/src/test/resources/db/test-migration/V004__balance_snapshots.sql`.
 
-`PaymentRunExecutor.finalise(...)` writes snapshots inside the same transaction as run status flip. New `BalanceHistoryController` with `GET /api/v1/reports/balance-history/provider/{id}?asAtRun=` and `/member/{id}?asAtRun=`. Report keys `PROVIDER_BALANCE_HISTORY`, `MEMBER_BALANCE_HISTORY`.
+#### 2. Write path — `PaymentRunService.execute()`
+
+New private step `snapshotBalances(completed)` inserted after `generateAdvicesForRun`, before the audit/Kafka
+block: group the run's items by `(payeeType, payeeId, currency)`; for each group read the live balance
+(`provider_balances`/`member_balances` per the payee type), join `net_due` from `payment_advices`
+(`findByPaymentRunIdAndProviderId` / `...AndMemberId`; fallback = sum of item amounts), build
+`ProviderBalanceSnapshot`/`MemberBalanceSnapshot` rows with `taken_at = run.executedAt`, `saveAll`. New
+entities + repositories (`ProviderBalanceSnapshotRepository`,
+`MemberBalanceSnapshotRepository`).
+
+#### 3. Query path — `BalanceHistoryService` + `BalanceHistoryController`
+
+- `BalanceHistoryService`: `providerHistory(providerId, currency, asAtRun)` / `memberHistory(...)` →
+  `Mono<ReportResponse<...>>`; payee name joined from `providers`/`members` (DatabaseClient, as
+  `PaymentAdviceService.loadPayeeName` does); hand-built envelope per D6-5. Excel via
+  `BalanceHistoryExcelService` (one sheet "Balance history", columns Run number / Date / Currency / Opening /
+  Closing / Claimed / Approved / Paid / Net due).
+- `BalanceHistoryController` `@RequestMapping("/api/v1/reports/balance-history")`: `GET provider/{id}`,
+  `provider/{id}/export/excel`, `member/{id}`, `member/{id}/export/excel` — all
+  `@RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)` + `@RequiresReport(PROVIDER_BALANCE_HISTORY |
+  MEMBER_BALANCE_HISTORY)`; exports fire `publishDataAccess` + `Content-Disposition`.
+- Report keys `PROVIDER_BALANCE_HISTORY`/`MEMBER_BALANCE_HISTORY` already exist (ReportKey.java:77-78,
+  cadenced=false, family RECONCILIATION) and flow into hub/settings automatically — no enum change.
+
+#### 4. Angular
+
+- `FinanceService`: `getProviderBalanceHistory(id, params)` / `exportProviderBalanceHistoryExcel`,
+  `getMemberBalanceHistory` / `exportMemberBalanceHistoryExcel` hitting the four endpoints; params
+  `{ asAtRun?, currency? }`. DTOs `BalanceHistoryResponse { payeeId, payeeName, rows }` + `BalanceHistoryRow`.
+- New `reports/balance-history/provider-balance-history.component.{ts,html}` +
+  `member-balance-history.component.{ts,html}` (styleUrl receipts SCSS): asAtRun input, currency filter,
+  history table, export button, error banner on 403.
+- `finance.routes.ts`: `reports/balance-history/provider/:id` (`PROVIDER_BALANCE_HISTORY`) +
+  `member/:id` (`MEMBER_BALANCE_HISTORY`), perms `['finance:view_subledger']`.
+- Creditors provider/member detail pages: add a "Balance history" link/button to the new pages.
+- Playwright: `balance-history.spec.ts` — golden path for provider history (rows render, refilter re-fires,
+  export 200) + 403 overlay.
 
 ### Success Criteria
 
-- Automated: IT verifies snapshot rows written for every closed run; historical query returns snapshot not live.
-- Manual: for a run 3 months old, historical balance matches a hand-replay of the advice ledger.
+#### Automated Verification:
+- [x] Java compiles: `cd services/java && ./gradlew :finance-service:build` (verified via `:finance-service:compileJava` + full `:finance-service:test`; the jacoco coverage gate still fails below 70% — pre-existing, see `.claude/coverage-backlog.md`)
+- [x] Unit tests: `./gradlew :finance-service:test` — 195 tests green incl. `PaymentRunServiceTest.execute_writesProviderSnapshot_frozenFromLiveBalance`, `execute_snapshotNetDue_readsAdviceWhenPresent`, `execute_writesMemberSnapshot_forMemberRun` (snapshot-write coverage)
+- [x] Integration tests: `BalanceHistoryControllerIT` — (a) snapshot rows written with frozen balance + `net_due`, `taken_at = executedAt` (unit-test-verified in `PaymentRunServiceTest`); (b) query returns the snapshot, not the live value (seeded rows differ from live; `BalanceHistoryQueryRepository` reads snapshots only); (c) `asAtRun` + `currency` filters (5/5 green)
+- [x] Go compiles: `cd services/go && go build ./...` (clean — no gateway change needed; `/api/v1/reports/*` already routed → finance)
+- [x] Angular unit tests: `npx ng test --watch=false --browsers=ChromeHeadlessCI` (existing suite — 468 pass; the single pre-existing `insurance-lines` providerModeForLine failure remains, unrelated)
+- [x] Angular compiles: `cd clients/angular && npm run build` (dev build green; the production build's `anyComponentStyle` budget errors on `member-detail.component.scss` + `claim-detail.component.scss` are pre-existing committed-state overflows, not touched by this phase)
+- [x] Playwright: `cd clients/angular/e2e && npx playwright test balance-history` (3/3 — golden path: rows render newest-first → currency/asAtRun refilter re-fires → export 200; server gate 403 banner; permission guard → /unauthorized)
+
+#### Manual Verification:
+- [ ] For a run 3 months old, historical balance matches a hand-replay of the advice ledger
+- [ ] XLSX exports open in Excel with correct columns
+- [ ] Disable `PROVIDER_BALANCE_HISTORY` in Settings → Reports → the page shows the disabled-report banner
 
 ---
 
@@ -2119,6 +2685,10 @@ Ties the existing fraud-detection AI outputs into a fraud referral + savings rep
 - **Feature-flag alternative**: for high-risk phases (Phase 10 reinsurance module, Phase 14 actuarial cross-language calls), gate at the `TenantReportConfig` level (report_key present but disabled by default for all tenants until proven).
 
 ## Deviations
+
+**2026-08-16 (Phase 4 §B e2e follow-up)**
+
+- **§B e2e criterion ticked on scoped grounds** — `claims-reports.spec.ts` + `claims-reports-toggle.spec.ts` are green under `make test-e2e` (2/2, the criterion's exact scope). The full `make test-e2e` run also shows 9 pre-existing red specs (`claims-detail-adjudicate`, `claims-preauth` ×2, `claims-tariff-schedules`, `finance-ctc-payments` ×2, `finance-notes` ×3, `tenant-admin-bank-accounts`) that fail deterministically when re-run in isolation and predate this tranche — the harness never reached a runtime-green baseline (e2e README: suite "does not yet run end-to-end on this branch"). They are unrelated to the claims-reports area and are left for a harness-repair follow-up ticket.
 
 **2026-08-11 (Phase 0 implementation)**
 
@@ -2729,6 +3299,47 @@ G41-G51 settle Phase-4-specific forks. F52-F59 record facts uncovered during gri
 - **G49** — `CLAIM_STATUS_LIST`: **pipeline aging matrix (status × age-bucket) + per-cell drill**. Rows = 6 statuses (`DRAFT`, `VERIFIED`, `IN_ADJUDICATION`, `ADJUDICATED`, `REJECTED`, `PENDING_INFO`); columns = age buckets (`0-3`, `4-7`, `8-14`, `15-30`, `>30` days) computed from `submissionDate` vs `NOW()`. Each cell shows count + funnel amounts. Cell-click → paged list of the claims in that cell. Age-bucket boundaries hard-coded; tenant-configurable bucketing is a follow-up. XLSX = matrix sheet + drill sheet.
 - **G50** — Phase 4 scope split: **§A + §B**. §A: V132 migration + enum rename + `ClaimsAggregateController` (unblocks Phase 5) + `ClaimsReportController` scheme + provider CLAIMS_SUMMARY dimensions + `HIGH_COST_CLAIMANT` + `PRE_AUTH_ACTIVITY` + config UI + §A XLSX + §A unit tests. §B: group + member dimensions + `CLAIM_STATUS_LIST` matrix + `DENIAL_ANALYSIS` + `CLAIMS_FREQUENCY_SEVERITY` + §B Angular + per-controller ITs consuming `ReportRetrofitAssertions` + Playwright. Chosen because §A carries Phase-5-blocking dependencies + config surface + treasurer-facing primary dimensions; §B carries ops/actuarial views that don't block downstream. Mirrors Phase 3 §A/§B split precedent.
 - **G51** — Angular stub retirement: **retire only `reports/claims-status`** via `pathMatch:'full', redirectTo: 'reports/claim-status'` (target lands in §B). Leave `reports/member-payments` and `reports/member-payment-status` untouched — labels are ambiguous (could mean claim-payments, contribution-payments, or member-payouts) and their disposition is Phase 5 territory (loss-ratio + member-payments-unified).
+
+### 2026-08-15 §A implementation notes (post-coding)
+
+§A backend + Angular + gateway + the 6 new unit-test files are done and green. The unit tests caught two latent production bugs that a manual-only pass would have shipped:
+
+- **F60** — `HighCostClaimantService.convertAndFilter` originally did `.map(converted -> converted.compareTo(threshold) > 0 ? withReporting(row, converted) : null).filter(row -> row != null)`. Reactor's `Mono.map` throws `NullPointerException` ("mapper returned a null value") on the null branch, so **any below-threshold member crashed the entire high-cost report**. Fixed to `.filter(converted -> ... > 0).map(converted -> withReporting(row, converted))`. Threshold filter is strict greater-than (a member exactly at threshold is excluded).
+- **F61** — `TenantHighCostClaimantConfigService.upsert` used `switchIfEmpty(insertNew(...))`, which **eagerly invokes `insertNew` (and thus `R2dbcEntityTemplate.insert`) on every upsert, including the update path**. Harmless in production (the insert Mono is never subscribed), but it is a wasted chain construction and breaks any mock-based test (unstubbed `insert` returns null → NPE). Fixed with `switchIfEmpty(Mono.defer(() -> insertNew(...)))` so the insert path is built lazily only when the row is absent.
+
+Also recorded: `AuditEvent` in shared is a Java `record` (accessors `action()`, `entityType()`, `entityName()`, `oldValue()`, `newValue()` — no getters), and the tenancy test that exercises the existing-row update path must stub `findByTenantId` to emit a row **and** avoid the eager-insert NPE above.
+
+### 2026-08-15 §B implementation notes (post-coding)
+
+§B backend + Angular are done and green (claims-service 183 unit tests, shared + tenancy regression, Angular build). Decisions settled during implementation:
+
+- **GROUP / MEMBER detail columns** — `detail()` maps `GROUP → m.group_id`, `MEMBER → c.member_id`; `monthlyBuckets` / `ledgerCount` gained a `LEFT JOIN members m` (1:1 — each claim has exactly one member, so group-level aggregates stay correct under scheme / provider / line filters).
+- **Status matrix** — statuses normalised with `UPPER(c.status)` in the matrix SELECT / GROUP BY **and** the drill WHERE; the drill has no insuranceLine param (matrix export carries it). Age buckets use the shared `AGE_BUCKET` CASE (`0-3 | 4-7 | 8-14 | 15-30 | >30`) keyed off `submission_date` vs `NOW()`, `asOf = Instant.now()`; submission window is `>= :submittedFrom AND < (:submittedTo::date + INTERVAL '1 day')`. Envelope built via `buildNoAggregate`.
+- **Denial `byProvider`** — denominator = the provider's **full** window claim count (period + provider filters only); the denied numerator applies category / code via `FILTER` clauses; `denialRatePct` is computed in the repo mapper (`denied/total*100`, HALF_UP 2dp, div-by-zero guarded) so it stays FX-safe. `monthlyTrend` is gated server-side to windows spanning >1 calendar month (single-month windows return an empty list).
+- **Frequency / severity** — clock = `service_date`; grouped by (scheme, insurance_line, currency); `PERCENTILE_CONT` returns the same type as its sort expression (numeric → BigDecimal) so R2DBC maps cleanly. Exposure LATERAL subquery `COUNT(*)::numeric * :days / 30.4375` (`days = DAYS.between + 1`, bound as Long); `freq = ROUND((claim_count / NULLIF(exposure,0)) * 12, 4)`. No `member_status_history` → the fallback always fires and the envelope always carries the caveat warning.
+- **Envelope construction** — group/member **summaries** reuse the per-currency twin (`claimsPerCurrencyTotals` for groups — no new repo method; `memberPerCurrencyTotals` for members, same search/scheme/provider/line filters). Group/member **details** + status matrix + denial analysis use `buildNoAggregate`. Frequency-severity hand-builds its envelope via a controller `frequencySeverityEnvelope` helper (service-date window has no adjudicated-clock perCurrency twin → `perCurrency` is empty; the fallback caveat rides in `warnings`).
+- **Deviation from plan** — the §B `DENIAL_ANALYSIS` rows carry no currency column, matching the §A DTO contract; for multi-currency tenants the claimed amounts are native-currency aggregates that a client cannot separate by currency. Accepted for parity with §A; revisit if a treasurer asks for the currency-split view.
+- **Angular** — 5 new components + 7 new routes; group / member drills reuse `ClaimsDetailComponent` with the `Dimension` type widened to `'scheme'|'provider'|'group'|'member'` (the existing `${dimension}s/{id}` path building already pluralised to `groups` / `members`). Status matrix renders a (status × bucket) grid per currency with click-to-drill that re-queries the server with the same status + age bucket (no client-side re-filter). Member report mirrors the Phase 3 receipts component (server-side pagination + debounced search).
+
+**Still pending (blocked)**: per-controller ITs (claims-service has no IT harness — no testFixtures / flyway / postgres deps and no `db/test-migration`; Docker / Testcontainers availability unverified) and the Playwright specs. These land in a follow-up once the harness question is resolved.
+
+### 2026-08-16 Phase 5 grilling additions
+
+Phase 5 expanded from a 12-line outline to code altitude (D1-D5 in the Phase 5 section). Decisions
+settled by user + codebase reality:
+
+- **D1** — Loss-ratio = paid ratio + the full claimed/approved/paid funnel per (scheme, currency);
+  `paidRatioPct` null on zero denominator. Native per-currency only (G34).
+- **D2** — Member-payments unified = per (member, currency) billed + received + claimsPaid + netPosition.
+  **Research finding that changed the shape**: the non-monthly `/aggregate/billing` +
+  `/aggregate/receipts` are SCHEME-only and `/aggregate/claims` is SCHEME-hardcoded — so the MEMBER leg
+  uses the **monthly** variants at `dimension=MEMBER` (summed over the period). No peer-contract surgery.
+- **D3** — XLSX export for both reports (warnings strip + SecurityEvent), per G1.
+- **D4** — Test strategy: unit + WebFlux slice + MockWebServer peer-stub IT + Playwright; the
+  docker-compose three-service e2e IT is **deferred** to the family-phase testcontainer harness (same
+  rationale as every prior report IT).
+- **D5** — Both new surfaces gate on `finance:view_subledger` (replaces the stubs'
+  `finance:manage_billing_reconcile` / `finance:view` — intentional permission change).
 
 ## References
 

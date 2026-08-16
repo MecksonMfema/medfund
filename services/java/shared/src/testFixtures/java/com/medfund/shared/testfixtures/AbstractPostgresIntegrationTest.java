@@ -3,13 +3,11 @@ package com.medfund.shared.testfixtures;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
  * Base class for Spring Boot integration tests that need a real Postgres
- * instance. The container is {@code static} and shared across every test
- * method in the class so we pay the start-up cost (~3 s) once per class.
+ * instance. The container is {@code static} and started once per JVM so every
+ * test class in the same Gradle run shares it.
  *
  * <p>Subclasses inherit two Spring properties:
  * <ul>
@@ -25,19 +23,20 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * <p>Subclasses that also need Kafka should extend
  * {@link AbstractIntegrationTest} instead — it combines both.
  */
-@Testcontainers
 public abstract class AbstractPostgresIntegrationTest {
 
-    @Container
     protected static final PostgreSQLContainer<?> POSTGRES =
         new PostgreSQLContainer<>("postgres:17-alpine")
             .withDatabaseName("medfund")
             .withUsername("medfund")
-            .withPassword("medfund")
-            // Reuse across test classes in the same Gradle run. Safe because
-            // every class gets its own connection pool and Flyway is idempotent;
-            // saves 1–2 s per slice on warm CI runs.
-            .withReuse(true);
+            .withPassword("medfund");
+
+    static {
+        // Started once per JVM, NOT per test class — the @Testcontainers
+        // extension would otherwise stop the container at the end of each class
+        // and invalidate any cached Spring context pool (see AbstractIntegrationTest).
+        POSTGRES.start();
+    }
 
     @DynamicPropertySource
     static void postgresProperties(DynamicPropertyRegistry registry) {

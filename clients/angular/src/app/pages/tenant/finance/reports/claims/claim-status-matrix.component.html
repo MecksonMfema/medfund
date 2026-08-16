@@ -1,0 +1,137 @@
+<header class="page-header">
+  <div>
+    <h1>Claim status matrix</h1>
+    <p class="page-sub">
+      Claims submitted in the window, aged since submission into fixed buckets
+      (0-3 / 4-7 / 8-14 / 15-30 / &gt;30 days) × claim status × currency.
+      Ages are relative to the server clock at report time. Click any cell to
+      drill into the exact claim ledger that built it.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="exporting || loading || !cells.length"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Submitted from</span>
+    <input type="date" [(ngModel)]="submittedFrom" (change)="onFilterChange()" name="submittedFrom" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Submitted to</span>
+    <input type="date" [(ngModel)]="submittedTo" (change)="onFilterChange()" name="submittedTo" />
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Insurance line</span>
+    <app-select
+      [(ngModel)]="insuranceLine"
+      (selectionChange)="onFilterChange()"
+      name="insuranceLine"
+      [options]="lineOptions"
+      placeholder="All lines"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (envelope?.warnings?.length) {
+  <div class="banner banner-warning">
+    @for (w of envelope!.warnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+@if (asOf) {
+  <p class="page-sub">Ages as of {{ asOf | date:'short' }}</p>
+}
+
+<div class="detail-sections">
+  @for (currency of currencies; track currency) {
+    <section class="detail-section">
+      <h2>Currency — {{ currency }}</h2>
+      <table class="rate-table matrix-table">
+        <thead>
+          <tr>
+            <th>Status</th>
+            @for (bucket of buckets; track bucket) {
+              <th class="num">≤ {{ bucket }}d</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (status of statuses; track status) {
+            <tr>
+              <td>{{ status }}</td>
+              @for (bucket of buckets; track bucket) {
+                @let c = cell(status, bucket, currency);
+                <td class="num">
+                  @if (c) {
+                    <button
+                      type="button"
+                      class="matrix-cell"
+                      (click)="drill(status, bucket, currency)"
+                      [title]="'Claimed ' + c.totalClaimed + ' · Approved ' + c.totalApproved + ' · Paid ' + c.totalPaid"
+                    >
+                      {{ c.claimCount | number }}
+                    </button>
+                  } @else {
+                    <span class="matrix-empty">–</span>
+                  }
+                </td>
+              }
+            </tr>
+          }
+          @empty {
+            <tr><td colspan="buckets.length || 1" class="matrix-empty">No claims submitted in this window.</td></tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+</div>
+
+@if (drillOpen) {
+  <section class="detail-section">
+    <h2>
+      Ledger — {{ drillStatus }} · {{ drillBucket }}d · {{ drillCurrency }}
+      <button type="button" class="btn btn-ghost" (click)="closeDrill()">Close</button>
+    </h2>
+    <app-data-table
+      [data]="drillPage.content"
+      [columns]="drillColumns"
+      [loading]="drillLoading"
+      [searchable]="false"
+      [showToolbar]="false"
+      [serverSide]="true"
+      [totalCount]="drillPage.total"
+      [totalPages]="drillPage.totalPages"
+      [serverPage]="pageIndex + 1"
+      [pageSize]="pageSize"
+      emptyMessage="No claims in this cell."
+      (pageChange)="onDrillPageChange($event - 1)"
+    ></app-data-table>
+  </section>
+}

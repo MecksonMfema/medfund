@@ -69,7 +69,7 @@ public enum ReportKey {
     CLAIMS_FREQUENCY_SEVERITY   ("Claims frequency & severity",             ReportFamily.CLAIMS_FINANCIAL, false),
     DENIAL_ANALYSIS             ("Denial analysis",                         ReportFamily.CLAIMS_FINANCIAL, false),
     HIGH_COST_CLAIMANT          ("High-cost claimant",                      ReportFamily.CLAIMS_FINANCIAL, false),
-    PRE_AUTH_UTILIZATION        ("Pre-auth utilization",                    ReportFamily.CLAIMS_FINANCIAL, false),
+    PRE_AUTH_ACTIVITY           ("Pre-auth activity",                       ReportFamily.CLAIMS_FINANCIAL, false),
 
     // ── Cross-service / reconciliation (Phase 5) ─────────────────────────────
     LOSS_RATIO                  ("Loss ratio (billing vs claims)",          ReportFamily.RECONCILIATION,   true),

@@ -5,6 +5,10 @@
         <app-icon name="arrow-left" [size]="14"></app-icon>
         Back to creditors
       </button>
+      <button type="button" class="btn btn-primary btn-sm btn-balance-history" (click)="balanceHistory()">
+        <app-icon name="history" [size]="14"></app-icon>
+        Balance history
+      </button>
       <h1>Provider</h1>
       @if (balance) {
         <p class="page-sub">

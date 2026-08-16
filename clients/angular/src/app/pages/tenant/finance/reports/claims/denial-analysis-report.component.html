@@ -1,0 +1,171 @@
+<header class="page-header">
+  <div>
+    <h1>Denial analysis</h1>
+    <p class="page-sub">
+      REJECTED claims in the window, cut four ways — by rejection category, by
+      rejection code, by provider (denial rate = denied ÷ total, always FX-safe),
+      and a monthly trend for multi-month windows. Amounts stay in the claim's
+      original currency.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="exporting || loading || !data"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input type="date" [(ngModel)]="periodStart" (change)="onFilterChange()" name="periodStart" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input type="date" [(ngModel)]="periodEnd" (change)="onFilterChange()" name="periodEnd" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Rejection category</span>
+    <input type="text" [(ngModel)]="category" (change)="onFilterChange()" name="category"
+           placeholder="e.g. ELIGIBILITY" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Rejection code</span>
+    <input type="text" [(ngModel)]="code" (change)="onFilterChange()" name="code"
+           placeholder="e.g. R04" />
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (envelope?.warnings?.length) {
+  <div class="banner banner-warning">
+    @for (w of envelope!.warnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+<div class="detail-sections">
+  <section class="detail-section">
+    <h2>By category</h2>
+    <table class="rate-table">
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th class="num">Claims</th>
+          <th class="num">Total claimed</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of data?.byCategory ?? []; track row.category) {
+          <tr>
+            <td>{{ row.category }}</td>
+            <td class="num">{{ row.claimCount | number }}</td>
+            <td class="num">{{ row.totalClaimed }}</td>
+          </tr>
+        }
+        @empty {
+          <tr><td colspan="3" class="matrix-empty">No rejections in this window.</td></tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="detail-section">
+    <h2>By rejection code</h2>
+    <table class="rate-table">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Category</th>
+          <th>Description</th>
+          <th class="num">Claims</th>
+          <th class="num">Total claimed</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of data?.byCode ?? []; track row.code) {
+          <tr>
+            <td>{{ row.code }}</td>
+            <td>{{ row.category }}</td>
+            <td>{{ row.description }}</td>
+            <td class="num">{{ row.claimCount | number }}</td>
+            <td class="num">{{ row.totalClaimed }}</td>
+          </tr>
+        }
+        @empty {
+          <tr><td colspan="5" class="matrix-empty">No rejections in this window.</td></tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="detail-section">
+    <h2>By provider</h2>
+    <table class="rate-table">
+      <thead>
+        <tr>
+          <th>Provider</th>
+          <th class="num">Denied</th>
+          <th class="num">Total claimed</th>
+          <th class="num">Denial rate</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of data?.byProvider ?? []; track row.providerId) {
+          <tr>
+            <td>{{ row.providerName }}</td>
+            <td class="num">{{ row.claimCount | number }}</td>
+            <td class="num">{{ row.totalClaimed }}</td>
+            <td class="num">{{ row.denialRatePct }}%</td>
+          </tr>
+        }
+        @empty {
+          <tr><td colspan="4" class="matrix-empty">No rejections in this window.</td></tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  @if (data?.monthlyTrend?.length) {
+    <section class="detail-section">
+      <h2>Monthly trend</h2>
+      <table class="rate-table">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th class="num">Claims</th>
+            <th class="num">Total claimed</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of data!.monthlyTrend; track row.month) {
+            <tr>
+              <td>{{ row.month }}</td>
+              <td class="num">{{ row.claimCount | number }}</td>
+              <td class="num">{{ row.totalClaimed }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+</div>

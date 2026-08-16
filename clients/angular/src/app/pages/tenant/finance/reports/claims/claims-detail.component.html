@@ -1,0 +1,116 @@
+<header class="page-header">
+  <div>
+    <h1>{{ title }}</h1>
+    <p class="page-sub">
+      Monthly bucketing of adjudicated claims on the left; full claim ledger
+      below. Rows stay in the claim's original currency.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="exporting || loading"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input type="date" [(ngModel)]="periodStart" (change)="onFilterChange()" name="periodStart" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input type="date" [(ngModel)]="periodEnd" (change)="onFilterChange()" name="periodEnd" />
+  </div>
+  <div class="toolbar-cell cell-line">
+    <span class="cell-label">Status</span>
+    <app-select
+      [(ngModel)]="status"
+      (selectionChange)="onFilterChange()"
+      name="status"
+      [options]="statusOptions"
+      placeholder="All statuses"
+      [searchable]="false"
+    ></app-select>
+  </div>
+  @if (dimension === 'scheme') {
+    <div class="toolbar-cell cell-search">
+      <span class="cell-label">Provider</span>
+      <input type="text" [(ngModel)]="providerId" (change)="onFilterChange()" name="providerId"
+             placeholder="Provider id (UUID)" />
+    </div>
+  }
+  <div class="toolbar-cell">
+    <span class="cell-label">Currency filter</span>
+    <input type="text" [(ngModel)]="currency" (change)="onFilterChange()" name="currency"
+           placeholder="e.g. USD" />
+  </div>
+</div>
+
+@if (envelope?.warnings?.length) {
+  <div class="banner banner-warning">
+    @for (w of envelope!.warnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+<div class="detail-sections">
+  <section class="detail-section">
+    <h2>Monthly buckets</h2>
+    @if ((envelope?.data?.monthlyBuckets?.length ?? 0) === 0) {
+      <p>No claims adjudicated in this period.</p>
+    } @else {
+      <table class="rate-table">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Currency</th>
+            <th class="num">Claims</th>
+            <th class="num">Claimed</th>
+            <th class="num">Approved</th>
+            <th class="num">Paid</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (b of envelope!.data.monthlyBuckets; track b.month + '-' + b.currencyCode) {
+            <tr>
+              <td>{{ b.month | date:'MMM y' }}</td>
+              <td>{{ b.currencyCode }}</td>
+              <td class="num">{{ b.claimCount }}</td>
+              <td class="num">{{ b.totalClaimed | number:'1.2-2' }}</td>
+              <td class="num">{{ b.totalApproved | number:'1.2-2' }}</td>
+              <td class="num">{{ b.totalPaid | number:'1.2-2' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+
+  <section class="detail-section">
+    <h2>Claim ledger</h2>
+    <app-data-table
+      [data]="ledger"
+      [columns]="ledgerColumns"
+      [loading]="loading"
+      [searchable]="false"
+      [showToolbar]="false"
+      [serverSide]="true"
+      [totalCount]="ledgerTotal"
+      [totalPages]="ledgerTotalPages"
+      [serverPage]="pageIndex + 1"
+      [pageSize]="pageSize"
+      emptyMessage="No claims match the current filters."
+      (pageChange)="onPageChange($event - 1)"
+    ></app-data-table>
+  </section>
+</div>

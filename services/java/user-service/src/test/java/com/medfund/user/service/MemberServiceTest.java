@@ -174,7 +174,7 @@ class MemberServiceTest {
 
         verify(memberRepository, atLeast(1)).save(any());
         verify(auditPublisher).publish(any());
-        verify(eventPublisher).publishMemberEnrolled(any(), any(), any(), any(), any());
+        verify(eventPublisher).publishMemberEnrolled(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -236,7 +236,7 @@ class MemberServiceTest {
             .verifyComplete();
 
         verify(auditPublisher).publish(any());
-        verify(eventPublisher).publishMemberEnrolled(any(), any(), any(), any(), any());
+        verify(eventPublisher).publishMemberEnrolled(any(), any(), any(), any(), any(), any());
     }
 
     @Test

@@ -1,0 +1,94 @@
+<header class="page-header">
+  <div>
+    <h1>Claims report — per group</h1>
+    <p class="page-sub">
+      Claims adjudicated in the window, netted per group × currency. Groups
+      resolve through the member's employer group; ungrouped members fold into
+      an 'Ungrouped' pseudo-row. Click a row to drill into monthly buckets and
+      the claim ledger.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="exporting || loading || !rows.length"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input type="date" [(ngModel)]="periodStart" (change)="onFilterChange()" name="periodStart" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input type="date" [(ngModel)]="periodEnd" (change)="onFilterChange()" name="periodEnd" />
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Insurance line</span>
+    <app-select
+      [(ngModel)]="insuranceLine"
+      (selectionChange)="onFilterChange()"
+      name="insuranceLine"
+      [options]="lineOptions"
+      placeholder="All lines"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (envelope?.warnings?.length) {
+  <div class="banner banner-warning">
+    @for (w of envelope!.warnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+@if (envelope && perCurrencyEntries.length) {
+  <div class="kpi-strip">
+    @for (entry of perCurrencyEntries; track entry.currency) {
+      <div class="kpi-card">
+        <span class="kpi-label">{{ entry.currency }}</span>
+        <span class="kpi-value">{{ entry.totalAmount | number:'1.2-2' }}</span>
+        <span class="kpi-meta">{{ entry.rowCount }} rows</span>
+      </div>
+    }
+    @if (envelope.reportingCurrency) {
+      <div class="kpi-card kpi-reporting">
+        <span class="kpi-label">Reporting</span>
+        <span class="kpi-value">{{ envelope.reportingCurrency }}</span>
+        <span class="kpi-meta">as of {{ envelope.generatedAt | date:'shortDate' }}</span>
+      </div>
+    }
+  </div>
+}
+
+<app-data-table
+  [data]="rows"
+  [columns]="columns"
+  [loading]="loading"
+  [searchable]="false"
+  [showToolbar]="false"
+  emptyMessage="No claims adjudicated in this window."
+  (rowClick)="onRowClick($event)"
+></app-data-table>

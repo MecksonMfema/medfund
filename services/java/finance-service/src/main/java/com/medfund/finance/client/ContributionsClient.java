@@ -2,6 +2,7 @@ package com.medfund.finance.client;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.medfund.finance.dto.BillingAggregateRow;
 import com.medfund.shared.report.MonthlyAggregateRow;
 import com.medfund.shared.report.ReportResponse;
 import com.medfund.shared.tenant.TenantContext;
@@ -56,6 +57,41 @@ public class ContributionsClient {
                                                                      String dimension) {
         return fetchMonthly("/api/v1/reports/aggregate/receipts/monthly",
                 periodStart, periodEnd, dimension);
+    }
+
+    /**
+     * GET /api/v1/reports/aggregate/billing?periodStart&periodEnd — the
+     * SCHEME-only non-monthly variant returning one {@link BillingAggregateRow}
+     * per (scheme, currency). Used by the loss-ratio report (Phase 5).
+     */
+    public Mono<List<BillingAggregateRow>> aggregateBilling(LocalDate periodStart, LocalDate periodEnd) {
+        return Mono.deferContextual(ctx -> {
+            String tenantId = TenantContext.get(ctx);
+            return http.get()
+                    .uri(uri -> uri.path("/api/v1/reports/aggregate/billing")
+                            .queryParam("periodStart", periodStart.toString())
+                            .queryParam("periodEnd",   periodEnd.toString())
+                            .build())
+                    .header("X-Tenant-ID", tenantId != null ? tenantId : "")
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .map(this::extractBillingRows);
+        });
+    }
+
+    /**
+     * Decodes {@code ReportResponse<List<BillingAggregateRow>>} from the raw
+     * JSON body — same String + Jackson approach as the monthly decode.
+     */
+    private List<BillingAggregateRow> extractBillingRows(String body) {
+        try {
+            ReportResponse<List<BillingAggregateRow>> envelope = objectMapper.readValue(
+                    body, new TypeReference<>() {});
+            return envelope != null && envelope.data() != null ? envelope.data() : List.of();
+        } catch (Exception e) {
+            log.warn("[contributions-client] failed to decode billing envelope: {}", e.getMessage());
+            return List.of();
+        }
     }
 
     private Mono<List<MonthlyAggregateRow>> fetchMonthly(String path,

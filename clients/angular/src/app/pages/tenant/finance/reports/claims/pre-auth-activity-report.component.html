@@ -1,0 +1,114 @@
+<header class="page-header">
+  <div>
+    <h1>Pre-auth activity</h1>
+    <p class="page-sub">
+      Pre-authorisations requested in the window, per status × currency.
+      The R04 / R05 panel below is a claims-side proxy signal: how often
+      claims were rejected for a required-but-missing (R04) or expired (R05)
+      pre-authorisation.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="exporting || loading || !rows.length"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input type="date" [(ngModel)]="periodStart" (change)="onFilterChange()" name="periodStart" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input type="date" [(ngModel)]="periodEnd" (change)="onFilterChange()" name="periodEnd" />
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+  <div class="toolbar-cell cell-line">
+    <span class="cell-label">Status</span>
+    <app-select
+      [(ngModel)]="status"
+      (selectionChange)="onFilterChange()"
+      name="status"
+      [options]="statusOptions"
+      placeholder="All statuses"
+      [searchable]="false"
+    ></app-select>
+  </div>
+  <div class="toolbar-cell cell-search">
+    <span class="cell-label">Provider</span>
+    <input type="text" [(ngModel)]="providerId" (change)="onFilterChange()" name="providerId"
+           placeholder="Provider id (UUID)" />
+  </div>
+</div>
+
+@if (envelope?.warnings?.length) {
+  <div class="banner banner-warning">
+    @for (w of envelope!.warnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+<div class="detail-sections">
+  <section class="detail-section">
+    <h2>Activity by status</h2>
+    <app-data-table
+      [data]="rows"
+      [columns]="columns"
+      [loading]="loading"
+      [searchable]="false"
+      [showToolbar]="false"
+      emptyMessage="No pre-authorisations requested in this window."
+    ></app-data-table>
+  </section>
+
+  <section class="detail-section">
+    <h2>R04 / R05 rejection signal</h2>
+    @if (signal) {
+      <div class="signal-grid">
+        <div class="signal-card">
+          <span class="signal-label">R04 — pre-auth required, not provided</span>
+          <span class="signal-value">{{ signal.r04Count }}</span>
+          <span class="signal-meta">claims rejected on this code in the window</span>
+        </div>
+        <div class="signal-card">
+          <span class="signal-label">R05 — pre-auth expired</span>
+          <span class="signal-value">{{ signal.r05Count }}</span>
+          <span class="signal-meta">claims rejected on this code in the window</span>
+        </div>
+        <div class="signal-card">
+          <span class="signal-label">Claimed on R04 / R05</span>
+          <span class="signal-value">{{ signal.totalClaimedInR04R05 | number:'1.2-2' }}</span>
+          <span class="signal-meta">total claimed across those rejections</span>
+        </div>
+      </div>
+      <p class="page-sub" style="margin-top: 12px">
+        Indicative companion metric — a proxy for pre-auth utilisation, not
+        an authoritative measure (no claim back-link exists in the stored
+        pre-auth data).
+      </p>
+    } @else {
+      <p>No R04 / R05 signal data for this window.</p>
+    }
+  </section>
+</div>

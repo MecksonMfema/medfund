@@ -3,7 +3,7 @@ package com.medfund.contributions.integration;
 import com.medfund.contributions.dto.ChargePreviewLine;
 import com.medfund.contributions.dto.ChargePreviewResponse;
 import com.medfund.contributions.service.BillingService;
-import com.medfund.shared.testfixtures.AbstractIntegrationTest;
+import com.medfund.shared.testfixtures.AbstractDedicatedPostgresIntegrationTest;
 import com.medfund.shared.testfixtures.TenantTestContext;
 import com.medfund.shared.testfixtures.WithTenant;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,7 +65,7 @@ import static org.assertj.core.api.Assertions.assertThat;
     "spring.flyway.baseline-on-migrate=true",
 })
 @Import(BillingServiceChargePreviewIT.SecurityStub.class)
-class BillingServiceChargePreviewIT extends AbstractIntegrationTest {
+class BillingServiceChargePreviewIT extends AbstractDedicatedPostgresIntegrationTest {
 
     @TestConfiguration
     static class SecurityStub {

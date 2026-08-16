@@ -137,6 +137,10 @@ const ICONS: Record<string, string> = {
   // (permission granted) already in the registry.
   user:
     '<path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>',
+  // Clock with counter-clockwise arrow — Balance history entry point on
+  // the creditors provider / member detail pages (Phase 6, D6-7).
+  history:
+    '<path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6a7 7 0 1 1 7 7v2a9 9 0 1 0-9-9H4a9 9 0 1 1 9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>',
 };
 
 @Component({

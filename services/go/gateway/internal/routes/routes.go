@@ -15,6 +15,11 @@ func Register(app *fiber.App, cfg *config.Config) {
 	platformHandler.Register(app.Group("/api/v1/platform"))
 
 	// ── Tenancy Service ───────────────────────────────────────────────────────
+	// Per-tenant high-cost-claimant threshold (Phase 4 V132) registered
+	// BEFORE the /api/v1/tenants/* catch-all so Fiber's first-match routing
+	// pins the config surface explicitly (both point at tenancy-service;
+	// this documents the path and survives a future catch-all split).
+	app.All("/api/v1/tenants/*/high-cost-claimant-config", proxy.Handler(cfg.TenancyServiceURL))
 	app.All("/api/v1/tenants/*", proxy.Handler(cfg.TenancyServiceURL))
 	app.All("/api/v1/plans/*", proxy.Handler(cfg.TenancyServiceURL))
 	app.All("/api/v1/currencies", proxy.Handler(cfg.TenancyServiceURL))
@@ -80,6 +85,14 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/drugs/*", proxy.Handler(cfg.ClaimsServiceURL))
 	app.All("/api/v1/drug-claims", proxy.Handler(cfg.ClaimsServiceURL))
 	app.All("/api/v1/drug-claims/*", proxy.Handler(cfg.ClaimsServiceURL))
+	// Phase 4 claims-financial report family — per-scheme / per-provider
+	// summaries + HIGH_COST_CLAIMANT + PRE_AUTH_ACTIVITY + drill-downs, and
+	// the narrow cross-service /aggregate/claims surface consumed by Phase 5
+	// loss-ratio. Path-specific per Phase 2 deviation §4 rationale.
+	app.All("/api/v1/reports/claims", proxy.Handler(cfg.ClaimsServiceURL))
+	app.All("/api/v1/reports/claims/*", proxy.Handler(cfg.ClaimsServiceURL))
+	app.All("/api/v1/reports/aggregate/claims", proxy.Handler(cfg.ClaimsServiceURL))
+	app.All("/api/v1/reports/aggregate/claims/*", proxy.Handler(cfg.ClaimsServiceURL))
 
 	// ── Contributions Service ─────────────────────────────────────────────────
 	app.All("/api/v1/schemes", proxy.Handler(cfg.ContribServiceURL))
@@ -151,6 +164,12 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// finance-service can add their own siblings without route conflicts.
 	app.All("/api/v1/reports/collection-rate", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reports/collection-rate/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 5 cross-service reports — compose billing + receipts + claims
+	// aggregates from contributions-service + claims-service.
+	app.All("/api/v1/reports/billing-vs-claims", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/billing-vs-claims/*", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/member-payments", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/member-payments/*", proxy.Handler(cfg.FinanceServiceURL))
 
 	// ── Rules Service (per-tenant Drools rules) ───────────────────────────────
 	app.All("/api/v1/rules", proxy.Handler(cfg.RulesServiceURL))

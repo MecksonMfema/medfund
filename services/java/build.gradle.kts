@@ -63,6 +63,11 @@ subprojects {
 
     tasks.test {
         useJUnitPlatform()
+        // `make test-integration` filters every module with `--tests '*IT'`;
+        // modules without ITs (e.g. shared) must not fail on zero matches.
+        filter {
+            isFailOnNoMatchingTests = false
+        }
         finalizedBy(tasks.named("jacocoTestReport"))
     }
 

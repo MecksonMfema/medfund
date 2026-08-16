@@ -11,18 +11,19 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 /**
  * Combined Postgres + Kafka base for slice-level integration tests that need
- * both. Two static containers, reused per JVM via {@code withReuse(true)}.
+ * both. Two static containers, started once per JVM and reused by every test
+ * class that extends this base.
  *
  * <p>Extend this when the test needs to mutate a row and assert the resulting
  * audit event on Kafka in a single class — e.g. SchemeService.create →
@@ -32,21 +33,26 @@ import java.util.UUID;
  * {@link AbstractPostgresIntegrationTest} or {@link AbstractKafkaIntegrationTest}
  * so the unused container is never started.
  */
-@Testcontainers
 public abstract class AbstractIntegrationTest {
 
-    @Container
     protected static final PostgreSQLContainer<?> POSTGRES =
         new PostgreSQLContainer<>("postgres:17-alpine")
             .withDatabaseName("medfund")
             .withUsername("medfund")
-            .withPassword("medfund")
-            .withReuse(true);
+            .withPassword("medfund");
 
-    @Container
     protected static final KafkaContainer KAFKA =
-        new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.0"))
-            .withReuse(true);
+        new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.0"));
+
+    static {
+        // Started once per JVM, NOT per test class. The @Testcontainers/@Container
+        // extension stops containers at the end of each class (via the store's
+        // CloseableResource), which tears down the DB while a cached Spring context
+        // still holds a pool pointing at the old mapped port. A JVM-lifetime static
+        // start keeps the ports stable so the cached context stays valid; Ryuk
+        // cleans up on JVM exit.
+        Startables.deepStart(Stream.of(POSTGRES, KAFKA)).join();
+    }
 
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {

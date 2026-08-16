@@ -4,17 +4,26 @@ import com.medfund.finance.client.FxConverter;
 import com.medfund.finance.dto.CreatePaymentRunRequest;
 import com.medfund.finance.entity.AdvancePayment;
 import com.medfund.finance.entity.AdvancePaymentApplication;
+import com.medfund.finance.entity.MemberBalance;
+import com.medfund.finance.entity.MemberBalanceSnapshot;
+import com.medfund.finance.entity.PaymentAdviceRecord;
 import com.medfund.finance.entity.PaymentRun;
 import com.medfund.finance.entity.PaymentRunItem;
+import com.medfund.finance.entity.ProviderBalance;
+import com.medfund.finance.entity.ProviderBalanceSnapshot;
 import com.medfund.finance.exception.PaymentNotFoundException;
 import com.medfund.finance.repository.AdvancePaymentApplicationRepository;
 import com.medfund.finance.repository.AdvancePaymentBalanceRepository;
 import com.medfund.finance.repository.AdvancePaymentRepository;
+import com.medfund.finance.repository.MemberBalanceRepository;
+import com.medfund.finance.repository.MemberBalanceSnapshotRepository;
 import com.medfund.finance.repository.OutstandingAdvanceBalance;
+import com.medfund.finance.repository.PaymentAdviceRecordRepository;
 import com.medfund.finance.repository.PaymentRepository;
 import com.medfund.finance.repository.PaymentRunItemRepository;
 import com.medfund.finance.repository.PaymentRunRepository;
 import com.medfund.finance.repository.ProviderBalanceRepository;
+import com.medfund.finance.repository.ProviderBalanceSnapshotRepository;
 import com.medfund.finance.repository.TenantBankAccountRepository;
 import com.medfund.finance.util.Actors;
 
@@ -33,6 +42,8 @@ import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -47,6 +58,10 @@ public class PaymentRunService {
     private final PaymentRunItemRepository paymentRunItemRepository;
     private final PaymentRepository paymentRepository;
     private final ProviderBalanceRepository providerBalanceRepository;
+    private final MemberBalanceRepository memberBalanceRepository;
+    private final ProviderBalanceSnapshotRepository providerBalanceSnapshotRepository;
+    private final MemberBalanceSnapshotRepository memberBalanceSnapshotRepository;
+    private final PaymentAdviceRecordRepository paymentAdviceRecordRepository;
     private final AdvancePaymentRepository advancePaymentRepository;
     private final AdvancePaymentBalanceRepository advanceBalanceRepository;
     private final AdvancePaymentApplicationRepository advanceApplicationRepository;
@@ -64,6 +79,10 @@ public class PaymentRunService {
                              PaymentRunItemRepository paymentRunItemRepository,
                              PaymentRepository paymentRepository,
                              ProviderBalanceRepository providerBalanceRepository,
+                             MemberBalanceRepository memberBalanceRepository,
+                             ProviderBalanceSnapshotRepository providerBalanceSnapshotRepository,
+                             MemberBalanceSnapshotRepository memberBalanceSnapshotRepository,
+                             PaymentAdviceRecordRepository paymentAdviceRecordRepository,
                              AdvancePaymentRepository advancePaymentRepository,
                              AdvancePaymentBalanceRepository advanceBalanceRepository,
                              AdvancePaymentApplicationRepository advanceApplicationRepository,
@@ -80,6 +99,10 @@ public class PaymentRunService {
         this.paymentRunItemRepository = paymentRunItemRepository;
         this.paymentRepository = paymentRepository;
         this.providerBalanceRepository = providerBalanceRepository;
+        this.memberBalanceRepository = memberBalanceRepository;
+        this.providerBalanceSnapshotRepository = providerBalanceSnapshotRepository;
+        this.memberBalanceSnapshotRepository = memberBalanceSnapshotRepository;
+        this.paymentAdviceRecordRepository = paymentAdviceRecordRepository;
         this.advancePaymentRepository = advancePaymentRepository;
         this.advanceBalanceRepository = advanceBalanceRepository;
         this.advanceApplicationRepository = advanceApplicationRepository;
@@ -212,6 +235,7 @@ public class PaymentRunService {
                             return Mono.just(java.util.List.of());
                         })
                         .thenReturn(completed))
+                    .flatMap(completed -> snapshotBalances(completed).thenReturn(completed))
                     .flatMap(completed -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
                         return paymentRunItemRepository.findByPaymentRunId(completed.getId())
@@ -268,6 +292,118 @@ public class PaymentRunService {
                             .thenReturn(saved);
                     }));
             });
+    }
+
+    /**
+     * Freeze-frame the balances of every payee present in the run's items
+     * (Phase 6, V080). Runs AFTER advice generation and shares its
+     * transaction — a failure here rolls back the whole execution, including
+     * the status flip to {@code executed} (D6-3: hard-fail atomic).
+     *
+     * <p>Per D6-1 this is a pure freeze-frame: opening and closing balance
+     * are both the live outstanding balance as it stood at
+     * {@code run.executedAt}. {@code net_due} comes from the payee's payment
+     * advice; when advice generation was swallowed (the run can still
+     * execute with errors suppressed) it falls back to the sum of the
+     * payee's item amounts. Rows exist only for payees in the run (D6-2).
+     */
+    private Mono<Void> snapshotBalances(PaymentRun run) {
+        Instant takenAt = run.getExecutedAt();
+        if (takenAt == null) {
+            return Mono.error(new IllegalStateException(
+                    "Payment run " + run.getRunNumber() + " has no executedAt — cannot take balance snapshot"));
+        }
+        return paymentRunItemRepository.findByPaymentRunId(run.getId())
+            .collectList()
+            .flatMap(items -> Flux.merge(
+                    providerSnapshotRows(run.getId(), takenAt, items),
+                    memberSnapshotRows(run.getId(), takenAt, items))
+                    .then());
+    }
+
+    private Flux<ProviderBalanceSnapshot> providerSnapshotRows(UUID runId, Instant takenAt, List<PaymentRunItem> items) {
+        return Flux.fromIterable(items)
+            .filter(item -> item.getProviderId() != null)
+            .groupBy(item -> item.getProviderId())
+            .flatMap(group -> group.collectList().flatMap(rows -> {
+                UUID providerId = group.key();
+                String currency = rows.get(0).getCurrencyCode();
+                return providerBalanceRepository.findByProviderIdAndCurrencyCode(providerId, currency)
+                    .defaultIfEmpty(new ProviderBalance())
+                    .zipWith(netDue(runId, providerId, null, rows))
+                    .flatMap(t -> providerBalanceSnapshotRepository.save(
+                            buildProviderSnapshot(runId, providerId, currency, takenAt,
+                                    t.getT1(), t.getT2())));
+            }));
+    }
+
+    private Flux<MemberBalanceSnapshot> memberSnapshotRows(UUID runId, Instant takenAt, List<PaymentRunItem> items) {
+        return Flux.fromIterable(items)
+            .filter(item -> item.getMemberId() != null)
+            .groupBy(item -> item.getMemberId())
+            .flatMap(group -> group.collectList().flatMap(rows -> {
+                UUID memberId = group.key();
+                String currency = rows.get(0).getCurrencyCode();
+                return memberBalanceRepository.findByMemberIdAndCurrencyCode(memberId, currency)
+                    .defaultIfEmpty(new MemberBalance())
+                    .zipWith(netDue(runId, null, memberId, rows))
+                    .flatMap(t -> memberBalanceSnapshotRepository.save(
+                            buildMemberSnapshot(runId, memberId, currency, takenAt,
+                                    t.getT1(), t.getT2())));
+            }));
+    }
+
+    private ProviderBalanceSnapshot buildProviderSnapshot(UUID runId, UUID providerId, String currency,
+                                                          Instant takenAt, ProviderBalance bal, BigDecimal netDue) {
+        ProviderBalanceSnapshot s = new ProviderBalanceSnapshot();
+        s.setPaymentRunId(runId);
+        s.setProviderId(providerId);
+        s.setCurrencyCode(currency);
+        s.setOpeningBalance(orZero(bal.getOutstandingBalance()));
+        s.setClosingBalance(orZero(bal.getOutstandingBalance()));
+        s.setTotalClaimed(orZero(bal.getTotalClaimed()));
+        s.setTotalApproved(orZero(bal.getTotalApproved()));
+        s.setTotalPaid(orZero(bal.getTotalPaid()));
+        s.setNetDue(netDue);
+        s.setTakenAt(takenAt);
+        return s;
+    }
+
+    private MemberBalanceSnapshot buildMemberSnapshot(UUID runId, UUID memberId, String currency,
+                                                      Instant takenAt, MemberBalance bal, BigDecimal netDue) {
+        MemberBalanceSnapshot s = new MemberBalanceSnapshot();
+        s.setPaymentRunId(runId);
+        s.setMemberId(memberId);
+        s.setCurrencyCode(currency);
+        s.setOpeningBalance(orZero(bal.getOutstandingBalance()));
+        s.setClosingBalance(orZero(bal.getOutstandingBalance()));
+        s.setTotalClaimed(orZero(bal.getTotalClaimed()));
+        s.setTotalApproved(orZero(bal.getTotalApproved()));
+        s.setTotalPaid(orZero(bal.getTotalPaid()));
+        s.setNetDue(netDue);
+        s.setTakenAt(takenAt);
+        return s;
+    }
+
+    /**
+     * Payee's net due for this run: the advice's {@code net_due_amount} when
+     * advice generation succeeded, else the sum of the payee's item amounts
+     * (advice errors are swallowed upstream). {@code netDueAmount} can be
+     * negative when deductions exceed payables — kept as-is.
+     */
+    private Mono<BigDecimal> netDue(UUID runId, UUID providerId, UUID memberId, List<PaymentRunItem> rows) {
+        Mono<PaymentAdviceRecord> advice = providerId != null
+                ? paymentAdviceRecordRepository.findByPaymentRunIdAndProviderId(runId, providerId)
+                : paymentAdviceRecordRepository.findByPaymentRunIdAndMemberId(runId, memberId);
+        BigDecimal fallback = rows.stream()
+                .map(row -> orZero(row.getAmount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return advice.map(a -> orZero(a.getNetDueAmount()))
+                .defaultIfEmpty(fallback);
+    }
+
+    private static BigDecimal orZero(BigDecimal v) {
+        return v == null ? BigDecimal.ZERO : v;
     }
 
     @Transactional

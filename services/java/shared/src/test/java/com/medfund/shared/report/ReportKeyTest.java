@@ -54,6 +54,15 @@ class ReportKeyTest {
     }
 
     @Test
+    void preAuthKeyWasRenamedToActivityPerG43() {
+        // G43: PRE_AUTH_UTILIZATION reshaped to PRE_AUTH_ACTIVITY — the old
+        // name must not resurface (no tenant config row exists for either key).
+        assertThat(ReportKey.parse("PRE_AUTH_ACTIVITY"))
+                .hasValueSatisfying(k -> assertThat(k).isEqualTo(ReportKey.PRE_AUTH_ACTIVITY));
+        assertThat(ReportKey.parse("PRE_AUTH_UTILIZATION")).isEmpty();
+    }
+
+    @Test
     void everyReportKeyIsUnique() {
         Set<String> names = Stream.of(ReportKey.values()).map(Enum::name).collect(java.util.stream.Collectors.toSet());
         assertThat(names).hasSameSizeAs(ReportKey.values());
