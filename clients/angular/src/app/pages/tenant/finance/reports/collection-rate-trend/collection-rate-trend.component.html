@@ -1,0 +1,95 @@
+<header class="page-header">
+  <div>
+    <h1>Collection-rate trend</h1>
+    <p class="page-sub">
+      Portfolio-level monthly collection rate per currency — receipts divided by committed billing,
+      summed across all schemes, groups and members. Never cross-currency conversion in the rate
+      itself.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="exporting || loading || !envelope"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input type="date" [(ngModel)]="periodStart" (change)="onFilterChange()" name="periodStart" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input type="date" [(ngModel)]="periodEnd" (change)="onFilterChange()" name="periodEnd" />
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (envelope?.warnings?.length) {
+  <div class="banner banner-warning">
+    @for (w of envelope!.warnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+@if (loading) {
+  <p>Loading trend…</p>
+} @else if (envelope && envelope.data.months.length === 0) {
+  <p>No billing or receipts recorded for this window.</p>
+} @else if (envelope) {
+  @if (chartSeries.length > 0) {
+    <div class="chart-wrap">
+      <app-line-chart
+        [data]="chartSeries"
+        xAxisLabel="Month"
+        yAxisLabel="Rate %"
+        [legend]="chartSeries.length > 1"
+        legendTitle="Currency"
+        [view]="[undefined, 320]"
+      ></app-line-chart>
+    </div>
+  }
+
+  <table class="rate-table">
+    <thead>
+      <tr>
+        <th>Month</th>
+        <th>Currency</th>
+        <th class="num">Billed</th>
+        <th class="num">Received</th>
+        <th class="num">Rate %</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (m of envelope.data.months; track m.month + '-' + m.currencyCode) {
+        <tr>
+          <td>{{ m.month }}</td>
+          <td>{{ m.currencyCode }}</td>
+          <td class="num">{{ m.billed | number:'1.2-2' }}</td>
+          <td class="num">{{ m.received | number:'1.2-2' }}</td>
+          <td class="num">{{ m.ratePct !== null && m.ratePct !== undefined ? (m.ratePct | number:'1.2-2') + '%' : '—' }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

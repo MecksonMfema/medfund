@@ -1032,6 +1032,25 @@ export class FinanceService {
     return this.api.getBlob(`/reports/receipts/${dimension}s/${id}/export/excel`, receiptsDetailParams(opts));
   }
 
+  // ── Cash-flow forecast (Phase 8) ─────────────────────────────────────────
+  getCashFlowForecast(asOf: string, rollingWeeks: number, reportingCurrency?: string):
+      Observable<ReportResponse<CashFlowForecastResponse>> {
+    const params: Record<string, string> = { asOf, rollingWeeks: String(rollingWeeks) };
+    if (reportingCurrency) params['reportingCurrency'] = reportingCurrency;
+    return this.api.get<ReportResponse<CashFlowForecastResponse>>('/reports/cash-flow-forecast', params);
+  }
+  exportCashFlowForecastExcel(asOf: string, rollingWeeks: number): Observable<Blob> {
+    return this.api.getBlob('/reports/cash-flow-forecast/export/excel', { asOf, rollingWeeks: String(rollingWeeks) });
+  }
+
+  // ── Collection-rate trend (Phase 8) ──────────────────────────────────────
+  getCollectionRateTrend(opts: BillingReportParams): Observable<ReportResponse<CollectionRateTrendResponse>> {
+    return this.api.get<ReportResponse<CollectionRateTrendResponse>>('/reports/collection-rate-trend', billingParams(opts));
+  }
+  exportCollectionRateTrendExcel(opts: BillingReportParams): Observable<Blob> {
+    return this.api.getBlob('/reports/collection-rate-trend/export/excel', billingParams(opts));
+  }
+
   // ── Collection rate (Phase 3) ──────────────────────────────────────────
   getCollectionRate(opts: BillingReportParams): Observable<ReportResponse<CollectionRateReportResponse>> {
     return this.api.get<ReportResponse<CollectionRateReportResponse>>('/reports/collection-rate', billingParams(opts));
@@ -1366,3 +1385,55 @@ export interface BalanceHistoryRow {
   totalPaid: string;
   netDue: string;
 }
+
+// ── Cash-flow forecast + collection-rate trend (Phase 8) ───────────────────
+
+/**
+ * 13-week rolling cash-flow forecast. Mirrors the Java record
+ * `CashFlowForecastResponse`. Window is [asOf, asOf + rollingWeeks*7);
+ * series are per native currency with a full weekly strip each (zero
+ * weeks included). Never cross-currency — the envelope's fxRates is
+ * deliberately empty (D8-7).
+ */
+export interface CashFlowForecastResponse {
+  asOf: string;
+  rollingWeeks: number;
+  windowStart: string;
+  windowEnd: string;
+  series: CashFlowCurrencySeries[];
+}
+
+export interface CashFlowCurrencySeries {
+  currencyCode: string;
+  totalInflow: string;
+  totalOutflow: string;
+  totalNet: string;
+  buckets: CashFlowWeekBucket[];
+}
+
+export interface CashFlowWeekBucket {
+  weekStart: string;
+  inflow: string;
+  outflow: string;
+  net: string;
+}
+
+/**
+ * Portfolio-level collection-rate trend. Mirrors the Java record
+ * `CollectionRateTrendResponse`. One (month, currency) row — the
+ * per-dimension stacks summed across all dimensions (D8-3).
+ */
+export interface CollectionRateTrendResponse {
+  periodStart: string;
+  periodEnd: string;
+  months: CollectionRateTrendMonth[];
+}
+
+export interface CollectionRateTrendMonth {
+  month: string;
+  currencyCode: string;
+  billed: string;
+  received: string;
+  ratePct: string | null;
+}
+

@@ -1,0 +1,110 @@
+<header class="page-header">
+  <div>
+    <h1>Cash-flow forecast</h1>
+    <p class="page-sub">
+      13-week rolling projection per currency — expected receipts from unpaid invoices (due-date
+      bucketed) against planned payouts from draft/approved payment runs (created-at bucketed).
+      Never cross-currency; the reporting-currency selector is informational only.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="exporting || loading || !envelope"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">As of</span>
+    <input type="date" [(ngModel)]="asOf" (change)="onFilterChange()" name="asOf" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Rolling weeks</span>
+    <app-select
+      [(ngModel)]="rollingWeeks"
+      (selectionChange)="onFilterChange()"
+      name="rollingWeeks"
+      [options]="weekOptions"
+      [searchable]="false"
+    ></app-select>
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (envelope?.warnings?.length) {
+  <div class="banner banner-warning">
+    @for (w of envelope!.warnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+@if (loading) {
+  <p>Loading forecast…</p>
+} @else if (envelope && envelope.data.series.length === 0) {
+  <p>No invoices or payment-run activity in this window.</p>
+} @else if (envelope) {
+  @if (chartSeries.length > 1) {
+    <div class="chart-wrap">
+      <app-line-chart
+        [data]="chartSeries"
+        xAxisLabel="Week starting"
+        yAxisLabel="Net"
+        [legend]="true"
+        legendTitle="Currency"
+        [view]="[undefined, 320]"
+      ></app-line-chart>
+    </div>
+  }
+
+  @for (s of envelope.data.series; track s.currencyCode) {
+    <div class="detail-section">
+      <h2>
+        {{ s.currencyCode }}
+        <span class="kpi-meta"
+          >In {{ s.totalInflow | number:'1.2-2' }} · Out {{ s.totalOutflow | number:'1.2-2' }} ·
+          Net {{ s.totalNet | number:'1.2-2' }}</span
+        >
+      </h2>
+      <table class="rate-table">
+        <thead>
+          <tr>
+            <th>Week starting</th>
+            <th class="num">Inflow</th>
+            <th class="num">Outflow</th>
+            <th class="num">Net</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (b of s.buckets; track b.weekStart) {
+            <tr>
+              <td>{{ b.weekStart }}</td>
+              <td class="num">{{ b.inflow | number:'1.2-2' }}</td>
+              <td class="num">{{ b.outflow | number:'1.2-2' }}</td>
+              <td class="num">{{ b.net | number:'1.2-2' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+}

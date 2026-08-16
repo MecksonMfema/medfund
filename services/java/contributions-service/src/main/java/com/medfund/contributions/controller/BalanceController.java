@@ -11,6 +11,7 @@ import com.medfund.contributions.service.BadDebtService;
 import com.medfund.contributions.service.BadDebtsExcelService;
 import com.medfund.contributions.service.BalanceService;
 import com.medfund.contributions.service.DebtorsExcelService;
+import com.medfund.contributions.service.AgedBalancesExcelService;
 import com.medfund.shared.audit.AuditActor;
 import com.medfund.shared.report.ReportKey;
 import com.medfund.shared.report.RequiresReport;
@@ -60,6 +61,7 @@ public class BalanceController {
     private final BadDebtService badDebtService;
     private final DebtorsExcelService debtorsExcelService;
     private final BadDebtsExcelService badDebtsExcelService;
+    private final AgedBalancesExcelService agedBalancesExcelService;
     private final SecurityEventPublisher securityEventPublisher;
 
     @GetMapping("/members/{memberId}")
@@ -201,6 +203,38 @@ public class BalanceController {
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "20") int size) {
         return balanceService.listAged(currency, minAgeDays, q, Math.max(page, 0), Math.min(Math.max(size, 1), 100));
+    }
+
+    @GetMapping("/aged-balances/export/excel")
+    @RequiresPermission(Permissions.BILLING_VIEW_DEBTORS)
+    @RequiresReport(ReportKey.AGED_BALANCES)
+    @Operation(summary = "Download the aged-balances list as XLSX",
+            description = "Same filter shape as the JSON /aged-balances endpoint; returns an .xlsx workbook "
+                    + "with a header block (currency, min-age filter, search term, export date, row count) and "
+                    + "a table of every matching row up to a 10,000-row ceiling.")
+    public Mono<ResponseEntity<byte[]>> exportAgedExcel(
+            @RequestParam String currency,
+            @RequestParam(required = false) Integer minAgeDays,
+            @RequestParam(required = false) String q,
+            @AuthenticationPrincipal Jwt jwt) {
+        String filename = "aged-balances-" + currency + "-" + java.time.LocalDate.now() + ".xlsx";
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("currency", currency);
+        if (minAgeDays != null) details.put("minAgeDays", minAgeDays);
+        if (q != null && !q.isBlank()) details.put("q", q);
+        return agedBalancesExcelService.generate(currency, minAgeDays, q)
+                .flatMap(bytes -> Mono.deferContextual(ctx -> securityEventPublisher.publishDataAccess(
+                                TenantContext.get(ctx),
+                                AuditActor.id(jwt),
+                                AuditActor.email(jwt),
+                                ReportKey.AGED_BALANCES.name(),
+                                details))
+                        .thenReturn(bytes))
+                .map(bytes -> ResponseEntity.ok()
+                        .contentType(XLSX)
+                        .header(HttpHeaders.CONTENT_DISPOSITION,
+                                "attachment; filename=\"" + filename + "\"")
+                        .body(bytes));
     }
 
     @PostMapping("/bad-debts/flag")

@@ -1,0 +1,31 @@
+.detail-section {
+  margin-bottom: 24px;
+
+  h2 {
+    margin: 0 0 12px;
+    font-size: 16px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+
+    .kpi-meta {
+      font-size: 12px;
+      font-weight: 400;
+      color: var(--color-text-muted, #6b7280);
+    }
+  }
+}
+
+.rate-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+
+  th, td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--color-border, #e5e7eb);
+    text-align: left;
+  }
+  th { background: var(--color-surface-2, #f9fafb); font-weight: 600; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+}

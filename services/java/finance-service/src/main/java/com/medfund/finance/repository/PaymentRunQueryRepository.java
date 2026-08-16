@@ -1,6 +1,7 @@
 package com.medfund.finance.repository;
 
 import com.medfund.finance.dto.PaymentRunFilterParams;
+import com.medfund.finance.dto.PlannedOutflowRow;
 import com.medfund.finance.entity.PaymentRun;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Repository;
@@ -9,6 +10,8 @@ import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.UUID;
 
@@ -53,6 +56,47 @@ public class PaymentRunQueryRepository {
                 .bind("limit", limit)
                 .bind("offset", offset);
         return spec.map(this::toEntity).all();
+    }
+
+    /**
+     * Item-level planned payouts for the Phase 8 cash-flow forecast. Only
+     * draft/approved runs (never executed/cancelled) with items still in a
+     * payable state — withheld/skipped items are excluded because they no
+     * longer represent cash about to leave the account.
+     *
+     * <p>The window is bound in UTC (a run's {@code created_at} is a
+     * timestamptz); the contributions-service composer buckets rows by ISO
+     * week itself so both sides of the forecast bucket identically.
+     */
+    public Flux<PlannedOutflowRow> plannedOutflows(LocalDate periodStart, LocalDate periodEnd) {
+        Instant start = periodStart.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant end = periodEnd.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+        String sql = "SELECT pr.id AS run_id, pr.run_number, pri.currency_code, "
+                + "       pri.amount, pr.status AS run_status, pri.status AS item_status, "
+                + "       pr.created_at "
+                + "  FROM payment_runs pr "
+                + "  JOIN payment_run_items pri ON pri.payment_run_id = pr.id "
+                + " WHERE pr.status IN ('draft', 'approved') "
+                + "   AND pri.status IN ('pending', 'scheduled') "
+                + "   AND pr.created_at >= :start AND pr.created_at < :end "
+                + " ORDER BY pr.created_at ASC, pr.id ASC";
+        return db.sql(sql)
+                .bind("start", start)
+                .bind("end", end)
+                .map(this::toPlannedOutflowRow)
+                .all();
+    }
+
+    private PlannedOutflowRow toPlannedOutflowRow(io.r2dbc.spi.Readable row) {
+        return new PlannedOutflowRow(
+                row.get("run_id", UUID.class),
+                row.get("run_number", String.class),
+                row.get("currency_code", String.class),
+                row.get("amount", BigDecimal.class),
+                row.get("run_status", String.class),
+                row.get("item_status", String.class),
+                row.get("created_at", Instant.class)
+        );
     }
 
     public Mono<Long> count(PaymentRunFilterParams f) {

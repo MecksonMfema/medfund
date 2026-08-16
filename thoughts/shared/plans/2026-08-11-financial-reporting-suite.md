@@ -17,8 +17,9 @@ phases_status:
   "5": grilled 2026-08-16 (§A + §B split, D1-D5); §A + §B landed 2026-08-16 (backend + gateway + Angular + e2e; §A verified + pre-existing test fixes, §B Playwright 3/3)
   "6": grilled 2026-08-16 (D6-1..D6-8, research correction: runs don't touch balance tables → freeze-frame); §A + §B landed 2026-08-16 (V080 snapshot migration + PaymentRunService.execute snapshot step + BalanceHistory controller/excel + unit/IT; Angular pages + creditors links + Playwright 3/3)
   "7": grilled 2026-08-16 (D7-1..D7-7, sheet-per-currency → group-by-item-currency, summary = native totals + reporting-currency conversion); §A + §B landed 2026-08-16 (PaymentRunWorkbookService + query repo + controller export + V006 test-migration + unit/IT; Angular header Export button + Playwright 4/4)
-  "8-19": outline depth; each needs its own grilling pass before implementation
-last_grilled_phase: 7
+  "8": grilled 2026-08-16 (D8-1..D8-10, contributions-service placement per outline + reverse FinanceClient, inflow=unpaid invoices by due_date, outflow=draft+approved runs by created_at, asOf+rollingWeeks window, per-currency no-conversion forecast, portfolio-level collection-rate trend in finance, AGED_BALANCES route key); landed 2026-08-16 (13-week cash-flow forecast backend + Excel in contributions, outflow feed + collection-rate trend in finance, aged-debtors page + FinanceClient, gateway routes, Angular pages + fixes, unit/IT, Playwright 2/2)
+  "9-19": outline depth; each needs its own grilling pass before implementation
+last_grilled_phase: 8
 last_grilled_date: 2026-08-16
 ---
 
@@ -2486,19 +2487,192 @@ tenant reporting currency at the run's executed date (D7-2, D7-3).
 
 ## Phase 8: Aged Debtors + 13-Week Cash-Flow Forecast
 
+> **Grilled 2026-08-16.** Outline expanded to code altitude via D8-1..D8-10 (see below). Per
+> D8-1 the forecast lives in contributions-service exactly as the outline wrote it — this *inverts*
+> the usual cross-service aggregator direction (finance-service has hosted every Phase 3/5 composer)
+> and is recorded under Deviations (Phase 8 §1).
+
 ### Overview
 
-Cash-flow forecasting (13-week rolling) + collection-rate report + refresh of the aged debtors surface with catalogue registration.
+Three surfaces: (1) a 13-week rolling cash-flow forecast — expected receipts from unpaid invoices
+against planned payouts from draft/approved payment runs, bucketed per ISO week per currency;
+(2) a collection-rate *trend* — portfolio-level monthly collection rate over a period; (3) the
+aged-debtors Angular page, replacing the `debtors-report` ComingSoon stub with a catalogue-registered
+report consuming the Phase 1 backend.
+
+### Decisions (grilled 2026-08-16)
+
+- **D8-1 — Forecast lives in contributions-service, per the outline.** Expected receipts are
+  contributions-owned data (invoices); the plan's outline names `AgedDebtorsForecastController` in
+  contributions-service. The outflow side is read from finance-service via a new `FinanceClient`
+  WebClient (mirroring `ContributionsClient` in reverse). See Deviations (Phase 8 §1).
+- **D8-2 — Scope = all three deliverables.** The aged-debtors piece is a **catalogued report page**
+  (aging-bucket grid + XLSX export + tenant toggle) reusing the Phase 1 backend — a report surface,
+  not a debtors *workbench* (drill-ins / manual flagging / dunning are operational tooling, out of
+  scope).
+- **D8-3 — Collection-rate trend lives in finance-service, as a *portfolio-level* trend.** The
+  existing `COLLECTION_RATE` report is per-(dimension, currency) monthly buckets; the trend drops
+  the dimension and sums all schemes/groups/members per (month, currency) — a clean time-series
+  (`month, billed, received, ratePct`) fit for a line chart, and a genuinely distinct report.
+- **D8-4 — Inflow model: unpaid invoices by `due_date`.** `BillingService` always stamps
+  `invoice.due_date = period_end`, so the anchor is reliable. Expected receipts =
+  `SUM(total_amount)` of invoices whose `due_date` falls inside the rolling window, per (currency,
+  ISO week of `due_date`). No collection-rate discount factor — the trend report surfaces realized
+  collection quality separately, and weighting would make the forecast impossible to reconcile to a
+  treasurer's billed-amount projection.
+- **D8-5 — Outflow model: draft + approved runs, items bucketed by `created_at`.** There is no
+  planned-execution-date column; `executed_at`/`settlement_date` only exist post-execution, and the
+  scheduler auto-executes draft runs ~24h after creation. So forward obligations = runs with status
+  `draft`/`approved` (never executed/cancelled), item amounts (excluding `withheld`/`skipped`),
+  bucketed by ISO week of the run's `created_at` (weekly granularity absorbs the 24h drift).
+- **D8-6 — Window = `?asOf=` (default today) + `?rollingWeeks=` (default 13, clamp 1..52).**
+  Window is `[asOf, asOf + rollingWeeks×7)`, bucketed into ISO (Monday-start) weeks with the
+  partial current week included. Making the forecast a pure function of `asOf` keeps it
+  unit-testable and satisfies the "known period ±5%" manual check.
+- **D8-7 — Per-currency forecast, no FX conversion.** Forward rates don't exist in
+  `public.exchange_rates` (immutable historical per-date), so the reporting-currency conversion
+  path cannot apply to a forward forecast. Data is per-currency only (Rule 1): one series per
+  currency, in/out/net per week, never mixed. Envelope carries `reportingCurrency` as
+  informational (resolved tenant default) with an empty `fxRates`; no warning banner for "missing
+  future FX" (expected, not an error). The *trend* report is historical → converts normally.
+- **D8-8 — Aged-debtors route key = `AGED_BALANCES`.** The backend `/billing/balances/aged-balances`
+  gates `AGED_BALANCES`; the page's route `data.reportKey` must match so the tenant toggle actually
+  403s the page's API. `AGED_DEBTORS` stays reserved for the Phase 17 cadenced-delivery key.
+- **D8-9 — XLSX exports for both new reports.** Forecast: one sheet per currency (weekly
+  in/out/net) + summary; trend: one sheet. Both emit `SecurityEventPublisher.publishDataAccess` with
+  `reportKey` before returning bytes (Rule 9).
+- **D8-10 — Gateway routes are path-specific** (no catch-all broadening, per Phase 5 convention):
+  `/api/v1/reports/cash-flow-forecast` → contributions-service; `/api/v1/reports/collection-rate-trend`
+  → finance-service; `/api/v1/reports/aggregate/outflows` → finance-service (service-to-service).
 
 ### Changes Required
 
-- **contributions-service** `AgedDebtorsForecastController.forecast(rollingWeeks=13)` → aggregates expected receipts by ISO week; combines with `finance-service/PaymentRunController` upcoming outflows via WebClient. Report keys `CASH_FLOW_FORECAST_13W`, `COLLECTION_RATE_TREND`.
-- **Angular**: `cash-flow-forecast.component.ts` with a stacked line chart via `@swimlane/ngx-charts`. ~~replaces `reports/receipts-to-billing`~~ — Phase 3 already retired that stub to `/reports/collection-rate`. Phase 8 fills any remaining forecasting placeholder.
+#### §A1 — contributions-service: cash-flow forecast
+
+- **`client/FinanceClient.java`** (new) — WebClient to finance-service
+  (`@Value("${services.finance.base-url:http://localhost:8085}")`), no in-client retries/fallbacks
+  (those live in `CrossServiceCallHelper` at the caller, per G37). One method:
+  `plannedOutflows(LocalDate periodStart, LocalDate periodEnd)` → `List<PlannedOutflowRow>` via
+  `GET /api/v1/reports/aggregate/outflows`, decoding `ReportResponse<List<...>>` with the same
+  String + Jackson `TypeReference` trick as `ContributionsClient` (no R2dbc codec for generic
+  envelopes). Carries `X-Tenant-ID` from `TenantContext`.
+- **`dto/PlannedOutflowRow.java`** (new, contributions-side mirror of the finance DTO) —
+  `record PlannedOutflowRow(UUID runId, String runNumber, String currencyCode, BigDecimal amount,
+  String runStatus, String itemStatus, LocalDate createdAt)` — finance returns raw item-level rows;
+  **all ISO-week bucketing happens in contributions** so the two sides bucket identically.
+- **`repository/CashFlowForecastQueryRepository.java`** (new) — one tenant-scoped R2DBC query:
+  `expectedReceipts(LocalDate windowStart, LocalDate windowEnd)` →
+  `Flux<InvoiceReceiptRow(currencyCode, dueDate, amount)>` from
+  `SELECT currency_code, due_date, total_amount FROM invoices WHERE status NOT IN ('paid','void')
+  AND due_date >= :start AND due_date < :end`.
+- **`service/CashFlowForecastService.java`** (new) — composes:
+  - Window: `buildWindow(asOf, rollingWeeks)` → `[asOf, asOf+weeks×7)`, clamp 1..52, reject
+    `rollingWeeks < 1`.
+  - Inflow: `expectedReceipts` bucketed per (currency, ISO week of `due_date`).
+  - Outflow: `CrossServiceCallHelper.guarded("payment-run-outflows", financeClient.plannedOutflows(...),
+    List.of(), warnings)` bucketed per (currency, ISO week of `createdAt`).
+  - `compose(...)` → `CashFlowForecastResponse` = per-currency series of
+    `WeekBucket(weekStart, inflow, outflow, net)`; `net = inflow.subtract(outflow)` per currency
+    (Rule 1 — never across currencies). Warnings list flows to the envelope.
+- **`controller/CashFlowForecastController.java`** (new) — `GET /api/v1/reports/cash-flow-forecast`
+  + `GET /export/excel`. `@RequiresPermission(FINANCE_VIEW_SUBLEDGER)` +
+  `@RequiresReport(CASH_FLOW_FORECAST_13W)`. Params `asOf`, `rollingWeeks`, optional
+  `reportingCurrency` (resolved but not applied — D8-7). Hand-built envelope (warnings come from
+  the fanout, mirroring `CollectionRateReportController`): `reportKey`, `reportingCurrency`,
+  `perCurrency` = per-currency `PerCurrencyTotal` (inflow+outflow sums for the window),
+  `fxRates = Map.of()`, `warnings`. Excel via a small `CashFlowForecastExcelService` (weekly rows
+  per currency + summary, `ReportWorkbook`), filename `cash-flow-forecast-{asOf}-{weeks}w.xlsx`,
+  `publishDataAccess(tenantId, actorId, actorEmail, CASH_FLOW_FORECAST_13W, {asOf, rollingWeeks})`.
+  Full Swagger annotations.
+
+#### §A2 — finance-service: outflow aggregate + collection-rate trend
+
+- **`dto/PlannedOutflowRow.java`** (new) — same record shape as the contributions mirror; the
+  finance DTO is the source of truth for the JSON contract.
+- **`controller/PaymentRunOutflowController.java`** (new) —
+  `GET /api/v1/reports/aggregate/outflows?periodStart&periodEnd` → item-level rows for draft/approved
+  runs (never executed/cancelled), items `pending`/`scheduled` only (excludes `withheld`/`skipped`).
+  **Not `@RequiresReport`-gated** (service-to-service — toggling `CASH_FLOW_FORECAST_13W` must not
+  break the forecast's data feed; mirrors `ReceiptsAggregateController`), `@RequiresPermission(
+  FINANCE_VIEW_SUBLEDGER)`. Wrapped in `ReportResponse<List<PlannedOutflowRow>>` (empty
+  perCurrency/fxRates). Implemented as one new SQL projection in `PaymentRunQueryRepository`
+  (`plannedOutflows(periodStart, periodEnd)` joining `payment_runs` + `payment_run_items`).
+- **`dto/CollectionRateTrendResponse.java`** (new) — `record (LocalDate periodStart, LocalDate
+  periodEnd, List<MonthRow> months)`; `MonthRow(month, currencyCode, billed, received, ratePct)`.
+- **`service/CollectionRateTrendService.java`** (new) — reuses the same 6-way guarded
+  `ContributionsClient` monthly fan-out as `CollectionRateReportService`, then **sums across all
+  dimensions** per (month, currency) — no cross-currency mixing (G34); `ratePct` via the shared
+  `ratePercent` (zero-denominator → null).
+- **`controller/CollectionRateTrendController.java`** (new) —
+  `GET /api/v1/reports/collection-rate-trend?periodStart&periodEnd&reportingCurrency` +
+  `GET /export/excel`. `@RequiresReport(COLLECTION_RATE_TREND)` + `FINANCE_VIEW_SUBLEDGER`.
+  Historical → normal envelope conversion (via `ReportingCurrencyResolver` + `FxConverter` for the
+  perCurrency totals); hand-built envelope so fanout warnings survive. `CollectionRateTrendExcelService`
+  + `publishDataAccess`. Full Swagger annotations.
+
+#### §A3 — gateway
+
+- **`services/go/gateway/internal/routes/routes.go`** — add path-specific entries (before the
+  report catch-all comment block):
+  `app.All("/api/v1/reports/cash-flow-forecast", proxy.Handler(cfg.ContribServiceURL))` (+ `/*`),
+  `app.All("/api/v1/reports/collection-rate-trend", proxy.Handler(cfg.FinanceServiceURL))` (+ `/*`),
+  `app.All("/api/v1/reports/aggregate/outflows", proxy.Handler(cfg.FinanceServiceURL))` (+ `/*`).
+
+#### §B — Angular
+
+- **`core/services/finance.service.ts`** — `getCashFlowForecast(params)` →
+  `api.get('/reports/cash-flow-forecast', ...)`, `exportCashFlowForecastExcel(params)` →
+  `api.getBlob('/reports/cash-flow-forecast/export/excel', ...)`; `getCollectionRateTrend(params)` /
+  `exportCollectionRateTrendExcel(params)` on `/reports/collection-rate-trend`; aged-debtors methods
+  on `/billing/balances/aged-balances` (+ export) if not already present.
+- **`pages/tenant/finance/reports/cash-flow-forecast/cash-flow-forecast.component.ts|html|scss`**
+  (new) — `asOf` (date, default today) + `rollingWeeks` (number, default 13) + reporting-currency
+  selector (informational — D8-7); per-currency series with the shared `app-line-chart`
+  (in/out/net twin series via `@swimlane/ngx-charts`, already a dependency); warnings banner
+  (peer-failure, G37); Export XLSX button; table of weekly buckets.
+- **`pages/tenant/finance/reports/collection-rate-trend/collection-rate-trend.component.ts|html`**
+  (new) — period + currency selector; `app-line-chart` of `ratePct` per month; table; Export XLSX.
+  Mirrors `collection-rate-report.component` conventions (SCSS reuse, `errorMessage` banner).
+- **`pages/tenant/finance/reports/aged-debtors/aged-debtors.component.ts|html|scss`** (new) —
+  replaces the `debtors-report` ComingSoon stub. Consumes existing `/billing/balances/aged-balances`
+  (minAgeDays param, GRACE/SUSPENDED/WRITE_OFF grid) + `/export/excel`. Perm `finance:view_debtors`,
+  route `reports/aged-debtors`, `data.reportKey: 'AGED_BALANCES'` (D8-8).
+- **`finance.routes.ts`** — add the three routes; delete the `debtors-report` stub; each carries
+  `fullbleed: true`, `sidebar: 'operational'`, and its report key.
 
 ### Success Criteria
 
-- Automated: IT covers forecast math; unit tests for weekly bucketing.
-- Manual: forecast for a known period aligns with treasurer's manual projection ±5%.
+#### Automated
+- [x] Unit (`CashFlowForecastServiceTest`): window builder (default 13, clamp 1..52, reject <1,
+  `[asOf, +weeks×7)`); ISO-week (Monday) bucketing of invoice due-dates and run created-at;
+  per-currency compose with correct `net`; outflow peer failure → warnings + partial forecast —
+  5/5 green.
+- [x] Unit (`CollectionRateTrendServiceTest`): dimension-summing per (month, currency); ratePct null on
+  zero billing; no cross-currency sums; peer-down warnings — 4/4 green.
+- [x] IT (`CashFlowForecastControllerIT`, contributions Testcontainers + `@MockBean FinanceClient`):
+  seeded unpaid invoices + outflow feed reconcile to the envelope buckets; net = inflow − outflow;
+  warnings on finance down; rollingWeeks < 1 → 400; XLSX export 200 — 4/4 green. Note: mockwebserver
+  is not on the contributions test classpath, so the peer stub uses `@MockBean` (see Deviations §2).
+- [x] IT (`CollectionRateTrendControllerIT`, finance Testcontainers + MockWebServer): trend months +
+  ratePct reconcile to the six dimension aggregates; peer-down warnings banner; DATA_ACCESS event on
+  export (asserted against `medfund.security.events`); 403 gate via `FINANCE_VIEW_SUBLEDGER` — 4/4.
+- [x] `./gradlew :finance-service:test :contributions-service:test` green (compile + unit + IT, incl.
+  `PaymentRunOutflowControllerIT` + a restored `AgedBalancesExcelService` mock in `BalanceControllerTest`);
+  Go `go build ./gateway/... ./shared/...` clean.
+- [x] Angular: `ng test` (468 pass — the pre-existing `insurance-lines` failure remains, unrelated);
+  `ng build --configuration=development` compiles clean.
+- [x] Playwright `cash-flow-forecast.spec.ts` (2/2): golden path (open → fetch → chart renders →
+  refilter weeks → warnings banner → export blob 200) + empty-window no-activity message. The toggle
+  round-trip (disable in Settings → hub hides → direct URL 403s) is covered by the Phase-0
+  reports-settings specs + the permission-gate ITs; the test-schema `@RequiresReport` fallback makes a
+  literal toggle-off 403 unround-trippable (see Deviations §2).
+
+#### Manual
+- Forecast for a known `asOf` aligns with the treasurer's manual projection ±5%.
+- Multi-currency tenant: per-currency series render, no cross-currency total shown.
+- Collection-rate trend line chart reads correctly against the per-dimension collection-rate report.
+- Aged-debtors page: aging grid + export open clean; toggling `AGED_BALANCES` off hides the page and
+  403s its API.
 
 ---
 
@@ -2767,6 +2941,45 @@ Ties the existing fraud-detection AI outputs into a fraud referral + savings rep
 - **Feature-flag alternative**: for high-risk phases (Phase 10 reinsurance module, Phase 14 actuarial cross-language calls), gate at the `TenantReportConfig` level (report_key present but disabled by default for all tenants until proven).
 
 ## Deviations
+
+**2026-08-16 (Phase 8 grilling — expansion to code altitude, before implementation)**
+
+- **§1 — Forecast lives in contributions-service, inverting the aggregator direction.** The Phase 3/5
+  precedent (G2/G16) is finance-service hosting every cross-service composer and fanning out to
+  contributions via `ContributionsClient`. The Phase 8 outline instead names
+  `AgedDebtorsForecastController` in contributions-service, and the grill confirmed that placement
+  (D8-1). Consequently contributions-service gains a reverse `FinanceClient` (WebClient to
+  finance-service, `services.finance.base-url:http://localhost:8085`, no in-client retries —
+  G37 fallbacks live at the caller) and finance-service exposes a narrow ungated
+  `/api/v1/reports/aggregate/outflows` feed (mirroring `ReceiptsAggregateController` — toggling
+  `CASH_FLOW_FORECAST_13W` off must not break the forecast's data feed). The inbound
+  `X-Tenant-ID` header convention is unchanged.
+
+**2026-08-16 (Phase 8 §2 — implementation deltas)**
+
+- **§2a — ngx-charts animations disabled on the shared `app-line-chart`.** The Phase 8 chart pages
+  (cash-flow-forecast, collection-rate-trend) rendered `[animations]="true"`. In the dev-mode build
+  (what Playwright + `ng serve` test) a 13-week × 2-currency dataset pegged the main thread — a trivial
+  `performance.now()` round-trip took 7→36s, and the e2e spec's first interaction timed out even though
+  the DOM was attached (the toolbar's `asOf` input existed but was never actionable). Flipping to
+  `[animations]="false"` dropped round-trips to ~16-55ms. That is also a UX win: every refetch (rolling
+  weeks / as-of / currency change) previously re-animated the whole chart. The `view` input on the
+  wrapper was already a no-op (never bound through to `ngx-charts-line-chart`).
+- **§2b — rollingWeeks refilter binding was missing** (`cash-flow-forecast.component.html`): the
+  `app-select` for rolling weeks bound only `[(ngModel)]` and never called `onFilterChange()`, so
+  changing the window updated the model but never refetched. The currency select already had
+  `(selectionChange)="onFilterChange()"`; the weeks select now matches. The e2e golden path caught it.
+- **§2c — contributions IT stubs the finance peer with `@MockBean FinanceClient` rather than
+  MockWebServer.** okhttp mockwebserver is not on the contributions-service test classpath (finance has
+  it; contributions does not), and the IT must assert Kafka audit events on export, so it extends
+  `AbstractIntegrationTest` (Postgres + Kafka) with a mock client bean. The finance-side
+  `CollectionRateTrendControllerIT` does use the existing MockWebServer pattern.
+- **§2d — toggle-off 403 is proven via the permission gate, not a literal disabled row.** The test
+  schema has no `tenant_report_config` table, so `@RequiresReport` falls back to enabled (absent row =
+  default TRUE) — a literal disable-row round-trip is unrepresentable there. Both Phase 8 ITs assert the
+  `FINANCE_VIEW_SUBLEDGER` 403 instead; the toggle-hides-from-hub behaviour belongs to the Phase-0
+  reports-settings specs (per the Phase-0 §6 deferral note above), so the e2e spec ships golden-path +
+  empty-window rather than a toggle round-trip.
 
 **2026-08-16 (Phase 4 §B e2e follow-up)**
 

@@ -202,7 +202,6 @@ export const FINANCE_ROUTES: Routes = [
       sidebar: 'operational',
     },
   },
-  cs('debtors-report',                    'Debtors Report',             '/view-debtors-report',        'Aged-debtors analytics.',                ['finance:view_debtors']),
   // Phase 5 (G51) — retire the billing-to-claims ComingSoon stubs in favour
   // of the real loss-ratio report (reports/billing-vs-claims). The detail
   // stub had no consumer; both redirect to the report.
@@ -352,6 +351,45 @@ export const FINANCE_ROUTES: Routes = [
       sidebar: 'operational',
       fullbleed: true,
       reportKey: 'COLLECTION_RATE',
+    },
+  },
+  // Phase 8 — 13-week cash-flow forecast + portfolio-level collection-rate
+  // trend + aged-debtors report page (replacing the debtors-report stub,
+  // D8-2/D8-8 — route key AGED_BALANCES gates this page's API).
+  {
+    path: 'reports/cash-flow-forecast',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/cash-flow-forecast/cash-flow-forecast.component').then(m => m.CashFlowForecastComponent),
+    data: {
+      title: 'Cash-flow forecast',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'CASH_FLOW_FORECAST_13W',
+    },
+  },
+  {
+    path: 'reports/collection-rate-trend',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/collection-rate-trend/collection-rate-trend.component').then(m => m.CollectionRateTrendComponent),
+    data: {
+      title: 'Collection-rate trend',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'COLLECTION_RATE_TREND',
+    },
+  },
+  {
+    path: 'reports/aged-debtors',
+    canActivate: [permissionGuard(['finance:view_debtors'])],
+    loadComponent: () =>
+      import('./reports/aged-debtors/aged-debtors.component').then(m => m.AgedDebtorsComponent),
+    data: {
+      title: 'Aged debtors',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'AGED_BALANCES',
     },
   },
   // Phase 4 §A claims-financial family — per-scheme / per-provider summaries,

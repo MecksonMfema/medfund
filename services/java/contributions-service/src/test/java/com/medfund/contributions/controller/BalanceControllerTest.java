@@ -3,6 +3,7 @@ package com.medfund.contributions.controller;
 import com.medfund.contributions.config.SecurityConfig;
 import com.medfund.contributions.dto.DebtorRow;
 import com.medfund.contributions.dto.PageResponse;
+import com.medfund.contributions.service.AgedBalancesExcelService;
 import com.medfund.contributions.service.BadDebtService;
 import com.medfund.contributions.service.BadDebtsExcelService;
 import com.medfund.contributions.service.BalanceService;
@@ -56,6 +57,7 @@ class BalanceControllerTest {
     @MockBean private BadDebtService badDebtService;
     @MockBean private DebtorsExcelService debtorsExcelService;
     @MockBean private BadDebtsExcelService badDebtsExcelService;
+    @MockBean private AgedBalancesExcelService agedBalancesExcelService;
     @MockBean private SecurityEventPublisher securityEventPublisher;
 
     @BeforeEach

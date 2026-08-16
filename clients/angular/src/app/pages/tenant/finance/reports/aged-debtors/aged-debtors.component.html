@@ -1,0 +1,80 @@
+<header class="page-header">
+  <div>
+    <h1>Aged debtors</h1>
+    <p class="page-sub">
+      Still-billable subjects whose oldest unpaid contribution is older than the grace/suspension
+      threshold — the collections-lifecycle view, each row classified GRACE / SUSPENDED / WRITE_OFF.
+      For money owed by subjects who already fell off the roster, see Bad debts.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="!selectedCurrency || exporting"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-search">
+    <app-icon name="search" [size]="16"></app-icon>
+    <input
+      type="search"
+      [ngModel]="searchTerm"
+      (ngModelChange)="onSearch($event)"
+      name="search"
+      placeholder="Search name, email or code…"
+      aria-label="Search aged balances"
+    />
+  </div>
+
+  <div class="toolbar-cell cell-age">
+    <span class="cell-label">Min age (days)</span>
+    <input
+      type="number"
+      [(ngModel)]="minAgeDaysInput"
+      (ngModelChange)="onMinAgeChange()"
+      name="minAgeDays"
+      min="0"
+      placeholder="Default"
+      aria-label="Minimum age in days"
+    />
+  </div>
+
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Currency</span>
+    <app-select
+      [(ngModel)]="selectedCurrency"
+      (selectionChange)="onCurrencyChange()"
+      name="currency"
+      [options]="currencyOptions"
+      placeholder="Auto"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+</div>
+
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [showActions]="false"
+  [searchable]="false"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  [emptyMessage]="'No aged balances'"
+  [emptyDescription]="selectedCurrency ? ('No subjects owe in ' + selectedCurrency) : 'Pick a currency to view aged balances.'"
+  [emptyIcon]="'wallet'"
+  (pageChange)="onPageChange($event)">
+</app-data-table>

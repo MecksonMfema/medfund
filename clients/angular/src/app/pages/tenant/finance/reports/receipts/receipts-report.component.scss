@@ -19,6 +19,14 @@
   &.banner-warning { background: #fef3c7; color: #92400e; cursor: default; }
 }
 
+.chart-wrap {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
 .tx-toolbar {
   display: flex;
   flex-wrap: wrap;

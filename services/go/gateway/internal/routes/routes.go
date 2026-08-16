@@ -132,6 +132,11 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/reports/receipts/*", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/reports/aggregate/receipts", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/reports/aggregate/receipts/*", proxy.Handler(cfg.ContribServiceURL))
+	// Phase 8 — 13-week cash-flow forecast. Lives in contributions-service
+	// (inflow = local unpaid-invoice ledger; outflow composed from
+	// finance-service /aggregate/outflows). Path-specific per D8-10.
+	app.All("/api/v1/reports/cash-flow-forecast", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/reports/cash-flow-forecast/*", proxy.Handler(cfg.ContribServiceURL))
 
 	// ── Finance Service ───────────────────────────────────────────────────────
 	app.All("/api/v1/payments/*", proxy.Handler(cfg.FinanceServiceURL))
@@ -164,6 +169,13 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// finance-service can add their own siblings without route conflicts.
 	app.All("/api/v1/reports/collection-rate", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reports/collection-rate/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 8 — portfolio-level collection-rate trend + the narrow
+	// service-to-service planned-outflow feed consumed by the
+	// contributions-service cash-flow forecast. Both path-specific per D8-10.
+	app.All("/api/v1/reports/collection-rate-trend", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/collection-rate-trend/*", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/aggregate/outflows", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/aggregate/outflows/*", proxy.Handler(cfg.FinanceServiceURL))
 	// Phase 5 cross-service reports — compose billing + receipts + claims
 	// aggregates from contributions-service + claims-service.
 	app.All("/api/v1/reports/billing-vs-claims", proxy.Handler(cfg.FinanceServiceURL))
