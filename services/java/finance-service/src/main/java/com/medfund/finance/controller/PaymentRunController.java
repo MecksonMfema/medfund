@@ -6,22 +6,32 @@ import com.medfund.finance.dto.PaymentRunFilterParams;
 import com.medfund.finance.dto.PaymentRunItemResponse;
 import com.medfund.finance.dto.PaymentRunResponse;
 import com.medfund.finance.service.PaymentRunService;
+import com.medfund.finance.service.PaymentRunWorkbookService;
 import com.medfund.shared.audit.AuditActor;
 import com.medfund.shared.report.ReportKey;
 import com.medfund.shared.report.RequiresReport;
+import com.medfund.shared.security.Permissions;
+import com.medfund.shared.security.RequiresPermission;
+import com.medfund.shared.security.SecurityEventPublisher;
+import com.medfund.shared.tenant.TenantContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -30,10 +40,19 @@ import java.util.UUID;
 @SecurityRequirement(name = "bearer-jwt")
 public class PaymentRunController {
 
-    private final PaymentRunService paymentRunService;
+    private static final MediaType XLSX = MediaType.parseMediaType(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
-    public PaymentRunController(PaymentRunService paymentRunService) {
+    private final PaymentRunService paymentRunService;
+    private final PaymentRunWorkbookService workbookService;
+    private final SecurityEventPublisher securityEventPublisher;
+
+    public PaymentRunController(PaymentRunService paymentRunService,
+                                PaymentRunWorkbookService workbookService,
+                                SecurityEventPublisher securityEventPublisher) {
         this.paymentRunService = paymentRunService;
+        this.workbookService = workbookService;
+        this.securityEventPublisher = securityEventPublisher;
     }
 
     @GetMapping
@@ -81,6 +100,35 @@ public class PaymentRunController {
         return paymentRunService.findItems(id).map(PaymentRunItemResponse::from);
     }
 
+    @GetMapping("/{id}/export/excel")
+    @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
+    @RequiresReport(ReportKey.PAYMENT_RUN_WORKBOOK)
+    @Operation(summary = "Download a payment run as a multi-sheet XLSX workbook",
+            description = "One sheet per distinct currency present in the run's items (D7-1) plus a "
+                        + "summary sheet with per-currency native totals and the total converted into "
+                        + "the tenant reporting currency at the run's executed date (D7-2). A missing "
+                        + "FX rate omits the converted row and adds a warning line instead of failing "
+                        + "the export (D7-3). The download is recorded as a data-access audit event.")
+    public Mono<ResponseEntity<byte[]>> exportWorkbook(@PathVariable UUID id,
+                                                       @AuthenticationPrincipal Jwt jwt) {
+        return paymentRunService.findById(id)
+                .flatMap(run -> Mono.deferContextual(ctx ->
+                        workbookService.workbook(run, parseTenantId(TenantContext.get(ctx)))
+                                .flatMap(bytes -> securityEventPublisher.publishDataAccess(
+                                                TenantContext.get(ctx),
+                                                AuditActor.id(jwt),
+                                                AuditActor.email(jwt),
+                                                ReportKey.PAYMENT_RUN_WORKBOOK.name(),
+                                                excelDetails(id, run.getRunNumber()))
+                                        .thenReturn(bytes))
+                                .map(bytes -> ResponseEntity.ok()
+                                        .contentType(XLSX)
+                                        .header(HttpHeaders.CONTENT_DISPOSITION,
+                                                "attachment; filename=\""
+                                                        + workbookFilename(run.getRunNumber()) + "\"")
+                                        .body(bytes))));
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create a new payment run",
@@ -116,5 +164,23 @@ public class PaymentRunController {
         description = "Allowed in draft, approved, or executing states. Once executed, posting a reversing run is the path.")
     public Mono<PaymentRunResponse> cancel(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
         return paymentRunService.cancel(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(PaymentRunResponse::from);
+    }
+
+    private static UUID parseTenantId(String tenantIdStr) {
+        if (tenantIdStr == null || tenantIdStr.isBlank()) return null;
+        try { return UUID.fromString(tenantIdStr); } catch (IllegalArgumentException e) { return null; }
+    }
+
+    private static Map<String, Object> excelDetails(UUID runId, String runNumber) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("runId", runId.toString());
+        if (runNumber != null) details.put("runNumber", runNumber);
+        return details;
+    }
+
+    private static String workbookFilename(String runNumber) {
+        String safe = runNumber != null && !runNumber.isBlank()
+                ? runNumber.replaceAll("[^A-Za-z0-9._-]", "-") : "payment-run";
+        return "payment-run-" + safe + ".xlsx";
     }
 }

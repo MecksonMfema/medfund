@@ -79,6 +79,22 @@ public abstract class AbstractIntegrationTest {
     }
 
     protected JsonNode consumeAuditEvent(String topic, String entityTypeFilter, Duration timeout) {
+        return consumeAuditEventMatching(topic,
+            node -> entityTypeFilter == null
+                || entityTypeFilter.equals(node.path("entityType").asText()),
+            timeout);
+    }
+
+    /** See {@link AbstractKafkaIntegrationTest#consumeAuditEventContaining}. */
+    protected JsonNode consumeAuditEventContaining(String topic, String detailsContains, Duration timeout) {
+        return consumeAuditEventMatching(topic,
+            node -> node.path("details").asText().contains(detailsContains),
+            timeout);
+    }
+
+    private JsonNode consumeAuditEventMatching(String topic,
+                                               java.util.function.Predicate<JsonNode> matcher,
+                                               Duration timeout) {
         Properties props = new Properties();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers());
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "audit-assert-" + UUID.randomUUID());
@@ -96,8 +112,7 @@ public abstract class AbstractIntegrationTest {
                 for (ConsumerRecord<String, String> rec : records) {
                     try {
                         JsonNode node = MAPPER.readTree(rec.value());
-                        if (entityTypeFilter == null
-                            || entityTypeFilter.equals(node.path("entityType").asText())) {
+                        if (matcher.test(node)) {
                             return node;
                         }
                     } catch (Exception ignored) {

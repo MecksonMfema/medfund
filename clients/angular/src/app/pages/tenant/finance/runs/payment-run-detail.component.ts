@@ -50,6 +50,7 @@ export class PaymentRunDetailComponent implements OnInit {
   run: PaymentRun | null = null;
   loading = false;
   busy = false;
+  exporting = false;
   errorMessage: string | null = null;
   successMessage: string | null = null;
 
@@ -116,6 +117,27 @@ export class PaymentRunDetailComponent implements OnInit {
 
   canRegenerateAdvices(): boolean {
     return this.permissions.has('finance:generate_payment_advice');
+  }
+
+  /** D7-5 / D7-6: export available to any user with the subledger permission. */
+  canExportWorkbook(): boolean {
+    return this.permissions.has('finance:view_subledger');
+  }
+
+  /** D7-6/D7-7: header-only "Export workbook" — any status, errors → banner. */
+  exportWorkbook(): void {
+    if (!this.run) return;
+    this.exporting = true;
+    this.finance.exportPaymentRunWorkbook(this.run.id).subscribe({
+      next: (blob) => {
+        downloadBlob(blob, `payment-run-${this.run?.runNumber || this.run?.id}.xlsx`);
+        this.exporting = false;
+      },
+      error: (err) => {
+        this.errorMessage = err?.error?.detail || 'Failed to download workbook';
+        this.exporting = false;
+      },
+    });
   }
 
   ngOnInit(): void {
@@ -276,4 +298,13 @@ export class PaymentRunDetailComponent implements OnInit {
       },
     });
   }
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }

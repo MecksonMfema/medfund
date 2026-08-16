@@ -230,7 +230,8 @@ class BalanceHistoryControllerIT extends AbstractIntegrationTest {
                 .expectStatus().isOk()
                 .expectHeader().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
-        JsonNode event = consumeAuditEvent("medfund.security.events", Duration.ofSeconds(10));
+        JsonNode event = consumeAuditEventContaining("medfund.security.events",
+                "PROVIDER_BALANCE_HISTORY", Duration.ofSeconds(10));
         assertThat(event).isNotNull();
         assertThat(event.path("eventType").asText()).isEqualTo("DATA_ACCESS");
         assertThat(event.path("details").asText()).contains("PROVIDER_BALANCE_HISTORY");

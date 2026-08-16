@@ -34,6 +34,14 @@
         </button>
       </div>
     }
+    @if (run && canExportWorkbook()) {
+      <div class="header-actions">
+        <button class="btn btn-default" (click)="exportWorkbook()" [disabled]="exporting">
+          <app-icon name="download" [size]="14"></app-icon>
+          @if (exporting) { Exporting… } @else { Export workbook }
+        </button>
+      </div>
+    }
   </header>
 
   @if (errorMessage) {

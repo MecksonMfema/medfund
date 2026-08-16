@@ -68,6 +68,32 @@ public abstract class AbstractKafkaIntegrationTest {
     }
 
     protected JsonNode consumeAuditEvent(String topic, String entityTypeFilter, Duration timeout) {
+        return consumeAuditEventMatching(topic,
+            node -> entityTypeFilter == null
+                || entityTypeFilter.equals(node.path("entityType").asText()),
+            timeout);
+    }
+
+    /**
+     * Read the first message on {@code topic} whose {@code details} text
+     * contains {@code detailsContains}, parsed as the audit envelope JSON
+     * shape. Returns {@code null} on timeout.
+     *
+     * <p>Multiple IT classes share one broker/topic for the JVM, and every
+     * consumer uses a fresh group reading from earliest, so events from
+     * unrelated earlier tests stay visible. Tests that assert on specific
+     * events must match on content ({@code details}) rather than grabbing
+     * the first event on the topic.
+     */
+    protected JsonNode consumeAuditEventContaining(String topic, String detailsContains, Duration timeout) {
+        return consumeAuditEventMatching(topic,
+            node -> node.path("details").asText().contains(detailsContains),
+            timeout);
+    }
+
+    private JsonNode consumeAuditEventMatching(String topic,
+                                               java.util.function.Predicate<JsonNode> matcher,
+                                               Duration timeout) {
         Properties props = new Properties();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA.getBootstrapServers());
         // Unique group + earliest offset → every call sees the full topic, no
@@ -87,8 +113,7 @@ public abstract class AbstractKafkaIntegrationTest {
                 for (ConsumerRecord<String, String> rec : records) {
                     try {
                         JsonNode node = MAPPER.readTree(rec.value());
-                        if (entityTypeFilter == null
-                            || entityTypeFilter.equals(node.path("entityType").asText())) {
+                        if (matcher.test(node)) {
                             return node;
                         }
                     } catch (Exception ignored) {

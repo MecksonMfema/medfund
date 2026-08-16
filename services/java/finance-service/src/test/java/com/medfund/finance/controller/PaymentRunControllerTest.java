@@ -3,6 +3,8 @@ package com.medfund.finance.controller;
 import com.medfund.finance.config.SecurityConfig;
 import com.medfund.finance.entity.PaymentRun;
 import com.medfund.finance.service.PaymentRunService;
+import com.medfund.finance.service.PaymentRunWorkbookService;
+import com.medfund.shared.security.SecurityEventPublisher;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
@@ -30,6 +32,12 @@ class PaymentRunControllerTest {
 
     @MockBean
     private PaymentRunService paymentRunService;
+
+    @MockBean
+    private PaymentRunWorkbookService workbookService;
+
+    @MockBean
+    private SecurityEventPublisher securityEventPublisher;
 
     @Test
     void findAll_returns200() {

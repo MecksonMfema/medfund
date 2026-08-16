@@ -749,6 +749,10 @@ export class FinanceService {
   executeRun(id: string): Observable<PaymentRun> { return this.api.post<PaymentRun>(`/payment-runs/${id}/execute`, {}); }
   approveRun(id: string): Observable<PaymentRun> { return this.api.post<PaymentRun>(`/payment-runs/${id}/approve`, {}); }
   cancelRun(id: string): Observable<PaymentRun> { return this.api.post<PaymentRun>(`/payment-runs/${id}/cancel`, {}); }
+  /** Phase 7: multi-sheet XLSX workbook for a payment run (D7-1..D7-3, D7-6). */
+  exportPaymentRunWorkbook(id: string): Observable<Blob> {
+    return this.api.getBlob(`/payment-runs/${id}/export/excel`);
+  }
 
   // ── Payments ──
   listPayments(): Observable<Payment[]> { return this.api.get<Payment[]>('/payments'); }

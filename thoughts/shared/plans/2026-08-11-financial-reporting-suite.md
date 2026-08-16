@@ -13,11 +13,12 @@ phases_status:
   "1": landed 2026-08-11 (§A + §B, commit 273f895)
   "2": landed 2026-08-11 (commit af9ed8d)
   "3": landed 2026-08-11
-  "4": grilled 2026-08-11 (§A + §B split); ready for implement
+  "4": grilled 2026-08-11 (§A + §B split); §A + §B landed 2026-08-16 (claims-financial family + V132 + gateway routes + Angular pages + e2e)
   "5": grilled 2026-08-16 (§A + §B split, D1-D5); §A + §B landed 2026-08-16 (backend + gateway + Angular + e2e; §A verified + pre-existing test fixes, §B Playwright 3/3)
   "6": grilled 2026-08-16 (D6-1..D6-8, research correction: runs don't touch balance tables → freeze-frame); §A + §B landed 2026-08-16 (V080 snapshot migration + PaymentRunService.execute snapshot step + BalanceHistory controller/excel + unit/IT; Angular pages + creditors links + Playwright 3/3)
-  "7-19": outline depth; each needs its own grilling pass before implementation
-last_grilled_phase: 6
+  "7": grilled 2026-08-16 (D7-1..D7-7, sheet-per-currency → group-by-item-currency, summary = native totals + reporting-currency conversion); §A + §B landed 2026-08-16 (PaymentRunWorkbookService + query repo + controller export + V006 test-migration + unit/IT; Angular header Export button + Playwright 4/4)
+  "8-19": outline depth; each needs its own grilling pass before implementation
+last_grilled_phase: 7
 last_grilled_date: 2026-08-16
 ---
 
@@ -2387,18 +2388,99 @@ entities + repositories (`ProviderBalanceSnapshotRepository`,
 
 ### Overview
 
-Multi-sheet XLSX export of a payment run: one sheet per currency (USD, ZWL, …) plus a summary sheet.
+Multi-sheet XLSX export of a payment run: one sheet per currency actually present in the run's
+items (D7-1) plus a summary sheet with per-currency native totals and a converted total into the
+tenant reporting currency at the run's executed date (D7-2, D7-3).
+
+### Decisions (grilled 2026-08-16)
+
+- **D7-1 — Group by item currency anyway.** Today every run is single-currency by construction
+  (`PaymentRunGenerator.populate*Items(runId, currency)` stamps all items with
+  `run.getCurrencyCode()`), but the workbook still groups items by their `currencyCode` so one
+  sheet is produced per distinct currency present. Today that yields exactly one currency sheet +
+  summary; a future multi-currency run gets extra sheets for free. Satisfies the success criterion
+  "sheet count matches currency count" literally and avoids dead-special-casing the common case.
+- **D7-2 — Summary sheet = per-currency native totals + one converted row.** The summary sheet
+  carries run identity (runNumber, status, payee type, payment count, executedAt) and one total row
+  per distinct currency — native, never summed across currencies (Rule 1). Plus exactly ONE
+  converted row: the run's grand total in the run's own `currencyCode` → tenant reporting currency
+  via `FxConverter` at `run.executedAt` (reporting currency resolved via
+  `ReportingCurrencyResolver`, tenant default). This is the "totals + FX conversion at run date"
+  from the plan without ever adding mixed-currency sums.
+- **D7-3 — Missing FX rate ⇒ warn and omit, never fail the export.** If no rate exists for
+  currency → reporting currency at `executedAt`, the converted row is omitted and a warning line
+  ("FX USD→ZWL unavailable at <date> — converted total omitted") is written as a summary-sheet
+  meta row. The workbook's native content is complete and correct; a missing FX row must not
+  destroy an otherwise-good operational download (G28-tolerant precedent: loss-ratio warnings).
+- **D7-4 — One row per run item, with payee name.** Each currency sheet lists one row per run
+  item: payment # (joined via `payment_id`), payee name (resolved through the
+  `providers`/`members` join, same `COALESCE(pr.name, m.first_name || ' ' || m.last_name)` shape as
+  `PaymentQueryRepository`), payee type, item amount (native), item status, payment method,
+  reference, payment paid/created date. Mirrors the run-detail Payments tab so the export
+  eyeball-checks against the page. Includes cancelled/revoked items — the workbook is a ledger.
+- **D7-5 — Gate: `FINANCE_VIEW_SUBLEDGER` + `@RequiresReport(PAYMENT_RUN_WORKBOOK)`.** Same stack
+  as every other finance report export. Toggling `PAYMENT_RUN_WORKBOOK` off in Settings → Reports
+  403s the export while the run page stays readable (balance-history precedent).
+- **D7-6 — Export button in the run-detail header, any status.** The run-detail page's existing
+  header actions get an "Export workbook" button (`btn btn-default`, download icon) shown whenever
+  the run loads and the user holds `finance:view_subledger` — including draft/approved/cancelled
+  runs (D7-7). A 403 (report disabled) or other backend error surfaces via the page's existing
+  `errorMessage` banner; no dedicated disabled-report page. Filename `payment-run-{runNumber}.xlsx`.
+- **D7-7 — Exportable from any run status.** Draft runs already contain generated items and the
+  Payments tab supports pre-execution review, so the workbook must too. `GET /payment-runs/{id}/items`
+  already serves all statuses; the export reuses that semantics.
 
 ### Changes Required
 
-- **finance-service** `PaymentRunController.exportWorkbook(runId)` → `GET /api/v1/payment-runs/{id}/export/excel`. Report key `PAYMENT_RUN_WORKBOOK`.
-- New `PaymentRunWorkbookService` using `ReportWorkbook`; one sheet per currency, one summary sheet with totals + FX conversion at run date.
-- **Angular**: `payment-run-detail.component` gets an "Export workbook" button.
+- **finance-service** `PaymentRunController.exportWorkbook(runId, jwt)` → `GET /api/v1/payment-runs/{id}/export/excel`
+  (`ResponseEntity<byte[]>`, XLSX content type, `attachment; filename="payment-run-{runNumber}.xlsx"`).
+  Report key `PAYMENT_RUN_WORKBOOK` (already in `ReportKey`, PAYABLES family). Gated
+  `@RequiresPermission(FINANCE_VIEW_SUBLEDGER)` + `@RequiresReport(PAYMENT_RUN_WORKBOOK)` (D7-5).
+  On success fires `SecurityEventPublisher.publishDataAccess(tenantId, actorId, actorEmail,
+  PAYMENT_RUN_WORKBOOK, {runId, runNumber})` (Rule 9 — mirror `BalanceHistoryController` export).
+  Gateway needs nothing — `/api/v1/payment-runs/*` already proxies to finance.
+- New `PaymentRunWorkbookService` using `ReportWorkbook`:
+  - Resolve the run (`PaymentRunService.findById`), stream its items, group by `currencyCode`
+    (D7-1).
+  - Per currency: a `SheetWriter` sheet (named by currency code) with header + one row per item
+    (D7-4) + a bold native-total row; run identity echoed via `meta` rows.
+  - Summary sheet: run meta rows, per-currency native totals (D7-2), grand total in the run's
+    currency, and the converted row into the reporting currency at `executedAt` — warn-and-omit
+    on missing FX (D7-3). Use `FxConverter` + `ReportingCurrencyResolver` (injected).
+  - Payee-name lookup: a new small query repo (or reuse of `PaymentQueryRepository`'s join shape)
+    joining `payment_run_items` → `payments` → `providers`/`members`.
+- **Angular**: `payment-run-detail.component` header gets an "Export workbook" button (D7-6) —
+  download icon, `btn-default`, calls a new `FinanceService.exportPaymentRunWorkbook(runId)` →
+  `api.getBlob('/payment-runs/${id}/export/excel')`, reusing the `downloadBlob` helper pattern
+  from the balance-history components. Hidden unless `finance:view_subledger`; errors (incl. 403
+  disabled-report) go to the existing `errorMessage` banner.
 
 ### Success Criteria
 
-- Automated: IT checks sheet count matches currency count; totals reconcile.
-- Manual: Excel opens without warnings; large runs (5k+ items) export in <30s.
+- **Automated:**
+  - [x] Unit (`PaymentRunWorkbookServiceTest`): groups items by currency; per-sheet totals reconcile
+    to item sums; summary converted row uses the FX rate at `executedAt`; missing FX omits the
+    row and adds the warning; single-currency run produces one currency sheet + summary; no items
+    ⇒ header-only summary sheet (no crash) — 5/5 green.
+  - [x] IT (`PaymentRunWorkbookControllerIT`, Testcontainers + test-migrations): export of a seeded
+    run returns 200 + XLSX; sheet count == distinct currency count + 1 summary (D7-1); workbook
+    totals reconcile to seeded item amounts; `medfund.security.events` carries
+    `eventType=DATA_ACCESS` + `PAYMENT_RUN_WORKBOOK` (Rule 9); permission gate yields 403. Added
+    `V006__payment_run_workbook.sql` test-migration (payment_run_items + payments, post-V071 shape).
+    Note: `@RequiresReport` falls back to enabled in the test schema (no `tenant_report_config`
+    table), so the gate is proven via `FINANCE_VIEW_SUBLEDGER` — mirroring Phase 6's fallback.
+  - [x] Java compiles + full finance test run green: `./gradlew :finance-service:test` — 202/202
+    (incl. the 5 new workbook unit tests + the new IT). `:finance-service:build`'s jacoco gate
+    still fails below 70% — pre-existing, see `.claude/coverage-backlog.md`.
+  - [x] Angular: `npx ng test --watch=false --browsers=ChromeHeadlessCI` (existing suite — 468 pass;
+    the single pre-existing `insurance-lines` providerModeForLine failure remains, unrelated);
+    `npx ng build --configuration development` compiles clean (exit 0).
+  - [x] Playwright `payment-run-workbook.spec.ts` (4/4): executed run header shows Export workbook →
+    blob GET fires 200; draft run still exports; missing `finance:view_subledger` hides the button;
+    export failure surfaces in the `errorMessage` banner.
+- **Manual:** Excel opens without warnings; sheet count matches currency count + summary; large
+  runs (5k+ items) export in <30s; converting a run whose currency has no FX row at executedAt
+  still downloads with the warning line.
 
 ---
 
