@@ -18,8 +18,9 @@ phases_status:
   "6": grilled 2026-08-16 (D6-1..D6-8, research correction: runs don't touch balance tables → freeze-frame); §A + §B landed 2026-08-16 (V080 snapshot migration + PaymentRunService.execute snapshot step + BalanceHistory controller/excel + unit/IT; Angular pages + creditors links + Playwright 3/3)
   "7": grilled 2026-08-16 (D7-1..D7-7, sheet-per-currency → group-by-item-currency, summary = native totals + reporting-currency conversion); §A + §B landed 2026-08-16 (PaymentRunWorkbookService + query repo + controller export + V006 test-migration + unit/IT; Angular header Export button + Playwright 4/4)
   "8": grilled 2026-08-16 (D8-1..D8-10, contributions-service placement per outline + reverse FinanceClient, inflow=unpaid invoices by due_date, outflow=draft+approved runs by created_at, asOf+rollingWeeks window, per-currency no-conversion forecast, portfolio-level collection-rate trend in finance, AGED_BALANCES route key); landed 2026-08-16 (13-week cash-flow forecast backend + Excel in contributions, outflow feed + collection-rate trend in finance, aged-debtors page + FinanceClient, gateway routes, Angular pages + fixes, unit/IT, Playwright 2/2)
-  "9-19": outline depth; each needs its own grilling pass before implementation
-last_grilled_phase: 8
+  "9": grilled 2026-08-16 (D9-1..D9-9, 5 stubs + revenue-by-tenant chart + super-admin middleware + tenant-growth server-side)
+  "10-19": outline depth; each needs its own grilling pass before implementation
+last_grilled_phase: 9
 last_grilled_date: 2026-08-16
 ---
 
@@ -2680,21 +2681,79 @@ report consuming the Phase 1 backend.
 
 ### Overview
 
-Fill the 6 stubbed `/analytics/*` endpoints in `services/go/gateway/internal/platform/handler.go:35-42` by adding per-service `/api/v1/platform/<metric>` aggregate endpoints (super-admin only).
+Fill the stubbed `/analytics/*` endpoints in `services/go/gateway/internal/platform/handler.go:526-544` by adding per-service `/api/v1/platform/<metric>` raw-row endpoints (super-admin only), and wire a new revenue-by-tenant bar chart into the Angular analytics page. The five stubs (`claims-over-time`, `billing-over-time`, `billing-payments-over-time`, `claim-payouts-over-time`, `revenue-by-tenant`) are filled; three already-real endpoints (`tenant-growth` → moved server-side, `member-growth`, `claims-distribution`) are left untouched except tenant-growth.
+
+### Design Decisions (D9-1..D9-9)
+
+- **D9-1 — No new connection factory.** The existing `TenantAwareConnectionFactory` already yields platform-context connections (`search_path = public`, no `SET ROLE`) when no tenant UUID is in Reactor context (`shared/.../TenantAwareConnectionFactory.java:84`). claims-service and user-service already do cross-tenant aggregation via `information_schema.schemata LIKE 'tenant_%'` + schema-qualified queries (`PlatformStatsController`). All four new endpoints copy this pattern — no new beans, no new connection factory.
+
+- **D9-2 — revenue-by-tenant lives in contributions-service, not finance.** "Revenue" = receipts (netted completed transactions per `transaction_types.sign`, the Phase 3 receipts definition), which is contributions-domain data. The plan's finance-service assignment is a deviation. finance-service serves payouts only.
+
+- **D9-3 — Revenue-by-tenant chart wired into Angular.** The `getRevenueByTenant()` method in `platform-dashboard.service.ts:79` currently has no caller. A new bar chart is added to `analytics.component.html` (below the Money Flow section, before Service Health), using the existing `app-bar-chart` component. This is a deliberate expansion of the plan's "Angular: no changes" constraint.
+
+- **D9-4 — Currency conversion.** All four money series (billed, received, paid-out, revenue-by-tenant) are converted to a platform reporting currency (USD, matching the `$` UI) server-side in Java, using `FxRateReader.findRate` with `tenantId=null` (platform-wide rates only from `public.exchange_rates`). Best-effort: rows whose currency has no platform-wide rate are excluded and a `skipped` count is surfaced in the gateway response envelope. `seriesPoint.Value` changes from `int` to `float64`. As-of date per row (falling back to latest rate). Angular area charts render floats unchanged; the bar chart uses `value` directly.
+
+- **D9-5 — Bucketing lives in the gateway.** Java endpoints return raw rows (timestamps + converted amounts + optional metadata). The gateway's existing `periodBuckets`/`buildGrowthSeries` engine (handler.go:363-444) does all windowing, bucketing (week/month/year/all), and money-sum bucketing for the four time-series endpoints. Revenue-by-tenant is a pass-through **ranking** (not bucketed — x-axis = tenant names). One bucketing implementation in Go, reused by every chart; Java stays period-agnostic. The gateway unwraps the `{rows, skipped}` envelope to forward a plain `[{name, value}]` array, logging when `skipped > 0`.
+
+- **D9-6 — Super-admin enforcement at gateway.** A new middleware (applied to the `/api/v1/platform` group) rejects non-`super_admin` callers with 403, using `hasSuperAdminRole(claims)` from `jwt.go:104`. This covers all existing endpoints too (tenant-count, claims-stats, user-stats, member-growth, claims-distribution, stats, activity, health) — closing an existing hole where any authenticated user could read cross-tenant aggregates. Angular `roleGuard(['super_admin'])` on `/platform/*` already hides the pages client-side, so no legitimate caller breaks.
+
+- **D9-7 — Metric semantics.** Each endpoint is a raw-row feed to the gateway:
+
+  | Endpoint | Service | Source | Timestamp | Value |
+  |---|---|---|---|---|
+  | `claims-over-time` | claims-service | `claims` WHERE `created_at IS NOT NULL` | `created_at` | count (1 per claim) |
+  | `billing-over-time` | contributions-service | `invoices` WHERE `issued_at IS NOT NULL` AND `status <> 'void'` | `issued_at` | `total_amount` (USD-converted) |
+  | `billing-payments-over-time` | contributions-service | Phase 3 receipts CTE verbatim (`transaction_types.sign` netted, `status = 'completed'`, types `PAYMENT`, `COPAYMENT_RECEIPT`, `CTC_OFFSET`, `REFUND`, `PAYMENT_REVERSAL`, `CTC_OFFSET_REVERSAL`) | `transaction_date` | `amount * sign` (USD-converted) |
+  | `claim-payouts-over-time` | finance-service | `payment_run_items` WHERE `status = 'paid'` JOIN `payment_runs` WHERE `status = 'executed'` | `payment_runs.executed_at` | `amount` (USD-converted) |
+  | `revenue-by-tenant` | contributions-service | Same receipts CTE, per-tenant sum in window | N/A (ranking) | `amount * sign` per tenant (USD-converted), joined to `public.tenants.name` via `schema_name` |
+
+  All endpoints use the schema-enumeration pattern (`information_schema.schemata LIKE 'tenant_%'`), schema-qualified queries (`"tenant_x".table`), and `onErrorResume(Flux.empty())` per schema.
+
+- **D9-8 — tenant-growth moves server-side.** tenancy-service adds `/api/v1/platform/tenant-growth` returning raw `created_at` timestamps from `public.tenants` (its own domain). The gateway's `getTenantGrowth` stops calling the paginated `/api/v1/tenants?size=1000` list and fans out to the new endpoint; bucketing logic unchanged. This fixes the size-1000 truncation cap and aligns with the other platform endpoints.
+
+- **D9-9 — Tests.**
+  - **Java ITs** — one per new controller, on Testcontainers Postgres (`AbstractPostgresIntegrationTest`): create 2+ `tenant_%` schemas; seed minimal tables + `public.tenants` rows; assert the raw-row responses. Plus a no-data case (empty → `[]`). Super-admin 403 asserted for non-super-admin JWTs.
+  - **Gateway Go tests** — (a) unit tests for the new money-sum bucket + ranking helpers; (b) a handler wiring test with `httptest` servers standing in for upstream services (raw rows → bucketed series); (c) a middleware test asserting non-super-admin → 403 on `/api/v1/platform/*`.
+  - **Revenue-by-tenant cap** — top 10 tenants sorted by revenue; bar chart renders all 10.
 
 ### Changes Required
 
-- **contributions-service**: `/api/v1/platform/billing-over-time`, `/billing-payments-over-time` (aggregate across all tenant schemas — requires a "cross-tenant" connection factory that doesn't bind `search_path`).
-- **finance-service**: `/api/v1/platform/revenue-by-tenant`, `/claim-payouts-over-time`.
-- **claims-service**: `/api/v1/platform/claims-over-time`.
-- **tenancy-service**: `/api/v1/platform/tenant-growth` (monthly new tenants).
-- **gateway**: wire the existing 6 routes to hit the real endpoints; remove the placeholder responses.
-- **Angular**: no changes — `/platform/analytics` already consumes these paths.
+#### Java services
+
+- **claims-service** — new `PlatformAnalyticsController` (`/api/v1/platform/claims-over-time`): `GET ?periodStart=&periodEnd=` returns `Flux<Map<String, Object>>` of `{ts, value}` rows (schema-enumerated raw claim counts by `created_at`). No period bucketing — the gateway handles that.
+- **contributions-service** — new `PlatformAnalyticsController` with three endpoints:
+  - `GET /api/v1/platform/billing-over-time` — invoices, schema-enumerated, issued_at + USD-converted total_amount.
+  - `GET /api/v1/platform/billing-payments-over-time` — receipts CTE (schema-qualified `transactions` + `transaction_types`), netted by sign, transaction_date + USD-converted amount.
+  - `GET /api/v1/platform/revenue-by-tenant` — receipts CTE, per-tenant sum, joined to `public.tenants.name` via `schema_name`. Returns top-10 ranked `{tenantName, value}`. Note: cross-schema join to `public.tenants` (platform schema) is safe because platform-context `search_path = public` resolves `public.tenants`; the `tenant_x` prefix is explicit in the qualified query.
+  - All three use `FxRateReader` (shared bean, injected) with `tenantId=null` for platform-wide USD conversion, request-level cache keyed by `(currency, date)`. Skipped-unconvertible count logged and surfaced in response envelope `{rows: [...], skipped: N}`.
+- **finance-service** — new `PlatformAnalyticsController` (`/api/v1/platform/claim-payouts-over-time`): `GET ?periodStart=&periodEnd=` returns `Flux<Map<String, Object>>` of `{ts, value}` rows (schema-enumerated `payment_run_items` WHERE `status = 'paid'` JOIN `payment_runs` WHERE `status = 'executed'`, joined to `public.tenants.name`... wait — payouts don't need tenant names, just timestamps and USD-converted amounts).
+- **tenancy-service** — new `PlatformAnalyticsController` (`/api/v1/platform/tenant-growth`): `GET` returns `Flux<Map<String, Object>>` of `{ts}` rows (`created_at` from `public.tenants`). No schema enumeration — `public.tenants` lives in the public schema.
+
+#### Gateway
+
+- **`services/go/gateway/internal/middleware/`** — new `superadmin.go`: `RequireSuperAdmin()` Fiber middleware that checks `hasSuperAdminRole(c.Locals("jwt_claims"))` and returns 403 `{"error": "super admin access required"}` if not. Applied to the platform group in `routes.go`.
+- **`services/go/gateway/internal/platform/handler.go`** — replace stubs with real upstream calls:
+  - `getClaimsOverTime`: calls claims-service `/api/v1/platform/claims-over-time?periodStart=&periodEnd=`, buckets via `buildCountSeries` (new helper).
+  - `getBillingOverTime`: calls contributions-service `/api/v1/platform/billing-over-time?periodStart=&periodEnd=`, buckets via `buildMoneySumSeries` (new helper).
+  - `getBillingPaymentsOverTime`: calls contributions-service `/api/v1/platform/billing-payments-over-time?periodStart=&periodEnd=`, buckets via `buildMoneySumSeries`.
+  - `getClaimPayoutsOverTime`: calls finance-service `/api/v1/platform/claim-payouts-over-time?periodStart=&periodEnd=`, buckets via `buildMoneySumSeries`.
+  - `getRevenueByTenant`: calls contributions-service `/api/v1/platform/revenue-by-tenant?periodStart=&periodEnd=`, takes top-10, returns `[{name: tenantName, value: revenue}]` (no bucketing).
+  - `getTenantGrowth`: switch from `fetchJSON(tenancyServiceURL+"/api/v1/tenants?size=1000")` to `fetchJSON(tenancyServiceURL+"/api/v1/platform/tenant-growth")`, buckets via existing `buildGrowthSeries`.
+  - New helpers: `buildCountSeries(period, []row)` (counts per bucket), `buildMoneySumSeries(period, []row)` (USD-converted amount sums per bucket), `periodStart(period)`/`periodEnd(period)` (window bounds). Revenue-by-tenant uses `topN(rows, 10)` ranking.
+  - All upstream calls include the caller's `access_token` cookie as `Authorization: Bearer` header (existing `fetchJSON` pattern). When upstream returns non-200, return empty series (existing fallback pattern).
+  - The `{rows, skipped}` envelope is unwrapped by the gateway before returning to the client; `skipped > 0` is logged at `log.Warn`.
+
+#### Angular
+
+- **`analytics.component.ts`** — add `revenueByTenant: any[] = []` field; call `dashboardService.getRevenueByTenant(p)` in `loadCharts()`.
+- **`analytics.component.html`** — new chart section between Money Flow and Service Health: bar chart card titled "Revenue by Tenant" with `app-bar-chart [data]="revenueByTenant" xAxisLabel="Tenant" yAxisLabel="Revenue ($)"`.
+- **`analytics.component.ts`** — add `BarChartComponent` to imports.
+- **`platform-dashboard.service.ts`** — `getRevenueByTenant` already exists (line 79), no change.
 
 ### Success Criteria
 
-- Automated: Go tests for gateway; Java IT for each new platform endpoint; super-admin permission enforced.
-- Manual: `/platform/analytics` shows real data across every chart.
+- **Automated:** Go tests for gateway (bucket helpers + handler wiring + super-admin 403); Java IT for each new platform endpoint (claims, contributions×3, finance, tenancy); super-admin permission enforced at gateway (non-super-admin → 403 on `/api/v1/platform/*`).
+- **Manual:** Log in as super-admin → `/platform/analytics` → confirm all charts render real cross-tenant data; toggle period → charts update; revenue-by-tenant bar chart shows top-10 tenants.
 
 ---
 
@@ -3488,9 +3547,44 @@ from the pre-implementation plan text worth recording:
     unwrapped by `@RequiresPermission(FINANCE_VIEW_SUBLEDGER)` but Spring Security
     still enforces authentication. Fixed same shape as `ReceiptsReportControllerTest`.
 
+**2026-08-16 (Phase 9 grilling — expansion to code altitude, before implementation)**
+
+- **§9a — "Cross-tenant connection factory" not needed.** The plan's outline names "requires a
+  cross-tenant connection factory that doesn't bind `search_path`". `TenantAwareConnectionFactory`
+  already yields platform-context connections (`search_path = public`, no `SET ROLE`) when no
+  tenant UUID is in Reactor context (`shared/.../TenantAwareConnectionFactory.java:84`). The
+  existing claims-service and user-service `PlatformStatsController` classes prove the pattern:
+  enumerate `information_schema.schemata LIKE 'tenant_%'` + schema-qualified queries +
+  `onErrorResume(Flux.empty())` per schema. All four new endpoints copy this — no new beans or
+  connection factories required.
+- **§9b — revenue-by-tenant lives in contributions-service, not finance-service.** "Revenue" is
+  the receipts definition (netted completed transactions per `transaction_types.sign`, Phase 3
+  receipts CTE), which is contributions-domain data. finance-service serves payouts only. The
+  plan's "finance-service: revenue-by-tenant" assignment is a deviation.
+- **§9c — Angular changes: revenue-by-tenant bar chart.** The plan's outline states "Angular: no
+  changes". The grilled decision (D9-3) adds a new bar chart to the analytics page, using the
+  existing `app-bar-chart` component and the already-existing-but-uncalled
+  `getRevenueByTenant()` method in `platform-dashboard.service.ts:79`. Deviation from the
+  no-changes constraint.
+- **§9d — Super-admin enforcement applies to all existing platform endpoints.** The plan's outline
+  doesn't mention super-admin middleware. The grilled decision (D9-6) adds a gateway middleware
+  that covers all `/api/v1/platform/*` routes including the pre-existing seven (tenant-count,
+  claims-stats, user-stats, member-growth, claims-distribution, stats, activity). This closes
+  an existing hole where any authenticated user could read cross-tenant aggregates (the old
+  endpoints had no role check; `TenantResolver` already exempts `/api/v1/platform`).
+- **§9e — Stub count: 5, not 6.** The plan's outline says "fill all 6 stubbed gateway endpoints".
+  The actual count is 5 stubs (`claims-over-time`, `billing-over-time`,
+  `billing-payments-over-time`, `claim-payouts-over-time`, `revenue-by-tenant`) plus 3 already-real
+  endpoints (`tenant-growth` → moved server-side, `member-growth`, `claims-distribution`). The
+  `stats` and `activity` endpoints are not stubs.
+- **§9f — seriesPoint.Value is float64.** The existing `seriesPoint` struct uses `int Value`
+  (`handler.go:15`). All four money series change this to `float64` for USD-converted amounts
+  with fractional precision. ngx-charts renders floats; `yTickFormat` blanks fractional labels
+  but data integrity is unaffected.
+
 ## Decisions Log
 
-Grilling on 2026-08-11 settled the following. G* = user preference; F* = settled by fact / codebase reality.
+Grilling on 2026-08-16 settled the following. D9-* = Phase 9 grill decisions; facts from codebase exploration.
 
 - **F6** — `ReportController` is naive as research described (verified line-by-line at `services/java/finance-service/src/main/java/com/medfund/finance/controller/ReportController.java:56-234`).
 - **F7** — `/api/v1/reports/*` has zero callers anywhere in the codebase. `ReportController` deletable outright.
@@ -3510,7 +3604,7 @@ Grilling on 2026-08-11 settled the following. G* = user preference; F* = settled
 - **G9** — Balance snapshots: yes. New `provider_balance_snapshot` + `member_balance_snapshot` tables, written by `PaymentRunExecutor` in the finalise transaction.
 - **G10** — Actuarial home: `services/python/ai-service`. New `app/actuarial/` package. Java calls Python via HTTP.
 - **G11** — Regulatory templates: per-tenant `jurisdiction_code` + XLSX template resources under `services/java/*/src/main/resources/report-templates/{regulator}/{report}-v{version}.xlsx`.
-- **G12** — Cross-tenant analytics: yes — fill all 6 stubbed gateway endpoints (Phase 9).
+- **G12** — Cross-tenant analytics: yes — fill all 5 stubbed gateway endpoints + move tenant-growth server-side + wire revenue-by-tenant bar chart into Angular (Phase 9).
 - **G13** — Domain pre-reqs: **full** domain build for reinsurance / producer / UPR (Phases 10, 11, 12). Accepted: this turns the plan into a multi-quarter platform-features program.
 - **G14** — Reports UI: hub landing page at `/tenant/finance/reports` with tenant-toggled catalogue tree, dynamic sidebar filtered by enabled reports.
 - **G15** — Phase outline (this document) approved.
