@@ -3,6 +3,7 @@ package routes
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/medfund/gateway/internal/config"
+	"github.com/medfund/gateway/internal/middleware"
 	"github.com/medfund/gateway/internal/platform"
 	"github.com/medfund/gateway/internal/proxy"
 )
@@ -11,8 +12,13 @@ import (
 // to their corresponding backend services.
 func Register(app *fiber.App, cfg *config.Config) {
 	// ── Platform aggregation (handled by gateway, not proxied) ────────────────
+	// Every /api/v1/platform/* endpoint is cross-tenant and must be super-admin
+	// only (Phase 9 D9-6). The Angular roleGuard hides the surface client-side;
+	// this middleware closes the hole where any authenticated user could hit
+	// the platform stats + analytics endpoints directly.
 	platformHandler := platform.NewHandler(cfg)
-	platformHandler.Register(app.Group("/api/v1/platform"))
+	platformGroup := app.Group("/api/v1/platform", middleware.RequireSuperAdmin())
+	platformHandler.Register(platformGroup)
 
 	// ── Tenancy Service ───────────────────────────────────────────────────────
 	// Per-tenant high-cost-claimant threshold (Phase 4 V132) registered

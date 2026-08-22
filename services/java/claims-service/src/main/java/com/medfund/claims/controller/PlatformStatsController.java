@@ -7,9 +7,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -79,5 +84,51 @@ public class PlatformStatsController {
                 .reduce(0L, Long::sum)
                 .onErrorReturn(0L)
                 .map(count -> Map.of("totalClaims", count));
+    }
+
+    /**
+     * Raw per-claim {@code created_at} timestamps across every tenant schema
+     * for the platform analytics {@code claims-over-time} chart. Each row is
+     * one claim; the gateway buckets and counts on the way out (Phase 9 D9-5).
+     * Optional {@code periodStart}/{@code periodEnd} narrow the SQL scan.
+     */
+    @GetMapping("/claims-over-time")
+    @Operation(summary = "Raw claim creation timestamps for cross-tenant claims-over-time chart")
+    public Flux<Map<String, Object>> getClaimsOverTime(
+            @RequestParam(required = false) LocalDate periodStart,
+            @RequestParam(required = false) LocalDate periodEnd) {
+
+        return db.sql(
+                        "SELECT schema_name FROM information_schema.schemata " +
+                        "WHERE schema_name LIKE 'tenant_%' ORDER BY schema_name")
+                .map(row -> row.get("schema_name", String.class))
+                .all()
+                .flatMap(schema -> {
+                    StringBuilder sql = new StringBuilder(
+                            "SELECT created_at FROM \"" + schema + "\".claims " +
+                            "WHERE created_at IS NOT NULL");
+                    if (periodStart != null) {
+                        sql.append(" AND created_at >= :periodStart");
+                    }
+                    if (periodEnd != null) {
+                        sql.append(" AND created_at < (:periodEnd::date + INTERVAL '1 day')");
+                    }
+                    var spec = db.sql(sql.toString());
+                    if (periodStart != null) spec = spec.bind("periodStart", periodStart);
+                    if (periodEnd != null)   spec = spec.bind("periodEnd", periodEnd);
+                    return spec
+                            .map(row -> {
+                                Instant ts = row.get("created_at", Instant.class);
+                                Map<String, Object> out = new LinkedHashMap<>();
+                                out.put("ts", ts != null ? ts.toString() : null);
+                                return out;
+                            })
+                            .all()
+                            .onErrorResume(e -> {
+                                log.debug("[platform-analytics] claims-over-time failed for {}: {}",
+                                        schema, e.getMessage());
+                                return Flux.empty();
+                            });
+                });
     }
 }

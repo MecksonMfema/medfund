@@ -337,9 +337,11 @@ func severityFor(action string) string {
 
 // seriesPoint is a chart-ready {name, value} pair returned directly to the
 // frontend — the client performs no label generation or index mapping.
+// Value is float64 so the same struct carries both counts (buildCountSeries /
+// buildGrowthSeries) and money sums (buildMoneySumSeries, Phase 9 D9-4).
 type seriesPoint struct {
-	Name  string `json:"name"`
-	Value int    `json:"value"`
+	Name  string  `json:"name"`
+	Value float64 `json:"value"`
 }
 
 type distributionItem struct {
@@ -438,9 +440,121 @@ func buildGrowthSeries(period string, timestamps []time.Time) []seriesPoint {
 
 	out := make([]seriesPoint, len(labels))
 	for i, l := range labels {
-		out[i] = seriesPoint{Name: l, Value: counts[i]}
+		out[i] = seriesPoint{Name: l, Value: float64(counts[i])}
 	}
 	return out
+}
+
+// buildCountSeries counts an unnamed {ts} feed into the period's buckets.
+// Same shape as buildGrowthSeries but takes RFC3339 timestamp strings so the
+// upstream services can stay HTTP-simple and hand back JSON.
+func buildCountSeries(period string, rows []analyticsRow) []seriesPoint {
+	labels, starts, dur := periodBuckets(period)
+	counts := make([]int, len(labels))
+	cutoff := periodCutoff(period)
+
+	for _, r := range rows {
+		ts, ok := parseTimestamp(r.Ts)
+		if !ok || ts.Before(cutoff) {
+			continue
+		}
+		idx := bucketIndex(ts, period, starts, dur)
+		if idx >= 0 && idx < len(counts) {
+			counts[idx]++
+		}
+	}
+	out := make([]seriesPoint, len(labels))
+	for i, l := range labels {
+		out[i] = seriesPoint{Name: l, Value: float64(counts[i])}
+	}
+	return out
+}
+
+// buildMoneySumSeries sums {ts, value} money rows into the period's buckets.
+// Values are already USD-converted server-side; the gateway is
+// currency-agnostic — Phase 9 D9-4.
+func buildMoneySumSeries(period string, rows []analyticsRow) []seriesPoint {
+	labels, starts, dur := periodBuckets(period)
+	sums := make([]float64, len(labels))
+	cutoff := periodCutoff(period)
+
+	for _, r := range rows {
+		ts, ok := parseTimestamp(r.Ts)
+		if !ok || ts.Before(cutoff) {
+			continue
+		}
+		idx := bucketIndex(ts, period, starts, dur)
+		if idx >= 0 && idx < len(sums) {
+			sums[idx] += r.Value
+		}
+	}
+	out := make([]seriesPoint, len(labels))
+	for i, l := range labels {
+		out[i] = seriesPoint{Name: l, Value: sums[i]}
+	}
+	return out
+}
+
+// periodCutoff returns the earliest instant a row must not be before to be
+// included in the requested chart period. Kept in sync with buildGrowthSeries.
+func periodCutoff(period string) time.Time {
+	c := time.Now().UTC()
+	switch period {
+	case "week":
+		return c.AddDate(0, 0, -7)
+	case "month":
+		return c.AddDate(0, 0, -30)
+	default:
+		return c.AddDate(-1, 0, 0)
+	}
+}
+
+// analyticsRow is the shape returned by every upstream /api/v1/platform/*
+// time-series endpoint after the {rows, skipped} envelope has been unwrapped.
+// ts is always populated; value is set for money endpoints, zero for count-only.
+type analyticsRow struct {
+	Ts    string  `json:"ts"`
+	Value float64 `json:"value"`
+}
+
+// analyticsEnvelope is the {rows, skipped} shape every FX-aware platform
+// endpoint (billing, receipts, revenue-by-tenant, claim-payouts) wraps its
+// data in. skipped is the count of rows whose currency had no USD rate for
+// their date — the gateway logs the total.
+type analyticsEnvelope struct {
+	Rows    []analyticsRow `json:"rows"`
+	Skipped int64          `json:"skipped"`
+}
+
+// tenantRevenueRow is the shape of one row from the contributions-service
+// /revenue-by-tenant endpoint after unwrapping. Sorted + top-N-capped in
+// Java, so the gateway passes it through unchanged.
+type tenantRevenueRow struct {
+	TenantName string  `json:"tenantName"`
+	Value      float64 `json:"value"`
+}
+
+// tenantRevenueEnvelope is the {rows, skipped} shape /revenue-by-tenant returns.
+type tenantRevenueEnvelope struct {
+	Rows    []tenantRevenueRow `json:"rows"`
+	Skipped int64              `json:"skipped"`
+}
+
+// fetchAnalyticsRows GETs an upstream platform time-series endpoint, unwraps
+// the {rows, skipped} envelope, and logs a warn on skipped > 0.
+func (h *Handler) fetchAnalyticsRows(url, token, label string) []analyticsRow {
+	body, err := h.fetchJSON(url, token)
+	if err != nil {
+		return nil
+	}
+	var env analyticsEnvelope
+	if err := json.Unmarshal(body, &env); err != nil {
+		return nil
+	}
+	if env.Skipped > 0 {
+		fmt.Printf("[gateway/platform] %s dropped %d unconvertible rows\n", label, env.Skipped)
+	}
+	return env.Rows
 }
 
 // emptySeriesForPeriod returns zero-filled series matching the period bucket count.
@@ -457,23 +571,21 @@ func (h *Handler) getTenantGrowth(c *fiber.Ctx) error {
 	period := c.Query("period", "year")
 	token := c.Cookies("access_token")
 
-	body, err := h.fetchJSON(h.cfg.TenancyServiceURL+"/api/v1/tenants?size=1000&page=1", token)
+	// D9-8: switched from /api/v1/tenants?size=1000 (would truncate past
+	// 1000 tenants) to the dedicated raw-row feed. Server returns
+	// [{ts}] rows; no envelope wrapping since no FX conversion runs here.
+	body, err := h.fetchJSON(h.cfg.TenancyServiceURL+"/api/v1/platform/tenant-growth", token)
 	if err != nil {
 		return c.JSON(emptySeriesForPeriod(period))
 	}
-
-	var page struct {
-		Content []struct {
-			CreatedAt string `json:"createdAt"`
-		} `json:"content"`
-	}
-	if err := json.Unmarshal(body, &page); err != nil {
+	var rows []analyticsRow
+	if err := json.Unmarshal(body, &rows); err != nil {
 		return c.JSON(emptySeriesForPeriod(period))
 	}
 
 	var timestamps []time.Time
-	for _, t := range page.Content {
-		if ts, ok := parseTimestamp(t.CreatedAt); ok {
+	for _, r := range rows {
+		if ts, ok := parseTimestamp(r.Ts); ok {
 			timestamps = append(timestamps, ts)
 		}
 	}
@@ -505,7 +617,7 @@ func (h *Handler) getMemberGrowth(c *fiber.Ctx) error {
 	}
 	out := make([]seriesPoint, len(raw))
 	for i, r := range raw {
-		out[i] = seriesPoint{Name: r.Month, Value: r.Count}
+		out[i] = seriesPoint{Name: r.Month, Value: float64(r.Count)}
 	}
 	return c.JSON(out)
 }
@@ -524,23 +636,91 @@ func (h *Handler) getClaimsDistribution(c *fiber.Ctx) error {
 }
 
 func (h *Handler) getClaimsOverTime(c *fiber.Ctx) error {
-	return c.JSON(emptySeriesForPeriod(c.Query("period", "year")))
+	period := c.Query("period", "year")
+	token := c.Cookies("access_token")
+	url := h.cfg.ClaimsServiceURL + "/api/v1/platform/claims-over-time" + periodQueryString(period)
+	body, err := h.fetchJSON(url, token)
+	if err != nil {
+		return c.JSON(emptySeriesForPeriod(period))
+	}
+	// claims-over-time is a plain row array (no envelope — no FX conversion).
+	var rows []analyticsRow
+	if err := json.Unmarshal(body, &rows); err != nil {
+		return c.JSON(emptySeriesForPeriod(period))
+	}
+	return c.JSON(buildCountSeries(period, rows))
 }
 
 func (h *Handler) getBillingOverTime(c *fiber.Ctx) error {
-	return c.JSON(emptySeriesForPeriod(c.Query("period", "year")))
+	period := c.Query("period", "year")
+	token := c.Cookies("access_token")
+	url := h.cfg.ContribServiceURL + "/api/v1/platform/billing-over-time" + periodQueryString(period)
+	rows := h.fetchAnalyticsRows(url, token, "billing-over-time")
+	return c.JSON(buildMoneySumSeries(period, rows))
 }
 
 func (h *Handler) getBillingPaymentsOverTime(c *fiber.Ctx) error {
-	return c.JSON(emptySeriesForPeriod(c.Query("period", "year")))
+	period := c.Query("period", "year")
+	token := c.Cookies("access_token")
+	url := h.cfg.ContribServiceURL + "/api/v1/platform/billing-payments-over-time" + periodQueryString(period)
+	rows := h.fetchAnalyticsRows(url, token, "billing-payments-over-time")
+	return c.JSON(buildMoneySumSeries(period, rows))
 }
 
 func (h *Handler) getClaimPayoutsOverTime(c *fiber.Ctx) error {
-	return c.JSON(emptySeriesForPeriod(c.Query("period", "year")))
+	period := c.Query("period", "year")
+	token := c.Cookies("access_token")
+	url := h.cfg.FinanceServiceURL + "/api/v1/platform/claim-payouts-over-time" + periodQueryString(period)
+	rows := h.fetchAnalyticsRows(url, token, "claim-payouts-over-time")
+	return c.JSON(buildMoneySumSeries(period, rows))
 }
 
 func (h *Handler) getRevenueByTenant(c *fiber.Ctx) error {
-	return c.JSON([]fiber.Map{})
+	period := c.Query("period", "year")
+	token := c.Cookies("access_token")
+	url := h.cfg.ContribServiceURL + "/api/v1/platform/revenue-by-tenant" + periodQueryString(period)
+	body, err := h.fetchJSON(url, token)
+	if err != nil {
+		return c.JSON([]tenantRevenueRow{})
+	}
+	var env tenantRevenueEnvelope
+	if err := json.Unmarshal(body, &env); err != nil {
+		return c.JSON([]tenantRevenueRow{})
+	}
+	if env.Skipped > 0 {
+		fmt.Printf("[gateway/platform] revenue-by-tenant dropped %d unconvertible rows\n", env.Skipped)
+	}
+	// Java already caps at top-N and sorts descending; forward as-is with
+	// name → value shape matching the app-bar-chart contract.
+	if env.Rows == nil {
+		return c.JSON([]tenantRevenueRow{})
+	}
+	out := make([]fiber.Map, len(env.Rows))
+	for i, r := range env.Rows {
+		out[i] = fiber.Map{"name": r.TenantName, "value": r.Value}
+	}
+	return c.JSON(out)
+}
+
+// periodQueryString maps the UI period label to periodStart/periodEnd query
+// params for the upstream Java endpoint. The Java endpoint accepts LocalDate
+// bounds; passing them lets Postgres skip data older than the chart cutoff.
+// "all" sends no bounds — the endpoint scans everything (rare case anyway).
+func periodQueryString(period string) string {
+	now := time.Now().UTC()
+	end := now.Format("2006-01-02")
+	var start string
+	switch period {
+	case "week":
+		start = now.AddDate(0, 0, -7).Format("2006-01-02")
+	case "month":
+		start = now.AddDate(0, 0, -30).Format("2006-01-02")
+	case "year":
+		start = now.AddDate(-1, 0, 0).Format("2006-01-02")
+	default:
+		return ""
+	}
+	return "?periodStart=" + start + "&periodEnd=" + end
 }
 
 // placeholderDistribution returns zero-count placeholder slices when real data

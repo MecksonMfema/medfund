@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { StatCardComponent } from '../../../shared/components/stat-card/stat-card.component';
 import { AreaChartComponent } from '../../../shared/components/charts/area-chart/area-chart.component';
+import { BarChartComponent } from '../../../shared/components/charts/bar-chart/bar-chart.component';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { PlatformDashboardService, SystemHealthItem } from '../../../core/services/platform-dashboard.service';
 
@@ -16,6 +17,7 @@ type MoneyFlowTab = 'claims' | 'billing' | 'billing-payments' | 'claim-payouts';
     FormsModule,
     StatCardComponent,
     AreaChartComponent,
+    BarChartComponent,
     IconComponent,
   ],
   templateUrl: './analytics.component.html',
@@ -40,6 +42,7 @@ export class AnalyticsComponent implements OnInit {
   billingOverTime: any[] = [];
   billingPaymentsOverTime: any[] = [];
   claimPayoutsOverTime: any[] = [];
+  revenueByTenant: any[] = [];
 
   // Service health
   serviceHealth: SystemHealthItem[] = [];
@@ -124,6 +127,12 @@ export class AnalyticsComponent implements OnInit {
 
     this.dashboardService.getClaimPayoutsOverTime(p).subscribe(d => {
       this.claimPayoutsOverTime = [{ name: 'Paid Out', series: toSeries(d) }];
+    });
+
+    // Revenue by Tenant: flat top-10 ranking, gateway already sorted +
+    // capped, so the bar chart receives {name, value} rows unchanged.
+    this.dashboardService.getRevenueByTenant(p).subscribe(d => {
+      this.revenueByTenant = d.map(r => ({ name: r.name, value: r.value ?? 0 }));
     });
   }
 

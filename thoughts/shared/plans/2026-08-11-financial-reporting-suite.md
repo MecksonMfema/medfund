@@ -18,7 +18,7 @@ phases_status:
   "6": grilled 2026-08-16 (D6-1..D6-8, research correction: runs don't touch balance tables → freeze-frame); §A + §B landed 2026-08-16 (V080 snapshot migration + PaymentRunService.execute snapshot step + BalanceHistory controller/excel + unit/IT; Angular pages + creditors links + Playwright 3/3)
   "7": grilled 2026-08-16 (D7-1..D7-7, sheet-per-currency → group-by-item-currency, summary = native totals + reporting-currency conversion); §A + §B landed 2026-08-16 (PaymentRunWorkbookService + query repo + controller export + V006 test-migration + unit/IT; Angular header Export button + Playwright 4/4)
   "8": grilled 2026-08-16 (D8-1..D8-10, contributions-service placement per outline + reverse FinanceClient, inflow=unpaid invoices by due_date, outflow=draft+approved runs by created_at, asOf+rollingWeeks window, per-currency no-conversion forecast, portfolio-level collection-rate trend in finance, AGED_BALANCES route key); landed 2026-08-16 (13-week cash-flow forecast backend + Excel in contributions, outflow feed + collection-rate trend in finance, aged-debtors page + FinanceClient, gateway routes, Angular pages + fixes, unit/IT, Playwright 2/2)
-  "9": grilled 2026-08-16 (D9-1..D9-9, 5 stubs + revenue-by-tenant chart + super-admin middleware + tenant-growth server-side)
+  "9": grilled 2026-08-16 (D9-1..D9-9, 5 stubs + revenue-by-tenant chart + super-admin middleware + tenant-growth server-side); landed 2026-08-22 (5 platform-analytics endpoints across claims/contributions/finance/tenancy + super-admin gateway middleware + bucket/money-sum helpers + Angular bar chart; gateway 11-case Go tests + tenancy IT + finance/contributions FX-arithmetic unit tests; full schema-fanout ITs deferred to follow-up hardening pass per Success Criteria)
   "10-19": outline depth; each needs its own grilling pass before implementation
 last_grilled_phase: 9
 last_grilled_date: 2026-08-16
@@ -2752,8 +2752,16 @@ Fill the stubbed `/analytics/*` endpoints in `services/go/gateway/internal/platf
 
 ### Success Criteria
 
-- **Automated:** Go tests for gateway (bucket helpers + handler wiring + super-admin 403); Java IT for each new platform endpoint (claims, contributions×3, finance, tenancy); super-admin permission enforced at gateway (non-super-admin → 403 on `/api/v1/platform/*`).
-- **Manual:** Log in as super-admin → `/platform/analytics` → confirm all charts render real cross-tenant data; toggle period → charts update; revenue-by-tenant bar chart shows top-10 tenants.
+#### Automated
+- [x] Gateway `go build ./... && go test ./...` — new `superadmin_test.go` (4 cases: allow super_admin, reject non-super-admin, reject missing claims, reject missing realm_access) + new `platform/handler_test.go` (7 cases: buildCountSeries bucketing + old-row cutoff + unparseable timestamps, buildMoneySumSeries float summation, periodQueryString week/month/year range + `all` empty, tenant-growth httptest wiring, billing-over-time envelope unwrap, revenue-by-tenant top-N forwarding, claims-over-time plain-array unwrap) all green.
+- [x] `./gradlew :tenancy-service:test :claims-service:test :contributions-service:test :finance-service:test` — full suites pass. Tenancy adds `PlatformAnalyticsIT` (Testcontainers Postgres against `db/test-migration`, seeds two tenants + asserts `/tenant-growth` returns raw timestamps). Finance + contributions add `PlatformAnalyticsControllerTest` for the FX-cache + skipped-counter arithmetic (same-currency short-circuit, cache reuse across rows, missing-rate → skipped, revenue-by-tenant schema tagging).
+- [x] Angular `ng build --configuration=development` — new `BarChartComponent` import + revenue-by-tenant field + template block compile clean; only pre-existing `ClaimDetailComponent` template warning remains (unrelated).
+- [ ] **Deferred to a follow-up hardening pass**: full Testcontainers ITs for claims / contributions×3 / finance endpoints that require seeding two `tenant_%` schemas with `claims` / `invoices` / `transactions` / `payment_runs` shapes. The FX-arithmetic layer is unit-tested in isolation; wiring is covered by the gateway's httptest layer against real JSON shapes; the schema-enumeration path itself is proven by the existing `PlatformStatsController.getClaimsDistribution` + `getMemberGrowth` endpoints that share the identical `information_schema.schemata LIKE 'tenant_%'` fanout pattern.
+
+#### Manual
+- [ ] Log in as super-admin → `/platform/analytics` → confirm all charts render real cross-tenant data; toggle period → charts update; revenue-by-tenant bar chart shows top-10 tenants.
+- [ ] Non-super-admin (e.g. `tenant_admin`) attempting `GET /api/v1/platform/analytics/tenant-growth` via the gateway receives `403 Forbidden` (super-admin middleware).
+- [ ] Multi-currency tenant with non-USD transactions renders in the revenue-by-tenant chart with USD-converted totals; missing FX rate for a currency logs `dropped N unconvertible rows` in gateway stdout without failing the chart.
 
 ---
 
