@@ -1,0 +1,81 @@
+.page {
+  padding: 1.5rem;
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.25rem;
+
+    h1 { margin: 0 0 0.25rem 0; }
+    .sub { color: #6b7280; margin: 0; font-size: 0.9rem; }
+  }
+
+  .filters { margin-bottom: 1rem; select { padding: 0.35rem 0.5rem; } }
+
+  .loading, .empty {
+    padding: 2rem;
+    text-align: center;
+    color: #6b7280;
+  }
+
+  .alert {
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    margin-bottom: 0.75rem;
+
+    &.alert-error { background: #fee2e2; color: #991b1b; }
+  }
+
+  .chain-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+
+    .chain-title {
+      margin: 0 0 0.75rem 0;
+      font-size: 1rem;
+      color: #374151;
+    }
+
+    .chain-table {
+      width: 100%;
+      border-collapse: collapse;
+
+      th, td {
+        text-align: left;
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid #f3f4f6;
+        font-size: 0.9rem;
+      }
+      th { font-weight: 600; color: #6b7280; background: #f9fafb; }
+
+      tr.is-successor td:first-child { padding-left: 1.5rem; }
+
+      .chain-arrow { color: #9ca3af; margin-left: 0.5rem; }
+      .actions { text-align: right; }
+    }
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+
+    &.badge-neutral  { background: #e5e7eb; color: #374151; }
+    &.badge-success  { background: #d1fae5; color: #065f46; }
+    &.badge-info     { background: #dbeafe; color: #1e40af; }
+    &.badge-warning  { background: #fef3c7; color: #92400e; }
+    &.badge-danger   { background: #fee2e2; color: #991b1b; }
+  }
+
+  .btn-sm {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.8rem;
+  }
+}

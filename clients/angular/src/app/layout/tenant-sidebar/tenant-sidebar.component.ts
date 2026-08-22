@@ -37,6 +37,7 @@ export class TenantSidebarComponent implements OnInit, OnDestroy {
     { label: 'Users',        icon: 'users',     route: '/tenant/admin/users' },
     { label: 'Audit Logs',   icon: 'clipboard', route: '/tenant/admin/audit' },
     { label: 'Rules Engine', icon: 'filter',    route: '/tenant/admin/rules' },
+    { label: 'Reinsurance',  icon: 'shield',    route: '/tenant/admin/reinsurance' },
     { label: 'Settings',     icon: 'settings',  route: '/tenant/admin/settings' },
   ];
 

@@ -103,6 +103,15 @@ public final class Permissions {
     public static final String FINANCE_VIEW_MEMBER_LIABILITIES   = "finance:view_member_liabilities";
     public static final String FINANCE_VIEW_WITHHELD_TAX         = "finance:view_withheld_tax";
 
+    // ── Reinsurance sub-namespace (Phase 10) ─────────────────────────────────
+    public static final String REINSURANCE_VIEW                     = "finance.reinsurance:view";
+    public static final String REINSURANCE_MANAGE_TREATY            = "finance.reinsurance:manage_treaty";
+    public static final String REINSURANCE_CEDE_FACULTATIVE         = "finance.reinsurance:cede_facultative";
+    public static final String REINSURANCE_APPROVE_FACULTATIVE      = "finance.reinsurance:approve_facultative";
+    public static final String REINSURANCE_RECORD_RECOVERY_RECEIVED = "finance.reinsurance:record_recovery_received";
+    public static final String REINSURANCE_WRITEOFF_RECOVERY        = "finance.reinsurance:writeoff_recovery";
+    public static final String REINSURANCE_RESOLVE_REVIEW           = "finance.reinsurance:resolve_review";
+
     // ── Members ──────────────────────────────────────────────────────────────
     public static final String MEMBERS_VIEW                      = "members:view";
     public static final String MEMBERS_CREATE                    = "members:create";
@@ -160,6 +169,10 @@ public final class Permissions {
             FINANCE_MANAGE_BILLING_RECONCILE, FINANCE_VIEW_PAYMENT_ADVICE, FINANCE_GENERATE_PAYMENT_ADVICE,
             FINANCE_MANAGE_COPAYMENTS, FINANCE_VIEW_MEMBER_LIABILITIES,
             FINANCE_VIEW_WITHHELD_TAX,
+            REINSURANCE_VIEW, REINSURANCE_MANAGE_TREATY,
+            REINSURANCE_CEDE_FACULTATIVE, REINSURANCE_APPROVE_FACULTATIVE,
+            REINSURANCE_RECORD_RECOVERY_RECEIVED, REINSURANCE_WRITEOFF_RECOVERY,
+            REINSURANCE_RESOLVE_REVIEW,
 
             MEMBERS_VIEW, MEMBERS_CREATE, MEMBERS_UPDATE, MEMBERS_DEACTIVATE,
             MEMBERS_VIEW_DEPENDANTS, MEMBERS_MANAGE_WAIVERS, MEMBERS_VIEW_HISTORY,

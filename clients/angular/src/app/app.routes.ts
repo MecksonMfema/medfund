@@ -70,6 +70,9 @@ export const routes: Routes = [
       { path: 'settings',  loadComponent: () => import('./pages/tenant-admin/settings/settings.component').then(m => m.TenantSettingsComponent), data: { title: 'Settings' } },
       // V063 — tariff categories catalogue (required on tariffs and benefits).
       { path: 'tariff-categories', loadComponent: () => import('./pages/tenant-admin/tariff-categories/tariff-categories-list.component').then(m => m.TariffCategoriesListComponent), data: { title: 'Tariff Categories', fullbleed: true } },
+      // Phase 10 — reinsurance module (Reinsurers + Treaties CRUD; bordereau
+      // reports land under /tenant/finance/reports/reinsurance/*).
+      { path: 'reinsurance', loadChildren: () => import('./pages/tenant-admin/reinsurance/reinsurance.routes').then(m => m.REINSURANCE_ROUTES), data: { title: 'Reinsurance' } },
     ],
   },
   // Operational portal — sibling of /tenant/admin/*, same TenantLayoutComponent

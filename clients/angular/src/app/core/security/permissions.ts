@@ -44,6 +44,11 @@ export type PermissionKey =
   | 'finance:view_debtors' | 'finance:view_subledger'
   | 'finance:manage_billing_reconcile' | 'finance:view_payment_advice'
   | 'finance:manage_copayments' | 'finance:view_member_liabilities' | 'finance:view_withheld_tax'
+  // Reinsurance (finance sub-namespace)
+  | 'finance.reinsurance:view' | 'finance.reinsurance:manage_treaty'
+  | 'finance.reinsurance:cede_facultative' | 'finance.reinsurance:approve_facultative'
+  | 'finance.reinsurance:record_recovery_received'
+  | 'finance.reinsurance:writeoff_recovery' | 'finance.reinsurance:resolve_review'
   // Members
   | 'members:view' | 'members:create' | 'members:update' | 'members:deactivate'
   | 'members:view_dependants' | 'members:manage_waivers' | 'members:view_history'
@@ -145,6 +150,14 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'finance:manage_copayments',        label: 'Manage cost-share receipts',       description: 'Record or adjust member cost-share (copayment) receipts.' },
       { key: 'finance:view_member_liabilities',  label: 'View member liabilities',          description: "View the fund-issued 'the member owes' ledger — one row per adjudicated claim with a cost-share balance." },
       { key: 'finance:view_withheld_tax',        label: 'View withheld tax',                description: 'View tax-withheld claims and payments.' },
+      // ── Reinsurance sub-namespace (Phase 10) ──────────────────────────
+      { key: 'finance.reinsurance:view',                     label: 'View reinsurance',                    description: 'Read access to reinsurers, treaties, cessions, and recoveries.' },
+      { key: 'finance.reinsurance:manage_treaty',            label: 'Manage treaties',                     description: 'Full CRUD on reinsurers and treaties including draft creation and activation.' },
+      { key: 'finance.reinsurance:cede_facultative',         label: 'Cede facultative',                    description: 'Create DRAFT facultative cessions against an active treaty.' },
+      { key: 'finance.reinsurance:approve_facultative',      label: 'Approve facultative',                 description: 'Move facultative cessions DRAFT → APPROVED → CEDED and void pre-terminal facultatives.' },
+      { key: 'finance.reinsurance:record_recovery_received', label: 'Record recovery received',            description: 'Record the recovery amount received from a reinsurer against an invoiced expectation.' },
+      { key: 'finance.reinsurance:writeoff_recovery',        label: 'Write off recovery',                  description: 'Write off an uncollectable reinsurance recovery with a stated reason.' },
+      { key: 'finance.reinsurance:resolve_review',           label: 'Resolve reinsurance review',          description: 'Resolve tasks in the reinsurance review queue (claim regression, recovery dispute, manual void requests).' },
     ],
   },
   {

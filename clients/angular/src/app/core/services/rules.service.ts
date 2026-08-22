@@ -52,7 +52,9 @@ export type RuleCategory =
   | 'CLINICAL_VALIDATION'
   // Finance
   | 'PROVIDER_PAYMENT'
-  | 'RECONCILIATION';
+  | 'RECONCILIATION'
+  // Reinsurance
+  | 'REINSURANCE';
 
 /**
  * Categories grouped by lifecycle stage. The Rules Engine page renders this
@@ -79,6 +81,8 @@ export const RULE_CATEGORIES: { id: RuleCategory; label: string; icon: string }[
   // Finance
   { id: 'PROVIDER_PAYMENT',     label: 'Provider Payment',     icon: 'banknote' },
   { id: 'RECONCILIATION',       label: 'Reconciliation',       icon: 'activity' },
+  // Reinsurance
+  { id: 'REINSURANCE',          label: 'Reinsurance',          icon: 'shield-plus' },
 ];
 
 export interface RuleDefinition {

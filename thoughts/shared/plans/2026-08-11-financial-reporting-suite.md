@@ -19,9 +19,10 @@ phases_status:
   "7": grilled 2026-08-16 (D7-1..D7-7, sheet-per-currency → group-by-item-currency, summary = native totals + reporting-currency conversion); §A + §B landed 2026-08-16 (PaymentRunWorkbookService + query repo + controller export + V006 test-migration + unit/IT; Angular header Export button + Playwright 4/4)
   "8": grilled 2026-08-16 (D8-1..D8-10, contributions-service placement per outline + reverse FinanceClient, inflow=unpaid invoices by due_date, outflow=draft+approved runs by created_at, asOf+rollingWeeks window, per-currency no-conversion forecast, portfolio-level collection-rate trend in finance, AGED_BALANCES route key); landed 2026-08-16 (13-week cash-flow forecast backend + Excel in contributions, outflow feed + collection-rate trend in finance, aged-debtors page + FinanceClient, gateway routes, Angular pages + fixes, unit/IT, Playwright 2/2)
   "9": grilled 2026-08-16 (D9-1..D9-9, 5 stubs + revenue-by-tenant chart + super-admin middleware + tenant-growth server-side); landed 2026-08-22 (5 platform-analytics endpoints across claims/contributions/finance/tenancy + super-admin gateway middleware + bucket/money-sum helpers + Angular bar chart; gateway 11-case Go tests + tenancy IT + finance/contributions FX-arithmetic unit tests; full schema-fanout ITs deferred to follow-up hardening pass per Success Criteria)
-  "10-19": outline depth; each needs its own grilling pass before implementation
-last_grilled_phase: 9
-last_grilled_date: 2026-08-16
+  "10": grilled 2026-08-22 (R1-R16 — reinsurance decisions numbered R* to avoid collision with plan-wide G* numbering; recommended §A/§B tranche split: §A = entities + auto-cession loss + 3 reports, §B = facultative UI + premium cession + review queue + retro backfill; full expanded scope replaces the 20-line outline)
+  "11-19": outline depth; each needs its own grilling pass before implementation
+last_grilled_phase: 10
+last_grilled_date: 2026-08-22
 ---
 
 # Financial Reporting Suite Implementation Plan
@@ -2767,27 +2768,186 @@ Fill the stubbed `/analytics/*` endpoints in `services/go/gateway/internal/platf
 
 ## Phase 10: Reinsurance Module + Bordereau Reports
 
+> **Grilled 2026-08-22.** Decisions R1..R16 (numbered R* to avoid collision with plan-wide G*).
+> The outline below was expanded into a full mini-plan through interactive decision-making;
+> scope escalated beyond the original outline. Recommended split into **§A** (entities +
+> auto-cession loss + all three reports + XLSX) and **§B** (facultative UI + premium cession
+> + review queue + retro backfill) — §A ships a working recoveries surface; §B carries the
+> workflow-heavy pieces. Original 20-line outline retained below as ~~strike-through~~
+> for provenance.
+
+### Original outline (superseded 2026-08-22 by Decisions Log)
+
+~~**finance-service** (or new `reinsurance/` package there): entities `Treaty`, `TreatyLayer`, `CessionRule`, `Cession`, `Recovery`.~~
+~~Flyway migrations under tenant/.~~
+~~CRUD services + controllers.~~
+~~Kafka consumers: `medfund.claims.adjudicated` → auto-cession per rule → `Cession` record; `medfund.finance.payment-created` on recovery.~~
+~~`ReinsuranceReportController`: `/reports/reinsurance/cession-bordereau`, `/recoveries-bordereau`, `/treaty-utilization`. Report keys `REINSURANCE_CESSION_BORDEREAU`, `REINSURANCE_RECOVERIES`, `REINSURANCE_TREATY_UTILIZATION`.~~
+~~**Angular** tenant-admin pages: treaty list + form + layer editor + cession rules.~~
+~~**Angular** report pages under `reports/reinsurance/`.~~
+
 ### Overview
 
-Greenfield reinsurance module: treaty + layers + cession rules + CRUD UI + cession bordereau + recoveries bordereau + treaty-utilisation reports.
+Greenfield reinsurance module in `services/java/finance-service/src/main/java/com/medfund/finance/reinsurance/*` (R3). Covers both **proportional (Quota Share / Surplus Share)** and **non-proportional (Excess of Loss / Stop Loss)** treaties (R1). Cession semantics cover both **loss** cessions (recovered from reinsurer on claims paid) and **premium** cessions (paid to reinsurer on contributions collected) (R5). Both **automatic** cession (driven by rules-engine RuleDefinitions per Critical Rule 5, R4) and **facultative** cession (underwriter-facing UI with four-eyes workflow, R2 + R6). Ships three tenant-toggleable reports plus a manual-review queue for claim reversals (R12).
 
-### Changes Required (outline)
+Report keys already ship in shared enums (`ReportKey.REINSURANCE_CESSION_BORDEREAU`, `REINSURANCE_RECOVERIES`, `REINSURANCE_TREATY_UTILIZATION` — `services/java/shared/src/main/java/com/medfund/shared/report/ReportKey.java:91-93`; `ReportFamily.REINSURANCE` at `.../ReportFamily.java:24`). All Phase 0-9 shared infra composes on top (`ReportEnvelopeBuilder`, `ReportingCurrencyResolver`, `FxRateReader`, `ReportWorkbook`, `CrossServiceCallHelper`, `RequiresReport` + `ReportGuardAspect`, `SecurityEventPublisher`, `AuditActor`).
 
-- **finance-service** (or new `reinsurance/` package there): entities `Treaty`, `TreatyLayer`, `CessionRule`, `Cession`, `Recovery`.
-- Flyway migrations under tenant/.
-- CRUD services + controllers.
-- Kafka consumers: `medfund.claims.adjudicated` → auto-cession per rule → `Cession` record; `medfund.finance.payment-created` on recovery.
-- `ReinsuranceReportController`: `/reports/reinsurance/cession-bordereau`, `/recoveries-bordereau`, `/treaty-utilization`. Report keys `REINSURANCE_CESSION_BORDEREAU`, `REINSURANCE_RECOVERIES`, `REINSURANCE_TREATY_UTILIZATION`.
-- **Angular** tenant-admin pages: treaty list + form + layer editor + cession rules.
-- **Angular** report pages under `reports/reinsurance/`.
-- Full domain build per G13.
+### Decisions Log (R1..R16)
+
+- **R1 — Treaty types**: both **proportional (QUOTA_SHARE, SURPLUS_SHARE)** and **non-proportional (EXCESS_OF_LOSS, STOP_LOSS)**. `TreatyLayer` required ≥1 row for XoL/StopLoss; empty for QS/SS. Auto-cession consumer dispatches on `treatyType`: proportional = `approvedAmount * cessionRate`; non-proportional = `max(0, min(layerLimit, approvedAmount - retention))` per layer. Bordereau row shape type-agnostic (ceded amount as a scalar) — report code doesn't fork.
+- **R2 — Facultative cession**: full facultative UI, underwriter-facing. Standalone browse-and-cede surface with workflow states and own permission. Doubles Phase 10 scope vs the original outline's auto-cession-only reading. Both auto + facultative land in the same `cessions` table via a `source ∈ {AUTOMATIC, FACULTATIVE}` discriminator.
+- **R3 — Home**: subpackage of finance-service (`com.medfund.finance.reinsurance.*`). Reuses `ClaimAdjudicatedConsumer` topology (same JVM, same tenant-context propagation), existing `/api/v1/reports/*` gateway route pattern, finance-service's PaymentRun machinery. One deployment unit.
+- **R4 — Cession rule DSL**: rules-engine integration. CessionRule becomes a per-tenant JSON `RuleDefinition` compiled to Drools DRL via existing rules-engine (Critical Rule 5). New `ReinsuranceTemplateCategory` + one template per treaty type. Rules fire against enriched `ClaimFact` (loss cession) or a new `ContributionFact` (premium cession) at consumer time. Angular authoring UI reuses the visual rule builder — verify component genericity at plan time (grill note 3).
+- **R5 — Cession scope**: both loss and premium. `Cession.cessionType ∈ {PREMIUM, LOSS}`. Two Kafka consumers (loss on `medfund.claims.adjudicated`, premium on the contribution-paid topic — event name to verify, grill note 1) + a scheduler job for flat XoL treaty premiums at treaty inception. Bordereau row set = premium rows + loss rows (matches reinsurer expectations).
+- **R6 — Facultative workflow**: three-state `{DRAFT, APPROVED, CEDED, VOIDED}` with distinct approver role. Matches PaymentRun's four-eyes precedent. Auto cessions born `ACTIVE`, only transition to `VOIDED`. Two new permissions: `finance.reinsurance:cede_facultative`, `finance.reinsurance:approve_facultative`. AuditEvent on every transition.
+- **R7 — Cession multi-currency**: store native, convert at report time. Cession row holds underlying event's currency. Bordereau XLSX converts native → treaty currency at export using `FxRateReader.convert(nativeCurrency, treatyCurrency, cession.occurredAt, tenantId)`; missing rate → warnings row on envelope per G28. Matches cross-phase invariant #6. Follow-up ticket after MVP: snapshot FX rate on export at close-of-period for stable numbers (interacts with R16 re-export drift).
+- **R8 — Recovery lifecycle**: distinct `Recovery` entity, four states `{EXPECTED, INVOICED, RECEIVED, WRITTEN_OFF}`. `ReinsuranceRecoveryConsumer` on `medfund.finance.payment-created` writes EXPECTED per matched cession when the underlying claim payment is made. INVOICED set as a side-effect of exporting the recoveries bordereau (the bordereau *is* the invoice). RECEIVED set manually via a finance-officer form (auto bank-recon match deferred). WRITTEN_OFF via supervisor with mandatory reason. Dispute state folded into WRITTEN_OFF-with-reason for MVP; partial recoveries modelled as `receivedAmount < expectedAmount` + status = RECEIVED.
+- **R9 — Reinsurer entity + multi-reinsurer**: full `Reinsurer` entity (name, contactEmail, contactAddress, jurisdictionCode, homeCurrency, creditRating NULL, isActive). `treaty_participant` join (treatyId, reinsurerId, sharePct, shareRole ∈ {LEADER, FOLLOWING}) — SUM(sharePct) = 100 enforced app-layer on Treaty activation. Bordereau exports scoped to reinsurerId via `?reinsurerId={uuid}` — one reinsurer sees only their share. Cession-participant split at report time (join), not on write (grill note 6).
+- **R10 — Bordereau format**: bespoke insurer XLSX only via existing `ReportWorkbook`. No per-reinsurer template layer for MVP (additive later via `Reinsurer.bordereauColumnTemplate` JSON). No CSV/PDF variants. File naming: `cession-bordereau-{reinsurer-slug}-{yyyy}-Q{n}.xlsx`, etc.
+- **R11 — Treaty shape**: immutable per underwriting year. Renewal = new treaty row with `renewedFromTreatyId` FK. Treaty statuses `{DRAFT, ACTIVE, EXPIRED, RENEWED, LAPSED, COMMUTED}`. ACTIVE treaties are read-only; correction path = void + re-create. Angular treaty list groups by renewal chain.
+- **R12 — Retro + reversal**: retroactive cession backfill within the current underwriting year on Treaty DRAFT→ACTIVE (`TreatyActivationBackfillJob`, chunked, idempotent via UNIQUE `(treatyId, sourceEventId, cessionType)`); manual review queue for claim reversals (`reinsurance_review_task` table + `ClaimReversedConsumer` + Angular queue at `/tenant/finance/reinsurance/review-queue`). Event name to verify (grill note 2). Scope-heavy — belongs in §B tranche.
+- **R13 — Utilization report**: cumulative-to-date. Treaty carries `aggregateLimit NULL, aggregateLimitCurrency NULL, expectedAnnualPremium NULL`. Layer carries `layerLimit, retention, layerCurrency, rate, reinstatementCount NULL` (informational only — no reinstatement math per plan `:100`). Report SQL: SUM(cededAmount) GROUP BY treaty + layer since inception. Per-layer usage bar for XoL; per-treaty aggregate bar for treaties with aggregateLimit. No live warning — Phase 17 email delivery may add later.
+- **R14 — Insurance-line applicability**: structured whitelist. `treaty_applicable_line` join (treatyId, insuranceLine). Auto-cession consumer pre-filters on `claim.insuranceLine ∈ treaty.applicableLines` before firing rules-engine — reduces per-claim rule fires and gives the Angular treaty list a "HEALTH, LIFE" badge without parsing DRL.
+- **R15 — Producer/broker link**: nullable `producer_ref VARCHAR(120)` placeholder in Phase 10. Phase 11 adds `producer_id UUID FK REFERENCES producer(id)` via additive migration + backfill (fuzzy-match producer_ref → producer.name). Phase 11 grilling doc must record this dependency.
+- **R16 — Bordereau period + close-of-period lock**: quarter-aligned periods (Angular picker = quarter+year, not date-range), soft lock via `bordereau_period_export` table (composite UNIQUE on reinsurerId+treatyId+reportKey+year+quarter). First export stamps `firstExportedAt`; late cessions flagged as `isPriorPeriodAdjustment` in subsequent exports of the same quarter. No hard lock — the R12 review queue handles late-arrival correctness.
+
+### Settled by fact (not asked)
+
+- **F10-a — All tenant migrations live in `services/java/tenancy-service/src/main/resources/db/migration/tenant/`**, not finance-service (finance-service has no `db/migration/` folder). Next V-number = **V081**. Corrects the outline's implicit "finance-service/tenant/" folder.
+- **F10-b — Parent/child migration template**: `V078__member_cost_share_liability.sql` (parent + child with FK ON DELETE RESTRICT + UNIQUE on business key for idempotency).
+- **F10-c — Next public V-number**: V133 (Phase 10 does not need public-schema tables — reinsurance is tenant-scoped per Rule 2).
+- **F10-d — `ReportKey.REINSURANCE_*` and `ReportFamily.REINSURANCE` already ship**. No enum edits needed.
+- **F10-e — Both Kafka topics exist and are correctly named**: `medfund.claims.adjudicated` (`services/java/claims-service/.../ClaimEventPublisher.java` producer; `services/java/finance-service/src/main/java/com/medfund/finance/consumer/ClaimAdjudicatedConsumer.java:65` reference-quality consumer using `.doOnSuccess` per `bug_reactor_kafka_ack_swallow`); `medfund.finance.payment-created` (`services/java/finance-service/src/main/java/com/medfund/finance/service/FinanceEventPublisher.java:34` producer, no consumer today).
+- **F10-f — Reinsurance is 100% greenfield**. No pre-existing entities, migrations, Angular routes, or permissions.
+
+### Data model
+
+Tenant-scoped tables (V081..V089 range; final numbering at plan time). All with the standard `id UUID PK DEFAULT gen_random_uuid(), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), actor_id UUID, actor_email VARCHAR` audit tail per `feedback_audit_actor_email` (rule 8).
+
+| Table | Purpose | Key columns |
+|---|---|---|
+| `reinsurer` | Reinsurance counterparty master | name, contactEmail, contactAddress, jurisdictionCode (references tenant.jurisdiction_code catalog V131), homeCurrency, creditRating NULL, isActive |
+| `treaty` | Immutable-per-year treaty placement (R11) | treatyRef (stable across renewal chain), treatyType {QUOTA_SHARE|SURPLUS_SHARE|EXCESS_OF_LOSS|STOP_LOSS} (R1), declaredCurrency, inceptionDate, expiryDate, status {DRAFT\|ACTIVE\|EXPIRED\|RENEWED\|LAPSED\|COMMUTED}, renewedFromTreatyId UUID NULL SELF-FK, aggregateLimit NULL, aggregateLimitCurrency NULL, expectedAnnualPremium NULL, producerRef VARCHAR(120) NULL (R15) |
+| `treaty_layer` | XoL/StopLoss layer decomposition (R1) | treatyId FK, layerOrder INT, retention, layerLimit, layerCurrency, rate, reinstatementCount NULL (informational only per R13/plan `:100`) |
+| `treaty_participant` | Multi-reinsurer participation on a treaty (R9) | treatyId FK, reinsurerId FK (composite PK), sharePct BigDecimal, shareRole {LEADER\|FOLLOWING}; app-layer constraint SUM=100 on activation |
+| `treaty_applicable_line` | Insurance-line whitelist (R14) | treatyId FK, insuranceLine (composite PK) |
+| `cession_rule` | Rules-engine RuleDefinition metadata (R4) | treatyId FK, ruleDefinitionId (FK into rules-engine tables), enabled |
+| `cession` | Cession row — both loss + premium, both auto + facultative | treatyId FK, cessionType {PREMIUM\|LOSS} (R5), source {AUTOMATIC\|FACULTATIVE} (R2), status {ACTIVE\|DRAFT\|APPROVED\|CEDED\|VOIDED} (auto→{ACTIVE,VOIDED}; fac→{DRAFT,APPROVED,CEDED,VOIDED} per R6), sourceEventId UUID (claim_id or contribution_id or treaty_id-for-flat-premium), sourceEventType, cededAmount BigDecimal, currencyCode CHAR(3) (native per R7), occurredAt TIMESTAMPTZ, voidedReason VARCHAR NULL. UNIQUE `(treatyId, sourceEventId, cessionType)` for R12 backfill idempotency |
+| `recovery` | Money owed by reinsurer against a cession (R8) | cessionId FK, status {EXPECTED\|INVOICED\|RECEIVED\|WRITTEN_OFF}, expectedAmount BigDecimal, receivedAmount BigDecimal NULL, currencyCode CHAR(3), invoicedAt TIMESTAMPTZ NULL, receivedAt TIMESTAMPTZ NULL, writeOffReason VARCHAR NULL |
+| `bordereau_period_export` | Close-of-period soft lock + adjustment flagging (R16) | reinsurerId, treatyId NULL (for cross-treaty pooled bordereaux), reportKey ∈ REINSURANCE_*, year, quarter, firstExportedAt TIMESTAMPTZ, exportCount INT DEFAULT 1. Composite UNIQUE (reinsurerId, treatyId, reportKey, year, quarter) |
+| `reinsurance_review_task` | Claim-reversal manual review queue (R12) | taskType {CLAIM_REVERSAL\|RECOVERY_DISPUTE\|MANUAL_VOID_REQUEST}, cessionId NULL, recoveryId NULL, claimId NULL, treatyId NULL, status {OPEN\|IN_PROGRESS\|RESOLVED_VOID\|RESOLVED_KEEP\|DISMISSED}, assigneeUserId NULL, dueBy NULL, createReason, resolutionNotes NULL |
+
+### Kafka topology
+
+Three consumers, one producer, one scheduler:
+
+| Component | Direction | Topic | Behaviour |
+|---|---|---|---|
+| `ReinsuranceLossCessionConsumer` | in | `medfund.claims.adjudicated` (F10-e) | Per adjudicated claim: enumerate ACTIVE treaties for the tenant where `claim.insuranceLine ∈ treaty.applicableLines` (R14). Fire rules-engine (R4) with enriched ClaimFact. Write matching Cession rows (source=AUTOMATIC, status=ACTIVE, cessionType=LOSS). `.doOnSuccess` for ack per `bug_reactor_kafka_ack_swallow`. |
+| `ReinsurancePremiumCessionConsumer` | in | `medfund.contributions.paid` (name to verify, grill note 1) | Same shape but for contributions. `cessionType=PREMIUM`. Only fires for proportional treaties by default (XoL/StopLoss use flat treaty premium via scheduler). |
+| `ReinsuranceRecoveryConsumer` | in | `medfund.finance.payment-created` (F10-e) | Per payment: find matching Cession by underlying claim_id; write Recovery (status=EXPECTED) if not already present. |
+| `ClaimReversedConsumer` | in | `medfund.claims.reversed` (name to verify, grill note 2) | Per reversal: create `reinsurance_review_task` (taskType=CLAIM_REVERSAL) per affected cession/recovery pair. |
+| `ReinsuranceTreatyPremiumJob` | scheduler | — | Nightly `@Scheduled`; on treaty inceptionDate ± N days for flat-premium XoL/StopLoss treaties, write a PREMIUM Cession row with sourceEventType=TREATY_INCEPTION. |
+| `TreatyActivationBackfillJob` | on-demand (triggered by Treaty DRAFT→ACTIVE) | — | Chunked scan of claims + contributions in the treaty's underwriting year, apply cession rules retroactively (R12). Idempotent via UNIQUE constraint. |
+
+### Report shapes
+
+Three report surfaces, each `@RequiresReport(...)` + `ReportEnvelopeBuilder` + `SecurityEventPublisher.publishDataAccess` on export:
+
+**REINSURANCE_CESSION_BORDEREAU** — `GET /api/v1/reports/reinsurance/cession-bordereau?year=&quarter=&reinsurerId=&treatyId=&reportingCurrency=` — one XLSX row per cession in the quarter. Columns: treatyRef, treatyType, reinsurerName, sharePct (from R9 participant), cessionType, source, occurredAt, sourceEventRef, nativeAmount, nativeCurrency, cededAmount = nativeAmount × sharePct, treatyCurrencyAmount (converted per R7), isPriorPeriodAdjustment (R16). Export endpoint: `GET .../cession-bordereau/export/excel?...` — writes bordereau_period_export row on first export per (reinsurerId, treatyId, year, quarter, reportKey).
+
+**REINSURANCE_RECOVERIES** — `GET /api/v1/reports/reinsurance/recoveries-bordereau?year=&quarter=&reinsurerId=&treatyId=&reportingCurrency=` — one row per recovery. Columns: cessionId, treatyRef, reinsurerName, status (EXPECTED/INVOICED/RECEIVED/WRITTEN_OFF), expectedAmount, receivedAmount, currencyCode, treatyCurrencyAmount, invoicedAt, receivedAt, writeOffReason. Export flips EXPECTED → INVOICED atomically.
+
+**REINSURANCE_TREATY_UTILIZATION** — `GET /api/v1/reports/reinsurance/treaty-utilization?treatyId=&reportingCurrency=` — one section per treaty. Aggregate ceded since treaty.inceptionDate; per-layer usage bar (`used / layerLimit * 100`) for XoL/StopLoss layers; per-treaty aggregate bar (`ceded_aggregate / aggregateLimit * 100`) if aggregateLimit set. Layers without a limit render as "unlimited". Optional `?year=&quarter=` for period-scoped subtotal alongside cumulative.
+
+### Angular surfaces
+
+Tenant-admin CRUD area at `/tenant-admin/reinsurance/*`:
+- `Reinsurers` tab — list + form (name, contact, jurisdiction, credit rating).
+- `Treaties` tab — list (grouped by renewal chain per R11) + create form.
+- `Treaty edit` page — inline sub-editors for layers (only for XoL/StopLoss), participants (`sharePct` sum-to-100 validation), applicable lines (multi-select), cession rules (delegates to visual rule builder per R4 — verify genericity).
+
+Reports area at `/tenant/finance/reports/reinsurance/*`:
+- `cession-bordereau` — quarter+year picker, reinsurer filter, treaty filter, export button.
+- `recoveries-bordereau` — same filters, additionally status filter.
+- `treaty-utilization` — treaty picker, cumulative view with layer bars.
+
+Facultative flow at `/tenant/finance/reinsurance/facultative/*`:
+- `browse` — claims/policies list above a threshold, cede action.
+- `queue` — DRAFT/APPROVED cessions awaiting approve/commit (for approver role).
+
+Review queue at `/tenant/finance/reinsurance/review-queue` — task list with resolve actions (per R12).
+
+Two new permissions: `finance.reinsurance:cede_facultative`, `finance.reinsurance:approve_facultative`. Recommended new roles: `reinsurance_underwriter`, `reinsurance_supervisor` (or attach permissions to existing finance roles — plan-time call). Plus `finance.reinsurance:record_recovery_received` and `finance.reinsurance:writeoff_recovery` and `finance.reinsurance:resolve_review`.
+
+### Proposed §A / §B tranche split
+
+**§A — Backend + reports** (ships a working recoveries surface even without the workflow UI):
+- All migrations (V081..V089 range in tenancy-service).
+- All entities + repositories + services.
+- Auto-cession loss consumer on `medfund.claims.adjudicated`.
+- Recovery consumer on `medfund.finance.payment-created`.
+- All three report endpoints + XLSX exports + `bordereau_period_export` soft-lock (R16).
+- Tenant-admin Reinsurers + Treaties + Layer/participant/line editor.
+- Cession rule visual builder integration (assumes R4 grill note 3 resolves cleanly).
+- Angular report pages (three).
+- IT: full CRUD + auto-cession consumer + bordereau XLSX + toggle-off 403 + SecurityEvent-on-export.
+
+**§B — Workflow + premium cession + retro** (facultative + all the extras from R2/R5/R6/R12):
+- Premium cession consumer on the contributions-paid topic (grill note 1) + `ReinsuranceTreatyPremiumJob` scheduler for flat XoL premium.
+- `TreatyActivationBackfillJob` on DRAFT → ACTIVE (chunked processing).
+- `ClaimReversedConsumer` (grill note 2) + `reinsurance_review_task` table.
+- Facultative UI (browse + cede + queue) with three-state workflow.
+- Review-queue UI.
+- Recovery record-received form + write-off form.
+- IT: facultative round-trip + backfill idempotency + review-task lifecycle + premium cession + role/permission matrix.
+
+§A can land as a Phase 10A commit; §B as Phase 10B. Both should be fully grilled + planned at implement-time; `implement-plan` treats them as hand-off boundaries per the plan header.
+
+### Grill notes for `create-plan`
+
+1. **Contribution-paid event name (R5)** — verify producer + name; grep `services/java/contributions-service/src/main/java/com/medfund/contributions/service/*Publisher*.java`. If not present, additive to contributions-service first per plan `:3005` invariant ("consumers deploy AFTER producers are emitting").
+2. **Claim-reversed event name (R12)** — same verification for `medfund.claims.reversed`; may need producer-side addition to claims-service.
+3. **Visual rule builder component genericity (R4)** — verify existing Angular rule builder supports arbitrary `ReinsuranceTemplateCategory`; if hard-coded, an Angular refactor lands in §A scope. Check `clients/angular/src/app/pages/tenant-admin/rules/*` (or wherever visual builder lives).
+4. **Retro backfill chunking (R12)** — plan the batch size + resume semantics for tenants with 10s of thousands of adjudicated claims. Include a progress-tracking table and cancellation path.
+5. **Participant sharePct constraint enforcement (R9)** — app-layer at Treaty DRAFT → ACTIVE transition (matches Flyway "app-layer over DB triggers" pattern in this repo); include a service-level test.
+6. **Cession-participant write shape (R9)** — recommend one Cession row per cession + report-time JOIN to `treaty_participant` for split, not one row per participant. Verify SUM performance on the bordereau query for a Q1 with ~10k cessions × 4 participants.
 
 ### Success Criteria
 
-- Automated: full IT for treaty CRUD + auto-cession consumer + bordereau XLSX.
-- Manual: reinsurance manager registers a treaty, adjudicates a claim, sees cession + can generate quarterly bordereau.
+#### Automated Verification
 
-**Grilling checkpoint**: this phase is a mini-plan. Run `grilling` + `create-plan` on the reinsurance module before opening code.
+**§A**:
+- [ ] `cd services/java/finance-service && ../gradlew build test` — new `com.medfund.finance.reinsurance.*` test suite green (service + controller + consumer unit tests). Pre-existing `bug_claim_save_mock_id_npe` set is unchanged.
+- [ ] `cd services/java/tenancy-service && ../gradlew build test` — V081..V089 migrations apply cleanly on Testcontainers.
+- [ ] `make test-integration` — `ReinsuranceControllerIT` for Reinsurer + Treaty + Layer CRUD; `ReinsuranceLossCessionConsumerIT` for medfund.claims.adjudicated round-trip; `RecoveryConsumerIT` for medfund.finance.payment-created; `BordereauReportControllerIT` for all three reports with 403-when-disabled + envelope shape + FX warnings + SecurityEvent-on-export + bordereau_period_export soft-lock behaviour.
+- [ ] `cd services/java/shared && ../gradlew test` — unchanged (no shared-module edits in Phase 10).
+- [ ] Angular `ng build --configuration=development` — new components compile clean, no new template warnings.
+- [ ] Gateway `go build ./...` — new `/api/v1/reports/reinsurance/*` and `/api/v1/reinsurance/*` routes register; gateway test asserts proxy target.
+
+**§B**:
+- [ ] `make test-integration` — `FacultativeCessionIT` (workflow states + permission matrix), `ClaimReversedConsumerIT` (review-task creation), `TreatyActivationBackfillJobIT` (chunked idempotency), `PremiumCessionConsumerIT` (rules fire only for proportional treaties).
+- [ ] Playwright: `reinsurance-facultative.spec.ts` — underwriter creates DRAFT → supervisor approves → CEDED → export bordereau → verify row present.
+- [ ] Playwright: `reinsurance-review-queue.spec.ts` — claim reversal → task appears → supervisor resolves → cession void follows.
+
+#### Manual Verification
+
+**§A**:
+- [ ] Register Munich Re + Swiss Re as Reinsurers; create a `HEALTH-XOL-2026` treaty with two layers ($500K xs $500K + $1M xs $1M) and participation 60% Munich + 40% Swiss.
+- [ ] Adjudicate a HEALTH claim for $800K → observe Cession row for layer 1 = $300K, cession = $500K (retention hit) × 60% + 40% split at report time; observe EXPECTED Recovery.
+- [ ] Export cession bordereau for Q3 2026, `?reinsurerId=<munich>` → XLSX shows Munich's 60% share only; `bordereau_period_export` row written with firstExportedAt now.
+- [ ] Re-export same quarter → same numbers but `exportCount = 2`.
+- [ ] Adjudicate another claim for the same quarter after first export → next export flags the new row as `isPriorPeriodAdjustment = true`.
+- [ ] Toggle REINSURANCE_CESSION_BORDEREAU off in tenant-admin → sidebar hides link → direct URL returns 403.
+- [ ] Kafka `medfund.security.events` carries `reportKey=REINSURANCE_CESSION_BORDEREAU` (etc.) on every export.
+
+**§B**:
+- [ ] Underwriter creates facultative cession on a large single risk → supervisor approves → commit to CEDED → row appears on next bordereau.
+- [ ] Reverse an adjudicated claim → review task appears in `/tenant/finance/reinsurance/review-queue` → supervisor resolves RESOLVED_VOID → cession + recovery void follows.
+- [ ] Activate a new treaty inception-dated 3 months back → `TreatyActivationBackfillJob` runs, writes Cession rows retroactively; re-run activation → job idempotent (no duplicate cessions).
+- [ ] Pay a contribution against a proportional treaty → PREMIUM cession row written; XoL treaty contribution → no PREMIUM cession (flat premium via scheduler instead).
+
+**Grilling checkpoint status**: **satisfied 2026-08-22.** Next step is `create-plan` on this expanded phase (or on §A alone for a smaller shipping increment).
 
 ---
 

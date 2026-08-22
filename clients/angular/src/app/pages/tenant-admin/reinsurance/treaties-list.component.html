@@ -1,0 +1,70 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Treaties</h1>
+      <p class="sub">Grouped by renewal chain — earliest inception first.</p>
+    </div>
+    <a class="btn btn-primary" routerLink="/tenant/admin/reinsurance/treaties/new">
+      <app-icon name="plus"></app-icon>
+      New treaty
+    </a>
+  </header>
+
+  <div *ngIf="errorMessage" class="alert alert-error">{{ errorMessage }}</div>
+
+  <div class="filters">
+    <label>
+      Status:
+      <select [(ngModel)]="filterStatus" (change)="fetchAll()">
+        <option value="">All</option>
+        <option value="DRAFT">Draft</option>
+        <option value="ACTIVE">Active</option>
+        <option value="EXPIRED">Expired</option>
+        <option value="RENEWED">Renewed</option>
+        <option value="LAPSED">Lapsed</option>
+        <option value="COMMUTED">Commuted</option>
+      </select>
+    </label>
+  </div>
+
+  <div *ngIf="loading" class="loading">Loading…</div>
+
+  <ng-container *ngIf="!loading">
+    <div *ngIf="!chains.length" class="empty">No treaties yet — create your first one.</div>
+
+    <div *ngFor="let chain of chains" class="chain-card">
+      <h3 class="chain-title">Renewal chain: {{ chain.rootRef }}</h3>
+      <table class="chain-table">
+        <thead>
+          <tr>
+            <th>Ref</th>
+            <th>Type</th>
+            <th>Currency</th>
+            <th>Period</th>
+            <th>Status</th>
+            <th>Aggregate limit</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let t of chain.treaties" [class.is-successor]="t.renewedFromTreatyId">
+            <td>
+              <a [routerLink]="['/tenant/admin/reinsurance/treaties', t.id]">{{ t.treatyRef }}</a>
+              <span *ngIf="t.renewedFromTreatyId" class="chain-arrow" title="Renewal of parent">↳</span>
+            </td>
+            <td>{{ t.treatyType }}</td>
+            <td>{{ t.declaredCurrency }}</td>
+            <td>{{ t.inceptionDate }} → {{ t.expiryDate }}</td>
+            <td><span [ngClass]="statusBadgeClass(t.status)">{{ t.status }}</span></td>
+            <td>
+              {{ t.aggregateLimit ? (t.aggregateLimit | number) + ' ' + (t.aggregateLimitCurrency || '') : '—' }}
+            </td>
+            <td class="actions">
+              <a class="btn btn-sm" [routerLink]="['/tenant/admin/reinsurance/treaties', t.id]">Edit</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </ng-container>
+</div>

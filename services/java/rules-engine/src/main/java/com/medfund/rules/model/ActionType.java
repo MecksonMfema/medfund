@@ -53,5 +53,23 @@ public enum ActionType {
     /** Withhold a percentage of a provider payment pending review. */
     WITHHOLD_PAYMENT,
     /** Mark a candidate match in reconciliation. */
-    MATCH_RECORDS
+    MATCH_RECORDS,
+
+    // ── Reinsurance outputs ──────────────────────────────────────────────────
+    /**
+     * Cede an adjudicated claim or paid contribution to a reinsurance treaty.
+     * Populates a CEDE_TO_TREATY {@code RuleResult} on {@code ClaimFact}
+     * carrying treatyId + cededAmount + optional layerId. Consumed by the
+     * reinsurance loss/premium-cession consumers in finance-service.
+     *
+     * <p>Action fields (see {@code RuleAction}):
+     * <ul>
+     *   <li>{@code rejectionCode} — treaty id (UUID string)</li>
+     *   <li>{@code value} — {@code "PCT:<pct>"} for proportional treaties
+     *       (Quota/Surplus Share), or {@code "XOL:<retention>;<limit>;<layerId>"}
+     *       for excess-of-loss / stop-loss layer bands.</li>
+     *   <li>{@code message} — human-readable audit note.</li>
+     * </ul>
+     */
+    CEDE_TO_TREATY
 }

@@ -35,7 +35,8 @@ class DrlCompilerTest {
                 new ActionEmitters.ApplyLateFeeEmitter(),
                 new ActionEmitters.SchedulePaymentRunEmitter(),
                 new ActionEmitters.WithholdPaymentEmitter(),
-                new ActionEmitters.MatchRecordsEmitter()
+                new ActionEmitters.MatchRecordsEmitter(),
+                new CedeToTreatyEmitter()
         ));
     }
 
@@ -122,6 +123,62 @@ class DrlCompilerTest {
         String drl = compiler.compile(rule);
 
         assertThat(drl).doesNotContain("agenda-group");
+    }
+
+    @Test
+    void compile_reinsuranceProportionalRule_addsAgendaGroupAndCedes() {
+        RuleDefinition rule = new RuleDefinition();
+        rule.setName("Quota Share 30%");
+        rule.setCategory("REINSURANCE");
+        rule.setPriority(50);
+        rule.setEnabled(true);
+        rule.setConditions(conditions("AND",
+                condition("claim.amount", "GREATER_THAN", "0")));
+        RuleAction action = new RuleAction();
+        action.setType("CEDE_TO_TREATY");
+        action.setRejectionCode("11111111-1111-1111-1111-111111111111");
+        action.setValue("PCT:30");
+        action.setMessage("Quota Share 30% cession");
+        rule.setAction(action);
+
+        String drl = compiler.compile(rule);
+
+        // Agenda-group gate keeps cession rules out of the stage-7 sweep.
+        assertThat(drl).contains("agenda-group \"REINSURANCE\"");
+        assertThat(drl).contains("$claim.addCession(");
+        // Treaty id + human-readable message flow through as string params.
+        assertThat(drl).contains("11111111-1111-1111-1111-111111111111");
+        assertThat(drl).contains("Quota Share 30% cession");
+        // Proportional arithmetic uses BigDecimal.movePointLeft(2) for pct÷100.
+        assertThat(drl).contains("multiply(new java.math.BigDecimal(\"30\"))");
+        assertThat(drl).contains("movePointLeft(2)");
+    }
+
+    @Test
+    void compile_reinsuranceXolRule_emitsRetentionLayerMath() {
+        RuleDefinition rule = new RuleDefinition();
+        rule.setName("XoL layer 500k xs 100k");
+        rule.setCategory("REINSURANCE");
+        rule.setPriority(48);
+        rule.setEnabled(true);
+        rule.setConditions(conditions("AND",
+                condition("claim.amount", "GREATER_THAN", "100000")));
+        RuleAction action = new RuleAction();
+        action.setType("CEDE_TO_TREATY");
+        action.setRejectionCode("22222222-2222-2222-2222-222222222222");
+        action.setValue("XOL:100000;500000;33333333-3333-3333-3333-333333333333");
+        action.setMessage("XoL layer: 500k xs 100k");
+        rule.setAction(action);
+
+        String drl = compiler.compile(rule);
+
+        assertThat(drl).contains("agenda-group \"REINSURANCE\"");
+        // max(0, min(limit, amount - retention)) — chained BigDecimal ops.
+        assertThat(drl).contains("subtract(new java.math.BigDecimal(\"100000\"))");
+        assertThat(drl).contains("min(new java.math.BigDecimal(\"500000\"))");
+        assertThat(drl).contains("max(java.math.BigDecimal.ZERO)");
+        // Layer id passes through as the third arg to addCession.
+        assertThat(drl).contains("33333333-3333-3333-3333-333333333333");
     }
 
     @Test

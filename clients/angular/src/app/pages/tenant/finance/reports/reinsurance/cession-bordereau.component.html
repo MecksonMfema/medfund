@@ -1,0 +1,157 @@
+<header class="page-header">
+  <div>
+    <h1>Cession bordereau</h1>
+    <p class="page-sub">
+      One row per cession-per-participant for the selected quarter. Native amounts
+      preserved (R7); the per-currency strip shows native subtotals with best-effort
+      FX conversion to the reporting currency. Adjustments booked after the first
+      export are flagged as prior-period.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="exporting || loading"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Year</span>
+    <app-select
+      [ngModel]="year.toString()"
+      (selectionChange)="onYearChange($event.toString())"
+      name="year"
+      [options]="yearOptions"
+      [searchable]="false"
+    ></app-select>
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Quarter</span>
+    <app-select
+      [ngModel]="quarter.toString()"
+      (selectionChange)="onQuarterChange($event.toString())"
+      name="quarter"
+      [options]="quarterOptions"
+      [searchable]="false"
+    ></app-select>
+  </div>
+  <div class="toolbar-cell cell-search">
+    <span class="cell-label">Reinsurer</span>
+    <app-select
+      [(ngModel)]="reinsurerId"
+      (selectionChange)="onFilterChange()"
+      name="reinsurerId"
+      [options]="reinsurerOptions"
+      placeholder="All reinsurers"
+      [searchable]="true"
+      searchPlaceholder="Search reinsurers…"
+    ></app-select>
+  </div>
+  <div class="toolbar-cell cell-search">
+    <span class="cell-label">Treaty</span>
+    <app-select
+      [(ngModel)]="treatyId"
+      (selectionChange)="onFilterChange()"
+      name="treatyId"
+      [options]="treatyOptions"
+      placeholder="All treaties"
+      [searchable]="true"
+      searchPlaceholder="Search treaties…"
+    ></app-select>
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (envelope?.warnings?.length) {
+  <div class="banner banner-warning">
+    @for (w of envelope!.warnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+@if (perCurrencyList().length) {
+  <div class="kpi-strip">
+    @for (bucket of perCurrencyList(); track bucket.currency) {
+      <div class="kpi-card">
+        <span class="kpi-label">{{ bucket.currency }} ceded (native)</span>
+        <span class="kpi-value">{{ bucket.totalAmount | number:'1.2-2' }}</span>
+        <span class="kpi-meta">{{ bucket.rowCount }} row{{ bucket.rowCount === 1 ? '' : 's' }}</span>
+      </div>
+    }
+    @for (fx of fxRateList(); track fx.currency) {
+      <div class="kpi-card">
+        <span class="kpi-label">FX {{ fx.currency }} → {{ envelope?.reportingCurrency }}</span>
+        <span class="kpi-value">{{ fx.rate | number:'1.4-6' }}</span>
+      </div>
+    }
+  </div>
+}
+
+@if (loading) {
+  <p>Loading…</p>
+} @else if (activeRows.length === 0) {
+  <p>No cessions recorded in this quarter.</p>
+} @else {
+  <table class="rate-table">
+    <thead>
+      <tr>
+        <th>Cession</th>
+        <th>Treaty</th>
+        <th>Type</th>
+        <th>Reinsurer</th>
+        <th class="num">Share %</th>
+        <th>Cession type</th>
+        <th>Source</th>
+        <th>Occurred</th>
+        <th>Currency</th>
+        <th class="num">Basis (native)</th>
+        <th class="num">Ceded (native)</th>
+        <th class="num">Participant share</th>
+        <th>Prior-period</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of activeRows; track row.cessionId + '-' + row.reinsurerId) {
+        <tr>
+          <td>{{ row.cessionId.substring(0, 8) }}</td>
+          <td>{{ row.treatyRef }}</td>
+          <td>{{ row.treatyType }}</td>
+          <td>{{ row.reinsurerName }}</td>
+          <td class="num">{{ row.sharePct | number:'1.2-4' }}</td>
+          <td>{{ row.cessionType }}</td>
+          <td>{{ row.source }}</td>
+          <td>{{ row.occurredAt | date:'yyyy-MM-dd' }}</td>
+          <td>{{ row.currencyCode }}</td>
+          <td class="num">{{ row.nativeBasis | number:'1.2-2' }}</td>
+          <td class="num">{{ row.nativeCededFull | number:'1.2-2' }}</td>
+          <td class="num">{{ row.participantCeded | number:'1.2-2' }}</td>
+          <td>
+            @if (row.priorPeriodAdjustment) {
+              <span class="badge badge-warning">Adjustment</span>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

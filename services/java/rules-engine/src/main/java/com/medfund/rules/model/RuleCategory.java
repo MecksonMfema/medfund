@@ -56,5 +56,14 @@ public enum RuleCategory {
     /** Provider payment runs — schedule, advance payments, holdbacks, CTC payments. */
     PROVIDER_PAYMENT,
     /** Reconciliation matching rules between claims, payments, and bank records. */
-    RECONCILIATION
+    RECONCILIATION,
+
+    // ── Reinsurance ──────────────────────────────────────────────────────────
+    /**
+     * Cession rules — decide when and how much of a claim (or contribution) to
+     * cede to a reinsurance treaty. Rules in this category are agenda-gated:
+     * they only fire when the reinsurance consumer explicitly focuses the
+     * REINSURANCE group, never during the stage-7 tenant-rule sweep.
+     */
+    REINSURANCE
 }

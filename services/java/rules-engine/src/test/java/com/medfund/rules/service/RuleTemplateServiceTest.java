@@ -15,6 +15,7 @@ import com.medfund.rules.template.providers.ModifierAdjustmentTemplates;
 import com.medfund.rules.template.providers.PreAuthorizationTemplates;
 import com.medfund.rules.template.providers.ProviderPaymentTemplates;
 import com.medfund.rules.template.providers.ReconciliationTemplates;
+import com.medfund.rules.template.providers.ReinsuranceTemplates;
 import com.medfund.rules.template.providers.SchemeChangeProrationTemplates;
 import com.medfund.rules.template.providers.TariffPricingTemplates;
 import com.medfund.rules.template.providers.UnderwritingTemplates;
@@ -55,7 +56,8 @@ class RuleTemplateServiceTest {
                 new CoPaymentTemplates(),
                 new ProviderPaymentTemplates(),
                 new ReconciliationTemplates(),
-                new ModifierAdjustmentTemplates()
+                new ModifierAdjustmentTemplates(),
+                new ReinsuranceTemplates()
         );
         service = new RuleTemplateService(providers);
     }

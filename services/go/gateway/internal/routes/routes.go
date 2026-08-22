@@ -188,6 +188,14 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/reports/billing-vs-claims/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reports/member-payments", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reports/member-payments/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 10 Reinsurance — Reinsurer + Treaty CRUD (nested layer /
+	// participant / applicable-line / cession-rule editors) live in
+	// finance-service. Reports at /api/v1/reports/reinsurance/* land in
+	// Phase 4; adding both prefixes upfront so the Phase 4 backend deploys
+	// don't require a gateway change.
+	app.All("/api/v1/reinsurance/*", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/reinsurance", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/reinsurance/*", proxy.Handler(cfg.FinanceServiceURL))
 
 	// ── Rules Service (per-tenant Drools rules) ───────────────────────────────
 	app.All("/api/v1/rules", proxy.Handler(cfg.RulesServiceURL))

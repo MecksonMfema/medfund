@@ -1,0 +1,232 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>
+        <a routerLink="/tenant/admin/reinsurance/treaties" class="back">←</a>
+        {{ isNew ? 'New treaty' : treaty?.treatyRef }}
+        <span *ngIf="treaty" class="status-badge status-{{ treaty.status.toLowerCase() }}">
+          {{ treaty.status }}
+        </span>
+      </h1>
+      <p class="sub">
+        {{ isDraft
+            ? 'DRAFT — layers, participants, applicable lines, and cession rules are all editable.'
+            : 'Read-only. To correct, void this treaty and create a new one — or renew for a legitimate successor.' }}
+      </p>
+    </div>
+  </header>
+
+  <div *ngIf="errorMessage" class="alert alert-error">{{ errorMessage }}</div>
+  <div *ngIf="successMessage" class="alert alert-success">{{ successMessage }}</div>
+
+  <div *ngIf="loading" class="loading">Loading…</div>
+
+  <ng-container *ngIf="!loading">
+    <!-- Header form -->
+    <section class="card">
+      <h3>Treaty details</h3>
+      <div class="form-grid">
+        <label>
+          Treaty ref *
+          <input type="text" [(ngModel)]="header.treatyRef" [disabled]="!isDraft" maxlength="120" />
+        </label>
+        <label>
+          Type *
+          <select [(ngModel)]="header.treatyType" [disabled]="!isDraft">
+            <option *ngFor="let t of TREATY_TYPES" [value]="t">{{ t }}</option>
+          </select>
+        </label>
+        <label>
+          Declared currency *
+          <input type="text" [(ngModel)]="header.declaredCurrency" [disabled]="!isDraft"
+                 maxlength="3" minlength="3" />
+        </label>
+        <label>
+          Producer ref
+          <input type="text" [(ngModel)]="header.producerRef" [disabled]="!isDraft" maxlength="120" />
+        </label>
+        <label>
+          Inception *
+          <input type="date" [(ngModel)]="header.inceptionDate" [disabled]="!isDraft" />
+        </label>
+        <label>
+          Expiry *
+          <input type="date" [(ngModel)]="header.expiryDate" [disabled]="!isDraft" />
+        </label>
+        <label>
+          Aggregate limit
+          <input type="number" step="0.01" [(ngModel)]="header.aggregateLimit" [disabled]="!isDraft" />
+        </label>
+        <label>
+          Aggregate limit currency
+          <input type="text" [(ngModel)]="header.aggregateLimitCurrency" [disabled]="!isDraft"
+                 maxlength="3" minlength="3" />
+        </label>
+        <label>
+          Expected annual premium
+          <input type="number" step="0.01" [(ngModel)]="header.expectedAnnualPremium" [disabled]="!isDraft" />
+        </label>
+      </div>
+      <div class="form-actions" *ngIf="isDraft">
+        <button class="btn btn-primary" (click)="saveHeader()" [disabled]="saving">
+          {{ saving ? 'Saving…' : (isNew ? 'Create draft' : 'Save changes') }}
+        </button>
+        <a class="btn" routerLink="/tenant/admin/reinsurance/treaties">Cancel</a>
+      </div>
+    </section>
+
+    <ng-container *ngIf="!isNew && treaty">
+      <!-- Participants -->
+      <section class="card">
+        <h3>
+          Participants
+          <span class="share-sum" [class.ok]="Math.abs(participantShareSum - 100) < 0.0001">
+            Sum: {{ participantShareSum.toFixed(4) }}% / 100%
+          </span>
+        </h3>
+
+        <table class="child-table">
+          <thead>
+            <tr><th>Reinsurer</th><th>Role</th><th>Share %</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let p of participants">
+              <td>{{ p.reinsurerName }}</td>
+              <td>{{ p.shareRole }}</td>
+              <td>{{ p.sharePct }}</td>
+              <td class="row-actions">
+                <button *ngIf="isDraft" class="btn btn-sm btn-danger" (click)="removeParticipant(p)">Remove</button>
+              </td>
+            </tr>
+            <tr *ngIf="!participants.length"><td colspan="4" class="empty">No participants yet.</td></tr>
+          </tbody>
+        </table>
+
+        <div *ngIf="isDraft" class="child-form">
+          <div class="typeahead">
+            <input type="text" placeholder="Search reinsurer…"
+                   [ngModel]="reinsurerSearchTerm"
+                   (ngModelChange)="onReinsurerSearch($event)" />
+            <ul *ngIf="reinsurerMatches.length" class="typeahead-results">
+              <li *ngFor="let r of reinsurerMatches" (click)="pickReinsurer(r)">
+                {{ r.name }} <small *ngIf="r.jurisdictionCode">({{ r.jurisdictionCode }})</small>
+              </li>
+            </ul>
+          </div>
+          <input type="number" step="0.0001" min="0" max="100"
+                 placeholder="Share %" [(ngModel)]="newParticipant.sharePct" />
+          <select [(ngModel)]="newParticipant.shareRole">
+            <option value="LEADER">Leader</option>
+            <option value="FOLLOWING">Following</option>
+          </select>
+          <button class="btn" (click)="addParticipant()">Add / update</button>
+        </div>
+      </section>
+
+      <!-- Applicable lines -->
+      <section class="card">
+        <h3>Applicable lines</h3>
+        <div class="chip-list">
+          <span *ngFor="let l of applicableLines" class="chip">
+            {{ l.insuranceLine }}
+            <button *ngIf="isDraft" (click)="removeLine(l)" class="chip-close">×</button>
+          </span>
+          <span *ngIf="!applicableLines.length" class="empty">No lines yet.</span>
+        </div>
+        <div *ngIf="isDraft" class="child-form">
+          <select [(ngModel)]="newLine">
+            <option *ngFor="let l of INSURANCE_LINES" [value]="l">{{ l }}</option>
+          </select>
+          <button class="btn" (click)="addLine()">Add line</button>
+        </div>
+      </section>
+
+      <!-- Layers (non-proportional only) -->
+      <section *ngIf="isNonProportional" class="card">
+        <h3>Layers</h3>
+        <table class="child-table">
+          <thead>
+            <tr><th>#</th><th>Retention</th><th>Layer limit</th><th>Ccy</th><th>Rate</th><th>Reinst.</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let l of layers">
+              <td>{{ l.layerOrder }}</td>
+              <td>{{ l.retention | number }}</td>
+              <td>{{ l.layerLimit | number }}</td>
+              <td>{{ l.layerCurrency }}</td>
+              <td>{{ l.rate }}</td>
+              <td>{{ l.reinstatementCount ?? '—' }}</td>
+              <td class="row-actions">
+                <button *ngIf="isDraft" class="btn btn-sm btn-danger" (click)="removeLayer(l)">Remove</button>
+              </td>
+            </tr>
+            <tr *ngIf="!layers.length"><td colspan="7" class="empty">No layers yet.</td></tr>
+          </tbody>
+        </table>
+        <div *ngIf="isDraft" class="child-form grid">
+          <label>Order<input type="number" min="1" [(ngModel)]="newLayer.layerOrder" /></label>
+          <label>Retention<input type="number" step="0.01" [(ngModel)]="newLayer.retention" /></label>
+          <label>Limit<input type="number" step="0.01" [(ngModel)]="newLayer.layerLimit" /></label>
+          <label>Currency<input type="text" maxlength="3" minlength="3" [(ngModel)]="newLayer.layerCurrency" /></label>
+          <label>Rate<input type="number" step="0.000001" [(ngModel)]="newLayer.rate" /></label>
+          <label>Reinstatement<input type="number" min="0" [(ngModel)]="newLayer.reinstatementCount" /></label>
+          <button class="btn" (click)="addLayer()">Add layer</button>
+        </div>
+      </section>
+
+      <!-- Cession rules -->
+      <section class="card">
+        <h3>Cession rules</h3>
+        <p class="sub">
+          Authored in the <a routerLink="/tenant/admin/rules">Rules Engine</a> with
+          category <code>REINSURANCE</code>. Paste the rule id from there below.
+        </p>
+        <table class="child-table">
+          <thead>
+            <tr><th>Rule id</th><th>Enabled</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of cessionRules">
+              <td><code>{{ r.ruleDefinitionId }}</code></td>
+              <td>
+                <label class="switch">
+                  <input type="checkbox" [checked]="r.enabled" (change)="toggleRule(r)" />
+                  {{ r.enabled ? 'Enabled' : 'Disabled' }}
+                </label>
+              </td>
+              <td class="row-actions">
+                <button *ngIf="isDraft" class="btn btn-sm btn-danger" (click)="removeRule(r)">Unlink</button>
+              </td>
+            </tr>
+            <tr *ngIf="!cessionRules.length"><td colspan="3" class="empty">No rules linked yet.</td></tr>
+          </tbody>
+        </table>
+        <div *ngIf="isDraft" class="child-form">
+          <input type="text" placeholder="Rule definition UUID"
+                 [(ngModel)]="newRuleId" />
+          <button class="btn" (click)="addRule()">Link rule</button>
+        </div>
+      </section>
+
+      <!-- Activation footer -->
+      <section *ngIf="isDraft" class="activation">
+        <div class="activation-blockers" *ngIf="activationBlockers.length">
+          <strong>Cannot activate yet:</strong>
+          <ul>
+            <li *ngFor="let b of activationBlockers">{{ b }}</li>
+          </ul>
+        </div>
+        <div class="activation-actions">
+          <button class="btn btn-primary"
+                  [disabled]="!!activationBlockers.length || saving"
+                  (click)="activate()">
+            Activate treaty
+          </button>
+          <button class="btn btn-danger" [disabled]="saving" (click)="voidDraft()">
+            Void treaty
+          </button>
+        </div>
+      </section>
+    </ng-container>
+  </ng-container>
+</div>

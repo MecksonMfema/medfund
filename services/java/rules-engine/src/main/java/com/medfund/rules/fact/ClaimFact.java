@@ -83,6 +83,20 @@ public class ClaimFact {
         results.add(new RuleResult("APPLY_COPAY", "FIXED", message, copayAmount));
     }
 
+    /**
+     * CEDE_TO_TREATY action — record a cession decision on this claim.
+     * The reinsurance consumer reads back {@code RuleResult}s with
+     * {@code type=CEDE_TO_TREATY}, {@code code=treatyId}, and
+     * {@code adjustedAmount=cededAmount} to write cession rows.
+     *
+     * <p>{@code layerId} is populated for XoL/StopLoss cessions and null
+     * for proportional (Quota/Surplus Share) cessions.
+     */
+    public void addCession(String treatyId, BigDecimal cededAmount, String layerId, String message) {
+        results.add(new RuleResult("CEDE_TO_TREATY", treatyId, message, cededAmount,
+                layerId == null || layerId.isBlank() ? null : layerId));
+    }
+
     public boolean hasRejections() {
         return results.stream().anyMatch(r -> "REJECT".equals(r.getType()));
     }

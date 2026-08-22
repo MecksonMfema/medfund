@@ -7,6 +7,7 @@ import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
 @Configuration
 @EnableR2dbcRepositories(basePackages = {
         "com.medfund.finance.repository",
+        "com.medfund.finance.reinsurance.repository",
         "com.medfund.shared.scheduler",
         // NotificationRepository — required wherever JobEventPublisher loads.
         "com.medfund.shared.notification",

@@ -676,6 +676,44 @@ export const FINANCE_ROUTES: Routes = [
     },
   },
 
+  // ── Reinsurance bordereau reports (Phase 10 §A) ─────────────────────────
+  {
+    path: 'reports/reinsurance/cession-bordereau',
+    canActivate: [permissionGuard(['finance.reinsurance:view'])],
+    loadComponent: () =>
+      import('./reports/reinsurance/cession-bordereau.component').then(m => m.CessionBordereauComponent),
+    data: {
+      title: 'Cession Bordereau',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'REINSURANCE_CESSION_BORDEREAU',
+    },
+  },
+  {
+    path: 'reports/reinsurance/recoveries-bordereau',
+    canActivate: [permissionGuard(['finance.reinsurance:view'])],
+    loadComponent: () =>
+      import('./reports/reinsurance/recoveries-bordereau.component').then(m => m.RecoveriesBordereauComponent),
+    data: {
+      title: 'Recoveries Bordereau',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'REINSURANCE_RECOVERIES',
+    },
+  },
+  {
+    path: 'reports/reinsurance/treaty-utilization',
+    canActivate: [permissionGuard(['finance.reinsurance:view'])],
+    loadComponent: () =>
+      import('./reports/reinsurance/treaty-utilization.component').then(m => m.TreatyUtilizationComponent),
+    data: {
+      title: 'Treaty Utilization',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'REINSURANCE_TREATY_UTILIZATION',
+    },
+  },
+
   // ── Creditors ─────────────────────────────────────────────────────────────
   // Unified surface — providers + members side by side. Old
   // /creditors/provider and /creditors/member landing routes are

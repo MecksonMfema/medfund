@@ -119,6 +119,15 @@ const FACT_SEEDS: FactSeed[] = [
       providerVerified: true, amountDue: 5000,
     },
   },
+
+  // ── Reinsurance ────────────────────────────────────────────────────────
+  {
+    category: 'REINSURANCE',
+    claim: {
+      claimId: 'CLM-REI-DEMO', benefitCategory: 'HOSPITAL',
+      amount: 250000, currencyCode: 'USD',
+    },
+  },
 ];
 
 /**

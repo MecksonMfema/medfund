@@ -1,0 +1,131 @@
+<header class="page-header">
+  <div>
+    <h1>Treaty utilization</h1>
+    <p class="page-sub">
+      Since-inception ceded totals per layer and per ceded currency.
+      Utilization % renders when the layer/aggregate limit is set and denominated
+      in the same currency as the ceded amount — otherwise "n/a" to avoid an
+      implicit cross-currency compare.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="exporting || loading || !treatyId"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-search">
+    <span class="cell-label">Treaty</span>
+    <app-select
+      [(ngModel)]="treatyId"
+      (selectionChange)="onFilterChange()"
+      name="treatyId"
+      [options]="treatyOptions"
+      placeholder="Pick a treaty"
+      [searchable]="true"
+      searchPlaceholder="Search treaties…"
+    ></app-select>
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">As of</span>
+    <input type="date" [(ngModel)]="asOfDate" (change)="onFilterChange()" name="asOfDate" />
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (envelope?.warnings?.length) {
+  <div class="banner banner-warning">
+    @for (w of envelope!.warnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+@if (perCurrencyList().length) {
+  <div class="kpi-strip">
+    @for (bucket of perCurrencyList(); track bucket.currency) {
+      <div class="kpi-card">
+        <span class="kpi-label">{{ bucket.currency }} ceded since inception</span>
+        <span class="kpi-value">{{ bucket.totalAmount | number:'1.2-2' }}</span>
+        <span class="kpi-meta">{{ bucket.rowCount }} layer{{ bucket.rowCount === 1 ? '' : 's' }}</span>
+      </div>
+    }
+    @for (fx of fxRateList(); track fx.currency) {
+      <div class="kpi-card">
+        <span class="kpi-label">FX {{ fx.currency }} → {{ envelope?.reportingCurrency }}</span>
+        <span class="kpi-value">{{ fx.rate | number:'1.4-6' }}</span>
+      </div>
+    }
+  </div>
+}
+
+@if (!treatyId) {
+  <p>Choose a treaty to load utilization.</p>
+} @else if (loading) {
+  <p>Loading…</p>
+} @else if (activeRows.length === 0) {
+  <p>No cessions yet against this treaty.</p>
+} @else {
+  <table class="rate-table">
+    <thead>
+      <tr>
+        <th>Treaty</th>
+        <th>Type</th>
+        <th>Layer</th>
+        <th class="num">Retention</th>
+        <th class="num">Layer limit</th>
+        <th>Layer currency</th>
+        <th class="num">Aggregate limit</th>
+        <th>Aggregate currency</th>
+        <th>Ceded currency</th>
+        <th class="num">Total ceded (native)</th>
+        <th class="num">Cessions</th>
+        <th class="num">Utilization %</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of activeRows; track (row.layerId ?? 'none') + '-' + (row.cededCurrency ?? 'none')) {
+        <tr>
+          <td>{{ row.treatyRef }}</td>
+          <td>{{ row.treatyType }}</td>
+          <td>{{ row.layerOrder !== null ? ('Layer ' + row.layerOrder) : '—' }}</td>
+          <td class="num">{{ row.retention !== null ? (row.retention | number:'1.2-2') : '—' }}</td>
+          <td class="num">{{ row.layerLimit !== null ? (row.layerLimit | number:'1.2-2') : '—' }}</td>
+          <td>{{ row.layerCurrency || '—' }}</td>
+          <td class="num">{{ row.aggregateLimit !== null ? (row.aggregateLimit | number:'1.2-2') : '—' }}</td>
+          <td>{{ row.aggregateLimitCurrency || '—' }}</td>
+          <td>{{ row.cededCurrency || '—' }}</td>
+          <td class="num">{{ row.totalCededNative | number:'1.2-2' }}</td>
+          <td class="num">{{ row.cessionCount }}</td>
+          <td class="num">
+            @if (utilizationPct(row) !== null) {
+              {{ utilizationPct(row) | number:'1.2-2' }}%
+            } @else {
+              n/a
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
