@@ -44,6 +44,7 @@ public class TreatyService {
     private final TreatyRepository repository;
     private final TreatyValidationService validationService;
     private final AuditPublisher auditPublisher;
+    private final TreatyActivationBackfillJob backfillJob;
 
     public Mono<PageResponse<TreatyResponse>> list(int page, int size, String status) {
         int offset = page * size;
@@ -125,7 +126,14 @@ public class TreatyService {
                                 return repository.save(existing)
                                         .flatMap(saved -> publishAudit("ACTIVATE", saved, before,
                                                         snapshot(saved), actorId, actorEmail)
-                                                .thenReturn(TreatyResponse.from(saved)));
+                                                .then(Mono.deferContextual(ctx -> {
+                                                    // Phase 8 — retro backfill on activation. Fire-and-forget:
+                                                    // we don't await, so the operator sees the activation
+                                                    // response immediately and polls progress.
+                                                    String tenantId = TenantContext.get(ctx);
+                                                    backfillJob.kickOff(saved, tenantId, actorId, actorEmail);
+                                                    return Mono.just(TreatyResponse.from(saved));
+                                                })));
                             }));
                 });
     }

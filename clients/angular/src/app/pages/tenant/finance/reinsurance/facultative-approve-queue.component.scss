@@ -1,0 +1,102 @@
+.queue-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  margin-top: 1rem;
+
+  th, td {
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+  }
+  th {
+    background: var(--surface-alt, #f9fafb);
+    font-weight: 600;
+    color: var(--text-secondary, #4b5563);
+  }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.actions, th.actions { text-align: right; white-space: nowrap; }
+}
+
+.status-pill {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--text-secondary, #6b7280);
+
+  &[data-status="DRAFT"]    { background: #6366f1; }
+  &[data-status="APPROVED"] { background: #0ea5e9; }
+}
+
+.btn-sm {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+  margin-left: 0.25rem;
+}
+
+.btn-danger { background: #dc2626; color: #fff; border: 0; border-radius: 6px; }
+.btn-primary { background: #4f46e5; color: #fff; border: 0; border-radius: 6px; }
+.btn { background: #f3f4f6; color: #111827; border: 0; border-radius: 6px; padding: 0.4rem 0.75rem; }
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.loading, .empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-secondary, #6b7280);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.25rem;
+  width: 420px;
+  max-width: 90vw;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+
+  h3 { margin: 0 0 0.25rem 0; font-size: 1.05rem; }
+  .modal-sub { margin: 0 0 1rem 0; font-size: 0.85rem; color: var(--text-secondary, #6b7280); }
+
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+
+    span { color: var(--text-secondary, #4b5563); font-weight: 500; }
+    textarea {
+      padding: 0.5rem 0.6rem;
+      border: 1px solid var(--border-color, #d1d5db);
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
+  }
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.banner {
+  padding: 0.55rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  &.banner-error { background: var(--danger-soft, #fee2e2); color: var(--danger, #991b1b); }
+}

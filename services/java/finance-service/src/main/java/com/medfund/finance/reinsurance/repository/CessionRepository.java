@@ -37,4 +37,50 @@ public interface CessionRepository extends R2dbcRepository<Cession, UUID> {
 
     @Query("SELECT * FROM cession WHERE treaty_id = :treatyId ORDER BY occurred_at DESC")
     Flux<Cession> findByTreatyId(UUID treatyId);
+
+    /**
+     * Facultative queue (Phase 7) — DRAFT / APPROVED rows the supervisor
+     * needs to work through. {@code status} is optional; when null, both
+     * DRAFT and APPROVED are returned. Sorted oldest-first so the queue
+     * doesn't perpetually shove new work in front of older work.
+     */
+    @Query("""
+        SELECT * FROM cession
+         WHERE source = 'FACULTATIVE'
+           AND status = :status
+         ORDER BY created_at ASC
+         OFFSET :offset LIMIT :limit
+        """)
+    Flux<Cession> findFacultativeByStatus(String status, int offset, int limit);
+
+    @Query("""
+        SELECT * FROM cession
+         WHERE source = 'FACULTATIVE'
+           AND status IN ('DRAFT', 'APPROVED')
+         ORDER BY created_at ASC
+         OFFSET :offset LIMIT :limit
+        """)
+    Flux<Cession> findFacultativeQueue(int offset, int limit);
+
+    @Query("SELECT COUNT(*) FROM cession WHERE source = 'FACULTATIVE' AND status = :status")
+    Mono<Long> countFacultativeByStatus(String status);
+
+    @Query("SELECT COUNT(*) FROM cession WHERE source = 'FACULTATIVE' AND status IN ('DRAFT', 'APPROVED')")
+    Mono<Long> countFacultativeQueue();
+
+    /**
+     * Existence check used before a facultative DRAFT is written. The
+     * plan (Phase 7 §1) forbids doubling up on a claim that already has
+     * *any* LOSS cession against a treaty (auto or facultative), so this
+     * looks across every non-VOIDED row for the (claimId, treatyId) pair.
+     */
+    @Query("""
+        SELECT * FROM cession
+         WHERE source_event_id = :claimId
+           AND treaty_id = :treatyId
+           AND cession_type = 'LOSS'
+           AND status <> 'VOIDED'
+         LIMIT 1
+        """)
+    Mono<Cession> findLiveLossByClaimAndTreaty(UUID claimId, UUID treatyId);
 }

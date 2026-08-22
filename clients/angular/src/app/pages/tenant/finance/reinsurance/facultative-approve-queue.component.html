@@ -1,0 +1,118 @@
+<header class="page-header">
+  <div>
+    <h1>Facultative — approve queue</h1>
+    <p class="page-sub">
+      Draft cessions awaiting supervisor approval and approved cessions awaiting commit.
+      Commit lands the cession on the next bordereau + writes an expected recovery.
+    </p>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Status</span>
+    <app-select
+      [(ngModel)]="statusFilter"
+      (selectionChange)="onStatusChange()"
+      name="status"
+      size="sm"
+      [options]="statusOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-clear">
+    <button type="button" class="clear-btn" (click)="fetchPage()" [disabled]="loading">
+      <app-icon name="refresh-cw" [size]="14"></app-icon>
+      Refresh
+    </button>
+  </div>
+</div>
+
+@if (loading) {
+  <div class="loading">Loading queue…</div>
+} @else if (rows.length === 0) {
+  <div class="empty">Queue is clear.</div>
+} @else {
+  <table class="queue-table" data-testid="fac-queue">
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>Claim</th>
+        <th>Treaty</th>
+        <th class="num">Ceded</th>
+        <th class="num">Basis</th>
+        <th>Created</th>
+        <th class="actions">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows; track row.id) {
+        <tr [attr.data-testid]="'fac-row-' + row.id.substring(0, 8)">
+          <td><span class="status-pill" [attr.data-status]="row.status">{{ row.status }}</span></td>
+          <td>{{ row.sourceEventId.substring(0, 8) }}…</td>
+          <td>{{ row.treatyId.substring(0, 8) }}…</td>
+          <td class="num">{{ row.cededAmount | number:'1.2-2' }} {{ row.currencyCode }}</td>
+          <td class="num">{{ row.basisAmount | number:'1.2-2' }} {{ row.currencyCode }}</td>
+          <td>{{ row.createdAt | date:'yyyy-MM-dd HH:mm' }}</td>
+          <td class="actions">
+            @if (row.status === 'DRAFT') {
+              <button type="button" class="btn btn-sm btn-primary"
+                      [disabled]="actionInProgress[row.id]"
+                      (click)="approve(row)"
+                      data-testid="approve-btn">Approve</button>
+            }
+            @if (row.status === 'APPROVED') {
+              <button type="button" class="btn btn-sm btn-primary"
+                      [disabled]="actionInProgress[row.id]"
+                      (click)="commit(row)"
+                      data-testid="commit-btn">Commit</button>
+            }
+            <button type="button" class="btn btn-sm btn-danger"
+                    [disabled]="actionInProgress[row.id]"
+                    (click)="openVoid(row)"
+                    data-testid="void-btn">Void</button>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
+
+<!-- Void modal (inline) -->
+@if (voidTargetId) {
+  <div class="modal-backdrop" (click)="cancelVoid()">
+    <div class="modal-card" (click)="$event.stopPropagation()" data-testid="void-modal">
+      <h3>Void facultative cession</h3>
+      <p class="modal-sub">Reason will be recorded on the audit trail and cascade to the recovery row.</p>
+      <label>
+        <span>Reason</span>
+        <textarea
+          [(ngModel)]="voidReason"
+          rows="4"
+          maxlength="500"
+          placeholder="e.g. reinsurer withdrew capacity"
+          data-testid="void-reason"
+        ></textarea>
+      </label>
+      @if (voidError) {
+        <div class="banner banner-error">{{ voidError }}</div>
+      }
+      <div class="modal-actions">
+        <button type="button" class="btn" (click)="cancelVoid()" [disabled]="voidSubmitting">Cancel</button>
+        <button type="button" class="btn btn-danger"
+                (click)="submitVoid()"
+                [disabled]="voidSubmitting"
+                data-testid="void-submit">
+          {{ voidSubmitting ? 'Voiding…' : 'Void cession' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

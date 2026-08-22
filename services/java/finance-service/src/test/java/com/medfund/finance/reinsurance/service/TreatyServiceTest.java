@@ -34,6 +34,7 @@ class TreatyServiceTest {
     @Mock TreatyRepository repository;
     @Mock TreatyValidationService validationService;
     @Mock AuditPublisher auditPublisher;
+    @Mock TreatyActivationBackfillJob backfillJob;
     @InjectMocks TreatyService service;
 
     @Test

@@ -3,10 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   BordereauQuarterParams,
+  MarkRecoveryReceivedPayload,
   RecoveriesBordereauRow,
   ReinsuranceService,
   Reinsurer,
   Treaty,
+  WriteOffRecoveryPayload,
 } from '../../../../../core/services/reinsurance.service';
 import { ReportResponse } from '../../../../../core/services/report-envelope';
 import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/services/currency.service';
@@ -25,7 +27,7 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
   templateUrl: './recoveries-bordereau.component.html',
-  styleUrl: '../receipts/receipts-report.component.scss',
+  styleUrls: ['../receipts/receipts-report.component.scss', './recoveries-bordereau.component.scss'],
 })
 export class RecoveriesBordereauComponent implements OnInit {
   loading = false;
@@ -43,6 +45,23 @@ export class RecoveriesBordereauComponent implements OnInit {
   reinsurerId = '';
   treatyId    = '';
   reportingCurrency = '';
+
+  // Phase 8 — recovery lifecycle modals. Row-level actions open one of
+  // these two inline forms; submitting closes the form and re-fetches.
+  markReceivedTargetId: string | null = null;
+  markReceivedTargetLabel = '';
+  markReceivedAmount: number | null = null;
+  markReceivedAt = '';
+  markReceivedSubmitting = false;
+  markReceivedError: string | null = null;
+
+  writeOffTargetId: string | null = null;
+  writeOffTargetLabel = '';
+  writeOffReason = '';
+  writeOffSubmitting = false;
+  writeOffError: string | null = null;
+
+  actionInProgress: Record<string, boolean> = {};
 
   constructor(
     private svc: ReinsuranceService,
@@ -183,6 +202,96 @@ export class RecoveriesBordereauComponent implements OnInit {
       case 'RECEIVED':    return 'badge badge-success';
       case 'WRITTEN_OFF': return 'badge badge-danger';
     }
+  }
+
+  canAct(row: RecoveriesBordereauRow): boolean {
+    return row.status === 'EXPECTED' || row.status === 'INVOICED';
+  }
+
+  openMarkReceived(row: RecoveriesBordereauRow): void {
+    this.markReceivedTargetId = row.recoveryId;
+    this.markReceivedTargetLabel = `${row.reinsurerName} — ${row.nativeExpected} ${row.currencyCode}`;
+    this.markReceivedAmount = row.nativeExpected;
+    this.markReceivedAt = new Date().toISOString().substring(0, 10);
+    this.markReceivedError = null;
+  }
+
+  cancelMarkReceived(): void {
+    this.markReceivedTargetId = null;
+    this.markReceivedTargetLabel = '';
+    this.markReceivedAmount = null;
+    this.markReceivedAt = '';
+    this.markReceivedError = null;
+    this.markReceivedSubmitting = false;
+  }
+
+  submitMarkReceived(): void {
+    if (!this.markReceivedTargetId) return;
+    if (this.markReceivedAmount == null || this.markReceivedAmount < 0) {
+      this.markReceivedError = 'Received amount must be non-negative.';
+      return;
+    }
+    const targetId = this.markReceivedTargetId;
+    const payload: MarkRecoveryReceivedPayload = {
+      receivedAmount: this.markReceivedAmount,
+      receivedAt: this.markReceivedAt
+        ? new Date(this.markReceivedAt + 'T00:00:00Z').toISOString()
+        : undefined,
+    };
+    this.markReceivedSubmitting = true;
+    this.actionInProgress[targetId] = true;
+    this.svc.markRecoveryReceived(targetId, payload).subscribe({
+      next: () => {
+        this.actionInProgress[targetId] = false;
+        this.cancelMarkReceived();
+        this.fetch();
+      },
+      error: err => {
+        this.markReceivedError = err?.error?.detail || err?.error?.title
+          || 'Failed to mark received';
+        this.markReceivedSubmitting = false;
+        this.actionInProgress[targetId] = false;
+      },
+    });
+  }
+
+  openWriteOff(row: RecoveriesBordereauRow): void {
+    this.writeOffTargetId = row.recoveryId;
+    this.writeOffTargetLabel = `${row.reinsurerName} — ${row.nativeExpected} ${row.currencyCode}`;
+    this.writeOffReason = '';
+    this.writeOffError = null;
+  }
+
+  cancelWriteOff(): void {
+    this.writeOffTargetId = null;
+    this.writeOffTargetLabel = '';
+    this.writeOffReason = '';
+    this.writeOffError = null;
+    this.writeOffSubmitting = false;
+  }
+
+  submitWriteOff(): void {
+    if (!this.writeOffTargetId) return;
+    if (!this.writeOffReason.trim()) {
+      this.writeOffError = 'Reason is required.';
+      return;
+    }
+    const targetId = this.writeOffTargetId;
+    const payload: WriteOffRecoveryPayload = { reason: this.writeOffReason.trim() };
+    this.writeOffSubmitting = true;
+    this.actionInProgress[targetId] = true;
+    this.svc.writeOffRecovery(targetId, payload).subscribe({
+      next: () => {
+        this.actionInProgress[targetId] = false;
+        this.cancelWriteOff();
+        this.fetch();
+      },
+      error: err => {
+        this.writeOffError = err?.error?.detail || err?.error?.title || 'Failed to write off';
+        this.writeOffSubmitting = false;
+        this.actionInProgress[targetId] = false;
+      },
+    });
   }
 
   private buildParams(): BordereauQuarterParams {

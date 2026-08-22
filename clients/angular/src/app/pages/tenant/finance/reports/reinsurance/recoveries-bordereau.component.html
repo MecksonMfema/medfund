@@ -129,11 +129,12 @@
         <th>Received</th>
         <th>Write-off reason</th>
         <th>Prior-period</th>
+        <th class="actions">Actions</th>
       </tr>
     </thead>
     <tbody>
       @for (row of activeRows; track row.recoveryId + '-' + row.reinsurerId) {
-        <tr>
+        <tr [attr.data-testid]="'recovery-row-' + row.recoveryId.substring(0, 8)">
           <td>{{ row.recoveryId.substring(0, 8) }}</td>
           <td>{{ row.treatyRef }}</td>
           <td>{{ row.reinsurerName }}</td>
@@ -157,8 +158,98 @@
               <span class="badge badge-warning">Adjustment</span>
             }
           </td>
+          <td class="actions">
+            @if (canAct(row)) {
+              <button type="button" class="btn btn-sm btn-primary"
+                      [disabled]="actionInProgress[row.recoveryId]"
+                      (click)="openMarkReceived(row)"
+                      data-testid="mark-received-btn">
+                Mark received
+              </button>
+              <button type="button" class="btn btn-sm btn-danger"
+                      [disabled]="actionInProgress[row.recoveryId]"
+                      (click)="openWriteOff(row)"
+                      data-testid="write-off-btn">
+                Write off
+              </button>
+            } @else {
+              <span class="muted">—</span>
+            }
+          </td>
         </tr>
       }
     </tbody>
   </table>
+}
+
+<!-- Mark-received modal (Phase 8) -->
+@if (markReceivedTargetId) {
+  <div class="modal-backdrop" (click)="cancelMarkReceived()">
+    <div class="modal-card" (click)="$event.stopPropagation()" data-testid="mark-received-modal">
+      <h3>Mark recovery received</h3>
+      <p class="modal-sub">{{ markReceivedTargetLabel }}</p>
+      <label>
+        <span>Received amount</span>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          [(ngModel)]="markReceivedAmount"
+          data-testid="mark-received-amount"
+        />
+      </label>
+      <label>
+        <span>Received date</span>
+        <input
+          type="date"
+          [(ngModel)]="markReceivedAt"
+          data-testid="mark-received-date"
+        />
+      </label>
+      @if (markReceivedError) {
+        <div class="banner banner-error">{{ markReceivedError }}</div>
+      }
+      <div class="modal-actions">
+        <button type="button" class="btn" (click)="cancelMarkReceived()" [disabled]="markReceivedSubmitting">Cancel</button>
+        <button type="button" class="btn btn-primary"
+                (click)="submitMarkReceived()"
+                [disabled]="markReceivedSubmitting"
+                data-testid="mark-received-submit">
+          {{ markReceivedSubmitting ? 'Recording…' : 'Record receipt' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Write-off modal (Phase 8) -->
+@if (writeOffTargetId) {
+  <div class="modal-backdrop" (click)="cancelWriteOff()">
+    <div class="modal-card" (click)="$event.stopPropagation()" data-testid="write-off-modal">
+      <h3>Write off recovery</h3>
+      <p class="modal-sub">{{ writeOffTargetLabel }}</p>
+      <label>
+        <span>Reason (required)</span>
+        <textarea
+          [(ngModel)]="writeOffReason"
+          rows="4"
+          maxlength="2000"
+          placeholder="e.g. reinsurer disputed loss and closed the file"
+          data-testid="write-off-reason"
+        ></textarea>
+      </label>
+      @if (writeOffError) {
+        <div class="banner banner-error">{{ writeOffError }}</div>
+      }
+      <div class="modal-actions">
+        <button type="button" class="btn" (click)="cancelWriteOff()" [disabled]="writeOffSubmitting">Cancel</button>
+        <button type="button" class="btn btn-danger"
+                (click)="submitWriteOff()"
+                [disabled]="writeOffSubmitting"
+                data-testid="write-off-submit">
+          {{ writeOffSubmitting ? 'Writing off…' : 'Write off' }}
+        </button>
+      </div>
+    </div>
+  </div>
 }

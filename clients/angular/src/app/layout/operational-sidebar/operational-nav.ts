@@ -151,6 +151,12 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
       { label: 'Payment Advice',     icon: 'wallet',       route: '/tenant/finance/advice',                permissions: ['finance:view_payment_advice'], reportKey: 'PAYMENT_ADVICE' },
       { label: 'Cost-share receipts', icon: 'wallet',      route: '/tenant/finance/copayments',            permissions: ['finance:manage_copayments'] },
       { label: 'Member Liabilities', icon: 'wallet',       route: '/tenant/finance/member-liabilities',    permissions: ['finance:view_member_liabilities'] },
+      // Phase 10 §B — facultative-cession operational surface. Browse is
+      // gated on cede_facultative (underwriter); queue is gated on view so
+      // any finance user can see progress even if they can't act on it.
+      { label: 'Facultative — Browse', icon: 'shield',     route: '/tenant/finance/reinsurance/facultative/browse', permissions: ['finance.reinsurance:cede_facultative'] },
+      { label: 'Facultative — Queue',  icon: 'shield',     route: '/tenant/finance/reinsurance/facultative/queue',  permissions: ['finance.reinsurance:view'] },
+      { label: 'Reinsurance — Review Queue', icon: 'alert-triangle', route: '/tenant/finance/reinsurance/review-queue', permissions: ['finance.reinsurance:view'] },
       { label: 'Reports',            icon: 'chart',        route: '/tenant/finance/reports',               permissions: ['finance:view_debtors', 'finance:view_subledger'] },
     ],
   },

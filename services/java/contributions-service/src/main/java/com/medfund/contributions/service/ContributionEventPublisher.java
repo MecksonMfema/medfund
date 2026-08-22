@@ -34,13 +34,32 @@ public class ContributionEventPublisher {
         ));
     }
 
-    public Mono<Void> publishContributionPaid(String contributionId, String memberId, String amount) {
-        return publishEvent("medfund.contributions.paid", contributionId, Map.of(
-            "event", "CONTRIBUTION_PAID",
-            "contributionId", contributionId,
-            "memberId", memberId,
-            "amount", amount
-        ));
+    /**
+     * Notify downstream services that a contribution has been paid. Payload
+     * additively carries {@code currencyCode}, {@code insuranceLine},
+     * {@code paidAt} and {@code tenantId} from Phase 6 onwards so the
+     * reinsurance premium-cession consumer in finance-service can dispatch
+     * against the paying member's scheme line without a cross-service
+     * lookup. Pre-Phase-6 consumers ignore the new fields.
+     *
+     * <p>Nullable fields serialize as empty strings so the {@code
+     * Map<String,String>} envelope stays uniform; downstream parsers treat
+     * blank as null (see {@code ContributionPaidEvent.from} in
+     * finance-service).
+     */
+    public Mono<Void> publishContributionPaid(String contributionId, String memberId, String amount,
+                                              String currencyCode, String insuranceLine,
+                                              String paidAt, String tenantId) {
+        var fields = new java.util.LinkedHashMap<String, String>();
+        fields.put("event",          "CONTRIBUTION_PAID");
+        fields.put("contributionId", contributionId);
+        fields.put("memberId",       nullSafe(memberId));
+        fields.put("amount",         nullSafe(amount));
+        fields.put("currencyCode",   nullSafe(currencyCode));
+        fields.put("insuranceLine",  nullSafe(insuranceLine));
+        fields.put("paidAt",         nullSafe(paidAt));
+        fields.put("tenantId",       nullSafe(tenantId));
+        return publishEvent("medfund.contributions.paid", contributionId, fields);
     }
 
     /**

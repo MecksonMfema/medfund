@@ -714,6 +714,48 @@ export const FINANCE_ROUTES: Routes = [
     },
   },
 
+  // ── Reinsurance operational — facultative (Phase 7 §B) ──────────────────
+  // Two pages: underwriter browse+cede, supervisor approve+commit queue.
+  // Kept alongside reinsurance reports so the operator finds them on the
+  // same finance nav rather than under tenant-admin (which is treaty CRUD).
+  {
+    path: 'reinsurance/facultative/browse',
+    canActivate: [permissionGuard(['finance.reinsurance:cede_facultative'])],
+    loadComponent: () =>
+      import('./reinsurance/facultative-browse.component').then(m => m.FacultativeBrowseComponent),
+    data: {
+      title: 'Facultative — browse candidates',
+      sidebar: 'operational',
+      fullbleed: true,
+    },
+  },
+  {
+    path: 'reinsurance/facultative/queue',
+    canActivate: [permissionGuard(['finance.reinsurance:view'])],
+    loadComponent: () =>
+      import('./reinsurance/facultative-approve-queue.component').then(m => m.FacultativeApproveQueueComponent),
+    data: {
+      title: 'Facultative — approve queue',
+      sidebar: 'operational',
+      fullbleed: true,
+    },
+  },
+
+  // ── Reinsurance operational — review queue (Phase 8 §B) ─────────────────
+  // Manual-review tasks (regressions, disputes) — the operator queue for the
+  // reinsurance module.
+  {
+    path: 'reinsurance/review-queue',
+    canActivate: [permissionGuard(['finance.reinsurance:view'])],
+    loadComponent: () =>
+      import('./reinsurance/review-queue.component').then(m => m.ReinsuranceReviewQueueComponent),
+    data: {
+      title: 'Reinsurance — review queue',
+      sidebar: 'operational',
+      fullbleed: true,
+    },
+  },
+
   // ── Creditors ─────────────────────────────────────────────────────────────
   // Unified surface — providers + members side by side. Old
   // /creditors/provider and /creditors/member landing routes are

@@ -1,0 +1,176 @@
+<header class="page-header">
+  <div>
+    <h1>Facultative — browse candidates</h1>
+    <p class="page-sub">
+      Adjudicated claims above the threshold that have not been ceded yet. Pick a claim
+      and drop a draft cession against an active treaty — a supervisor approves + commits.
+    </p>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Min approved</span>
+    <input
+      type="number"
+      min="0"
+      step="1000"
+      [(ngModel)]="minAmount"
+      (change)="onMinAmountChange()"
+      aria-label="Minimum approved amount"
+    />
+  </div>
+
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Line</span>
+    <app-select
+      [(ngModel)]="lineFilter"
+      (selectionChange)="onLineChange()"
+      name="line"
+      size="sm"
+      [options]="lineOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-clear">
+    <button type="button" class="clear-btn" (click)="fetchCandidates()" [disabled]="loading">
+      <app-icon name="refresh-cw" [size]="14"></app-icon>
+      Refresh
+    </button>
+  </div>
+</div>
+
+<div class="fac-layout">
+  <!-- Candidates table -->
+  <div class="candidates-pane">
+    @if (loading) {
+      <div class="loading">Loading candidates…</div>
+    } @else if (candidates.length === 0) {
+      <div class="empty">
+        No adjudicated claims above <strong>{{ minAmount | number:'1.2-2' }}</strong>
+        @if (lineFilter) { on {{ lineFilter }} } .
+      </div>
+    } @else {
+      <table class="candidates-table">
+        <thead>
+          <tr>
+            <th>Claim #</th>
+            <th>Member</th>
+            <th>Provider</th>
+            <th>Line</th>
+            <th class="num">Approved</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of candidates; track row.claimId) {
+            <tr [class.selected]="selected?.claimId === row.claimId">
+              <td>{{ row.claimNumber }}</td>
+              <td>{{ row.memberName }}</td>
+              <td>{{ row.providerName }}</td>
+              <td>{{ row.insuranceLine }}</td>
+              <td class="num">{{ row.approvedAmount | number:'1.2-2' }} {{ row.currencyCode }}</td>
+              <td>
+                <button type="button" class="btn btn-sm btn-primary"
+                        (click)="select(row)"
+                        [disabled]="selected?.claimId === row.claimId">
+                  Cede
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+
+  <!-- Inline cede form -->
+  <aside class="cede-pane" data-testid="cede-pane">
+    @if (!selected) {
+      <div class="cede-empty">
+        <app-icon name="arrow-left" [size]="18"></app-icon>
+        <p>Pick a candidate on the left to draft a facultative cession.</p>
+      </div>
+    } @else {
+      <div class="cede-header">
+        <h3>Cede claim {{ selected.claimNumber }}</h3>
+        <button type="button" class="link-btn" (click)="clearSelection()">Cancel</button>
+      </div>
+      <dl class="cede-summary">
+        <dt>Member</dt><dd>{{ selected.memberName }}</dd>
+        <dt>Provider</dt><dd>{{ selected.providerName }}</dd>
+        <dt>Line</dt><dd>{{ selected.insuranceLine }}</dd>
+        <dt>Approved</dt><dd>{{ selected.approvedAmount | number:'1.2-2' }} {{ selected.currencyCode }}</dd>
+      </dl>
+
+      <form (submit)="$event.preventDefault(); submitCede()" class="cede-form">
+        <label>
+          <span>Treaty</span>
+          <app-select
+            [(ngModel)]="cedePayload.treatyId"
+            name="treatyId"
+            [options]="treatyOptions"
+            [searchable]="true"
+            [autoSearchThreshold]="9999"
+            placeholder="Select a treaty"
+          ></app-select>
+        </label>
+        <label>
+          <span>Ceded amount ({{ selected.currencyCode }})</span>
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            [(ngModel)]="cedePayload.cededAmount"
+            name="cededAmount"
+            required
+            data-testid="ceded-amount-input"
+          />
+        </label>
+        <label>
+          <span>Basis amount ({{ selected.currencyCode }})</span>
+          <input
+            type="number"
+            min="0.01"
+            step="0.01"
+            [(ngModel)]="cedePayload.basisAmount"
+            name="basisAmount"
+            required
+          />
+        </label>
+        <label>
+          <span>Reason / notes</span>
+          <textarea
+            [(ngModel)]="cedePayload.reason"
+            name="reason"
+            rows="3"
+            maxlength="500"
+            placeholder="Why this claim is being ceded facultatively"
+          ></textarea>
+        </label>
+
+        @if (cedeError) {
+          <div class="banner banner-error">{{ cedeError }}</div>
+        }
+        @if (cedeSuccess) {
+          <div class="banner banner-success">{{ cedeSuccess }}</div>
+        }
+
+        <div class="cede-actions">
+          <button type="submit" class="btn btn-primary"
+                  [disabled]="cedeSubmitting"
+                  data-testid="submit-cede">
+            {{ cedeSubmitting ? 'Creating…' : 'Create draft' }}
+          </button>
+        </div>
+      </form>
+    }
+  </aside>
+</div>

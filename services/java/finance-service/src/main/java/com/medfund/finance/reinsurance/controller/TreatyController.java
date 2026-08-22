@@ -5,6 +5,7 @@ import com.medfund.finance.reinsurance.dto.CreateTreatyRequest;
 import com.medfund.finance.reinsurance.dto.RenewTreatyRequest;
 import com.medfund.finance.reinsurance.dto.TreatyResponse;
 import com.medfund.finance.reinsurance.dto.UpdateTreatyRequest;
+import com.medfund.finance.reinsurance.service.BackfillProgressService;
 import com.medfund.finance.reinsurance.service.TreatyService;
 import com.medfund.shared.audit.AuditActor;
 import com.medfund.shared.security.Permissions;
@@ -30,7 +31,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
+import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -44,6 +47,7 @@ import java.util.UUID;
 public class TreatyController {
 
     private final TreatyService service;
+    private final BackfillProgressService backfillProgressService;
 
     @GetMapping
     @RequiresPermission(Permissions.REINSURANCE_VIEW)
@@ -131,5 +135,39 @@ public class TreatyController {
                                       @Valid @RequestBody RenewTreatyRequest body,
                                       @AuthenticationPrincipal Jwt jwt) {
         return service.renew(id, body, AuditActor.id(jwt), AuditActor.email(jwt));
+    }
+
+    /**
+     * In-memory backfill progress for the given treaty. Returns {@code
+     * null} shape (empty body 404) when no backfill has been run in this
+     * JVM's lifetime — that's expected right after a restart before the
+     * operator re-triggers activation.
+     */
+    @GetMapping("/{id}/backfill-progress")
+    @RequiresPermission(Permissions.REINSURANCE_VIEW)
+    @Operation(summary = "Poll retro-backfill progress for this treaty",
+            description = "In-memory only. A restart drops progress but the underlying writes are idempotent — "
+                        + "re-triggering activation writes zero duplicates.")
+    public Mono<Map<String, Object>> backfillProgress(@PathVariable UUID id) {
+        return Mono.justOrEmpty(backfillProgressService.get(id))
+                .map(p -> {
+                    Map<String, Object> body = new java.util.LinkedHashMap<>();
+                    body.put("startedAt",    p.getStartedAt());
+                    body.put("completedAt",  p.getCompletedAt());
+                    body.put("processed",    p.getProcessed());
+                    body.put("failed",       p.getFailed());
+                    body.put("running",      p.isRunning());
+                    body.put("errorMessage", p.getErrorMessage());
+                    return body;
+                })
+                .switchIfEmpty(Mono.fromCallable(() -> {
+                    Map<String, Object> body = new java.util.LinkedHashMap<>();
+                    body.put("startedAt",   (OffsetDateTime) null);
+                    body.put("completedAt", (OffsetDateTime) null);
+                    body.put("processed",   0);
+                    body.put("failed",      0);
+                    body.put("running",     false);
+                    return body;
+                }));
     }
 }

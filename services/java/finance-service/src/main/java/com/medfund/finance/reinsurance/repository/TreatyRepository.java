@@ -39,4 +39,22 @@ public interface TreatyRepository extends R2dbcRepository<Treaty, UUID> {
         ORDER BY t.inception_date, t.treaty_ref
         """)
     Flux<Treaty> findActiveByInsuranceLine(String insuranceLine);
+
+    /**
+     * ACTIVE non-proportional treaties (XoL / StopLoss) that carry a
+     * positive {@code expected_annual_premium}. Used by
+     * {@code ReinsuranceTreatyPremiumExecutor} to write a flat PREMIUM
+     * cession per treaty at inception — proportional (QS / SS) treaties
+     * take their premium per contribution via
+     * {@code ReinsurancePremiumCessionConsumer}, so they are excluded here.
+     */
+    @Query("""
+        SELECT * FROM treaty
+         WHERE status = 'ACTIVE'
+           AND treaty_type IN ('EXCESS_OF_LOSS', 'STOP_LOSS')
+           AND expected_annual_premium IS NOT NULL
+           AND expected_annual_premium > 0
+         ORDER BY inception_date, treaty_ref
+        """)
+    Flux<Treaty> findActiveNonProportionalWithExpectedPremium();
 }

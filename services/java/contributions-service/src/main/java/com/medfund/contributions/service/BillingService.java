@@ -245,18 +245,31 @@ public class BillingService {
                     .flatMap(saved -> balanceService.applyContributionPaid(saved).thenReturn(saved))
                     .flatMap(saved -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, "Contribution", saved.getId().toString(),
-                                contributionName(saved),
-                                "UPDATE", actorId, actorEmail,
-                                Map.of("status", previousStatus),
-                                Map.of("status", saved.getStatus(),
-                                       "paymentMethod", saved.getPaymentMethod(),
-                                       "paymentReference", saved.getPaymentReference()))
-                            .then(eventPublisher.publishContributionPaid(
-                                saved.getId().toString(),
-                                saved.getMemberId() != null ? saved.getMemberId().toString() : "",
-                                saved.getAmount() != null ? saved.getAmount().toString() : ""))
-                            .thenReturn(saved);
+                        // Resolve the scheme once so the paid-event carries the
+                        // insurance line the reinsurance premium-cession consumer
+                        // needs to route to the right treaty. Falls back to
+                        // HEALTH when the scheme row has no explicit line
+                        // (matches priceOneMember's convention).
+                        return schemeRepository.findById(saved.getSchemeId())
+                            .map(s -> s.getInsuranceLine() != null ? s.getInsuranceLine() : "HEALTH")
+                            .defaultIfEmpty("HEALTH")
+                            .flatMap(insuranceLine -> publishAudit(tenantId, "Contribution",
+                                    saved.getId().toString(),
+                                    contributionName(saved),
+                                    "UPDATE", actorId, actorEmail,
+                                    Map.of("status", previousStatus),
+                                    Map.of("status", saved.getStatus(),
+                                           "paymentMethod", saved.getPaymentMethod(),
+                                           "paymentReference", saved.getPaymentReference()))
+                                .then(eventPublisher.publishContributionPaid(
+                                    saved.getId().toString(),
+                                    saved.getMemberId() != null ? saved.getMemberId().toString() : "",
+                                    saved.getAmount() != null ? saved.getAmount().toString() : "",
+                                    saved.getCurrencyCode(),
+                                    insuranceLine,
+                                    saved.getPaidAt() != null ? saved.getPaidAt().toString() : "",
+                                    tenantId))
+                                .thenReturn(saved));
                     }));
             });
     }

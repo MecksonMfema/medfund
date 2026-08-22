@@ -1,0 +1,122 @@
+<header class="page-header">
+  <div>
+    <h1>Reinsurance — review queue</h1>
+    <p class="page-sub">
+      Manual-review tasks — chiefly claim regressions where a re-adjudicated claim dropped
+      below a prior cession's basis. Resolve with keep / void / dismiss.
+    </p>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Status</span>
+    <app-select
+      [(ngModel)]="statusFilter"
+      (selectionChange)="onStatusChange()"
+      name="status"
+      size="sm"
+      [options]="statusOptions"
+      placeholder="Open queue"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-clear">
+    <button type="button" class="clear-btn" (click)="fetchPage()" [disabled]="loading">
+      <app-icon name="refresh-cw" [size]="14"></app-icon>
+      Refresh
+    </button>
+  </div>
+</div>
+
+@if (loading) {
+  <div class="loading">Loading review queue…</div>
+} @else if (rows.length === 0) {
+  <div class="empty">No tasks match the current filter.</div>
+} @else {
+  <table class="queue-table" data-testid="review-queue-table">
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>Type</th>
+        <th>Cession</th>
+        <th>Claim</th>
+        <th>Reason</th>
+        <th>Created</th>
+        <th class="actions">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows; track row.id) {
+        <tr [attr.data-testid]="'review-row-' + row.id.substring(0, 8)">
+          <td><span class="status-pill" [attr.data-status]="row.status">{{ statusLabel(row.status) }}</span></td>
+          <td>{{ row.taskType }}</td>
+          <td>{{ row.cessionId ? row.cessionId.substring(0, 8) + '…' : '—' }}</td>
+          <td>{{ row.claimId    ? row.claimId.substring(0, 8) + '…'    : '—' }}</td>
+          <td class="reason">{{ row.createReason }}</td>
+          <td>{{ row.createdAt | date:'yyyy-MM-dd HH:mm' }}</td>
+          <td class="actions">
+            @if (isOpen(row)) {
+              <button type="button" class="btn btn-sm btn-primary"
+                      [disabled]="actionInProgress[row.id]"
+                      (click)="openResolve(row)"
+                      data-testid="resolve-btn">Resolve</button>
+            } @else {
+              <span class="resolved">{{ row.resolutionNotes || '—' }}</span>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
+
+@if (resolveTargetId) {
+  <div class="modal-backdrop" (click)="cancelResolve()">
+    <div class="modal-card" (click)="$event.stopPropagation()" data-testid="resolve-modal">
+      <h3>Resolve review task</h3>
+      <p class="modal-sub">
+        RESOLVED_VOID cascade-voids the linked cession and writes off any expected recovery.
+        RESOLVED_KEEP closes the task with the cession untouched. DISMISSED closes as false positive.
+      </p>
+      <label>
+        <span>Resolution</span>
+        <app-select
+          [(ngModel)]="resolveResolution"
+          name="resolution"
+          [options]="resolutionOptions"
+          [searchable]="false"
+          [autoSearchThreshold]="9999"
+        ></app-select>
+      </label>
+      <label>
+        <span>Notes {{ resolveResolution === 'RESOLVED_VOID' ? '(required)' : '(optional)' }}</span>
+        <textarea
+          [(ngModel)]="resolveNotes"
+          rows="4"
+          maxlength="2000"
+          placeholder="Describe the decision…"
+          data-testid="resolve-notes"
+        ></textarea>
+      </label>
+      @if (resolveError) {
+        <div class="banner banner-error">{{ resolveError }}</div>
+      }
+      <div class="modal-actions">
+        <button type="button" class="btn" (click)="cancelResolve()" [disabled]="resolveSubmitting">Cancel</button>
+        <button type="button" class="btn btn-primary"
+                (click)="submitResolve()"
+                [disabled]="resolveSubmitting"
+                data-testid="resolve-submit">
+          {{ resolveSubmitting ? 'Resolving…' : 'Resolve task' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -67,7 +67,25 @@ public class ReinsuranceTemplates implements TemplateProvider {
                  RuleCategory.REINSURANCE, 47,
                  all(cond("claim.amount",      "GREATER_THAN", "0")),
                  cedeToTreaty("<treaty-id>", "XOL:0;1000000;<layer-id>",
-                              "Stop Loss: 1M aggregate cover"))
+                              "Stop Loss: 1M aggregate cover")),
+
+            // Phase 6 — proportional premium cede fired per contribution paid.
+            // The reinsurance premium-cession consumer builds a ClaimFact from
+            // the paid contribution's amount (see PremiumCessionService), so
+            // the same claim.amount / scheme.insuranceLine shape as R60 works
+            // uniformly for loss + premium cedes.
+            rule("R64 - Quota Share cede on premium payment (proportional)",
+                 "Cede a fixed percentage of every paid contribution to the named treaty. "
+                       + "The premium-cession consumer projects the contribution into a "
+                       + "ClaimFact whose amount = contribution amount, then focuses the "
+                       + "REINSURANCE agenda — so this rule shape mirrors R60 exactly. "
+                       + "Replace <treaty-id> with the target Treaty UUID and set the "
+                       + "PCT rate to the treaty's cession ratio.",
+                 RuleCategory.REINSURANCE, 46,
+                 all(cond("claim.amount",      "GREATER_THAN", "0"),
+                     cond("scheme.insuranceLine", "EQUALS",    "HEALTH")),
+                 cedeToTreaty("<treaty-id>", "PCT:30",
+                              "Quota Share 30% premium cession"))
         );
     }
 

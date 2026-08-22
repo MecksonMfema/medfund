@@ -57,10 +57,12 @@ class ContributionEventPublisherTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void publishContributionPaid_sendsToCorrectTopic() {
+    void publishContributionPaid_sendsToCorrectTopic_withPhase6Fields() {
         when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
 
-        StepVerifier.create(contributionEventPublisher.publishContributionPaid("cont-1", "mbr-1", "150.00"))
+        StepVerifier.create(contributionEventPublisher.publishContributionPaid(
+                    "cont-1", "mbr-1", "150.00",
+                    "USD", "HEALTH", "2026-08-22T09:15:00Z", "tenant-1"))
                 .verifyComplete();
 
         verify(kafkaSender).send(senderRecordCaptor.capture());
@@ -69,7 +71,11 @@ class ContributionEventPublisherTest {
                 .assertNext(record -> {
                     assertThat(record.topic()).isEqualTo("medfund.contributions.paid");
                     assertThat(record.key()).isEqualTo("cont-1");
-                    assertThat(record.value()).contains("CONTRIBUTION_PAID");
+                    assertThat(record.value()).contains("CONTRIBUTION_PAID")
+                            .contains("USD")
+                            .contains("HEALTH")
+                            .contains("2026-08-22T09:15:00Z")
+                            .contains("tenant-1");
                 })
                 .verifyComplete();
     }

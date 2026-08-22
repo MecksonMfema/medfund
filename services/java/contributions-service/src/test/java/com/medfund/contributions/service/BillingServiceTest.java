@@ -193,13 +193,20 @@ class BillingServiceTest {
     @Test
     void recordPayment_existingContribution_setsStatusPaid() {
         var contribution = createTestContribution();
+        var scheme = new com.medfund.contributions.entity.Scheme();
+        scheme.setId(contribution.getSchemeId());
+        scheme.setInsuranceLine("HEALTH");
+        scheme.setCurrencyCode("USD");
 
         when(contributionRepository.findById(contribution.getId()))
             .thenReturn(Mono.just(contribution));
         when(contributionRepository.save(any(Contribution.class)))
             .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(schemeRepository.findById(contribution.getSchemeId()))
+            .thenReturn(Mono.just(scheme));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
-        when(eventPublisher.publishContributionPaid(any(), any(), any()))
+        when(eventPublisher.publishContributionPaid(any(), any(), any(),
+                any(), any(), any(), any()))
             .thenReturn(Mono.empty());
 
         StepVerifier.create(billingService.recordPayment(
@@ -217,7 +224,10 @@ class BillingServiceTest {
         verify(contributionRepository).findById(contribution.getId());
         verify(contributionRepository).save(any(Contribution.class));
         verify(auditPublisher).publish(any());
-        verify(eventPublisher).publishContributionPaid(any(), any(), any());
+        // Phase 6: publisher now carries currency/insuranceLine/paidAt/tenantId
+        // so the reinsurance premium-cession consumer can route.
+        verify(eventPublisher).publishContributionPaid(any(), any(), any(),
+                any(), any(), any(), any());
     }
 
     @Test

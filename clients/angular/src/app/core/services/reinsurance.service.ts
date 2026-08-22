@@ -237,6 +237,146 @@ export interface TreatyUtilizationParams {
   reportingCurrency?: string;
 }
 
+// ── Facultative cessions (Phase 7) ─────────────────────────────────────────
+
+/** Read-side projection of a single Cession row. */
+export interface CessionRow {
+  id: string;
+  treatyId: string;
+  treatyLayerId?: string | null;
+  cessionType: 'LOSS' | 'PREMIUM';
+  source: 'AUTOMATIC' | 'FACULTATIVE';
+  status: 'ACTIVE' | 'DRAFT' | 'APPROVED' | 'CEDED' | 'VOIDED';
+  sourceEventId: string;
+  sourceEventType: string;
+  cededAmount: number;
+  currencyCode: string;
+  basisAmount: number;
+  occurredAt: string;
+  voidedReason?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Facultative-candidate row: an adjudicated claim ready to be ceded. */
+export interface FacultativeCandidateRow {
+  claimId: string;
+  claimNumber: string;
+  memberId: string;
+  memberName: string;
+  providerId: string;
+  providerName: string;
+  insuranceLine: string;
+  approvedAmount: number;
+  currencyCode: string;
+  submissionDate: string;
+  alreadyCeded: boolean;
+}
+
+export type FacultativeQueueStatus = 'DRAFT' | 'APPROVED';
+
+export interface CreateFacultativeCessionPayload {
+  claimId: string;
+  treatyId: string;
+  layerId?: string | null;
+  cededAmount: number;
+  basisAmount: number;
+  currencyCode?: string;
+  reason?: string;
+}
+
+export interface CessionPage {
+  content: CessionRow[];
+  total: number;
+  page: number;
+  size: number;
+  totalPages: number;
+}
+
+// ── Recoveries (Phase 8) ──────────────────────────────────────────────────
+export type RecoveryStatus = 'EXPECTED' | 'INVOICED' | 'RECEIVED' | 'WRITTEN_OFF';
+
+export interface RecoveryRow {
+  id: string;
+  cessionId: string;
+  status: RecoveryStatus;
+  expectedAmount: number;
+  receivedAmount: number | null;
+  currencyCode: string;
+  invoicedAt: string | null;
+  receivedAt: string | null;
+  writeOffReason: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface MarkRecoveryReceivedPayload {
+  receivedAmount: number;
+  receivedAt?: string;
+}
+
+export interface WriteOffRecoveryPayload {
+  reason: string;
+}
+
+// ── Reinsurance review queue (Phase 8) ────────────────────────────────────
+export type ReviewTaskType =
+  | 'CLAIM_REGRESSION'
+  | 'RECOVERY_DISPUTE'
+  | 'MANUAL_VOID_REQUEST';
+
+export type ReviewTaskStatus =
+  | 'OPEN'
+  | 'IN_PROGRESS'
+  | 'RESOLVED_VOID'
+  | 'RESOLVED_KEEP'
+  | 'DISMISSED';
+
+export type ReviewTaskResolution = 'RESOLVED_VOID' | 'RESOLVED_KEEP' | 'DISMISSED';
+
+export interface ReviewTaskRow {
+  id: string;
+  taskType: ReviewTaskType;
+  cessionId?: string | null;
+  recoveryId?: string | null;
+  claimId?: string | null;
+  treatyId?: string | null;
+  status: ReviewTaskStatus;
+  assigneeUserId?: string | null;
+  dueBy?: string | null;
+  createReason: string;
+  resolutionNotes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ReviewTaskPage {
+  content: ReviewTaskRow[];
+  total: number;
+  page: number;
+  size: number;
+  totalPages: number;
+}
+
+export interface AssignReviewTaskPayload {
+  assigneeUserId: string;
+}
+
+export interface ResolveReviewTaskPayload {
+  resolution: ReviewTaskResolution;
+  notes?: string;
+}
+
+// ── Backfill progress (Phase 8) ──────────────────────────────────────────
+export interface TreatyBackfillProgress {
+  startedAt: string | null;
+  completedAt: string | null;
+  processed: number;
+  failed: number;
+  running: boolean;
+  errorMessage?: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ReinsuranceService {
   constructor(private api: ApiService) {}
@@ -381,6 +521,91 @@ export class ReinsuranceService {
 
   exportTreatyUtilizationExcel(opts: TreatyUtilizationParams): Observable<Blob> {
     return this.api.getBlob('/reports/reinsurance/treaty-utilization/export/excel', utilizationParams(opts));
+  }
+
+  // ── Facultative cessions (Phase 7) ─────────────────────────────────────
+
+  listFacultativeCandidates(
+    minAmount?: number,
+    insuranceLine?: string,
+    page = 0,
+    size = 50,
+  ): Observable<FacultativeCandidateRow[]> {
+    const params: Record<string, string> = { page: String(page), size: String(size) };
+    if (minAmount != null)  params['minAmount']     = String(minAmount);
+    if (insuranceLine)      params['insuranceLine'] = insuranceLine;
+    return this.api.get<FacultativeCandidateRow[]>('/reinsurance/facultative/candidates', params);
+  }
+
+  listFacultativeQueue(
+    status?: FacultativeQueueStatus,
+    page = 0,
+    size = 50,
+  ): Observable<CessionPage> {
+    const params: Record<string, string> = { page: String(page), size: String(size) };
+    if (status) params['status'] = status;
+    return this.api.get<CessionPage>('/reinsurance/facultative/queue', params);
+  }
+
+  createFacultativeCession(
+    insuranceLine: string,
+    payload: CreateFacultativeCessionPayload,
+  ): Observable<CessionRow> {
+    return this.api.post<CessionRow>(
+      `/reinsurance/facultative?insuranceLine=${encodeURIComponent(insuranceLine)}`,
+      payload,
+    );
+  }
+
+  approveFacultativeCession(id: string): Observable<CessionRow> {
+    return this.api.put<CessionRow>(`/reinsurance/facultative/${id}/approve`, {});
+  }
+
+  commitFacultativeCession(id: string): Observable<CessionRow> {
+    return this.api.put<CessionRow>(`/reinsurance/facultative/${id}/commit`, {});
+  }
+
+  voidFacultativeCession(id: string, reason: string): Observable<CessionRow> {
+    return this.api.post<CessionRow>(`/reinsurance/facultative/${id}/void`, { reason });
+  }
+
+  // ── Recoveries (Phase 8) ───────────────────────────────────────────────
+  getRecovery(id: string): Observable<RecoveryRow> {
+    return this.api.get<RecoveryRow>(`/reinsurance/recoveries/${id}`);
+  }
+
+  markRecoveryReceived(id: string, payload: MarkRecoveryReceivedPayload): Observable<RecoveryRow> {
+    return this.api.put<RecoveryRow>(`/reinsurance/recoveries/${id}/mark-received`, payload);
+  }
+
+  writeOffRecovery(id: string, payload: WriteOffRecoveryPayload): Observable<RecoveryRow> {
+    return this.api.put<RecoveryRow>(`/reinsurance/recoveries/${id}/write-off`, payload);
+  }
+
+  // ── Review queue (Phase 8) ─────────────────────────────────────────────
+  listReviewTasks(status?: ReviewTaskStatus, page = 0, size = 50): Observable<ReviewTaskPage> {
+    const params: Record<string, string> = { page: String(page), size: String(size) };
+    if (status) params['status'] = status;
+    return this.api.get<ReviewTaskPage>('/reinsurance/review-tasks', params);
+  }
+
+  getReviewTask(id: string): Observable<ReviewTaskRow> {
+    return this.api.get<ReviewTaskRow>(`/reinsurance/review-tasks/${id}`);
+  }
+
+  assignReviewTask(id: string, payload: AssignReviewTaskPayload): Observable<ReviewTaskRow> {
+    return this.api.put<ReviewTaskRow>(`/reinsurance/review-tasks/${id}/assign`, payload);
+  }
+
+  resolveReviewTask(id: string, payload: ResolveReviewTaskPayload): Observable<ReviewTaskRow> {
+    return this.api.post<ReviewTaskRow>(`/reinsurance/review-tasks/${id}/resolve`, payload);
+  }
+
+  // ── Backfill progress polling (Phase 8) ────────────────────────────────
+  getBackfillProgress(treatyId: string): Observable<TreatyBackfillProgress> {
+    return this.api.get<TreatyBackfillProgress>(
+      `/reinsurance/treaties/${treatyId}/backfill-progress`,
+    );
   }
 }
 
