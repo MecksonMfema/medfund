@@ -11,6 +11,7 @@ import com.medfund.contributions.dto.PreviewBillingRequest;
 import com.medfund.contributions.entity.BillingCycleConfig;
 import com.medfund.contributions.entity.Contribution;
 import com.medfund.contributions.entity.Invoice;
+import com.medfund.contributions.entity.Scheme;
 import com.medfund.contributions.dto.BillingRevokeResponse;
 import com.medfund.contributions.dto.RevokeBillingRequest;
 import com.medfund.contributions.exception.BillingCooldownException;
@@ -23,6 +24,7 @@ import com.medfund.contributions.repository.BillingCycleConfigRepository;
 import com.medfund.contributions.repository.ContributionQueryRepository;
 import com.medfund.contributions.repository.ContributionRepository;
 import com.medfund.contributions.repository.InvoiceRepository;
+import com.medfund.contributions.premium.service.BillingContributionEarningHook;
 import com.medfund.contributions.repository.SchemeRepository;
 import com.medfund.contributions.service.candidate.PersonCandidate;
 import com.medfund.shared.audit.AuditActor;
@@ -70,6 +72,7 @@ public class BillingService {
     private final AiPricingClient aiPricingClient;
     private final InvoiceSnapshotService invoiceSnapshotService;
     private final ArrearsThresholdPublisher arrearsThresholdPublisher;
+    private final BillingContributionEarningHook earningHook;
     /**
      * Per-insurance-line candidate resolvers, keyed by
      * {@link com.medfund.contributions.service.candidate.CandidateResolver#supportedLine()}.
@@ -92,6 +95,7 @@ public class BillingService {
                           AiPricingClient aiPricingClient,
                           InvoiceSnapshotService invoiceSnapshotService,
                           ArrearsThresholdPublisher arrearsThresholdPublisher,
+                          BillingContributionEarningHook earningHook,
                           java.util.List<com.medfund.contributions.service.candidate.CandidateResolver> resolvers) {
         this.contributionRepository = contributionRepository;
         this.contributionQueryRepository = contributionQueryRepository;
@@ -107,6 +111,7 @@ public class BillingService {
         this.aiPricingClient = aiPricingClient;
         this.invoiceSnapshotService = invoiceSnapshotService;
         this.arrearsThresholdPublisher = arrearsThresholdPublisher;
+        this.earningHook = earningHook;
         // Tolerant of a null/empty resolver list so unit tests that mock
         // the service without spinning up the Spring context still work.
         // In production Spring auto-collects every @Component
@@ -199,6 +204,11 @@ public class BillingService {
                 contribution.setUpdatedAt(Instant.now());
                 contribution.setCreatedBy(UUID.fromString(actorId));
                 contribution.setUpdatedBy(UUID.fromString(actorId));
+                // Grill note 12 — inherit the scheme's default IFRS 17 portfolio
+                // so the earning_schedule row carries the same dimension as the
+                // policy tables. Null-safe: pre-underwriting schemes have no
+                // default, and reports treat null portfolio as MISC.
+                contribution.setPortfolioId(scheme.getDefaultPortfolioId());
 
                 // Run tenant pricing rules before persistence. The pricing service
                 // mutates contribution.amount in place when SET_PREMIUM /
@@ -209,7 +219,10 @@ public class BillingService {
                     // Same pairing as persistContribution — every contribution
                     // write must land on the running balance or the customer's
                     // outstanding drifts.
-                    .flatMap(saved -> balanceService.applyContributionDebit(saved).thenReturn(saved));
+                    .flatMap(saved -> balanceService.applyContributionDebit(saved).thenReturn(saved))
+                    // Phase 12 §A — project one earning_schedule row per HEALTH
+                    // contribution (earns entirely within its billing period).
+                    .flatMap(earningHook::onContributionCreated);
             })
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
@@ -1544,9 +1557,24 @@ public class BillingService {
         c.setUpdatedAt(now);
         c.setCreatedBy(actorUuid);
         c.setUpdatedBy(actorUuid);
-        return contributionRepository.save(c)
-                .flatMap(saved -> balanceService.applyContributionDebit(saved).thenReturn(saved));
+        // Inherit the scheme's default IFRS 17 portfolio at save time
+        // (Phase 12 §A grill note 12). Falls through null-safely when the
+        // scheme has no default configured.
+        return schemeRepository.findById(priced.schemeId())
+                .map(Scheme::getDefaultPortfolioId)
+                .defaultIfEmpty(EMPTY_UUID_SENTINEL)
+                .flatMap(portfolioId -> {
+                    if (portfolioId != EMPTY_UUID_SENTINEL) c.setPortfolioId(portfolioId);
+                    return contributionRepository.save(c);
+                })
+                .flatMap(saved -> balanceService.applyContributionDebit(saved).thenReturn(saved))
+                // Phase 12 §A — earning_schedule projection.
+                .flatMap(earningHook::onContributionCreated);
     }
+
+    // Sentinel used only to distinguish "scheme found, portfolio_id is null" from
+    // "scheme lookup returned empty". Never leaks past persistContribution.
+    private static final UUID EMPTY_UUID_SENTINEL = new UUID(0L, 0L);
 
     /**
      * Per-tenant entry point: reads the tenant's pricing_model + the

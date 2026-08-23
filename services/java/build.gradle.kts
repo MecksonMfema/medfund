@@ -63,6 +63,12 @@ subprojects {
 
     tasks.test {
         useJUnitPlatform()
+        // Cap the test worker heap high enough to hold a full Spring Boot
+        // context + Testcontainers Postgres/Kafka producer & consumer buffers
+        // + Jacoco agent + KieContainer classloader. Gradle's default 512m
+        // OOMs the finance-service IT suite (kafka-coordinator-heartbeat
+        // threads throw OOM in the middle of a run — Phase 12 §0 discovery).
+        maxHeapSize = "1536m"
         // `make test-integration` filters every module with `--tests '*IT'`;
         // modules without ITs (e.g. shared) must not fail on zero matches.
         filter {

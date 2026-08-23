@@ -5,6 +5,7 @@ import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import com.medfund.user.dto.CreateTravelPolicyRequest;
 import com.medfund.user.dto.PageResponse;
+import com.medfund.user.dto.PolicyUnderwritingFields;
 import com.medfund.user.dto.TravelPolicyFilterParams;
 import com.medfund.user.dto.TravelPolicyRow;
 import com.medfund.user.dto.UpdateTravelPolicyRequest;
@@ -35,6 +36,7 @@ public class TravelPolicyService {
     private final TravelPolicyQueryRepository travelPolicyQueryRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
+    private final PolicyIssuedPublisher policyIssuedPublisher;
 
     public Flux<TravelPolicy> findAll() {
         return travelPolicyRepository.findAllOrderByCreatedAtDesc();
@@ -81,6 +83,7 @@ public class TravelPolicyService {
         t.setCoverageLevel(request.coverageLevel());
         t.setPreExistingDeclared(request.preExistingDeclared() != null ? request.preExistingDeclared() : Boolean.FALSE);
         t.setStatus("active");
+        applyUnderwriting(t, request.underwriting());
         t.setCreatedAt(Instant.now());
         t.setUpdatedAt(Instant.now());
         UUID actorUuid = safeParseUuid(actorId);
@@ -91,6 +94,7 @@ public class TravelPolicyService {
                 .flatMap(saved -> Mono.deferContextual(ctx -> {
                     String tenantId = TenantContext.get(ctx);
                     return publishAudit(tenantId, saved, null, actorId, actorEmail, "CREATE")
+                            .then(publishPolicyIssued(tenantId, saved))
                             .thenReturn(saved);
                 }));
     }
@@ -114,17 +118,44 @@ public class TravelPolicyService {
                             request.billingOverrideAmount(),
                             request.billingOverrideReason(),
                             request.billingOverrideEffectiveFrom());
+                    applyUnderwriting(existing, request.underwriting());
 
                     existing.setUpdatedAt(Instant.now());
                     existing.setUpdatedBy(safeParseUuid(actorId));
 
+                    boolean premiumChanged = !java.util.Objects.equals(
+                            previous.getWrittenPremium(), existing.getWrittenPremium());
+
                     return travelPolicyRepository.save(existing)
                             .flatMap(saved -> Mono.deferContextual(ctx -> {
                                 String tenantId = TenantContext.get(ctx);
-                                return publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE")
-                                        .thenReturn(saved);
+                                Mono<Void> chain = publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE");
+                                if (premiumChanged) chain = chain.then(publishPolicyIssued(tenantId, saved));
+                                return chain.thenReturn(saved);
                             }));
                 });
+    }
+
+    private static void applyUnderwriting(TravelPolicy t, PolicyUnderwritingFields uw) {
+        if (uw == null) return;
+        if (uw.writtenPremium() != null) t.setWrittenPremium(uw.writtenPremium());
+        if (uw.writtenPremiumCurrency() != null) t.setWrittenPremiumCurrency(uw.writtenPremiumCurrency());
+        if (uw.boundAt() != null) t.setBoundAt(uw.boundAt());
+        // TravelPolicy reuses trip_start_date / trip_end_date as coverage window — no separate coverageStart/End columns.
+        if (uw.renewedFromPolicyId() != null) t.setRenewedFromPolicyId(uw.renewedFromPolicyId());
+        if (uw.portfolioId() != null) t.setPortfolioId(uw.portfolioId());
+        if (uw.cohortId() != null) t.setCohortId(uw.cohortId());
+    }
+
+    private Mono<Void> publishPolicyIssued(String tenantId, TravelPolicy t) {
+        return policyIssuedPublisher.publish(new PolicyIssuedPublisher.PolicyIssuedPayload(
+                tenantId, t.getId(), t.getPolicyNumber(),
+                "TRAVEL_POLICY", "TRAVEL",
+                t.getWrittenPremium(), t.getWrittenPremiumCurrency(),
+                t.getTripStartDate(), t.getTripEndDate(), t.getBoundAt(),
+                t.getTravelerMemberId(), t.getPortfolioId(), t.getCohortId(),
+                t.getRenewedFromPolicyId()
+        ));
     }
 
     @Transactional
@@ -241,6 +272,12 @@ public class TravelPolicyService {
         c.setBillingOverrideAmount(src.getBillingOverrideAmount());
         c.setBillingOverrideReason(src.getBillingOverrideReason());
         c.setBillingOverrideEffectiveFrom(src.getBillingOverrideEffectiveFrom());
+        c.setWrittenPremium(src.getWrittenPremium());
+        c.setWrittenPremiumCurrency(src.getWrittenPremiumCurrency());
+        c.setBoundAt(src.getBoundAt());
+        c.setRenewedFromPolicyId(src.getRenewedFromPolicyId());
+        c.setPortfolioId(src.getPortfolioId());
+        c.setCohortId(src.getCohortId());
         return c;
     }
 }

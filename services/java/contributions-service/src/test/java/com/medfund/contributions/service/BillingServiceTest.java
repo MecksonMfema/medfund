@@ -78,6 +78,9 @@ class BillingServiceTest {
     @Mock
     private ArrearsThresholdPublisher arrearsThresholdPublisher;
 
+    @Mock
+    private com.medfund.contributions.premium.service.BillingContributionEarningHook earningHook;
+
     @InjectMocks
     private BillingService billingService;
 
@@ -92,6 +95,9 @@ class BillingServiceTest {
         // WRITE_OFF → GRACE transition. Default to GRACE so the
         // arrears-cleared publish stays silent unless a test wants it.
         lenient().when(balanceService.currentBucketFor(any(), any())).thenReturn(Mono.just("GRACE"));
+        // Phase 12 §A — earning-schedule hook is a no-op passthrough in this class.
+        lenient().when(earningHook.onContributionCreated(any()))
+                .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
     }
 
     private final String actorId = UUID.randomUUID().toString();

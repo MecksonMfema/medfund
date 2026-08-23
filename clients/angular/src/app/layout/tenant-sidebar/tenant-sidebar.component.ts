@@ -40,6 +40,7 @@ export class TenantSidebarComponent implements OnInit, OnDestroy {
     { label: 'Reinsurance',  icon: 'shield',    route: '/tenant/admin/reinsurance' },
     { label: 'Producers',    icon: 'briefcase', route: '/tenant/admin/producers' },
     { label: 'Treaty backfill', icon: 'refresh', route: '/tenant/admin/producers/backfill' },
+    { label: 'Underwriting', icon: 'layers',    route: '/tenant/admin/underwriting' },
     { label: 'Settings',     icon: 'settings',  route: '/tenant/admin/settings' },
   ];
 

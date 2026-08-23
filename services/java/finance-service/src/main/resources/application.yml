@@ -17,6 +17,14 @@ spring:
     url: r2dbc:postgresql://localhost:5433/medfund
     username: medfund
     password: medfund
+    pool:
+      enabled: true
+      initial-size: 5
+      max-size: 30
+      max-idle-time: 30m
+      max-acquire-time: 10s
+      max-life-time: 1h
+      validation-query: SELECT 1
   security:
     oauth2:
       resourceserver:

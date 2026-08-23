@@ -66,8 +66,13 @@ export type PermissionKey =
   | 'admin:manage_roles' | 'admin:manage_users' | 'admin:view_audit'
   | 'admin:manage_settings' | 'admin:manage_rules'
   | 'admin.bank_accounts:manage'
-  // Tenant settings (Phase 11)
+  // Tenant settings (Phase 11 + Phase 12 §C)
   | 'tenant.settings:manage_auto_lapse'
+  | 'tenant.settings:manage_endorsement_config'
+  // Underwriting (Phase 12 §A + §C)
+  | 'underwriting.portfolio:manage' | 'underwriting.cohort:manage'
+  | 'premium.earning:manage_backfill' | 'premium.earning:view_debug'
+  | 'policy:draft_endorsement' | 'policy:approve_endorsement'
   // Platform administration (super-admin only)
   | 'platform:view_jobs' | 'platform:manage_jobs';
 
@@ -78,7 +83,7 @@ export interface PermissionDescriptor {
 }
 
 export interface PermissionDomain {
-  id: 'claims' | 'billing' | 'finance' | 'members' | 'providers' | 'admin' | 'tenant' | 'platform';
+  id: 'claims' | 'billing' | 'finance' | 'members' | 'providers' | 'admin' | 'tenant' | 'underwriting' | 'platform';
   label: string;
   permissions: PermissionDescriptor[];
 }
@@ -220,7 +225,20 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
     id: 'tenant',
     label: 'Tenant settings',
     permissions: [
-      { key: 'tenant.settings:manage_auto_lapse', label: 'Manage auto-lapse settings',       description: 'Enable/disable the auto-lapse chain and configure arrears-threshold-months + grace-window-days (Phase 11 §B).' },
+      { key: 'tenant.settings:manage_auto_lapse',           label: 'Manage auto-lapse settings',        description: 'Enable/disable the auto-lapse chain and configure arrears-threshold-months + grace-window-days (Phase 11 §B).' },
+      { key: 'tenant.settings:manage_endorsement_config',   label: 'Manage endorsement four-eyes gate', description: 'Enable/disable the endorsement four-eyes threshold and configure its amount + currency (Phase 12 §C).' },
+    ],
+  },
+  {
+    id: 'underwriting',
+    label: 'Underwriting',
+    permissions: [
+      { key: 'underwriting.portfolio:manage',    label: 'Manage IFRS 17 portfolios',        description: 'Create, update, and soft-delete IFRS 17 portfolios used by Phase 12 underwriting reports.' },
+      { key: 'underwriting.cohort:manage',       label: 'Manage IFRS 17 cohorts',           description: 'Create, update, and soft-delete IFRS 17 cohorts (portfolio × year × type).' },
+      { key: 'premium.earning:manage_backfill',  label: 'Trigger earning-schedule backfill',description: 'Trigger a targeted earning-schedule backfill or replay for a single policy (Phase 12 §A U10).' },
+      { key: 'premium.earning:view_debug',       label: 'View earning-schedule debug rows', description: 'Dev-only: read raw earning_schedule rows for a policy.' },
+      { key: 'policy:draft_endorsement',         label: 'Draft policy endorsement',         description: 'Create a DRAFT policy endorsement and read the queue. Auto-commits below the four-eyes threshold (Phase 12 §C).' },
+      { key: 'policy:approve_endorsement',       label: 'Approve policy endorsement',       description: 'Approve, commit, void, or mark-computed a policy endorsement. Four-eyes counterpart to policy:draft_endorsement (Phase 12 §C).' },
     ],
   },
   {

@@ -53,6 +53,30 @@ public class Vehicle {
     @Column("billing_override_effective_from")
     private LocalDate billingOverrideEffectiveFrom;
 
+    @Column("written_premium")
+    private BigDecimal writtenPremium;
+
+    @Column("written_premium_currency")
+    private String writtenPremiumCurrency;
+
+    @Column("bound_at")
+    private Instant boundAt;
+
+    @Column("coverage_start")
+    private LocalDate coverageStart;
+
+    @Column("coverage_end")
+    private LocalDate coverageEnd;
+
+    @Column("renewed_from_policy_id")
+    private UUID renewedFromPolicyId;
+
+    @Column("portfolio_id")
+    private UUID portfolioId;
+
+    @Column("cohort_id")
+    private UUID cohortId;
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;
@@ -97,6 +121,22 @@ public class Vehicle {
     public void setBillingOverrideReason(String billingOverrideReason) { this.billingOverrideReason = billingOverrideReason; }
     public LocalDate getBillingOverrideEffectiveFrom() { return billingOverrideEffectiveFrom; }
     public void setBillingOverrideEffectiveFrom(LocalDate billingOverrideEffectiveFrom) { this.billingOverrideEffectiveFrom = billingOverrideEffectiveFrom; }
+    public BigDecimal getWrittenPremium() { return writtenPremium; }
+    public void setWrittenPremium(BigDecimal writtenPremium) { this.writtenPremium = writtenPremium; }
+    public String getWrittenPremiumCurrency() { return writtenPremiumCurrency; }
+    public void setWrittenPremiumCurrency(String writtenPremiumCurrency) { this.writtenPremiumCurrency = writtenPremiumCurrency; }
+    public Instant getBoundAt() { return boundAt; }
+    public void setBoundAt(Instant boundAt) { this.boundAt = boundAt; }
+    public LocalDate getCoverageStart() { return coverageStart; }
+    public void setCoverageStart(LocalDate coverageStart) { this.coverageStart = coverageStart; }
+    public LocalDate getCoverageEnd() { return coverageEnd; }
+    public void setCoverageEnd(LocalDate coverageEnd) { this.coverageEnd = coverageEnd; }
+    public UUID getRenewedFromPolicyId() { return renewedFromPolicyId; }
+    public void setRenewedFromPolicyId(UUID renewedFromPolicyId) { this.renewedFromPolicyId = renewedFromPolicyId; }
+    public UUID getPortfolioId() { return portfolioId; }
+    public void setPortfolioId(UUID portfolioId) { this.portfolioId = portfolioId; }
+    public UUID getCohortId() { return cohortId; }
+    public void setCohortId(UUID cohortId) { this.cohortId = cohortId; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

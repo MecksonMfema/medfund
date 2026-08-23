@@ -37,7 +37,8 @@ class DrlCompilerTest {
                 new ActionEmitters.WithholdPaymentEmitter(),
                 new ActionEmitters.MatchRecordsEmitter(),
                 new CedeToTreatyEmitter(),
-                new PayCommissionEmitter()
+                new PayCommissionEmitter(),
+                new AccruePremiumEmitter()
         ));
     }
 
@@ -240,6 +241,59 @@ class DrlCompilerTest {
         assertThat(drl).contains("55555555-5555-5555-5555-555555555555");
         // Empty producer id encodes as \"\" so the emitted DRL still compiles.
         assertThat(drl).contains("addCommission(\"\", ");
+    }
+
+    @Test
+    void compile_premiumEarningRule_addsAgendaGroupAndAccrue() {
+        RuleDefinition rule = new RuleDefinition();
+        rule.setName("VEHICLE 24ths");
+        rule.setCategory("PREMIUM_EARNING");
+        rule.setPriority(90);
+        rule.setEnabled(true);
+        rule.setConditions(conditions("AND",
+                condition("premium.insuranceLine", "EQUALS", "VEHICLE")));
+        RuleAction action = new RuleAction();
+        action.setType("ACCRUE_PREMIUM");
+        action.setValue("EARNING_METHOD:MONTHLY_24THS");
+        action.setMessage("IPEC 24ths for motor");
+        rule.setAction(action);
+
+        String drl = compiler.compile(rule);
+
+        // Agenda-group gate keeps earning rules out of the stage-7 sweep.
+        assertThat(drl).contains("agenda-group \"PREMIUM_EARNING\"");
+        // PremiumFact is auto-bound via DrlCompiler.factForAction even
+        // though the rule's only condition is on insuranceLine.
+        assertThat(drl).contains("$premium : PremiumFact(");
+        assertThat(drl).contains("$premium.accrue(");
+        assertThat(drl).contains("\"MONTHLY_24THS\"");
+        // Loading percent stays null for the non-LOADING method.
+        assertThat(drl).contains(", null, ");
+        assertThat(drl).contains("\"IPEC 24ths for motor\"");
+    }
+
+    @Test
+    void compile_premiumEarningLoadingRule_carriesLoadingPercent() {
+        RuleDefinition rule = new RuleDefinition();
+        rule.setName("Whole-life 15% front-load");
+        rule.setCategory("PREMIUM_EARNING");
+        rule.setPriority(80);
+        rule.setEnabled(true);
+        rule.setConditions(conditions("AND",
+                condition("premium.insuranceLine", "EQUALS", "LIFE"),
+                condition("premium.productCode",   "EQUALS", "WHOLE_LIFE")));
+        RuleAction action = new RuleAction();
+        action.setType("ACCRUE_PREMIUM");
+        action.setValue("EARNING_METHOD:LINEAR_WITH_LOADING:15");
+        action.setMessage("Whole-life 15% front-load");
+        rule.setAction(action);
+
+        String drl = compiler.compile(rule);
+
+        assertThat(drl).contains("agenda-group \"PREMIUM_EARNING\"");
+        assertThat(drl).contains("$premium.accrue(");
+        assertThat(drl).contains("\"LINEAR_WITH_LOADING\"");
+        assertThat(drl).contains("new java.math.BigDecimal(\"15\")");
     }
 
     @Test

@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { permissionGuard } from '../../../auth/auth.guard';
 import { PermissionKey } from '../../../core/security/permissions';
+import { UNDERWRITING_REPORT_ROUTES } from './reports/underwriting/underwriting.routes';
 
 const loadComingSoon = () =>
   import('../../../shared/components/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent);
@@ -740,6 +741,12 @@ export const FINANCE_ROUTES: Routes = [
     data: { title: 'Producer payout detail', sidebar: 'operational' },
   },
 
+  // ── Underwriting reports (Phase 12 §B) ──────────────────────────────────
+  // UPR movement, premium register, new business register — all gated by
+  // ReportFamily.UNDERWRITING enabled-toggle on the backend @RequiresReport
+  // aspect. Route data.reportKey lets the reports-hub map cards to routes.
+  ...UNDERWRITING_REPORT_ROUTES,
+
   // ── Commission reports (Phase 11 §A) ────────────────────────────────────
   {
     path: 'reports/commission/statement',
@@ -831,6 +838,37 @@ export const FINANCE_ROUTES: Routes = [
       title: 'Facultative — approve queue',
       sidebar: 'operational',
       fullbleed: true,
+    },
+  },
+
+  // ── Endorsement approver queue (Phase 12 §C Phase 10) ───────────────────
+  // Four-eyes lifecycle for policy endorsements: drafter creates DRAFT,
+  // supervisor approves + commits. Same shape as commission adjustments
+  // above — separate queue routes so the sidebar can peer-link straight
+  // to /review-queue without the /:id catchall shadowing it. Detail
+  // route sits BELOW the named queue route so /review-queue is matched
+  // literally, not as an :id.
+  {
+    path: 'underwriting/endorsements/review-queue',
+    canActivate: [permissionGuard(['policy:approve_endorsement'])],
+    loadComponent: () =>
+      import('./underwriting/endorsement-review-queue.component')
+        .then(m => m.EndorsementReviewQueueComponent),
+    data: {
+      title: 'Endorsements — review queue',
+      sidebar: 'operational',
+      fullbleed: true,
+    },
+  },
+  {
+    path: 'underwriting/endorsements/:id',
+    canActivate: [permissionGuard(['policy:approve_endorsement', 'policy:draft_endorsement'])],
+    loadComponent: () =>
+      import('./underwriting/endorsement-detail.component')
+        .then(m => m.EndorsementDetailComponent),
+    data: {
+      title: 'Endorsement detail',
+      sidebar: 'operational',
     },
   },
 

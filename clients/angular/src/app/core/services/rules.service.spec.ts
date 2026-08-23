@@ -17,6 +17,14 @@ describe('RULE_CATEGORIES catalogue', () => {
     expect(ids).toContain('COMMISSION');
   });
 
+  it('includes the Phase 12 PREMIUM_EARNING category', () => {
+    // Phase 12 addition — exposes ACCRUE_PREMIUM rules to the tenant-admin
+    // rule editor. Without this entry the category dropdown hides the
+    // option and tenants can't author earning-method rules from the UI.
+    const ids: RuleCategory[] = RULE_CATEGORIES.map(c => c.id);
+    expect(ids).toContain('PREMIUM_EARNING');
+  });
+
   it('includes the Phase 10 REINSURANCE category', () => {
     // Regression guard — the plan's Phase 1 must not accidentally remove
     // sibling category entries when extending the array.

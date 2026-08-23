@@ -168,6 +168,16 @@ formatCurrency(amount: number, currencyCode: string, locale: string): string {
 - Cross-currency totals use the rate at time of transaction (historical accuracy)
 - Dashboard widgets show amounts in the tenant's default currency with conversion indicators
 
+#### Premium earning-schedule currency handling (Phase 12)
+
+Written premium stays in the policy's original currency; endorsement
+retro-recompute preserves the original currency (never re-denominates). Report
+envelopes convert to the reporting currency at each row's `period_end` date
+via `FxRateReader.convert(...)`. Missing historical FX for a `period_end` →
+the currency is omitted from the envelope's `fxRates` map and named in
+`warnings: List<String>` rather than thrown — reports succeed with partial
+coverage per parent-plan invariant #6 / G28.
+
 ## Exchange Rate Management
 
 ### Sources

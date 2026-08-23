@@ -5,6 +5,7 @@ import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import com.medfund.user.dto.CreateVehicleRequest;
 import com.medfund.user.dto.PageResponse;
+import com.medfund.user.dto.PolicyUnderwritingFields;
 import com.medfund.user.dto.UpdateVehicleRequest;
 import com.medfund.user.dto.VehicleFilterParams;
 import com.medfund.user.dto.VehicleRow;
@@ -35,6 +36,7 @@ public class VehicleService {
     private final VehicleQueryRepository vehicleQueryRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
+    private final PolicyIssuedPublisher policyIssuedPublisher;
 
     public Flux<Vehicle> findAll() {
         return vehicleRepository.findAllOrderByCreatedAtDesc();
@@ -82,6 +84,7 @@ public class VehicleService {
         v.setBodyType(request.bodyType());
         v.setUsageType(request.usageType());
         v.setStatus("active");
+        applyUnderwriting(v, request.underwriting());
         v.setCreatedAt(Instant.now());
         v.setUpdatedAt(Instant.now());
         UUID actorUuid = safeParseUuid(actorId);
@@ -92,6 +95,7 @@ public class VehicleService {
                 .flatMap(saved -> Mono.deferContextual(ctx -> {
                     String tenantId = TenantContext.get(ctx);
                     return publishAudit(tenantId, saved, null, actorId, actorEmail, "CREATE")
+                            .then(publishPolicyIssued(tenantId, saved))
                             .thenReturn(saved);
                 }));
     }
@@ -116,17 +120,45 @@ public class VehicleService {
                             request.billingOverrideAmount(),
                             request.billingOverrideReason(),
                             request.billingOverrideEffectiveFrom());
+                    applyUnderwriting(existing, request.underwriting());
 
                     existing.setUpdatedAt(Instant.now());
                     existing.setUpdatedBy(safeParseUuid(actorId));
 
+                    boolean premiumChanged = !java.util.Objects.equals(
+                            previous.getWrittenPremium(), existing.getWrittenPremium());
+
                     return vehicleRepository.save(existing)
                             .flatMap(saved -> Mono.deferContextual(ctx -> {
                                 String tenantId = TenantContext.get(ctx);
-                                return publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE")
-                                        .thenReturn(saved);
+                                Mono<Void> chain = publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE");
+                                if (premiumChanged) chain = chain.then(publishPolicyIssued(tenantId, saved));
+                                return chain.thenReturn(saved);
                             }));
                 });
+    }
+
+    private static void applyUnderwriting(Vehicle v, PolicyUnderwritingFields uw) {
+        if (uw == null) return;
+        if (uw.writtenPremium() != null) v.setWrittenPremium(uw.writtenPremium());
+        if (uw.writtenPremiumCurrency() != null) v.setWrittenPremiumCurrency(uw.writtenPremiumCurrency());
+        if (uw.boundAt() != null) v.setBoundAt(uw.boundAt());
+        if (uw.coverageStart() != null) v.setCoverageStart(uw.coverageStart());
+        if (uw.coverageEnd() != null) v.setCoverageEnd(uw.coverageEnd());
+        if (uw.renewedFromPolicyId() != null) v.setRenewedFromPolicyId(uw.renewedFromPolicyId());
+        if (uw.portfolioId() != null) v.setPortfolioId(uw.portfolioId());
+        if (uw.cohortId() != null) v.setCohortId(uw.cohortId());
+    }
+
+    private Mono<Void> publishPolicyIssued(String tenantId, Vehicle v) {
+        return policyIssuedPublisher.publish(new PolicyIssuedPublisher.PolicyIssuedPayload(
+                tenantId, v.getId(), v.getRegistrationNumber(),
+                "VEHICLE_POLICY", "VEHICLE",
+                v.getWrittenPremium(), v.getWrittenPremiumCurrency(),
+                v.getCoverageStart(), v.getCoverageEnd(), v.getBoundAt(),
+                v.getOwnerMemberId(), v.getPortfolioId(), v.getCohortId(),
+                v.getRenewedFromPolicyId()
+        ));
     }
 
     @Transactional
@@ -241,6 +273,14 @@ public class VehicleService {
         c.setBillingOverrideAmount(src.getBillingOverrideAmount());
         c.setBillingOverrideReason(src.getBillingOverrideReason());
         c.setBillingOverrideEffectiveFrom(src.getBillingOverrideEffectiveFrom());
+        c.setWrittenPremium(src.getWrittenPremium());
+        c.setWrittenPremiumCurrency(src.getWrittenPremiumCurrency());
+        c.setBoundAt(src.getBoundAt());
+        c.setCoverageStart(src.getCoverageStart());
+        c.setCoverageEnd(src.getCoverageEnd());
+        c.setRenewedFromPolicyId(src.getRenewedFromPolicyId());
+        c.setPortfolioId(src.getPortfolioId());
+        c.setCohortId(src.getCohortId());
         return c;
     }
 }

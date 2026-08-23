@@ -96,10 +96,11 @@ public enum ReportKey {
     COMMISSION_STATEMENT        ("Commission statement",                    ReportFamily.COMMISSION,       true),
     COMMISSION_CLAWBACK         ("Commission clawback register",            ReportFamily.COMMISSION,       false),
 
-    // ── Premium register (Phase 12) ──────────────────────────────────────────
-    UPR_MOVEMENT                ("UPR movement",                            ReportFamily.CLAIMS_FINANCIAL, true),
-    PREMIUM_REGISTER            ("Premium register",                        ReportFamily.CLAIMS_FINANCIAL, false),
-    NEW_BUSINESS_REGISTER       ("New business register",                   ReportFamily.CLAIMS_FINANCIAL, false),
+    // ── Underwriting / premium (Phase 12) ────────────────────────────────────
+    UPR_MOVEMENT                ("UPR movement",                            ReportFamily.UNDERWRITING,     true),
+    PREMIUM_REGISTER            ("Premium register",                        ReportFamily.UNDERWRITING,     false),
+    NEW_BUSINESS_REGISTER       ("New business register",                   ReportFamily.UNDERWRITING,     false),
+    ENDORSEMENT_REGISTER        ("Endorsement register",                    ReportFamily.UNDERWRITING,     false),
 
     // ── Actuarial (Phase 14) ─────────────────────────────────────────────────
     IBNR_TRIANGLE               ("IBNR triangle",                           ReportFamily.ACTUARIAL,        false),

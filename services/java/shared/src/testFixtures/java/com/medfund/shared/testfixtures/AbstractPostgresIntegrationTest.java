@@ -29,7 +29,9 @@ public abstract class AbstractPostgresIntegrationTest {
         new PostgreSQLContainer<>("postgres:17-alpine")
             .withDatabaseName("medfund")
             .withUsername("medfund")
-            .withPassword("medfund");
+            .withPassword("medfund")
+            // See AbstractIntegrationTest for the max_connections rationale.
+            .withCommand("postgres", "-c", "max_connections=300", "-c", "shared_buffers=64MB");
 
     static {
         // Started once per JVM, NOT per test class — the @Testcontainers

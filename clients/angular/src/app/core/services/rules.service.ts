@@ -56,7 +56,9 @@ export type RuleCategory =
   // Reinsurance
   | 'REINSURANCE'
   // Commission
-  | 'COMMISSION';
+  | 'COMMISSION'
+  // Premium earning
+  | 'PREMIUM_EARNING';
 
 /**
  * Categories grouped by lifecycle stage. The Rules Engine page renders this
@@ -87,6 +89,8 @@ export const RULE_CATEGORIES: { id: RuleCategory; label: string; icon: string }[
   { id: 'REINSURANCE',          label: 'Reinsurance',          icon: 'shield-plus' },
   // Commission
   { id: 'COMMISSION',           label: 'Commission',           icon: 'percent' },
+  // Premium earning
+  { id: 'PREMIUM_EARNING',      label: 'Premium Earning',      icon: 'trending-up' },
 ];
 
 export interface RuleDefinition {
@@ -131,6 +135,8 @@ export interface DryRunRequest {
   contribution?: Record<string, unknown>;
   /** Provider payment-run fact — for PROVIDER_PAYMENT, RECONCILIATION rules. */
   paymentRun?: Record<string, unknown>;
+  /** Premium-at-bind fact — for PREMIUM_EARNING rules. */
+  premium?: Record<string, unknown>;
   /** "Today" fact — drives date-aware rules without reading the system clock. */
   time?: Record<string, unknown>;
 }

@@ -167,6 +167,10 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
       // Facultative — Browse/Queue peer-shape above).
       { label: 'Adjustments (draft)',   icon: 'edit',        route: '/tenant/finance/commission/adjustments/draft',   permissions: ['finance.commission:draft_adjustment'] },
       { label: 'Adjustments (approve)', icon: 'check-circle', route: '/tenant/finance/commission/adjustments/approve', permissions: ['finance.commission:approve_adjustment'] },
+      // Phase 12 §C Phase 10 — endorsement four-eyes review queue.
+      // Single "Endorsement Review" peer entry per plan; drafting stays
+      // on the per-policy endorsement page under /tenant/policies.
+      { label: 'Endorsement Review',    icon: 'shield',      route: '/tenant/finance/underwriting/endorsements/review-queue', permissions: ['policy:approve_endorsement'] },
       { label: 'Reports',            icon: 'chart',        route: '/tenant/finance/reports',               permissions: ['finance:view_debtors', 'finance:view_subledger'] },
     ],
   },

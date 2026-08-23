@@ -18,6 +18,7 @@ interface FactSeed {
   contribution?: Record<string, unknown>;
   paymentRun?: Record<string, unknown>;
   provider?: Record<string, unknown>;
+  premium?: Record<string, unknown>;
   time?: Record<string, unknown>;
 }
 
@@ -138,6 +139,25 @@ const FACT_SEEDS: FactSeed[] = [
       insuranceLine: 'HEALTH', dependantCount: 2,
     },
   },
+
+  // ── Premium earning (Phase 12) ─────────────────────────────────────────
+  {
+    category: 'PREMIUM_EARNING',
+    premium: {
+      policyId: '00000000-0000-0000-0000-000000000001',
+      policySource: 'LIFE_POLICY',
+      insuranceLine: 'LIFE',
+      productCode: 'TERM_LIFE',
+      tenantId: '00000000-0000-0000-0000-000000000000',
+      writtenPremium: 1200.00,
+      currencyCode: 'USD',
+      coverageStart: '2026-01-01',
+      coverageEnd: '2026-12-31',
+      boundAt: '2026-01-01T00:00:00Z',
+      portfolioId: null,
+      cohortId: null,
+    },
+  },
 ];
 
 /**
@@ -179,6 +199,7 @@ export class RuleDryRunComponent implements OnInit {
     if (seed.contribution) payload['contribution'] = seed.contribution;
     if (seed.paymentRun)   payload['paymentRun']   = seed.paymentRun;
     if (seed.provider)     payload['provider']     = seed.provider;
+    if (seed.premium)      payload['premium']      = seed.premium;
     if (seed.time)         payload['time']         = seed.time;
     // The backend always inserts a ClaimFact even if the rule doesn't use it,
     // so seed an empty object when no claim is supplied.
@@ -211,6 +232,7 @@ export class RuleDryRunComponent implements OnInit {
       lifecycle:    (parsed['lifecycle']    as Record<string, unknown>) ?? undefined,
       contribution: (parsed['contribution'] as Record<string, unknown>) ?? undefined,
       paymentRun:   (parsed['paymentRun']   as Record<string, unknown>) ?? undefined,
+      premium:      (parsed['premium']      as Record<string, unknown>) ?? undefined,
       time:         (parsed['time']         as Record<string, unknown>) ?? undefined,
     };
 

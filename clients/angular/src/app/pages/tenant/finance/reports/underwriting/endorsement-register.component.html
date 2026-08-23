@@ -1,0 +1,159 @@
+<header class="page-header">
+  <div>
+    <h1>Endorsement register</h1>
+    <p class="page-sub">
+      One row per endorsement whose effective date falls within the window.
+      Rows stay native; the per-currency strip carries |premiumDelta|
+      subtotals with best-effort FX to the reporting currency. Every
+      lifecycle status is visible via the audit trail columns.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="exporting || loading"
+    (click)="exportExcel()"
+  >
+    <app-icon name="download" [size]="14"></app-icon>
+    {{ exporting ? 'Exporting…' : 'Export Excel' }}
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input
+      type="date"
+      [(ngModel)]="periodStart"
+      (change)="onFilterChange()"
+      name="periodStart"
+      class="input"
+    />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input
+      type="date"
+      [(ngModel)]="periodEnd"
+      (change)="onFilterChange()"
+      name="periodEnd"
+      class="input"
+    />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Insurance line</span>
+    <app-select
+      [ngModel]="insuranceLine"
+      (selectionChange)="onLineChange($event)"
+      name="insuranceLine"
+      [options]="lineOptions"
+      placeholder="All lines"
+      [searchable]="false"
+    ></app-select>
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Status</span>
+    <app-select
+      [ngModel]="status"
+      (selectionChange)="onStatusChange($event)"
+      name="status"
+      [options]="statusOptions"
+      placeholder="All statuses"
+      [searchable]="false"
+    ></app-select>
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (envelope?.warnings?.length) {
+  <div class="banner banner-warning">
+    @for (w of envelope!.warnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+@if (perCurrencyList().length) {
+  <div class="kpi-strip">
+    @for (bucket of perCurrencyList(); track bucket.currency) {
+      <div class="kpi-card">
+        <span class="kpi-label">{{ bucket.currency }} |Δ premium| (native)</span>
+        <span class="kpi-value">{{ bucket.totalAmount | number:'1.2-2' }}</span>
+        <span class="kpi-meta">{{ bucket.rowCount }} endorsement{{ bucket.rowCount === 1 ? '' : 's' }}</span>
+      </div>
+    }
+    @for (fx of fxRateList(); track fx.currency) {
+      <div class="kpi-card">
+        <span class="kpi-label">FX {{ fx.currency }} → {{ envelope?.reportingCurrency }}</span>
+        <span class="kpi-value">{{ fx.rate | number:'1.4-6' }}</span>
+      </div>
+    }
+  </div>
+}
+
+@if (loading) {
+  <p>Loading…</p>
+} @else if (activeRows.length === 0) {
+  <p>No endorsements in this period.</p>
+} @else {
+  <table class="rate-table">
+    <thead>
+      <tr>
+        <th>Reference</th>
+        <th>Effective</th>
+        <th>Line</th>
+        <th>Change type</th>
+        <th>Member</th>
+        <th>Status</th>
+        <th class="num">Δ premium</th>
+        <th>Currency</th>
+        <th>Draft by</th>
+        <th>Approved</th>
+        <th>Committed</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of activeRows; track row.endorsementId) {
+        <tr>
+          <td>{{ row.reference }}</td>
+          <td>{{ row.effectiveFrom }}</td>
+          <td>{{ insuranceLineLabel(row.insuranceLine) }}</td>
+          <td>{{ row.changeType }}</td>
+          <td>{{ row.memberName }}</td>
+          <td>{{ row.status }}</td>
+          <td class="num">{{ row.premiumDelta }}</td>
+          <td>{{ row.currencyCode }}</td>
+          <td>{{ row.draftActorEmail }}</td>
+          <td>
+            @if (row.approveActorEmail) {
+              {{ row.approveActorEmail }}
+            } @else {
+              <span class="muted">—</span>
+            }
+          </td>
+          <td>
+            @if (row.commitActorEmail) {
+              {{ row.commitActorEmail }}
+            } @else {
+              <span class="muted">—</span>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

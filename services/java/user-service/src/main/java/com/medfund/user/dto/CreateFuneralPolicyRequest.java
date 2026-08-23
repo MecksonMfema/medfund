@@ -30,5 +30,7 @@ public record CreateFuneralPolicyRequest(
         UUID groupId,
 
         @NotNull
-        UUID principalMemberId
+        UUID principalMemberId,
+
+        PolicyUnderwritingFields underwriting
 ) {}

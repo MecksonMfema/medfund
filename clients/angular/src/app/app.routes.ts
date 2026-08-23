@@ -76,6 +76,8 @@ export const routes: Routes = [
       // Phase 11 — producer / broker module (Producer + Rate Card CRUD +
       // assignments; commission reports land under /tenant/finance/reports/commission/*).
       { path: 'producers', loadChildren: () => import('./pages/tenant-admin/producers/producers.routes').then(m => m.PRODUCERS_ROUTES), data: { title: 'Producers' } },
+      // Phase 12 §A — underwriting (IFRS 17 portfolios + cohorts + legacy retrofit).
+      { path: 'underwriting', loadChildren: () => import('./pages/tenant-admin/underwriting/underwriting.routes').then(m => m.UNDERWRITING_ROUTES), data: { title: 'Underwriting' } },
     ],
   },
   // Operational portal — sibling of /tenant/admin/*, same TenantLayoutComponent

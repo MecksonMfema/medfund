@@ -45,5 +45,7 @@ public record CreatePropertyRequest(
 
         UUID groupId,
 
-        UUID ownerMemberId
+        UUID ownerMemberId,
+
+        PolicyUnderwritingFields underwriting
 ) {}

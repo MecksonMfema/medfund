@@ -70,6 +70,16 @@ public class Scheme {
     @Column("annual_member_cap")
     private BigDecimal annualMemberCap;
 
+    /**
+     * V102 (Phase 12 §A grill note 12) — tenant-configured IFRS 17 portfolio
+     * that HEALTH billing inherits onto each new {@code Contribution}. Null
+     * for tenants not yet configuring underwriting; the earning-schedule
+     * hook falls back to leaving {@code contribution.portfolioId} null and
+     * the reports treat it as MISC.
+     */
+    @Column("default_portfolio_id")
+    private UUID defaultPortfolioId;
+
     @CreatedDate
     @Column("created_at")
     private Instant createdAt;
@@ -123,6 +133,9 @@ public class Scheme {
 
     public BigDecimal getAnnualMemberCap() { return annualMemberCap; }
     public void setAnnualMemberCap(BigDecimal annualMemberCap) { this.annualMemberCap = annualMemberCap; }
+
+    public UUID getDefaultPortfolioId() { return defaultPortfolioId; }
+    public void setDefaultPortfolioId(UUID defaultPortfolioId) { this.defaultPortfolioId = defaultPortfolioId; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

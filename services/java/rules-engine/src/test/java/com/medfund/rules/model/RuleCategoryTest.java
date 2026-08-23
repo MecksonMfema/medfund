@@ -28,9 +28,19 @@ class RuleCategoryTest {
     }
 
     @Test
+    void premiumEarningCategory_isDeclared() {
+        // Phase 12 addition — used by ACCRUE_PREMIUM emitter + premium-earning
+        // templates. Agenda-gated so it only fires when the premium consumer
+        // in contributions-service focuses the group on a policy-issued event
+        // or during the nightly period-close pass.
+        assertThat(RuleCategory.valueOf("PREMIUM_EARNING"))
+                .isEqualTo(RuleCategory.PREMIUM_EARNING);
+    }
+
+    @Test
     void enumHasExpectedCatalogSize() {
         // Guardrail: if this fires, a new category was added — update the
         // Angular RULE_CATEGORIES + permissions catalog + tenant rules docs.
-        assertThat(RuleCategory.values()).hasSize(18);
+        assertThat(RuleCategory.values()).hasSize(19);
     }
 }

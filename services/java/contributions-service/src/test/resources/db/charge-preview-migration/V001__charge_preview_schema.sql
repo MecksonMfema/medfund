@@ -66,6 +66,7 @@ CREATE TABLE schemes (
     currency_code   VARCHAR(3),
     effective_date  DATE,
     end_date        DATE,
+    default_portfolio_id UUID,
     created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
@@ -182,6 +183,8 @@ CREATE TABLE contributions (
     payment_reference VARCHAR(100),
     paid_at         TIMESTAMPTZ,
     insurance_line  VARCHAR(32),
+    portfolio_id    UUID,
+    cohort_id       UUID,
     created_at      TIMESTAMPTZ,
     updated_at      TIMESTAMPTZ,
     created_by      UUID,

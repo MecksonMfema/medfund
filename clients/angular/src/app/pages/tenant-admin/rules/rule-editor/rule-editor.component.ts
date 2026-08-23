@@ -64,6 +64,9 @@ const ACTION_TYPES: { id: string; label: string; description: string; valueHint?
 
   // Commission (Phase 11)
   { id: 'PAY_COMMISSION',       label: 'Pay commission',       description: 'Record a commission accrual against a producer. Value picks between a rate-card lookup and a basis-point kicker on top of the base.', valueHint: 'RATE_CARD:<uuid>  or  KICKER:<bp>[:<reason>]' },
+
+  // Premium earning (Phase 12)
+  { id: 'ACCRUE_PREMIUM',       label: 'Accrue premium',       description: 'Pick an earning method for the policy at bind time. Value encodes the method and an optional front-loaded percent for LINEAR_WITH_LOADING.', valueHint: 'EARNING_METHOD:DAILY_LINEAR  or  EARNING_METHOD:MONTHLY_24THS  or  EARNING_METHOD:LINEAR_WITH_LOADING:15' },
 ];
 
 interface EditorFormState {

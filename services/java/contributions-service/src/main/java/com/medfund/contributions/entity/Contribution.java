@@ -86,9 +86,23 @@ public class Contribution {
     @Column("age_group_id")
     private UUID ageGroupId;
 
+    /** IFRS 17 portfolio inherited from the member's scheme at bill-generation time (V102, grill note 12). */
+    @Column("portfolio_id")
+    private UUID portfolioId;
+
+    /** IFRS 17 cohort inherited from the member's scheme at bill-generation time (V102). */
+    @Column("cohort_id")
+    private UUID cohortId;
+
     // Getters and setters
     public UUID getInvoiceId() { return invoiceId; }
     public void setInvoiceId(UUID invoiceId) { this.invoiceId = invoiceId; }
+
+    public UUID getPortfolioId() { return portfolioId; }
+    public void setPortfolioId(UUID portfolioId) { this.portfolioId = portfolioId; }
+
+    public UUID getCohortId() { return cohortId; }
+    public void setCohortId(UUID cohortId) { this.cohortId = cohortId; }
 
     public UUID getDependantId() { return dependantId; }
     public void setDependantId(UUID dependantId) { this.dependantId = dependantId; }

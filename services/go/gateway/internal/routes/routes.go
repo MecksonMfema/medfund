@@ -80,6 +80,14 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/travel-policies/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/disability-policies", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/disability-policies/*", proxy.Handler(cfg.UserServiceURL))
+	// Phase 12 §A — IFRS 17 portfolio + cohort CRUD (line-agnostic).
+	app.All("/api/v1/underwriting/portfolios", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/underwriting/portfolios/*", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/underwriting/cohorts", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/underwriting/cohorts/*", proxy.Handler(cfg.UserServiceURL))
+	// Phase 12 §C — endorsement CRUD (draft/approve/commit/void/markComputed).
+	app.All("/api/v1/endorsements", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/endorsements/*", proxy.Handler(cfg.UserServiceURL))
 
 	// ── Claims Service ────────────────────────────────────────────────────────
 	app.All("/api/v1/claims/*", proxy.Handler(cfg.ClaimsServiceURL))
@@ -110,6 +118,8 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/transactions", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/transactions/*", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/billing/*", proxy.Handler(cfg.ContribServiceURL))
+	// Phase 12 §A — earning-schedule admin surface (backfill / replay / runs).
+	app.All("/api/v1/premium/*", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/waiting-periods", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/waiting-periods/*", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/scheme-change-waiting-periods", proxy.Handler(cfg.ContribServiceURL))
@@ -144,6 +154,18 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// finance-service /aggregate/outflows). Path-specific per D8-10.
 	app.All("/api/v1/reports/cash-flow-forecast", proxy.Handler(cfg.ContribServiceURL))
 	app.All("/api/v1/reports/cash-flow-forecast/*", proxy.Handler(cfg.ContribServiceURL))
+	// Phase 12 §C Phase 9 — endorsement register report lives in user-service
+	// (endorsement is a user-service entity per G2). Registered BEFORE the
+	// broader /reports/premium/* wildcard so Fiber's registration-order
+	// dispatch routes it to user-service, not contributions-service.
+	app.All("/api/v1/reports/premium/endorsements", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/reports/premium/endorsements/*", proxy.Handler(cfg.UserServiceURL))
+	// Phase 12 §B underwriting-report family — UPR movement, premium
+	// register, new business register. Lives in contributions-service
+	// because the earning_schedule table it aggregates over is co-located
+	// with billing (G2 data ownership).
+	app.All("/api/v1/reports/premium", proxy.Handler(cfg.ContribServiceURL))
+	app.All("/api/v1/reports/premium/*", proxy.Handler(cfg.ContribServiceURL))
 
 	// ── Finance Service ───────────────────────────────────────────────────────
 	app.All("/api/v1/payments/*", proxy.Handler(cfg.FinanceServiceURL))

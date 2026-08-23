@@ -18,6 +18,11 @@ dependencies {
     api("io.micrometer:micrometer-tracing-bridge-otel")
     api("io.opentelemetry:opentelemetry-exporter-otlp")
 
+    // Actuator on the compile classpath so shared modules can declare
+    // ReactiveHealthIndicator beans (e.g. R2dbcPoolHealthIndicator).
+    // Each service still declares actuator as runtimeOnly for endpoint wiring.
+    api("org.springframework.boot:spring-boot-starter-actuator")
+
     // Permission enforcement: AOP for @RequiresPermission, Caffeine for the
     // per-(tenant,user) permission cache with 60-s TTL.
     api("org.springframework.boot:spring-boot-starter-aop")

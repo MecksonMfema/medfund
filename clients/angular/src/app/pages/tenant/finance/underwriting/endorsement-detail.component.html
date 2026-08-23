@@ -1,0 +1,129 @@
+<header class="page-header">
+  <div>
+    <h1>Endorsement detail</h1>
+    <p class="page-sub">
+      Full lifecycle for one endorsement. Approve / commit / void controls
+      mirror the review queue.
+      <a [routerLink]="['/tenant/finance/underwriting/endorsements/review-queue']">
+        ← Back to queue
+      </a>
+    </p>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+@if (loading) {
+  <div class="loading">Loading…</div>
+} @else if (!row) {
+  <div class="empty">Endorsement not found.</div>
+} @else {
+  <dl class="detail-grid">
+    <dt>Status</dt>
+    <dd><span class="status-pill" [attr.data-status]="row.status">{{ row.status }}</span></dd>
+
+    <dt>Reference</dt>
+    <dd>{{ row.reference }}</dd>
+
+    <dt>Policy</dt>
+    <dd>
+      <a [routerLink]="['/tenant/policies/endorsements', row.policySource, row.policyId]">
+        {{ row.policySource }} / {{ row.policyId }}
+      </a>
+    </dd>
+
+    <dt>Change type</dt>
+    <dd>{{ row.changeType }}</dd>
+
+    <dt>Effective from</dt>
+    <dd>{{ row.effectiveFrom }}</dd>
+
+    <dt>Δ premium (native)</dt>
+    <dd>
+      @if (row.premiumDelta != null) {
+        {{ row.premiumDelta }} {{ row.currencyCode || '' }}
+      } @else {
+        <span class="muted">— (non-financial change)</span>
+      }
+    </dd>
+
+    <dt>Reason</dt>
+    <dd>{{ row.reason }}</dd>
+  </dl>
+
+  <h3>Audit trail</h3>
+  <ul class="timeline">
+    <li class="done">
+      <strong>DRAFT</strong>
+      <small>{{ row.draftActorEmail }} · {{ row.draftAt | date:'yyyy-MM-dd HH:mm' }}</small>
+    </li>
+    @if (row.approveAt) {
+      <li class="done">
+        <strong>APPROVED</strong>
+        <small>{{ row.approveActorEmail }} · {{ row.approveAt | date:'yyyy-MM-dd HH:mm' }}</small>
+      </li>
+    }
+    @if (row.commitAt) {
+      <li class="done">
+        <strong>COMMITTED</strong>
+        <small>{{ row.commitActorEmail }} · {{ row.commitAt | date:'yyyy-MM-dd HH:mm' }}</small>
+      </li>
+    }
+    @if (row.voidedAt) {
+      <li class="done">
+        <strong>VOIDED</strong>
+        <small>{{ row.voidedReason }} · {{ row.voidedAt | date:'yyyy-MM-dd HH:mm' }}</small>
+      </li>
+    }
+  </ul>
+
+  <div class="tx-toolbar">
+    @if (row.status === 'DRAFT') {
+      <button type="button" class="btn btn-primary"
+              [disabled]="actionInProgress || isSameActor() || !canApprove()"
+              [title]="isSameActor() ? 'Four-eyes: cannot approve your own draft' : ''"
+              (click)="approve()">Approve</button>
+    }
+    @if (row.status === 'APPROVED') {
+      <button type="button" class="btn btn-primary"
+              [disabled]="actionInProgress || !canApprove()"
+              (click)="commit()">Commit</button>
+    }
+    @if (row.status === 'DRAFT' || row.status === 'APPROVED') {
+      <button type="button" class="btn btn-danger"
+              [disabled]="actionInProgress || !canApprove()"
+              (click)="openVoid()">Void</button>
+    }
+  </div>
+}
+
+@if (voidOpen) {
+  <div class="modal-backdrop" (click)="cancelVoid()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <h3>Void endorsement</h3>
+      <p class="modal-sub">
+        Reason is recorded on the audit trail. Once VOIDED the row is
+        terminal — no further transitions.
+      </p>
+      <label>
+        <span>Reason <em>(min 5 chars)</em></span>
+        <textarea rows="4" maxlength="500"
+                  [(ngModel)]="voidReason"
+                  placeholder="e.g. drafter withdrew request"></textarea>
+      </label>
+      @if (voidError) { <div class="banner banner-error">{{ voidError }}</div> }
+      <div class="modal-actions">
+        <button type="button" class="btn"
+                (click)="cancelVoid()"
+                [disabled]="voidSubmitting">Cancel</button>
+        <button type="button" class="btn btn-danger"
+                (click)="submitVoid()"
+                [disabled]="voidSubmitting">
+          {{ voidSubmitting ? 'Voiding…' : 'Void endorsement' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

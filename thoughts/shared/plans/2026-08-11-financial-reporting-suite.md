@@ -20,10 +20,11 @@ phases_status:
   "8": grilled 2026-08-16 (D8-1..D8-10, contributions-service placement per outline + reverse FinanceClient, inflow=unpaid invoices by due_date, outflow=draft+approved runs by created_at, asOf+rollingWeeks window, per-currency no-conversion forecast, portfolio-level collection-rate trend in finance, AGED_BALANCES route key); landed 2026-08-16 (13-week cash-flow forecast backend + Excel in contributions, outflow feed + collection-rate trend in finance, aged-debtors page + FinanceClient, gateway routes, Angular pages + fixes, unit/IT, Playwright 2/2)
   "9": grilled 2026-08-16 (D9-1..D9-9, 5 stubs + revenue-by-tenant chart + super-admin middleware + tenant-growth server-side); landed 2026-08-22 (5 platform-analytics endpoints across claims/contributions/finance/tenancy + super-admin gateway middleware + bucket/money-sum helpers + Angular bar chart; gateway 11-case Go tests + tenancy IT + finance/contributions FX-arithmetic unit tests; full schema-fanout ITs deferred to follow-up hardening pass per Success Criteria)
   "10": grilled 2026-08-22 (R1-R16 — reinsurance decisions numbered R* to avoid collision with plan-wide G* numbering; recommended §A/§B tranche split: §A = entities + auto-cession loss + 3 reports, §B = facultative UI + premium cession + review queue + retro backfill; full expanded scope replaces the 20-line outline); §A landed 2026-08-16 (commit 0a689f4 "Land Phases 1-5 of the reinsurance module (Phase 10 §A)"); §B landed 2026-08-16 (commit e6907ec "Land Phases 6-8 of the reinsurance module") via sub-plan thoughts/shared/plans/2026-08-22-reinsurance-module-and-bordereau-reports.md
-  "11": grilled 2026-08-22 (P1-P14 — producer/broker decisions numbered P* to avoid collision with plan-wide G* and reinsurance R* numbering; §A/§B tranche split expanded to code altitude in sub-plan thoughts/shared/plans/2026-08-22-producer-broker-module-and-commission-reports.md); §A + §B implementation complete 2026-08-23 in working tree (all 10 sub-plan phases green on unit + compile automated verification; ITs partially deferred under Testcontainers pressure; Playwright + manual `verify` walkthroughs pending; work uncommitted at implement-plan hand-off)
-  "12-19": outline depth; each needs its own grilling pass before implementation
-last_grilled_phase: 11
-last_grilled_date: 2026-08-22
+  "11": grilled 2026-08-22 (P1-P14 — producer/broker decisions numbered P* to avoid collision with plan-wide G* and reinsurance R* numbering; §A/§B tranche split expanded to code altitude in sub-plan thoughts/shared/plans/2026-08-22-producer-broker-module-and-commission-reports.md); §A + §B implementation complete 2026-08-23 (commit 55c3689 "Land Phase 11 of the financial-reporting suite" — 210 files across producer entities, commission engine, rate cards, PaymentRun PRODUCER payee widening, four Kafka consumers, auto-lapse chain, four-eyes CommissionAdjustment, producer termination + bulk-reassign, treaty producer_id backfill review; Playwright + manual `verify` walkthroughs still pending per sub-plan)
+  "12": grilled 2026-08-23 (U1-U15 — UPR + premium register decisions numbered U* to avoid collision with plan-wide G*, reinsurance R*, producer P* numbering; recommended §0 harness / §A foundation / §B reports / §C endorsements tranche split; scope escalated beyond outline to all 8 lines + rules-engine RuleCategory.PREMIUM_EARNING + full endorsement module with retro recompute + IFRS 17 portfolio/cohort speculative schema; full expanded scope replaces the 12-line outline)
+  "13-19": outline depth; each needs its own grilling pass before implementation
+last_grilled_phase: 12
+last_grilled_date: 2026-08-23
 ---
 
 # Financial Reporting Suite Implementation Plan
@@ -3088,17 +3089,213 @@ Greenfield producer/broker vertical in `services/java/finance-service/src/main/j
 
 ## Phase 12: UPR Earning Schedule + Premium Register
 
+> **Grilled 2026-08-23.** Decisions U1..U15 (numbered U* — for Underwriting — to avoid collision with plan-wide G*, reinsurance R*, and producer P* numbering).
+> The outline was expanded into a full mini-plan through interactive decision-making; scope escalated
+> substantially beyond the original outline (all 8 lines + rules-engine `RuleCategory.PREMIUM_EARNING`
+> + full endorsement module with retro recompute + IFRS 17 portfolio/cohort speculative schema).
+> Recommended split into **§0** (Testcontainers harness fix), **§A** (schema-widening + earning schedule
+> foundation + rules-engine wiring), **§B** (three reports + Angular hub + `UNDERWRITING` family),
+> **§C** (full endorsement module with four-eyes above configurable threshold + retro recompute +
+> `ENDORSEMENT_REGISTER` key + Angular admin surface). §0 pays down existing IT debt; §A ships the
+> silent accrual engine; §B lights up user-facing reports; §C completes the premium-lifecycle module.
+> Original 12-line outline retained below as ~~strike-through~~ for provenance.
+
+### Original outline (superseded 2026-08-23 by Decisions Log)
+
+~~Unearned Premium Reserve movement + earned/written premium register + new business + endorsement register.~~
+
+~~**contributions-service** (or new `premium/` package): `earning_schedule`, `upr_movement` tables.~~
+~~Earning-strip calculation service — daily @Scheduled job that computes earned premium per policy per day.~~
+~~`PremiumRegisterController`: `/reports/premium/upr-movement`, `/reports/premium/register`, `/reports/premium/new-business`. Report keys `UPR_MOVEMENT`, `PREMIUM_REGISTER`, `NEW_BUSINESS_REGISTER`.~~
+
 ### Overview
 
-Unearned Premium Reserve movement + earned/written premium register + new business + endorsement register.
+Greenfield premium-lifecycle module in `services/java/contributions-service/src/main/java/com/medfund/contributions/premium/*` (U3 — honors G2 data-ownership; sits alongside `BillingService` + `BillingCycleExecutor`). Ships **written premium capture at bind time** for all 8 insurance lines (per U1 + U2 mixed-billing: annual-bind for LIFE/FUNERAL/DISABILITY/VEHICLE/PROPERTY, monthly for HEALTH via `Contribution`, per-trip for TRAVEL), a **line-configurable earning engine** driven by a new `RuleCategory.PREMIUM_EARNING` in rules-engine (U4 + U11 — agenda-gated alongside `REINSURANCE`, `COMMISSION`, `BENEFIT_PRORATION`), a **per-policy-per-period `earning_schedule` materialization** (U7) with nightly `PremiumEarningExecutor` (U10), and four tenant-toggleable reports under a new `ReportFamily.UNDERWRITING` (U9): `UPR_MOVEMENT`, `PREMIUM_REGISTER`, `NEW_BUSINESS_REGISTER` (all three keys already ship in `ReportKey.java:100-102` — enum edit only reassigns family), plus `ENDORSEMENT_REGISTER` (new key, added §C).
 
-### Changes Required (outline)
+Ships a **full endorsement module in §C** (U5) with retro earning-schedule recompute (U8) and tenant-configurable four-eyes threshold (U12) mirroring Phase 11 `CommissionAdjustment` shape. Speculatively adds **IFRS 17 portfolio + cohort dimensions in §A** (U14) so Phase 15 IFRS 17 doesn't need a schema reshape on populated tenants. New-business classification is **policy-centric with a `renewed_from_policy_id` renewal chain** (U6) mirroring Phase 10 R11 Treaty pattern; HEALTH new business = member's first Contribution ever within the tenant.
 
-- **contributions-service** (or new `premium/` package): `earning_schedule`, `upr_movement` tables.
-- Earning-strip calculation service — daily @Scheduled job that computes earned premium per policy per day.
-- `PremiumRegisterController`: `/reports/premium/upr-movement`, `/reports/premium/register`, `/reports/premium/new-business`. Report keys `UPR_MOVEMENT`, `PREMIUM_REGISTER`, `NEW_BUSINESS_REGISTER`.
+All Phase 0-11 shared infra composes on top (`ReportEnvelopeBuilder`, `ReportingCurrencyResolver`, `FxRateReader`, `ReportWorkbook`, `CrossServiceCallHelper`, `RequiresReport` + `ReportGuardAspect`, `SecurityEventPublisher`, `AuditActor`). Multi-currency policy per U8 = native storage in policy's original currency; retro recompute preserves currency; missing FX at report time = envelope warning (parent-plan invariant #6 / G28).
 
-**Grilling checkpoint** required.
+**§0 pre-work (U15)**: fix the Testcontainers pool pressure that has caused IT deferrals in Phase 9 + 11 (`testcontainers.reuse.enable=true` across services/java/*, extract `AbstractIntegrationTest` base classes in contributions-service + user-service, tune R2DBC connection ceilings, add pool-starvation health check). Once §0 stabilises the 25 pre-existing IT flakes, Phase 12 §A/§B/§C ITs land in-tranche without deferral.
+
+### Decisions Log (U1..U15)
+
+- **U1 — Line scope**: **all 8 lines with schema-widening pass**. Adds `written_premium` + `written_premium_currency` + `bound_at` + `coverage_start` + `coverage_end` + `renewed_from_policy_id` + `status` enum arm + `portfolio_id` + `cohort_id` (per U14) to LifePolicy, FuneralPolicy, DisabilityPolicy, VehiclePolicy, PropertyPolicy. TravelPolicy adds `written_premium` + `written_premium_currency` (already has trip dates). HEALTH's Contribution stays as-is (already has period + currency); portfolio_id + cohort_id additive on Contribution too. Rejected: HEALTH-only (rebrand of Phase 3 receipts), HEALTH + TRAVEL only (defers 5 lines to Phase 12b + blocks IFRS 17).
+- **U2 — Written premium capture**: **line-mixed** — annual bind for LIFE / FUNERAL / DISABILITY / VEHICLE / PROPERTY (fixed at issuance); monthly for HEALTH via `Contribution.amount` (re-underwrites each period); per-trip for TRAVEL (bound at trip creation). Earning-strip service dispatches by line. Rejected: universal annual-bind (breaks HEALTH monthly re-underwrite; contradicts Phase 11 auto-lapse assumption), universal monthly-bind (materially wrong P&L for annual policies), configurable earning_basis table (3x model complexity for no gain).
+- **U3 — Module home**: **contributions-service `com.medfund.contributions.premium.*` subpackage**. Honors G2 data-ownership rule (Contribution + BillingService already live here; daily earning-strip job sits alongside BillingCycleExecutor); reuses Phase 8 reverse-`FinanceClient` pattern if cross-service data needed. Rejected: finance-service (mirrors reinsurance/producer precedent but disconnects the daily job from the billing loop), split (double coordination cost), new premium-service (~1 week DevOps cost for zero gain).
+- **U4 — Earning method**: **line-configurable via rules-engine `RuleCategory.PREMIUM_EARNING`** (new agenda-gated category). Ships 3 templates: `DAILY_LINEAR` (1/coverage_days per day, line-agnostic default), `MONTHLY_24THS` (1/24 in bind month + 23/24 across next 23 half-months, for IPEC-jurisdiction opt-in), `LINEAR_WITH_LOADING` (front-load configurable % at bind then linear remainder). Rejected: hard-coded 1/365ths (loses configurability), 24ths-with-tenant-config (two algorithms for one clear standard), per-policy custom schedule (unbounded storage growth).
+- **U5 — Endorsement scope**: **full endorsement module in Phase 12 §C** (new tranche after §A/§B). Ships endorsement table + `PolicyEndorsementService` + `medfund.user.policy-endorsed` publisher + retro earning-schedule recompute + `ENDORSEMENT_REGISTER` key + Angular admin surface + four-eyes above tenant-configurable threshold (per U12). Rejected: defer to Phase 12b (Overview sentence becomes stale; Phase 15 blocked), stub-only (report is decorative without recompute), close-and-reopen (violates policy identity invariant).
+- **U6 — New business classification**: **policy-centric with renewal chain**. Add `renewed_from_policy_id UUID NULL SELF-FK` to each annual-bind policy — mirrors Phase 10 R11 Treaty pattern exactly (`renewed_from_treaty_id`). A policy is "new business" if `bound_at` in reporting period AND `renewed_from_policy_id IS NULL`. TRAVEL: each trip is a new bind (renewed_from = NULL always). HEALTH: new business = member's first Contribution ever within the tenant (LEFT JOIN on `min(created_at) per member`). Enrolment/renewal flow must set `renewed_from_policy_id` correctly — IT guard required. Rejected: member-centric (mis-classifies cross-sell), any-bind (regulator-invalid), tenant-configurable via rules (overengineered for a definition question with a clear answer).
+- **U7 — Storage grain**: **materialized per-policy-per-period + on-demand daily interpolation**. `earning_schedule(policy_id, period_start, period_end, written_amount, earned_at_period_end, currency_code, is_endorsement, endorsement_id NULL, portfolio_id, cohort_id)` — one row per policy per billing/coverage period. Nightly `PremiumEarningExecutor` (per U10) closes periods whose `end_date <= today` by setting `earned_at_period_end = written_amount`. Report queries: `SUM(earned_at_period_end WHERE period_end < asOf)` + `LINEAR_INTERPOLATE(row WHERE period spans asOf)`. Endorsement recompute (§C) rewrites only affected period rows. Storage: ~100k policies × ~12 periods/year = ~1.2M rows/year/line — manageable. **Contradicts the outline's "per policy per day"** — Deviations entry required. Rejected: per-day materialization (109M rows/line/3-year — needs partitioning day 1), lazy compute (3-year loss-ratio becomes minutes-slow), journal-style event log (event-ordering discipline + no repo precedent).
+- **U8 — Multi-currency + retro-recompute FX policy**: **store native + always in policy's original currency; endorsement recompute preserves currency**. `earning_schedule.currency_code` = policy's `written_premium_currency` (annual lines) or `Contribution.currency_code` (HEALTH), fixed at row creation. Endorsements adjust `delta_amount` in the same currency (never re-denominate). Report envelope converts to `reporting_currency` via `FxRateReader.convert` at the row's `period_end` date (not the endorsement date) — preserves "earned in the currency it was originally denominated in". Missing FX for a historical `period_end` → currency omitted from envelope `fxRates` + warning row. Matches Phase 10 R7 + Phase 11 CommissionTransaction precedents. Rejected: convert-on-write (violates invariant #6; blocks daily job on missing FX), endorsement-uses-today's-FX (fragments storage grain per period), fail-loud on report (crashes 3-year UPR on one missing legacy rate).
+- **U9 — Report family**: **new `ReportFamily.UNDERWRITING`** covering `UPR_MOVEMENT`, `PREMIUM_REGISTER`, `NEW_BUSINESS_REGISTER`, `ENDORSEMENT_REGISTER`. Matches insurance-industry naming (Underwriting P&L). Small edits: `ReportKey.java` (change family assignment on 3 existing keys + add `ENDORSEMENT_REGISTER`), `ReportFamily.java` (add `UNDERWRITING`), Angular family-label service. Rejected: `PREMIUM` (UPR is a liability, not a premium), keep as CLAIMS_FINANCIAL (semantically misleading), split into 2 families (fragments hub).
+- **U10 — Job cadence**: **nightly `PremiumEarningExecutor` + resumable + on-demand backfill**. Single `JobExecutor` in contributions-service, defaults to nightly 02:00 UTC, tenant-configurable via `scheduled_job_configs` (V114 pattern). Each run: (1) enumerate ACTIVE policies with no `earning_schedule` row for the current period; write initial row(s). (2) enumerate rows with `period_end <= today AND earned_at_period_end IS NULL`; close them. (3) enumerate §C endorsements arrived since last-run-timestamp; recompute affected rows. Idempotent via `UNIQUE (policy_id, period_start, COALESCE(endorsement_id, '00000000-0000-0000-0000-000000000000'::uuid))` partial index. Admin `POST /api/v1/premium/earning-schedule/backfill?policyId=` forces rebuild. Rejected: hourly (24x pool pressure, most tenants EOD-only), weekly (3-day stale reports for regulator submission), event-only (needs a scheduler somewhere anyway; Kafka loss = missing rows).
+- **U11 — Rules-engine wiring**: **agenda-gated + new `PremiumFact` + new `AccruePremiumEmitter` + fires at bind time + on-demand replay when tenant edits a rule**. Add `PREMIUM_EARNING` to `AGENDA_GATED_CATEGORIES` in `DrlCompiler` (mirrors Phase 11 addition of `COMMISSION`). Add `ActionType.ACCRUE_PREMIUM`. New `PremiumFact` class: `{policy_id, insurance_line, product_code, tenant_id, written_premium, currency_code, coverage_start, coverage_end, bound_at, portfolio_id, cohort_id}`. New `AccruePremiumEmitter` mirroring `PayCommissionEmitter` shape (action-value DSL: `EARNING_METHOD:DAILY_LINEAR`, `EARNING_METHOD:MONTHLY_24THS`, `LOADING:<percent>`). Rules fire at bind time (issuance-event consumer runs one rules session per policy) — resolves earning method + writes `earning_schedule` rows synchronously. Tenant editing a rule → `POST /api/v1/premium/earning-schedule/replay?policyId=` or `?ruleId=`. Documented gotcha: bind-time rules can't respond to "as of" recomputation — an endorsement uses the rule live at endorsement time, not bind time. Rejected: extend `ContributionFact` (god-object mixing billing + earning), non-agenda-gated (cross-firing side effects), skip rules-engine (contradicts U4).
+- **U12 — Endorsement approval workflow (§C)**: **tenant-configurable threshold; below auto-commits, above requires four-eyes**. New `public.tenant_endorsement_config(tenant_id UUID PK, four_eyes_threshold_amount NUMERIC NULL, threshold_currency CHAR(3) NULL, enabled BOOLEAN DEFAULT FALSE, actor_id, actor_email)` — matches V127/V128/V132/V133 tenant-config pattern. If disabled or threshold NULL, every endorsement auto-commits. Otherwise `|premium_delta|` > threshold → endorsement enters DRAFT → APPROVED → COMMITTED → VOIDED (mirrors Phase 11 CommissionAdjustment). Two permissions: `policy:draft_endorsement` (all tenant admins) + `policy:approve_endorsement` (supervisor). Retro earning-schedule recompute fires on **COMMIT only** (not on DRAFT). Rejected: uniform four-eyes (blocks trivial CRUD), auto-commit-only (no signoff on material changes), DRAFT→APPROVE-only (no COMMITTED terminal state; can't unvoid).
+- **U13 — Tranche split**: **§0 harness | §A foundation | §B reports | §C endorsements** (see full contents in Proposed §0/§A/§B/§C tranche split section below). Rejected: §A+reports+§B endorsements (§A too large — "one giant PR" pattern), §A schema-only+§B rest (schema-widening without app-code adds no value), §A schema+silent job / §B reports+endorsements (same giant-PR risk).
+- **U14 — IFRS 17 portfolio/cohort dimensions**: **added speculatively in Phase 12 §A**. New tenant tables `ifrs17_portfolio(id, name, description, is_active)` + `ifrs17_cohort(id, portfolio_id FK, cohort_year INT, cohort_type ENUM{ONEROUS, NON_ONEROUS, UNCERTAIN})`. FK columns `portfolio_id UUID NULL` + `cohort_id UUID NULL` added to each of the 6 policy entities and to `Contribution` + `earning_schedule`. Default single-portfolio + single-cohort populated at bind time for tenants who don't configure. Tenant-admin UI "map policies to portfolios" in §A (basic CRUD only; sophisticated portfolio-management belongs to Phase 15). Grill note owed back to Phase 15: schema alignment with LRC / LIC / CSM measurement to be verified at Phase 15 grill. Rejected: defer to Phase 15 (backfill on populated data = chunked-migration pain), PremiumClient contract (cross-service hop per report), throwaway Phase 12 (wastes months of engineering).
+- **U15 — Testing strategy**: **§0 pre-work fixing Testcontainers pool pressure**. New tranche before §A: enable `testcontainers.reuse.enable=true` across `services/java/*/build.gradle.kts`; extract `AbstractIntegrationTest` base class in contributions-service + user-service (finance-service already has one); tune R2DBC connection ceilings; add pool-starvation health check. Once §0 lands and the 25 pre-existing IT flakes stabilise, Phase 12 §A/§B/§C ITs land in-tranche without deferral. Rejected: match Phase 11 defer-pattern (accumulates more testing debt; hasn't been paid down after 9 + 11), WebFlux-slice-only (loses schema-integration coverage; violates parent plan testing strategy), per-service Docker Compose test-DB (rewrites every existing IT pattern; no repo precedent).
+
+### Settled by fact (not asked)
+
+- **F12-1 — All Phase 0-11 shared infra composes cleanly**: `ReportEnvelopeBuilder` (services/java/shared/src/main/java/com/medfund/shared/report/ReportEnvelopeBuilder.java:1), `FxRateReader.findRate/.convert` (services/java/shared/src/main/java/com/medfund/shared/report/FxRateReader.java:30-50), `ReportWorkbook`, `@RequiresReport` + `ReportGuardAspect`, `SecurityEventPublisher.publishDataAccess`, `AuditActor.id/email`, `ReportingCurrencyResolver`, `CrossServiceCallHelper`. Zero new plumbing.
+- **F12-2 — `ReportKey.UPR_MOVEMENT`, `PREMIUM_REGISTER`, `NEW_BUSINESS_REGISTER` already ship** in `services/java/shared/src/main/java/com/medfund/shared/report/ReportKey.java:100-102`, currently under `ReportFamily.CLAIMS_FINANCIAL` (`ReportFamily.java:20`). Phase 12 reassigns them to new `UNDERWRITING` family (per U9) and adds `ENDORSEMENT_REGISTER` key. **No `ENDORSEMENT_REGISTER` today**; **no `PREMIUM` / `UNEARNED_PREMIUM` family**.
+- **F12-3 — Next migration numbers**: **tenant V102** (last: `services/java/tenancy-service/src/main/resources/db/migration/tenant/V101__member_lapsed_status.sql`), **public V134** (last: `services/java/tenancy-service/src/main/resources/db/migration/public/V133__tenant_auto_lapse_config.sql`).
+- **F12-4 — 100% greenfield**. Zero hits on `UPR`, `unearned`, `earned_premium`, `earning_schedule`, `endorsement`, `new_business`, `policy_issuance` across services/java, clients/angular — except the three enum stubs (F12-2).
+- **F12-5 — contributions-service jobs use tenant-configurable `JobExecutor`** (V114), not raw `@Scheduled`. Reference: `services/java/contributions-service/src/main/java/com/medfund/contributions/job/BillingCycleExecutor.java:14-41`, `OverdueCheckExecutor.java:14-42`. Phase 12's `PremiumEarningExecutor` (per U10) must ship as an executor. Corrects the outline's `@Scheduled` wording.
+- **F12-6 — HEALTH has no policy entity** — uses `Contribution` (`services/java/contributions-service/src/main/java/com/medfund/contributions/entity/Contribution.java:14`) with `amount`, `currency_code`, `period_start`, `period_end`. Other 5 lines (LIFE / FUNERAL / DISABILITY / VEHICLE / PROPERTY) have policy entities in **user-service**; TRAVEL too (with trip dates).
+- **F12-7 — Policy period + currency asymmetry** — of 6 policy entities: TravelPolicy has `trip_start_date` + `trip_end_date`; LifePolicy has `term_months` only (no date range); FuneralPolicy / DisabilityPolicy / Vehicle / Property have no coverage-period columns. **None** carry `currency_code`. **No policy has a premium column** — sum_assured, cover_amount, monthly_benefit, vehicle_value, sum_insured are *coverage* amounts. This asymmetry is the load-bearing constraint that drove U1's schema-widening pass.
+- **F12-8 — No `PremiumFact` today**; `ContributionFact` (`services/java/rules-engine/src/main/java/com/medfund/rules/fact/ContributionFact.java`) is billing-loop-flavored (memberAge, dependantCount, smokingStatus, bmi). U11 introduces a sibling `PremiumFact` rather than extending `ContributionFact`. `AGENDA_GATED_CATEGORIES` in `DrlCompiler` currently `{BENEFIT_PRORATION, REINSURANCE, COMMISSION}` (per Phase 11 commit 55c3689); `PREMIUM_EARNING` joins.
+- **F12-9 — `medfund.user.policy-issued` does NOT exist today.** `services/java/user-service/src/main/java/com/medfund/user/service/MemberService.java` publishes `medfund.users.member-lifecycle` (per Phase 11 wiring), but no policy-issuance topic. §A must add the publisher on the user-service side.
+- **F12-10 — `medfund.user.policy-endorsed` does NOT exist.** §C must add it.
+- **F12-11 — `medfund.contributions.billing-generated` already exists** via `ContributionEventPublisher` (verified during Phase 11 grill note 1). §A can consume this **in-JVM** (contributions-service → BillingService writes Contribution row → same-transaction write of `earning_schedule` row) — no Kafka hop needed because the module lives in the same JVM (per U3).
+- **F12-12 — Cross-service Kafka hop only for annual-line policies** (user-service → contributions-service `PolicyIssuedConsumer`). Reuses reactor-kafka `.doOnSuccess` ack pattern per `bug_reactor_kafka_ack_swallow` memory.
+
+### Data model
+
+Tenant-scoped tables (V102..V110 range in tenancy-service; final numbering at plan time — highest today = V101 per F12-3). All with the standard audit tail (`id UUID PK DEFAULT gen_random_uuid(), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), actor_id UUID, actor_email VARCHAR`) per `feedback_audit_actor_email` (Rule 8).
+
+| Table | Purpose | Key columns |
+|---|---|---|
+| `ifrs17_portfolio` (§A) | IFRS 17 portfolio master (U14) | `name`, `description`, `is_active`, `insurance_line` (a portfolio is scoped to a single line for cohort math) |
+| `ifrs17_cohort` (§A) | IFRS 17 cohort master (U14) | `portfolio_id FK`, `cohort_year INT`, `cohort_type ENUM{ONEROUS,NON_ONEROUS,UNCERTAIN}`; UNIQUE `(portfolio_id, cohort_year, cohort_type)` |
+| `earning_schedule` (§A) | Per-policy-per-period earning materialization (U7) | `policy_id UUID NOT NULL`, `policy_source ENUM{LIFE_POLICY,FUNERAL_POLICY,DISABILITY_POLICY,TRAVEL_POLICY,VEHICLE_POLICY,PROPERTY_POLICY,CONTRIBUTION}`, `insurance_line`, `period_start DATE`, `period_end DATE`, `written_amount NUMERIC`, `earned_at_period_end NUMERIC NULL` (null until period closes), `currency_code CHAR(3)`, `is_endorsement BOOLEAN DEFAULT FALSE`, `endorsement_id UUID NULL` (per §C), `portfolio_id UUID NULL`, `cohort_id UUID NULL`, `earning_method VARCHAR` (from U11 rules-engine dispatch — snapshot of which template fired). UNIQUE `(policy_id, policy_source, period_start, COALESCE(endorsement_id, '00000000-0000-0000-0000-000000000000'::uuid))` for U10 idempotency |
+| `endorsement` (§C) | Mid-term policy change events (U5, U12) | `policy_id UUID`, `policy_source ENUM`, `change_type ENUM{PREMIUM_ADJUSTMENT,COVERAGE_EXTENSION,BENEFIT_CHANGE,BENEFICIARY_CHANGE,ADMIN_CHANGE}`, `effective_from DATE`, `premium_delta NUMERIC NULL`, `currency_code CHAR(3) NULL`, `reason VARCHAR`, `status ENUM{DRAFT,APPROVED,COMMITTED,VOIDED}` (per U12), `draft_actor_id UUID`, `draft_actor_email VARCHAR`, `approve_actor_id UUID NULL`, `approve_actor_email VARCHAR NULL`, `commit_actor_id UUID NULL`, `commit_actor_email VARCHAR NULL`, `voided_reason VARCHAR NULL`. AuditEvent on every transition |
+
+**Additive columns on user-service policy entities** (V102..V107 — schema-widening per U1, U2, U6, U14):
+
+| Entity | New columns |
+|---|---|
+| `LifePolicy` | `written_premium NUMERIC NOT NULL`, `written_premium_currency CHAR(3) NOT NULL`, `bound_at TIMESTAMPTZ NOT NULL`, `coverage_start DATE NOT NULL`, `coverage_end DATE NOT NULL`, `renewed_from_policy_id UUID NULL SELF-FK`, `status ENUM{ACTIVE,LAPSED,SUSPENDED,TERMINATED,DRAFT}`, `portfolio_id UUID NULL FK`, `cohort_id UUID NULL FK` |
+| `FuneralPolicy` | same |
+| `DisabilityPolicy` | same |
+| `VehiclePolicy` | same |
+| `PropertyPolicy` | same |
+| `TravelPolicy` | `written_premium NUMERIC NOT NULL`, `written_premium_currency CHAR(3) NOT NULL`, `bound_at TIMESTAMPTZ NOT NULL`, `renewed_from_policy_id UUID NULL SELF-FK` (each trip is a new bind so usually NULL), `status ENUM` (same arms), `portfolio_id UUID NULL FK`, `cohort_id UUID NULL FK`. Reuses existing `trip_start_date` + `trip_end_date` |
+| `Contribution` (HEALTH) | `portfolio_id UUID NULL FK`, `cohort_id UUID NULL FK`. Reuses existing `amount`, `currency_code`, `period_start`, `period_end` |
+
+**Backfill strategy for existing policy rows** (§A): rows without `bound_at`/`coverage_start` get `bound_at = created_at`, `coverage_start = created_at::DATE`, `coverage_end = created_at + INTERVAL '1 year'` (annual assumption); rows without `written_premium` get a NULL flagged with `status = LEGACY_NO_PREMIUM` (a new status arm exclusive to backfill) — earning-schedule skips these until the tenant admin retrofits them via a new admin CRUD screen. TravelPolicy rows without `written_premium` similarly flagged.
+
+**Public schema tables** (V134):
+
+| Table | Purpose | Key columns |
+|---|---|---|
+| `public.tenant_endorsement_config` (§C) | Four-eyes threshold config per U12 | `tenant_id UUID PK FK`, `four_eyes_threshold_amount NUMERIC NULL`, `threshold_currency CHAR(3) NULL`, `enabled BOOLEAN NOT NULL DEFAULT FALSE`, `actor_id`, `actor_email` |
+
+### Kafka topology
+
+Two new topics (§A + §C), one in-JVM consumer, one cross-service consumer, one JobExecutor:
+
+| Component | Direction | Topic | Behaviour |
+|---|---|---|---|
+| `user-service PolicyIssuedPublisher` | out (§A) | `medfund.user.policy-issued` (new, F12-9) | On any policy CUD → published `{tenantId, policyId, policySource, insuranceLine, writtenPremium, currencyCode, coverageStart, coverageEnd, boundAt, memberId, portfolioId, cohortId}`. Fires from LifePolicy / FuneralPolicy / DisabilityPolicy / VehiclePolicy / PropertyPolicy / TravelPolicy service create paths. |
+| `contributions-service PolicyIssuedConsumer` | in (§A) | `medfund.user.policy-issued` | Per issued policy: enrich to `PremiumFact` (per U11), fire rules-engine `PREMIUM_EARNING` session, write `earning_schedule` rows for each period across coverage window. `.doOnSuccess` for ack per `bug_reactor_kafka_ack_swallow`. Idempotent via UNIQUE constraint. |
+| `contributions-service BillingContributionEarningInJVM` | in-JVM (§A) | (no Kafka — same JVM per F12-11) | HEALTH branch: BillingService creates Contribution row → same-transaction write of `earning_schedule` row for that period. |
+| `PremiumEarningExecutor` | scheduler (§A, per U10) | — | Nightly `JobExecutor` (V114 tenant-config). 3-stage: (1) enumerate ACTIVE policies with missing current-period row; (2) close periods whose `end_date <= today` (set `earned_at_period_end = written_amount`); (3) apply §C endorsements arrived since last-run-timestamp. Chunked; resumable; idempotent. |
+| `user-service PolicyEndorsedPublisher` | out (§C) | `medfund.user.policy-endorsed` (new, F12-10) | On endorsement COMMIT: `{tenantId, endorsementId, policyId, policySource, insuranceLine, changeType, effectiveFrom, premiumDelta, currencyCode, actorId, actorEmail}`. |
+| `contributions-service PolicyEndorsedConsumer` | in (§C) | `medfund.user.policy-endorsed` | Trigger `PremiumEarningExecutor.recomputeForEndorsement(endorsementId)` — rewrites affected `earning_schedule` rows (rows with `period_start >= endorsement.effective_from` for that policy). Writes new rows marked `is_endorsement = true` + `endorsement_id` = the endorsement's ID. |
+
+**Deploy order per invariant** (parent plan `:3268`): producers before consumers — user-service ships PolicyIssuedPublisher first; contributions-service ships PolicyIssuedConsumer after user-service is emitting; same for the endorsement pair in §C.
+
+### Report shapes
+
+Four report surfaces, each `@RequiresReport(...)` + `ReportEnvelopeBuilder` + `SecurityEventPublisher.publishDataAccess` on export. All under `ReportFamily.UNDERWRITING` per U9. All served from contributions-service at `/api/v1/reports/premium/*` (per U3).
+
+**UPR_MOVEMENT** — `GET /api/v1/reports/premium/upr-movement?periodStart=&periodEnd=&insuranceLine=&reportingCurrency=` — opening UPR (as of periodStart) + written premium (in period) - earned premium (in period) = closing UPR (as of periodEnd), broken down by (insurance_line × currency_code). Envelope per invariant #6 carries `perCurrency: Map<String, PerCurrencyTotal>` in native + `fxRates` for optional conversion. Row shape: `{insuranceLine, currencyCode, openingUpr, writtenPremium, earnedPremium, closingUpr, endorsementDelta}`. Detail drill (`?policyId=`): per-period earning strip for a single policy. XLSX export: one sheet per insurance_line + summary sheet.
+
+**PREMIUM_REGISTER** — `GET /api/v1/reports/premium/register?periodStart=&periodEnd=&insuranceLine=&isNewBusiness=&reportingCurrency=` — one XLSX row per policy per period with (writtenPremium, earnedInPeriod, unearnedAtPeriodEnd, currencyCode, boundAt, coverageStart, coverageEnd, isNewBusiness, portfolioId, cohortId, memberName, schemeName). Per-currency native totals in envelope; XLSX summary sheet cross-currency-converted at `period_end`.
+
+**NEW_BUSINESS_REGISTER** — `GET /api/v1/reports/premium/new-business?periodStart=&periodEnd=&insuranceLine=&reportingCurrency=` — one row per new-business policy per U6. Filter: `bound_at BETWEEN periodStart AND periodEnd AND renewed_from_policy_id IS NULL` for annual lines; HEALTH: `min(Contribution.created_at) per member BETWEEN periodStart AND periodEnd`. Columns: memberNumber, memberName, insuranceLine, schemeName, boundAt, writtenPremium, currencyCode, portfolioId, cohortId. Per-currency native totals; XLSX summary sheet.
+
+**ENDORSEMENT_REGISTER** (§C) — `GET /api/v1/reports/premium/endorsements?periodStart=&periodEnd=&insuranceLine=&status=&reportingCurrency=` — one row per endorsement in the period. Columns: endorsementId, policyId, memberNumber, insuranceLine, changeType, effectiveFrom, premiumDelta, currencyCode, status, draftActorEmail, approveActorEmail, commitActorEmail, voidedReason. Per-currency native totals; XLSX with a Summary sheet (endorsement counts + total premium delta per changeType).
+
+### Angular surfaces
+
+Tenant-admin CRUD (§A + §C):
+- `/tenant-admin/underwriting/portfolios` (§A, U14) — Portfolio list + form (name, description, insurance_line).
+- `/tenant-admin/underwriting/cohorts` (§A, U14) — Cohort list + form (portfolio picker, cohort_year, cohort_type).
+- `/tenant-admin/settings/endorsement-config` (§C, U12) — Four-eyes threshold config: enable toggle + threshold amount + currency picker.
+- `/tenant-admin/policies/{policyId}/endorsements` (§C) — Create endorsement modal + endorsement history list. Adds endorsement button on each policy's admin detail page (LifePolicy, FuneralPolicy, etc. detail screens all get a new "Endorsements" tab).
+- `/tenant/finance/underwriting/endorsements/review-queue` (§C) — Approver queue for DRAFT + APPROVED endorsements above threshold. Row actions: approve, commit, void.
+
+Reports (§B):
+- `/tenant/finance/reports/underwriting/upr-movement` — Period picker (default: prior month), insurance-line filter, reporting-currency override, export button. Renders the opening→closing UPR table + per-line trend chart.
+- `/tenant/finance/reports/underwriting/premium-register` — Period + filters + export. Paginated list of policies with drill to policy detail.
+- `/tenant/finance/reports/underwriting/new-business` — Period + insurance-line filter + export.
+- `/tenant/finance/reports/underwriting/endorsements` (§C) — Period + status filter + export.
+
+Reports hub (§B, U9) auto-registers the four keys via existing `TenantReportConfigService` — new `UNDERWRITING` family card renders when any key enabled.
+
+Two new permissions: `policy:draft_endorsement` (all tenant admins by default) + `policy:approve_endorsement` (supervisor role, restricted). Recommended new role: `underwriting_supervisor` (or attach to existing finance supervisor role — plan-time call).
+
+### Proposed §0 / §A / §B / §C tranche split
+
+**§0 — Testcontainers harness fix (U15)**:
+- `testcontainers.reuse.enable=true` across `services/java/*/build.gradle.kts` + `settings.gradle.kts` propagation.
+- Extract `AbstractIntegrationTest` base class in contributions-service + user-service (finance-service already has one from Phase 11).
+- Tune R2DBC connection pool ceilings (from default 10 to service-appropriate 20-30) — `application.yml` + tests.
+- Add pool-starvation health check (Micrometer gauge + Actuator).
+- Re-run the 25 pre-existing IT flakes; fix any that turn out to be genuine bugs (not just pool-pressured).
+- **Success criterion**: `make test-integration` passes end-to-end across all services in a single run.
+
+**§A — Foundation** (silent — no user-visible surface):
+- Tenant migrations V102..V108 in tenancy-service: policy schema-widening (LIFE/FUNERAL/DISABILITY/VEHICLE/PROPERTY/TRAVEL — one migration each or one big one; plan-time call), `earning_schedule`, `ifrs17_portfolio`, `ifrs17_cohort`.
+- Additive `portfolio_id` + `cohort_id` on `Contribution` (HEALTH).
+- Backfill strategy for existing policy rows (per Data model section).
+- user-service `PolicyIssuedPublisher` for all 6 policy CUD paths.
+- contributions-service `com.medfund.contributions.premium.*` subpackage: `PolicyIssuedConsumer`, `BillingContributionEarningInJVM` hook, `PremiumEarningExecutor` (nightly `JobExecutor`), CRUD services for `ifrs17_portfolio` + `ifrs17_cohort` + tenant-admin Angular pages.
+- rules-engine: `RuleCategory.PREMIUM_EARNING` (add to `AGENDA_GATED_CATEGORIES`), `ActionType.ACCRUE_PREMIUM`, `PremiumFact`, `AccruePremiumEmitter`, 3 templates (DAILY_LINEAR, MONTHLY_24THS, LINEAR_WITH_LOADING).
+- Angular rules editor + dry-run seeds extended for the new category.
+- Debug controller `@Profile("dev")` returning raw earning_schedule rows for QA (removed before §B).
+- IT: full policy → schedule round-trip + rules-engine dispatch + Executor idempotency + backfill correctness.
+
+**§B — Reports + Angular** (user-facing surface lights up):
+- contributions-service controllers: `UprMovementReportController`, `PremiumRegisterReportController`, `NewBusinessRegisterReportController` + XLSX services.
+- `ReportKey` enum edit: reassign UPR_MOVEMENT, PREMIUM_REGISTER, NEW_BUSINESS_REGISTER from `CLAIMS_FINANCIAL` to `UNDERWRITING`.
+- `ReportFamily` enum edit: add `UNDERWRITING`.
+- `TenantReportConfigService` auto-registration of the 3 keys under new family.
+- Angular pages under `/tenant/finance/reports/underwriting/*` + reports hub card.
+- Sidebar registration.
+- Retire the debug controller from §A.
+- IT: report envelope + toggle-off 403 + SecurityEvent-on-export + per-currency assertions + missing-FX warnings.
+- Playwright: `underwriting-reports.spec.ts` — hub → each report → filter + export → assert download.
+
+**§C — Endorsements + retro recompute**:
+- Public migration V134 `tenant_endorsement_config`.
+- Tenant migration V109 `endorsement`.
+- user-service `PolicyEndorsementService` + `PolicyEndorsedPublisher` + four-eyes state machine (DRAFT → APPROVED → COMMITTED → VOIDED) per U12.
+- contributions-service `PolicyEndorsedConsumer` + `PremiumEarningExecutor.recomputeForEndorsement(endorsementId)` — chunked rewrite of affected `earning_schedule` rows.
+- Angular: endorsement creation modal (per policy), endorsement admin tab (per policy), approver review queue at `/tenant/finance/underwriting/endorsements/review-queue`.
+- Reports enum edit: add `ENDORSEMENT_REGISTER` key under `UNDERWRITING`.
+- Endorsement register report controller + XLSX + Angular page.
+- Tenant-admin `endorsement-config` UI at `/tenant-admin/settings/endorsement-config`.
+- Permissions: `policy:draft_endorsement`, `policy:approve_endorsement`.
+- IT: four-eyes round-trip + retro recompute correctness + threshold gating + auto-commit branch.
+- Playwright: `endorsement-workflow.spec.ts` + `endorsement-report.spec.ts`.
+
+§0 can land as commit "Fix Testcontainers pool pressure (Phase 12 §0)"; §A/§B/§C as separate commits per Phase 10 + 11 precedent. All should be fully grilled + planned at implement-time via `create-plan`; `implement-plan` treats tranche boundaries as hand-off points per the plan header.
+
+### Grill notes for `create-plan`
+
+1. **V-migration ordering (F12-3, U1)** — the 6 policy schema-widening migrations (V102..V107) touch different tables per line; plan the exact ordering + whether to bundle into one V102 or split per entity. If split, TravelPolicy is the smallest change (already has trip dates) and could land first as a reference implementation.
+2. **Policy backfill for existing rows (U1 §A)** — write out the exact SQL for rows lacking `bound_at` / `written_premium`. Consider a follow-up "policy retrofit" tenant-admin bulk-edit UI so admins can populate legacy rows post-migration. Verify the `LEGACY_NO_PREMIUM` status arm is compatible with existing Angular status filters (many pages hard-code the ACTIVE/LAPSED/SUSPENDED set).
+3. **`PolicyIssuedPublisher` firing points (F12-9, §A)** — each of 6 policy service create paths in user-service needs the publisher call. Verify none are called from a Kafka consumer path (which would create a consume-then-publish loop). Map: `LifePolicyService.create/update`, `FuneralPolicyService.create/update`, `DisabilityPolicyService.create/update`, `VehiclePolicyService.create/update`, `PropertyPolicyService.create/update`, `TravelPolicyService.create/update`.
+4. **`PremiumFact` action-value DSL (U11)** — mirror `PayCommissionEmitter` shape. Design the DSL: `EARNING_METHOD:DAILY_LINEAR`, `EARNING_METHOD:MONTHLY_24THS`, `EARNING_METHOD:LINEAR_WITH_LOADING`, `LOADING:15` (percent). Verify the Angular visual rule builder supports the new action type — check `clients/angular/src/app/pages/tenant-admin/rules/rule-editor/rule-editor.component.ts` extends cleanly (matches Phase 11's 3 edits: category source, action-type registry, dry-run FACT_SEEDS).
+5. **PremiumEarningExecutor chunking (U10)** — for a tenant with 100k policies × 12 periods, a single-transaction nightly close is unacceptable. Chunk by (insurance_line, currency) at 5k rows per commit; progress-track via a new `earning_schedule_run` table with a `last_processed_policy_id` cursor; support cancel + resume mid-run.
+6. **Endorsement retro-recompute performance (§C, U12)** — an endorsement 3 months back on a 12-month LIFE policy rewrites 9 rows per affected policy. For a bulk endorsement (rate-card revision affecting 10k policies), that's 90k rewrites. Plan chunking + progress-tracking like the Phase 10 `TreatyActivationBackfillJob` + Phase 11 `ProducerBackfillJob` precedents. Also: how does the endorsement UI show "recompute in progress" so users don't re-fire?
+7. **HEALTH new-business detection (U6)** — `min(Contribution.created_at) per member per tenant` is expensive at 100k+ members. Consider a materialized `member_first_contribution` cache table populated by trigger or nightly refresh; plan at code altitude.
+8. **§0 IT flake triage (U15)** — some of the 25 pre-existing IT flakes may be genuine bugs, not pool-pressure. Reserve budget for triage; if any turn out to be real correctness bugs, they land as follow-up commits before §0 closes.
+9. **IFRS 17 portfolio/cohort naming (U14)** — the outline says `ifrs17_portfolio` + `ifrs17_cohort`. Consider whether the `ifrs17_` prefix will confuse tenants who don't do IFRS 17 (they'd still see the portfolio/cohort admin screens). Alternative: neutral `policy_portfolio` + `policy_cohort` names, with an IFRS-17-specific view layer in Phase 15. Grill at code altitude.
+10. **Endorsement `change_type` enum arms (§C, U5)** — the arms listed above are `{PREMIUM_ADJUSTMENT, COVERAGE_EXTENSION, BENEFIT_CHANGE, BENEFICIARY_CHANGE, ADMIN_CHANGE}`. Verify at code altitude that this covers the real endorsement patterns tenants would want. Do we also need `RENEWAL_ADVANCE` (early renewal)? `PRODUCT_SWITCH` (change to a different scheme mid-term)?
+11. **Portfolio/cohort assignment default (§A, U14)** — when a policy is created without an explicit portfolio/cohort, we assign the tenant's default. Design the default-resolution: single-portfolio-per-line auto-created at tenant provisioning? Or a "MISC" catch-all portfolio? Verify no tenant has a policy line without at least one portfolio (else policy creation would 400).
+12. **`portfolio_id` + `cohort_id` on `Contribution` for HEALTH (§A, U14)** — HEALTH has no policy entity, so portfolio/cohort has to attach to the Contribution or to the member's scheme enrolment. Grill: (a) attach to each Contribution row (redundant across months for same member); (b) attach to the member's scheme enrolment (needs enrolment change on portfolio switch); (c) both (enrolment sets the default, Contribution row inherits at creation).
+13. **`.claude/multi-currency.md` update owed** — U8 codifies "written premium stays in policy's original currency; endorsement recompute preserves currency". Add a paragraph to `.claude/multi-currency.md` after `:169` (the reporting-currency section) so future readers see the pattern.
+
+### Success Criteria
+
+**Grilling checkpoint status**: **satisfied 2026-08-23.** Next step is `create-plan` on this expanded phase (or on §0 alone for the harness-fix pre-work).
+
+Full per-tranche Success Criteria (Automated Verification + Manual Verification) belong on the sub-plan produced by `create-plan`, following the Phase 10 + 11 pattern where per-sub-phase success criteria live on the sub-plan itself. Parent-plan roll-ups will be added here after §0/§A/§B/§C land, mirroring the Phase 10 `**Status: Fully implemented via the expanded sub-plan ...**` roll-up (parent plan `:2918`).
 
 ---
 

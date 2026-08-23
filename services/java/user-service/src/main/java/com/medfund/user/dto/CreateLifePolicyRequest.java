@@ -34,5 +34,7 @@ public record CreateLifePolicyRequest(
         UUID groupId,
 
         @NotNull
-        UUID insuredMemberId
+        UUID insuredMemberId,
+
+        PolicyUnderwritingFields underwriting
 ) {}

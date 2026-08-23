@@ -91,5 +91,27 @@ public enum ActionType {
      *   <li>{@code message} — human-readable audit note.</li>
      * </ul>
      */
-    PAY_COMMISSION
+    PAY_COMMISSION,
+
+    // ── Premium-earning outputs ──────────────────────────────────────────────
+    /**
+     * Route a policy to a specific premium-earning method at bind time.
+     * Populates {@code PremiumFact.earningMethod} + {@code loadingPercent}
+     * so the downstream {@code PremiumEarningExecutor} in contributions-service
+     * knows which strip strategy to apply when writing {@code earning_schedule}
+     * rows. Rules with this action must live in the {@code PREMIUM_EARNING}
+     * category (agenda-gated per {@code DrlCompiler.AGENDA_GATED_CATEGORIES}).
+     *
+     * <p>Action fields (see {@code RuleAction}):
+     * <ul>
+     *   <li>{@code value} — {@code EARNING_METHOD:<name>[:<loading-pct>]}
+     *       where {@code name} is one of {@code DAILY_LINEAR},
+     *       {@code MONTHLY_24THS}, or {@code LINEAR_WITH_LOADING}. The
+     *       optional trailing decimal is only used by
+     *       {@code LINEAR_WITH_LOADING} (front-loaded percent).</li>
+     *   <li>{@code message} — human-readable audit note recorded on
+     *       {@code PremiumFact.results}.</li>
+     * </ul>
+     */
+    ACCRUE_PREMIUM
 }

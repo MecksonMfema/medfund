@@ -76,5 +76,18 @@ public enum RuleCategory {
      * this category encode conditional kickers (tier bonuses, promo periods,
      * sliding-scale overrides, waivers) on top of that base.
      */
-    COMMISSION
+    COMMISSION,
+
+    // ── Premium earning ──────────────────────────────────────────────────────
+    /**
+     * Policy-bind earning-method selection. Agenda-gated — the premium
+     * consumer in contributions-service focuses this group per
+     * {@code medfund.user.policy-issued} event and per nightly period-close
+     * pass, so earning rules never fire during the stage-7 tenant sweep.
+     * The default earning method is {@code DAILY_LINEAR}; rules in this
+     * category route a policy to a specific method
+     * ({@code MONTHLY_24THS}, {@code LINEAR_WITH_LOADING:<pct>}) based on
+     * the {@code PremiumFact} shape (line, product code, coverage window).
+     */
+    PREMIUM_EARNING
 }

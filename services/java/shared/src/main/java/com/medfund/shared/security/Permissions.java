@@ -151,6 +151,22 @@ public final class Permissions {
 
     // ── Tenant settings sub-namespace (Phase 11) ─────────────────────────────
     public static final String TENANT_SETTINGS_MANAGE_AUTO_LAPSE = "tenant.settings:manage_auto_lapse";
+    /** Enable/disable the endorsement four-eyes gate and configure its threshold (Phase 12 §C). */
+    public static final String TENANT_SETTINGS_MANAGE_ENDORSEMENT_CONFIG = "tenant.settings:manage_endorsement_config";
+
+    // ── Underwriting (Phase 12 §A) ──────────────────────────────────────────
+    public static final String UNDERWRITING_PORTFOLIO_MANAGE     = "underwriting.portfolio:manage";
+    public static final String UNDERWRITING_COHORT_MANAGE        = "underwriting.cohort:manage";
+    /** Trigger a targeted earning-schedule backfill / replay for a policy. */
+    public static final String PREMIUM_EARNING_MANAGE_BACKFILL   = "premium.earning:manage_backfill";
+    /** Dev-only read access to raw earning_schedule rows for a policy. */
+    public static final String PREMIUM_EARNING_VIEW_DEBUG        = "premium.earning:view_debug";
+
+    // ── Policy endorsements (Phase 12 §C) ───────────────────────────────────
+    /** Drafter action: create a DRAFT endorsement and read the queue. */
+    public static final String POLICY_DRAFT_ENDORSEMENT          = "policy:draft_endorsement";
+    /** Supervisor action: approve/commit/void/mark-computed on endorsements. Four-eyes counterpart to DRAFT. */
+    public static final String POLICY_APPROVE_ENDORSEMENT        = "policy:approve_endorsement";
 
     // Platform-level (super-admin) permissions. Tenant admins should never
     // hold these; they gate the cross-tenant operational tooling.
@@ -202,7 +218,11 @@ public final class Permissions {
 
             ADMIN_MANAGE_ROLES, ADMIN_MANAGE_USERS, ADMIN_VIEW_AUDIT,
             ADMIN_MANAGE_SETTINGS, ADMIN_MANAGE_RULES, ADMIN_BANK_ACCOUNTS_MANAGE,
-            TENANT_SETTINGS_MANAGE_AUTO_LAPSE,
+            TENANT_SETTINGS_MANAGE_AUTO_LAPSE, TENANT_SETTINGS_MANAGE_ENDORSEMENT_CONFIG,
+
+            UNDERWRITING_PORTFOLIO_MANAGE, UNDERWRITING_COHORT_MANAGE,
+            PREMIUM_EARNING_MANAGE_BACKFILL, PREMIUM_EARNING_VIEW_DEBUG,
+            POLICY_DRAFT_ENDORSEMENT, POLICY_APPROVE_ENDORSEMENT,
 
             PLATFORM_VIEW_JOBS, PLATFORM_MANAGE_JOBS
     );

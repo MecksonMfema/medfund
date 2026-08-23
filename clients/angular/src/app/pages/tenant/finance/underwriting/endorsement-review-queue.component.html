@@ -1,0 +1,124 @@
+<header class="page-header">
+  <div>
+    <h1>Endorsements — review queue</h1>
+    <p class="page-sub">
+      Draft endorsements awaiting approval and approved endorsements
+      awaiting commit. Four-eyes invariant: an approver cannot approve
+      their own draft.
+    </p>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <label class="toolbar-cell">
+    <span class="cell-label">Status</span>
+    <select [(ngModel)]="statusFilter" (ngModelChange)="onStatusChange()" name="status">
+      @for (opt of statusOptions; track opt.value) {
+        <option [ngValue]="opt.value">{{ opt.label }}</option>
+      }
+    </select>
+  </label>
+  <button type="button" class="btn btn-sm" (click)="fetchPage()" [disabled]="loading">
+    <app-icon name="refresh" [size]="14"></app-icon>
+    Refresh
+  </button>
+</div>
+
+@if (loading) {
+  <div class="loading">Loading queue…</div>
+} @else if (rows.length === 0) {
+  <div class="empty">Queue is clear.</div>
+} @else {
+  <table class="queue-table" data-testid="endorsement-review-table">
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>Reference</th>
+        <th>Change type</th>
+        <th>Effective</th>
+        <th class="num">Δ premium</th>
+        <th>Currency</th>
+        <th>Drafter</th>
+        <th>Drafted at</th>
+        <th class="actions">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows; track row.id) {
+        <tr [attr.data-testid]="'end-row-' + row.id.substring(0, 8)">
+          <td><span class="status-pill" [attr.data-status]="row.status">{{ row.status }}</span></td>
+          <td><strong>{{ row.reference }}</strong></td>
+          <td>{{ row.changeType }}</td>
+          <td>{{ row.effectiveFrom }}</td>
+          <td class="num">
+            @if (row.premiumDelta != null) { {{ row.premiumDelta }} }
+            @else { <span class="muted">—</span> }
+          </td>
+          <td>{{ row.currencyCode || '—' }}</td>
+          <td>{{ row.draftActorEmail || '—' }}</td>
+          <td>{{ row.draftAt | date:'yyyy-MM-dd HH:mm' }}</td>
+          <td class="actions">
+            @if (row.status === 'DRAFT') {
+              <button type="button" class="btn btn-sm btn-primary"
+                      [disabled]="actionInProgress[row.id] || isSameActor(row) || !canApprove()"
+                      [title]="isSameActor(row) ? 'Four-eyes: cannot approve your own draft' : ''"
+                      (click)="approve(row)"
+                      data-testid="approve-btn">Approve</button>
+            }
+            @if (row.status === 'APPROVED') {
+              <button type="button" class="btn btn-sm btn-primary"
+                      [disabled]="actionInProgress[row.id] || !canApprove()"
+                      (click)="commit(row)"
+                      data-testid="commit-btn">Commit</button>
+            }
+            <button type="button" class="btn btn-sm btn-danger"
+                    [disabled]="actionInProgress[row.id] || !canApprove()"
+                    (click)="openVoid(row)"
+                    data-testid="void-btn">Void</button>
+            <a class="btn btn-sm" [routerLink]="['/tenant/finance/underwriting/endorsements', row.id]">
+              Detail
+            </a>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
+
+<!-- Void reason modal -->
+@if (voidTargetId) {
+  <div class="modal-backdrop" (click)="cancelVoid()">
+    <div class="modal-card" (click)="$event.stopPropagation()" data-testid="void-modal">
+      <h3>Void endorsement</h3>
+      <p class="modal-sub">
+        Reason will be recorded on the audit trail. COMMITTED endorsements
+        cannot be voided — this is only available for DRAFT / APPROVED.
+      </p>
+      <label>
+        <span>Reason <em>(min 5 chars)</em></span>
+        <textarea rows="4" maxlength="500"
+                  [(ngModel)]="voidReason"
+                  placeholder="e.g. operator withdrew request"
+                  data-testid="void-reason"></textarea>
+      </label>
+      @if (voidError) {
+        <div class="banner banner-error">{{ voidError }}</div>
+      }
+      <div class="modal-actions">
+        <button type="button" class="btn"
+                (click)="cancelVoid()"
+                [disabled]="voidSubmitting">Cancel</button>
+        <button type="button" class="btn btn-danger"
+                (click)="submitVoid()"
+                [disabled]="voidSubmitting"
+                data-testid="void-submit">
+          {{ voidSubmitting ? 'Voiding…' : 'Void endorsement' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

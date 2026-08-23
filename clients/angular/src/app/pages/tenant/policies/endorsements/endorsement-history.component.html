@@ -1,0 +1,79 @@
+<header class="page-header">
+  <div>
+    <h1>Endorsements</h1>
+    <p class="page-sub">
+      Every endorsement filed against <strong>{{ policyLabel || '—' }}</strong>,
+      newest first. Draft one from here; approve / commit / void live on the
+      review queue.
+    </p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    (click)="openModal()"
+    [disabled]="!canDraft() || saving || !policyId"
+  >
+    <app-icon name="plus" [size]="14"></app-icon>
+    New endorsement
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+@if (loading) {
+  <p>Loading…</p>
+} @else if (rows.length === 0) {
+  <div class="empty-state">
+    <app-icon name="shield" [size]="48"></app-icon>
+    <h3>No endorsements yet</h3>
+    <p>
+      This policy hasn't been endorsed. Use <strong>New endorsement</strong>
+      to draft one — the tenant's four-eyes gate decides whether it
+      auto-commits or enters a queue.
+    </p>
+  </div>
+} @else {
+  <table class="rate-table">
+    <thead>
+      <tr>
+        <th>Reference</th>
+        <th>Effective</th>
+        <th>Change type</th>
+        <th>Status</th>
+        <th class="num">Δ premium</th>
+        <th>Currency</th>
+        <th>Drafted by</th>
+        <th>Drafted at</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows; track row.id) {
+        <tr>
+          <td>{{ row.reference }}</td>
+          <td>{{ row.effectiveFrom }}</td>
+          <td>{{ row.changeType }}</td>
+          <td>{{ row.status }}</td>
+          <td class="num">
+            @if (row.premiumDelta != null) { {{ row.premiumDelta }} }
+            @else { <span class="muted">—</span> }
+          </td>
+          <td>{{ row.currencyCode || '—' }}</td>
+          <td>{{ row.draftActorEmail }}</td>
+          <td>{{ row.draftAt }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
+
+<app-endorsement-modal
+  [open]="modalOpen"
+  [policyId]="policyId"
+  [policySource]="policySource"
+  [insuranceLine]="insuranceLine"
+  [policyLabel]="policyLabel"
+  (cancel)="closeModal()"
+  (submit)="onSubmit($event)"
+></app-endorsement-modal>

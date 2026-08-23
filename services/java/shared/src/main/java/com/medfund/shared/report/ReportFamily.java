@@ -18,6 +18,7 @@ public enum ReportFamily {
     PAYABLES             ("Payables & Creditors"),
     DEBTORS              ("Debtors"),
     CLAIMS_FINANCIAL     ("Claims Financial"),
+    UNDERWRITING         ("Underwriting"),
     RECONCILIATION       ("Reconciliation"),
     ACTUARIAL            ("Actuarial"),
     REGULATORY           ("Regulatory"),

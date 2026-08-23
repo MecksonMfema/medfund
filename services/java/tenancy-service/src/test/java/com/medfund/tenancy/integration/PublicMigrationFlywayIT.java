@@ -65,6 +65,12 @@ class PublicMigrationFlywayIT {
                     "group_number_prefix",
                     "group_number_suffix",
                     "group_number_random_length"));
+
+            // V134 — tenant endorsement four-eyes config (Phase 12 §C).
+            assertColumns(conn, "public", "tenant_endorsement_config", List.of(
+                    "tenant_id", "enabled",
+                    "four_eyes_threshold_amount", "threshold_currency",
+                    "actor_id", "actor_email"));
         }
     }
 

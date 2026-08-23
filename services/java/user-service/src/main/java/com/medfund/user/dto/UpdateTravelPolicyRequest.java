@@ -35,5 +35,7 @@ public record UpdateTravelPolicyRequest(
         @Size(max = 40)
         String billingOverrideReason,
 
-        LocalDate billingOverrideEffectiveFrom
+        LocalDate billingOverrideEffectiveFrom,
+
+        PolicyUnderwritingFields underwriting
 ) {}

@@ -43,5 +43,7 @@ public record UpdateVehicleRequest(
         @Size(max = 40)
         String billingOverrideReason,
 
-        LocalDate billingOverrideEffectiveFrom
+        LocalDate billingOverrideEffectiveFrom,
+
+        PolicyUnderwritingFields underwriting
 ) {}

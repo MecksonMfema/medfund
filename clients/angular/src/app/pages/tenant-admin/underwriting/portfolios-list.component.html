@@ -1,0 +1,97 @@
+<header class="page-header">
+  <div>
+    <h1>IFRS 17 Portfolios</h1>
+    <p class="page-sub">
+      Portfolios group policies for IFRS 17 reporting. The MISC portfolio is auto-provisioned
+      at tenant creation and catches any policy without an explicit assignment.
+    </p>
+  </div>
+  <div style="display: flex; gap: 8px;">
+    <button class="btn btn-default" (click)="onToggleInactive()">
+      {{ showInactive ? 'Hide inactive' : 'Show inactive' }}
+    </button>
+    <button class="btn btn-primary" (click)="startCreate()" [disabled]="showForm">
+      <app-icon name="plus" [size]="14"></app-icon> New portfolio
+    </button>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+@if (successMessage) {
+  <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+}
+
+@if (showForm) {
+  <form (ngSubmit)="save()" class="add-form card form-grid">
+    <label class="field span-2">
+      <span class="field-label">Name *</span>
+      <input type="text" [(ngModel)]="draft.name" name="name" required maxlength="200"
+             placeholder="e.g. General Motor 2026" />
+    </label>
+    <label class="field span-2">
+      <span class="field-label">Description</span>
+      <input type="text" [(ngModel)]="draft.description" name="description" maxlength="2000"
+             placeholder="Optional context for reviewers" />
+    </label>
+    <label class="field">
+      <span class="field-label">Insurance line</span>
+      <select [(ngModel)]="draft.insuranceLine" name="insuranceLine">
+        <option [ngValue]="null">— MISC catchall —</option>
+        <option value="HEALTH">HEALTH</option>
+        <option value="LIFE">LIFE</option>
+        <option value="FUNERAL">FUNERAL</option>
+        <option value="GROUP">GROUP</option>
+        <option value="TRAVEL">TRAVEL</option>
+        <option value="DISABILITY">DISABILITY</option>
+        <option value="VEHICLE">VEHICLE</option>
+        <option value="PROPERTY">PROPERTY</option>
+      </select>
+    </label>
+    <div class="form-actions span-2">
+      <button type="button" class="btn btn-default" (click)="cancel()">Cancel</button>
+      <button type="submit" class="btn btn-primary" [disabled]="saving">
+        {{ saving ? 'Saving…' : (draft.id ? 'Update portfolio' : 'Create portfolio') }}
+      </button>
+    </div>
+  </form>
+}
+
+@if (loading) {
+  <p>Loading portfolios…</p>
+} @else if (rows.length === 0) {
+  <p class="empty-state">No portfolios yet. Click "New portfolio" to create one.</p>
+} @else {
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Insurance line</th>
+        <th>Description</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows; track row.id) {
+        <tr [class.inactive]="!row.isActive">
+          <td>{{ row.name }}</td>
+          <td>{{ row.insuranceLine ?? '— MISC —' }}</td>
+          <td>{{ row.description }}</td>
+          <td>
+            <span class="badge" [class.badge-success]="row.isActive" [class.badge-muted]="!row.isActive">
+              {{ row.isActive ? 'Active' : 'Inactive' }}
+            </span>
+          </td>
+          <td>
+            @if (row.isActive) {
+              <button class="btn btn-sm btn-default" (click)="startEdit(row)">Edit</button>
+              <button class="btn btn-sm btn-danger" (click)="softDelete(row)">Deactivate</button>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

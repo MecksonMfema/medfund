@@ -1,0 +1,112 @@
+<header class="page-header">
+  <div>
+    <h1>IFRS 17 Cohorts</h1>
+    <p class="page-sub">
+      Cohorts sit under portfolios and combine year-of-issue + onerous classification. Phase 15
+      IFRS 17 measurement joins these dimensions with the earning schedule.
+    </p>
+  </div>
+  <div style="display: flex; gap: 8px;">
+    <button class="btn btn-default" (click)="onToggleInactive()">
+      {{ showInactive ? 'Hide inactive' : 'Show inactive' }}
+    </button>
+    <button class="btn btn-primary" (click)="startCreate()" [disabled]="showForm">
+      <app-icon name="plus" [size]="14"></app-icon> New cohort
+    </button>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+@if (successMessage) {
+  <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+}
+
+@if (showForm) {
+  <form (ngSubmit)="save()" class="add-form card form-grid">
+    <label class="field span-2">
+      <span class="field-label">Portfolio *</span>
+      @if (selectedPortfolioLabel) {
+        <div class="chip">
+          {{ selectedPortfolioLabel }}
+          <button type="button" class="btn-link" (click)="selectedPortfolioLabel = ''; draft.portfolioId = ''">Change</button>
+        </div>
+      } @else {
+        <input type="text" [ngModel]="portfolioQuery" (ngModelChange)="onPortfolioQueryChange($event)"
+               name="portfolioQuery" placeholder="Search portfolio by name…"
+               autocomplete="off" />
+        @if (portfolioResults.length > 0) {
+          <ul class="picker-dropdown">
+            @for (p of portfolioResults; track p.id) {
+              <li (click)="pickPortfolio(p)">
+                {{ p.name }} <small>{{ p.insuranceLine ?? 'MISC' }}</small>
+              </li>
+            }
+          </ul>
+        }
+      }
+    </label>
+    <label class="field">
+      <span class="field-label">Cohort year *</span>
+      <input type="number" [(ngModel)]="draft.cohortYear" name="cohortYear" min="1900" max="2200" required />
+    </label>
+    <label class="field">
+      <span class="field-label">Cohort type *</span>
+      <select [(ngModel)]="draft.cohortType" name="cohortType" required>
+        @for (t of cohortTypes; track t) {
+          <option [value]="t">{{ t }}</option>
+        }
+      </select>
+    </label>
+    <label class="field span-2">
+      <span class="field-label">Name *</span>
+      <input type="text" [(ngModel)]="draft.name" name="name" required maxlength="200"
+             placeholder="e.g. General Motor 2026 — Non-onerous" />
+    </label>
+    <div class="form-actions span-2">
+      <button type="button" class="btn btn-default" (click)="cancel()">Cancel</button>
+      <button type="submit" class="btn btn-primary" [disabled]="saving">
+        {{ saving ? 'Saving…' : (draft.id ? 'Update cohort' : 'Create cohort') }}
+      </button>
+    </div>
+  </form>
+}
+
+@if (loading) {
+  <p>Loading cohorts…</p>
+} @else if (rows.length === 0) {
+  <p class="empty-state">No cohorts yet. Click "New cohort" to create one.</p>
+} @else {
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Year</th>
+        <th>Type</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows; track row.id) {
+        <tr [class.inactive]="!row.isActive">
+          <td>{{ row.name }}</td>
+          <td>{{ row.cohortYear }}</td>
+          <td>{{ row.cohortType }}</td>
+          <td>
+            <span class="badge" [class.badge-success]="row.isActive" [class.badge-muted]="!row.isActive">
+              {{ row.isActive ? 'Active' : 'Inactive' }}
+            </span>
+          </td>
+          <td>
+            @if (row.isActive) {
+              <button class="btn btn-sm btn-default" (click)="startEdit(row)">Edit</button>
+              <button class="btn btn-sm btn-danger" (click)="softDelete(row)">Deactivate</button>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

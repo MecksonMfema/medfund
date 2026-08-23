@@ -1,0 +1,70 @@
+@if (open) {
+  <div class="modal-backdrop" (click)="onCancel()">
+    <div class="modal-card" (click)="$event.stopPropagation()"
+         role="dialog" aria-modal="true" aria-label="Draft endorsement">
+      <h3 class="modal-title">Draft endorsement</h3>
+      <p class="modal-message">
+        Endorse <strong>{{ policyLabel || 'this policy' }}</strong>. When
+        the tenant's four-eyes gate is armed and this endorsement's
+        <code>|premiumDelta|</code> meets the threshold, the endorsement
+        enters DRAFT and requires a second actor to approve + commit —
+        otherwise it auto-commits at draft time.
+      </p>
+
+      <div class="field">
+        <label>Change type</label>
+        <app-select
+          [(ngModel)]="changeType"
+          name="changeType"
+          [options]="changeTypes"
+          [searchable]="false"
+        ></app-select>
+      </div>
+
+      <div class="field">
+        <label>Effective from (1st of month)</label>
+        <input type="date" [(ngModel)]="effectiveFrom" (blur)="onEffectiveDateChange()" name="effectiveFrom" />
+      </div>
+
+      <div class="field">
+        <label>Premium delta ({{ isFinancial() ? 'required for gate' : 'optional' }})</label>
+        <input
+          type="number"
+          step="0.01"
+          [(ngModel)]="premiumDelta"
+          name="premiumDelta"
+          placeholder="e.g. 120.00 for an uplift, -50.00 for a reduction"
+        />
+        <div class="hint">
+          Signed native amount. Uplifts positive, reductions negative.
+          Non-financial change types can leave this blank.
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Currency {{ premiumDelta != null ? '(required)' : '(only when delta is set)' }}</label>
+        <app-select
+          [(ngModel)]="currencyCode"
+          name="currencyCode"
+          [options]="currencyOptions"
+          [disabled]="premiumDelta == null"
+          placeholder="— Select currency —"
+          [searchable]="false"
+        ></app-select>
+      </div>
+
+      <div class="field">
+        <label>Reason (≥ 10 chars)</label>
+        <textarea [(ngModel)]="reason" name="reason" rows="3" maxlength="500"
+                  placeholder="Broker request, cover uplift, retro fix — narrative required."></textarea>
+      </div>
+
+      @if (error) { <div class="error">{{ error }}</div> }
+
+      <div class="actions">
+        <button type="button" class="btn btn-default" (click)="onCancel()">Cancel</button>
+        <button type="button" class="btn btn-primary" (click)="onSubmit()">Save draft</button>
+      </div>
+    </div>
+  </div>
+}

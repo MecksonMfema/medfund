@@ -63,6 +63,30 @@ public class UserServiceClient {
     }
 
     /**
+     * Called by {@code EarningScheduleClosureService} after a Phase 12 §C
+     * endorsement retro-recompute finishes — flips the endorsement in
+     * user-service from {@code COMMITTED} to {@code COMPUTED}. Errors are
+     * logged and swallowed: the recompute itself has already succeeded, so
+     * a failure here leaves the row at COMMITTED and an operator can flip
+     * it manually via the same endpoint. Idempotent on the user-service
+     * side (409 if the row isn't COMMITTED — treated as no-op here).
+     */
+    public Mono<Void> markEndorsementComputed(UUID endorsementId) {
+        String path = "/api/v1/endorsements/" + endorsementId + "/computed";
+        return Mono.deferContextual(ctx -> {
+            String tenantId = TenantContext.get(ctx);
+            return http.put().uri(path)
+                    .header("X-Tenant-ID", tenantId != null ? tenantId : "")
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .then()
+                    .doOnError(err -> log.warn("UserService markEndorsementComputed {} failed: {}",
+                            endorsementId, err.getMessage()))
+                    .onErrorResume(err -> Mono.empty());
+        });
+    }
+
+    /**
      * V043 auto-reactivate lookups. Each returns a stream of ids for
      * rows currently in {@code status = 'suspended'} whose
      * {@code suspend_reason} matches — the arrears executor uses these

@@ -39,7 +39,13 @@ public abstract class AbstractIntegrationTest {
         new PostgreSQLContainer<>("postgres:17-alpine")
             .withDatabaseName("medfund")
             .withUsername("medfund")
-            .withPassword("medfund");
+            .withPassword("medfund")
+            // Postgres 17 defaults to max_connections=100. Under a full IT run
+            // every SpringBootTest class stacks R2DBC pool + Flyway JDBC + Redis
+            // clients + occasional bare JDBC probes against the same static
+            // container; 100 evaporates. Phase 12 §0 raised it to 300, which
+            // survives every test class extending this base + AbstractPostgresIntegrationTest.
+            .withCommand("postgres", "-c", "max_connections=300", "-c", "shared_buffers=64MB");
 
     protected static final KafkaContainer KAFKA =
         new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.0"));

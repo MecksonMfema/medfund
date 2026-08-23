@@ -17,6 +17,7 @@ import { TenantProrationTabComponent } from './proration/proration-tab.component
 import { TenantBankAccountsTabComponent } from './bank-accounts/bank-accounts-tab.component';
 import { TenantReportsTabComponent } from './reports/reports-tab.component';
 import { AutoLapseConfigComponent } from './auto-lapse/auto-lapse-config.component';
+import { EndorsementConfigComponent } from './endorsement/endorsement-config.component';
 import { TenantService } from '../../../core/services/tenant.service';
 import {
   BrandingService,
@@ -64,7 +65,7 @@ const JURISDICTIONS = [
   { value: 'US_NAIC',                label: 'United States — NAIC' },
 ];
 
-type TabId = 'general' | 'branding' | 'insurance-lines' | 'currencies' | 'billing' | 'proration' | 'bank-accounts' | 'email-templates' | 'reports' | 'auto-lapse' | 'roles';
+type TabId = 'general' | 'branding' | 'insurance-lines' | 'currencies' | 'billing' | 'proration' | 'bank-accounts' | 'email-templates' | 'reports' | 'auto-lapse' | 'endorsement-config' | 'roles';
 
 interface Tab {
   id: TabId;
@@ -82,7 +83,7 @@ interface Tab {
 @Component({
   selector: 'app-tenant-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, EditorComponent, TenantRolesTabComponent, TenantCurrenciesTabComponent, TenantBillingTabComponent, TenantProrationTabComponent, TenantBankAccountsTabComponent, TenantReportsTabComponent, AutoLapseConfigComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, EditorComponent, TenantRolesTabComponent, TenantCurrenciesTabComponent, TenantBillingTabComponent, TenantProrationTabComponent, TenantBankAccountsTabComponent, TenantReportsTabComponent, AutoLapseConfigComponent, EndorsementConfigComponent, SelectComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
 })
@@ -100,6 +101,7 @@ export class TenantSettingsComponent implements OnInit {
     { id: 'email-templates', label: 'Email Templates',        icon: 'file-text' },
     { id: 'reports',         label: 'Reports',                icon: 'chart' },
     { id: 'auto-lapse',      label: 'Auto-Lapse',             icon: 'alert-triangle' },
+    { id: 'endorsement-config', label: 'Endorsement Config',  icon: 'shield' },
     { id: 'roles',           label: 'Roles & Permissions',    icon: 'shield' },
   ];
 
