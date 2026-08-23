@@ -43,3 +43,7 @@ keycloak:
     password: admin
   client:
     id: medfund-web   # OIDC client — embedded in Keycloak invite email links
+
+services:
+  tenancy:
+    base-url: http://localhost:8081

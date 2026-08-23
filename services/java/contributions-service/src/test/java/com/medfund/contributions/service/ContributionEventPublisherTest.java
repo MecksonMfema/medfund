@@ -82,6 +82,67 @@ class ContributionEventPublisherTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void publishContributionRevoked_sendsToCorrectTopic_withFullPayload() {
+        when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
+
+        StepVerifier.create(contributionEventPublisher.publishContributionRevoked(
+                    "cont-42", "inv-7", "mbr-1", "grp-3",
+                    "500.00", "USD", "HEALTH", "tnt-1",
+                    "admin-1", "admin@medfund.co"))
+                .verifyComplete();
+
+        verify(kafkaSender).send(senderRecordCaptor.capture());
+
+        StepVerifier.create(senderRecordCaptor.getValue())
+                .assertNext(record -> {
+                    assertThat(record.topic()).isEqualTo("medfund.contributions.revoked");
+                    assertThat(record.key()).isEqualTo("cont-42");
+                    String body = record.value();
+                    assertThat(body)
+                            .contains("\"event\":\"CONTRIBUTION_REVOKED\"")
+                            .contains("\"contributionId\":\"cont-42\"")
+                            .contains("\"invoiceId\":\"inv-7\"")
+                            .contains("\"memberId\":\"mbr-1\"")
+                            .contains("\"groupId\":\"grp-3\"")
+                            .contains("\"amount\":\"500.00\"")
+                            .contains("\"currencyCode\":\"USD\"")
+                            .contains("\"insuranceLine\":\"HEALTH\"")
+                            .contains("\"tenantId\":\"tnt-1\"")
+                            .contains("\"actorId\":\"admin-1\"")
+                            .contains("\"actorEmail\":\"admin@medfund.co\"")
+                            .contains("\"revokedAt\"");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void publishContributionRevoked_missingActor_fallsBackToSystemActor() {
+        when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
+
+        StepVerifier.create(contributionEventPublisher.publishContributionRevoked(
+                    "cont-99", null, "mbr-2", null,
+                    "150.00", "USD", "HEALTH", "tnt-1",
+                    null, null))
+                .verifyComplete();
+
+        verify(kafkaSender).send(senderRecordCaptor.capture());
+
+        StepVerifier.create(senderRecordCaptor.getValue())
+                .assertNext(record -> {
+                    String body = record.value();
+                    // Missing actorId/actorEmail default to the system actor so
+                    // the audit trail on the consumer side is never blank
+                    // (feedback_audit_actor_email).
+                    assertThat(body)
+                            .contains("\"actorId\":\"system\"")
+                            .contains("\"actorEmail\":\"system@medfund\"");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void publishInvoiceIssued_groupPayload_omitsMemberIdAndCarriesEverythingFileServiceNeeds() {
         when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
 

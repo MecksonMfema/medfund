@@ -16,6 +16,7 @@ import { TenantBillingTabComponent } from './billing/billing-tab.component';
 import { TenantProrationTabComponent } from './proration/proration-tab.component';
 import { TenantBankAccountsTabComponent } from './bank-accounts/bank-accounts-tab.component';
 import { TenantReportsTabComponent } from './reports/reports-tab.component';
+import { AutoLapseConfigComponent } from './auto-lapse/auto-lapse-config.component';
 import { TenantService } from '../../../core/services/tenant.service';
 import {
   BrandingService,
@@ -63,7 +64,7 @@ const JURISDICTIONS = [
   { value: 'US_NAIC',                label: 'United States — NAIC' },
 ];
 
-type TabId = 'general' | 'branding' | 'insurance-lines' | 'currencies' | 'billing' | 'proration' | 'bank-accounts' | 'email-templates' | 'reports' | 'roles';
+type TabId = 'general' | 'branding' | 'insurance-lines' | 'currencies' | 'billing' | 'proration' | 'bank-accounts' | 'email-templates' | 'reports' | 'auto-lapse' | 'roles';
 
 interface Tab {
   id: TabId;
@@ -81,7 +82,7 @@ interface Tab {
 @Component({
   selector: 'app-tenant-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, EditorComponent, TenantRolesTabComponent, TenantCurrenciesTabComponent, TenantBillingTabComponent, TenantProrationTabComponent, TenantBankAccountsTabComponent, TenantReportsTabComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, EditorComponent, TenantRolesTabComponent, TenantCurrenciesTabComponent, TenantBillingTabComponent, TenantProrationTabComponent, TenantBankAccountsTabComponent, TenantReportsTabComponent, AutoLapseConfigComponent, SelectComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
 })
@@ -98,6 +99,7 @@ export class TenantSettingsComponent implements OnInit {
     { id: 'bank-accounts',   label: 'Bank Accounts',          icon: 'building' },
     { id: 'email-templates', label: 'Email Templates',        icon: 'file-text' },
     { id: 'reports',         label: 'Reports',                icon: 'chart' },
+    { id: 'auto-lapse',      label: 'Auto-Lapse',             icon: 'alert-triangle' },
     { id: 'roles',           label: 'Roles & Permissions',    icon: 'shield' },
   ];
 

@@ -61,6 +61,9 @@ const ACTION_TYPES: { id: string; label: string; description: string; valueHint?
   { id: 'SCHEDULE_PAYMENT_RUN', label: 'Schedule payment run', description: 'Trigger a provider payment run on the given date.', valueHint: 'TODAY  or  2026-05-15' },
   { id: 'WITHHOLD_PAYMENT',     label: 'Withhold payment',     description: 'Hold back a percentage of the run amount.', valueHint: '10  (= 10%)' },
   { id: 'MATCH_RECORDS',        label: 'Match records',        description: 'Mark a candidate match in reconciliation.' },
+
+  // Commission (Phase 11)
+  { id: 'PAY_COMMISSION',       label: 'Pay commission',       description: 'Record a commission accrual against a producer. Value picks between a rate-card lookup and a basis-point kicker on top of the base.', valueHint: 'RATE_CARD:<uuid>  or  KICKER:<bp>[:<reason>]' },
 ];
 
 interface EditorFormState {

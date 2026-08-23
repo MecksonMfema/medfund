@@ -714,6 +714,99 @@ export const FINANCE_ROUTES: Routes = [
     },
   },
 
+  // ── Producer payouts (Phase 11 §A Phase 6) ──────────────────────────────
+  // PRODUCER-typed payment runs — separate landing pages from PROVIDER +
+  // MEMBER because they carry a period (commission window) and different
+  // permission gates.
+  {
+    path: 'payouts/producer',
+    canActivate: [permissionGuard(['finance.commission:view'])],
+    loadComponent: () => import('./payouts/producer/producer-payout-list.component')
+      .then(m => m.ProducerPayoutListComponent),
+    data: { title: 'Producer payouts', sidebar: 'operational', fullbleed: true },
+  },
+  {
+    path: 'payouts/producer/new',
+    canActivate: [permissionGuard(['finance.commission:create_payout_run'])],
+    loadComponent: () => import('./payouts/producer/create-producer-payout.component')
+      .then(m => m.CreateProducerPayoutComponent),
+    data: { title: 'Create producer payout', sidebar: 'operational' },
+  },
+  {
+    path: 'payouts/producer/:id',
+    canActivate: [permissionGuard(['finance.commission:view'])],
+    loadComponent: () => import('./payouts/producer/producer-payout-detail.component')
+      .then(m => m.ProducerPayoutDetailComponent),
+    data: { title: 'Producer payout detail', sidebar: 'operational' },
+  },
+
+  // ── Commission reports (Phase 11 §A) ────────────────────────────────────
+  {
+    path: 'reports/commission/statement',
+    canActivate: [permissionGuard(['finance.commission:view'])],
+    loadComponent: () =>
+      import('./reports/commission/commission-statement.component').then(m => m.CommissionStatementComponent),
+    data: {
+      title: 'Commission statement',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'COMMISSION_STATEMENT',
+    },
+  },
+  {
+    path: 'reports/commission/clawback-register',
+    canActivate: [permissionGuard(['finance.commission:view'])],
+    loadComponent: () =>
+      import('./reports/commission/commission-clawback-register.component')
+        .then(m => m.CommissionClawbackRegisterComponent),
+    data: {
+      title: 'Commission clawback register',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'COMMISSION_CLAWBACK',
+    },
+  },
+
+  // ── Commission adjustments (Phase 11 §B Phase 8) ────────────────────────
+  // Four-eyes lifecycle: drafter creates DRAFT, supervisor approves +
+  // commits. Detail route sits after the two named queue routes so
+  // /draft and /approve are matched literally (not as an :id).
+  {
+    path: 'commission/adjustments/draft',
+    canActivate: [permissionGuard(['finance.commission:draft_adjustment'])],
+    loadComponent: () =>
+      import('./commission/adjustments/adjustments-drafter-queue.component')
+        .then(m => m.AdjustmentsDrafterQueueComponent),
+    data: {
+      title: 'Commission adjustments — drafts',
+      sidebar: 'operational',
+      fullbleed: true,
+    },
+  },
+  {
+    path: 'commission/adjustments/approve',
+    canActivate: [permissionGuard(['finance.commission:approve_adjustment'])],
+    loadComponent: () =>
+      import('./commission/adjustments/adjustments-approver-queue.component')
+        .then(m => m.AdjustmentsApproverQueueComponent),
+    data: {
+      title: 'Commission adjustments — approver queue',
+      sidebar: 'operational',
+      fullbleed: true,
+    },
+  },
+  {
+    path: 'commission/adjustments/:id',
+    canActivate: [permissionGuard(['finance.commission:view'])],
+    loadComponent: () =>
+      import('./commission/adjustments/adjustment-detail.component')
+        .then(m => m.AdjustmentDetailComponent),
+    data: {
+      title: 'Commission adjustment detail',
+      sidebar: 'operational',
+    },
+  },
+
   // ── Reinsurance operational — facultative (Phase 7 §B) ──────────────────
   // Two pages: underwriter browse+cede, supervisor approve+commit queue.
   // Kept alongside reinsurance reports so the operator finds them on the

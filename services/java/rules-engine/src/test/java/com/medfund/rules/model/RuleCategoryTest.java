@@ -19,9 +19,18 @@ class RuleCategoryTest {
     }
 
     @Test
+    void commissionCategory_isDeclared() {
+        // Phase 11 addition — used by PAY_COMMISSION emitter + kicker rules.
+        // Agenda-gated so it only fires when CommissionCalcService focuses
+        // the group on a medfund.contributions.paid event.
+        assertThat(RuleCategory.valueOf("COMMISSION"))
+                .isEqualTo(RuleCategory.COMMISSION);
+    }
+
+    @Test
     void enumHasExpectedCatalogSize() {
         // Guardrail: if this fires, a new category was added — update the
         // Angular RULE_CATEGORIES + permissions catalog + tenant rules docs.
-        assertThat(RuleCategory.values()).hasSize(17);
+        assertThat(RuleCategory.values()).hasSize(18);
     }
 }

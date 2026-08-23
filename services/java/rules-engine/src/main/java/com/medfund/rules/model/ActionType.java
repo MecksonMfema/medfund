@@ -71,5 +71,25 @@ public enum ActionType {
      *   <li>{@code message} — human-readable audit note.</li>
      * </ul>
      */
-    CEDE_TO_TREATY
+    CEDE_TO_TREATY,
+
+    // ── Commission outputs ───────────────────────────────────────────────────
+    /**
+     * Pay a producer commission on a paid contribution. Populates a
+     * PAY_COMMISSION {@code RuleResult} on {@code ContributionFact} carrying
+     * producerId (via code) + amount + rateCardId. Consumed by
+     * {@code CommissionCalcService} in finance-service.
+     *
+     * <p>Action fields (see {@code RuleAction}):
+     * <ul>
+     *   <li>{@code rejectionCode} — producer id (UUID string). Optional —
+     *       an empty value defers to the member's currently-assigned producer.</li>
+     *   <li>{@code value} — {@code "RATE_CARD:<uuid>"} to look up a rate
+     *       card and pay {@code contribution.premiumAmount * card.baseRatePct},
+     *       or {@code "KICKER:<pct-bp>[:<reason>]"} to add or subtract basis
+     *       points to whatever the rate-card lookup produced.</li>
+     *   <li>{@code message} — human-readable audit note.</li>
+     * </ul>
+     */
+    PAY_COMMISSION
 }

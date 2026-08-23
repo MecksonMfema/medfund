@@ -36,7 +36,8 @@ class DrlCompilerTest {
                 new ActionEmitters.SchedulePaymentRunEmitter(),
                 new ActionEmitters.WithholdPaymentEmitter(),
                 new ActionEmitters.MatchRecordsEmitter(),
-                new CedeToTreatyEmitter()
+                new CedeToTreatyEmitter(),
+                new PayCommissionEmitter()
         ));
     }
 
@@ -179,6 +180,66 @@ class DrlCompilerTest {
         assertThat(drl).contains("max(java.math.BigDecimal.ZERO)");
         // Layer id passes through as the third arg to addCession.
         assertThat(drl).contains("33333333-3333-3333-3333-333333333333");
+    }
+
+    @Test
+    void compile_commissionRule_addsAgendaGroupAndAddCommission() {
+        RuleDefinition rule = new RuleDefinition();
+        rule.setName("Broker A kicker 25bp");
+        rule.setCategory("COMMISSION");
+        rule.setPriority(50);
+        rule.setEnabled(true);
+        rule.setConditions(conditions("AND",
+                condition("contribution.insuranceLine", "EQUALS", "HEALTH")));
+        RuleAction action = new RuleAction();
+        action.setType("PAY_COMMISSION");
+        action.setRejectionCode("44444444-4444-4444-4444-444444444444");
+        action.setValue("KICKER:25:promo");
+        action.setMessage("Promo kicker Q3");
+        rule.setAction(action);
+
+        String drl = compiler.compile(rule);
+
+        // Agenda-group gate keeps commission rules out of the stage-7 sweep.
+        assertThat(drl).contains("agenda-group \"COMMISSION\"");
+        // ContributionFact is auto-bound via DrlCompiler.factForAction even
+        // though the rule's only condition is on insuranceLine (an attribute).
+        assertThat(drl).contains("$contribution : ContributionFact(");
+        assertThat(drl).contains("$contribution.addCommission(");
+        // Producer id + message flow through as string params.
+        assertThat(drl).contains("44444444-4444-4444-4444-444444444444");
+        assertThat(drl).contains("Promo kicker Q3");
+        // KICKER encoding: premiumAmount × bp × 10^-4.
+        assertThat(drl).contains("$contribution.getPremiumAmount()");
+        assertThat(drl).contains("multiply(new java.math.BigDecimal(\"25\"))");
+        assertThat(drl).contains("movePointLeft(4)");
+    }
+
+    @Test
+    void compile_commissionRateCardRule_carriesRateCardIdWithZeroAmount() {
+        RuleDefinition rule = new RuleDefinition();
+        rule.setName("Broker A base");
+        rule.setCategory("COMMISSION");
+        rule.setPriority(60);
+        rule.setEnabled(true);
+        rule.setConditions(conditions("AND",
+                condition("contribution.insuranceLine", "EQUALS", "HEALTH")));
+        RuleAction action = new RuleAction();
+        action.setType("PAY_COMMISSION");
+        action.setRejectionCode("");   // defer to member's assigned producer
+        action.setValue("RATE_CARD:55555555-5555-5555-5555-555555555555");
+        action.setMessage("Health base rate");
+        rule.setAction(action);
+
+        String drl = compiler.compile(rule);
+
+        // Rate-card lookup encoding emits zero amount + carries the id via
+        // the third arg to addCommission — the consumer resolves the amount.
+        assertThat(drl).contains("$contribution.addCommission(");
+        assertThat(drl).contains("java.math.BigDecimal.ZERO");
+        assertThat(drl).contains("55555555-5555-5555-5555-555555555555");
+        // Empty producer id encodes as \"\" so the emitted DRL still compiles.
+        assertThat(drl).contains("addCommission(\"\", ");
     }
 
     @Test

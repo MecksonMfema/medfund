@@ -269,6 +269,48 @@ public class BalanceService {
         return "GRACE";
     }
 
+    /**
+     * Cheap point-lookup of the aged-bucket a member currently sits in
+     * for a given currency. Uses the same threshold + classification
+     * the arrears sweep does — so the buckets returned here
+     * (GRACE / SUSPENDED / WRITE_OFF) line up 1:1 with the
+     * state-transition semantics {@link ArrearsThresholdPublisher}
+     * publishes.
+     *
+     * <p>Returns {@code "GRACE"} when there is no balance row, when the
+     * balance is zero or negative (nothing owing), or when neither
+     * {@code last_payment_at} nor {@code last_charge_at} has ever been
+     * set (no activity — nothing to age).
+     *
+     * <p>Used by {@link BillingService#recordPayment} to snapshot the
+     * pre-vs-post aged bucket around a payment and publish an
+     * {@code arrears-cleared} event when SUSPENDED / WRITE_OFF → GRACE.
+     */
+    public Mono<String> currentBucketFor(UUID memberId, String currencyCode) {
+        if (memberId == null || currencyCode == null) return Mono.just("GRACE");
+        return resolveMinAge(null).flatMap(threshold -> db.sql("""
+                SELECT balance, last_payment_at, last_charge_at
+                  FROM member_running_balance
+                 WHERE member_id = :memberId AND currency_code = :currency
+                """)
+                .bind("memberId", memberId)
+                .bind("currency", currencyCode)
+                .map((row, meta) -> {
+                    BigDecimal balance = row.get("balance", BigDecimal.class);
+                    Instant lastPayment = row.get("last_payment_at", Instant.class);
+                    Instant lastCharge  = row.get("last_charge_at",  Instant.class);
+                    if (balance == null || balance.signum() <= 0) return "GRACE";
+                    Instant lastActivity = lastPayment != null ? lastPayment : lastCharge;
+                    if (lastActivity == null) return "GRACE";
+                    long days = java.time.Duration.between(lastActivity, Instant.now()).toDays();
+                    if (days >= threshold * 3L) return "WRITE_OFF";
+                    if (days >= threshold)      return "SUSPENDED";
+                    return "GRACE";
+                })
+                .one()
+                .switchIfEmpty(Mono.just("GRACE")));
+    }
+
     // ── Upsert helpers ────────────────────────────────────────────────────────
 
     private Mono<Void> upsertMember(UUID memberId, String currency, BigDecimal delta,

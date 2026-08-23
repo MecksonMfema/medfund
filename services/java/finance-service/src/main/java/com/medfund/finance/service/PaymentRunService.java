@@ -12,6 +12,7 @@ import com.medfund.finance.entity.PaymentRunItem;
 import com.medfund.finance.entity.ProviderBalance;
 import com.medfund.finance.entity.ProviderBalanceSnapshot;
 import com.medfund.finance.exception.PaymentNotFoundException;
+import com.medfund.finance.producer.repository.CommissionTransactionRepository;
 import com.medfund.finance.repository.AdvancePaymentApplicationRepository;
 import com.medfund.finance.repository.AdvancePaymentBalanceRepository;
 import com.medfund.finance.repository.AdvancePaymentRepository;
@@ -31,6 +32,8 @@ import java.math.BigDecimal;
 import com.medfund.shared.audit.AuditActor;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
+import com.medfund.shared.security.PermissionContext;
+import com.medfund.shared.security.Permissions;
 import com.medfund.shared.tenant.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +45,8 @@ import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +78,7 @@ public class PaymentRunService {
     private final PaymentAdviceService paymentAdviceService;
     private final TenantBankAccountRepository bankAccountRepository;
     private final DatabaseClient databaseClient;
+    private final CommissionTransactionRepository commissionTransactionRepository;
 
     public PaymentRunService(PaymentRunRepository paymentRunRepository,
                              com.medfund.finance.repository.PaymentRunQueryRepository queryRepository,
@@ -93,7 +99,8 @@ public class PaymentRunService {
                              PaymentRunGenerator paymentRunGenerator,
                              PaymentAdviceService paymentAdviceService,
                              TenantBankAccountRepository bankAccountRepository,
-                             DatabaseClient databaseClient) {
+                             DatabaseClient databaseClient,
+                             CommissionTransactionRepository commissionTransactionRepository) {
         this.paymentRunRepository = paymentRunRepository;
         this.queryRepository = queryRepository;
         this.paymentRunItemRepository = paymentRunItemRepository;
@@ -114,6 +121,7 @@ public class PaymentRunService {
         this.paymentAdviceService = paymentAdviceService;
         this.bankAccountRepository = bankAccountRepository;
         this.databaseClient = databaseClient;
+        this.commissionTransactionRepository = commissionTransactionRepository;
     }
 
     /**
@@ -146,7 +154,34 @@ public class PaymentRunService {
 
     @Transactional
     public Mono<PaymentRun> create(CreatePaymentRunRequest request, String actorId, String actorEmail) {
-        return bankAccountRepository.findById(request.sourceBankAccountId())
+        String payeeType = request.payeeType();
+        LocalDate snappedStart = null;
+        LocalDate snappedEnd = null;
+        if ("PRODUCER".equals(payeeType)) {
+            if (request.periodStart() == null || request.periodEnd() == null) {
+                return Mono.error(new IllegalArgumentException(
+                        "PRODUCER payment runs require periodStart and periodEnd"));
+            }
+            // Snap per feedback_effective_date_snap: start → 1st-of-month, end → last-day-of-month.
+            snappedStart = request.periodStart().withDayOfMonth(1);
+            snappedEnd = request.periodEnd().withDayOfMonth(1).plusMonths(1).minusDays(1);
+            if (snappedEnd.isBefore(snappedStart)) {
+                return Mono.error(new IllegalArgumentException(
+                        "periodEnd must not precede periodStart"));
+            }
+        }
+        final LocalDate finalStart = snappedStart;
+        final LocalDate finalEnd = snappedEnd;
+
+        Mono<Void> extraPermissionCheck = "PRODUCER".equals(payeeType)
+                ? Mono.deferContextual(ctx -> PermissionContext.has(ctx, Permissions.COMMISSION_CREATE_PAYOUT_RUN)
+                        ? Mono.empty()
+                        : Mono.error(new org.springframework.web.server.ResponseStatusException(
+                                org.springframework.http.HttpStatus.FORBIDDEN,
+                                "Requires " + Permissions.COMMISSION_CREATE_PAYOUT_RUN)))
+                : Mono.empty();
+
+        return extraPermissionCheck.then(Mono.defer(() -> bankAccountRepository.findById(request.sourceBankAccountId())
             .switchIfEmpty(Mono.error(new IllegalArgumentException(
                 "Bank account not found: " + request.sourceBankAccountId())))
             .flatMap(bank -> {
@@ -165,6 +200,8 @@ public class PaymentRunService {
                         run.setDescription(request.description());
                         run.setPaymentCount(0);
                         run.setSourceBankAccountId(bank.getId());
+                        run.setPeriodStart(finalStart);
+                        run.setPeriodEnd(finalEnd);
                         run.setCreatedAt(Instant.now());
                         run.setUpdatedAt(Instant.now());
                         run.setCreatedBy(Actors.parseId(actorId));
@@ -173,7 +210,7 @@ public class PaymentRunService {
                             .doOnNext(saved -> saved.setSourceBankAccountLabel(bank.getLabel()));
                     });
             })
-            .flatMap(saved -> paymentRunGenerator.populate(saved)
+            .flatMap(saved -> paymentRunGenerator.populate(saved, finalStart, finalEnd)
                 .flatMap(count -> {
                     saved.setPaymentCount(count);
                     saved.setUpdatedAt(Instant.now());
@@ -195,7 +232,7 @@ public class PaymentRunService {
                         saved.getTotalAmount() != null ? saved.getTotalAmount().toPlainString() : "0",
                         saved.getPaymentCount() != null ? saved.getPaymentCount() : 0))
                     .thenReturn(saved);
-            }));
+            }))));
     }
 
     @Transactional
@@ -235,6 +272,7 @@ public class PaymentRunService {
                             return Mono.just(java.util.List.of());
                         })
                         .thenReturn(completed))
+                    .flatMap(completed -> markProducerCommissionsPaid(completed).thenReturn(completed))
                     .flatMap(completed -> snapshotBalances(completed).thenReturn(completed))
                     .flatMap(completed -> Mono.deferContextual(ctx -> {
                         String tenantId = TenantContext.get(ctx);
@@ -270,6 +308,7 @@ public class PaymentRunService {
     public Mono<PaymentRun> approve(UUID runId, String actorId, String actorEmail) {
         return paymentRunRepository.findById(runId)
             .switchIfEmpty(Mono.error(new PaymentNotFoundException(runId)))
+            .flatMap(run -> requireApprovePermission(run).thenReturn(run))
             .flatMap(run -> {
                 String previousStatus = run.getStatus();
                 if (!"draft".equals(previousStatus)) {
@@ -404,6 +443,47 @@ public class PaymentRunService {
 
     private static BigDecimal orZero(BigDecimal v) {
         return v == null ? BigDecimal.ZERO : v;
+    }
+
+    /**
+     * PRODUCER-run approve step gate (Phase 11 §A Phase 6): additionally
+     * requires {@code finance.commission:approve_payout_run} on top of the
+     * {@code finance.payments:manage} at the controller level. No-op for
+     * PROVIDER + MEMBER runs.
+     */
+    private Mono<Void> requireApprovePermission(PaymentRun run) {
+        if (!"PRODUCER".equalsIgnoreCase(run.getPayeeType())) return Mono.empty();
+        return Mono.deferContextual(ctx -> PermissionContext.has(ctx,
+                        Permissions.COMMISSION_APPROVE_PAYOUT_RUN)
+                ? Mono.empty()
+                : Mono.error(new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.FORBIDDEN,
+                        "Requires " + Permissions.COMMISSION_APPROVE_PAYOUT_RUN)));
+    }
+
+    /**
+     * PRODUCER-run execute step (Phase 11 §A Phase 6): for every distinct
+     * producer id present in the run's items, flip the matching ACCRUED
+     * commission_transaction rows to PAID and stamp {@code paidRunId} +
+     * {@code paidAt}. No-op for PROVIDER + MEMBER runs.
+     */
+    private Mono<Void> markProducerCommissionsPaid(PaymentRun run) {
+        if (!"PRODUCER".equalsIgnoreCase(run.getPayeeType())
+                || run.getPeriodStart() == null || run.getPeriodEnd() == null) {
+            return Mono.empty();
+        }
+        OffsetDateTime from = run.getPeriodStart().atStartOfDay().atOffset(ZoneOffset.UTC);
+        OffsetDateTime to   = run.getPeriodEnd().plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC);
+        return paymentRunItemRepository.findByPaymentRunId(run.getId())
+                .filter(item -> item.getProducerId() != null)
+                .map(PaymentRunItem::getProducerId)
+                .distinct()
+                .flatMap(producerId -> commissionTransactionRepository
+                        .markPaidByProducerAndPeriod(producerId, run.getId(), from, to)
+                        .doOnNext(count -> log.info(
+                                "[commission-payout] run {} producer {} — {} commission rows flipped to PAID",
+                                run.getRunNumber(), producerId, count)))
+                .then();
     }
 
     @Transactional

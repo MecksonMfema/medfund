@@ -1,0 +1,78 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Commission rate cards</h1>
+      <p class="sub">Lookup-driven base commission by insurance line + optional producer tier. Overlapping active cards are permitted — resolution is most-recent-effective.</p>
+    </div>
+    <button class="btn btn-primary" (click)="startCreate()">
+      <app-icon name="plus"></app-icon>
+      New rate card
+    </button>
+  </header>
+
+  <div *ngIf="errorMessage" class="alert alert-error">{{ errorMessage }}</div>
+  <div *ngIf="successMessage" class="alert alert-success">{{ successMessage }}</div>
+
+  <div class="filters">
+    <label>
+      Status:
+      <select [(ngModel)]="filterActive" (change)="onFilterChange()">
+        <option value="">All</option>
+        <option value="true">Active only</option>
+        <option value="false">Inactive only</option>
+      </select>
+    </label>
+  </div>
+
+  <div *ngIf="showForm" class="form-panel">
+    <h3>{{ draft.id ? 'Edit' : 'New' }} rate card</h3>
+    <div class="form-grid">
+      <label>Name *<input type="text" [(ngModel)]="draft.name" required maxlength="120" /></label>
+      <label>Insurance line *
+        <select [(ngModel)]="draft.insuranceLine" required>
+          <option *ngFor="let line of insuranceLines" [value]="line">{{ line }}</option>
+        </select>
+      </label>
+      <label>Producer tier<input type="text" [(ngModel)]="draft.producerTier" maxlength="40"
+                                 placeholder="DIRECT | SUB | (empty = any)" /></label>
+      <label>Base rate % *
+        <input type="number" [(ngModel)]="draft.baseRatePct" required
+               min="0" max="100" step="0.0001" />
+      </label>
+      <label>Clawback window (days)
+        <input type="number" [(ngModel)]="draft.clawbackWindowDays" min="0" max="3650" />
+      </label>
+      <label>Effective from *
+        <input type="date" [(ngModel)]="draft.effectiveFrom" required />
+      </label>
+      <label>Effective to
+        <input type="date" [(ngModel)]="draft.effectiveTo" />
+      </label>
+      <label *ngIf="draft.id">
+        <input type="checkbox" [(ngModel)]="draft.active" /> Active
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" (click)="save()" [disabled]="saving">
+        {{ saving ? 'Saving…' : 'Save' }}
+      </button>
+      <button class="btn" (click)="cancel()" [disabled]="saving">Cancel</button>
+    </div>
+  </div>
+
+  <app-data-table
+    [columns]="columns"
+    [data]="rows"
+    [actions]="actions"
+    [showActions]="true"
+    [serverSide]="true"
+    [loading]="loading"
+    [pageSize]="pageSize"
+    [totalCount]="totalCount"
+    [totalPages]="totalPages"
+    [serverPage]="page"
+    emptyMessage="No rate cards yet"
+    emptyDescription="Click New rate card above to define your first commission schedule."
+    (pageChange)="onPageChange($event)">
+  </app-data-table>
+</div>

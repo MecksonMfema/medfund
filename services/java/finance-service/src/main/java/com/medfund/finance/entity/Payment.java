@@ -25,6 +25,9 @@ public class Payment {
     @Column("member_id")
     private UUID memberId;
 
+    @Column("producer_id")
+    private UUID producerId;
+
     @Column("payee_type")
     private String payeeType = "PROVIDER";
 
@@ -72,6 +75,9 @@ public class Payment {
 
     public UUID getMemberId() { return memberId; }
     public void setMemberId(UUID memberId) { this.memberId = memberId; }
+
+    public UUID getProducerId() { return producerId; }
+    public void setProducerId(UUID producerId) { this.producerId = producerId; }
 
     public String getPayeeType() { return payeeType; }
     public void setPayeeType(String payeeType) { this.payeeType = payeeType; }

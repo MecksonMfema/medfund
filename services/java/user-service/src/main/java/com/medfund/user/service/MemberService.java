@@ -361,6 +361,89 @@ public class MemberService {
     }
 
     /**
+     * Auto-lapse transition (Phase 11 §B / P7). Distinct from operator
+     * suspension/termination so downstream consumers can tell arrears-driven
+     * auto-lapse apart from operator lifecycle actions. Reason string is
+     * threaded through to the resulting MEMBER_STATUS_CHANGED event so
+     * {@code CommissionClawbackConsumer} etc. can attribute the flip.
+     */
+    @Transactional
+    public Mono<Member> lapse(UUID id, LocalDate effectiveDate, String reason,
+                               String actorId, String actorEmail) {
+        return applyOrSchedule(id, "lapsed", effectiveDate, reason, actorId, actorEmail);
+    }
+
+    /**
+     * Public wrapper on {@link #applyOrSchedule} for consumers that need
+     * to schedule a status transition directly (e.g. the auto-lapse
+     * consumer in user-service, which resolves the effective date from
+     * the tenant's grace-window config). Keeps the routing logic — snap
+     * effective date, decide immediate vs scheduled — in one place.
+     */
+    @Transactional
+    public Mono<Member> applyOrScheduleStatus(UUID id, String targetStatus, LocalDate effectiveDate,
+                                                String reason, String actorId, String actorEmail) {
+        return applyOrSchedule(id, targetStatus, effectiveDate, reason, actorId, actorEmail);
+    }
+
+    /**
+     * Cancel a pending scheduled status flip. Used by the auto-lapse
+     * chain when an {@code arrears-cleared} event arrives before the
+     * scheduled effective date — the pending LAPSED is nulled out so
+     * the SCHEDULED_STATUS_ROLL job leaves the member alone next tick.
+     *
+     * <p>No-op when the member has no scheduled trio set. Also a no-op
+     * when the scheduled status is not the one we expected (e.g. an
+     * operator scheduled a manual suspend after the auto-lapse was
+     * queued) — the caller can pass {@code null} for {@code expectedStatus}
+     * to bypass that guard.
+     *
+     * <p>Emits an audit event on cancel so the change is auditable.
+     */
+    @Transactional
+    public Mono<Member> cancelScheduledStatus(UUID id, String expectedStatus, String cancelReason,
+                                                String actorId, String actorEmail) {
+        return memberRepository.findById(id)
+            .switchIfEmpty(Mono.error(new MemberNotFoundException(id)))
+            .flatMap(existing -> {
+                if (existing.getScheduledStatus() == null) {
+                    return Mono.just(existing);
+                }
+                if (expectedStatus != null
+                        && !expectedStatus.equalsIgnoreCase(existing.getScheduledStatus())) {
+                    log.debug("cancelScheduledStatus({}): expected='{}' but current='{}' — skipping",
+                            id, expectedStatus, existing.getScheduledStatus());
+                    return Mono.just(existing);
+                }
+                var previous = copyMember(existing);
+                existing.setScheduledStatus(null);
+                existing.setScheduledStatusEffectiveFrom(null);
+                existing.setScheduledStatusReason(cancelReason);
+                existing.setUpdatedAt(Instant.now());
+                existing.setUpdatedBy(safeParseUuid(actorId));
+                return memberRepository.save(existing)
+                    .flatMap(saved -> Mono.deferContextual(ctx -> {
+                        String tenantId = TenantContext.get(ctx);
+                        return publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE")
+                                .thenReturn(saved);
+                    }))
+                    .flatMap(saved -> {
+                        // Once the audit event lands, clear the reason
+                        // to avoid it lingering on the row. This second
+                        // write is deliberately non-audited — the flip
+                        // is already in the trail as "scheduled_status
+                        // → null with reason X"; the follow-up null-out
+                        // is bookkeeping, not a business event.
+                        if (saved.getScheduledStatusReason() != null) {
+                            saved.setScheduledStatusReason(null);
+                            return memberRepository.save(saved);
+                        }
+                        return Mono.just(saved);
+                    });
+            });
+    }
+
+    /**
      * Router for the four lifecycle transitions. When {@code effectiveDate}
      * is null or on/before today, applies immediately (delegates to
      * {@link #transitionStatus} so the existing MEMBER_STATUS_CHANGED
@@ -527,14 +610,14 @@ public class MemberService {
 
     /**
      * Snap a lifecycle effective date to the correct cycle boundary for the
-     * given target status. Terminate/deactivate are cycle-ends → last day
+     * given target status. Terminate/deactivate/lapse are cycle-ends → last day
      * of the month; activate/suspend/reactivate are cycle-starts → 1st.
      * Null passes through so "server picks today" callers stay unchanged.
      */
     private static LocalDate snapForAction(String targetStatus, LocalDate effectiveDate) {
         if (effectiveDate == null) return null;
         return switch (targetStatus) {
-            case "terminated", "deactivated" ->
+            case "terminated", "deactivated", "lapsed" ->
                 com.medfund.shared.validation.DateSnaps.toEndOfMonth(effectiveDate);
             case "active", "suspended" ->
                 com.medfund.shared.validation.DateSnaps.toFirstOfMonth(effectiveDate);

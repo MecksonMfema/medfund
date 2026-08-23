@@ -1,0 +1,105 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Producers</h1>
+      <p class="sub">Broker / producer counterparties. Hierarchy is captured via parent — no time-slice; reparenting rewrites the field, audit trail preserved.</p>
+    </div>
+    <div class="header-actions">
+      <a class="btn" routerLink="rate-cards">
+        <app-icon name="list"></app-icon>
+        Rate cards
+      </a>
+      <button class="btn btn-primary" (click)="startCreate()">
+        <app-icon name="plus"></app-icon>
+        New producer
+      </button>
+    </div>
+  </header>
+
+  <div *ngIf="errorMessage" class="alert alert-error">{{ errorMessage }}</div>
+  <div *ngIf="successMessage" class="alert alert-success">{{ successMessage }}</div>
+
+  <div class="filters">
+    <label>
+      Status:
+      <select [(ngModel)]="filterActive" (change)="onFilterChange()">
+        <option value="">All</option>
+        <option value="true">Active only</option>
+        <option value="false">Inactive only</option>
+      </select>
+    </label>
+  </div>
+
+  <div *ngIf="showForm" class="form-panel">
+    <h3>{{ draft.id ? 'Edit' : 'New' }} producer</h3>
+    <div class="form-grid">
+      <label *ngIf="!draft.id">
+        Producer code *
+        <input type="text" [(ngModel)]="draft.producerCode" required maxlength="40"
+               placeholder="BRK-001" />
+      </label>
+      <label *ngIf="draft.id">
+        Producer code
+        <input type="text" [value]="draft.producerCode" disabled />
+      </label>
+      <label>Name *<input type="text" [(ngModel)]="draft.name" required maxlength="200" /></label>
+      <label>Home currency *
+        <input type="text" [(ngModel)]="draft.homeCurrency" required
+               maxlength="3" minlength="3" style="text-transform:uppercase" />
+      </label>
+      <label>Jurisdiction<input type="text" [(ngModel)]="draft.jurisdictionCode" maxlength="20" /></label>
+      <label>Contact email<input type="email" [(ngModel)]="draft.contactEmail" maxlength="255" /></label>
+      <label>Contact phone<input type="tel" [(ngModel)]="draft.contactPhone" maxlength="40" /></label>
+      <label>WHT % override
+        <input type="number" [(ngModel)]="draft.whtPctOverride" min="0" max="100" step="0.01" />
+      </label>
+      <label>Parent producer
+        <div *ngIf="draft.parentProducerId" class="picked-chip">
+          {{ draft.parentProducerLabel || draft.parentProducerId }}
+          <button type="button" class="btn-link" (click)="clearParent()">Clear</button>
+        </div>
+        <div *ngIf="!draft.parentProducerId" class="search-select">
+          <input type="text" [(ngModel)]="parentSearchQuery"
+                 (input)="onParentSearchChange()"
+                 placeholder="Search by name or code…" />
+          <ul *ngIf="parentMatches.length > 0" class="search-matches">
+            <li *ngFor="let p of parentMatches" (mousedown)="pickParent(p)">
+              <strong>{{ p.producerCode }}</strong> — {{ p.name }}
+              <span class="sub">{{ p.homeCurrency }}</span>
+            </li>
+          </ul>
+          <div *ngIf="parentSearching" class="hint">Searching…</div>
+        </div>
+      </label>
+      <label class="col-2">Banking details (JSON)
+        <textarea [(ngModel)]="draft.bankingDetailsJson" rows="3"
+                  placeholder='{"iban":"…","swift":"…"}'></textarea>
+      </label>
+      <label *ngIf="draft.id">
+        <input type="checkbox" [(ngModel)]="draft.active" /> Active
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" (click)="save()" [disabled]="saving">
+        {{ saving ? 'Saving…' : 'Save' }}
+      </button>
+      <button class="btn" (click)="cancel()" [disabled]="saving">Cancel</button>
+    </div>
+  </div>
+
+  <app-data-table
+    [columns]="columns"
+    [data]="rows"
+    [actions]="actions"
+    [showActions]="true"
+    [serverSide]="true"
+    [loading]="loading"
+    [pageSize]="pageSize"
+    [totalCount]="totalCount"
+    [totalPages]="totalPages"
+    [serverPage]="page"
+    emptyMessage="No producers yet"
+    emptyDescription="Click New producer above to onboard the first broker."
+    (pageChange)="onPageChange($event)">
+  </app-data-table>
+</div>

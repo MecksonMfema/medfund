@@ -141,6 +141,27 @@ public class ContributionFact {
         this.results.add(new RuleResult("APPLY_LATE_FEE", null, reason, amount));
     }
 
+    /**
+     * PAY_COMMISSION action — record a commission accrual against a producer.
+     * The {@code producerId} lands in {@link RuleResult#getCode() code} so the
+     * commission consumer can dispatch straight off it (empty string defers to
+     * the member's currently-assigned producer via
+     * {@code member_producer_assignment}). The {@code rateCardId} piggybacks
+     * on {@link RuleResult#getLayerId() layerId} — the slot is unused for
+     * commissions and keeps the RuleResult POJO lean rather than adding a
+     * dedicated field. Consumed by {@code CommissionCalcService} which either
+     * uses the direct {@code amount} (from a KICKER kicker) or looks up
+     * {@code rateCardId} to compute
+     * {@code contribution.premiumAmount * rateCard.baseRatePct / 100} — a
+     * zero {@code amount} is the rate-card-lookup marker.
+     */
+    public void addCommission(String producerId, BigDecimal amount,
+                              String rateCardId, String reason) {
+        this.results.add(new RuleResult("PAY_COMMISSION", producerId, reason,
+                                        amount != null ? amount : BigDecimal.ZERO,
+                                        rateCardId));
+    }
+
     /** Generic trace — for rules that just want to surface a finding. */
     public void addOutcome(String code, String message) {
         this.results.add(new RuleResult("OUTCOME", code, message));

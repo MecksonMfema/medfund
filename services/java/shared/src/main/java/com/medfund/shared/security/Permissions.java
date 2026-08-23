@@ -112,6 +112,20 @@ public final class Permissions {
     public static final String REINSURANCE_WRITEOFF_RECOVERY        = "finance.reinsurance:writeoff_recovery";
     public static final String REINSURANCE_RESOLVE_REVIEW           = "finance.reinsurance:resolve_review";
 
+    // ── Producer sub-namespace (Phase 11) ────────────────────────────────────
+    public static final String PRODUCER_VIEW                        = "finance.producer:view";
+    public static final String PRODUCER_MANAGE                      = "finance.producer:manage";
+    public static final String PRODUCER_TERMINATE                   = "finance.producer:terminate";
+    public static final String PRODUCER_BACKFILL_REVIEW             = "finance.producer:backfill_review";
+
+    // ── Commission sub-namespace (Phase 11) ──────────────────────────────────
+    public static final String COMMISSION_VIEW                      = "finance.commission:view";
+    public static final String COMMISSION_MANAGE_RATE_CARD          = "finance.commission:manage_rate_card";
+    public static final String COMMISSION_DRAFT_ADJUSTMENT          = "finance.commission:draft_adjustment";
+    public static final String COMMISSION_APPROVE_ADJUSTMENT        = "finance.commission:approve_adjustment";
+    public static final String COMMISSION_CREATE_PAYOUT_RUN         = "finance.commission:create_payout_run";
+    public static final String COMMISSION_APPROVE_PAYOUT_RUN        = "finance.commission:approve_payout_run";
+
     // ── Members ──────────────────────────────────────────────────────────────
     public static final String MEMBERS_VIEW                      = "members:view";
     public static final String MEMBERS_CREATE                    = "members:create";
@@ -134,6 +148,9 @@ public final class Permissions {
     public static final String ADMIN_MANAGE_SETTINGS             = "admin:manage_settings";
     public static final String ADMIN_MANAGE_RULES                = "admin:manage_rules";
     public static final String ADMIN_BANK_ACCOUNTS_MANAGE        = "admin.bank_accounts:manage";
+
+    // ── Tenant settings sub-namespace (Phase 11) ─────────────────────────────
+    public static final String TENANT_SETTINGS_MANAGE_AUTO_LAPSE = "tenant.settings:manage_auto_lapse";
 
     // Platform-level (super-admin) permissions. Tenant admins should never
     // hold these; they gate the cross-tenant operational tooling.
@@ -173,6 +190,10 @@ public final class Permissions {
             REINSURANCE_CEDE_FACULTATIVE, REINSURANCE_APPROVE_FACULTATIVE,
             REINSURANCE_RECORD_RECOVERY_RECEIVED, REINSURANCE_WRITEOFF_RECOVERY,
             REINSURANCE_RESOLVE_REVIEW,
+            PRODUCER_VIEW, PRODUCER_MANAGE, PRODUCER_TERMINATE, PRODUCER_BACKFILL_REVIEW,
+            COMMISSION_VIEW, COMMISSION_MANAGE_RATE_CARD,
+            COMMISSION_DRAFT_ADJUSTMENT, COMMISSION_APPROVE_ADJUSTMENT,
+            COMMISSION_CREATE_PAYOUT_RUN, COMMISSION_APPROVE_PAYOUT_RUN,
 
             MEMBERS_VIEW, MEMBERS_CREATE, MEMBERS_UPDATE, MEMBERS_DEACTIVATE,
             MEMBERS_VIEW_DEPENDANTS, MEMBERS_MANAGE_WAIVERS, MEMBERS_VIEW_HISTORY,
@@ -181,6 +202,7 @@ public final class Permissions {
 
             ADMIN_MANAGE_ROLES, ADMIN_MANAGE_USERS, ADMIN_VIEW_AUDIT,
             ADMIN_MANAGE_SETTINGS, ADMIN_MANAGE_RULES, ADMIN_BANK_ACCOUNTS_MANAGE,
+            TENANT_SETTINGS_MANAGE_AUTO_LAPSE,
 
             PLATFORM_VIEW_JOBS, PLATFORM_MANAGE_JOBS
     );

@@ -1,0 +1,84 @@
+<header class="page-header">
+  <div>
+    <h1>Commission adjustment</h1>
+    <p class="page-sub">Detail + lifecycle timeline for a single adjustment.</p>
+  </div>
+  <div class="page-header-actions">
+    <a class="btn btn-sm" routerLink="/tenant/finance/commission/adjustments/approve">
+      Back to queue
+    </a>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error">{{ errorMessage }}</div>
+}
+
+@if (loading) {
+  <div class="loading">Loading…</div>
+}
+
+@if (adjustment) {
+  <section>
+    <h2>{{ adjustment.reference }}
+      <span class="status-pill" [attr.data-status]="adjustment.status">
+        {{ adjustment.status }}
+      </span>
+    </h2>
+
+    <dl class="detail-grid">
+      <dt>Target commission_transaction</dt>
+      <dd><code>{{ adjustment.targetCommissionTransactionId }}</code></dd>
+
+      <dt>Type</dt>
+      <dd>{{ adjustment.adjustmentType }}</dd>
+
+      <dt>Amount</dt>
+      <dd>{{ adjustment.adjustmentAmount | number:'1.2-4' }} {{ adjustment.nativeCurrency }}</dd>
+
+      <dt>Justification</dt>
+      <dd>{{ adjustment.justification }}</dd>
+
+      <dt>Drafter</dt>
+      <dd>{{ adjustment.actorEmail || '—' }}</dd>
+
+      @if (adjustment.approverActorEmail) {
+        <dt>Approver</dt>
+        <dd>{{ adjustment.approverActorEmail }}</dd>
+      }
+
+      @if (adjustment.committedTxnId) {
+        <dt>Compensating transaction</dt>
+        <dd><code>{{ adjustment.committedTxnId }}</code></dd>
+      }
+
+      @if (adjustment.voidedReason) {
+        <dt>Voided reason</dt>
+        <dd>{{ adjustment.voidedReason }}</dd>
+      }
+    </dl>
+
+    <h3>Lifecycle</h3>
+    <ol class="timeline">
+      <li class="done">
+        <strong>Drafted</strong>
+        <small>{{ adjustment.createdAt | date:'yyyy-MM-dd HH:mm' }}</small>
+      </li>
+      <li [class.done]="!!adjustment.approvedAt">
+        <strong>Approved</strong>
+        <small>{{ adjustment.approvedAt ? (adjustment.approvedAt | date:'yyyy-MM-dd HH:mm') : 'awaiting' }}</small>
+      </li>
+      @if (adjustment.status === 'VOIDED') {
+        <li class="done">
+          <strong>Voided</strong>
+          <small>{{ adjustment.voidedAt | date:'yyyy-MM-dd HH:mm' }}</small>
+        </li>
+      } @else {
+        <li [class.done]="!!adjustment.committedAt">
+          <strong>Committed</strong>
+          <small>{{ adjustment.committedAt ? (adjustment.committedAt | date:'yyyy-MM-dd HH:mm') : 'awaiting' }}</small>
+        </li>
+      }
+    </ol>
+  </section>
+}

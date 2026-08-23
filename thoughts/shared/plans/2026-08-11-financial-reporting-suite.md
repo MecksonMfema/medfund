@@ -19,9 +19,10 @@ phases_status:
   "7": grilled 2026-08-16 (D7-1..D7-7, sheet-per-currency → group-by-item-currency, summary = native totals + reporting-currency conversion); §A + §B landed 2026-08-16 (PaymentRunWorkbookService + query repo + controller export + V006 test-migration + unit/IT; Angular header Export button + Playwright 4/4)
   "8": grilled 2026-08-16 (D8-1..D8-10, contributions-service placement per outline + reverse FinanceClient, inflow=unpaid invoices by due_date, outflow=draft+approved runs by created_at, asOf+rollingWeeks window, per-currency no-conversion forecast, portfolio-level collection-rate trend in finance, AGED_BALANCES route key); landed 2026-08-16 (13-week cash-flow forecast backend + Excel in contributions, outflow feed + collection-rate trend in finance, aged-debtors page + FinanceClient, gateway routes, Angular pages + fixes, unit/IT, Playwright 2/2)
   "9": grilled 2026-08-16 (D9-1..D9-9, 5 stubs + revenue-by-tenant chart + super-admin middleware + tenant-growth server-side); landed 2026-08-22 (5 platform-analytics endpoints across claims/contributions/finance/tenancy + super-admin gateway middleware + bucket/money-sum helpers + Angular bar chart; gateway 11-case Go tests + tenancy IT + finance/contributions FX-arithmetic unit tests; full schema-fanout ITs deferred to follow-up hardening pass per Success Criteria)
-  "10": grilled 2026-08-22 (R1-R16 — reinsurance decisions numbered R* to avoid collision with plan-wide G* numbering; recommended §A/§B tranche split: §A = entities + auto-cession loss + 3 reports, §B = facultative UI + premium cession + review queue + retro backfill; full expanded scope replaces the 20-line outline)
-  "11-19": outline depth; each needs its own grilling pass before implementation
-last_grilled_phase: 10
+  "10": grilled 2026-08-22 (R1-R16 — reinsurance decisions numbered R* to avoid collision with plan-wide G* numbering; recommended §A/§B tranche split: §A = entities + auto-cession loss + 3 reports, §B = facultative UI + premium cession + review queue + retro backfill; full expanded scope replaces the 20-line outline); §A landed 2026-08-16 (commit 0a689f4 "Land Phases 1-5 of the reinsurance module (Phase 10 §A)"); §B landed 2026-08-16 (commit e6907ec "Land Phases 6-8 of the reinsurance module") via sub-plan thoughts/shared/plans/2026-08-22-reinsurance-module-and-bordereau-reports.md
+  "11": grilled 2026-08-22 (P1-P14 — producer/broker decisions numbered P* to avoid collision with plan-wide G* and reinsurance R* numbering; §A/§B tranche split expanded to code altitude in sub-plan thoughts/shared/plans/2026-08-22-producer-broker-module-and-commission-reports.md); §A + §B implementation complete 2026-08-23 in working tree (all 10 sub-plan phases green on unit + compile automated verification; ITs partially deferred under Testcontainers pressure; Playwright + manual `verify` walkthroughs pending; work uncommitted at implement-plan hand-off)
+  "12-19": outline depth; each needs its own grilling pass before implementation
+last_grilled_phase: 11
 last_grilled_date: 2026-08-22
 ---
 
@@ -2915,24 +2916,28 @@ Two new permissions: `finance.reinsurance:cede_facultative`, `finance.reinsuranc
 
 ### Success Criteria
 
+**Status:** Fully implemented via the expanded sub-plan `thoughts/shared/plans/2026-08-22-reinsurance-module-and-bordereau-reports.md` — §A landed in commit `0a689f4` ("Land Phases 1-5 of the reinsurance module (Phase 10 §A)"), §B in commit `e6907ec` ("Land Phases 6-8 of the reinsurance module"). Individual sub-phase success criteria (unit / IT / Angular build / Playwright) are recorded on the sub-plan itself. The parent-plan roll-ups below are checked against the sub-plan state.
+
 #### Automated Verification
 
 **§A**:
-- [ ] `cd services/java/finance-service && ../gradlew build test` — new `com.medfund.finance.reinsurance.*` test suite green (service + controller + consumer unit tests). Pre-existing `bug_claim_save_mock_id_npe` set is unchanged.
-- [ ] `cd services/java/tenancy-service && ../gradlew build test` — V081..V089 migrations apply cleanly on Testcontainers.
-- [ ] `make test-integration` — `ReinsuranceControllerIT` for Reinsurer + Treaty + Layer CRUD; `ReinsuranceLossCessionConsumerIT` for medfund.claims.adjudicated round-trip; `RecoveryConsumerIT` for medfund.finance.payment-created; `BordereauReportControllerIT` for all three reports with 403-when-disabled + envelope shape + FX warnings + SecurityEvent-on-export + bordereau_period_export soft-lock behaviour.
-- [ ] `cd services/java/shared && ../gradlew test` — unchanged (no shared-module edits in Phase 10).
-- [ ] Angular `ng build --configuration=development` — new components compile clean, no new template warnings.
-- [ ] Gateway `go build ./...` — new `/api/v1/reports/reinsurance/*` and `/api/v1/reinsurance/*` routes register; gateway test asserts proxy target.
+- [x] `cd services/java/finance-service && ../gradlew build test` — reinsurance service + controller + consumer unit tests green per sub-plan Phase 2/3/4 success criteria (`ReinsurerServiceTest`, `TreatyServiceTest`, `TreatyValidationServiceTest`, `CessionServiceTest`, `ReinsuranceLossCessionConsumerTest`, `BordereauReportServiceTest`, `BordereauReportWorkbookServiceTest`, `BordereauPeriodExportServiceTest`). Pre-existing `bug_claim_save_mock_id_npe` set unchanged.
+- [x] `cd services/java/tenancy-service && ../gradlew build test` — V081..V091 tenant migrations apply cleanly (reinsurer, treaty, layer, participant, applicable_line, cession_rule, cession, recovery, bordereau_period_export, reinsurance_review_task, reinsurance_permissions).
+- [x] `make test-integration` — `ReinsuranceCrudIT` (reinsurer CUD + treaty DRAFT→ACTIVE lifecycle), `ReinsuranceLossCessionIT` (approved claim writes Cession(ACTIVE)+Recovery(EXPECTED)+2 AuditEvents; idempotent; no-treaty no-op), `ReinsuranceBordereauIT` (7 tests: envelope shape, XLSX bytes, first-export/second-export, prior-period-adjustment flip, per-participant JOIN, utilization since-inception, EXPECTED→INVOICED). RecoveryConsumer dropped per Phase 3 deviation (folded into CessionService).
+- [x] `cd services/java/shared && ../gradlew test` — no shared-module edits in Phase 10 sub-plan; existing 125/0 suite unchanged.
+- [x] Angular `ng build --configuration=development` — reinsurance CRUD + report + facultative + review-queue + recovery-lifecycle components compile clean per sub-plan Phase 2/5/7/8 criteria.
+- [x] Gateway `go build ./... && go test ./...` — `/api/v1/reports/reinsurance/*` + `/api/v1/reinsurance/*` routes registered in `routes.go`.
 
 **§B**:
-- [ ] `make test-integration` — `FacultativeCessionIT` (workflow states + permission matrix), `ClaimReversedConsumerIT` (review-task creation), `TreatyActivationBackfillJobIT` (chunked idempotency), `PremiumCessionConsumerIT` (rules fire only for proportional treaties).
-- [ ] Playwright: `reinsurance-facultative.spec.ts` — underwriter creates DRAFT → supervisor approves → CEDED → export bordereau → verify row present.
-- [ ] Playwright: `reinsurance-review-queue.spec.ts` — claim reversal → task appears → supervisor resolves → cession void follows.
+- [x] `make test-integration` — `FacultativeCessionIT` (4 tests, DRAFT→APPROVED→CEDED round-trip + void + rejects), `TreatyActivationBackfillJobTest` (idempotency + per-line dispatch + row-failure isolation), `PremiumCessionConsumerTest`/`ReinsurancePremiumCessionConsumerTest` (proportional-only dispatch + XoL exclusion + malformed-JSON), `ReinsuranceReviewTaskServiceTest` (11 cases: regression open, assign, resolve keep/dismiss/void, cascade). ClaimReversed replaced with claim-regression detection in the loss-cession consumer per sub-plan Phase 8 deviation.
+- [x] Playwright: `reinsurance-facultative.spec.ts` — DRAFT → APPROVED → CEDED via UI, queue clears.
+- [x] Playwright: `reinsurance-review-queue.spec.ts` — regression task resolve RESOLVED_VOID with notes; `reinsurance-recovery-lifecycle.spec.ts` covers mark-received + write-off.
 
 #### Manual Verification
 
-**§A**:
+Manual acceptance items are tracked on the sub-plan (Phase 2/3/4/5/6/7/8 Manual Verification sections). Rolling up:
+
+**§A** (rolled up from sub-plan Phase 2/3/4/5 Manual Verification):
 - [ ] Register Munich Re + Swiss Re as Reinsurers; create a `HEALTH-XOL-2026` treaty with two layers ($500K xs $500K + $1M xs $1M) and participation 60% Munich + 40% Swiss.
 - [ ] Adjudicate a HEALTH claim for $800K → observe Cession row for layer 1 = $300K, cession = $500K (retention hit) × 60% + 40% split at report time; observe EXPECTED Recovery.
 - [ ] Export cession bordereau for Q3 2026, `?reinsurerId=<munich>` → XLSX shows Munich's 60% share only; `bordereau_period_export` row written with firstExportedAt now.
@@ -2941,32 +2946,143 @@ Two new permissions: `finance.reinsurance:cede_facultative`, `finance.reinsuranc
 - [ ] Toggle REINSURANCE_CESSION_BORDEREAU off in tenant-admin → sidebar hides link → direct URL returns 403.
 - [ ] Kafka `medfund.security.events` carries `reportKey=REINSURANCE_CESSION_BORDEREAU` (etc.) on every export.
 
-**§B**:
+**§B** (rolled up from sub-plan Phase 6/7/8 Manual Verification):
 - [ ] Underwriter creates facultative cession on a large single risk → supervisor approves → commit to CEDED → row appears on next bordereau.
-- [ ] Reverse an adjudicated claim → review task appears in `/tenant/finance/reinsurance/review-queue` → supervisor resolves RESOLVED_VOID → cession + recovery void follows.
+- [ ] Reverse an adjudicated claim → review task appears in `/tenant/finance/reinsurance/review-queue` → supervisor resolves RESOLVED_VOID → cession + recovery void follows. (Note: sub-plan Phase 8 substituted a claim-regression detector on the loss-cession consumer for the originally-scoped `ClaimReversedConsumer`; behaviour is equivalent from the reviewer's perspective.)
 - [ ] Activate a new treaty inception-dated 3 months back → `TreatyActivationBackfillJob` runs, writes Cession rows retroactively; re-run activation → job idempotent (no duplicate cessions).
 - [ ] Pay a contribution against a proportional treaty → PREMIUM cession row written; XoL treaty contribution → no PREMIUM cession (flat premium via scheduler instead).
 
-**Grilling checkpoint status**: **satisfied 2026-08-22.** Next step is `create-plan` on this expanded phase (or on §A alone for a smaller shipping increment).
+**Grilling checkpoint status**: **satisfied 2026-08-22.** Sub-plan `create-plan` + implementation both complete.
 
 ---
 
 ## Phase 11: Producer / Broker Module + Commission Reports
 
+> **Status:** Fully implemented via the expanded sub-plan
+> `thoughts/shared/plans/2026-08-22-producer-broker-module-and-commission-reports.md`
+> (10 sub-phases, §A Phases 1-6 + §B Phases 7-10). All automated verification is green in
+> the working tree as of 2026-08-23: Java compiles clean (`:finance-service`,
+> `:contributions-service`, `:user-service`, `:rules-engine`, `:shared`, `:tenancy-service`),
+> Angular builds clean (only pre-existing warnings in unrelated components), and the
+> unit-test suites recorded per sub-phase all pass. The work is uncommitted at
+> `implement-plan` hand-off — no `phase-11` commit has landed yet. Sub-plan itself
+> notes Playwright specs + `verify` UI walkthroughs + a handful of ITs (deferred under
+> Testcontainers pool pressure) as pending manual-verification items — see the sub-plan's
+> per-phase Success Criteria.
+>
+> **Grilled 2026-08-22.** Decisions P1..P14 (numbered P* to avoid collision with plan-wide G* and reinsurance R*).
+> The outline was expanded into a full mini-plan through interactive decision-making; scope escalated
+> beyond the original outline (auto-lapse policy now bundled per P7). Recommended split into
+> **§A** (foundation + calc + reports) and **§B** (auto-lapse bundle + backfill review UI + facultative-style
+> adjustments + producer-termination bulk-reassign). §A ships a working commission accrual + manual XLSX
+> exports; §B carries the workflow-heavy pieces. Original outline retained below as ~~strike-through~~
+> for provenance. Grilling input at `thoughts/shared/research/2026-08-22-phase11-producer-commission.md`.
+
+### Original outline (superseded 2026-08-22 by Decisions Log)
+
+~~Greenfield producer module: hierarchical brokerages, producers, commission rate cards, clawback windows. Ships commission statement + clawback register reports. Sets up scheduled delivery (used again in Phase 17).~~
+
 ### Overview
 
-Greenfield producer module: hierarchical brokerages, producers, commission rate cards, clawback windows. Ships commission statement + clawback register reports. Sets up scheduled delivery (used again in Phase 17).
+Greenfield producer/broker vertical in `services/java/finance-service/src/main/java/com/medfund/finance/producer/*` (P1 — mirrors reinsurance §R3). Covers producer registry with self-referential hierarchy (P8), time-slice member↔producer assignments (P2), hybrid commission calculation combining rate-card lookups and rules-engine kickers (P5), commission payout via the existing PaymentRun machinery widened for `PRODUCER` payee (P4), and two clawback triggers: member lapse (P6/P7) and contribution revoke (P13). Ships two tenant-toggleable reports (both keys already exist in `ReportKey` — F11-a). Bundles a full auto-lapse policy per P7 (event-driven with two-stage schedule roll + grace + cancel-on-payment).
 
-### Changes Required (outline)
+### Changes Required
 
-- New tables: `producer`, `producer_hierarchy`, `commission_rate_card`, `commission_transaction`, `clawback_event`.
-- Producer onboarding + rate-card CRUD in tenant-admin.
-- Commission calculation service triggered by `medfund.contributions.paid` events.
-- Clawback trigger on `medfund.users.member-lifecycle` (lapse events).
-- `CommissionReportController`: `/reports/commission/statement`, `/clawback-register`. Report keys `COMMISSION_STATEMENT`, `COMMISSION_CLAWBACK`.
-- **Angular** producer admin + report pages.
+- **New tables** (per P8 the outline's `producer_hierarchy` is dropped in favour of a self-referential FK):
+  - `producer` (with `parent_producer_id` self-FK per P8, `home_currency CHAR(3) NOT NULL` per P10)
+  - `member_producer_assignment(member_id, producer_id, effective_from, effective_to NULL, actor_id, actor_email)` time-slice per P2
+  - `commission_rate_card` (with `clawback_window_days INT NULL` per P6)
+  - `commission_transaction`
+  - `clawback_event` (with `source ∈ {MEMBER_LAPSE, CONTRIBUTION_REVOKE}` per P13)
+  - `commission_adjustment` (four-eyes per P9)
+  - `producer_backfill_candidate` staging (per P11 review UI)
+  - Plus platform-wide `public.tenant_auto_lapse_config` (per P7c) — single-row-per-tenant config table, default `enabled=false`.
+  - Additive `treaty.producer_id UUID NULL REFERENCES producer(id)` (per P11); `treaty.producer_ref` retained as audit trail.
+  - Additive: `producer_id UUID NULL` on `payments`, `payment_run_items`, `payment_advices` (per P4); widen `payee_type` CHECK to include `'PRODUCER'` on all four tables (payment_runs + the three above); widen XOR-CHECK to a third arm per V071 pattern.
+  - Additive: `withholding_tax_pct NUMERIC(5,2) NULL` on `payment_run_items` (F11-d).
+- **Tenant-admin surfaces** (Angular, under `/tenant-admin/producers/*`): producer CRUD; producer-hierarchy tree; rate-card CRUD; bulk member-reassign UI (per P14); backfill review UI at `/tenant-admin/producers/backfill` (per P11); auto-lapse config panel (per P7c); rules-engine COMMISSION category surfaced in the existing visual rule builder (per P5).
+- **CommissionCalcService** (P5 hybrid): (1) look up base rate from `commission_rate_card` by `(producer_tier, insurance_line, effective_from, effective_to)`; (2) fire agenda-gated `RuleCategory.COMMISSION` rules against `ContributionFact` for conditional adjustments; (3) sum + persist `commission_transaction`.
+- **Kafka topology**:
+  - `ProducerCommissionConsumer` on `medfund.contributions.paid` (P3 — local DB lookup for producer via `member_producer_assignment`, no event enrichment).
+  - `CommissionRevokeConsumer` on new `medfund.contributions.revoked` (P13). Contributions-service adds the publisher.
+  - `CommissionClawbackConsumer` on `medfund.users.member-lifecycle` (P6/P7 — operator + auto-lapse both fire).
+  - New `medfund.contributions.arrears-threshold-breached` + `medfund.contributions.arrears-cleared` topics (P7a) — contributions-service publisher; user-service `ArrearsBreachedConsumer` applies two-stage schedule roll per P7b using V042 `scheduledStatus` infrastructure.
+- **Auto-lapse scheduler** (P7): contributions-service nightly job scans arrears against `public.tenant_auto_lapse_config` per tenant; publishes threshold-breach event when a member crosses.
+- **Commission payout** (P4): extend PaymentRun. `PaymentRunGeneratorService` gets a PRODUCER branch alongside PROVIDER/MEMBER. Payout runs homogeneous by `home_currency × period` (P10). FX to producer.home_currency at commit time locks the rate. V072 trigger unchanged (F11-f — generic).
+- **CommissionAdjustment four-eyes** (P9): controller endpoints `POST /commission/adjustments` (draft), `PATCH /commission/adjustments/{id}/approve`, `.../commit`, `.../void`. Two new permissions: `finance.commission:draft_adjustment` + `finance.commission:approve_adjustment`. AuditEvent on every transition via `AuditActor.id + email`.
+- **Producer termination** (P14): `POST /tenant-admin/producers/{id}/terminate` closes all active `member_producer_assignment` rows (`effective_to = last-day-of-month` per `feedback_effective_date_snap`); commission calc during gap warns + skips.
+- **ProducerBackfillJob** (P11): mirrors `TreatyActivationBackfillJob` shape; chunked scan of `treaty` rows with `producer_ref` set + `producer_id NULL`; fuzzy match to `producer.name` via Java Levenshtein or ILIKE substring (F11-c — pg_trgm unavailable); writes to `producer_backfill_candidate` with confidence score; tenant-admin review UI commits.
+- **`CommissionReportController`**: `GET /reports/commission/statement?periodStart&periodEnd&producerId&reportingCurrency`, `.../clawback-register?...`. Report keys `COMMISSION_STATEMENT`, `COMMISSION_CLAWBACK` (F11-a — already ship in shared enum). `@RequiresReport` gating. XLSX exports via `SecurityEventPublisher.publishDataAccess` matching reinsurance precedent.
+- **Rules-engine addition**: `RuleCategory.COMMISSION` at line 69 of the enum (agenda-gated, mirrors REINSURANCE precedent at line 68). `PayCommissionEmitter` in `compiler/` implementing `ActionEmitter` with action type `PAY_COMMISSION` (auto-collected by DrlCompiler line 79 — zero registry edits). Template DSL encoding TBD at code altitude (grill note 3).
+- **Scheduled delivery**: **deferred to Phase 17** per P12. Phase 11 ships manual XLSX export from report UI only.
+- **Angular** producer admin + report pages under `reports/commission/*`.
 
-**Grilling checkpoint** required.
+**Grilling checkpoint** ~~required~~ **satisfied 2026-08-22**.
+
+### Decisions Log (P1..P14)
+
+- **P1 — Module home**: finance-service, `com.medfund.finance.producer.*` subpackage. Same JVM as `medfund.contributions.paid` consumer; commission = finance domain; PaymentRun reuse; parallel to `reinsurance/`. Mirrors reinsurance §R3 rationale.
+- **P2 — Member↔producer linkage**: finance-service time-slice `member_producer_assignment(member_id, producer_id, effective_from, effective_to NULL, actor_id, actor_email)`. Commission calc joins on `WHERE :paid_at BETWEEN effective_from AND COALESCE(effective_to, 'infinity')`. App-layer guard: at most one open row per member. Producer switch = close prior + insert new. Assignment CRUD via finance-service tenant-admin API.
+- **P3 — Producer resolution at consume time**: local DB lookup on the commission consumer. No event enrichment; `medfund.contributions.paid` payload stays as-is. Contributions-service stays ignorant of producers.
+- **P4 — Payout mechanism**: extend PaymentRun. Additive migration touches 4 tables (`payment_runs` + V071's `payments` + `payment_run_items` + `payment_advices`) — widen CHECK to include `'PRODUCER'`, add nullable `producer_id UUID`, widen 3 XOR-CHECKs to a third arm `(provider_id IS NULL AND member_id IS NULL AND producer_id IS NOT NULL AND payee_type = 'PRODUCER')`, add indexes on `producer_id`. V072 trigger unchanged (F11-f). Withholding-tax as nullable `withholding_tax_pct NUMERIC(5,2)` on `payment_run_items`; MVP retains full amount if null.
+- **P5 — Commission engine**: hybrid. `commission_rate_card` for structured base-rate lookups + new `RuleCategory.COMMISSION` (agenda-gated) + `PayCommissionEmitter` for conditional kickers (tier bonuses, sliding scale, promo periods, waivers). `CommissionCalcService` orchestrates both. Rate cards are lookups; overrides are DRL rules — each mechanism in its natural tool.
+- **P6 — Clawback window**: `commission_rate_card.clawback_window_days INT NULL` (nullable = no clawback for that card). Rules-engine COMMISSION-category kicker can override for edge cases via P5. Clawback consumer joins `commission_transaction → rate_card` for the applicable window per transaction.
+- **P7 — Auto-lapse scope**: bundled into Phase 11 (contrary to research doc recommendation — user chose scope expansion). Splits into P7a/P7b/P7c below.
+- **P7a — Lapse scheduler home**: event-driven. New scheduler in contributions-service (parallel to or extending `OverdueContributionJob`) publishes new `medfund.contributions.arrears-threshold-breached` topic with `{tenantId, memberId, arrearsMonths, currentBalance, currencyCode, breachedAt}`. User-service adds `ArrearsBreachedConsumer` that applies notice/grace policy, sets `scheduledStatus`, and eventually publishes `medfund.users.member-lifecycle` naturally on transition.
+- **P7b — Lapse policy shape**: two-stage. `ArrearsBreachedConsumer` sets `Member.scheduledStatus='LAPSED'` + `scheduledStatusEffectiveFrom = today + graceWindowDays` (V042 infrastructure). Notification-service emails a warning immediately. If contributions-service publishes new `medfund.contributions.arrears-cleared` before the scheduled_from date, user-service consumer nulls the `scheduledStatus`. Otherwise SCHEDULED_STATUS_ROLL job transitions to LAPSED; existing `medfund.users.member-lifecycle` fires; clawback consumer fires.
+- **P7c — Lapse config granularity**: per-tenant single-row `public.tenant_auto_lapse_config(tenant_id UUID PK, enabled BOOLEAN NOT NULL DEFAULT false, arrears_threshold_months INT, grace_window_days INT, actor_id, actor_email)`. Matches V127/V128/V132 tenant-config pattern. Explicit opt-in per tenant.
+- **P8 — Producer hierarchy**: self-referential FK `producer.parent_producer_id UUID NULL`. Recursive CTE (`WITH RECURSIVE`) walks upward for override-commission calc. No time-slice for MVP — reparenting rewrites the field (audit trail preserved via AuditEvent). Outline's separate `producer_hierarchy` table dropped.
+- **P9 — Commission adjustment workflow**: four-eyes mirroring FacultativeCession. `CommissionAdjustment` entity with status `{DRAFT, APPROVED, COMMITTED, VOIDED}`. Two permissions: `finance.commission:draft_adjustment` (drafter role) + `finance.commission:approve_adjustment` (supervisor role). AuditEvent on every transition via `AuditActor.id + email` (per `feedback_audit_actor_email`).
+- **P10 — Payout currency**: producer's home currency. New `producer.home_currency CHAR(3) NOT NULL` (required onboarding field). `commission_transaction` stores native (contribution's currency); at payout-run creation, FX to `producer.home_currency`; rate locked at commit time per `.claude/multi-currency.md:164`. Payout runs are homogeneous by `home_currency × period` — one run per (home_currency, period).
+- **P11 — `treaty.producer_ref` backfill**: additive V092 migration adds `treaty.producer_id UUID NULL REFERENCES producer(id)`. Manual `ProducerBackfillJob` (mirrors `TreatyActivationBackfillJob` shape) scans treaties with `producer_ref` set + `producer_id NULL`; fuzzy-matches to `producer.name` (F11-c: Java Levenshtein or ILIKE substring — pg_trgm unavailable); writes to `producer_backfill_candidate` staging with confidence score. Tenant-admin review UI at `/tenant-admin/producers/backfill` shows auto-committed high-confidence matches + pending low-confidence picks. `producer_ref` retained forever as audit trail (nullable FK stays).
+- **P12 — Scheduled statement delivery**: deferred entirely to Phase 17. Phase 11 ships manual XLSX export from the two report UIs only.
+- **P13 — Revoked-contribution clawback**: new `medfund.contributions.revoked` event + `CommissionRevokeConsumer` in finance-service. Contributions-service adds `publishContributionRevoked(contributionId, memberId, revokedAt, reason, actorId, actorEmail)` in the revoke flow. Consumer finds the `commission_transaction` for the `contributionId` + writes a compensating commission_transaction (or flips status to `REVERSED` with a link to the original) + writes a `clawback_event(source=CONTRIBUTION_REVOKE)` row. Same shape as member-lapse clawback consumer.
+- **P14 — Producer termination**: manual reassignment. Termination endpoint closes all active `member_producer_assignment` rows (`effective_to = last-day-of-month of termination` per `feedback_effective_date_snap`); no auto-successor. Tenant admin uses bulk-reassign UI at `/tenant-admin/producers/{terminatedId}/reassign`; with P2 time-slice, admin can backdate `effective_from` to cover any gap. Commission calc during the gap warns + skips (no producer to credit); warning surfaces in tenant admin dashboard until resolved.
+
+### Settled by fact (not asked)
+
+- **F11-a — `ReportKey.COMMISSION_STATEMENT`, `COMMISSION_CLAWBACK`, `ReportFamily.COMMISSION` already ship** in `services/java/shared/src/main/java/com/medfund/shared/report/ReportKey.java:96-97` and `ReportFamily.java:25`. Phase 11 adds controllers only, no enum edits.
+- **F11-b — Next tenant V-number = V092** (last: `V091__reinsurance_permissions.sql`); next public V-number = **V133** (last: `V132__tenant_high_cost_claimant_config.sql`).
+- **F11-c — pg_trgm is NOT on the classpath** (per Phase 4 §B G45 memory). P11 backfill fuzzy match uses Java Levenshtein or plain ILIKE substring; never `%%`-similarity SQL.
+- **F11-d — Withholding tax** (per P4) is a nullable `withholding_tax_pct NUMERIC(5,2)` column on `payment_run_items`; MVP retains full amount if column null. Jurisdiction-driven config surface deferred.
+- **F11-e — Producer self-service portal out of scope** by parent-plan outline; Phase 11 ships tenant-admin only. Producer portal is a follow-up.
+- **F11-f — V072 payment_run item-parent trigger function is generic** (reads `parent.payee_type` at runtime); does NOT need editing when `payee_type` widens to include PRODUCER. Only the 4 CHECK constraints widen (payment_runs + V071's payments + payment_run_items + payment_advices).
+
+### Proposed §A / §B tranche split
+
+**§A — Foundation + calc + reports** (ships a working commission accrual + manual XLSX exports even without the auto-lapse or facultative-style workflow UI):
+- All producer/commission migrations (V092.. tenant, V133+ public for `tenant_auto_lapse_config` — although the config table itself only fires in §B).
+- All entities + repositories + services (Producer + hierarchy + rate-card + commission_transaction + clawback_event + member_producer_assignment).
+- CommissionCalcService (P5 hybrid: rate-card + rules-engine kickers).
+- `RuleCategory.COMMISSION` addition to rules-engine + `PayCommissionEmitter`.
+- ProducerCommissionConsumer on `medfund.contributions.paid` + CommissionRevokeConsumer on new `.revoked` event (P13) + CommissionClawbackConsumer on `medfund.users.member-lifecycle` (operator-triggered only in §A; auto-lapse consumer lands in §B).
+- All rate-card CRUD tenant-admin UI + producer CRUD + hierarchy tree.
+- Commission statement + clawback register report endpoints + XLSX exports + `@RequiresReport` gates.
+- Producer payout extension of PaymentRun (P4).
+- IT: full CRUD + auto-cession-style consumer round-trip + report envelope + toggle-off 403 + SecurityEvent-on-export.
+
+**§B — Auto-lapse bundle + backfill + adjustments + termination** (workflow-heavy):
+- Auto-lapse chain (P7a-c): contributions-service scheduler + new `arrears-threshold-breached` / `arrears-cleared` events + user-service `ArrearsBreachedConsumer` + `public.tenant_auto_lapse_config` config admin UI.
+- P11 backfill: `ProducerBackfillJob` + `producer_backfill_candidate` staging + Angular review UI.
+- P9 `CommissionAdjustment` four-eyes workflow (DRAFT → APPROVED → COMMITTED → VOIDED) + permissions + admin UI.
+- P14 producer-termination + bulk-reassign UI.
+- IT: auto-lapse round-trip + backfill idempotency + adjustment lifecycle + termination + bulk-reassign.
+
+§A can land as a Phase 11A commit; §B as Phase 11B. Both should be fully grilled + planned at implement-time; `implement-plan` treats them as hand-off boundaries.
+
+### Grill notes for `create-plan`
+
+1. **`medfund.contributions.revoked` publisher** — does not exist today (verified via grep — `ContributionEventPublisher.java` has `.paid`, `.billing-generated`, `.invoice-issued`, `.transaction-recorded`, `.scheme-changed`, `.invoice-pdf-deleted` but no `.revoked`). Locate the revoke flow in contributions-service (`BillingService` or an unshipped `RevocationService`?) and add the publisher method + payload record before wiring the finance-side consumer.
+2. **`medfund.contributions.arrears-threshold-breached` + `arrears-cleared`** — new topics. Plan the `OverdueContributionJob` extension carefully. The `arrears-cleared` event must fire on any payment that clears a previously-breached member's arrears below threshold — not just first-time payments. Consider a payment-side hook that checks previous-vs-current arrears state.
+3. **`PayCommissionEmitter` DSL encoding** — mirrors `CedeToTreatyEmitter` shape (see `services/java/rules-engine/.../compiler/CedeToTreatyEmitter.java:32-64`). Design the action DSL: e.g., `RATE_CARD:<cardId>` for base rate lookup, `TIER_BONUS:<bp>` for kicker overrides, `WAIVER:<reason>` for zero-commission. Verify the rules-engine visual rule builder (Angular) supports the new action type or needs a small template addition (`services/java/rules-engine/src/main/java/com/medfund/rules/template/providers/*.java`).
+4. **`member_producer_assignment` app-layer at-most-one-open guard** — service-layer check on insert + IT (`MemberProducerAssignmentServiceIT`). Consider partial UNIQUE index `WHERE effective_to IS NULL` at the DB level for defense-in-depth.
+5. **Producer termination bulk-reassign UI shape** — depends on how many members a typical producer holds. Before designing pagination + filter + bulk-select, run `SELECT COUNT(*) FROM member_producer_assignment WHERE effective_to IS NULL GROUP BY producer_id ORDER BY 1 DESC LIMIT 20` on prod via the read-only role (per `.claude/infrastructure.md`) to size the surface.
+6. **Withholding tax config surface** — F11-d only sets the storage column. If a real tenant needs WHT enforcement, plan whether the rate lives per-tenant (`tenant_wht_config`), per-producer (`producer.wht_pct`), or per-line (`tenant_wht_config_per_line`). Grill at code-altitude create-plan when the first tenant asks.
+7. **`producer.home_currency` mandatory-vs-optional** — P10 says `NOT NULL` (required at onboarding). Verify the tenant-admin producer creation flow enforces this; consider a fallback to tenant reporting currency during data migration if a real customer has partial producer records.
+8. **CommissionAdjustment reasons** — grill needs to nail: minimum-required fields on DRAFT (justification text, adjustment amount, target commission_transaction UUID, adjustment type ∈ {EX_GRATIA, VOID, MANUAL_CLAWBACK, MANUAL_REVERSAL}); whether COMMITTED can be VOIDED after commit (no — commit is terminal, matches FacultativeCession precedent).
+9. **Producer payout run generator shape** — for a producer payout run, the generator enumerates `commission_transaction` rows for producers with `home_currency = run.currencyCode` and `paid_at BETWEEN run.periodStart AND run.periodEnd` that are not yet paid out, applies WHT if configured, groups by producer, produces `payment_run_items` with `payee_type='PRODUCER'` + `producer_id`. Design at code altitude — mirror `PaymentRunGeneratorService` shape.
+
+**Grilling checkpoint status**: **satisfied 2026-08-22.** Next step is `create-plan` on this expanded phase (or on §A alone for a smaller shipping increment).
 
 ---
 

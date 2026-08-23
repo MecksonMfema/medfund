@@ -30,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -74,6 +75,9 @@ class BillingServiceTest {
     @Mock
     private InvoiceSnapshotService invoiceSnapshotService;
 
+    @Mock
+    private ArrearsThresholdPublisher arrearsThresholdPublisher;
+
     @InjectMocks
     private BillingService billingService;
 
@@ -83,6 +87,11 @@ class BillingServiceTest {
         // this class care about the BillingService logic, so always succeed.
         lenient().when(balanceService.applyContributionDebit(any())).thenReturn(Mono.empty());
         lenient().when(balanceService.applyContributionPaid(any())).thenReturn(Mono.empty());
+        // Phase 11 §B / P7 — recordPayment snapshots the aged bucket
+        // before + after applying the payment to detect a SUSPENDED /
+        // WRITE_OFF → GRACE transition. Default to GRACE so the
+        // arrears-cleared publish stays silent unless a test wants it.
+        lenient().when(balanceService.currentBucketFor(any(), any())).thenReturn(Mono.just("GRACE"));
     }
 
     private final String actorId = UUID.randomUUID().toString();
@@ -228,6 +237,107 @@ class BillingServiceTest {
         // so the reinsurance premium-cession consumer can route.
         verify(eventPublisher).publishContributionPaid(any(), any(), any(),
                 any(), any(), any(), any());
+    }
+
+    @Test
+    void recordPayment_publishesArrearsCleared_whenBucketDropsFromSuspended() {
+        var contribution = createTestContribution();
+        var scheme = new com.medfund.contributions.entity.Scheme();
+        scheme.setId(contribution.getSchemeId());
+        scheme.setInsuranceLine("HEALTH");
+        scheme.setCurrencyCode("USD");
+
+        when(contributionRepository.findById(contribution.getId()))
+                .thenReturn(Mono.just(contribution));
+        when(contributionRepository.save(any(Contribution.class)))
+                .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(schemeRepository.findById(contribution.getSchemeId()))
+                .thenReturn(Mono.just(scheme));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishContributionPaid(any(), any(), any(),
+                any(), any(), any(), any())).thenReturn(Mono.empty());
+        // Pre-payment: SUSPENDED. Post-payment: GRACE. Triggers publish.
+        when(balanceService.currentBucketFor(eq(contribution.getMemberId()), eq("USD")))
+                .thenReturn(Mono.just("SUSPENDED"))
+                .thenReturn(Mono.just("GRACE"));
+        when(arrearsThresholdPublisher.publishCleared(any(), any(), any(), any(), any()))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(billingService.recordPayment(
+                        contribution.getId(), "bank_transfer", "PAY-REF-002", actorId, actorEmail)
+                    .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("paid"))
+                .verifyComplete();
+
+        verify(arrearsThresholdPublisher).publishCleared(
+                any(),
+                eq("MEMBER"),
+                eq(contribution.getMemberId().toString()),
+                any(),
+                eq("USD"));
+    }
+
+    @Test
+    void recordPayment_noPublish_whenPreBucketGrace() {
+        var contribution = createTestContribution();
+        var scheme = new com.medfund.contributions.entity.Scheme();
+        scheme.setId(contribution.getSchemeId());
+        scheme.setInsuranceLine("HEALTH");
+        scheme.setCurrencyCode("USD");
+
+        when(contributionRepository.findById(contribution.getId()))
+                .thenReturn(Mono.just(contribution));
+        when(contributionRepository.save(any(Contribution.class)))
+                .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(schemeRepository.findById(contribution.getSchemeId()))
+                .thenReturn(Mono.just(scheme));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishContributionPaid(any(), any(), any(),
+                any(), any(), any(), any())).thenReturn(Mono.empty());
+        // Default beforeEach stub keeps preBucket=GRACE, so short-circuit.
+
+        StepVerifier.create(billingService.recordPayment(
+                        contribution.getId(), "bank_transfer", "PAY-REF-003", actorId, actorEmail)
+                    .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("paid"))
+                .verifyComplete();
+
+        verify(arrearsThresholdPublisher, never())
+                .publishCleared(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void recordPayment_publishesArrearsCleared_whenBucketDropsFromWriteOff() {
+        var contribution = createTestContribution();
+        var scheme = new com.medfund.contributions.entity.Scheme();
+        scheme.setId(contribution.getSchemeId());
+        scheme.setInsuranceLine("HEALTH");
+        scheme.setCurrencyCode("USD");
+
+        when(contributionRepository.findById(contribution.getId()))
+                .thenReturn(Mono.just(contribution));
+        when(contributionRepository.save(any(Contribution.class)))
+                .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(schemeRepository.findById(contribution.getSchemeId()))
+                .thenReturn(Mono.just(scheme));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishContributionPaid(any(), any(), any(),
+                any(), any(), any(), any())).thenReturn(Mono.empty());
+        when(balanceService.currentBucketFor(eq(contribution.getMemberId()), eq("USD")))
+                .thenReturn(Mono.just("WRITE_OFF"))
+                .thenReturn(Mono.just("GRACE"));
+        when(arrearsThresholdPublisher.publishCleared(any(), any(), any(), any(), any()))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(billingService.recordPayment(
+                        contribution.getId(), "bank_transfer", "PAY-REF-004", actorId, actorEmail)
+                    .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("paid"))
+                .verifyComplete();
+
+        verify(arrearsThresholdPublisher).publishCleared(
+                any(), eq("MEMBER"), eq(contribution.getMemberId().toString()),
+                any(), eq("USD"));
     }
 
     @Test

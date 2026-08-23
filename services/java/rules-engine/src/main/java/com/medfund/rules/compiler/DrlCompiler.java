@@ -54,7 +54,7 @@ public class DrlCompiler {
      * rules in stage 3 without them also firing during the stage-7 tenant-rules
      * sweep. All other categories stay in MAIN and fire by default.
      */
-    private static final Set<String> AGENDA_GATED_CATEGORIES = Set.of("BENEFIT_PRORATION", "REINSURANCE");
+    private static final Set<String> AGENDA_GATED_CATEGORIES = Set.of("BENEFIT_PRORATION", "REINSURANCE", "COMMISSION");
 
     private static final Map<String, FactMapping> FACT_MAPPINGS;
     static {
@@ -172,7 +172,8 @@ public class DrlCompiler {
             case "CAP_TO_TARIFF"                                              -> "claimDetail";
             case "SET_AGE_GROUP", "AUTO_RENEW", "TERMINATE_MEMBERSHIP",
                  "REQUIRE_UNDERWRITING"                                       -> "lifecycle";
-            case "SET_PREMIUM", "APPLY_LATE_FEE", "APPLY_LOADED_PREMIUM"      -> "contribution";
+            case "SET_PREMIUM", "APPLY_LATE_FEE", "APPLY_LOADED_PREMIUM",
+                 "PAY_COMMISSION"                                             -> "contribution";
             case "SCHEDULE_PAYMENT_RUN", "WITHHOLD_PAYMENT", "MATCH_RECORDS"  -> "paymentRun";
             default                                                            -> null;
         };

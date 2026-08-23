@@ -54,7 +54,9 @@ export type RuleCategory =
   | 'PROVIDER_PAYMENT'
   | 'RECONCILIATION'
   // Reinsurance
-  | 'REINSURANCE';
+  | 'REINSURANCE'
+  // Commission
+  | 'COMMISSION';
 
 /**
  * Categories grouped by lifecycle stage. The Rules Engine page renders this
@@ -83,6 +85,8 @@ export const RULE_CATEGORIES: { id: RuleCategory; label: string; icon: string }[
   { id: 'RECONCILIATION',       label: 'Reconciliation',       icon: 'activity' },
   // Reinsurance
   { id: 'REINSURANCE',          label: 'Reinsurance',          icon: 'shield-plus' },
+  // Commission
+  { id: 'COMMISSION',           label: 'Commission',           icon: 'percent' },
 ];
 
 export interface RuleDefinition {

@@ -1,0 +1,44 @@
+@if (open) {
+  <div class="modal-backdrop" (click)="onCancel()">
+    <div class="modal-card" (click)="$event.stopPropagation()"
+         role="dialog" aria-modal="true" aria-label="Terminate producer">
+      <h3 class="modal-title">Terminate producer</h3>
+      <p class="modal-message">
+        Terminate <strong>{{ producerCode }}</strong>
+        @if (producerName) { — <em>{{ producerName }}</em> }.
+        The producer is flipped to <em>inactive</em> and every open
+        member assignment is closed on the same run.
+        @if (openAssignmentCount !== null) {
+          <br />
+          <strong>{{ openAssignmentCount }}</strong> open assignment(s)
+          will be closed. You can bulk-reassign the affected members
+          straight after.
+        }
+      </p>
+
+      <div class="field">
+        <label>Effective date</label>
+        <input type="date"
+               [(ngModel)]="effectiveDate"
+               (blur)="onEffectiveDateChange()"
+               data-testid="terminate-producer-effective-date" />
+        <div class="hint">
+          Snaps to the last day of the chosen month — assignments stay
+          active through that whole cycle.
+        </div>
+      </div>
+
+      @if (error) { <div class="error">{{ error }}</div> }
+
+      <div class="actions">
+        <button type="button" class="btn btn-default" (click)="onCancel()"
+                [disabled]="saving">Cancel</button>
+        <button type="button" class="btn btn-danger" (click)="onSubmit()"
+                [disabled]="saving"
+                data-testid="terminate-producer-submit">
+          @if (saving) { Terminating… } @else { Terminate producer }
+        </button>
+      </div>
+    </div>
+  </div>
+}

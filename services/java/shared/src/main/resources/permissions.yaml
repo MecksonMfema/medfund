@@ -94,6 +94,18 @@ domains:
       - { key: "finance.reinsurance:record_recovery_received", label: "Record recovery received",            description: "Record the recovery amount received from a reinsurer against an invoiced expectation." }
       - { key: "finance.reinsurance:writeoff_recovery",        label: "Write off recovery",                  description: "Write off an uncollectable reinsurance recovery with a stated reason." }
       - { key: "finance.reinsurance:resolve_review",           label: "Resolve reinsurance review",          description: "Resolve tasks in the reinsurance review queue (claim regression, recovery dispute, manual void requests)." }
+      # ── Producer sub-namespace (Phase 11) ────────────────────────────────
+      - { key: "finance.producer:view",                        label: "View producers",                      description: "Read access to producers, hierarchy, and their member assignments." }
+      - { key: "finance.producer:manage",                      label: "Manage producers",                    description: "Create and update producers, rate cards, and member↔producer assignments." }
+      - { key: "finance.producer:terminate",                   label: "Terminate producers",                 description: "Terminate a producer and bulk-reassign their open member assignments." }
+      - { key: "finance.producer:backfill_review",             label: "Review producer backfill",            description: "Kick off the treaty.producer_ref → producer_id backfill job and accept/reject fuzzy-match candidates." }
+      # ── Commission sub-namespace (Phase 11) ──────────────────────────────
+      - { key: "finance.commission:view",                      label: "View commission",                     description: "Read access to commission transactions, clawback register, and adjustment queues." }
+      - { key: "finance.commission:manage_rate_card",          label: "Manage rate cards",                   description: "Create, update, and deactivate commission rate cards." }
+      - { key: "finance.commission:draft_adjustment",          label: "Draft commission adjustment",         description: "Create DRAFT commission adjustments (four-eyes drafter half)." }
+      - { key: "finance.commission:approve_adjustment",        label: "Approve commission adjustment",       description: "Move commission adjustments DRAFT → APPROVED → COMMITTED and void pre-terminal adjustments." }
+      - { key: "finance.commission:create_payout_run",         label: "Create commission payout run",        description: "Create producer-payee PaymentRuns aggregating ACCRUED commissions in the period." }
+      - { key: "finance.commission:approve_payout_run",        label: "Approve commission payout run",       description: "Approve and execute producer payout runs — disburses commission funds." }
 
   - id: members
     label: Members
@@ -123,6 +135,11 @@ domains:
       - { key: "admin:manage_settings",             label: "Manage tenant settings",            description: "Edit branding, insurance lines, email templates, etc." }
       - { key: "admin:manage_rules",                label: "Manage rules engine",               description: "Author and deploy tenant-specific business rules." }
       - { key: "admin.bank_accounts:manage",        label: "Manage bank accounts",              description: "Configure the tenant's own bank accounts used for outbound disbursements and inbound receipt matching." }
+
+  - id: tenant
+    label: Tenant settings
+    permissions:
+      - { key: "tenant.settings:manage_auto_lapse", label: "Manage auto-lapse settings",        description: "Enable/disable the auto-lapse chain and configure arrears-threshold-months + grace-window-days (Phase 11 §B)." }
 
   - id: platform
     label: Platform administration

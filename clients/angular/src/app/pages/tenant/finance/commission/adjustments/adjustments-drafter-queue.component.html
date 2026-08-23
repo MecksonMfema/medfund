@@ -1,0 +1,121 @@
+<header class="page-header">
+  <div>
+    <h1>Commission adjustments — drafts</h1>
+    <p class="page-sub">
+      Draft adjustments awaiting supervisor approval. Each adjustment
+      requires a target commission_transaction, a signed amount, and a
+      justification of at least 20 characters.
+    </p>
+  </div>
+  <div class="page-header-actions">
+    <button type="button" class="btn btn-primary"
+            (click)="openCreate()" data-testid="new-adjustment-btn">
+      <app-icon name="plus" [size]="14"></app-icon>
+      New adjustment
+    </button>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+@if (loading) {
+  <div class="loading">Loading drafts…</div>
+} @else if (rows.length === 0) {
+  <div class="empty">No draft adjustments.</div>
+} @else {
+  <table class="queue-table" data-testid="adj-drafter-table">
+    <thead>
+      <tr>
+        <th>Reference</th>
+        <th>Target</th>
+        <th>Type</th>
+        <th class="num">Amount</th>
+        <th>Justification</th>
+        <th>Created</th>
+        <th class="actions">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows; track row.id) {
+        <tr [attr.data-testid]="'adj-row-' + row.id.substring(0, 8)">
+          <td><strong>{{ row.reference }}</strong></td>
+          <td>{{ row.targetCommissionTransactionId.substring(0, 8) }}…</td>
+          <td>{{ row.adjustmentType }}</td>
+          <td class="num">{{ row.adjustmentAmount | number:'1.2-4' }} {{ row.nativeCurrency }}</td>
+          <td class="justification-cell">{{ row.justification }}</td>
+          <td>{{ row.createdAt | date:'yyyy-MM-dd HH:mm' }}</td>
+          <td class="actions">
+            <a class="btn btn-sm" [routerLink]="['/tenant/finance/commission/adjustments', row.id]">
+              View
+            </a>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
+
+<!-- Create modal (inline) -->
+@if (showCreate) {
+  <div class="modal-backdrop" (click)="cancelCreate()">
+    <div class="modal-card" (click)="$event.stopPropagation()" data-testid="create-modal">
+      <h3>New commission adjustment</h3>
+      <p class="modal-sub">
+        Records a DRAFT row. A supervisor with the
+        <code>finance.commission:approve_adjustment</code> permission must
+        approve + commit before the ledger moves.
+      </p>
+
+      <label>
+        <span>Target commission_transaction id</span>
+        <input type="text" [(ngModel)]="form.targetReferenceQuery"
+               (ngModelChange)="onTargetInputChange()"
+               placeholder="paste UUID"
+               data-testid="target-input" />
+      </label>
+
+      <label>
+        <span>Type</span>
+        <select [(ngModel)]="form.adjustmentType" data-testid="type-select">
+          @for (t of adjustmentTypes; track t.id) {
+            <option [ngValue]="t.id">{{ t.label }} — {{ t.hint }}</option>
+          }
+        </select>
+      </label>
+
+      <label>
+        <span>Amount <em>(signed — negative reverses)</em></span>
+        <input type="number" step="0.0001"
+               [(ngModel)]="form.adjustmentAmount"
+               placeholder="e.g. 25.00 or -50.00"
+               data-testid="amount-input" />
+      </label>
+
+      <label>
+        <span>Justification <em>(min 20 chars)</em></span>
+        <textarea rows="4" maxlength="1000"
+                  [(ngModel)]="form.justification"
+                  placeholder="e.g. Broker earned a promotional kicker not covered by the standing rate card"
+                  data-testid="justification-input"></textarea>
+      </label>
+
+      @if (createError) {
+        <div class="banner banner-error">{{ createError }}</div>
+      }
+
+      <div class="modal-actions">
+        <button type="button" class="btn"
+                (click)="cancelCreate()"
+                [disabled]="createSubmitting">Cancel</button>
+        <button type="button" class="btn btn-primary"
+                (click)="submitCreate()"
+                [disabled]="createSubmitting"
+                data-testid="create-submit">
+          {{ createSubmitting ? 'Creating…' : 'Create draft' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

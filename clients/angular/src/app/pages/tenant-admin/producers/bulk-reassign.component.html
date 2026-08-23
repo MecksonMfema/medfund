@@ -1,0 +1,178 @@
+<div class="page">
+  <div class="page-header">
+    <div>
+      <h1>Bulk reassign</h1>
+      @if (sourceProducer) {
+        <p class="sub">
+          Move members away from
+          <strong>{{ sourceProducer.producerCode }}</strong> — {{ sourceProducer.name }}
+          @if (!sourceProducer.active) { <em>(terminated)</em> }.
+          @if (openCount !== null) {
+            <br /><strong>{{ openCount }}</strong> open assignment(s) remaining.
+          }
+        </p>
+      }
+    </div>
+    <div class="header-actions">
+      <a routerLink="/tenant/admin/producers/list" class="btn btn-default">
+        <app-icon name="arrow-left"></app-icon> Back to producers
+      </a>
+    </div>
+  </div>
+
+  @if (errorMessage) { <div class="error">{{ errorMessage }}</div> }
+
+  <div class="form-panel">
+    <h3>Successor</h3>
+    @if (newProducer) {
+      <div class="picker-selection">
+        <strong>{{ newProducer.producerCode }}</strong> — {{ newProducer.name }}
+        <span class="hint">({{ newProducer.homeCurrency }})</span>
+        <button type="button" class="btn btn-default btn-small" (click)="clearSuccessor()">
+          <app-icon name="x"></app-icon> Clear
+        </button>
+      </div>
+    } @else {
+      <div class="picker-wrap">
+        <input type="text"
+               [(ngModel)]="successorSearchQuery"
+               (input)="onSuccessorSearchChange()"
+               placeholder="Search producer by name or code"
+               data-testid="successor-search-input"
+               autocomplete="off" />
+        @if (successorSearching) { <div class="hint">Searching…</div> }
+        @if (successorMatches.length) {
+          <ul class="picker-menu">
+            @for (p of successorMatches; track p.id) {
+              <li (click)="pickSuccessor(p)" data-testid="successor-match-row">
+                <strong>{{ p.producerCode }}</strong> — {{ p.name }}
+                <span class="hint">• {{ p.homeCurrency }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    }
+
+    <div class="form-row">
+      <label>
+        Effective from
+        <input type="date"
+               [(ngModel)]="effectiveFrom"
+               (blur)="onEffectiveFromChange()"
+               data-testid="reassign-effective-from" />
+        <span class="hint">Snaps to 1st-of-month.</span>
+      </label>
+      <label class="grow">
+        Change reason
+        <input type="text"
+               [(ngModel)]="changeReason"
+               maxlength="120"
+               placeholder="e.g. Post-termination successor"
+               data-testid="reassign-change-reason" />
+      </label>
+    </div>
+  </div>
+
+  <div class="filters">
+    <span><strong>{{ selected.size }}</strong> selected</span>
+    @if (selected.size > 0) {
+      <button type="button" class="btn btn-default btn-small" (click)="clearSelection()">
+        Clear selection
+      </button>
+    }
+  </div>
+
+  <table class="bulk-table">
+    <thead>
+      <tr>
+        <th class="check-col">
+          <input type="checkbox"
+                 [checked]="allOnPageChecked()"
+                 (change)="toggleAllOnPage()"
+                 data-testid="select-all-on-page" />
+        </th>
+        <th>Member</th>
+        <th>Effective from</th>
+        <th>Change reason</th>
+        <th>Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      @if (loading) {
+        <tr><td colspan="5" class="empty">Loading…</td></tr>
+      } @else if (rows.length === 0) {
+        <tr><td colspan="5" class="empty">No open assignments on this page.</td></tr>
+      } @else {
+        @for (row of rows; track row.id) {
+          <tr [class.selected]="isChecked(row.memberId)">
+            <td class="check-col">
+              <input type="checkbox"
+                     [checked]="isChecked(row.memberId)"
+                     (change)="toggle(row.memberId)"
+                     [attr.data-testid]="'row-check-' + row.memberId" />
+            </td>
+            <td>{{ row.memberId }}</td>
+            <td>{{ row.effectiveFrom }}</td>
+            <td>{{ row.changeReason || '—' }}</td>
+            <td>{{ row.createdAt | date:'yyyy-MM-dd' }}</td>
+          </tr>
+        }
+      }
+    </tbody>
+  </table>
+
+  <div class="pager">
+    <button type="button" class="btn btn-default btn-small"
+            [disabled]="page <= 1"
+            (click)="onPageChange(-1)">← Prev</button>
+    <span>Page {{ page }}</span>
+    <button type="button" class="btn btn-default btn-small"
+            [disabled]="rows.length < pageSize"
+            (click)="onPageChange(1)">Next →</button>
+  </div>
+
+  <div class="footer-bar">
+    <button type="button" class="btn btn-primary"
+            [disabled]="submitting || selected.size === 0 || !newProducer"
+            (click)="submit()"
+            data-testid="reassign-submit">
+      @if (submitting) { Reassigning… } @else {
+        Reassign {{ selected.size }} member(s)
+      }
+    </button>
+  </div>
+</div>
+
+@if (report) {
+  <div class="modal-backdrop" (click)="closeReport()">
+    <div class="modal-card" (click)="$event.stopPropagation()"
+         role="dialog" aria-modal="true" aria-label="Reassignment report">
+      <h3 class="modal-title">Reassignment complete</h3>
+      <p class="modal-message">
+        Processed <strong>{{ report.total }}</strong> —
+        <span class="success-count">{{ report.succeeded }} succeeded</span>,
+        <span class="failure-count">{{ report.failed }} failed</span>.
+      </p>
+
+      @if (report.failed > 0) {
+        <table class="bulk-table">
+          <thead><tr><th>Member</th><th>Status</th><th>Reason</th></tr></thead>
+          <tbody>
+            @for (i of report.items; track i.memberId) {
+              <tr>
+                <td>{{ i.memberId }}</td>
+                <td>{{ i.success ? '✓' : '✗' }}</td>
+                <td>{{ i.reason || '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+
+      <div class="actions">
+        <button type="button" class="btn btn-primary" (click)="closeReport()">Close</button>
+      </div>
+    </div>
+  </div>
+}

@@ -57,4 +57,18 @@ public interface TreatyRepository extends R2dbcRepository<Treaty, UUID> {
          ORDER BY inception_date, treaty_ref
         """)
     Flux<Treaty> findActiveNonProportionalWithExpectedPremium();
+
+    /**
+     * Rows that carry the legacy free-text {@code producer_ref} but do not yet
+     * have the {@code producer_id} FK populated. Drives
+     * {@link com.medfund.finance.producer.service.ProducerBackfillJob}.
+     */
+    @Query("""
+        SELECT * FROM treaty
+         WHERE producer_ref IS NOT NULL
+           AND TRIM(producer_ref) <> ''
+           AND producer_id IS NULL
+         ORDER BY inception_date, treaty_ref
+        """)
+    Flux<Treaty> findByProducerRefIsNotNullAndProducerIdIsNull();
 }

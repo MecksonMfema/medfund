@@ -173,6 +173,7 @@ public class ScheduledStatusExecutor implements JobExecutor {
             case "suspended"    -> memberService.suspend(id, null, reason, actorId, actorEmail);
             case "terminated"   -> memberService.terminate(id, null, reason, actorId, actorEmail);
             case "deactivated"  -> memberService.deactivate(id, null, reason, actorId, actorEmail);
+            case "lapsed"       -> memberService.lapse(id, null, reason, actorId, actorEmail);
             default -> Mono.error(new IllegalStateException(
                     "Unknown scheduled_status '" + target + "' on member " + id));
         };

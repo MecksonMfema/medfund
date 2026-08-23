@@ -4,6 +4,7 @@ import com.medfund.finance.client.FxConverter;
 import com.medfund.finance.dto.CreatePaymentRunRequest;
 import com.medfund.finance.entity.PaymentRun;
 import com.medfund.finance.entity.TenantBankAccount;
+import com.medfund.finance.producer.repository.CommissionTransactionRepository;
 import com.medfund.finance.repository.AdvancePaymentApplicationRepository;
 import com.medfund.finance.repository.AdvancePaymentBalanceRepository;
 import com.medfund.finance.repository.AdvancePaymentRepository;
@@ -17,6 +18,8 @@ import com.medfund.finance.repository.ProviderBalanceRepository;
 import com.medfund.finance.repository.ProviderBalanceSnapshotRepository;
 import com.medfund.finance.repository.TenantBankAccountRepository;
 import com.medfund.shared.audit.AuditPublisher;
+import com.medfund.shared.security.PermissionContext;
+import com.medfund.shared.security.Permissions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -95,6 +98,9 @@ class PaymentRunServiceTest {
     @Mock
     private PaymentAdviceRecordRepository paymentAdviceRecordRepository;
 
+    @Mock
+    private CommissionTransactionRepository commissionTransactionRepository;
+
     @InjectMocks
     private PaymentRunService paymentRunService;
 
@@ -137,7 +143,7 @@ class PaymentRunServiceTest {
             if (saved.getId() == null) saved.setId(UUID.randomUUID());
             return Mono.just(saved);
         });
-        when(paymentRunGenerator.populate(any())).thenReturn(Mono.just(0));
+        when(paymentRunGenerator.populate(any(), any(), any())).thenReturn(Mono.just(0));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishPaymentRunCreated(any(), any(), any(), any(), anyInt()))
             .thenReturn(Mono.empty());
@@ -162,7 +168,7 @@ class PaymentRunServiceTest {
         verify(bankAccountRepository).findById(bank.getId());
         verify(paymentRunRepository).existsByRunNumber(any());
         verify(paymentRunRepository, times(2)).save(any());  // once for header, once for updated count
-        verify(paymentRunGenerator).populate(any());
+        verify(paymentRunGenerator).populate(any(), any(), any());
         verify(auditPublisher).publish(any());
         verify(eventPublisher).publishPaymentRunCreated(any(), any(), any(), any(), anyInt());
     }
@@ -180,7 +186,7 @@ class PaymentRunServiceTest {
             if (saved.getId() == null) saved.setId(UUID.randomUUID());
             return Mono.just(saved);
         });
-        when(paymentRunGenerator.populate(any())).thenReturn(Mono.just(3));
+        when(paymentRunGenerator.populate(any(), any(), any())).thenReturn(Mono.just(3));
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
         when(eventPublisher.publishPaymentRunCreated(any(), any(), any(), any(), anyInt()))
             .thenReturn(Mono.empty());
@@ -192,7 +198,7 @@ class PaymentRunServiceTest {
                 .assertNext(saved -> assertThat(saved.getPaymentCount()).isEqualTo(3))
                 .verifyComplete();
 
-        verify(paymentRunGenerator).populate(any());
+        verify(paymentRunGenerator).populate(any(), any(), any());
     }
 
     @Test
@@ -630,6 +636,128 @@ class PaymentRunServiceTest {
         when(stubSpec.bind(anyString(), any())).thenReturn(stubSpec);
         when(stubSpec.fetch()).thenReturn(stubFetch);
         when(stubFetch.one()).thenReturn(Mono.empty());
+    }
+
+    // ---- Producer payout (Phase 11 §A Phase 6) ----
+
+    @Test
+    void create_producer_routesToProducerGeneratorAndPersistsPeriod() {
+        var bank = stubBankAccount("USD");
+        var start = java.time.LocalDate.of(2026, 7, 15);   // will snap to 2026-07-01
+        var end   = java.time.LocalDate.of(2026, 9, 20);   // will snap to 2026-09-30
+        var request = new CreatePaymentRunRequest(
+                "USD", "Q3 commissions", "PRODUCER", bank.getId(), start, end);
+        String actorId = UUID.randomUUID().toString();
+
+        when(bankAccountRepository.findById(bank.getId())).thenReturn(Mono.just(bank));
+        when(paymentRunRepository.existsByRunNumber(any())).thenReturn(Mono.just(false));
+        when(paymentRunRepository.save(any())).thenAnswer(inv -> {
+            PaymentRun saved = inv.getArgument(0);
+            if (saved.getId() == null) saved.setId(UUID.randomUUID());
+            return Mono.just(saved);
+        });
+        when(paymentRunGenerator.populate(any(), any(), any())).thenReturn(Mono.just(2));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        when(eventPublisher.publishPaymentRunCreated(any(), any(), any(), any(), anyInt()))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(
+                paymentRunService.create(request, actorId, "actor@test.example")
+                        .contextWrite(ctx -> PermissionContext.put(
+                                ctx.put("TENANT_ID", "test-tenant"),
+                                java.util.Set.of(Permissions.COMMISSION_CREATE_PAYOUT_RUN)))
+        )
+                .assertNext(saved -> {
+                    assertThat(saved.getPayeeType()).isEqualTo("PRODUCER");
+                    assertThat(saved.getPaymentCount()).isEqualTo(2);
+                    assertThat(saved.getPeriodStart()).isEqualTo(java.time.LocalDate.of(2026, 7, 1));
+                    assertThat(saved.getPeriodEnd()).isEqualTo(java.time.LocalDate.of(2026, 9, 30));
+                })
+                .verifyComplete();
+
+        org.mockito.ArgumentCaptor<java.time.LocalDate> startCap =
+                org.mockito.ArgumentCaptor.forClass(java.time.LocalDate.class);
+        org.mockito.ArgumentCaptor<java.time.LocalDate> endCap =
+                org.mockito.ArgumentCaptor.forClass(java.time.LocalDate.class);
+        verify(paymentRunGenerator).populate(any(), startCap.capture(), endCap.capture());
+        assertThat(startCap.getValue()).isEqualTo(java.time.LocalDate.of(2026, 7, 1));
+        assertThat(endCap.getValue()).isEqualTo(java.time.LocalDate.of(2026, 9, 30));
+    }
+
+    @Test
+    void create_producer_missingPeriod_rejects() {
+        var bankId = UUID.randomUUID();
+        var request = new CreatePaymentRunRequest("USD", "missing period", "PRODUCER", bankId);
+
+        StepVerifier.create(
+                paymentRunService.create(request, UUID.randomUUID().toString(), "actor@test.example")
+                        .contextWrite(ctx -> PermissionContext.put(
+                                ctx.put("TENANT_ID", "test-tenant"),
+                                java.util.Set.of(Permissions.COMMISSION_CREATE_PAYOUT_RUN)))
+        )
+                .expectErrorMatches(err ->
+                    err instanceof IllegalArgumentException
+                    && err.getMessage().contains("periodStart"))
+                .verify();
+
+        verify(bankAccountRepository, never()).findById(any(UUID.class));
+    }
+
+    @Test
+    void create_producer_missingPermission_403s() {
+        var bank = stubBankAccount("USD");
+        var request = new CreatePaymentRunRequest(
+                "USD", "no perm", "PRODUCER", bank.getId(),
+                java.time.LocalDate.of(2026, 7, 1),
+                java.time.LocalDate.of(2026, 7, 31));
+
+        StepVerifier.create(
+                paymentRunService.create(request, UUID.randomUUID().toString(), "actor@test.example")
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .expectErrorMatches(err ->
+                    err instanceof org.springframework.web.server.ResponseStatusException
+                    && ((org.springframework.web.server.ResponseStatusException) err)
+                            .getStatusCode() == org.springframework.http.HttpStatus.FORBIDDEN)
+                .verify();
+
+        verify(bankAccountRepository, never()).findById(any(UUID.class));
+    }
+
+    @Test
+    void execute_producer_flipsCommissionsToPaid() {
+        var run = createTestRun();
+        run.setPayeeType("PRODUCER");
+        run.setPeriodStart(java.time.LocalDate.of(2026, 7, 1));
+        run.setPeriodEnd(java.time.LocalDate.of(2026, 9, 30));
+
+        UUID producerId = UUID.randomUUID();
+
+        var item = new com.medfund.finance.entity.PaymentRunItem();
+        item.setId(UUID.randomUUID());
+        item.setPaymentRunId(run.getId());
+        item.setProducerId(producerId);
+        item.setPaymentId(UUID.randomUUID());
+        item.setAmount(new BigDecimal("500.00"));
+        item.setCurrencyCode("USD");
+        item.setPayeeType("PRODUCER");
+        item.setStatus("pending");
+        stubStandardExecute(run, item);
+
+        when(commissionTransactionRepository.markPaidByProducerAndPeriod(
+                any(), any(), any(), any())).thenReturn(Mono.just(3));
+
+        StepVerifier.create(
+                paymentRunService.execute(run.getId(), "actor", "actor@test.example")
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+        )
+                .assertNext(saved -> assertThat(saved.getStatus()).isEqualTo("executed"))
+                .verifyComplete();
+
+        verify(commissionTransactionRepository).markPaidByProducerAndPeriod(
+                org.mockito.ArgumentMatchers.eq(producerId),
+                org.mockito.ArgumentMatchers.eq(run.getId()),
+                any(), any());
     }
 
     // ---- Helper ----

@@ -26,6 +26,7 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// pins the config surface explicitly (both point at tenancy-service;
 	// this documents the path and survives a future catch-all split).
 	app.All("/api/v1/tenants/*/high-cost-claimant-config", proxy.Handler(cfg.TenancyServiceURL))
+	app.All("/api/v1/tenants/*/auto-lapse-config", proxy.Handler(cfg.TenancyServiceURL))
 	app.All("/api/v1/tenants/*", proxy.Handler(cfg.TenancyServiceURL))
 	app.All("/api/v1/plans/*", proxy.Handler(cfg.TenancyServiceURL))
 	app.All("/api/v1/currencies", proxy.Handler(cfg.TenancyServiceURL))
@@ -196,6 +197,19 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/reinsurance/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reports/reinsurance", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reports/reinsurance/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 11 Producer / Broker module — producer CRUD, hierarchy, rate
+	// cards, member↔producer assignments. Commission reports at
+	// /api/v1/reports/commission/* land in Phase 4; adding both prefixes
+	// upfront so the Phase 4 backend deploys don't require a gateway change.
+	app.All("/api/v1/producers", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/producers/*", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/commission/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Member-side view of the member↔producer assignment (both /assignments
+	// under producer and /producer-assignment under member proxy to finance).
+	app.All("/api/v1/members/*/producer-assignment", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/members/*/producer-assignment/*", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/commission", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/commission/*", proxy.Handler(cfg.FinanceServiceURL))
 
 	// ── Rules Service (per-tenant Drools rules) ───────────────────────────────
 	app.All("/api/v1/rules", proxy.Handler(cfg.RulesServiceURL))

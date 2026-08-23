@@ -65,5 +65,16 @@ public enum RuleCategory {
      * they only fire when the reinsurance consumer explicitly focuses the
      * REINSURANCE group, never during the stage-7 tenant-rule sweep.
      */
-    REINSURANCE
+    REINSURANCE,
+
+    // ── Commission ───────────────────────────────────────────────────────────
+    /**
+     * Producer commission calculation. Agenda-gated — the commission consumer
+     * in finance-service focuses this group per {@code medfund.contributions.paid}
+     * event, so commission rules never fire during the stage-7 tenant sweep.
+     * The base rate is looked up in {@code commission_rate_card}; rules in
+     * this category encode conditional kickers (tier bonuses, promo periods,
+     * sliding-scale overrides, waivers) on top of that base.
+     */
+    COMMISSION
 }

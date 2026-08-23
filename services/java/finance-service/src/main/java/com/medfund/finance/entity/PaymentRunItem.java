@@ -27,6 +27,9 @@ public class PaymentRunItem {
     @Column("member_id")
     private UUID memberId;
 
+    @Column("producer_id")
+    private UUID producerId;
+
     @Column("payee_type")
     private String payeeType = "PROVIDER";
 
@@ -34,6 +37,9 @@ public class PaymentRunItem {
 
     @Column("currency_code")
     private String currencyCode;
+
+    @Column("withholding_tax_pct")
+    private BigDecimal withholdingTaxPct;
 
     private String status = "pending";
 
@@ -57,6 +63,9 @@ public class PaymentRunItem {
     public UUID getMemberId() { return memberId; }
     public void setMemberId(UUID memberId) { this.memberId = memberId; }
 
+    public UUID getProducerId() { return producerId; }
+    public void setProducerId(UUID producerId) { this.producerId = producerId; }
+
     public String getPayeeType() { return payeeType; }
     public void setPayeeType(String payeeType) { this.payeeType = payeeType; }
 
@@ -65,6 +74,9 @@ public class PaymentRunItem {
 
     public String getCurrencyCode() { return currencyCode; }
     public void setCurrencyCode(String currencyCode) { this.currencyCode = currencyCode; }
+
+    public BigDecimal getWithholdingTaxPct() { return withholdingTaxPct; }
+    public void setWithholdingTaxPct(BigDecimal withholdingTaxPct) { this.withholdingTaxPct = withholdingTaxPct; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }

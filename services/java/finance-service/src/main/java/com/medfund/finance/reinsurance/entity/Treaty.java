@@ -64,6 +64,15 @@ public class Treaty {
     @Column("producer_ref")
     private String producerRef;
 
+    /**
+     * FK to {@code producer.id}, populated by
+     * {@link com.medfund.finance.producer.service.ProducerBackfillJob} on
+     * high-confidence fuzzy matches to {@code producerRef}. Null until the
+     * backfill lands or a tenant admin accepts a candidate.
+     */
+    @Column("producer_id")
+    private UUID producerId;
+
     @Column("activated_at")
     private OffsetDateTime activatedAt;
 

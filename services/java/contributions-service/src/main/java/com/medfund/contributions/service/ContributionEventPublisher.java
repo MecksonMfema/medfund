@@ -245,6 +245,39 @@ public class ContributionEventPublisher {
 
     private static String nullSafe(String v) { return v == null ? "" : v; }
 
+    /**
+     * Emitted from {@link BillingService#revokeBilling(RevokeBillingRequest, String, String)}
+     * and {@link BillingService#revokeInvoice(java.util.UUID, String, String)}. Fires once
+     * per revoked contribution (batch revoke fires N events). Consumers:
+     * {@code CommissionRevokeConsumer} in finance-service — reverses the matching
+     * commission accrual and writes a {@code clawback_event} with
+     * {@code source=CONTRIBUTION_REVOKE}.
+     *
+     * <p>All fields serialize as strings via {@link #nullSafe(String)} so the
+     * uniform {@code Map<String,String>} envelope holds. The commission
+     * consumer treats blank values as absent.
+     */
+    public Mono<Void> publishContributionRevoked(String contributionId, String invoiceId,
+                                                 String memberId, String groupId,
+                                                 String amount, String currencyCode,
+                                                 String insuranceLine, String tenantId,
+                                                 String actorId, String actorEmail) {
+        var fields = new java.util.LinkedHashMap<String, String>();
+        fields.put("event",          "CONTRIBUTION_REVOKED");
+        fields.put("contributionId", nullSafe(contributionId));
+        fields.put("invoiceId",      nullSafe(invoiceId));
+        fields.put("memberId",       nullSafe(memberId));
+        fields.put("groupId",        nullSafe(groupId));
+        fields.put("amount",         nullSafe(amount));
+        fields.put("currencyCode",   nullSafe(currencyCode));
+        fields.put("insuranceLine",  nullSafe(insuranceLine));
+        fields.put("tenantId",       nullSafe(tenantId));
+        fields.put("actorId",        actorId == null || actorId.isBlank() ? "system" : actorId);
+        fields.put("actorEmail",     actorEmail == null || actorEmail.isBlank() ? "system@medfund" : actorEmail);
+        fields.put("revokedAt",      java.time.OffsetDateTime.now().toString());
+        return publishEvent("medfund.contributions.revoked", nullSafe(contributionId), fields);
+    }
+
     public Mono<Void> publishInvoicePdfDeleted(String tenantId, String invoiceId,
                                                String bucket, String objectKey) {
         if (bucket == null || objectKey == null || bucket.isBlank() || objectKey.isBlank()) {

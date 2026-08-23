@@ -128,6 +128,16 @@ const FACT_SEEDS: FactSeed[] = [
       amount: 250000, currencyCode: 'USD',
     },
   },
+
+  // ── Commission (Phase 11) ──────────────────────────────────────────────
+  {
+    category: 'COMMISSION',
+    contribution: {
+      memberId: 'MEM-DEMO', schemeId: 'STANDARD', groupId: 'GRP-DEMO',
+      memberAge: 35, premiumAmount: 500, currencyCode: 'USD',
+      insuranceLine: 'HEALTH', dependantCount: 2,
+    },
+  },
 ];
 
 /**

@@ -1,0 +1,97 @@
+<section class="alc-config">
+  <div class="section-header">
+    <div>
+      <h3 class="section-title">Automatic member lapse</h3>
+      <p class="section-sub">
+        When enabled, members whose aged balance sits in <strong>Suspended</strong>
+        or <strong>Write-off</strong> for the configured window are auto-transitioned
+        to <strong>Lapsed</strong>. Any payment that clears the arrears during the
+        grace window cancels the pending transition. Commission clawback fires on
+        the lapse.
+      </p>
+    </div>
+    <div class="section-actions">
+      @if (saved) {
+        <span class="saved-badge">
+          <app-icon name="check-circle" [size]="16"></app-icon> Saved
+        </span>
+      }
+      <button
+        type="button"
+        class="btn btn-primary"
+        (click)="save()"
+        [disabled]="saving || loading || !canConfigure()"
+      >
+        {{ saving ? 'Saving…' : 'Save' }}
+      </button>
+    </div>
+  </div>
+
+  @if (loading) {
+    <app-skeleton></app-skeleton>
+  } @else {
+    @if (errorMessage) {
+      <div class="general-error">{{ errorMessage }}</div>
+    }
+
+    <div class="form-grid">
+      <div class="form-field toggle-field">
+        <label>
+          <input
+            type="checkbox"
+            [(ngModel)]="enabled"
+            [disabled]="saving || !canConfigure()"
+            name="enabled"
+          />
+          <span>Enable auto-lapse for this tenant</span>
+        </label>
+        <p class="hint">
+          When off, the arrears sweep and the user-service consumers stay silent,
+          regardless of the threshold + grace values below.
+        </p>
+      </div>
+
+      <div class="form-field">
+        <label for="alcThresholdMonths">Arrears threshold (months)</label>
+        <input
+          id="alcThresholdMonths"
+          type="number"
+          min="1"
+          max="60"
+          step="1"
+          [(ngModel)]="arrearsThresholdMonths"
+          [disabled]="saving || !canConfigure() || !enabled"
+          name="arrearsThresholdMonths"
+        />
+        <p class="hint">
+          A member must stay in the SUSPENDED / WRITE_OFF aged bucket at least this
+          long before the pipeline arms. Range: 1–60 months.
+        </p>
+      </div>
+
+      <div class="form-field">
+        <label for="alcGraceDays">Grace window (days)</label>
+        <input
+          id="alcGraceDays"
+          type="number"
+          min="0"
+          max="180"
+          step="1"
+          [(ngModel)]="graceWindowDays"
+          [disabled]="saving || !canConfigure() || !enabled"
+          name="graceWindowDays"
+        />
+        <p class="hint">
+          Days between the arrears-threshold-breached signal and the actual LAPSED
+          transition. A payment that clears the arrears within this window cancels
+          the lapse. Range: 0–180 days.
+        </p>
+      </div>
+    </div>
+
+    <p *ngIf="!canConfigure()" class="hint muted">
+      You have read-only access — the <code>tenant.settings:manage_auto_lapse</code>
+      permission is required to save changes.
+    </p>
+  }
+</section>

@@ -4,6 +4,7 @@ import com.medfund.finance.entity.PaymentRun;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 public record PaymentRunResponse(
@@ -12,6 +13,7 @@ public record PaymentRunResponse(
         String status,
         BigDecimal totalAmount,
         String currencyCode,
+        String payeeType,
         Integer paymentCount,
         String description,
         Instant executedAt,
@@ -28,6 +30,10 @@ public record PaymentRunResponse(
         /** V075 — friendly label for the source bank account.
          *  Populated by the paginated list query; may be null on single-row loads. */
         String sourceBankAccountLabel,
+        /** V100 — commission accrual window covered by a PRODUCER-payee run;
+         *  null for PROVIDER + MEMBER runs. */
+        LocalDate periodStart,
+        LocalDate periodEnd,
         Instant createdAt,
         Instant updatedAt,
         UUID createdBy
@@ -39,6 +45,7 @@ public record PaymentRunResponse(
                 run.getStatus(),
                 run.getTotalAmount(),
                 run.getCurrencyCode(),
+                run.getPayeeType(),
                 run.getPaymentCount(),
                 run.getDescription(),
                 run.getExecutedAt(),
@@ -48,6 +55,8 @@ public record PaymentRunResponse(
                 run.getSettlementDate(),
                 run.getSourceBankAccountId(),
                 run.getSourceBankAccountLabel(),
+                run.getPeriodStart(),
+                run.getPeriodEnd(),
                 run.getCreatedAt(),
                 run.getUpdatedAt(),
                 run.getCreatedBy()

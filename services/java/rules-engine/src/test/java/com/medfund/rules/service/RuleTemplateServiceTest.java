@@ -7,6 +7,7 @@ import com.medfund.rules.template.providers.AgeGroupTemplates;
 import com.medfund.rules.template.providers.BenefitLimitTemplates;
 import com.medfund.rules.template.providers.ClinicalValidationTemplates;
 import com.medfund.rules.template.providers.CoPaymentTemplates;
+import com.medfund.rules.template.providers.CommissionTemplates;
 import com.medfund.rules.template.providers.ContributionBillingTemplates;
 import com.medfund.rules.template.providers.ContributionPricingTemplates;
 import com.medfund.rules.template.providers.EligibilityTemplates;
@@ -57,7 +58,8 @@ class RuleTemplateServiceTest {
                 new ProviderPaymentTemplates(),
                 new ReconciliationTemplates(),
                 new ModifierAdjustmentTemplates(),
-                new ReinsuranceTemplates()
+                new ReinsuranceTemplates(),
+                new CommissionTemplates()
         );
         service = new RuleTemplateService(providers);
     }

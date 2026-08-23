@@ -157,6 +157,16 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
       { label: 'Facultative — Browse', icon: 'shield',     route: '/tenant/finance/reinsurance/facultative/browse', permissions: ['finance.reinsurance:cede_facultative'] },
       { label: 'Facultative — Queue',  icon: 'shield',     route: '/tenant/finance/reinsurance/facultative/queue',  permissions: ['finance.reinsurance:view'] },
       { label: 'Reinsurance — Review Queue', icon: 'alert-triangle', route: '/tenant/finance/reinsurance/review-queue', permissions: ['finance.reinsurance:view'] },
+      // Phase 11 §A Phase 6 — PRODUCER-typed payment runs (commission
+      // payouts). Separate landing page from PROVIDER/MEMBER payment runs
+      // because commission payouts carry a period + different permission
+      // gates (finance.commission:*).
+      { label: 'Producer Payouts',   icon: 'briefcase',    route: '/tenant/finance/payouts/producer',      permissions: ['finance.commission:view'] },
+      // Phase 11 §B Phase 8 — four-eyes commission adjustment queues.
+      // Two peers rather than a nested "Commission" group (matches the
+      // Facultative — Browse/Queue peer-shape above).
+      { label: 'Adjustments (draft)',   icon: 'edit',        route: '/tenant/finance/commission/adjustments/draft',   permissions: ['finance.commission:draft_adjustment'] },
+      { label: 'Adjustments (approve)', icon: 'check-circle', route: '/tenant/finance/commission/adjustments/approve', permissions: ['finance.commission:approve_adjustment'] },
       { label: 'Reports',            icon: 'chart',        route: '/tenant/finance/reports',               permissions: ['finance:view_debtors', 'finance:view_subledger'] },
     ],
   },

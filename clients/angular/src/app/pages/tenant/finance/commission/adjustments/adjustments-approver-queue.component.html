@@ -1,0 +1,117 @@
+<header class="page-header">
+  <div>
+    <h1>Commission adjustments — approver queue</h1>
+    <p class="page-sub">
+      Draft adjustments awaiting approval and approved adjustments awaiting
+      commit. Four-eyes invariant: an approver cannot commit their own draft.
+    </p>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <label class="toolbar-cell">
+    <span class="cell-label">Status</span>
+    <select [(ngModel)]="statusFilter" (ngModelChange)="onStatusChange()" name="status">
+      @for (opt of statusOptions; track opt.value) {
+        <option [ngValue]="opt.value">{{ opt.label }}</option>
+      }
+    </select>
+  </label>
+  <button type="button" class="btn btn-sm" (click)="fetchPage()" [disabled]="loading">
+    <app-icon name="refresh-cw" [size]="14"></app-icon>
+    Refresh
+  </button>
+</div>
+
+@if (loading) {
+  <div class="loading">Loading queue…</div>
+} @else if (rows.length === 0) {
+  <div class="empty">Queue is clear.</div>
+} @else {
+  <table class="queue-table" data-testid="adj-approver-table">
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>Reference</th>
+        <th>Target</th>
+        <th>Type</th>
+        <th class="num">Amount</th>
+        <th>Drafter</th>
+        <th>Created</th>
+        <th class="actions">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows; track row.id) {
+        <tr [attr.data-testid]="'adj-row-' + row.id.substring(0, 8)">
+          <td><span class="status-pill" [attr.data-status]="row.status">{{ row.status }}</span></td>
+          <td><strong>{{ row.reference }}</strong></td>
+          <td>{{ row.targetCommissionTransactionId.substring(0, 8) }}…</td>
+          <td>{{ row.adjustmentType }}</td>
+          <td class="num">{{ row.adjustmentAmount | number:'1.2-4' }} {{ row.nativeCurrency }}</td>
+          <td>{{ row.actorEmail || '—' }}</td>
+          <td>{{ row.createdAt | date:'yyyy-MM-dd HH:mm' }}</td>
+          <td class="actions">
+            @if (row.status === 'DRAFT') {
+              <button type="button" class="btn btn-sm btn-primary"
+                      [disabled]="actionInProgress[row.id]"
+                      (click)="approve(row)"
+                      data-testid="approve-btn">Approve</button>
+            }
+            @if (row.status === 'APPROVED') {
+              <button type="button" class="btn btn-sm btn-primary"
+                      [disabled]="actionInProgress[row.id]"
+                      (click)="commit(row)"
+                      data-testid="commit-btn">Commit</button>
+            }
+            <button type="button" class="btn btn-sm btn-danger"
+                    [disabled]="actionInProgress[row.id]"
+                    (click)="openVoid(row)"
+                    data-testid="void-btn">Void</button>
+            <a class="btn btn-sm" [routerLink]="['/tenant/finance/commission/adjustments', row.id]">
+              Detail
+            </a>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
+
+<!-- Void modal (inline) -->
+@if (voidTargetId) {
+  <div class="modal-backdrop" (click)="cancelVoid()">
+    <div class="modal-card" (click)="$event.stopPropagation()" data-testid="void-modal">
+      <h3>Void commission adjustment</h3>
+      <p class="modal-sub">
+        Reason will be recorded on the audit trail. COMMITTED adjustments
+        cannot be voided — this is only available for DRAFT / APPROVED.
+      </p>
+      <label>
+        <span>Reason <em>(min 5 chars)</em></span>
+        <textarea rows="4" maxlength="500"
+                  [(ngModel)]="voidReason"
+                  placeholder="e.g. operator withdrew request"
+                  data-testid="void-reason"></textarea>
+      </label>
+      @if (voidError) {
+        <div class="banner banner-error">{{ voidError }}</div>
+      }
+      <div class="modal-actions">
+        <button type="button" class="btn"
+                (click)="cancelVoid()"
+                [disabled]="voidSubmitting">Cancel</button>
+        <button type="button" class="btn btn-danger"
+                (click)="submitVoid()"
+                [disabled]="voidSubmitting"
+                data-testid="void-submit">
+          {{ voidSubmitting ? 'Voiding…' : 'Void adjustment' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

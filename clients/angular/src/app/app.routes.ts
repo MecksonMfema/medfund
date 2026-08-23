@@ -73,6 +73,9 @@ export const routes: Routes = [
       // Phase 10 — reinsurance module (Reinsurers + Treaties CRUD; bordereau
       // reports land under /tenant/finance/reports/reinsurance/*).
       { path: 'reinsurance', loadChildren: () => import('./pages/tenant-admin/reinsurance/reinsurance.routes').then(m => m.REINSURANCE_ROUTES), data: { title: 'Reinsurance' } },
+      // Phase 11 — producer / broker module (Producer + Rate Card CRUD +
+      // assignments; commission reports land under /tenant/finance/reports/commission/*).
+      { path: 'producers', loadChildren: () => import('./pages/tenant-admin/producers/producers.routes').then(m => m.PRODUCERS_ROUTES), data: { title: 'Producers' } },
     ],
   },
   // Operational portal — sibling of /tenant/admin/*, same TenantLayoutComponent

@@ -1,0 +1,52 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <a routerLink="/tenant/admin/producers" class="btn-link"><app-icon name="arrow-left"></app-icon> Back to producers</a>
+      <h1 *ngIf="producer">Open assignments for {{ producer.producerCode }} — {{ producer.name }}</h1>
+      <h1 *ngIf="!producer">Assignments</h1>
+      <p class="sub" *ngIf="openCount != null">{{ openCount }} member(s) currently assigned.</p>
+    </div>
+    <div class="header-actions" *ngIf="producer">
+      @if (producer.active && canTerminate) {
+        <button type="button" class="btn btn-danger" (click)="openTerminate()"
+                data-testid="open-terminate-modal">
+          <app-icon name="alert-triangle"></app-icon> Terminate producer
+        </button>
+      }
+      @if (!producer.active) {
+        <a [routerLink]="['/tenant/admin/producers', producer.id, 'reassign']"
+           class="btn btn-primary"
+           data-testid="go-to-bulk-reassign">
+          <app-icon name="users"></app-icon> Bulk reassign
+        </a>
+      }
+    </div>
+  </header>
+
+  <div *ngIf="errorMessage" class="alert alert-error">{{ errorMessage }}</div>
+  <div *ngIf="successMessage" class="alert alert-success">{{ successMessage }}</div>
+
+  <app-data-table
+    [columns]="columns"
+    [data]="rows"
+    [showActions]="false"
+    [serverSide]="true"
+    [loading]="loading"
+    [pageSize]="pageSize"
+    [totalCount]="openCount ?? 0"
+    [serverPage]="page"
+    emptyMessage="No open assignments"
+    emptyDescription="This producer has no members currently assigned to them."
+    (pageChange)="onPageChange($event)">
+  </app-data-table>
+</div>
+
+<app-terminate-producer-modal
+  [open]="showTerminate"
+  [saving]="terminating"
+  [producerCode]="producer?.producerCode || ''"
+  [producerName]="producer?.name || ''"
+  [openAssignmentCount]="openCount"
+  (cancel)="cancelTerminate()"
+  (submit)="onTerminateSubmit($event)">
+</app-terminate-producer-modal>
