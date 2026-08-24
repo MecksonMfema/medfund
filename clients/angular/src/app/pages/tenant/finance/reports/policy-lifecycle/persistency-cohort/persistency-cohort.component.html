@@ -1,0 +1,79 @@
+<section class="report">
+  <header class="report-header">
+    <h2>Persistency cohort</h2>
+    <p class="muted">
+      For each cohort month + insurance line + checkpoint (months since cohort start), the retention
+      rate as a percentage. HEALTH is strict per L16 — active + contribution row present at the
+      checkpoint month.
+    </p>
+  </header>
+
+  <form class="filters" (submit)="$event.preventDefault(); fetch()">
+    <label>
+      From
+      <input type="date" [(ngModel)]="periodStart" name="periodStart" (change)="onFilterChange()"/>
+    </label>
+    <label>
+      To
+      <input type="date" [(ngModel)]="periodEnd" name="periodEnd" (change)="onFilterChange()"/>
+    </label>
+    <label>
+      Checkpoints (months, csv)
+      <input type="text" [(ngModel)]="checkpoints" name="checkpoints"
+             placeholder="6,12,24" (change)="onFilterChange()"/>
+    </label>
+    <label>
+      Line
+      <app-select [ngModel]="insuranceLine" name="insuranceLine"
+                  [options]="lineOptions"
+                  (ngModelChange)="insuranceLine = $event; onFilterChange()"></app-select>
+    </label>
+    <div class="actions">
+      <button type="submit" class="btn" [disabled]="loading">Refresh</button>
+      <button type="button" class="btn btn-primary"
+              (click)="exportExcel()"
+              [disabled]="exporting || loading">
+        <app-icon name="download"></app-icon>
+        {{ exporting ? 'Exporting…' : 'Export XLSX' }}
+      </button>
+    </div>
+  </form>
+
+  @if (freshnessWarning) {
+    <div class="warning-banner">{{ freshnessWarning }}</div>
+  }
+
+  @if (errorMessage) {
+    <div class="error-banner">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+    <div class="loading">Loading…</div>
+  } @else if (rows.length === 0) {
+    <div class="empty">No persistency cohorts for this window.</div>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Cohort month</th><th>Line</th>
+          <th class="num">Checkpoint (months)</th>
+          <th class="num">Cohort size</th>
+          <th class="num">Still active</th>
+          <th class="num">Retention %</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of rows; track r.cohortMonth + '-' + r.insuranceLine + '-' + r.checkpointMonths) {
+          <tr>
+            <td>{{ r.cohortMonth }}</td>
+            <td>{{ r.insuranceLine }}</td>
+            <td class="num">{{ r.checkpointMonths }}</td>
+            <td class="num">{{ r.cohortSize }}</td>
+            <td class="num">{{ r.stillActive }}</td>
+            <td class="num">{{ r.retentionRate }}%</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</section>

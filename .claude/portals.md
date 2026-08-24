@@ -100,7 +100,8 @@ InsureFlow has five distinct portal experiences, each serving a different audien
 | `/admin/rules/test` | Rule Testing | Dry-run rules against sample claims to validate behavior |
 | `/admin/currencies` | Currency Config | Select supported currencies, set default, configure exchange rate source |
 | `/admin/settings#bank-accounts` | Bank Accounts | Configure the tenant's own bank accounts (label + currency + nomination) used for outbound payment-run disbursements and inbound receipt matching. Gated on `admin.bank_accounts:manage` |
-| `/admin/providers` | Provider Network | Manage in-network providers, invite new providers |
+| `/admin/providers` | Provider Network | Manage in-network providers, invite new providers. Phase 13 §A adds an inline `network_tier` dropdown per row (STANDARD / TIER_1 / TIER_2 / TIER_3) — persisted via `PATCH /api/v1/providers/{id}` and consumed by the PROVIDER_NETWORK_UTILIZATION report as the tier grouping dimension. |
+| `/tenant/policies/{line}/:id` | Policy Detail | Phase 13 §A: per-line policy detail pages carry a shared status-action row (**Lapse / Terminate / Suspend / Reinstate**) filtered by current status. Each action opens the shared `PolicyStatusActionModalComponent` with a reason-code dropdown driven by the per-line vocab in `PolicyLifecycleActionRegistryService` (LIFE adds MORTALITY; VEHICLE adds SOLD/TOTAL_LOSS/STORAGE_SUSPEND; TRAVEL adds TRIP_CANCELLED; etc.). Every action writes to `policy_status_history` in the same reactive transaction as the policy update and emits a `medfund.user.policy-status-changed` Kafka event that contributions-service consumes to freeze / close / reinstate the earning strip. |
 | `/admin/templates` | Notification Templates | Customize email/SMS templates with tenant branding |
 | `/admin/ai-config` | AI Settings | Auto-adjudication thresholds, enable/disable AI features |
 | `/admin/audit` | Audit Log | All actions within the tenant (who did what, when) |

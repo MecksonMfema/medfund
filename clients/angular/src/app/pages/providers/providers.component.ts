@@ -7,7 +7,8 @@ import { StatCardComponent } from '../../shared/components/stat-card/stat-card.c
 import { DataTableComponent, TableAction } from '../../shared/components/data-table/data-table.component';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../shared/components/select/select.component';
-import { ProvidersService, Provider, ProviderQueryParams } from '../../core/services/providers.service';
+import { ProvidersService, Provider, ProviderQueryParams, NetworkTier } from '../../core/services/providers.service';
+import { ToastService } from '../../shared/components/toast/toast.service';
 
 @Component({
   selector: 'app-providers',
@@ -33,6 +34,13 @@ export class ProvidersComponent implements OnInit, OnDestroy {
   statusFilter = '';
   typeFilter = '';
 
+  readonly networkTierOptions = [
+    { value: 'STANDARD', label: 'Standard' },
+    { value: 'TIER_1',   label: 'Tier 1' },
+    { value: 'TIER_2',   label: 'Tier 2' },
+    { value: 'TIER_3',   label: 'Tier 3' },
+  ];
+
   columns = [
     { key: 'name',             label: 'Name' },
     { key: 'providerType',     label: 'Type',        type: 'label' },
@@ -41,6 +49,14 @@ export class ProvidersComponent implements OnInit, OnDestroy {
     { key: 'email',            label: 'Email' },
     { key: 'city',             label: 'City' },
     { key: 'status',           label: 'Status',      type: 'status' },
+    {
+      key: 'networkTier',
+      label: 'Network tier',
+      type: 'select',
+      options: this.networkTierOptions,
+      onSelectChange: (row: Provider, value: string) =>
+        this.onNetworkTierChange(row, value as NetworkTier),
+    },
     { key: 'createdAt',        label: 'Registered',  type: 'date' },
   ];
 
@@ -110,7 +126,10 @@ export class ProvidersComponent implements OnInit, OnDestroy {
   private searchSubject = new Subject<string>();
   private destroy$ = new Subject<void>();
 
-  constructor(private providersService: ProvidersService) {}
+  constructor(
+    private providersService: ProvidersService,
+    private toast: ToastService,
+  ) {}
 
   ngOnInit(): void {
     this.searchSubject.pipe(
@@ -183,6 +202,18 @@ export class ProvidersComponent implements OnInit, OnDestroy {
 
   activateProvider(provider: Provider): void {
     this.providersService.activate(provider.id).subscribe({ next: () => this.resetAndLoad() });
+  }
+
+  onNetworkTierChange(provider: Provider, value: NetworkTier): void {
+    const previous = provider.networkTier;
+    this.providersService.updateNetworkTier(provider.id, value).subscribe({
+      next: () => this.toast.success(`Network tier updated for ${provider.name}`),
+      error: (err) => {
+        // Roll back the local row so the UI reflects backend state.
+        provider.networkTier = previous;
+        this.toast.error(err?.error?.detail || 'Failed to update network tier');
+      },
+    });
   }
 
   // ── Create modal ──────────────────────────────────────────────────────────

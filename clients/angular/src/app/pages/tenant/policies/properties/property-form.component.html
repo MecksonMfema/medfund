@@ -14,12 +14,26 @@
     </div>
     @if (isEdit && property) {
       <div class="actions">
-        @if (property.status === 'active')     { <button type="button" class="btn small warn"   (click)="suspend()">Suspend</button> }
-        @if (property.status !== 'terminated') { <button type="button" class="btn small danger" (click)="terminate()">Terminate</button> }
+        <app-policy-status-action-buttons
+          [currentStatus]="property.status"
+          [policySource]="policySource"
+          (actionClicked)="onLifecycleActionClicked($event)"
+        ></app-policy-status-action-buttons>
         @if (property.billingOverrideAmount != null) { <button type="button" class="btn small" (click)="clearOverride()">Clear custom premium</button> }
       </div>
     }
   </header>
+
+  <app-policy-status-action-modal
+    [open]="pendingAction !== null"
+    [action]="pendingAction"
+    [policySource]="policySource"
+    [policyLabel]="property?.propertyName || ''"
+    [submitting]="submittingAction"
+    [serverError]="actionServerError"
+    (cancel)="onLifecycleActionCancelled()"
+    (submit)="onLifecycleActionSubmitted($event)"
+  ></app-policy-status-action-modal>
 
   @if (errorMessage) {
     <div class="error-banner" (click)="errorMessage = null">{{ errorMessage }}</div>

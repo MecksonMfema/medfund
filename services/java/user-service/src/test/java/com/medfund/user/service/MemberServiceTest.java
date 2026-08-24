@@ -1,11 +1,14 @@
 package com.medfund.user.service;
 
 import com.medfund.shared.audit.AuditPublisher;
+import com.medfund.shared.lifecycle.StatusTransitionRecorder;
 import com.medfund.user.dto.CreateMemberRequest;
 import com.medfund.user.dto.UpdateMemberRequest;
 import com.medfund.user.entity.Member;
 import com.medfund.user.exception.MemberNotFoundException;
 import com.medfund.user.repository.MemberRepository;
+import com.medfund.user.status.MemberStatusTransitionService;
+import org.springframework.transaction.reactive.TransactionalOperator;
 import org.springframework.web.server.ResponseStatusException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -62,7 +65,21 @@ class MemberServiceTest {
     @Mock
     private DatabaseClient db;
 
-    @InjectMocks
+    /** Phase 13 §A — history-row recorder behind the central transition pathway. */
+    @Mock
+    private StatusTransitionRecorder statusTransitionRecorder;
+
+    /** Identity pass-through operator so the pathway's tx wrapper is inert here. */
+    @Mock
+    private TransactionalOperator transactionalOperator;
+
+    private MemberStatusTransitionService statusTransitionService;
+
+    // Constructed manually (not @InjectMocks) so the real
+    // MemberStatusTransitionService runs against the same repository mock —
+    // the suspend/terminate assertions below exercise the actual mutation
+    // logic (suspend_reason maintenance, trio clearing), which a mocked
+    // pathway would silently bypass.
     private MemberService memberService;
 
     @BeforeEach
@@ -88,6 +105,18 @@ class MemberServiceTest {
                 .thenReturn(Mono.just("MBR-000000"));
         lenient().when(ageGroupResolver.resolveForSchemeAndDob(any(), any()))
                 .thenReturn(Mono.empty());
+        // Phase 13 §A pathway wiring: identity tx + no-op history recorder so
+        // the transition flow completes against the stubbed repository.
+        lenient().when(transactionalOperator.transactional(
+                        org.mockito.ArgumentMatchers.<Mono<Member>>any()))
+                .thenAnswer(inv -> inv.getArgument(0));
+        lenient().when(statusTransitionRecorder.recordMember(any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(Mono.empty());
+        statusTransitionService = new MemberStatusTransitionService(
+                memberRepository, statusTransitionRecorder, transactionalOperator);
+        memberService = new MemberService(memberRepository, r2dbcTemplate, auditPublisher,
+                eventPublisher, keycloakSyncService, lifecycleService, ageGroupResolver,
+                memberNumberService, db, statusTransitionService);
     }
 
     @Test

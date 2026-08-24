@@ -48,7 +48,7 @@ public class EarningScheduleClosureService {
         LocalDate asOf = LocalDate.now();
         return startRun(tenantUuid, "SCHEDULED", null)
                 .flatMap(run -> earningScheduleRepository
-                        .findByPeriodEndBeforeAndEarnedAtPeriodEndIsNull(asOf)
+                        .findByPeriodEndBeforeAndEarnedAtPeriodEndIsNullAndClosureFalse(asOf)
                         .window(CHUNK_SIZE)
                         .concatMap(chunk -> chunk
                                 .flatMap(this::closeOne, 4)
@@ -60,6 +60,7 @@ public class EarningScheduleClosureService {
                             return finish(run.getId(), "FAILED", err.getMessage());
                         }))
                 .then(refreshMemberFirstContribution())
+                .then(refreshMemberContributionPresence())
                 .then();
     }
 
@@ -111,6 +112,40 @@ public class EarningScheduleClosureService {
                 .then()
                 .onErrorResume(err -> {
                     log.warn("REFRESH MATERIALIZED VIEW member_first_contribution failed: {}", err.getMessage());
+                    return Mono.empty();
+                });
+    }
+
+    /**
+     * Phase 13 §C Phase 7 per L16 + grill note 4. REFRESH the
+     * {@code member_contribution_presence} matview so
+     * {@code PersistencyCohortReportService}'s HEALTH branch sees the
+     * previous nightly cycle's contributions on its next report run, and
+     * stamp the freshness timestamp on the newest run row so the report
+     * can raise a >24h-stale warning.
+     *
+     * <p>Chained after {@link #refreshMemberFirstContribution()} inside
+     * {@link #closeExpiredPeriodsForTenant(String)} — same best-effort
+     * shape (a REFRESH failure is logged but does not fail the executor,
+     * matching the sibling refresh).
+     */
+    public Mono<Void> refreshMemberContributionPresence() {
+        return db.sql("REFRESH MATERIALIZED VIEW member_contribution_presence")
+                .fetch()
+                .rowsUpdated()
+                .then(db.sql("""
+                        UPDATE earning_schedule_run
+                           SET contrib_presence_refresh_at = NOW()
+                         WHERE id = (SELECT id FROM earning_schedule_run
+                                      ORDER BY started_at DESC LIMIT 1)
+                        """)
+                        .fetch()
+                        .rowsUpdated()
+                        .then())
+                .doOnSuccess(v -> log.debug("member_contribution_presence refreshed"))
+                .onErrorResume(err -> {
+                    log.warn("REFRESH MATERIALIZED VIEW member_contribution_presence failed: {}",
+                            err.getMessage());
                     return Mono.empty();
                 });
     }
@@ -230,6 +265,186 @@ public class EarningScheduleClosureService {
             out.add(row);
         }
         return out;
+    }
+
+    // ── Phase 13 §B per L6 + grill note 5 ────────────────────────────────
+    // Policy-status lifecycle hooks: close / freeze / resume / reinstate the
+    // earning strip when PolicyStatusChangedConsumer receives a status event.
+    // Idempotency across Kafka redeliveries is guarded by the closure_ref
+    // column (V115) — every close / freeze write stamps the row with the
+    // event's ref, and the resume / reinstate paths simply reverse rows that
+    // still carry the corresponding is_closure flag.
+
+    /**
+     * LAPSED / TERMINATED path. Marks every future period (starting on or
+     * after {@code effectiveDate}) whose earned value is still open as a
+     * closure row: {@code is_closure=TRUE}, {@code earned_at_period_end=0},
+     * {@code closure_ref=<ref>}. The nightly {@code PremiumEarningExecutor}
+     * skips rows with {@code is_closure=TRUE} so a closed period does not
+     * subsequently linear-earn.
+     *
+     * <p>Idempotency: if any row already carries {@code closure_ref=ref},
+     * the update is skipped and 0 is returned. A redelivered Kafka event
+     * therefore fans out to exactly one write.
+     */
+    public Mono<Long> closeOutForPolicyClosure(String tenantId, UUID policyId, String policySource,
+                                               LocalDate effectiveDate, UUID closureRef) {
+        if (policyId == null || policySource == null || effectiveDate == null || closureRef == null) {
+            return Mono.error(new IllegalArgumentException(
+                    "closeOutForPolicyClosure requires policyId, policySource, effectiveDate, closureRef"));
+        }
+        return db.sql("SELECT COUNT(*) FROM earning_schedule WHERE closure_ref = :ref")
+                .bind("ref", closureRef)
+                .map((row, meta) -> row.get(0, Long.class))
+                .one()
+                .defaultIfEmpty(0L)
+                .flatMap(existing -> {
+                    if (existing > 0) {
+                        log.debug("closeOutForPolicyClosure: closure_ref {} already applied — idempotent skip",
+                                closureRef);
+                        return Mono.just(0L);
+                    }
+                    return db.sql("""
+                            UPDATE earning_schedule
+                               SET earned_at_period_end = 0,
+                                   is_closure           = TRUE,
+                                   closure_ref          = :ref,
+                                   updated_at           = NOW()
+                             WHERE policy_id            = :policyId
+                               AND policy_source        = :source
+                               AND period_start        >= :effectiveDate
+                               AND earned_at_period_end IS NULL
+                            """)
+                            .bind("ref", closureRef)
+                            .bind("policyId", policyId)
+                            .bind("source", policySource)
+                            .bind("effectiveDate", effectiveDate)
+                            .fetch().rowsUpdated()
+                            .doOnSuccess(n -> log.info(
+                                    "closeOutForPolicyClosure policy={} source={} effective={} closed {} periods (ref={})",
+                                    policyId, policySource, effectiveDate, n, closureRef));
+                });
+    }
+
+    /**
+     * SUSPENDED path. Marks every future open period as frozen —
+     * {@code is_closure=TRUE}, {@code closure_ref=<ref>},
+     * {@code earned_at_period_end} untouched (stays NULL). The nightly
+     * executor skips closure rows so a frozen period does not accrue.
+     * Reversal is via {@link #resumePolicyEarning}.
+     */
+    public Mono<Long> freezePolicyEarning(String tenantId, UUID policyId, String policySource,
+                                          LocalDate effectiveDate, UUID closureRef) {
+        if (policyId == null || policySource == null || effectiveDate == null || closureRef == null) {
+            return Mono.error(new IllegalArgumentException(
+                    "freezePolicyEarning requires policyId, policySource, effectiveDate, closureRef"));
+        }
+        return db.sql("SELECT COUNT(*) FROM earning_schedule WHERE closure_ref = :ref")
+                .bind("ref", closureRef)
+                .map((row, meta) -> row.get(0, Long.class))
+                .one()
+                .defaultIfEmpty(0L)
+                .flatMap(existing -> {
+                    if (existing > 0) {
+                        log.debug("freezePolicyEarning: closure_ref {} already applied — idempotent skip",
+                                closureRef);
+                        return Mono.just(0L);
+                    }
+                    return db.sql("""
+                            UPDATE earning_schedule
+                               SET is_closure  = TRUE,
+                                   closure_ref = :ref,
+                                   updated_at  = NOW()
+                             WHERE policy_id            = :policyId
+                               AND policy_source        = :source
+                               AND period_start        >= :effectiveDate
+                               AND earned_at_period_end IS NULL
+                               AND is_closure           = FALSE
+                            """)
+                            .bind("ref", closureRef)
+                            .bind("policyId", policyId)
+                            .bind("source", policySource)
+                            .bind("effectiveDate", effectiveDate)
+                            .fetch().rowsUpdated()
+                            .doOnSuccess(n -> log.info(
+                                    "freezePolicyEarning policy={} source={} effective={} froze {} periods (ref={})",
+                                    policyId, policySource, effectiveDate, n, closureRef));
+                });
+    }
+
+    /**
+     * ACTIVE (from SUSPENDED) path. Clears the freeze on every future
+     * period on or after {@code effectiveDate} — the nightly executor
+     * picks the rows up again on the next pass and linear-earns them.
+     * Only rows that are frozen (still {@code earned_at_period_end IS NULL})
+     * are touched; already-closed lapse/terminate rows (earned=0) are
+     * left alone so an operator can't accidentally reinstate a terminated
+     * policy via a suspend-unwind path.
+     */
+    public Mono<Long> resumePolicyEarning(String tenantId, UUID policyId, String policySource,
+                                          LocalDate effectiveDate) {
+        if (policyId == null || policySource == null || effectiveDate == null) {
+            return Mono.error(new IllegalArgumentException(
+                    "resumePolicyEarning requires policyId, policySource, effectiveDate"));
+        }
+        return db.sql("""
+                UPDATE earning_schedule
+                   SET is_closure  = FALSE,
+                       closure_ref = NULL,
+                       updated_at  = NOW()
+                 WHERE policy_id            = :policyId
+                   AND policy_source        = :source
+                   AND period_start        >= :effectiveDate
+                   AND is_closure           = TRUE
+                   AND earned_at_period_end IS NULL
+                """)
+                .bind("policyId", policyId)
+                .bind("source", policySource)
+                .bind("effectiveDate", effectiveDate)
+                .fetch().rowsUpdated()
+                .doOnSuccess(n -> log.info(
+                        "resumePolicyEarning policy={} source={} effective={} resumed {} periods",
+                        policyId, policySource, effectiveDate, n));
+    }
+
+    /**
+     * ACTIVE (from LAPSED / TERMINATED) — REINSTATE path. Reverses the
+     * closure on every future period on or after {@code effectiveDate}:
+     * clears {@code earned_at_period_end} back to NULL, drops
+     * {@code is_closure}, drops {@code closure_ref}. The nightly executor
+     * subsequently closes the periods at their original
+     * {@code written_amount} — this is the "pro-rata = 1.0 of original"
+     * reinstate path (grill note 5); a tenant-configurable partial
+     * reinstate is deferred to a follow-up phase.
+     *
+     * <p>Only closure rows (is_closure=TRUE with earned=0) are reversed;
+     * frozen rows (earned still NULL) are left alone.
+     */
+    public Mono<Long> reinstatePolicyEarning(String tenantId, UUID policyId, String policySource,
+                                             LocalDate effectiveDate) {
+        if (policyId == null || policySource == null || effectiveDate == null) {
+            return Mono.error(new IllegalArgumentException(
+                    "reinstatePolicyEarning requires policyId, policySource, effectiveDate"));
+        }
+        return db.sql("""
+                UPDATE earning_schedule
+                   SET earned_at_period_end = NULL,
+                       is_closure           = FALSE,
+                       closure_ref          = NULL,
+                       updated_at           = NOW()
+                 WHERE policy_id            = :policyId
+                   AND policy_source        = :source
+                   AND period_start        >= :effectiveDate
+                   AND is_closure           = TRUE
+                   AND earned_at_period_end = 0
+                """)
+                .bind("policyId", policyId)
+                .bind("source", policySource)
+                .bind("effectiveDate", effectiveDate)
+                .fetch().rowsUpdated()
+                .doOnSuccess(n -> log.info(
+                        "reinstatePolicyEarning policy={} source={} effective={} reinstated {} periods",
+                        policyId, policySource, effectiveDate, n));
     }
 
     /** Ad-hoc backfill trigger for a specific policy — used by the admin controller. */

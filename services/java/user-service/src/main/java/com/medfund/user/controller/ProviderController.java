@@ -4,6 +4,7 @@ import com.medfund.shared.audit.AuditActor;
 import com.medfund.user.dto.CreateProviderRequest;
 import com.medfund.user.dto.ProviderPage;
 import com.medfund.user.dto.ProviderResponse;
+import com.medfund.user.dto.UpdateProviderNetworkTierRequest;
 import com.medfund.user.dto.UpdateProviderRequest;
 import com.medfund.user.service.ProviderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -101,6 +102,23 @@ public class ProviderController {
                                           @Valid @RequestBody UpdateProviderRequest request,
                                           @AuthenticationPrincipal Jwt jwt) {
         return providerService.update(id, request, AuditActor.id(jwt), AuditActor.email(jwt))
+                              .map(ProviderResponse::from);
+    }
+
+    @PatchMapping("/{id}")
+    @Operation(summary = "Update provider network tier (Phase 13 per L1 + L17)",
+        description = "Narrow PATCH: only the networkTier column is updated. Used by the "
+                    + "in-line dropdown on the provider list. Vocab STANDARD | TIER_1 | TIER_2 | TIER_3.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Network tier updated"),
+        @ApiResponse(responseCode = "400", description = "Invalid networkTier value"),
+        @ApiResponse(responseCode = "404", description = "Provider not found")
+    })
+    public Mono<ProviderResponse> updateNetworkTier(@PathVariable UUID id,
+                                                     @Valid @RequestBody UpdateProviderNetworkTierRequest request,
+                                                     @AuthenticationPrincipal Jwt jwt) {
+        return providerService.updateNetworkTier(id, request.networkTier(),
+                                                  AuditActor.id(jwt), AuditActor.email(jwt))
                               .map(ProviderResponse::from);
     }
 

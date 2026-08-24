@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { permissionGuard } from '../../../auth/auth.guard';
 import { PermissionKey } from '../../../core/security/permissions';
 import { UNDERWRITING_REPORT_ROUTES } from './reports/underwriting/underwriting.routes';
+import { POLICY_LIFECYCLE_REPORT_ROUTES } from './reports/policy-lifecycle/policy-lifecycle.routes';
 
 const loadComingSoon = () =>
   import('../../../shared/components/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent);
@@ -746,6 +747,13 @@ export const FINANCE_ROUTES: Routes = [
   // ReportFamily.UNDERWRITING enabled-toggle on the backend @RequiresReport
   // aspect. Route data.reportKey lets the reports-hub map cards to routes.
   ...UNDERWRITING_REPORT_ROUTES,
+
+  // ── Policy lifecycle reports (Phase 13 §C) ──────────────────────────────
+  // POLICY_MOVEMENT + PERSISTENCY_COHORT + GROUP_CENSUS live in user-service
+  // under ReportFamily.POLICY_LIFECYCLE; PROVIDER_NETWORK_UTILIZATION lives
+  // in claims-service under CLAIMS_FINANCIAL but ships alongside the family
+  // because the same tenant admin flips the four toggles together (per L8).
+  ...POLICY_LIFECYCLE_REPORT_ROUTES,
 
   // ── Commission reports (Phase 11 §A) ────────────────────────────────────
   {

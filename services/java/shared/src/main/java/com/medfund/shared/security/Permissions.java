@@ -168,6 +168,10 @@ public final class Permissions {
     /** Supervisor action: approve/commit/void/mark-computed on endorsements. Four-eyes counterpart to DRAFT. */
     public static final String POLICY_APPROVE_ENDORSEMENT        = "policy:approve_endorsement";
 
+    // ── Policy status actions (Phase 13 §A) ─────────────────────────────────
+    /** Operator action: lapse / terminate / suspend / reinstate an annual-bind policy. */
+    public static final String POLICY_STATUS_MANAGE              = "policy:status_manage";
+
     // Platform-level (super-admin) permissions. Tenant admins should never
     // hold these; they gate the cross-tenant operational tooling.
     public static final String PLATFORM_VIEW_JOBS                = "platform:view_jobs";
@@ -223,6 +227,7 @@ public final class Permissions {
             UNDERWRITING_PORTFOLIO_MANAGE, UNDERWRITING_COHORT_MANAGE,
             PREMIUM_EARNING_MANAGE_BACKFILL, PREMIUM_EARNING_VIEW_DEBUG,
             POLICY_DRAFT_ENDORSEMENT, POLICY_APPROVE_ENDORSEMENT,
+            POLICY_STATUS_MANAGE,
 
             PLATFORM_VIEW_JOBS, PLATFORM_MANAGE_JOBS
     );

@@ -18,6 +18,7 @@ public record ProviderResponse(
     String bankingDetails,
     String keycloakUserId,
     String status,
+    String networkTier,
     Instant createdAt,
     Instant updatedAt
 ) {
@@ -27,6 +28,7 @@ public record ProviderResponse(
             p.getRegistrationNumber(),
             p.getSpecialty(), p.getEmail(), p.getPhone(), p.getCity(), p.getAddress(),
             p.getBankingDetails(), p.getKeycloakUserId(), p.getStatus(),
+            p.getNetworkTier(),
             p.getCreatedAt(), p.getUpdatedAt()
         );
     }

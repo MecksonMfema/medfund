@@ -69,6 +69,23 @@ class ReportKeyTest {
     }
 
     @Test
+    void assertsFamilyReassignment_forThreeKeys() {
+        // Phase 13 §C L8 — POLICY_MOVEMENT / PERSISTENCY_COHORT / GROUP_CENSUS
+        // moved from CLAIMS_FINANCIAL into POLICY_LIFECYCLE; cadence flipped
+        // per L14 so tenant admins can schedule them for recurring email.
+        assertThat(ReportKey.POLICY_MOVEMENT.getFamily()).isEqualTo(ReportFamily.POLICY_LIFECYCLE);
+        assertThat(ReportKey.POLICY_MOVEMENT.isCadenced()).isTrue();
+        assertThat(ReportKey.PERSISTENCY_COHORT.getFamily()).isEqualTo(ReportFamily.POLICY_LIFECYCLE);
+        assertThat(ReportKey.PERSISTENCY_COHORT.isCadenced()).isTrue();
+        assertThat(ReportKey.GROUP_CENSUS.getFamily()).isEqualTo(ReportFamily.POLICY_LIFECYCLE);
+        assertThat(ReportKey.GROUP_CENSUS.isCadenced()).isTrue();
+        // PROVIDER_NETWORK_UTILIZATION stays in CLAIMS_FINANCIAL; cadence flipped to true per L14.
+        assertThat(ReportKey.PROVIDER_NETWORK_UTILIZATION.getFamily())
+                .isEqualTo(ReportFamily.CLAIMS_FINANCIAL);
+        assertThat(ReportKey.PROVIDER_NETWORK_UTILIZATION.isCadenced()).isTrue();
+    }
+
+    @Test
     void familyBucketsAreCoveredByAtLeastOneKey() {
         Set<ReportFamily> covered = Stream.of(ReportKey.values())
                 .map(ReportKey::getFamily)

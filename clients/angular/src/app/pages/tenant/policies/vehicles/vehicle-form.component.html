@@ -14,12 +14,26 @@
     </div>
     @if (isEdit && vehicle) {
       <div class="actions">
-        @if (vehicle.status === 'active')     { <button type="button" class="btn small warn"   (click)="suspend()">Suspend</button> }
-        @if (vehicle.status !== 'terminated') { <button type="button" class="btn small danger" (click)="terminate()">Terminate</button> }
+        <app-policy-status-action-buttons
+          [currentStatus]="vehicle.status"
+          [policySource]="policySource"
+          (actionClicked)="onLifecycleActionClicked($event)"
+        ></app-policy-status-action-buttons>
         @if (vehicle.billingOverrideAmount != null) { <button type="button" class="btn small" (click)="clearOverride()">Clear custom premium</button> }
       </div>
     }
   </header>
+
+  <app-policy-status-action-modal
+    [open]="pendingAction !== null"
+    [action]="pendingAction"
+    [policySource]="policySource"
+    [policyLabel]="vehicle?.registrationNumber || ''"
+    [submitting]="submittingAction"
+    [serverError]="actionServerError"
+    (cancel)="onLifecycleActionCancelled()"
+    (submit)="onLifecycleActionSubmitted($event)"
+  ></app-policy-status-action-modal>
 
   @if (errorMessage) {
     <div class="error-banner" (click)="errorMessage = null">{{ errorMessage }}</div>

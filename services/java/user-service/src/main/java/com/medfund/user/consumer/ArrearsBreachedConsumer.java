@@ -112,8 +112,11 @@ public class ArrearsBreachedConsumer {
                 }
                 int graceDays = cfg.graceWindowDays() != null ? cfg.graceWindowDays() : 0;
                 LocalDate effective = LocalDate.now().plusDays(graceDays);
+                // Phase 13 §A: explicit 'arrears_lapse' attribution so the
+                // member_status_history row distinguishes auto-lapse from
+                // operator actions; free-text rides along as reason_note.
                 return memberService.applyOrScheduleStatus(memberId, "lapsed", effective,
-                                ARREARS_AUTO_LAPSE, system[0], system[1])
+                                "arrears_lapse", ARREARS_AUTO_LAPSE, system[0], system[1])
                         .doOnNext(saved -> log.info(
                                 "[{}] Scheduled LAPSED for member {} effective {}",
                                 TOPIC, memberId, effective))

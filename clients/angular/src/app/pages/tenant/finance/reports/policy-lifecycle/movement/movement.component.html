@@ -1,0 +1,86 @@
+<section class="report">
+  <header class="report-header">
+    <h2>Policy movement</h2>
+    <p class="muted">
+      Opening / new business / renewed / lapsed / terminated / closing counts per
+      (policy line, currency) for the reporting window. Native currency; the summary sheet in the
+      XLSX export converts best-effort to the reporting currency.
+    </p>
+  </header>
+
+  <form class="filters" (submit)="$event.preventDefault(); fetch()">
+    <label>
+      From
+      <input type="date" [(ngModel)]="periodStart" name="periodStart" (change)="onFilterChange()"/>
+    </label>
+    <label>
+      To
+      <input type="date" [(ngModel)]="periodEnd" name="periodEnd" (change)="onFilterChange()"/>
+    </label>
+    <label>
+      Reporting currency
+      <app-select [ngModel]="reportingCurrency"
+                  name="reportingCurrency"
+                  [options]="currencyOptions"
+                  (ngModelChange)="reportingCurrency = $event; onFilterChange()"></app-select>
+    </label>
+    <div class="actions">
+      <button type="submit" class="btn" [disabled]="loading">Refresh</button>
+      <button type="button" class="btn btn-primary"
+              (click)="exportExcel()"
+              [disabled]="exporting || loading">
+        <app-icon name="download"></app-icon>
+        {{ exporting ? 'Exporting…' : 'Export XLSX' }}
+      </button>
+    </div>
+  </form>
+
+  @if (warnings.length) {
+    <div class="warning-banner">
+      @for (w of warnings; track w) { <div>{{ w }}</div> }
+    </div>
+  }
+
+  @if (errorMessage) {
+    <div class="error-banner">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+    <div class="loading">Loading…</div>
+  } @else if (rows.length === 0) {
+    <div class="empty">No policy movement in this window.</div>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Policy source</th><th>Line</th><th>Currency</th>
+          <th class="num">Opening</th>
+          <th class="num">New business</th>
+          <th class="num">Renewed</th>
+          <th class="num">Lapsed</th>
+          <th class="num">Terminated</th>
+          <th class="num">Closing</th>
+          <th class="num">Premium added</th>
+          <th class="num">Premium removed</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of rows; track r.policySource + '-' + r.currencyCode) {
+          <tr>
+            <td>{{ r.policySource }}</td>
+            <td>{{ r.insuranceLine }}</td>
+            <td>{{ r.currencyCode }}</td>
+            <td class="num">{{ r.openingCount }}</td>
+            <td class="num">{{ r.newBusinessCount }}</td>
+            <td class="num">{{ r.renewedCount }}</td>
+            <td class="num">{{ r.lapsedCount }}</td>
+            <td class="num">{{ r.terminatedCount }}</td>
+            <td class="num">{{ r.closingCount }}</td>
+            <td class="num">{{ r.writtenPremiumAdded }}</td>
+            <td class="num">{{ r.writtenPremiumRemoved }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</section>

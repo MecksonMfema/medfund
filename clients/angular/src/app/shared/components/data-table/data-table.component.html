@@ -115,6 +115,17 @@
                       <span class="muted small">rendering…</span>
                     }
                   }
+                  @case ('select') {
+                    <select
+                      class="inline-select"
+                      [value]="row[col.key]"
+                      (click)="$event.stopPropagation()"
+                      (change)="onInlineSelectChange(col, row, $event)">
+                      @for (opt of col.options || []; track opt.value) {
+                        <option [value]="opt.value">{{ opt.label }}</option>
+                      }
+                    </select>
+                  }
                   @default {
                     <span [class]="col.class || ''">{{ row[col.key] }}</span>
                   }

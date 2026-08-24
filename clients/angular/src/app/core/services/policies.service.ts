@@ -1,6 +1,15 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
+import {
+  PolicyAction,
+  PolicySource,
+} from './policy-lifecycle-action-registry.service';
+
+export interface PolicyLifecycleActionPayload {
+  reasonCode: string;
+  reasonNote?: string;
+}
 
 // ── Entity shapes — keep aligned with the backend Response DTOs ──────────
 // in services/java/user-service/src/main/java/com/medfund/user/dto/.
@@ -350,4 +359,27 @@ export class PoliciesService {
   suspendDisabilityPolicy(id: string):            Observable<DisabilityPolicy>   { return this.api.post<DisabilityPolicy>(`/disability-policies/${id}/suspend`, {}); }
   terminateDisabilityPolicy(id: string):          Observable<DisabilityPolicy>   { return this.api.post<DisabilityPolicy>(`/disability-policies/${id}/terminate`, {}); }
   clearDisabilityPolicyOverride(id: string):      Observable<DisabilityPolicy>   { return this.api.post<DisabilityPolicy>(`/disability-policies/${id}/clear-billing-override`, {}); }
+
+  // ── POLICY LIFECYCLE ACTIONS (Phase 13 §A per L4 + L5) ──────────────────
+  // Uniform 4-action surface (lapse | terminate | suspend | reinstate) across
+  // the six annual-bind policy sources. Backend returns 204 on success,
+  // 400 on unknown action / out-of-vocab reason_code, 404 on missing policy.
+  applyPolicyLifecycleAction(
+    source: PolicySource,
+    id: string,
+    action: PolicyAction,
+    payload: PolicyLifecycleActionPayload,
+  ): Observable<void> {
+    const path = `/${SOURCE_TO_PATH[source]}/${id}/${action}`;
+    return this.api.post<void>(path, payload);
+  }
 }
+
+const SOURCE_TO_PATH: Record<PolicySource, string> = {
+  LIFE_POLICY: 'life-policies',
+  FUNERAL_POLICY: 'funeral-policies',
+  DISABILITY_POLICY: 'disability-policies',
+  TRAVEL_POLICY: 'travel-policies',
+  VEHICLE_POLICY: 'vehicle-policies',
+  PROPERTY_POLICY: 'property-policies',
+};

@@ -11,6 +11,10 @@ export interface TableColumn {
   type?: string;
   class?: string;
   sortable?: boolean;
+  /** For type: 'select' — the option catalogue rendered inline. */
+  options?: Array<{ value: string; label: string }>;
+  /** For type: 'select' — fires when the user picks a different value. */
+  onSelectChange?: (row: any, value: string) => void;
 }
 
 export interface TableAction {
@@ -108,6 +112,12 @@ export class DataTableComponent implements OnInit, OnDestroy {
       distinctUntilChanged(),
       takeUntil(this.destroy$),
     ).subscribe(term => this.searchChange.emit(term));
+  }
+
+  onInlineSelectChange(col: TableColumn, row: any, event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    row[col.key] = value;
+    if (col.onSelectChange) col.onSelectChange(row, value);
   }
 
   ngOnDestroy(): void {

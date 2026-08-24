@@ -1,0 +1,63 @@
+<section class="report">
+  <header class="report-header">
+    <h2>Group census</h2>
+    <p class="muted">
+      Snapshot of every group at {{ asOf }} — per-status member counts. Future asOf is rejected by the
+      backend with 400 (choose today or earlier).
+    </p>
+  </header>
+
+  <form class="filters" (submit)="$event.preventDefault(); fetch()">
+    <label>
+      As of
+      <input type="date" [(ngModel)]="asOf" name="asOf" (change)="onFilterChange()" required/>
+    </label>
+    <div class="actions">
+      <button type="submit" class="btn" [disabled]="loading">Refresh</button>
+      <button type="button" class="btn btn-primary"
+              (click)="exportExcel()"
+              [disabled]="exporting || loading">
+        <app-icon name="download"></app-icon>
+        {{ exporting ? 'Exporting…' : 'Export XLSX' }}
+      </button>
+    </div>
+  </form>
+
+  @if (errorMessage) {
+    <div class="error-banner">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+    <div class="loading">Loading…</div>
+  } @else if (groups.length === 0) {
+    <div class="empty">No groups at {{ asOf }}.</div>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Group</th><th>Registration</th><th>Contact</th><th>Email</th>
+          <th class="num">Active</th>
+          <th class="num">Suspended</th>
+          <th class="num">Lapsed</th>
+          <th class="num">Terminated</th>
+          <th class="num">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (g of groups; track g.groupId) {
+          <tr>
+            <td>{{ g.groupName }}</td>
+            <td>{{ g.registrationNumber }}</td>
+            <td>{{ g.contactPerson }}</td>
+            <td>{{ g.contactEmail }}</td>
+            <td class="num">{{ g.activeMembers }}</td>
+            <td class="num">{{ g.suspendedMembers }}</td>
+            <td class="num">{{ g.lapsedMembers }}</td>
+            <td class="num">{{ g.terminatedMembers }}</td>
+            <td class="num">{{ g.totalMembers }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</section>

@@ -1,0 +1,14 @@
+@if (availableActions.length > 0) {
+  <div class="action-buttons">
+    @for (action of availableActions; track action) {
+      <button
+        type="button"
+        [class]="buttonClass(action)"
+        (click)="actionClicked.emit(action)"
+        [attr.data-action]="action"
+      >
+        {{ label(action) }}
+      </button>
+    }
+  </div>
+}

@@ -16,8 +16,13 @@ public interface EarningScheduleRepository extends ReactiveCrudRepository<Earnin
      * Period-close scan for {@code PremiumEarningExecutor}: rows whose period
      * has closed but which still carry {@code earned_at_period_end IS NULL}.
      * The {@code ix_earning_schedule_unclosed} partial index covers this.
+     *
+     * <p>{@code is_closure=FALSE} filter (V115) skips rows that were frozen
+     * or closed by a policy-status transition (LAPSE / TERMINATE / SUSPEND)
+     * — those rows already carry their final earned value from the closure
+     * event and must not be linear-earned by the nightly pass.
      */
-    Flux<EarningSchedule> findByPeriodEndBeforeAndEarnedAtPeriodEndIsNull(LocalDate asOf);
+    Flux<EarningSchedule> findByPeriodEndBeforeAndEarnedAtPeriodEndIsNullAndClosureFalse(LocalDate asOf);
 
     /**
      * Endorsement retro-recompute scan (Phase 9): every row for a policy from

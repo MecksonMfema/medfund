@@ -186,6 +186,29 @@ public class ProviderService {
             });
     }
 
+    /**
+     * Phase 13 §A per L1 + L17. Narrow update: single column, single audit event.
+     * Intentionally NOT routed through {@link #update} — that method accepts many
+     * fields and we don't want the inline dropdown to accidentally clear them via
+     * a partial PATCH round-trip.
+     */
+    @Transactional
+    public Mono<Provider> updateNetworkTier(UUID id, String networkTier, String actorId, String actorEmail) {
+        return providerRepository.findById(id)
+            .switchIfEmpty(Mono.error(new ProviderNotFoundException(id)))
+            .flatMap(existing -> {
+                var previous = copyProvider(existing);
+                existing.setNetworkTier(networkTier);
+                existing.setUpdatedAt(Instant.now());
+                if (actorId != null && !actorId.equals("system")) {
+                    existing.setUpdatedBy(UUID.fromString(actorId));
+                }
+                return providerRepository.save(existing)
+                    .flatMap(saved -> publishAudit(saved, previous, actorId, actorEmail, "UPDATE")
+                        .thenReturn(saved));
+            });
+    }
+
     @Transactional
     public Mono<Provider> suspend(UUID id, String actorId, String actorEmail) {
         return providerRepository.findById(id)

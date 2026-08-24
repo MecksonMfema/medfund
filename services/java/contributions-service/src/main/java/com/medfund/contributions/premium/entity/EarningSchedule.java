@@ -96,4 +96,22 @@ public class EarningSchedule {
 
     @Column("actor_email")
     private String actorEmail;
+
+    /**
+     * Phase 13 §B per L6: idempotency ref for a policy-status-triggered
+     * closure. Populated by {@code EarningScheduleClosureService.closeOut /
+     * freeze}; nulled out by {@code resume / reinstate}. NULL for rows
+     * untouched by policy-status events.
+     */
+    @Column("closure_ref")
+    private UUID closureRef;
+
+    /**
+     * Phase 13 §B per L6: TRUE when a policy-status transition (LAPSE,
+     * TERMINATE, SUSPEND) has taken the row out of the nightly earning
+     * loop. The nightly {@code PremiumEarningExecutor} scan explicitly
+     * skips {@code is_closure = TRUE} rows.
+     */
+    @Column("is_closure")
+    private boolean closure;
 }

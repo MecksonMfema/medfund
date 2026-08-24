@@ -80,6 +80,10 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/travel-policies/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/disability-policies", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/disability-policies/*", proxy.Handler(cfg.UserServiceURL))
+	// Phase 13 §A — uniform status-action surface for vehicle + property
+	// (the person-insuring four are covered by the wildcards above).
+	app.All("/api/v1/vehicle-policies/*", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/property-policies/*", proxy.Handler(cfg.UserServiceURL))
 	// Phase 12 §A — IFRS 17 portfolio + cohort CRUD (line-agnostic).
 	app.All("/api/v1/underwriting/portfolios", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/underwriting/portfolios/*", proxy.Handler(cfg.UserServiceURL))
@@ -160,6 +164,11 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// dispatch routes it to user-service, not contributions-service.
 	app.All("/api/v1/reports/premium/endorsements", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/reports/premium/endorsements/*", proxy.Handler(cfg.UserServiceURL))
+	// Phase 13 §C Phase 8 — POLICY_LIFECYCLE report family (POLICY_MOVEMENT,
+	// PERSISTENCY_COHORT, GROUP_CENSUS) lives in user-service (member +
+	// policy + policy_status_history all colocated there per G2).
+	app.All("/api/v1/reports/policy-lifecycle", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/reports/policy-lifecycle/*", proxy.Handler(cfg.UserServiceURL))
 	// Phase 12 §B underwriting-report family — UPR movement, premium
 	// register, new business register. Lives in contributions-service
 	// because the earning_schedule table it aggregates over is co-located

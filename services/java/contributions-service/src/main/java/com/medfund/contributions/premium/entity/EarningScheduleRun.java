@@ -57,4 +57,14 @@ public class EarningScheduleRun {
 
     @Column("error_message")
     private String errorMessage;
+
+    /**
+     * Phase 13 §C Phase 7 per grill note 4. Stamped by
+     * {@code EarningScheduleClosureService.refreshMemberContributionPresence}
+     * on the newest run row after a successful matview REFRESH.
+     * {@code PersistencyCohortReportService} reads this to emit an envelope
+     * warning when the most recent refresh is more than 24h stale.
+     */
+    @Column("contrib_presence_refresh_at")
+    private Instant contribPresenceRefreshAt;
 }

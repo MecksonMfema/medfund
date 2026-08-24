@@ -14,9 +14,13 @@ export interface Provider {
   city: string;
   address: string;
   status: string;
+  /** Phase 13 §A per L1. STANDARD | TIER_1 | TIER_2 | TIER_3. */
+  networkTier?: NetworkTier;
   createdAt: string;
   updatedAt?: string;
 }
+
+export type NetworkTier = 'STANDARD' | 'TIER_1' | 'TIER_2' | 'TIER_3';
 
 export interface ProviderPage {
   content: Provider[];
@@ -117,6 +121,15 @@ export class ProvidersService {
   activate(id: string): Observable<Provider> {
     this.invalidate();
     return this.api.post<Provider>(`/providers/${id}/activate`, {});
+  }
+
+  /**
+   * Phase 13 §A per L1 + L17. Narrow PATCH used by the inline dropdown on
+   * the provider list — server writes only the network_tier column.
+   */
+  updateNetworkTier(id: string, networkTier: NetworkTier): Observable<Provider> {
+    this.invalidate();
+    return this.api.patch<Provider>(`/providers/${id}`, { networkTier });
   }
 
   private invalidate(): void {

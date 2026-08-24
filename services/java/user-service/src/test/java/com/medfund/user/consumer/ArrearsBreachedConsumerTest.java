@@ -18,6 +18,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -48,16 +49,19 @@ class ArrearsBreachedConsumerTest {
 
         when(configClient.get(tenantId)).thenReturn(Mono.just(
                 new TenantAutoLapseConfigClient.Snapshot(tenantId, true, 3, 7)));
-        when(memberService.applyOrScheduleStatus(any(), any(), any(), any(), any(), any()))
+        when(memberService.applyOrScheduleStatus(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(Mono.just(new Member()));
 
         StepVerifier.create(consumer.processEvent(json)).verifyComplete();
 
         ArgumentCaptor<LocalDate> dateCap = ArgumentCaptor.forClass(LocalDate.class);
+        // Phase 13 §A: the consumer attributes the flip with reason_code
+        // 'arrears_lapse'; ARREARS_AUTO_LAPSE rides as the free-text note.
         verify(memberService).applyOrScheduleStatus(
                 any(),
                 any(),
                 dateCap.capture(),
+                eq("arrears_lapse"),
                 any(),
                 any(),
                 any());
@@ -79,7 +83,7 @@ class ArrearsBreachedConsumerTest {
 
         StepVerifier.create(consumer.processEvent(json)).verifyComplete();
 
-        verify(memberService, never()).applyOrScheduleStatus(any(), any(), any(), any(), any(), any());
+        verify(memberService, never()).applyOrScheduleStatus(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -92,7 +96,7 @@ class ArrearsBreachedConsumerTest {
         StepVerifier.create(consumer.processEvent(json)).verifyComplete();
 
         verify(configClient, never()).get(any());
-        verify(memberService, never()).applyOrScheduleStatus(any(), any(), any(), any(), any(), any());
+        verify(memberService, never()).applyOrScheduleStatus(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -103,7 +107,7 @@ class ArrearsBreachedConsumerTest {
             """, UUID.randomUUID());
 
         StepVerifier.create(consumer.processEvent(json)).verifyComplete();
-        verify(memberService, never()).applyOrScheduleStatus(any(), any(), any(), any(), any(), any());
+        verify(memberService, never()).applyOrScheduleStatus(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -113,12 +117,12 @@ class ArrearsBreachedConsumerTest {
             """;
 
         StepVerifier.create(consumer.processEvent(json)).verifyComplete();
-        verify(memberService, never()).applyOrScheduleStatus(any(), any(), any(), any(), any(), any());
+        verify(memberService, never()).applyOrScheduleStatus(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
     void processEvent_malformedJson_dropsSilently() {
         StepVerifier.create(consumer.processEvent("not valid json {{{")).verifyComplete();
-        verify(memberService, never()).applyOrScheduleStatus(any(), any(), any(), any(), any(), any());
+        verify(memberService, never()).applyOrScheduleStatus(any(), any(), any(), any(), any(), any(), any());
     }
 }

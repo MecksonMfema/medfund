@@ -84,7 +84,7 @@ class EarningScheduleClosureServiceTest {
         UUID tenantId = UUID.randomUUID();
         EarningSchedule expired1 = row(new BigDecimal("50"));
         EarningSchedule expired2 = row(new BigDecimal("75"));
-        when(earningScheduleRepository.findByPeriodEndBeforeAndEarnedAtPeriodEndIsNull(any(LocalDate.class)))
+        when(earningScheduleRepository.findByPeriodEndBeforeAndEarnedAtPeriodEndIsNullAndClosureFalse(any(LocalDate.class)))
                 .thenReturn(Flux.just(expired1, expired2));
         when(earningScheduleRepository.save(any(EarningSchedule.class)))
                 .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
@@ -157,6 +157,40 @@ class EarningScheduleClosureServiceTest {
                 earningScheduleRepository, earningScheduleRunRepository, failing, userServiceClient);
 
         StepVerifier.create(svc.refreshMemberFirstContribution()).verifyComplete();
+    }
+
+    // ── Phase 13 §C Phase 7 — member_contribution_presence refresh ──────
+
+    @Test
+    void refreshMemberContributionPresence_success_completesWithoutError() {
+        // The setUp() fluent stub returns rowsUpdated=0 for every sql(...) call,
+        // so the REFRESH + freshness-stamp both look successful.
+        StepVerifier.create(service.refreshMemberContributionPresence()).verifyComplete();
+
+        // Guard the SQL surface — both the REFRESH and the freshness-stamp
+        // UPDATE must fire in that order.
+        org.mockito.ArgumentCaptor<String> sqlCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(db, atLeastOnce()).sql(sqlCaptor.capture());
+        java.util.List<String> sqls = sqlCaptor.getAllValues();
+        org.assertj.core.api.Assertions.assertThat(sqls)
+                .anyMatch(s -> s.contains("REFRESH MATERIALIZED VIEW member_contribution_presence"))
+                .anyMatch(s -> s.contains("contrib_presence_refresh_at"));
+    }
+
+    @Test
+    void refreshMemberContributionPresence_matviewMissing_logsWarning_returnsEmpty() {
+        // A failed REFRESH must not break the executor — best-effort per L16.
+        DatabaseClient failing = mock(DatabaseClient.class);
+        DatabaseClient.GenericExecuteSpec spec = mock(DatabaseClient.GenericExecuteSpec.class);
+        org.springframework.r2dbc.core.FetchSpec<java.util.Map<String, Object>> fetch =
+                mock(org.springframework.r2dbc.core.FetchSpec.class);
+        when(failing.sql(any(String.class))).thenReturn(spec);
+        when(spec.fetch()).thenReturn(fetch);
+        when(fetch.rowsUpdated()).thenReturn(Mono.error(new RuntimeException("mv missing")));
+        EarningScheduleClosureService svc = new EarningScheduleClosureService(
+                earningScheduleRepository, earningScheduleRunRepository, failing, userServiceClient);
+
+        StepVerifier.create(svc.refreshMemberContributionPresence()).verifyComplete();
     }
 
     // ── Phase 12 §C Phase 9 — endorsement recompute ─────────────────────────
@@ -372,6 +406,68 @@ class EarningScheduleClosureServiceTest {
                 .verifyComplete();
 
         verify(earningScheduleRepository, times(1)).deleteByEndorsementId(endorsementId);
+    }
+
+    // ── Phase 13 §B Phase 6 — policy-status lifecycle hooks ──────────────
+    // Behavioural coverage runs against real Postgres in
+    // PolicyStatusChangedConsumerLifecycleIT (SQL semantics are the whole
+    // point — mocking the fluent DatabaseClient chain would just re-encode
+    // the SQL as Mockito stubs). Unit-level surface is null-arg rejection.
+
+    @Test
+    void closeOutForPolicyClosure_missingArg_throwsIllegalArgumentException() {
+        StepVerifier.create(service.closeOutForPolicyClosure("t", null,
+                        "LIFE_POLICY", LocalDate.now(), UUID.randomUUID()))
+                .expectError(IllegalArgumentException.class)
+                .verify();
+        StepVerifier.create(service.closeOutForPolicyClosure("t", UUID.randomUUID(),
+                        null, LocalDate.now(), UUID.randomUUID()))
+                .expectError(IllegalArgumentException.class)
+                .verify();
+        StepVerifier.create(service.closeOutForPolicyClosure("t", UUID.randomUUID(),
+                        "LIFE_POLICY", null, UUID.randomUUID()))
+                .expectError(IllegalArgumentException.class)
+                .verify();
+        StepVerifier.create(service.closeOutForPolicyClosure("t", UUID.randomUUID(),
+                        "LIFE_POLICY", LocalDate.now(), null))
+                .expectError(IllegalArgumentException.class)
+                .verify();
+    }
+
+    @Test
+    void freezePolicyEarning_missingArg_throwsIllegalArgumentException() {
+        StepVerifier.create(service.freezePolicyEarning("t", null,
+                        "LIFE_POLICY", LocalDate.now(), UUID.randomUUID()))
+                .expectError(IllegalArgumentException.class)
+                .verify();
+        StepVerifier.create(service.freezePolicyEarning("t", UUID.randomUUID(),
+                        "LIFE_POLICY", LocalDate.now(), null))
+                .expectError(IllegalArgumentException.class)
+                .verify();
+    }
+
+    @Test
+    void resumePolicyEarning_missingArg_throwsIllegalArgumentException() {
+        StepVerifier.create(service.resumePolicyEarning("t", null,
+                        "LIFE_POLICY", LocalDate.now()))
+                .expectError(IllegalArgumentException.class)
+                .verify();
+        StepVerifier.create(service.resumePolicyEarning("t", UUID.randomUUID(),
+                        "LIFE_POLICY", null))
+                .expectError(IllegalArgumentException.class)
+                .verify();
+    }
+
+    @Test
+    void reinstatePolicyEarning_missingArg_throwsIllegalArgumentException() {
+        StepVerifier.create(service.reinstatePolicyEarning("t", null,
+                        "LIFE_POLICY", LocalDate.now()))
+                .expectError(IllegalArgumentException.class)
+                .verify();
+        StepVerifier.create(service.reinstatePolicyEarning("t", UUID.randomUUID(),
+                        null, LocalDate.now()))
+                .expectError(IllegalArgumentException.class)
+                .verify();
     }
 
     private static EarningSchedule row(BigDecimal written) {

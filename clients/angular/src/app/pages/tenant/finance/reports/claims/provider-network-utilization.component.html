@@ -1,0 +1,117 @@
+<section class="report">
+  <header class="report-header">
+    <h2>Provider network utilization</h2>
+    <p class="muted">
+      Per-network-tier summary + per-provider detail for the reporting window. Provider names + tier
+      are enriched via user-service; a peer outage falls back to placeholder names + an envelope
+      warning.
+    </p>
+  </header>
+
+  <form class="filters" (submit)="$event.preventDefault(); fetch()">
+    <label>
+      From
+      <input type="date" [(ngModel)]="periodStart" name="periodStart" (change)="onFilterChange()"/>
+    </label>
+    <label>
+      To
+      <input type="date" [(ngModel)]="periodEnd" name="periodEnd" (change)="onFilterChange()"/>
+    </label>
+    <label>
+      Line
+      <app-select [ngModel]="insuranceLine" name="insuranceLine"
+                  [options]="lineOptions"
+                  (ngModelChange)="insuranceLine = $event; onFilterChange()"></app-select>
+    </label>
+    <label>
+      Network tier
+      <app-select [ngModel]="networkTier" name="networkTier"
+                  [options]="tierOptions"
+                  (ngModelChange)="networkTier = $event; onFilterChange()"></app-select>
+    </label>
+    <div class="actions">
+      <button type="submit" class="btn" [disabled]="loading">Refresh</button>
+      <button type="button" class="btn btn-primary"
+              (click)="exportExcel()"
+              [disabled]="exporting || loading">
+        <app-icon name="download"></app-icon>
+        {{ exporting ? 'Exporting…' : 'Export XLSX' }}
+      </button>
+    </div>
+  </form>
+
+  @if (warnings.length) {
+    <div class="warning-banner">
+      @for (w of warnings; track w) { <div>{{ w }}</div> }
+    </div>
+  }
+
+  @if (errorMessage) {
+    <div class="error-banner">{{ errorMessage }}</div>
+  }
+
+  <h3>Summary</h3>
+  @if (summaryEntries().length === 0) {
+    <div class="empty">No summary rows for this window.</div>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Tier</th>
+          <th class="num">Providers</th>
+          <th class="num">Claims</th>
+          <th class="num">Denials</th>
+          <th class="num">Total paid</th>
+          <th class="num">Unique members</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (s of summaryEntries(); track s.tier) {
+          <tr>
+            <td>{{ s.tier }}</td>
+            <td class="num">{{ s.providerCount }}</td>
+            <td class="num">{{ s.claimCount }}</td>
+            <td class="num">{{ s.denialCount }}</td>
+            <td class="num">{{ s.totalPaid }}</td>
+            <td class="num">{{ s.uniqueMembers }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+
+  <h3>Per-provider detail</h3>
+  @if (loading) {
+    <div class="loading">Loading…</div>
+  } @else if (detail.length === 0) {
+    <div class="empty">No provider utilization in this window.</div>
+  } @else {
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Provider</th><th>Tier</th><th>Line</th><th>Currency</th>
+          <th class="num">Claims</th>
+          <th class="num">Denials</th>
+          <th class="num">Total claimed</th>
+          <th class="num">Total paid</th>
+          <th class="num">Unique members</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of detail; track r.providerId + '-' + r.insuranceLine + '-' + r.currencyCode) {
+          <tr>
+            <td>{{ r.providerName }}</td>
+            <td>{{ r.networkTier }}</td>
+            <td>{{ r.insuranceLine }}</td>
+            <td>{{ r.currencyCode }}</td>
+            <td class="num">{{ r.claimCount }}</td>
+            <td class="num">{{ r.denialCount }}</td>
+            <td class="num">{{ r.totalClaimed }}</td>
+            <td class="num">{{ r.totalPaid }}</td>
+            <td class="num">{{ r.uniqueMembers }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</section>

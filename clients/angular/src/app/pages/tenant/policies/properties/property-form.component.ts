@@ -11,6 +11,9 @@ import { EntityPickerComponent } from '../../../../shared/components/entity-pick
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { PolicyStatusActionButtonsComponent } from '../../../../shared/components/policy-status-action-buttons/policy-status-action-buttons.component';
+import { PolicyStatusActionModalComponent, PolicyStatusActionSubmit } from '../../../../shared/components/policy-status-action-modal/policy-status-action-modal.component';
+import { PolicyAction, PolicySource } from '../../../../core/services/policy-lifecycle-action-registry.service';
 
 interface PropertyFormState {
   propertyName: string;
@@ -41,7 +44,8 @@ interface PropertyFormState {
 @Component({
   selector: 'app-property-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, EntityPickerComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, EntityPickerComponent,
+    PolicyStatusActionButtonsComponent, PolicyStatusActionModalComponent],
   templateUrl: './property-form.component.html',
   styleUrl: './property-form.component.scss',
 })
@@ -64,6 +68,11 @@ export class PropertyFormComponent implements OnInit {
   schemeSublabel: string | null = null;
   groupLabel: string | null = null;
   ownerLabel: string | null = null;
+
+  readonly policySource: PolicySource = 'PROPERTY_POLICY';
+  pendingAction: PolicyAction | null = null;
+  submittingAction = false;
+  actionServerError: string | null = null;
 
   readonly constructionTypeOptions: SelectOption[] = [
     { value: '', label: 'Not specified' },
@@ -248,6 +257,37 @@ export class PropertyFormComponent implements OnInit {
     this.policies.terminateProperty(this.propertyId!).subscribe({
       next: (saved) => { this.property = saved; this.toast.success('Property terminated'); },
       error: (err) => this.toast.error(err?.error?.detail || 'Terminate failed'),
+    });
+  }
+
+  onLifecycleActionClicked(action: PolicyAction): void {
+    if (!this.isEdit) return;
+    this.pendingAction = action;
+    this.actionServerError = null;
+  }
+
+  onLifecycleActionCancelled(): void {
+    if (this.submittingAction) return;
+    this.pendingAction = null;
+    this.actionServerError = null;
+  }
+
+  onLifecycleActionSubmitted(payload: PolicyStatusActionSubmit): void {
+    if (!this.pendingAction || !this.propertyId) return;
+    const action = this.pendingAction;
+    this.submittingAction = true;
+    this.actionServerError = null;
+    this.policies.applyPolicyLifecycleAction(this.policySource, this.propertyId, action, payload).subscribe({
+      next: () => {
+        this.submittingAction = false;
+        this.pendingAction = null;
+        this.toast.success(`Property policy ${action} recorded`);
+        this.loadProperty();
+      },
+      error: (err) => {
+        this.submittingAction = false;
+        this.actionServerError = err?.error?.detail || err?.error?.title || `${action} failed`;
+      },
     });
   }
 }

@@ -11,6 +11,9 @@ import { EntityPickerComponent } from '../../../../shared/components/entity-pick
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { PolicyStatusActionButtonsComponent } from '../../../../shared/components/policy-status-action-buttons/policy-status-action-buttons.component';
+import { PolicyStatusActionModalComponent, PolicyStatusActionSubmit } from '../../../../shared/components/policy-status-action-modal/policy-status-action-modal.component';
+import { PolicyAction, PolicySource } from '../../../../core/services/policy-lifecycle-action-registry.service';
 
 interface DisabilityFormState {
   policyNumber: string;
@@ -38,7 +41,8 @@ interface DisabilityFormState {
 @Component({
   selector: 'app-disability-policy-form',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, EntityPickerComponent],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent, EntityPickerComponent,
+    PolicyStatusActionButtonsComponent, PolicyStatusActionModalComponent],
   templateUrl: './disability-policy-form.component.html',
   styleUrl: './disability-policy-form.component.scss',
 })
@@ -60,6 +64,11 @@ export class DisabilityPolicyFormComponent implements OnInit {
   schemeSublabel: string | null = null;
   groupLabel: string | null = null;
   insuredMemberLabel: string | null = null;
+
+  readonly policySource: PolicySource = 'DISABILITY_POLICY';
+  pendingAction: PolicyAction | null = null;
+  submittingAction = false;
+  actionServerError: string | null = null;
 
   readonly hazardClassOptions: SelectOption[] = [
     { value: '', label: 'Not specified' },
@@ -233,6 +242,37 @@ export class DisabilityPolicyFormComponent implements OnInit {
     this.policiesSvc.terminateDisabilityPolicy(this.policyId!).subscribe({
       next: (saved) => { this.policy = saved; this.toast.success('Disability policy terminated'); },
       error: (err) => this.toast.error(err?.error?.detail || 'Terminate failed'),
+    });
+  }
+
+  onLifecycleActionClicked(action: PolicyAction): void {
+    if (!this.isEdit) return;
+    this.pendingAction = action;
+    this.actionServerError = null;
+  }
+
+  onLifecycleActionCancelled(): void {
+    if (this.submittingAction) return;
+    this.pendingAction = null;
+    this.actionServerError = null;
+  }
+
+  onLifecycleActionSubmitted(payload: PolicyStatusActionSubmit): void {
+    if (!this.pendingAction || !this.policyId) return;
+    const action = this.pendingAction;
+    this.submittingAction = true;
+    this.actionServerError = null;
+    this.policiesSvc.applyPolicyLifecycleAction(this.policySource, this.policyId, action, payload).subscribe({
+      next: () => {
+        this.submittingAction = false;
+        this.pendingAction = null;
+        this.toast.success(`Disability policy ${action} recorded`);
+        this.loadPolicy();
+      },
+      error: (err) => {
+        this.submittingAction = false;
+        this.actionServerError = err?.error?.detail || err?.error?.title || `${action} failed`;
+      },
     });
   }
 }

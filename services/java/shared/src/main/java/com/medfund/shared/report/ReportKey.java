@@ -81,11 +81,13 @@ public enum ReportKey {
     CASH_FLOW_FORECAST_13W      ("Cash flow forecast (13 weeks)",           ReportFamily.RECONCILIATION,   true),
     COLLECTION_RATE_TREND       ("Collection rate trend",                   ReportFamily.RECONCILIATION,   false),
 
-    // ── Cheap-query family (Phase 13) ────────────────────────────────────────
-    POLICY_MOVEMENT             ("Policy movement",                         ReportFamily.CLAIMS_FINANCIAL, true),
-    PERSISTENCY_COHORT          ("Persistency cohort",                      ReportFamily.CLAIMS_FINANCIAL, false),
-    GROUP_CENSUS                ("Group census",                            ReportFamily.CLAIMS_FINANCIAL, false),
-    PROVIDER_NETWORK_UTILIZATION("Provider network utilization",            ReportFamily.CLAIMS_FINANCIAL, false),
+    // ── Policy lifecycle (Phase 13 §C) ───────────────────────────────────────
+    // Family reassignment per L8; cadence flips per L14.
+    POLICY_MOVEMENT             ("Policy movement",                         ReportFamily.POLICY_LIFECYCLE, true),
+    PERSISTENCY_COHORT          ("Persistency cohort",                      ReportFamily.POLICY_LIFECYCLE, true),
+    GROUP_CENSUS                ("Group census",                            ReportFamily.POLICY_LIFECYCLE, true),
+    // PROVIDER_NETWORK_UTILIZATION stays under CLAIMS_FINANCIAL (per L8), but cadence flips true (per L14).
+    PROVIDER_NETWORK_UTILIZATION("Provider network utilization",            ReportFamily.CLAIMS_FINANCIAL, true),
 
     // ── Reinsurance (Phase 10) ───────────────────────────────────────────────
     REINSURANCE_CESSION_BORDEREAU ("Reinsurance — cession bordereau",       ReportFamily.REINSURANCE,      true),

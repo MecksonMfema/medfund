@@ -19,6 +19,7 @@ public enum ReportFamily {
     DEBTORS              ("Debtors"),
     CLAIMS_FINANCIAL     ("Claims Financial"),
     UNDERWRITING         ("Underwriting"),
+    POLICY_LIFECYCLE     ("Policy lifecycle"),
     RECONCILIATION       ("Reconciliation"),
     ACTUARIAL            ("Actuarial"),
     REGULATORY           ("Regulatory"),

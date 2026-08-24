@@ -11,6 +11,7 @@ import com.medfund.user.entity.Member;
 import com.medfund.user.exception.MemberNotFoundException;
 import com.medfund.user.exception.DuplicateMemberException;
 import com.medfund.user.repository.MemberRepository;
+import com.medfund.user.status.MemberStatusTransitionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
@@ -48,6 +49,8 @@ public class MemberService {
     /** Used by {@link #checkSchemeAgeRange} to hit the schemes table directly.
      *  Same tenant schema as {@code memberRepository} — no cross-service RPC. */
     private final DatabaseClient db;
+    /** Phase 13 §A per L3 — single write pathway for status flips + member_status_history rows. */
+    private final MemberStatusTransitionService statusTransitionService;
 
     public Flux<Member> findAll() {
         return memberRepository.findAllOrderByCreatedAtDesc();
@@ -308,7 +311,8 @@ public class MemberService {
     @Transactional
     public Mono<Member> activate(UUID id, LocalDate effectiveDate, String reason,
                                   String actorId, String actorEmail) {
-        return applyOrSchedule(id, "active", effectiveDate, reason, actorId, actorEmail);
+        return applyOrSchedule(id, "active", effectiveDate,
+                MemberStatusTransitionService.defaultReasonCodeFor("active"), reason, actorId, actorEmail);
     }
 
     @Transactional
@@ -319,7 +323,8 @@ public class MemberService {
     @Transactional
     public Mono<Member> suspend(UUID id, LocalDate effectiveDate, String reason,
                                  String actorId, String actorEmail) {
-        return applyOrSchedule(id, "suspended", effectiveDate, reason, actorId, actorEmail)
+        return applyOrSchedule(id, "suspended", effectiveDate,
+                MemberStatusTransitionService.defaultReasonCodeFor("suspended"), reason, actorId, actorEmail)
             .flatMap(member -> Mono.deferContextual(ctx -> {
                 // Keycloak disable only fires on immediate suspensions —
                 // a future-dated suspend leaves the user active in
@@ -342,7 +347,8 @@ public class MemberService {
     @Transactional
     public Mono<Member> terminate(UUID id, LocalDate effectiveDate, String reason,
                                    String actorId, String actorEmail) {
-        return applyOrSchedule(id, "terminated", effectiveDate, reason, actorId, actorEmail)
+        return applyOrSchedule(id, "terminated", effectiveDate,
+                MemberStatusTransitionService.defaultReasonCodeFor("terminated"), reason, actorId, actorEmail)
             .flatMap(member -> Mono.deferContextual(ctx -> {
                 if (!"terminated".equals(member.getStatus())) return Mono.just(member);
                 String tenantId = TenantContext.get(ctx);
@@ -357,7 +363,8 @@ public class MemberService {
     @Transactional
     public Mono<Member> deactivate(UUID id, LocalDate effectiveDate, String reason,
                                     String actorId, String actorEmail) {
-        return applyOrSchedule(id, "deactivated", effectiveDate, reason, actorId, actorEmail);
+        return applyOrSchedule(id, "deactivated", effectiveDate,
+                MemberStatusTransitionService.defaultReasonCodeFor("deactivated"), reason, actorId, actorEmail);
     }
 
     /**
@@ -370,7 +377,8 @@ public class MemberService {
     @Transactional
     public Mono<Member> lapse(UUID id, LocalDate effectiveDate, String reason,
                                String actorId, String actorEmail) {
-        return applyOrSchedule(id, "lapsed", effectiveDate, reason, actorId, actorEmail);
+        return applyOrSchedule(id, "lapsed", effectiveDate,
+                MemberStatusTransitionService.defaultReasonCodeFor("lapsed"), reason, actorId, actorEmail);
     }
 
     /**
@@ -383,7 +391,23 @@ public class MemberService {
     @Transactional
     public Mono<Member> applyOrScheduleStatus(UUID id, String targetStatus, LocalDate effectiveDate,
                                                 String reason, String actorId, String actorEmail) {
-        return applyOrSchedule(id, targetStatus, effectiveDate, reason, actorId, actorEmail);
+        return applyOrScheduleStatus(id, targetStatus, effectiveDate,
+                MemberStatusTransitionService.defaultReasonCodeFor(targetStatus), reason,
+                actorId, actorEmail);
+    }
+
+    /**
+     * Phase 13 §A — reason-code-aware variant. Callers that know their
+     * attribution (arrears breach → 'arrears_lapse', scheduled roll →
+     * 'scheduled_change') pass a code from the V112 vocabulary; the
+     * free-text reason rides along as reason_note and still lands on
+     * members.suspend_reason + the MEMBER_STATUS_CHANGED event.
+     */
+    @Transactional
+    public Mono<Member> applyOrScheduleStatus(UUID id, String targetStatus, LocalDate effectiveDate,
+                                                String reasonCode, String reasonNote,
+                                                String actorId, String actorEmail) {
+        return applyOrSchedule(id, targetStatus, effectiveDate, reasonCode, reasonNote, actorId, actorEmail);
     }
 
     /**
@@ -453,7 +477,7 @@ public class MemberService {
      * job to pick up.
      */
     private Mono<Member> applyOrSchedule(UUID id, String targetStatus, LocalDate effectiveDate,
-                                          String reason, String actorId, String actorEmail) {
+                                           String reasonCode, String reasonNote, String actorId, String actorEmail) {
         LocalDate today = LocalDate.now();
         // Snap the operator's effective date to the correct cycle boundary
         // (feedback_effective_date_snap): terminate/deactivate ride the LAST
@@ -465,7 +489,7 @@ public class MemberService {
         LocalDate snappedEffective = snapForAction(targetStatus, effectiveDate);
         boolean isFuture = snappedEffective != null && snappedEffective.isAfter(today);
         if (!isFuture) {
-            return transitionStatus(id, targetStatus, reason, actorId, actorEmail)
+            return transitionStatus(id, targetStatus, reasonCode, reasonNote, actorId, actorEmail)
                 .flatMap(saved -> {
                     // Terminated rows also record the termination_date so the
                     // downstream MemberLifecycleConsumer can compute the
@@ -488,7 +512,7 @@ public class MemberService {
                 var previous = copyMember(existing);
                 existing.setScheduledStatus(targetStatus);
                 existing.setScheduledStatusEffectiveFrom(snappedEffective);
-                existing.setScheduledStatusReason(reason);
+                existing.setScheduledStatusReason(reasonNote);
                 existing.setUpdatedAt(Instant.now());
                 existing.setUpdatedBy(safeParseUuid(actorId));
                 return memberRepository.save(existing)
@@ -503,47 +527,40 @@ public class MemberService {
             });
     }
 
-    private Mono<Member> transitionStatus(UUID id, String newStatus, String actorId, String actorEmail) {
-        return transitionStatus(id, newStatus, null, actorId, actorEmail);
-    }
-
-    private Mono<Member> transitionStatus(UUID id, String newStatus, String reason,
-                                            String actorId, String actorEmail) {
+    /**
+     * Immediate status flip. Phase 13 §A retrofit per L3 + finding A2:
+     * entity mutation + member_status_history write live in
+     * {@link MemberStatusTransitionService#applyTransition}; this method
+     * keeps only the audit event + MEMBER_STATUS_CHANGED publish around
+     * it, and only when the transition actually changed something
+     * (same-status calls are a no-op per plan invariant #13).
+     */
+    private Mono<Member> transitionStatus(UUID id, String newStatus, String reasonCode,
+                                            String reasonNote, String actorId, String actorEmail) {
         return memberRepository.findById(id)
             .switchIfEmpty(Mono.error(new MemberNotFoundException(id)))
-            .flatMap(existing -> {
-                var previous = copyMember(existing);
-                existing.setStatus(newStatus);
-                // Clear the scheduled trio — the roll job (or a manual
-                // apply-now) has consumed the schedule.
-                existing.setScheduledStatus(null);
-                existing.setScheduledStatusEffectiveFrom(null);
-                existing.setScheduledStatusReason(null);
-                // V043 — persist the reason for non-active transitions so
-                // the arrears executor can find "arrears-suspended rows"
-                // without walking the audit trail. Clear on return to active.
-                if ("active".equals(newStatus)) {
-                    existing.setSuspendReason(null);
-                } else if (reason != null && !reason.isBlank()) {
-                    existing.setSuspendReason(reason);
-                }
-                existing.setUpdatedAt(Instant.now());
-                existing.setUpdatedBy(safeParseUuid(actorId));
-
-                return memberRepository.save(existing)
-                    .flatMap(saved -> Mono.deferContextual(ctx -> {
-                        String tenantId = TenantContext.get(ctx);
-                        return publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE")
-                            .then(eventPublisher.publishMemberLifecycle(
-                                tenantId,
-                                saved.getId().toString(),
-                                newStatus,
-                                reason,
-                                saved.getTerminationDate() != null ? saved.getTerminationDate().toString() : null,
-                                saved.getGroupId()  != null ? saved.getGroupId().toString()  : null,
-                                saved.getSchemeId() != null ? saved.getSchemeId().toString() : null))
-                            .thenReturn(saved);
-                    }));
+            .flatMap(before -> {
+                var previous = copyMember(before);
+                boolean changed = !newStatus.equalsIgnoreCase(before.getStatus());
+                return statusTransitionService
+                    .applyTransition(before, newStatus, reasonCode, reasonNote,
+                            safeParseUuid(actorId), actorEmail)
+                    .flatMap(saved -> {
+                        if (!changed) return Mono.just(saved);
+                        return Mono.deferContextual(ctx -> {
+                            String tenantId = TenantContext.get(ctx);
+                            return publishAudit(tenantId, saved, previous, actorId, actorEmail, "UPDATE")
+                                .then(eventPublisher.publishMemberLifecycle(
+                                    tenantId,
+                                    saved.getId().toString(),
+                                    newStatus,
+                                    reasonNote,
+                                    saved.getTerminationDate() != null ? saved.getTerminationDate().toString() : null,
+                                    saved.getGroupId()  != null ? saved.getGroupId().toString()  : null,
+                                    saved.getSchemeId() != null ? saved.getSchemeId().toString() : null))
+                                .thenReturn(saved);
+                        });
+                    });
             });
     }
 
