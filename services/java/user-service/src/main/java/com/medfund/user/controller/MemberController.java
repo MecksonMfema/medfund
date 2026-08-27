@@ -4,6 +4,7 @@ import com.medfund.shared.audit.AuditActor;
 import com.medfund.user.dto.CreateMemberRequest;
 import com.medfund.user.dto.CursorPage;
 import com.medfund.user.dto.MemberResponse;
+import com.medfund.user.dto.RecordMemberDeathRequest;
 import com.medfund.user.dto.UpdateMemberRequest;
 import com.medfund.user.service.MemberService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,6 +14,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -183,6 +185,25 @@ public class MemberController {
      * ARREARS_ESCALATION.
      */
     public record MemberActionRequest(java.time.LocalDate effectiveDate, String reason) {}
+
+    @PostMapping("/{id}/record-death")
+    @PreAuthorize("hasAuthority('members:record_death')")
+    @Operation(summary = "Record member death",
+        description = "Persists death_date + cause_of_death and transitions status to 'deceased' " +
+                      "via the Phase-13 MemberStatusTransitionService with reason_code='member_death'. " +
+                      "cause_of_death accepts an ICD-10 chapter code (e.g. 'I00-I99') or free text.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Death recorded"),
+        @ApiResponse(responseCode = "400", description = "Validation error (missing date, future date, or date after termination)"),
+        @ApiResponse(responseCode = "404", description = "Member not found")
+    })
+    public Mono<MemberResponse> recordDeath(@PathVariable UUID id,
+                                             @Valid @RequestBody RecordMemberDeathRequest body,
+                                             @AuthenticationPrincipal Jwt jwt) {
+        return memberService.recordDeath(id, body.deathDate(), body.causeOfDeath(),
+                AuditActor.id(jwt), AuditActor.email(jwt))
+            .map(MemberResponse::from);
+    }
 
     @PostMapping("/{id}/clear-billing-override")
     @Operation(summary = "Clear the member's per-person pricing override",

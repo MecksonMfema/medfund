@@ -15,6 +15,8 @@ import { ChangeGroupModalComponent, ChangeGroupPayload } from '../../../../share
 import { ChangeSchemeModalComponent, ChangeSchemePayload } from '../../../../shared/components/change-scheme-modal/change-scheme-modal.component';
 import { SwapDependantModalComponent, SwapDependantPayload } from '../../../../shared/components/swap-dependant-modal/swap-dependant-modal.component';
 import { DeactivateDependantModalComponent, DeactivateDependantPayload } from '../../../../shared/components/deactivate-dependant-modal/deactivate-dependant-modal.component';
+import { MemberDeathModalComponent, RecordMemberDeathPayload } from './member-death-modal.component';
+import { HasPermissionDirective } from '../../../../shared/directives/has-permission.directive';
 
 interface MemberForm {
   firstName: string;
@@ -77,7 +79,8 @@ const EMPTY_DEPENDANT: DependantForm = {
   selector: 'app-member-detail',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, IconComponent, EntityPickerComponent, SelectComponent,
-            ChangeGroupModalComponent, ChangeSchemeModalComponent, SwapDependantModalComponent, DeactivateDependantModalComponent],
+            ChangeGroupModalComponent, ChangeSchemeModalComponent, SwapDependantModalComponent, DeactivateDependantModalComponent,
+            MemberDeathModalComponent, HasPermissionDirective],
   templateUrl: './member-detail.component.html',
   styleUrl: './member-detail.component.scss',
 })
@@ -139,6 +142,9 @@ export class MemberDetailComponent implements OnInit {
   deactivateModalOpen = false;
   private dependantPendingDeactivation: Dependant | null = null;
   deactivateModalName = '';
+
+  /** Backing state for the record-death modal (actuarial Phase 5). */
+  deathModalOpen = false;
 
   readonly genderOptions: SelectOption[] = [
     { value: '', label: 'Not specified' },
@@ -456,6 +462,34 @@ export class MemberDetailComponent implements OnInit {
         this.toast.success(`Member ${label}d`);
       },
       error: (err) => this.toast.error(err?.error?.detail || `${label} failed`),
+    });
+  }
+
+  // ── Record death (Actuarial Phase 5) ──────────────────────────────────
+
+  /** Whether the "Record death" action should render. Hidden once the
+   *  status is already 'deceased' — recording death twice is idempotent
+   *  server-side but there's nothing more the operator can do here. */
+  canRecordDeath(): boolean {
+    return !!this.member && this.member.status !== 'deceased';
+  }
+
+  openMemberDeathModal(): void {
+    this.deathModalOpen = true;
+  }
+
+  onMemberDeathCancel(): void {
+    this.deathModalOpen = false;
+  }
+
+  onMemberDeathSubmit(payload: RecordMemberDeathPayload): void {
+    this.members.recordDeath(this.memberId, payload.deathDate, payload.causeOfDeath).subscribe({
+      next: (updated) => {
+        this.member = updated;
+        this.deathModalOpen = false;
+        this.toast.success('Death recorded');
+      },
+      error: (err) => this.toast.error(err?.error?.detail || err?.error?.title || 'Record death failed'),
     });
   }
 

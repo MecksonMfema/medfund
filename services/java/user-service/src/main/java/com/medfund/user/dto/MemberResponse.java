@@ -24,6 +24,8 @@ public record MemberResponse(
     String status,
     LocalDate enrollmentDate,
     LocalDate terminationDate,
+    LocalDate deathDate,
+    String causeOfDeath,
     /** Non-null when the member has a future-dated status change queued
      *  (V042 scheduled trio). Cleared when the SCHEDULED_STATUS_ROLL
      *  job applies it. */
@@ -43,6 +45,7 @@ public record MemberResponse(
             m.getEmail(), m.getPhone(), m.getAddress(),
             m.getGroupId(), m.getSchemeId(), m.getKeycloakUserId(),
             m.getStatus(), m.getEnrollmentDate(), m.getTerminationDate(),
+            m.getDeathDate(), m.getCauseOfDeath(),
             m.getScheduledStatus(),
             m.getScheduledStatusEffectiveFrom(),
             m.getScheduledStatusReason(),

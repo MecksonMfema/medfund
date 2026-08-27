@@ -10,13 +10,16 @@ import com.medfund.shared.security.SecurityEventPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import com.medfund.user.reports.lifecycle.dto.GroupCensusResult;
 import com.medfund.user.reports.lifecycle.dto.PersistencyCohortResult;
+import com.medfund.user.reports.lifecycle.dto.PersistencyCohortRow;
 import com.medfund.user.reports.lifecycle.dto.PolicyMovementResult;
+import com.medfund.user.reports.lifecycle.repository.PolicyLifecycleReportQueryRepository;
 import com.medfund.user.reports.lifecycle.service.GroupCensusReportService;
 import com.medfund.user.reports.lifecycle.service.GroupCensusWorkbookService;
 import com.medfund.user.reports.lifecycle.service.PersistencyCohortReportService;
 import com.medfund.user.reports.lifecycle.service.PersistencyCohortWorkbookService;
 import com.medfund.user.reports.lifecycle.service.PolicyMovementReportService;
 import com.medfund.user.reports.lifecycle.service.PolicyMovementWorkbookService;
+import reactor.core.publisher.Flux;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -67,6 +70,7 @@ public class PolicyLifecycleReportController {
     private final PersistencyCohortWorkbookService persistencyWorkbook;
     private final GroupCensusReportService censusService;
     private final GroupCensusWorkbookService censusWorkbook;
+    private final PolicyLifecycleReportQueryRepository lifecycleQueryRepository;
     private final SecurityEventPublisher securityEventPublisher;
 
     // ── POLICY_MOVEMENT ─────────────────────────────────────────────────
@@ -142,6 +146,36 @@ public class PolicyLifecycleReportController {
                 details,
                 "persistency-cohort-" + periodStart + "_" + periodEnd + ".xlsx",
                 jwt);
+    }
+
+    // ── PERSISTENCY_STUDY data feed (Phase 14 Phase 11) ─────────────────
+
+    /**
+     * Cohort feed for the actuarial PERSISTENCY_STUDY report. Returns the
+     * same (cohort_month, insurance_line, checkpoint_months, cohort_size,
+     * still_active) rows the PERSISTENCY_COHORT report produces, but skips
+     * the {@code @RequiresReport(PERSISTENCY_COHORT)} gate so finance-service
+     * can consume the feed for PERSISTENCY_STUDY even when the sibling
+     * report is toggled off. Permission stays gated at
+     * FINANCE_VIEW_SUBLEDGER — same authorization surface as the sibling
+     * report GET.
+     */
+    @GetMapping("/persistency-cohort-feed")
+    @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
+    @Operation(summary = "Persistency cohort raw feed (Phase 14 actuarial)",
+            description = "Cohort rows for PERSISTENCY_STUDY shaping. Same query as the sibling "
+                    + "persistency-cohort report but returns the raw list and skips the report toggle "
+                    + "gate so the study can run when the sibling report is disabled.")
+    public Flux<PersistencyCohortRow> persistencyCohortFeed(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodStart,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodEnd,
+            @RequestParam(required = false) String checkpoints,
+            @RequestParam(required = false) String insuranceLine) {
+        List<Integer> parsed = parseCheckpoints(checkpoints);
+        if (parsed.isEmpty()) {
+            parsed = PersistencyCohortReportService.DEFAULT_CHECKPOINTS;
+        }
+        return lifecycleQueryRepository.persistencyCohortRows(periodStart, periodEnd, parsed, insuranceLine);
     }
 
     // ── GROUP_CENSUS ────────────────────────────────────────────────────

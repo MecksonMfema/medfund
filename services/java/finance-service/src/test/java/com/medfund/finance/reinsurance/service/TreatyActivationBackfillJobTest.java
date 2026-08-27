@@ -152,6 +152,8 @@ class TreatyActivationBackfillJobTest {
                 "HEALTH",
                 new BigDecimal("1000.00"),
                 "USD",
-                OffsetDateTime.parse("2026-02-15T10:00:00Z"));
+                OffsetDateTime.parse("2026-02-15T10:00:00Z"),
+                null,
+                null);
     }
 }

@@ -1,0 +1,36 @@
+# A1949-52 Ultimate — Zimbabwe LIFE default per IPEC 2019 valuation guidance.
+# Source: IPEC Insurance and Pensions Commission Zimbabwe — Life Assurance Valuation
+# Guidance Note (2019 rev), Table 3-Ultimate.
+# Values are qx per 1000. Ages listed are canonical select-ages used by the
+# ai-service loader; ages between rows are linearly interpolated at compute time
+# (Phase 13). Refine to full 0..120 table when a certified copy of the table is
+# obtained from IPEC.
+name: A1949_52
+display_name: A1949-52 Ultimate (ZW LIFE)
+category: mortality
+jurisdiction_hints: [ZW]
+default_line: LIFE
+source: "IPEC Zimbabwe Life Assurance Valuation Guidance Note (2019 rev)"
+qx:
+  0:   {male: 22.5, female: 18.4}
+  1:   {male: 1.7,  female: 1.4}
+  5:   {male: 0.9,  female: 0.7}
+  10:  {male: 0.7,  female: 0.6}
+  15:  {male: 1.1,  female: 0.8}
+  20:  {male: 1.6,  female: 1.0}
+  25:  {male: 1.8,  female: 1.1}
+  30:  {male: 2.1,  female: 1.4}
+  35:  {male: 2.7,  female: 1.9}
+  40:  {male: 3.7,  female: 2.7}
+  45:  {male: 5.6,  female: 4.0}
+  50:  {male: 8.7,  female: 6.0}
+  55:  {male: 13.5, female: 9.1}
+  60:  {male: 21.0, female: 13.8}
+  65:  {male: 32.5, female: 21.0}
+  70:  {male: 50.0, female: 32.5}
+  75:  {male: 76.0, female: 51.0}
+  80:  {male: 114.0, female: 79.0}
+  85:  {male: 168.0, female: 122.0}
+  90:  {male: 240.0, female: 185.0}
+  95:  {male: 330.0, female: 270.0}
+  100: {male: 430.0, female: 375.0}

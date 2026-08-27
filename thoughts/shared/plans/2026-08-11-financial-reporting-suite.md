@@ -23,9 +23,10 @@ phases_status:
   "11": grilled 2026-08-22 (P1-P14 — producer/broker decisions numbered P* to avoid collision with plan-wide G* and reinsurance R* numbering; §A/§B tranche split expanded to code altitude in sub-plan thoughts/shared/plans/2026-08-22-producer-broker-module-and-commission-reports.md); §A + §B implementation complete 2026-08-23 (commit 55c3689 "Land Phase 11 of the financial-reporting suite" — 210 files across producer entities, commission engine, rate cards, PaymentRun PRODUCER payee widening, four Kafka consumers, auto-lapse chain, four-eyes CommissionAdjustment, producer termination + bulk-reassign, treaty producer_id backfill review; Playwright + manual `verify` walkthroughs still pending per sub-plan)
   "12": grilled 2026-08-23 (U1-U15 — UPR + premium register decisions numbered U* to avoid collision with plan-wide G*, reinsurance R*, producer P* numbering; recommended §0 harness / §A foundation / §B reports / §C endorsements tranche split; scope escalated beyond outline to all 8 lines + rules-engine RuleCategory.PREMIUM_EARNING + full endorsement module with retro recompute + IFRS 17 portfolio/cohort speculative schema; full expanded scope replaces the 12-line outline); §0 + §A + §B + §C landed 2026-08-23 (commit fe36635 "Land Phase 12 of the financial-reporting suite" — 226 files across R2DBC pool tuning + user-service AbstractIntegrationTest migration + R2dbcPoolHealthIndicator, tenant V102 policy-widening + V107/V108/V109 IFRS 17 dimensions + earning_schedule + member_first_contribution matview, PolicyIssuedPublisher from six annual-bind policy services, rules-engine PREMIUM_EARNING + PremiumFact + AccruePremiumEmitter + PremiumEarningTemplates, contributions-service premium/* subpackage with EarningScheduleClosureService + PremiumEarningExecutor + BillingContributionEarningHook + PolicyIssuedConsumer, three §B reports on PremiumReportController, endorsement V110 + public V134 tenant_endorsement_config + PolicyEndorsementService four-eyes state machine + PolicyEndorsedConsumer retro recompute + ENDORSEMENT_REGISTER report, Angular tenant-admin portfolio/cohort CRUD + endorsement admin surface + review queue + underwriting reports hub) via sub-plan thoughts/shared/plans/2026-08-23-upr-earning-schedule-and-premium-register.md; Phase 3b/5b/6b/8b/9b IT-migration follow-ups + manual `verify` walkthroughs pending per sub-plan Deviations
   "13": grilled 2026-08-23 (L1-L18 — persistency + policy movement + provider network decisions numbered L* for Lifecycle — to avoid collision with plan-wide G*, reinsurance R*, producer P*, and underwriting U* numbering; recommended §A schema+writers+admin modals / §B Kafka+consumer+earning-schedule closure / §C reports+Angular tranche split; scope escalated beyond outline to full 6-line policy status-transition admin surface + two new tenant history tables + provider.network_tier column + cross-service PROVIDER_NETWORK_UTILIZATION report + earning-schedule closure Kafka ripple; full expanded scope replaces the 12-line outline); §A + §B + §C landed 2026-08-24 (commit 5eb62a9 "Land Phase 13 of the financial-reporting suite") via sub-plan thoughts/shared/plans/2026-08-23-policy-lifecycle-module.md
-  "14-19": outline depth; each needs its own grilling pass before implementation
-last_grilled_phase: 13
-last_grilled_date: 2026-08-23
+  "14": grilled 2026-08-24 (A1..A18 + A3b + A8b + A12b — actuarial-module decisions numbered A* for Actuarial — to avoid collision with plan-wide G*, reinsurance R*, producer P*, underwriting U*, and lifecycle L* numbering; plus F14-1..F14-16 settled-by-fact; full expanded scope replaces the 20-line outline; recommended §0 schema-prerequisites+admin-UIs / §A Python actuarial package+IBNR+LOSS_TRIANGLE+async infra / §B PERSISTENCY+LAPSE / §C MORTALITY+MORBIDITY / §D rules-engine ACTUARIAL tranche split — each tranche needs its own sub-plan via create-plan at implement time)
+  "15-19": outline depth; each needs its own grilling pass before implementation
+last_grilled_phase: 14
+last_grilled_date: 2026-08-24
 ---
 
 # Financial Reporting Suite Implementation Plan
@@ -3526,21 +3527,328 @@ Per parent-plan Testcontainers policy each deferred IT lands with a purpose-buil
 
 ## Phase 14: Actuarial Module (Python) — IBNR / Triangles / Studies
 
+> **Grilled 2026-08-24.** Decisions A1..A18 (numbered A* — for Actuarial — to avoid collision with plan-wide G*, reinsurance R*, producer P*, underwriting U*, and lifecycle L* numbering; matches Phase 10-13 sub-plan convention). Additional sub-decisions A3b, A8b, A12b triggered by primary decisions.
+> The outline was expanded into a full mini-plan through interactive decision-making; scope escalated
+> substantially beyond the original outline (all six report keys retained but wrapped in an async job
+> pattern per A8; three new tenant history/config tables + one new Kafka topic pair + rules-engine
+> ACTUARIAL category deferred to §D + Member schema widened for death signal per A12b + claims-service
+> gains claim_reserve_history table per A3b).
+> Recommended split into **§0** (schema prerequisites + async job table + admin UIs),
+> **§A** (Python actuarial package + IBNR + LOSS_TRIANGLE + async infra), **§B** (PERSISTENCY + LAPSE),
+> **§C** (MORTALITY + MORBIDITY), **§D** (rules-engine ACTUARIAL category). §0 ships adjudicators the
+> ability to set reserves + admins the ability to record deaths + tenants the ability to configure
+> bases; §A lights up first reports; §B + §C add member-shaped studies; §D closes A5's rules-engine
+> requirement.
+> Original 20-line outline retained below as ~~strike-through~~ for provenance.
+
+### Original outline (superseded 2026-08-24 by Decisions Log)
+
+~~Chain-ladder IBNR + loss triangles + persistency/mortality/morbidity/lapse studies in `services/python/ai-service`. Java services call via HTTP.~~
+
+~~**ai-service**: new `app/actuarial/` package: `chain_ladder.py`, `ldf.py`, `persistency.py`, `mortality.py`. FastAPI endpoints:~~
+  ~~- `POST /actuarial/ibnr` — input: claim triangle JSON; output: LDFs + IBNR estimate.~~
+  ~~- `POST /actuarial/loss-triangle` — input: claim history; output: triangle matrix.~~
+  ~~- `POST /actuarial/persistency-study` — input: policy cohort; output: A/E ratios by policy year.~~
+  ~~- `POST /actuarial/mortality-study` — input: exposure data; output: A/E by age × sex.~~
+~~**claims-service** or **finance-service** `ActuarialReportController` — orchestrates: pulls tenant-scoped data, calls Python, wraps result as XLSX. Report keys `IBNR_TRIANGLE`, `LOSS_TRIANGLE`, `PERSISTENCY_STUDY`, `MORTALITY_STUDY`, `MORBIDITY_STUDY`, `LAPSE_STUDY`.~~
+~~**Angular** actuarial dashboard pages with triangle visualisation.~~
+
+~~**Grilling checkpoint** required — chain-ladder implementation details, validation-set choice.~~
+
 ### Overview
 
-Chain-ladder IBNR + loss triangles + persistency/mortality/morbidity/lapse studies in `services/python/ai-service`. Java services call via HTTP.
+Greenfield **actuarial module** spanning services/python/ai-service (chain-ladder + LDF + persistency + mortality + morbidity + lapse compute using `chainladder-python` per A2), finance-service (aggregator per A1 — hosts the six-endpoint `ActuarialReportController` + new cross-service clients + Kafka publisher/consumer for the async job pattern per A8), tenancy-service (three new public-schema tenant-basis config tables per A10 + A11 + admin CRUD), claims-service (new `claim_reserve_history` tenant table per A3b + adjudicator "Set/update reserve" UI action feeding the incurred-triangle shape per A3), user-service (`Member.death_date` + `cause_of_death` columns per A12b + tenant admin "Record death" UI action + `MEMBER_DEATH_RECORDED` audit event), rules-engine (deferred to §D — new `RuleCategory.ACTUARIAL` + `TriangleFact` + `DevelopmentPeriodFact` + templates for the three LDF selection methods per A5), and Angular (six report pages under `/tenant/finance/reports/actuarial/*` per A14 split-view triangle-table+LDF-line-chart shape, adjudicator reserve UI, tenant admin death UI, three basis-config admin pages, async job polling UI, ACTUARIAL family card on the reports hub).
 
-### Changes Required (outline)
+All six report keys already ship in `services/java/shared/src/main/java/com/medfund/shared/report/ReportKey.java:108-113` — `IBNR_TRIANGLE`, `LOSS_TRIANGLE`, `PERSISTENCY_STUDY`, `MORTALITY_STUDY`, `MORBIDITY_STUDY`, `LAPSE_STUDY` all mapped to `ReportFamily.ACTUARIAL` (which also already exists at `ReportFamily.java:24`). Phase 0-13 shared infra composes cleanly — the async job pattern per A8 is the one net-new cross-service pattern for the platform. `CrossServiceCallHelper` already carries an actuarial-specific custom-timeout arm at `services/java/shared/src/main/java/com/medfund/shared/report/CrossServiceCallHelper.java:76-82` referenced by inline comment.
 
-- **ai-service**: new `app/actuarial/` package: `chain_ladder.py`, `ldf.py`, `persistency.py`, `mortality.py`. FastAPI endpoints:
-  - `POST /actuarial/ibnr` — input: claim triangle JSON; output: LDFs + IBNR estimate.
-  - `POST /actuarial/loss-triangle` — input: claim history; output: triangle matrix.
-  - `POST /actuarial/persistency-study` — input: policy cohort; output: A/E ratios by policy year.
-  - `POST /actuarial/mortality-study` — input: exposure data; output: A/E by age × sex.
-- **claims-service** or **finance-service** `ActuarialReportController` — orchestrates: pulls tenant-scoped data, calls Python, wraps result as XLSX. Report keys `IBNR_TRIANGLE`, `LOSS_TRIANGLE`, `PERSISTENCY_STUDY`, `MORTALITY_STUDY`, `MORBIDITY_STUDY`, `LAPSE_STUDY`.
-- **Angular** actuarial dashboard pages with triangle visualisation.
+Triangles are generated in the tenant's reporting currency at service-date FX per A6 (Rule 1), stratified per insurance-line one-sheet-per-line per A7, with three shapes (paid/incurred/reported) via `?shape=` per A3, at quarterly-default grain selectable via `?grain=` per A4, using volume-weighted LDF default (with rules-engine method selection deferred to §D per A5). PERSISTENCY_STUDY reads Phase 13's `member_status_history` + `member_contribution_presence` matview per L16 + `policy_status_history` (annual lines) as its ACTUAL numerator; expected retention comes from new `public.tenant_persistency_basis` per A10. MORTALITY_STUDY reads Member deaths (new `death_date` field per A12b) against mortality reference tables (new `public.tenant_mortality_basis` per A11 + ai-service YAML basis tables); MORBIDITY_STUDY reads claim-onset dates + insured event indicator against `public.tenant_morbidity_basis` + ai-service YAML incidence tables. LAPSE_STUDY uses per-line branched cohorts per A13 (HEALTH monthly-enrollment; annual-lines annual-bind).
 
-**Grilling checkpoint** required — chain-ladder implementation details, validation-set choice.
+**§0** ships all schema prerequisites and admin UIs — no reports light up yet, but adjudicators can set reserves and tenant admins can configure bases + record deaths. **§A** ships the async job pattern (`actuarial_report_job` table + `medfund.actuarial.job-requested` / `medfund.actuarial.job-completed` Kafka topics per A8/A8b/A9/A15) + the Python actuarial package + IBNR/LOSS reports + Angular polling UI. **§B** adds PERSISTENCY + LAPSE reports (reuses Phase 13 tables + §0 basis config). **§C** adds MORTALITY + MORBIDITY reports (reads §0 death fields + basis config). **§D** integrates rules-engine ACTUARIAL category for tenant-configurable LDF method selection per A5.
+
+### Decisions Log (A1..A18 — plus sub-decisions A3b, A8b, A12b)
+
+- **A1 — Actuarial orchestrator ownership**: **single actuarial controller in finance-service (aggregator pattern)**. Finance-service hosts the six `ActuarialReportController` endpoints + new `ClaimsClient` (may be net-new; verify at plan time), `UserClient`/`MemberClient` (new) via `CrossServiceCallHelper` (custom-timeout arm already documented for actuarial at `services/java/shared/src/main/java/com/medfund/shared/report/CrossServiceCallHelper.java:76-82`). Actuarial reports need both claim data (IBNR/LOSS/MORBIDITY) and member/policy data (PERSISTENCY/MORTALITY/LAPSE), so finance-service as the composer is a cleaner cross-service seam than either heavy-data owner. Rejected: split by data owner (two controllers + doubled AiServiceClient wiring); single claims-service controller (2-hop path for member-shaped studies); new greenfield actuarial-service (heavy overhead for 6 endpoints).
+
+- **A2 — Chain-ladder library**: **`chainladder-python` (CAS-maintained) + `pandas` + `numpy` + `scipy` + `openpyxl` added to `services/python/ai-service/pyproject.toml`**. Ships Mack chain-ladder + Bornhuetter-Ferguson + Bootstrap out of the box; regulator-audit-friendly ("standard community library"). Cold-start `numba` JIT compile penalty mitigated by a trivial pre-warm run on FastAPI lifespan startup. Rejected: hand-rolled Mack on NumPy only (harder regulator story, no BF); hybrid (chainladder for IBNR only, hand-rolled for the rest — two code styles); statsmodels-first (overkill).
+
+- **A3 — Triangle shape**: **ship all three shapes (paid / incurred / reported) via `?shape=paid|incurred|reported`**. Paid = row=service_date period, column=submission_date period, cell=cumulative `paid_amount`. Incurred = row=service_date, column=submission_date, cell=cumulative `paid_amount + reserved_amount_as_of` (requires A3b's `claim_reserve_history`). Reported = row=service_date, column=submission_date, cell=cumulative COUNT. Rejected: paid-only (misses actuaries' preferred shape); incurred-only (blocks §A on the reserves schema); reported-only (loses severity signal, halves plan value).
+
+- **A3b — Reserved-amount schema (triggered by A3)**: **new `claim_reserve_history(claim_id, reserved_amount, effective_at, actor_id, actor_email, reason_note)` tenant table shipped in Phase 14 §0**. Adjudicator UI grows a "Set/update reserve" action; triangle cell for period (i, j) sums `claim_reserve_history` rows where `effective_at <= end_of_period_j` — point-in-time reserves for historical cells. Rejected: additive `Claim.reserved_amount` column only (single mutable field makes incurred triangle actuarially wrong — every historical cell reflects today's reserve); skip incurred (rejects A3); reuse `approved_amount` as proxy (conflates legal-obligation with actuarial-ultimate).
+
+- **A4 — Development-period grain**: **quarterly default + user-selectable `?grain=month|quarter|year`**. Quarterly is medical / short-tail industry norm; selectable grain lets actuaries switch to monthly for signal or yearly for stability. Both accident-period rows and development-period columns snap to the chosen grain to keep the diagonal aligned. Rejected: monthly-fixed (LDF noise with sparse claim data); quarterly-fixed (forecloses actuary control); yearly-fixed (5×5 too coarse, useless for HEALTH).
+
+- **A5 — LDF selection method**: **new `RuleCategory.ACTUARIAL` in rules-engine + templates for volume-weighted / simple-average / N-year weighted + tenant admin UI + fact wiring — deferred to §D**. In §A, LDF selection defaults to volume-weighted (chainladder-python's default). §D retrofits by adding a rules-engine call in the orchestrator pipeline (pipeline-order sub-question queued as create-plan note per Grill note 2). Rejected: `?ldfMethod=` URL param only (Rule 5 non-compliant — tenant business rules must live in rules-engine); volume-weighted only (forecloses actuaries); chainladder library config JSON in request (leaks library internals; hard to audit per Rule 3).
+
+- **A6 — Multi-currency triangle stratification**: **reporting-currency-only triangles, every claim converted to reporting currency at service-date FX rate before shaping**. Aligns with Rule 1 (conversion before sum). Missing-FX aggressiveness policy queued as create-plan note (per-claim skip+warn preferred over per-report fail-loud since a 5-year triangle spans thousands of service-dates). Reporting currency resolves via existing `ReportingCurrencyResolver` per parent-plan invariant #1. Rejected: per-currency triangles + reporting-currency summary (matches Phase 12 UPR but adds UI complexity — 8-line × 3-currency XLSX has 24+ sheets); native per-currency only (loses executive single-triangle-view); both per-currency AND reporting-currency triangles (doubles compute; two truths in envelope).
+
+- **A7 — Line-of-business partitioning**: **all lines returned in one envelope keyed by insurance_line + one XLSX sheet per line**. Optional `?insuranceLine=X` narrows to a single line for detail views. Empty-line triangles (scaffolded lines with zero claims) return an empty matrix with a `warnings` note rather than being omitted. Matches Phase 13 L10 workbook precedent. Rejected: required per-line param (8 HTTP calls to build 8-line workbook); default HEALTH-only opt-in (forecloses annual-line adoption); flat triangle with line dimension (actuarially wrong — HEALTH ≠ VEHICLE development).
+
+- **A8 — Java→Python protocol**: **async job pattern**. finance-service publishes `medfund.actuarial.job-requested` on report submission → ai-service consumes + computes → ai-service publishes `medfund.actuarial.job-completed` with result inline → finance-service persists to `actuarial_report_job.result_json`. Angular polls `GET /api/v1/reports/actuarial/jobs/{jobId}` for status + result. Supersedes plan text ("Actuarial calls to Python are synchronous — 30s ceiling" at line 3669). Handles arbitrarily large triangles; caller isn't blocked; result is durable. Rejected: sync HTTP (plan default) with pre-baked triangle (blocks caller for up to 30s; large-tenant risk); sync HTTP with Python-queries-claims (Python becomes second tenant boundary — Rule 2 fuzziness); Kafka-first request-response over event bus (anti-pattern for request-response semantics).
+
+- **A8b — Async payload shape (triggered by A8)**: **pre-baked triangle JSON embedded in the Kafka event**. finance-service does the query + FX conversion + shaping; event carries the fully-formed Triangle for Python. Java stays as Rule 2 tenant boundary; Python is stateless. Message-size guard queued as create-plan note (>800KB warn; >900KB reject-and-retry with reduced-precision floats). Rejected: params-only event + Python queries claims (Python becomes tenant boundary; FX split across languages); MinIO-backed (rejected symmetrically per A8b for input, same rejection for output); params + Python callback to Java prepare-triangle sync endpoint (reverses async decision partially).
+
+- **A9 — Result cache + freshness**: **`actuarial_report_job.result_json` is durable source of truth; params-hash = SHA256(tenantId, reportKey, periodStart, periodEnd, insuranceLine, shape, grain, currency, claim_count_in_window, max(created_at))**. New claim ingestion → new hash → new job (natural cache invalidation without a separate topic). Old rows retained for audit. Angular polls by jobId. Retention policy + partial-unique-index-on-in-flight-hash queued as create-plan notes. Supersedes plan text ("cache results by (tenant, report-key, period) in Redis for 1h" at line 3669). Rejected: job row + Redis 1h TTL secondary (cache-invalidation decoupled from claim ingestion; stale results up to 1h); fixed 1h freshness (stale results); Redis-only ephemeral (loses re-open + email-attachment capability).
+
+- **A10 — Expected retention basis (PERSISTENCY_STUDY A/E)**: **new `public.tenant_persistency_basis(tenant_id, insurance_line, cohort_months, expected_retention_pct, source_note, effective_from, effective_to)` public-schema table + tenancy-service CRUD controller + tenant admin CRUD UI**. Mirrors `tenant_endorsement_config` (V134) shape. Ships alongside §0. Seed defaults per line optional (create-plan decision — see Grill note 10). Rejected: rules-engine PERSISTENCY_BASIS category (heavy — full tranche); ai-service YAML per-jurisdiction only (rigid, no per-tenant tuning, Rule 5 non-compliant); bootstrap from Phase-13 COHORT rolling-24m average (self-referential — A/E meaningless).
+
+- **A11 — Mortality/morbidity reference tables + tenant tie**: **hybrid — ai-service ships reference-table YAMLs (`A1949_52`, `A67_70`, `SA85_90`, `CSO_2017` mortality; `CIDA`, `GLTD87` morbidity) as resource files + new `public.tenant_mortality_basis(tenant_id, insurance_line, basis_name, mortality_multiplier)` + parallel `public.tenant_morbidity_basis`**. Tenants pick a basis by name + apply an adjustment factor ("115% of A1949-52"). Matches industry practice. Rejected: A10-shape per-row `(age, sex, qx)` (tenant admin loads 200+ rows manually; no multiplier); ai-service constants only (rigid; no per-tenant tuning); rules-engine MORTALITY_BASIS + MORBIDITY_BASIS categories (heavy — another tranche).
+
+- **A12 — Exposure derivation for A/E denominators**: **per-study derivation — mortality/morbidity=actual-days-exposed on Member.enrollment_date + Member.termination_date + Member.death_date (A12b); persistency=Phase-13 cohort headcount at bind + checkpoint; lapse=policy-years-in-force from `policy_status_history`**. Each study uses its natural denominator. Rejected: uniform central-exposure (over-approximates for HEALTH; regulator wants actual-days for mortality); actual-days-exposed for all (100k members × 60 months matview refresh cost); policy-year for annual + monthly for HEALTH (two "A/E" numbers in one family — hard to explain).
+
+- **A12b — Death signal (triggered by A12)**: **add `death_date LocalDate NULL` + `cause_of_death VARCHAR(80) NULL` on Member entity (tenant migration in §0) + tenant admin "Record death" UI action + `MEMBER_DEATH_RECORDED` audit event**. Semantically distinct from termination (a member can be terminated for non-payment while alive). death_date independently editable from termination_date. cause_of_death vocab (ICD-10 chapter code vs free text) queued as create-plan note. Backfill: empty (no prior death signal today). Rejected: reuse `member_status_history.reason_code='MORTALITY'` (vocab not present today — still needs a vocab addition; conflates termination event with death date); new `member_death` history table (overkill unless multi-row revised death dates are needed — deferred); skip MORTALITY_STUDY entirely (partial delivery of Phase 14).
+
+- **A13 — LAPSE_STUDY cohort definition**: **per-line branched — HEALTH uses monthly-enrollment cohorts (`member_status_history` + `member_contribution_presence` matview per Phase 13 L16); annual lines use annual-bind cohorts (`policy_status_history` + renewal-chain traversal per Phase 13 L9)**. Mirrors Phase-13 L16 HEALTH-vs-annual precedent. Report envelope groups by line class. Lapse-driving reason codes drawn from Phase 13's already-shipped vocabs (L5 for annual lines; L2 for members). Rejected: annual-bind for all lines (HEALTH monthly signal invisible); monthly-enrollment for all (annual lines get 11 empty cohort rows per year); caller-picks-grain (pushes semantic choice onto user).
+
+- **A14 — Angular triangle visualization**: **split view — DataTable of the triangle (green→red gradient on cumulative value) + `app-line-chart` of LDFs by development period (one line per accident-period cohort)**. XLSX export stays flat matrix + LDF row + IBNR summary — regardless of on-screen shape. Animations off per Phase 8 §2a precedent. Same shape applies to persistency/mortality/morbidity/lapse where the "matrix" degenerates to `cohort × checkpoint`. Rejected: heatmap-first via new TriangleMatrixComponent (~2 days new component; ngx-charts cell-labeling limits); table-only (no visual trend); 3-panel table+LDF+IBNR bar-chart (busy viewport; 3-4 days).
+
+- **A15 — Result persistence (given A8 async)**: **ai-service publishes `result_json` inline in `medfund.actuarial.job-completed` event; finance-service consumes + persists to `actuarial_report_job.result_json`**. Symmetric with A8b input. ai-service stays stateless. Consumer verifies `event.tenantId == job.tenantId` before write (Rule 2). Event-size guard queued (>900KB reject). `.doOnSuccess` ack per `bug_reactor_kafka_ack_swallow`. Rejected: ai-service writes to own `ai_service_job_results` table (Python becomes stateful; violates A8b stateless principle); MinIO-backed (symmetric rejection); HTTP callback ai→finance (reintroduces sync coupling in async pipeline).
+
+- **A16 — Rule 3 audit trail**: **`actuarial_report_job.result_json` contains input triangle + model_version + method + basis + LDFs + confidence + output — row is the immutable audit record**. Single source of truth. JSONB-indexed for query. Append-only (row INSERT only, no UPDATE except the one terminal completion write) per Rule 8 invariant. `schema_version: 1` on the JSON envelope for future evolution. `.claude/coding-standards.md` update owed on where AI decisions are audited. Rejected: separate `actuarial_ai_decision` table + also persist to job row (two write paths; consistency risk); AI_DECISION security event with payload (doubles Kafka volume ~500KB/report on security-events topic); AI_DECISION lightweight event (two-step audit; still doubles topic).
+
+- **A17 — Tranche split**: **5-tranche split — §0 (schema prerequisites + async job table + admin UIs) → §A (Python actuarial package + IBNR + LOSS_TRIANGLE + async infra) → §B (PERSISTENCY + LAPSE) → §C (MORTALITY + MORBIDITY) → §D (rules-engine ACTUARIAL)**. Each tranche ships as its own dated sub-plan (`thoughts/shared/plans/2026-08-24-actuarial-*-.md`) built via `grilling` → `create-plan` at implement time. Aligns with Phase 11/12/13 sub-plan precedent. Rejected: bundle §0 into §A (§A becomes ~140 files; reviewability limit); defer §D as Phase 20 (undermines A5); language-layer split (fights vertical-slice pattern).
+
+- **A18 — Testing strategy**: **full-stack per tranche — Python unit + Python integration + Java IT (Testcontainers + Kafka) + Playwright + Mack's textbook triangle as chain-ladder golden fixture**. Per-tranche `db/actuarial-*-migration/V001..sql` folders per Phase-11/12/13 L18 pattern. Cross-language docker-compose IT deferred to a Phase-14-integration follow-up (one spec per report type). All Testcontainers pitfalls per `infra_testcontainers_pitfalls`. `.doOnSuccess` Kafka acks per `bug_reactor_kafka_ack_swallow`. Rejected: Python + Java only skipping Playwright (contradicts parent-plan Testing Strategy); docker-compose in every tranche (~15-30min CI/tranche); Python-only §A-§C with Java+Playwright deferred to §D (breaks reviewability of intermediate tranches).
+
+### Settled by fact (not asked)
+
+- **F14-1 — All six report keys already ship** in `services/java/shared/src/main/java/com/medfund/shared/report/ReportKey.java:108-113`: `IBNR_TRIANGLE`, `LOSS_TRIANGLE`, `PERSISTENCY_STUDY`, `MORTALITY_STUDY`, `MORBIDITY_STUDY`, `LAPSE_STUDY` — all `cadenced=false`, all mapped to `ReportFamily.ACTUARIAL`. **No enum-add work** for keys.
+- **F14-2 — `ReportFamily.ACTUARIAL` already exists** at `services/java/shared/src/main/java/com/medfund/shared/report/ReportFamily.java:24`. Render order between RECONCILIATION and REGULATORY. **No enum-add work** for family.
+- **F14-3 — Java→Python HTTP pattern is fully established** as `AiServiceClient` at `services/java/claims-service/src/main/java/com/medfund/claims/client/AiServiceClient.java:106` — 8s timeout, 1 retry with 250ms backoff, fail-open, X-Tenant-ID header. Phase 14 §D clones this shape into finance-service if the rules-engine pipeline needs a sync HTTP path; §A uses Kafka pattern per A8.
+- **F14-4 — `CrossServiceCallHelper` custom-timeout arm exists and names actuarial** at `services/java/shared/src/main/java/com/medfund/shared/report/CrossServiceCallHelper.java:76-82` — inline comment references "an actuarial call that legitimately needs a longer ceiling". Ready to use.
+- **F14-5 — ai-service tenant plumbing exists** at `services/python/ai-service/app/core/tenant.py:8-12` — X-Tenant-ID header extraction + PostgreSQL search_path per-schema routing. Tenant-isolation floor is already there for §D if a synchronous /actuarial/* endpoint returns.
+- **F14-6 — `PERSISTENCY_STUDY` vs Phase-13 `PERSISTENCY_COHORT` is NOT a naming collision.** Semantic split is valid — COHORT (Phase 13) is a raw retention curve on `member_status_history`; STUDY (Phase 14) is an A/E ratio against an expected schedule (A10 basis). Both keys stay in the enum, both ship as distinct reports under different families (POLICY_LIFECYCLE vs ACTUARIAL).
+- **F14-7 — `Claim` entity fields available for triangles** at `services/java/claims-service/src/main/java/com/medfund/claims/entity/Claim.java:50-73, 106`: `service_date` (LocalDate), `submission_date` (Instant), `paid_amount` + `approved_amount` + `claimed_amount` (BigDecimal), `insurance_line` (String), `created_at` (Instant). **No** `paid_date`, `incurred_date`, or explicit development-period field. A3b closes the gap for the incurred shape via `claim_reserve_history`.
+- **F14-8 — `Member` entity fields available for exposure/mortality** at `services/java/user-service/src/main/java/com/medfund/user/entity/Member.java:29-57`: `date_of_birth` (LocalDate), `gender` (String), `enrollment_date` (LocalDate), `termination_date` (LocalDate). **No** `death_date` or `cause_of_death`. A12b closes the gap.
+- **F14-9 — Zero Angular ComingSoon stubs for actuarial** in `clients/angular/src/app/pages/tenant/finance/finance.routes.ts` — no `ibnr`, `loss-triangle`, `persistency-study`, `mortality-study`, `morbidity-study`, `lapse-study` routes exist today. §A adds all 6 routes from scratch under `/tenant/finance/reports/actuarial/*` following Phase 13 §C `POLICY_LIFECYCLE` route-spread pattern verbatim.
+- **F14-10 — `RuleCategory.ACTUARIAL` does NOT exist** in `services/java/rules-engine/src/main/java/com/medfund/rules/model/RuleCategory.java:12-93` (19 categories today). §D adds it.
+- **F14-11 — Gateway has zero `/actuarial/*` routes** in `services/go/gateway/internal/`. §A adds `/api/v1/reports/actuarial/*` + `/api/v1/reports/actuarial/jobs/*` routes to finance-service; §D adds `/api/v1/actuarial/*` (direct ai-service) if the pipeline order needs it (see Grill note 2).
+- **F14-12 — MinIO already in the infra stack** per Makefile `make infra` — available if the message-size guard from A8b/A15 needs a fallback later. Not required for §A.
+- **F14-13 — Redis already available** per `services/python/ai-service/pyproject.toml:7-27`. Retained for optional §A pre-warm scratch pad (not for result caching per A9).
+- **F14-14 — Phase 13's `member_contribution_presence` matview** (tenancy-service V114) is exactly the "still-paying" HEALTH signal PERSISTENCY_STUDY needs. Refreshed by `EarningScheduleClosureService.refreshMemberContributionPresence()` chained after Phase 12's `refreshMemberFirstContribution` per Phase-13 §C landing.
+- **F14-15 — Phase 13's `policy_status_history` (V111 user-service) + renewal-chain traversal via `renewed_from_policy_id`** is the annual-line "still-active" signal for both PERSISTENCY_STUDY and LAPSE_STUDY.
+- **F14-16 — Next migration numbers** (verify at plan time): user-service tenant last `V112` (member_status_history from Phase 13); user-service public last `V135` (mirror `providers.network_tier`); claims-service tenant last from Phase 4 landing (verify); tenancy-service public last `V135` (Phase 13). §0 bundles: `claim_reserve_history` (claims-service tenant V0NN), `Member.death_date` + `cause_of_death` (user-service tenant V113), `tenant_persistency_basis` + `tenant_mortality_basis` + `tenant_morbidity_basis` (tenancy-service public V136/V137/V138), `actuarial_report_job` (finance-service tenant V0NN).
+
+### Data model
+
+Tenant-scoped tables all with standard audit tail (`id UUID PK DEFAULT gen_random_uuid(), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`) per `feedback_audit_actor_email` (Rule 8). Public-schema tables carry per-tenant `tenant_id UUID NOT NULL REFERENCES public.tenants(id) ON DELETE CASCADE`.
+
+| Table | Service | Purpose | Key columns |
+|---|---|---|---|
+| `claim_reserve_history` (§0, A3b) | claims-service tenant | Point-in-time case reserves for incurred triangle | `claim_id UUID NOT NULL`, `reserved_amount NUMERIC(18,2) NOT NULL`, `effective_at TIMESTAMPTZ NOT NULL`, `actor_id UUID NULL`, `actor_email VARCHAR NULL`, `reason_note TEXT NULL`. INDEX `(claim_id, effective_at DESC)`. |
+| `actuarial_report_job` (§0/§A, A8/A9/A15/A16) | finance-service tenant | Async job registry + result payload + audit trail | `job_id UUID PK`, `tenant_id UUID NOT NULL`, `report_key VARCHAR NOT NULL`, `status VARCHAR NOT NULL` (`requested`/`processing`/`completed`/`failed`), `params_json JSONB NOT NULL`, `params_hash VARCHAR(64) NOT NULL`, `result_json JSONB NULL`, `error_message TEXT NULL`, `requested_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`, `completed_at TIMESTAMPTZ NULL`, `requested_by UUID`, `requested_by_email VARCHAR`. INDEX `(tenant_id, report_key, params_hash)`; partial UNIQUE `(tenant_id, params_hash) WHERE status IN ('requested','processing')` for in-flight de-dupe per A9. Append-only per Rule 8 + A16 (INSERT + single terminal UPDATE permitted). |
+| `public.tenant_persistency_basis` (§0, A10) | tenancy-service public | Expected retention curves per line per tenant | `tenant_id UUID NOT NULL`, `insurance_line VARCHAR NOT NULL`, `cohort_months INT NOT NULL`, `expected_retention_pct NUMERIC(5,4) NOT NULL`, `source_note VARCHAR`, `effective_from DATE NOT NULL DEFAULT CURRENT_DATE`, `effective_to DATE NULL`. UNIQUE `(tenant_id, insurance_line, cohort_months, effective_from)`. |
+| `public.tenant_mortality_basis` (§0, A11) | tenancy-service public | Tenant tie to ai-service mortality reference table + multiplier | `tenant_id UUID NOT NULL`, `insurance_line VARCHAR NOT NULL`, `basis_name VARCHAR NOT NULL` (matches ai-service YAML filename), `mortality_multiplier NUMERIC(5,4) NOT NULL DEFAULT 1.0000`, `effective_from DATE NOT NULL DEFAULT CURRENT_DATE`, `effective_to DATE NULL`. UNIQUE `(tenant_id, insurance_line, effective_from)`. |
+| `public.tenant_morbidity_basis` (§0, A11) | tenancy-service public | Tenant tie to ai-service morbidity reference table + multiplier | Same shape as `tenant_mortality_basis` (rename `mortality_multiplier` → `morbidity_multiplier`). |
+
+**Additive columns on user-service Member entity** (§0 — per A12b):
+
+| Entity | Service | New columns |
+|---|---|---|
+| `Member` | user-service tenant | `death_date LocalDate NULL`, `cause_of_death VARCHAR(80) NULL`. Backfill: empty (no prior death signal today). Update `MemberResponse` DTO to expose both. |
+
+**ai-service resource files** (§A + §C, A11):
+
+- `services/python/ai-service/app/actuarial/basis_tables/mortality/A1949_52.yaml` — Zimbabwe LIFE default
+- `services/python/ai-service/app/actuarial/basis_tables/mortality/A67_70.yaml` — Zimbabwe LIFE alternative
+- `services/python/ai-service/app/actuarial/basis_tables/mortality/SA85_90.yaml` — South Africa group life
+- `services/python/ai-service/app/actuarial/basis_tables/mortality/CSO_2017.yaml` — US NAIC mandated
+- `services/python/ai-service/app/actuarial/basis_tables/morbidity/CIDA.yaml` — disability incidence
+- `services/python/ai-service/app/actuarial/basis_tables/morbidity/GLTD87.yaml` — group long-term disability
+
+Format: `{age: {male: qx_per_1000, female: qx_per_1000}, ...}` — one row per age 0..120.
+
+### Kafka topology
+
+Two new topics (§A) tied to the async job pattern:
+
+| Component | Direction | Topic | Behaviour |
+|---|---|---|---|
+| `finance-service ActuarialJobPublisher` | out (§A) | `medfund.actuarial.job-requested` (new) | On every `ActuarialReportController` request → publish `{jobId, tenantId, reportKey, params, triangle_json OR exposure_json OR cohort_json (pre-baked per A8b), requestedBy, requestedByEmail, schema_version: 1}`. Payload size guarded (>800KB warn, >900KB reject-with-suggestion per Grill note 7). Publishes AFTER inserting `actuarial_report_job (status='requested')` row. Idempotent via params-hash partial UNIQUE index per A9. |
+| `ai-service ActuarialJobConsumer` | in (§A) | `medfund.actuarial.job-requested` | Consumes; delegates to `chain_ladder.compute()` / `persistency.compute()` / `mortality.compute()` / `morbidity.compute()` / `lapse.compute()` based on `reportKey`. On success → publishes to `medfund.actuarial.job-completed`. On failure → publishes with `status='failed'` + error. Stateless — no DB writes on ai-service side per A15. |
+| `ai-service ActuarialResultPublisher` | out (§A) | `medfund.actuarial.job-completed` (new) | Payload `{jobId, tenantId, reportKey, status, result_json (inline per A15), errorMessage, modelVersion, method, basis, computedAt, schema_version: 1}`. Event-size guard >900KB → reduce float precision to 2dp + retry per Grill note 7. |
+| `finance-service ActuarialResultConsumer` | in (§A) | `medfund.actuarial.job-completed` | On consume: verify `event.tenantId == job.tenantId` (Rule 2 guard per A15 + Grill note 19); UPDATE `actuarial_report_job` row `SET status='completed'/failed', result_json=..., completed_at=NOW()`. `.doOnSuccess` ack per `bug_reactor_kafka_ack_swallow`. Emits `AuditEvent` on state transition per Rule 8. |
+
+**Rule-3 audit path**: `actuarial_report_job.result_json` is the immutable audit record per A16; JSONB-indexed for query; row INSERT-only-then-single-completion-UPDATE (append-only invariant enforced via a `BEFORE UPDATE` trigger that raises when `OLD.status IN ('completed', 'failed')`). Downstream compliance auditor discovers actuarial runs by querying `actuarial_report_job` (not `security_events`).
+
+**Deploy order per parent-plan invariant**: ai-service ships the `ActuarialJobConsumer` BEFORE finance-service ships the `ActuarialJobPublisher` (avoid publish-into-void); finance-service ships the `ActuarialResultConsumer` BEFORE ai-service ships the `ActuarialResultPublisher` (avoid orphan results).
+
+### Report shapes
+
+Six report surfaces (per A3 + A6 + A7 + A14). All `@RequiresReport(...)` + `ReportEnvelopeBuilder` + `SecurityEventPublisher.publishDataAccess` on export. All served from **finance-service** at `/api/v1/reports/actuarial/*` per A1. All use async job pattern per A8 — the POST endpoint returns immediately with a `jobId`; result endpoint returns `202 Accepted` with progress or `200 OK` with `result_json`.
+
+Endpoints:
+
+- `POST /api/v1/reports/actuarial/ibnr` — body `{periodStart, periodEnd, insuranceLine?, shape=paid|incurred|reported (A3), grain=month|quarter|year (A4), reportingCurrency?, ldfMethod?='volume' (default per A5)}`. Returns `{jobId, status='requested'}`.
+- `POST /api/v1/reports/actuarial/loss-triangle` — same body. Returns triangle without IBNR extrapolation.
+- `POST /api/v1/reports/actuarial/persistency-study` — body `{periodStart, periodEnd, insuranceLine?, checkpoints=3,6,12,24,36, reportingCurrency?, basisId? (default: tenant default per A10)}`.
+- `POST /api/v1/reports/actuarial/mortality-study` — body `{periodStart, periodEnd, insuranceLine?, ageBands=0-10,10-20,..., sexStratify=true, basisName? (default: tenant default per A11)}`.
+- `POST /api/v1/reports/actuarial/morbidity-study` — same as mortality shape.
+- `POST /api/v1/reports/actuarial/lapse-study` — body `{periodStart, periodEnd, insuranceLine?, cohortGrain=derived-per-line (A13), reportingCurrency?}`.
+- `GET /api/v1/reports/actuarial/jobs/{jobId}` — returns `{jobId, status, result_json?, errorMessage?, progress?}`. Angular polls this every 2s (backoff to 5s after 30s) until status is terminal.
+- `GET /api/v1/reports/actuarial/jobs/{jobId}/export.xlsx` — XLSX export from completed `result_json`. Emits `SecurityEvent` per parent-plan invariant #3.
+
+Result envelope per report:
+- **IBNR_TRIANGLE / LOSS_TRIANGLE**: `{perLine: Map<InsuranceLine, {triangle: [[Number]], ldfs: [Number], ibnrTotal: Number, ultimateTotal: Number, confidence: {method: 'Mack', standardError: Number}, warnings: [String]}>}`. XLSX: one sheet per line — matrix + LDF row + IBNR summary.
+- **PERSISTENCY_STUDY**: `{perLine: Map<InsuranceLine, {cohorts: [{cohortMonth, cohortSize, checkpoints: [{months, actualRetentionPct, expectedRetentionPct, aeRatio}]}], warnings: [String]}>}`. XLSX: pivot on `cohort_month × checkpoint` per line.
+- **MORTALITY_STUDY**: `{perLine: Map<InsuranceLine, {perAgeBand: [{ageBand, sex, deaths, exposureYears, actualQx, expectedQx, aeRatio}], basisName, multiplier, warnings: [String]}>}`. XLSX: one sheet per line + summary.
+- **MORBIDITY_STUDY**: same shape as mortality with `incidence` in place of `qx`.
+- **LAPSE_STUDY**: `{perLine: Map<InsuranceLine, {cohorts: [{cohortId (month or year per A13), cohortSize, lapsesByReason: {reasonCode: count}, lapseRate, aeRatio}], warnings: [String]}>}`. XLSX: sheet per line class (HEALTH monthly-grain; annual-lines yearly-grain).
+
+**Envelope FX / missing-rate semantics** per parent-plan G28: reporting-currency conversion happens at claim `service_date`; a missing rate omits that claim from the cell + adds a warning per A6 + Grill note 4. Never fails the entire report.
+
+### Angular surfaces
+
+Tenant-admin CRUD (§0):
+- Existing member detail page (`/tenant/admin/members/{id}` — verify at plan time) — new "Record death" action button opening `MemberDeathModalComponent` with `deathDate` date picker + optional `causeOfDeath` free-text/ICD-10 select per A12b + Grill note 16. Emits `MEMBER_DEATH_RECORDED` audit + updates member row.
+- Existing adjudicator claim detail page (verify at plan time) — new "Set/update reserve" action opening `ClaimReserveModalComponent` per A3b + Grill note 1. Writes to `claim_reserve_history`; audit trail visible in a new "Reserve history" tab on the claim page.
+- New `/tenant/admin/settings/actuarial-bases` page with three tabs (persistency / mortality / morbidity) per A10 + A11. Each tab has add/edit/delete rows for the corresponding basis config table. Mortality/morbidity tabs show `basis_name` dropdown populated from ai-service `GET /actuarial/basis-tables/list` + multiplier input. Mirror UX from `TenantEndorsementConfig` (V134) per Grill note 11.
+
+Reports (§A/§B/§C):
+- `/tenant/finance/reports/actuarial/ibnr-triangle` — period picker (default: quarterly, last 20 quarters), insurance-line filter, shape select (paid/incurred/reported), grain select, reporting-currency override, "Run report" button. On submit → POST returns jobId → poll UI shows "Running..." spinner → renders split view per A14: DataTable triangle (green→red gradient) + `app-line-chart` of LDF-by-development-period per accident-period cohort. "Export XLSX" button emits SecurityEvent + downloads job export endpoint.
+- `/tenant/finance/reports/actuarial/loss-triangle` — same shape, no IBNR extrapolation.
+- `/tenant/finance/reports/actuarial/persistency-study` — period picker, insurance-line filter, checkpoints multi-select, basis picker (defaults to tenant default). Renders retention curve chart (actual vs expected) + A/E pivot table per line.
+- `/tenant/finance/reports/actuarial/mortality-study` — period picker, insurance-line filter, age-band selector, sex-stratify toggle, basis-name dropdown, multiplier override. Renders per-age-band A/E table + heatmap.
+- `/tenant/finance/reports/actuarial/morbidity-study` — same shape as mortality.
+- `/tenant/finance/reports/actuarial/lapse-study` — period picker, insurance-line filter (auto-derives cohort grain per A13). Renders per-cohort lapse-rate table + lapse-by-reason stacked bar chart.
+
+Reports hub (§A onwards) auto-registers the 6 ACTUARIAL keys via existing `TenantReportConfigService` — `ACTUARIAL` family card renders when any key enabled (family already in family-label service; verify at plan time).
+
+Shared async job UX (§A):
+- `ActuarialJobPollingService` — Angular service that manages job polling with backoff (2s → 5s after 30s → give up after 5min with user-facing error).
+- `ActuarialJobProgressComponent` — reusable spinner + progress + cancel button + jobId display.
+
+Tenant admin (§D) — rules-engine ACTUARIAL category:
+- Extends existing `/tenant/admin/rules` page with new ACTUARIAL category filter + three template cards (volume-weighted LDF / simple-average LDF / N-year weighted LDF).
+
+### Proposed §0 / §A / §B / §C / §D tranche split
+
+**§0 — Schema prerequisites + admin UIs** (no reports light up yet; foundation + admin CRUD):
+- claims-service tenant migration: `claim_reserve_history` (V0NN — verify next number at plan time)
+- user-service tenant migration: `Member.death_date` + `Member.cause_of_death` (V113)
+- tenancy-service public migrations: `tenant_persistency_basis` (V136), `tenant_mortality_basis` (V137), `tenant_morbidity_basis` (V138)
+- finance-service tenant migration: `actuarial_report_job` (V0NN — recommend §A pulls this if scope allows, else split into §0)
+- claims-service `ClaimReserveHistoryService` + REST endpoint + adjudicator UI action
+- user-service `Member` entity widening + REST endpoint + tenant admin UI action + `MEMBER_DEATH_RECORDED` audit event
+- tenancy-service `TenantPersistencyBasisController` + `TenantMortalityBasisController` + `TenantMorbidityBasisController` + tenant admin UI pages (three tabs on new `/tenant/admin/settings/actuarial-bases`)
+- IT per new service in-tranche per Phase-11/12/13 L18 pattern; dedicated `db/actuarial-schema-migration/V001..sql` folders per test slice
+- **Success criterion**: admins can set reserves, record deaths, configure bases; audit events fire; no reports render yet.
+
+**§A — Python actuarial package + IBNR + LOSS_TRIANGLE + async infra** (first reports light up):
+- ai-service `pyproject.toml` — add `chainladder`, `pandas`, `numpy`, `scipy`, `openpyxl`
+- ai-service `services/python/ai-service/app/actuarial/` package with `chain_ladder.py`, `ldf.py`, `payloads.py`, `basis_tables/` scaffolding + basis-table YAMLs for §C (ship early for eager caching)
+- ai-service pre-warm on FastAPI lifespan startup (trivial chain-ladder run to bake numba JIT)
+- ai-service `ActuarialJobConsumer` + `ActuarialResultPublisher` (Kafka)
+- ai-service unit tests: chain-ladder LDFs match Mack's textbook fixture to 4dp
+- finance-service `actuarial_report_job` migration (if not shipped in §0)
+- finance-service `ActuarialReportController` (POST endpoints for IBNR + LOSS + GET jobs + GET jobs/{id}/export.xlsx)
+- finance-service `ActuarialJobPublisher` + `ActuarialResultConsumer` (Kafka)
+- finance-service `ClaimsClient` (may exist — verify) + `UserClient` for triangle input queries
+- finance-service `TriangleShapingService` — shapes claim data into paid/incurred/reported triangle at chosen grain + FX conversion + missing-FX warnings
+- finance-service `TriangleWorkbookService` — XLSX export per Grill note 17
+- Angular routes + components for `/tenant/finance/reports/actuarial/ibnr-triangle` + `/loss-triangle`
+- Angular `ActuarialJobPollingService` + `ActuarialJobProgressComponent`
+- Gateway route registration for `/api/v1/reports/actuarial/*` + `/api/v1/reports/actuarial/jobs/*`
+- IT: `ActuarialJobPublisherIT` + `ActuarialResultConsumerIT` via `AbstractKafkaIntegrationTest`; `TriangleShapingServiceIT`; `IbnrReportControllerIT`; `LossTriangleReportControllerIT` — all in dedicated `db/actuarial-ibnr-loss-migration/V001..sql`
+- Playwright: `actuarial-ibnr.spec.ts` + `actuarial-loss-triangle.spec.ts` — hub → open report → set filters → submit → poll → renders → export
+- **Success criterion**: 2 report keys enabled → reports render + export XLSX; Mack's fixture passes; toggle-off returns 403; missing FX shows envelope warnings; async job survives ai-service restart mid-compute.
+
+**§B — PERSISTENCY_STUDY + LAPSE_STUDY** (member-shaped studies; reuses Phase 13 tables):
+- ai-service `actuarial/persistency.py` + `actuarial/lapse.py`
+- ai-service unit tests: A/E ratios on fabricated cohorts match hand-calc
+- finance-service `PersistencyCohortShapingService` — reads Phase 13 `member_status_history` + `member_contribution_presence` matview + `policy_status_history` via user-service `MemberStatusHistoryClient` + `PolicyStatusHistoryClient` (both new)
+- finance-service `LapseCohortShapingService` — per-line branched per A13
+- Two new POST endpoints on `ActuarialReportController` + workbook services
+- Angular routes + components for `/persistency-study` + `/lapse-study`
+- IT for both reports in dedicated `db/actuarial-persistency-lapse-migration/V001..sql`
+- Playwright per report
+- **Success criterion**: 2 more report keys enabled → A/E numbers reconcile against Phase 13 COHORT numbers; `tenant_persistency_basis` rows drive expected numbers.
+
+**§C — MORTALITY_STUDY + MORBIDITY_STUDY** (member-shaped, reads §0 death signal + basis config):
+- ai-service `actuarial/mortality.py` + `actuarial/morbidity.py` + basis-table YAML loaders
+- ai-service unit tests: A/E against SOA-published exposure/deaths for a synthetic block
+- finance-service `MortalityShapingService` — reads Member.date_of_birth + gender + enrollment_date + termination_date + death_date via user-service `MemberExposureClient` (new); computes age bands + actual-days-exposed per A12
+- finance-service `MorbidityShapingService` — reads claim incidence + Member exposure
+- Two new POST endpoints + workbook services
+- Angular routes + components for `/mortality-study` + `/morbidity-study`
+- IT for both in dedicated `db/actuarial-mortality-morbidity-migration/V001..sql`
+- Playwright per report
+- **Success criterion**: 2 final report keys enabled → mortality A/E computes for LIFE line; morbidity A/E computes for HEALTH line; basis multiplier from §0 applies correctly.
+
+**§D — Rules-engine ACTUARIAL category** (tenant-configurable LDF method — A5's deferred integration):
+- rules-engine `RuleCategory.ACTUARIAL` enum add
+- rules-engine `TriangleFact` + `DevelopmentPeriodFact` types per Grill note 3
+- rules-engine templates: `VolumeWeightedLdfTemplate`, `SimpleAverageLdfTemplate`, `NYearWeightedLdfTemplate` under `services/java/rules-engine/src/main/java/com/medfund/rules/template/actuarial/`
+- rules-engine `DrlCompiler` awareness of new category
+- finance-service `TriangleShapingService` retrofit: pipeline order call per Grill note 2 — before publishing job-requested event, evaluate rules to select LDF method; pass selected method as job param
+- Angular tenant admin `/tenant/admin/rules` page extension — ACTUARIAL category filter + template cards
+- IT: `TenantActuarialRulesIT` in dedicated `db/actuarial-rules-migration/V001..sql`
+- Playwright: rules authoring flow
+- **Success criterion**: tenant admin authors "use 5-year weighted for HEALTH claims after 2024-01-01"; IBNR report picks up the rule; XLSX header notes the LDF method used.
+
+§0/§A/§B/§C/§D ship as separate commits per Phase 11 + 12 + 13 precedent. All should be fully grilled + planned at implement-time via `create-plan`; `implement-plan` treats tranche boundaries as hand-off points per the plan header.
+
+### Grill notes for `create-plan`
+
+1. **Reserve-setting workflow specifics (A3b)** — plan the exact adjudicator UX: is "Set reserve" a one-time initial action or a "Revise reserve" repeatable action? Who has permission (adjudicator role vs supervisor role)? What's the audit-note requirement? Does reserve automatically zero on claim close/deny?
+2. **Rules-engine pipeline order (A5)** — plan the pipeline: does finance-service call rules-engine to *pick* LDF method BEFORE publishing job-requested event (Java owns method choice, Python is method-agnostic), or does Python compute all three method variants and finance-service call rules-engine POST-Python to *select* one (Python computes 3× cost, rules operate on actual LDFs)? Recommend the former for simplicity.
+3. **Rules-engine fact-type design (A5)** — plan `TriangleFact` and `DevelopmentPeriodFact` shapes; determine whether rules author against pre-shaped triangle data or against high-level params only.
+4. **Missing-FX aggressiveness (A6)** — plan per-claim skip+warn vs per-report fail-loud. Recommend per-claim skip+warn (a 5-year triangle across thousands of dates cannot survive per-report fail-loud). Add to envelope warnings.
+5. **Event schema versioning (A8b)** — plan `schema_version: 1` header on both `medfund.actuarial.job-requested` and `medfund.actuarial.job-completed` events. Adding fields must be additive per parent-plan Rollout policy.
+6. **Kafka ack pattern (A8b + A15)** — plan `.doOnSuccess` for offset ack on both consumers per `bug_reactor_kafka_ack_swallow` memory. Full-cause-chain error logging on failed compute.
+7. **Message-size guards (A8b + A15)** — plan payload-size checks: `job-requested` >800KB warn + >900KB reject-with-suggestion (narrow period, coarser grain); `job-completed` >900KB reduce precision (round floats to 2dp) + retry publish. Fall back to MinIO if still oversize (deferred implementation until measured need).
+8. **Job-row retention policy (A9)** — plan `actuarial_report_job` retention: keep last N days globally + last N runs per (tenant, report_key)? Recommend last 90 days + last 20 runs per (tenant, report_key). Nightly cleanup job.
+9. **Partial UNIQUE index on in-flight params-hash (A9)** — plan the exact index shape: `CREATE UNIQUE INDEX ux_actuarial_job_inflight ON actuarial_report_job (tenant_id, params_hash) WHERE status IN ('requested', 'processing');`. Guards against duplicate submissions racing.
+10. **Seed defaults for tenant_persistency_basis (A10)** — decide whether §0 ships seed defaults per line (e.g., `HEALTH: [3=0.90, 6=0.85, 12=0.75, 24=0.65, 36=0.55]` derived from published industry averages) or leaves tenants to author their own. Recommend seed defaults with `source_note='industry_default_v1'` — improves day-one experience.
+11. **Basis config admin UX mirroring TenantEndorsementConfig (A10)** — verify existing UI at `clients/angular/src/app/pages/tenant-admin/settings/endorsements/*` (Phase 12 landing) as the pattern to clone for the three basis-config tabs.
+12. **Starter set of mortality/morbidity YAMLs (A11)** — plan the exact starter set:
+    - Mortality: A1949-52 (ZW LIFE default), A67-70 (ZW LIFE alt), SA85-90 (ZA group life), CSO 2017 (US NAIC)
+    - Morbidity: CIDA (disability incidence), GLTD87 (group LTD)
+    - Confirm per-jurisdiction which basis is default at tenant onboarding.
+13. **Basis versioning (A11)** — SOA reissues tables every ~10 years. Plan whether `basis_name` is versioned in the filename (`A1949_52.yaml` vs `A1949_52_v2.yaml`) or the file contents carry `basis_version`. Recommend filename-versioning for immutability.
+14. **MEMBER_DEATH_RECORDED audit event (A12b)** — plan the `AuditEvent` shape: `actorId + actorEmail + memberId + deathDate + causeOfDeath + reason_note`. Emitted from `MemberService.recordDeath()`. `entityName='member:{memberNumber}'` per `feedback_audit_entity_name`.
+15. **death_date independently editable from termination_date (A12b)** — plan the UI + validation: a member can be "terminated for non-payment 2024-06-01" and later "died 2024-03-15"; these are separate editable fields. Validation: `death_date <= termination_date` if both non-null.
+16. **cause_of_death vocab (A12b)** — decide: ICD-10 chapter code (typed autocomplete) vs free text (VARCHAR 80). Recommend ICD-10 chapter select + free-text fallback. Chapter codes support morbidity/mortality regulator reporting.
+17. **XLSX shape fixed (A14)** — plan the XLSX workbook layout precisely per report:
+    - IBNR/LOSS: sheet-per-line; row 1 header (dev periods); rows 2..N cohorts (accident periods); cell = cumulative; row N+1 LDFs; row N+3 IBNR total.
+    - PERSISTENCY: sheet-per-line; pivot `cohort_month × checkpoint`; actual/expected/A-E as three cells per checkpoint.
+    - MORTALITY/MORBIDITY: sheet-per-line; pivot `age_band × sex`; qx-actual/qx-expected/A-E per cell.
+    - LAPSE: sheet-per-line-class (HEALTH separate from annual); cohort-row × reason-code columns.
+    - Summary sheet cross-line rollup at position 0 per Phase 11/12/13 precedent.
+18. **Message-size guard exact thresholds (A15)** — see Grill note 7.
+19. **result-persist Rule-2 guard (A15)** — plan the finance-service consumer: `if (event.tenantId != jobRow.tenantId) throw new IllegalStateException(...)`. IT that spoofed cross-tenant events reject.
+20. **result_json schema_version (A16)** — plan the envelope: `{schema_version: 1, computed_at, model_version, method, basis, input_triangle, ldfs, confidence, output_summary}`. Immutable via append-only invariant.
+21. **Append-only invariant (A16)** — plan the DB constraint: `BEFORE UPDATE` trigger that raises `EXCEPTION` when `OLD.status IN ('completed', 'failed')` (the single terminal-write UPDATE from `status='processing'` is permitted; subsequent UPDATEs error).
+22. **.claude/coding-standards.md update owed (A16)** — add a paragraph in the coding-standards doc on where AI-decision audit trails live per report family (actuarial: `actuarial_report_job.result_json`; adjudication: existing `AiDecision` per claims-service).
+23. **Cross-language docker-compose IT (A18)** — plan one full-stack spec per report type (6 specs total) as a Phase-14-integration follow-up tranche. Each spec: `docker compose up` full stack → real submit → real ai-service consume → real result persistence → Angular polling → export. Deferrable per Phase-13 §C precedent but tracked as a known follow-up.
+
+### What's owed back to the parent-plan outline
+
+- **Line 3540 dither ("claims-service or finance-service")** — A1 settles as finance-service aggregator. Struck through above.
+- **Line 3535-3540 outline sync-HTTP endpoint contract ("POST /actuarial/ibnr — input: claim triangle JSON; output: LDFs + IBNR estimate")** — A8/A8b settles as async Kafka event pattern. Endpoint shape still POST but returns `{jobId}` immediately; result via GET polling.
+- **Line 3669 Performance Considerations "Actuarial calls to Python are synchronous — set a 30s ceiling; cache results by (tenant, report-key, period) in Redis for 1h"** — A8 + A9 supersede: async job pattern replaces sync 30s ceiling; `actuarial_report_job.result_json` replaces Redis 1h cache. Performance Considerations section owes an update reflecting this.
+- **Line 3543 Grilling checkpoint** — satisfied by A1..A18 above.
+- **Phase 17 (Scheduled Email Delivery) cross-ref** — Phase 14's async job pattern gives Phase 17 the completion signal it needs; add "reuses actuarial `job-completed` event" note to Phase 17 outline.
+
+### Success Criteria
+
+**Status: Grilled 2026-08-24 (A1..A18 + A3b + A8b + A12b + F14-1..F14-16 above). Ready for §0 sub-plan via `create-plan`. Not yet implemented.**
+
+Each of the five tranches (§0/§A/§B/§C/§D) will ship as its own sub-plan at `thoughts/shared/plans/2026-08-24-actuarial-*-.md` built via `grilling` → `create-plan` → `implement-plan` at implement time. `implement-plan` treats tranche boundaries as hand-off points per the plan header. Aggregate success criteria across all five tranches:
+
+- **§0 green**: reserves recordable + deaths recordable + all three basis-config admin pages CRUD-functional; audit events fire; per-tranche ITs green.
+- **§A green**: IBNR + LOSS reports enabled → hub renders both; submit → poll → renders + export; Mack's fixture passes; async job survives mid-compute restart; toggle-off returns 403.
+- **§B green**: PERSISTENCY + LAPSE reports enabled; A/E numbers reconcile against Phase 13 COHORT; `tenant_persistency_basis` rows drive expected numbers.
+- **§C green**: MORTALITY + MORBIDITY reports enabled; mortality A/E computes for LIFE; morbidity A/E computes for HEALTH; basis multiplier applies.
+- **§D green**: rules-engine ACTUARIAL category enabled; tenant admin authors LDF-selection rule; IBNR report picks up the rule; XLSX header notes method used.
+
+Deferred to follow-up per Phase-11/12/13 precedent:
+- **Cross-language docker-compose IT** — 6 specs per Grill note 23; deferred to a Phase-14-integration tranche.
+- **Manual `verify` walkthroughs** — end-to-end golden-path browser demos per tranche.
+- **Chain-ladder alternative methods (Bornhuetter-Ferguson, Bootstrap)** — `chainladder-python` ships them; Phase 14 §A only wires Mack chain-ladder; deferred as user-selectable methods behind a `?method=` param in a future sub-tranche.
+- **Ultimate-loss-ratio sensitivity analysis** — actuarial-heavy add-on; deferred.
+- **Live-defect note**: `services/python/ai-service/app/main.py` imports OpenTelemetry packages but never wires instrumentation. Not Phase 14's problem; recorded here as a general observability follow-up.
+
+Per parent-plan Testcontainers policy each deferred IT lands with a purpose-built migration folder so the ITs don't force-widen every unrelated slice's baseline schema.
 
 ---
 

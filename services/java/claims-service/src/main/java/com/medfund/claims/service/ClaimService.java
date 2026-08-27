@@ -102,6 +102,7 @@ public class ClaimService {
     private final TariffBenefitResolver tariffBenefitResolver;
     private final ClaimFactBuilder claimFactBuilder;
     private final RuleEvaluationService ruleEvaluationService;
+    private final ClaimReserveHistoryService claimReserveHistoryService;
 
     public ClaimService(ClaimRepository claimRepository,
                         ClaimLineRepository claimLineRepository,
@@ -114,7 +115,8 @@ public class ClaimService {
                         DatabaseClient databaseClient,
                         TariffBenefitResolver tariffBenefitResolver,
                         ClaimFactBuilder claimFactBuilder,
-                        RuleEvaluationService ruleEvaluationService) {
+                        RuleEvaluationService ruleEvaluationService,
+                        ClaimReserveHistoryService claimReserveHistoryService) {
         this.claimRepository = claimRepository;
         this.claimLineRepository = claimLineRepository;
         this.claimQueryRepository = claimQueryRepository;
@@ -127,6 +129,21 @@ public class ClaimService {
         this.databaseClient = databaseClient;
         this.claimFactBuilder = claimFactBuilder;
         this.ruleEvaluationService = ruleEvaluationService;
+        this.claimReserveHistoryService = claimReserveHistoryService;
+    }
+
+    /**
+     * Auto-zero the claim's case reserve when it closes to REJECTED or CANCELLED
+     * (Phase 14 §A actuarial). The incurred triangle must stop summing residual
+     * reserve after close, so we append a zero row with a canonical reason.
+     * No-ops on non-terminal transitions and idempotent replays.
+     */
+    private Mono<Void> maybeAutoZeroReserve(Claim saved, String previousStatus,
+                                            String actorId, String actorEmail) {
+        String s = saved.getStatus();
+        if (!"REJECTED".equals(s) && !"CANCELLED".equals(s)) return Mono.empty();
+        if (s.equals(previousStatus)) return Mono.empty();
+        return claimReserveHistoryService.autoZero(saved.getId(), s, actorId, actorEmail);
     }
 
     public Flux<Claim> findAll() {
@@ -677,6 +694,7 @@ public class ClaimService {
                                 Map.of("status", saved.getStatus()))
                             .then(eventPublisher.publishClaimStatusChanged(
                                 saved.getId().toString(), saved.getStatus(), saved.getInsuranceLine()))
+                            .then(maybeAutoZeroReserve(saved, previousStatus, actorId, actorEmail))
                             .thenReturn(saved);
                     }));
             });
@@ -766,6 +784,10 @@ public class ClaimService {
                     .then(cs != null && isApproved(result.decision())
                             ? publishEobEvent(saved, cs, tenantId)
                             : Mono.empty())
+                    // Phase 14 §A — auto-zero the claim reserve on REJECTED
+                    // (auto-adjudication path). ADJUDICATED / PENDING_INFO
+                    // outcomes leave the reserve untouched.
+                    .then(maybeAutoZeroReserve(saved, previousStatus, actorId, actorEmail))
                     .thenReturn(saved);
             }));
     }
@@ -1240,6 +1262,10 @@ public class ClaimService {
                                                         saved.getPayeeType(), tenantId))
                                                 .then(incrementBeneficiaryBenefit(saved, acceptedLineIdsFinal, deltaFinal))
                                                 .then(incrementAnnualCap(saved, deltaFinal))
+                                                // Phase 14 §A — line-based rejection cascades to a
+                                                // reserve auto-zero when the aggregate lands REJECTED
+                                                // (all lines rejected). ADJUDICATED leaves it alone.
+                                                .then(maybeAutoZeroReserve(saved, previousStatus, actorId, actorEmail))
                                                 .thenReturn(saved);
                                         }));
                             });

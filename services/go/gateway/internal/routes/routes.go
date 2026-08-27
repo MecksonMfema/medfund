@@ -241,6 +241,14 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/members/*/producer-assignment/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reports/commission", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reports/commission/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 14 §Actuarial Phase 10 — actuarial report family (IBNR, LOSS,
+	// PERSISTENCY, MORTALITY, MORBIDITY, LAPSE). Async job orchestrator
+	// lives in finance-service; the Kafka-mediated compute path lands in
+	// ai-service via the /api/v1/actuarial/* proxy above. Reports at
+	// /api/v1/reports/actuarial/{ibnr|loss-triangle|…} + /jobs/{jobId}/*
+	// (poll + XLSX export) all forward to finance-service.
+	app.All("/api/v1/reports/actuarial", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/actuarial/*", proxy.Handler(cfg.FinanceServiceURL))
 
 	// ── Rules Service (per-tenant Drools rules) ───────────────────────────────
 	app.All("/api/v1/rules", proxy.Handler(cfg.RulesServiceURL))
@@ -253,6 +261,14 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// the Go notification-service handles email fan-out only.
 	app.All("/api/v1/notifications", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/notifications/*", proxy.Handler(cfg.UserServiceURL))
+
+	// ── AI Service (Python) ───────────────────────────────────────────────────
+	// Phase 14 §Actuarial Phase 6 — read-only catalogue of mortality +
+	// morbidity reference tables feeding the tenant-admin basis-picker
+	// dropdowns. Additional actuarial compute endpoints land in later
+	// phases and reuse this /api/v1/actuarial/* wildcard.
+	app.All("/api/v1/actuarial", proxy.Handler(cfg.AiServiceURL))
+	app.All("/api/v1/actuarial/*", proxy.Handler(cfg.AiServiceURL))
 
 	// ── Go Services ───────────────────────────────────────────────────────────
 	app.All("/api/v1/audit", proxy.Handler(cfg.AuditServiceURL))

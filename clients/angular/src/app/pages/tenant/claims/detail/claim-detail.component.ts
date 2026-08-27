@@ -6,10 +6,12 @@ import { catchError, forkJoin, of } from 'rxjs';
 import {
   Claim,
   ClaimLine,
+  ClaimReserveRow,
   ClaimStatus,
   ClaimsService,
   LineDecisionPayload,
 } from '../../../../core/services/claims.service';
+import { ClaimReserveModalComponent, ClaimReserveSubmit } from './claim-reserve-modal.component';
 import { PermissionService } from '../../../../core/security/permission.service';
 import {
   ClaimsConfigService,
@@ -63,6 +65,7 @@ interface LineDraft {
     HasPermissionDirective,
     CurrencyFormatPipe,
     HumanizePipe,
+    ClaimReserveModalComponent,
   ],
   templateUrl: './claim-detail.component.html',
   styleUrl: './claim-detail.component.scss',
@@ -114,6 +117,16 @@ export class ClaimDetailComponent implements OnInit {
    *  super admin — {@link PermissionService.has} returns true for the
    *  latter automatically). */
   canEditLines = false;
+
+  // ── Reserve modal + history state (Phase 14 §A) ────────────────────
+  /** Reserve rows fetched via GET /reserve/history — newest first. */
+  reserveHistory: ClaimReserveRow[] = [];
+  /** Modal visibility toggle. */
+  reserveModalOpen = false;
+  /** Submit-in-flight guard so the modal disables its buttons. */
+  reserveSubmitting = false;
+  /** Server error surfaced in the modal on 400/403/500. */
+  reserveError: string | null = null;
   /** Per-line decision drafts, keyed by lineId. Populated on load from
    *  the server-side status; every write to a status pill or amount
    *  input updates this map. A single "Save decisions" button below the
@@ -229,6 +242,52 @@ export class ClaimDetailComponent implements OnInit {
         .pipe(catchError(() => of(null as AnnualCapUtilization | null)))
         .subscribe(row => { this.annualCap = row; });
     }
+
+    // Phase 14 §A — reserve history for the "Reserve history" tab.
+    // Any adjudicator with claims:view can read (server enforces).
+    this.reloadReserveHistory(claim.id);
+  }
+
+  // ── Reserve actions (Phase 14 §A) ──────────────────────────────────
+
+  /** Latest reserve row (or null when the claim has never had a reserve set). */
+  get currentReserve(): ClaimReserveRow | null {
+    return this.reserveHistory.length > 0 ? this.reserveHistory[0] : null;
+  }
+
+  openReserveModal(): void {
+    this.reserveError = null;
+    this.reserveModalOpen = true;
+  }
+
+  closeReserveModal(): void {
+    if (this.reserveSubmitting) return;
+    this.reserveModalOpen = false;
+  }
+
+  submitReserve(payload: ClaimReserveSubmit): void {
+    if (!this.claim) return;
+    this.reserveSubmitting = true;
+    this.reserveError = null;
+    this.claims.setReserve(this.claim.id, payload.reservedAmount, payload.reasonNote).subscribe({
+      next: () => {
+        this.reserveSubmitting = false;
+        this.reserveModalOpen = false;
+        this.toast.success(`Reserve set to ${payload.reservedAmount}`);
+        if (this.claim) this.reloadReserveHistory(this.claim.id);
+      },
+      error: (err) => {
+        this.reserveSubmitting = false;
+        this.reserveError = err?.error?.detail || err?.error?.message
+                           || 'Failed to set reserve';
+      },
+    });
+  }
+
+  private reloadReserveHistory(claimId: string): void {
+    this.claims.reserveHistory(claimId)
+      .pipe(catchError(() => of([] as ClaimReserveRow[])))
+      .subscribe(rows => { this.reserveHistory = rows; });
   }
 
   /** V062 annual cap progress (0-100). Null when cap isn't set. */

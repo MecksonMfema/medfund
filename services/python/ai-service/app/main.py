@@ -16,6 +16,9 @@ from app.api.chatbot import router as chatbot_router
 from app.api.forecasting import router as forecasting_router
 from app.api.analytics import router as analytics_router
 from app.api.pricing import router as pricing_router
+from app.api.actuarial import router as actuarial_router
+from app.actuarial.chain_ladder import TriangleInput, compute as chain_ladder_compute
+from app.actuarial.kafka import ActuarialJobRunner
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -36,7 +39,23 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Database init failed: {e}")
 
+    try:
+        chain_ladder_compute(
+            TriangleInput(
+                accident_periods=["2020Q1", "2020Q2"],
+                development_periods=["1", "2"],
+                cells=[[100.0, 150.0], [110.0, None]],
+                grain="quarter",
+                reporting_currency="USD",
+                insurance_line="HEALTH",
+            )
+        )
+        logger.info("chainladder JIT pre-warm complete")
+    except Exception as e:
+        logger.warning(f"chainladder pre-warm skipped: {e}")
+
     kafka_consumer = None
+    actuarial_runner: ActuarialJobRunner | None = None
     if settings.kafka_bootstrap_servers:
         try:
             from app.core.kafka_consumer import ClaimsEventConsumer
@@ -50,8 +69,17 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"Kafka consumer failed: {e}")
 
+        try:
+            actuarial_runner = ActuarialJobRunner(settings.kafka_bootstrap_servers)
+            await actuarial_runner.start()
+        except Exception as e:
+            logger.warning(f"Actuarial job runner failed: {e}")
+            actuarial_runner = None
+
     yield
 
+    if actuarial_runner:
+        await actuarial_runner.stop()
     if kafka_consumer:
         await kafka_consumer.stop()
     await close_db()
@@ -74,3 +102,4 @@ app.include_router(chatbot_router)
 app.include_router(forecasting_router)
 app.include_router(analytics_router)
 app.include_router(pricing_router)
+app.include_router(actuarial_router)

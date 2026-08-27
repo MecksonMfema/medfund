@@ -1,0 +1,38 @@
+<div class="actuarial-bases">
+  <div class="section-header sub-tabs-header">
+    <div>
+      <h3 class="section-title">Actuarial bases</h3>
+      <p class="section-sub">
+        Configure the reference tables the actuarial study reports use as
+        expected-value denominators — persistency retention curves, mortality
+        tables (with local multipliers), and morbidity / disability-incidence
+        tables. Every mutation is audit-logged with the acting admin's identity.
+      </p>
+    </div>
+  </div>
+
+  <div class="sub-tabs">
+    @for (tab of subTabs; track tab.id) {
+      <button type="button"
+              class="sub-tab"
+              [class.active]="activeSubTab === tab.id"
+              (click)="activeSubTab = tab.id"
+              [attr.data-tab-id]="tab.id">
+        <app-icon [name]="tab.icon" [size]="16"></app-icon>
+        {{ tab.label }}
+      </button>
+    }
+  </div>
+
+  <div class="sub-tab-body">
+    @if (activeSubTab === 'persistency') {
+      <app-persistency-basis-tab></app-persistency-basis-tab>
+    }
+    @if (activeSubTab === 'mortality') {
+      <app-mortality-basis-tab></app-mortality-basis-tab>
+    }
+    @if (activeSubTab === 'morbidity') {
+      <app-morbidity-basis-tab></app-morbidity-basis-tab>
+    }
+  </div>
+</div>

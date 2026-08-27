@@ -1,0 +1,44 @@
+@if (open) {
+  <div class="modal-backdrop" (click)="onCancel()">
+    <div class="modal-card" (click)="$event.stopPropagation()"
+         role="dialog" aria-modal="true" aria-label="Set claim reserve">
+      <h3 class="modal-title">
+        {{ currentReserve != null ? 'Update reserve' : 'Set reserve' }}
+        @if (claimNumber) { <span class="muted"> for {{ claimNumber }}</span> }
+      </h3>
+      <p class="modal-message">
+        Enter the current best estimate of what this claim will ultimately
+        cost. Appends a fresh history row — the incurred triangle
+        reconstructs the reserve as-of any past date from these entries.
+      </p>
+
+      <div class="field">
+        <label for="reservedAmount">
+          Reserve amount @if (currencyCode) { <span class="muted">({{ currencyCode }})</span> } *
+        </label>
+        <input id="reservedAmount" type="number" min="0" step="0.01"
+               [(ngModel)]="reservedAmount" name="reservedAmount"
+               placeholder="0.00" />
+      </div>
+
+      <div class="field">
+        <label for="reasonNote">Reason / basis (min 5 chars, max 500) *</label>
+        <textarea id="reasonNote" [(ngModel)]="reasonNote" name="reasonNote"
+                  rows="3" maxlength="500"
+                  placeholder="Why this estimate? Audit trail only."></textarea>
+      </div>
+
+      @if (clientError) { <div class="error">{{ clientError }}</div> }
+      @if (serverError) { <div class="error">{{ serverError }}</div> }
+
+      <div class="actions">
+        <button type="button" class="btn btn-default" (click)="onCancel()"
+                [disabled]="submitting">Cancel</button>
+        <button type="button" class="btn btn-primary" (click)="onSubmit()"
+                [disabled]="submitting">
+          {{ submitting ? 'Saving…' : 'Save reserve' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -27,3 +27,24 @@ func TestLoad_FromEnv(t *testing.T) {
 		t.Fatalf("expected port 9000, got %s", cfg.Port)
 	}
 }
+
+// Phase 14 §Actuarial Phase 6 — ai-service pass-through wires the tenant-admin
+// actuarial-bases dropdowns to the YAML catalogue in ai-service. The default
+// mirrors the docker-compose ai-service port; env override lets the deploy
+// point at any URL.
+func TestLoad_AiServiceURL_Default(t *testing.T) {
+	cfg := Load()
+	if cfg.AiServiceURL != "http://localhost:8000" {
+		t.Fatalf("expected ai service default http://localhost:8000, got %s", cfg.AiServiceURL)
+	}
+}
+
+func TestLoad_AiServiceURL_FromEnv(t *testing.T) {
+	os.Setenv("AI_SERVICE_URL", "http://ai:9999")
+	defer os.Unsetenv("AI_SERVICE_URL")
+
+	cfg := Load()
+	if cfg.AiServiceURL != "http://ai:9999" {
+		t.Fatalf("expected ai service http://ai:9999, got %s", cfg.AiServiceURL)
+	}
+}

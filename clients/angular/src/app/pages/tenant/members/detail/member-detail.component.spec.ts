@@ -11,6 +11,8 @@ import { GroupsService } from '../../../../core/services/groups.service';
 import { PricingSuggestionService } from '../../../../core/services/pricing-suggestion.service';
 import { TenantService } from '../../../../core/services/tenant.service';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { PermissionService } from '../../../../core/security/permission.service';
+import { BehaviorSubject } from 'rxjs';
 
 function makeMember(overrides: Partial<Member> = {}): Member {
   return {
@@ -759,6 +761,18 @@ describe('MemberDetailComponent', () => {
           { provide: TenantService,            useValue: { getTenant: () => ({ pricingModel: 'STANDARD' }) } },
           { provide: PricingSuggestionService, useValue: new StubPricingSuggestion() },
           { provide: ActivatedRoute,           useValue: { snapshot: { paramMap: { get: (_k: string) => 'm-1' } } } },
+          // MemberDetailComponent now imports HasPermissionDirective, which
+          // pulls PermissionService → KeycloakService into the DI graph.
+          // The template check doesn't need a real perm subject — stub the
+          // whole service so the test bed doesn't reach for Keycloak.
+          { provide: PermissionService, useValue: {
+              permissions$: new BehaviorSubject<ReadonlySet<string>>(new Set<string>()),
+              snapshot: () => new Set<string>(),
+              hasAny: (_perms: readonly string[]) => false,
+              has: (_p: string) => false,
+              isSuperAdmin: () => false,
+              refresh: () => new BehaviorSubject<ReadonlySet<string>>(new Set<string>()).asObservable(),
+          } },
         ],
         schemas: [CUSTOM_ELEMENTS_SCHEMA],
       }).compileComponents();

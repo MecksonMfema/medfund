@@ -289,4 +289,25 @@ export class ClaimsService {
   updateStatus(id: string, status: ClaimStatus): Observable<Claim> {
     return this.api.post<Claim>(`/claims/${id}/status?newStatus=${status}`, {});
   }
+
+  /** Phase 14 §A — set or update the case reserve on a claim. Appends a
+   *  fresh row to claim_reserve_history; the incurred triangle reconstructs
+   *  the reserve as-of a past date by picking the latest row before it. */
+  setReserve(id: string, reservedAmount: string, reasonNote: string): Observable<ClaimReserveRow> {
+    return this.api.post<ClaimReserveRow>(`/claims/${id}/reserve`, { reservedAmount, reasonNote });
+  }
+
+  reserveHistory(id: string): Observable<ClaimReserveRow[]> {
+    return this.api.get<ClaimReserveRow[]>(`/claims/${id}/reserve/history`);
+  }
+}
+
+/** Phase 14 §A — one point-in-time reserve estimate for a claim. */
+export interface ClaimReserveRow {
+  id: string;
+  claimId: string;
+  reservedAmount: string;
+  effectiveAt: string;
+  actorEmail: string;
+  reasonNote: string;
 }

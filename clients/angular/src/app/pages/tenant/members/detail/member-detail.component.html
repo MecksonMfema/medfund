@@ -28,6 +28,16 @@
         @if (canActivate())      { <button type="button" class="btn btn-default"  (click)="activate()">Activate</button> }
         @if (canSuspend())       { <button type="button" class="btn btn-warn"     (click)="suspend()">Suspend</button> }
         @if (canTerminate())     { <button type="button" class="btn btn-danger"   (click)="terminate()">Terminate</button> }
+        <!-- Actuarial Phase 5: gated on members:record_death so a supervisor role can own it. -->
+        @if (canRecordDeath()) {
+          <button *hasPermission="'members:record_death'"
+                  type="button"
+                  class="btn btn-danger"
+                  data-testid="member-record-death-btn"
+                  (click)="openMemberDeathModal()">
+            Record death
+          </button>
+        }
         @if (canClearOverride()) { <button type="button" class="btn btn-default"  (click)="clearBillingOverride()">Clear custom premium</button> }
         <!-- V048 group change: back-dated posts arrears/rebate; forward-dated stashes PENDING for approval. -->
         <button type="button" class="btn btn-default" (click)="openChangeGroupModal()">Change group</button>
@@ -678,3 +688,11 @@
   (cancel)="onDeactivateCancel()"
   (submit)="onDeactivateSubmit($event)">
 </app-deactivate-dependant-modal>
+
+<app-member-death-modal
+  [open]="deathModalOpen"
+  [memberName]="member ? (member.firstName + ' ' + member.lastName) : ''"
+  [terminationDate]="member?.terminationDate ?? null"
+  (cancel)="onMemberDeathCancel()"
+  (submit)="onMemberDeathSubmit($event)">
+</app-member-death-modal>

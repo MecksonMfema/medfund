@@ -18,6 +18,7 @@ import { TenantBankAccountsTabComponent } from './bank-accounts/bank-accounts-ta
 import { TenantReportsTabComponent } from './reports/reports-tab.component';
 import { AutoLapseConfigComponent } from './auto-lapse/auto-lapse-config.component';
 import { EndorsementConfigComponent } from './endorsement/endorsement-config.component';
+import { ActuarialBasesComponent } from './actuarial-bases/actuarial-bases.component';
 import { TenantService } from '../../../core/services/tenant.service';
 import {
   BrandingService,
@@ -65,7 +66,7 @@ const JURISDICTIONS = [
   { value: 'US_NAIC',                label: 'United States — NAIC' },
 ];
 
-type TabId = 'general' | 'branding' | 'insurance-lines' | 'currencies' | 'billing' | 'proration' | 'bank-accounts' | 'email-templates' | 'reports' | 'auto-lapse' | 'endorsement-config' | 'roles';
+type TabId = 'general' | 'branding' | 'insurance-lines' | 'currencies' | 'billing' | 'proration' | 'bank-accounts' | 'email-templates' | 'reports' | 'auto-lapse' | 'endorsement-config' | 'actuarial-bases' | 'roles';
 
 interface Tab {
   id: TabId;
@@ -83,7 +84,7 @@ interface Tab {
 @Component({
   selector: 'app-tenant-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, EditorComponent, TenantRolesTabComponent, TenantCurrenciesTabComponent, TenantBillingTabComponent, TenantProrationTabComponent, TenantBankAccountsTabComponent, TenantReportsTabComponent, AutoLapseConfigComponent, EndorsementConfigComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, EditorComponent, TenantRolesTabComponent, TenantCurrenciesTabComponent, TenantBillingTabComponent, TenantProrationTabComponent, TenantBankAccountsTabComponent, TenantReportsTabComponent, AutoLapseConfigComponent, EndorsementConfigComponent, ActuarialBasesComponent, SelectComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
 })
@@ -102,6 +103,7 @@ export class TenantSettingsComponent implements OnInit {
     { id: 'reports',         label: 'Reports',                icon: 'chart' },
     { id: 'auto-lapse',      label: 'Auto-Lapse',             icon: 'alert-triangle' },
     { id: 'endorsement-config', label: 'Endorsement Config',  icon: 'shield' },
+    { id: 'actuarial-bases', label: 'Actuarial Bases',        icon: 'trending-up' },
     { id: 'roles',           label: 'Roles & Permissions',    icon: 'shield' },
   ];
 

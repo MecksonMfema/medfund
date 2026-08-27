@@ -1,0 +1,112 @@
+.tx-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  padding: 12px 0 16px;
+}
+
+.toolbar-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cell-label {
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.toolbar-cell-cta {
+  align-self: flex-end;
+}
+
+.ajp-slot {
+  margin: 8px 0 16px;
+}
+
+.triangle-split {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 16px;
+}
+
+@media (max-width: 1024px) {
+  .triangle-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pane-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.triangle-matrix,
+.triangle-chart {
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #dfe3ea);
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.matrix-scroll {
+  overflow-x: auto;
+}
+
+.matrix-table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  min-width: 100%;
+}
+
+.matrix-table th,
+.matrix-table td {
+  border: 1px solid var(--color-border-subtle, #eef2f6);
+  padding: 4px 8px;
+  text-align: right;
+  min-width: 78px;
+}
+
+.matrix-table th.sticky {
+  background: var(--color-surface-alt, #f6f8fb);
+  font-weight: 600;
+  text-align: left;
+  position: sticky;
+  left: 0;
+}
+
+.matrix-empty {
+  padding: 12px;
+  color: var(--color-text-muted, #6b7280);
+  font-size: 13px;
+}
+
+.triangle-summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 12px 0 0;
+  font-size: 13px;
+}
+
+.triangle-summary dt {
+  color: var(--color-text-muted, #6b7280);
+}
+
+.triangle-summary dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.banner {
+  padding: 10px 12px;
+  border-radius: 4px;
+  margin: 8px 0;
+  cursor: pointer;
+}
+.banner-error   { background: rgba(184, 29, 19, 0.08); color: var(--color-danger, #b81d13); }
+.banner-warning { background: rgba(255, 176, 33, 0.10); color: var(--color-warning, #a86500); }

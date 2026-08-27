@@ -1,0 +1,146 @@
+<header class="page-header">
+  <div>
+    <h1>{{ pageTitle }}</h1>
+    <p class="page-sub">{{ pageSubtitle }}</p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="!currentJob || currentJob.status !== 'completed'"
+    (click)="exportXlsx()">
+    <app-icon name="download" [size]="14"></app-icon>
+    Export XLSX
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input type="date" class="input" name="periodStart"
+           [(ngModel)]="periodStart" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input type="date" class="input" name="periodEnd"
+           [(ngModel)]="periodEnd" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Insurance line</span>
+    <app-select
+      name="insuranceLine"
+      [ngModel]="insuranceLine"
+      (selectionChange)="onLineChange($event)"
+      [options]="lineOptions"
+      placeholder="All lines"
+      [searchable]="false"></app-select>
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Checkpoints (months)</span>
+    <input type="text" class="input" name="checkpoints"
+           [(ngModel)]="checkpointsCsv"
+           placeholder="e.g. 3,6,12,24,36" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      name="reportingCurrency"
+      [ngModel]="reportingCurrency"
+      (selectionChange)="onCurrencyChange($event)"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"></app-select>
+  </div>
+  <div class="toolbar-cell toolbar-cell-cta">
+    <button type="button" class="btn btn-primary"
+            [disabled]="submitting"
+            (click)="submit()">
+      {{ submitting ? 'Submitting…' : 'Run report' }}
+    </button>
+  </div>
+</div>
+
+@if (currentJob) {
+  <div class="ajp-slot">
+    <app-actuarial-job-progress
+      [status]="currentJob"
+      [startedAt]="startedAt"
+      (cancel)="cancelPolling()"></app-actuarial-job-progress>
+  </div>
+}
+
+@if (shapeWarnings.length || resultWarnings.length) {
+  <div class="banner banner-warning">
+    @for (w of shapeWarnings; track w) {
+      <div>{{ w }}</div>
+    }
+    @for (w of resultWarnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+@if (result) {
+  @if (resultLines.length === 0) {
+    <p class="matrix-empty">No cohorts landed in the requested period.</p>
+  }
+  @for (line of resultLines; track line) {
+    <section class="triangle-split persistency-line">
+      <div class="triangle-matrix" data-testid="persistency-matrix">
+        <h3 class="pane-title">{{ line }} — A/E by cohort × checkpoint</h3>
+        <div class="matrix-scroll">
+          <table class="matrix-table">
+            <thead>
+              <tr>
+                <th class="sticky">Cohort</th>
+                <th class="num">Checkpoint</th>
+                <th class="num">Cohort size</th>
+                <th class="num">Retained</th>
+                <th class="num">Actual %</th>
+                <th class="num">Expected %</th>
+                <th class="num">A/E</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of rowsFor(line); track row.cohort_month + ':' + row.checkpoint_months) {
+                <tr>
+                  <th class="sticky">{{ row.cohort_month }}</th>
+                  <td class="num">{{ row.checkpoint_months }}m</td>
+                  <td class="num">{{ row.cohort_size }}</td>
+                  <td class="num">{{ row.retained_count }}</td>
+                  <td class="num">{{ row.actual_retention_pct * 100 | number:'1.1-1' }}</td>
+                  <td class="num">
+                    @if (row.expected_retention_pct != null) {
+                      {{ row.expected_retention_pct * 100 | number:'1.1-1' }}
+                    } @else {
+                      —
+                    }
+                  </td>
+                  <td class="num" [ngStyle]="aeCellStyle(row)">
+                    @if (row.ae_ratio != null) {
+                      {{ row.ae_ratio | number:'1.3-3' }}
+                    } @else {
+                      —
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="triangle-chart">
+        <h3 class="pane-title">Actual vs expected</h3>
+        <app-line-chart
+          [data]="retentionChartData(line)"
+          [xAxisLabel]="'Checkpoint months'"
+          [yAxisLabel]="'Retention %'"
+          [legend]="true"
+          [view]="[undefined, 320]"></app-line-chart>
+      </div>
+    </section>
+  }
+}

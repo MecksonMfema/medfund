@@ -663,12 +663,88 @@ public class MemberService {
         return auditPublisher.publish(event);
     }
 
+    private Mono<Void> publishDeathAudit(String tenantId, Member current, Member previous,
+                                          String actorId, String actorEmail) {
+        var oldValue = new java.util.HashMap<String, Object>();
+        oldValue.put("deathDate", previous.getDeathDate() != null ? previous.getDeathDate().toString() : null);
+        oldValue.put("causeOfDeath", previous.getCauseOfDeath());
+        oldValue.put("status", previous.getStatus());
+        var newValue = new java.util.HashMap<String, Object>();
+        newValue.put("deathDate", current.getDeathDate() != null ? current.getDeathDate().toString() : null);
+        newValue.put("causeOfDeath", current.getCauseOfDeath());
+        newValue.put("status", current.getStatus());
+        var event = AuditEvent.create(
+            tenantId != null ? tenantId : "unknown",
+            "Member",
+            current.getId().toString(),
+            current.getMemberNumber(),
+            "MEMBER_DEATH_RECORDED",
+            actorId,
+            actorEmail,
+            oldValue,
+            newValue,
+            new String[]{"deathDate", "causeOfDeath", "status"},
+            UUID.randomUUID().toString()
+        );
+        return auditPublisher.publish(event);
+    }
+
     /**
      * Null out the override fields so billing falls back to the
      * age-group price. Audited as a normal UPDATE so the operator
      * can see the previous override amount in the diff. No-op when
      * the member has no override set.
      */
+    /**
+     * Record a member's death (Actuarial Phase 5). Persists {@code death_date}
+     * + {@code cause_of_death}, then routes through
+     * {@link MemberStatusTransitionService#applyTransition} with
+     * {@code newStatus='deceased'} and {@code reasonCode='member_death'} so the
+     * flip and history row commit atomically per the Phase-13 pathway.
+     *
+     * <p>Validation: {@code deathDate} is required, cannot be in the future,
+     * and cannot be after an existing {@code termination_date} (a death
+     * cannot happen after cover ends). When the member is already
+     * {@code 'deceased'} (idempotent replay) the status flip short-circuits
+     * inside the transition service — the death metadata is still saved
+     * explicitly here so a corrected date/cause updates rather than being
+     * silently discarded.
+     */
+    @Transactional
+    public Mono<Member> recordDeath(UUID id, LocalDate deathDate, String causeOfDeath,
+                                     String actorId, String actorEmail) {
+        if (deathDate == null) {
+            return Mono.error(new IllegalArgumentException("deathDate is required"));
+        }
+        if (deathDate.isAfter(LocalDate.now())) {
+            return Mono.error(new IllegalArgumentException("deathDate cannot be in the future"));
+        }
+        return memberRepository.findById(id)
+            .switchIfEmpty(Mono.error(new MemberNotFoundException(id)))
+            .flatMap(member -> {
+                if (member.getTerminationDate() != null && deathDate.isAfter(member.getTerminationDate())) {
+                    return Mono.<Member>error(new IllegalArgumentException(
+                        "deathDate must be on or before termination_date"));
+                }
+                var previous = copyMember(member);
+                member.setDeathDate(deathDate);
+                member.setCauseOfDeath(causeOfDeath);
+                String reasonNote = String.format("Death recorded (date=%s, cause=%s)",
+                        deathDate, causeOfDeath != null ? causeOfDeath : "unspecified");
+                boolean alreadyDeceased = "deceased".equalsIgnoreCase(previous.getStatus());
+                Mono<Member> save = alreadyDeceased
+                    ? memberRepository.save(member)
+                    : statusTransitionService.applyTransition(
+                            member, "deceased", "member_death", reasonNote,
+                            safeParseUuid(actorId), actorEmail);
+                return save.flatMap(saved -> Mono.deferContextual(ctx -> {
+                    String tenantId = TenantContext.get(ctx);
+                    return publishDeathAudit(tenantId, saved, previous, actorId, actorEmail)
+                        .thenReturn(saved);
+                }));
+            });
+    }
+
     @Transactional
     public Mono<Member> clearBillingOverride(UUID id, String actorId, String actorEmail) {
         return memberRepository.findById(id)
@@ -735,6 +811,8 @@ public class MemberService {
         copy.setStatus(source.getStatus());
         copy.setEnrollmentDate(source.getEnrollmentDate());
         copy.setTerminationDate(source.getTerminationDate());
+        copy.setDeathDate(source.getDeathDate());
+        copy.setCauseOfDeath(source.getCauseOfDeath());
         return copy;
     }
 }

@@ -1,0 +1,159 @@
+<header class="page-header">
+  <div>
+    <h1>{{ pageTitle }}</h1>
+    <p class="page-sub">{{ pageSubtitle }}</p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="!currentJob || currentJob.status !== 'completed'"
+    (click)="exportXlsx()">
+    <app-icon name="download" [size]="14"></app-icon>
+    Export XLSX
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input type="date" class="input" name="periodStart"
+           [(ngModel)]="periodStart" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input type="date" class="input" name="periodEnd"
+           [(ngModel)]="periodEnd" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Insurance line</span>
+    <app-select
+      name="insuranceLine"
+      [ngModel]="insuranceLine"
+      (selectionChange)="onLineChange($event)"
+      [options]="lineOptions"
+      placeholder="All lines"
+      [searchable]="false"></app-select>
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Shape</span>
+    <app-select
+      name="shape"
+      [ngModel]="shape"
+      (selectionChange)="onShapeChange($event)"
+      [options]="shapeOptions"
+      [searchable]="false"></app-select>
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Grain</span>
+    <app-select
+      name="grain"
+      [ngModel]="grain"
+      (selectionChange)="onGrainChange($event)"
+      [options]="grainOptions"
+      [searchable]="false"></app-select>
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      name="reportingCurrency"
+      [ngModel]="reportingCurrency"
+      (selectionChange)="onCurrencyChange($event)"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"></app-select>
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">LDF method</span>
+    <app-select
+      name="ldfMethod"
+      [ngModel]="ldfMethod"
+      (selectionChange)="onLdfMethodChange($event)"
+      [options]="ldfMethodOptions"
+      [searchable]="false"></app-select>
+  </div>
+  <div class="toolbar-cell toolbar-cell-cta">
+    <button type="button" class="btn btn-primary"
+            [disabled]="submitting"
+            (click)="submit()">
+      {{ submitting ? 'Submitting…' : 'Run report' }}
+    </button>
+  </div>
+</div>
+
+@if (currentJob) {
+  <div class="ajp-slot">
+    <app-actuarial-job-progress
+      [status]="currentJob"
+      [startedAt]="startedAt"
+      (cancel)="cancelPolling()"></app-actuarial-job-progress>
+  </div>
+}
+
+@if (shapeWarnings.length) {
+  <div class="banner banner-warning">
+    @for (w of shapeWarnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+@if (result) {
+  <section class="triangle-split">
+    <div class="triangle-matrix" data-testid="triangle-matrix">
+      <h3 class="pane-title">Cumulative triangle</h3>
+      @if (accidentPeriods.length && developmentPeriods.length) {
+        <div class="matrix-scroll">
+          <table class="matrix-table">
+            <thead>
+              <tr>
+                <th class="sticky">Accident</th>
+                @for (dp of developmentPeriods; track dp) {
+                  <th class="num">{{ dp }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of triangleCells; track $index) {
+                <tr>
+                  <th class="sticky">{{ accidentPeriods[$index] }}</th>
+                  @for (cell of row; track $index) {
+                    <td class="num" [ngStyle]="cellStyle(cell, flatCellValues)">
+                      @if (cell != null) {
+                        {{ cell | number:'1.0-0' }}
+                      }
+                    </td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="matrix-empty">Triangle input was not persisted for this job.</p>
+      }
+    </div>
+    <div class="triangle-chart">
+      <h3 class="pane-title">Development factors</h3>
+      <app-line-chart
+        [data]="ldfChartData"
+        [xAxisLabel]="'Development period'"
+        [yAxisLabel]="'LDF'"
+        [legend]="true"
+        [view]="[undefined, 320]"></app-line-chart>
+      <dl class="triangle-summary">
+        <dt>IBNR total</dt>
+        <dd>{{ result.ibnr_total | number:'1.2-2' }}</dd>
+        <dt>Ultimate total</dt>
+        <dd>{{ result.ultimate_total | number:'1.2-2' }}</dd>
+        @if (result.mack_standard_error != null) {
+          <dt>Mack standard error</dt>
+          <dd>{{ result.mack_standard_error | number:'1.2-2' }}</dd>
+        }
+      </dl>
+    </div>
+  </section>
+}

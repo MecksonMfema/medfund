@@ -800,6 +800,58 @@
               *hasPermission="'claims:adjudicate'">
         Cancel
       </button>
+      <button type="button" class="btn btn-default" (click)="openReserveModal()"
+              *hasPermission="'claims:set_reserve'">
+        <app-icon name="dollar-sign" [size]="14"></app-icon>
+        {{ currentReserve ? 'Update reserve' : 'Set reserve' }}
+      </button>
     </div>
+
+    <!-- ── Reserve history (Phase 14 §A actuarial IBNR) ─────────────── -->
+    <section class="card" *hasPermission="'claims:view'">
+      <header class="card-header">
+        <h3>Reserve history</h3>
+        @if (currentReserve) {
+          <span class="muted small">
+            Current: {{ currentReserve.reservedAmount | currencyFormat:claim.currencyCode }}
+          </span>
+        }
+      </header>
+      @if (reserveHistory.length === 0) {
+        <p class="muted small">No reserve has been set for this claim yet.</p>
+      } @else {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Effective at</th>
+              <th class="right">Reserved amount</th>
+              <th>Set by</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of reserveHistory; track row.id) {
+              <tr>
+                <td>{{ row.effectiveAt }}</td>
+                <td class="right">{{ row.reservedAmount | currencyFormat:claim.currencyCode }}</td>
+                <td>{{ row.actorEmail }}</td>
+                <td class="prewrap">{{ row.reasonNote }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </section>
+
+    <app-claim-reserve-modal
+      [open]="reserveModalOpen"
+      [claimNumber]="claim.claimNumber"
+      [currencyCode]="claim.currencyCode"
+      [currentReserve]="currentReserve?.reservedAmount ?? null"
+      [submitting]="reserveSubmitting"
+      [serverError]="reserveError"
+      (cancel)="closeReserveModal()"
+      (submit)="submitReserve($event)"
+    ></app-claim-reserve-modal>
   }
 </div>

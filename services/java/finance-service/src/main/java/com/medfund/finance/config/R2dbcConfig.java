@@ -9,6 +9,7 @@ import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
         "com.medfund.finance.repository",
         "com.medfund.finance.reinsurance.repository",
         "com.medfund.finance.producer.repository",
+        "com.medfund.finance.actuarial.repository",
         "com.medfund.shared.scheduler",
         // NotificationRepository — required wherever JobEventPublisher loads.
         "com.medfund.shared.notification",

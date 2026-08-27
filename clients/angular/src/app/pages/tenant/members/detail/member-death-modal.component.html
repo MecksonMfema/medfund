@@ -1,0 +1,63 @@
+@if (open) {
+  <div class="modal-backdrop" (click)="onCancel()">
+    <div class="modal-card" (click)="$event.stopPropagation()"
+         role="dialog" aria-modal="true" aria-label="Record member death">
+      <h3 class="modal-title">Record death</h3>
+      <p class="modal-message">
+        Record the death of <strong>{{ memberName || 'this member' }}</strong>.
+        The member's status flips to <strong>deceased</strong> and feeds
+        the mortality actuarial study. This is an audited action and
+        cannot be undone from the UI.
+      </p>
+
+      <div class="field">
+        <label for="member-death-date">Date of death</label>
+        <input id="member-death-date"
+               type="date"
+               [max]="maxDeathDate"
+               [(ngModel)]="deathDate"
+               data-testid="member-death-date" />
+        <div class="hint">
+          Must be on or before today
+          @if (terminationDate) { and on or before the termination date ({{ terminationDate }}) }.
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Cause of death (optional)</label>
+        <app-select
+          [options]="causeOptions"
+          [(ngModel)]="causeSelection"
+          placeholder="Select an ICD-10 chapter"
+          data-testid="member-death-cause-select">
+        </app-select>
+        <div class="hint">
+          ICD-10 chapters group causes for the mortality study. Pick
+          "Free text" for anything that doesn't fit a chapter.
+        </div>
+      </div>
+
+      @if (showFreeText) {
+        <div class="field">
+          <label for="member-death-cause-free">Cause (free text)</label>
+          <input id="member-death-cause-free"
+                 type="text"
+                 maxlength="80"
+                 [(ngModel)]="causeFreeText"
+                 data-testid="member-death-cause-free"
+                 placeholder="e.g. accidental — vehicle collision" />
+        </div>
+      }
+
+      @if (error) { <div class="error">{{ error }}</div> }
+
+      <div class="actions">
+        <button type="button" class="btn btn-default" (click)="onCancel()">Cancel</button>
+        <button type="button" class="btn btn-danger" (click)="onSubmit()"
+                data-testid="member-death-submit">
+          Record death
+        </button>
+      </div>
+    </div>
+  </div>
+}

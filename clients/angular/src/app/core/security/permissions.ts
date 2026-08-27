@@ -21,6 +21,7 @@ export type PermissionKey =
   | 'claims:assign'
   | 'claims:view_ctc_payments' | 'claims:commit_ctc_payment'
   | 'claims:request_quote'
+  | 'claims:set_reserve'
   // Billing
   | 'billing:view' | 'billing:manage_schemes' | 'billing:manage_age_groups'
   | 'billing:manage_waiting_periods' | 'billing:manage_groups'
@@ -59,6 +60,7 @@ export type PermissionKey =
   // Members
   | 'members:view' | 'members:create' | 'members:update' | 'members:deactivate'
   | 'members:view_dependants' | 'members:manage_waivers' | 'members:view_history'
+  | 'members:record_death'
   // Providers
   | 'providers:view' | 'providers:create' | 'providers:update'
   | 'providers:manage_contracts'
@@ -66,9 +68,10 @@ export type PermissionKey =
   | 'admin:manage_roles' | 'admin:manage_users' | 'admin:view_audit'
   | 'admin:manage_settings' | 'admin:manage_rules'
   | 'admin.bank_accounts:manage'
-  // Tenant settings (Phase 11 + Phase 12 §C)
+  // Tenant settings (Phase 11 + Phase 12 §C + Phase 14 §Actuarial)
   | 'tenant.settings:manage_auto_lapse'
   | 'tenant.settings:manage_endorsement_config'
+  | 'tenant.settings:manage_actuarial_bases'
   // Underwriting (Phase 12 §A + §C)
   | 'underwriting.portfolio:manage' | 'underwriting.cohort:manage'
   | 'premium.earning:manage_backfill' | 'premium.earning:view_debug'
@@ -112,6 +115,7 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'claims:view_ctc_payments',         label: 'View CTC payments',                description: "View Claims-to-Contributions transfers (member claim payouts credited against the member's own contribution bill)." },
       { key: 'claims:commit_ctc_payment',        label: 'Commit CTC payments',              description: "Commit a Claims-to-Contributions transfer — the member's payable is applied against their contribution bill." },
       { key: 'claims:request_quote',             label: 'Request eligibility quote',        description: 'Request a pre-service cost-share quote for a member.' },
+      { key: 'claims:set_reserve',               label: 'Set claim case reserve',           description: 'Set or update the case reserve on a claim (Phase 14 §A actuarial IBNR incurred-triangle input). Decoupled from adjudicate so tenants can grant reserve-setting to a supervisor role only.' },
     ],
   },
   {
@@ -197,6 +201,7 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'members:view_dependants',          label: 'View dependants',                  description: "Read access to a member's dependants." },
       { key: 'members:manage_waivers',           label: 'Manage special waivers',           description: 'Override benefit limits for individual members.' },
       { key: 'members:view_history',             label: 'View member history',              description: 'View claim, payment, and contribution history for a member.' },
+      { key: 'members:record_death',             label: 'Record member death',              description: "Record a member's death (date + optional ICD-10 chapter or cause note); status flips to 'deceased' and feeds the MORTALITY_STUDY actuarial report." },
     ],
   },
   {
@@ -227,6 +232,7 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
     permissions: [
       { key: 'tenant.settings:manage_auto_lapse',           label: 'Manage auto-lapse settings',        description: 'Enable/disable the auto-lapse chain and configure arrears-threshold-months + grace-window-days (Phase 11 §B).' },
       { key: 'tenant.settings:manage_endorsement_config',   label: 'Manage endorsement four-eyes gate', description: 'Enable/disable the endorsement four-eyes threshold and configure its amount + currency (Phase 12 §C).' },
+      { key: 'tenant.settings:manage_actuarial_bases',      label: 'Manage actuarial basis tables',     description: 'Add, edit, or delete per-tenant persistency / mortality / morbidity basis rows consumed by the actuarial studies (Phase 14 §2).' },
     ],
   },
   {

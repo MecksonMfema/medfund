@@ -1,0 +1,149 @@
+<div class="actuarial-basis-tab" data-testid="persistency-basis-tab">
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+  }
+
+  <section class="section">
+    <header class="section-header">
+      <div>
+        <h3 class="section-title">Persistency curves</h3>
+        <p class="section-sub">
+          Per-line expected-retention checkpoints (e.g. 3m / 6m / 12m). The
+          <code>PERSISTENCY_STUDY</code> report compares actual retention against these
+          expected curves. New tenants are seeded with an industry-default curve
+          per line — edit or add rows below to override.
+        </p>
+      </div>
+      <div class="section-actions">
+        <button type="button" class="btn btn-default" (click)="refresh()" [disabled]="loading">
+          <app-icon name="refresh-cw" [size]="16"></app-icon>
+          Refresh
+        </button>
+        <button type="button" class="btn btn-primary" (click)="openAdd()" [disabled]="addingOpen">
+          <app-icon name="plus" [size]="16"></app-icon>
+          Add row
+        </button>
+      </div>
+    </header>
+
+    @if (loading) {
+      <app-skeleton></app-skeleton>
+    } @else if (rows.length === 0 && !addingOpen) {
+      <p class="empty-state">No persistency basis rows configured for this tenant yet.</p>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Line</th>
+            <th>Cohort months</th>
+            <th>Expected retention</th>
+            <th>Source note</th>
+            <th>Effective from</th>
+            <th>Effective to</th>
+            <th>Updated by</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows; track row.id) {
+            <tr [class.pending]="pendingId === row.id" [class.editing]="row.editing">
+              <td><strong>{{ row.insuranceLine }}</strong></td>
+              <td>{{ row.cohortMonths }}</td>
+              <td>
+                @if (row.editing) {
+                  <input type="number" step="0.0001" min="0" max="1" class="inline-input"
+                         [(ngModel)]="row.draftExpectedRetentionPct" name="edit-pct-{{row.id}}" />
+                } @else {
+                  {{ row.expectedRetentionPct }}
+                }
+              </td>
+              <td>
+                @if (row.editing) {
+                  <input type="text" class="inline-input" maxlength="200"
+                         [(ngModel)]="row.draftSourceNote" name="edit-note-{{row.id}}" />
+                } @else {
+                  {{ row.sourceNote || '—' }}
+                }
+              </td>
+              <td>{{ row.effectiveFrom }}</td>
+              <td>
+                @if (row.editing) {
+                  <input type="date" class="inline-input"
+                         [ngModel]="row.draftEffectiveTo" (ngModelChange)="row.draftEffectiveTo = $event"
+                         name="edit-to-{{row.id}}" />
+                } @else {
+                  {{ row.effectiveTo || '—' }}
+                }
+              </td>
+              <td>{{ row.updatedByEmail || '—' }}</td>
+              <td class="row-actions">
+                @if (row.editing) {
+                  <button type="button" class="link-btn" (click)="saveEdit(row)" [disabled]="pendingId === row.id">
+                    <app-icon name="check" [size]="14"></app-icon> Save
+                  </button>
+                  <button type="button" class="link-btn" (click)="cancelEdit(row)">
+                    <app-icon name="x" [size]="14"></app-icon> Cancel
+                  </button>
+                } @else {
+                  <button type="button" class="link-btn" (click)="startEdit(row)">
+                    <app-icon name="pencil" [size]="14"></app-icon>
+                  </button>
+                  <button type="button" class="link-btn danger" (click)="remove(row)" [disabled]="pendingId === row.id">
+                    <app-icon name="trash-2" [size]="14"></app-icon>
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+
+    @if (addingOpen) {
+      <form class="add-form" (submit)="$event.preventDefault(); add()">
+        <div class="grid">
+          <label class="field">
+            <span class="field-label">Insurance line</span>
+            <app-select
+              [(ngModel)]="newRow.insuranceLine"
+              name="newLine"
+              [options]="insuranceLineOptions"
+              placeholder="Pick a line"
+              required
+            ></app-select>
+          </label>
+          <label class="field">
+            <span class="field-label">Cohort months</span>
+            <input type="number" min="1" max="480" [(ngModel)]="newRow.cohortMonths" name="newCohort" required />
+          </label>
+          <label class="field">
+            <span class="field-label">Expected retention (0.00 – 1.00)</span>
+            <input type="number" step="0.0001" min="0" max="1"
+                   [(ngModel)]="newRow.expectedRetentionPct" name="newPct" required />
+          </label>
+          <label class="field">
+            <span class="field-label">Effective from</span>
+            <input type="date" [ngModel]="newRow.effectiveFrom" (ngModelChange)="newRow.effectiveFrom = $event"
+                   name="newFrom" />
+          </label>
+          <label class="field field-wide">
+            <span class="field-label">Source note</span>
+            <input type="text" maxlength="200"
+                   [ngModel]="newRow.sourceNote" (ngModelChange)="newRow.sourceNote = $event"
+                   name="newSourceNote"
+                   placeholder="e.g. IPEC guidance 2024, internal experience study" />
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" (click)="cancelAdd()" [disabled]="adding">Cancel</button>
+          <button type="submit" class="btn btn-primary" [disabled]="adding">
+            {{ adding ? 'Adding…' : 'Add row' }}
+          </button>
+        </div>
+      </form>
+    }
+  </section>
+</div>

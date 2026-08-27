@@ -205,7 +205,9 @@ public class ClaimsClient {
                             row.approvedAmount(),
                             row.currencyCode(),
                             row.submissionDate() != null
-                                    ? row.submissionDate().atOffset(java.time.ZoneOffset.UTC) : null))
+                                    ? row.submissionDate().atOffset(java.time.ZoneOffset.UTC) : null,
+                            row.serviceDate(),
+                            row.submissionDate()))
                     .toList();
         } catch (Exception e) {
             log.warn("[claims-client] failed to decode /page for backfill: {}", e.getMessage());
@@ -226,7 +228,9 @@ public class ClaimsClient {
             String insuranceLine,
             BigDecimal approvedAmount,
             String currencyCode,
-            OffsetDateTime adjudicatedAt) {}
+            OffsetDateTime adjudicatedAt,
+            LocalDate serviceDate,
+            Instant submissionDate) {}
 
     /**
      * Decodes {@code ReportResponse<List<ClaimsAggregateRow>>} from the raw
@@ -309,5 +313,6 @@ public class ClaimsClient {
             String insuranceLine,
             BigDecimal approvedAmount,
             String currencyCode,
-            Instant submissionDate) {}
+            Instant submissionDate,
+            LocalDate serviceDate) {}
 }

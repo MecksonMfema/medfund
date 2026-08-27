@@ -1,0 +1,23 @@
+# CIDA — Continuous Investigation of Disability Approval rates, South Africa.
+# Source: ASSA Disability Committee "CIDA Investigation Report" (2001-2005 experience,
+# published 2007), Table 2 — sickness incidence per 1000 exposed life-years,
+# insured lives, group scheme business.
+# Widely used as the reference disability incidence basis for SA/SADC group
+# schemes. Values are incidence per 1000 lives per year.
+name: CIDA
+display_name: CIDA (SA Continuous Investigation of Disability, 2001)
+category: morbidity
+jurisdiction_hints: [ZA, ZW, NA, BW]
+default_line: HEALTH
+source: "ASSA CIDA Investigation Report 2007, Table 2"
+incidence:
+  20:  {male: 1.2,  female: 1.5}
+  25:  {male: 1.5,  female: 2.0}
+  30:  {male: 1.9,  female: 2.7}
+  35:  {male: 2.5,  female: 3.5}
+  40:  {male: 3.4,  female: 4.6}
+  45:  {male: 4.8,  female: 6.1}
+  50:  {male: 6.9,  female: 8.2}
+  55:  {male: 10.2, female: 11.0}
+  60:  {male: 15.1, female: 14.8}
+  65:  {male: 22.0, female: 19.5}

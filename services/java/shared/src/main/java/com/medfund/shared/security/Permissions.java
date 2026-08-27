@@ -47,6 +47,9 @@ public final class Permissions {
     public static final String CLAIMS_VIEW_CTC_PAYMENTS          = "claims:view_ctc_payments";
     public static final String CLAIMS_COMMIT_CTC_PAYMENT         = "claims:commit_ctc_payment";
     public static final String CLAIMS_REQUEST_QUOTE              = "claims:request_quote";
+    /** Set or update the case reserve on a claim (Phase 14 §A actuarial IBNR incurred-triangle input).
+     *  Decoupled from {@link #CLAIMS_ADJUDICATE} so tenants can grant reserve-setting to a supervisor role only. */
+    public static final String CLAIMS_SET_RESERVE                = "claims:set_reserve";
 
     // ── Billing ──────────────────────────────────────────────────────────────
     public static final String BILLING_VIEW                      = "billing:view";
@@ -134,6 +137,8 @@ public final class Permissions {
     public static final String MEMBERS_VIEW_DEPENDANTS           = "members:view_dependants";
     public static final String MEMBERS_MANAGE_WAIVERS            = "members:manage_waivers";
     public static final String MEMBERS_VIEW_HISTORY              = "members:view_history";
+    /** Record a member's death — Phase 5 of the actuarial module (feeds MORTALITY_STUDY exposure). */
+    public static final String MEMBERS_RECORD_DEATH              = "members:record_death";
 
     // ── Providers ────────────────────────────────────────────────────────────
     public static final String PROVIDERS_VIEW                    = "providers:view";
@@ -153,6 +158,8 @@ public final class Permissions {
     public static final String TENANT_SETTINGS_MANAGE_AUTO_LAPSE = "tenant.settings:manage_auto_lapse";
     /** Enable/disable the endorsement four-eyes gate and configure its threshold (Phase 12 §C). */
     public static final String TENANT_SETTINGS_MANAGE_ENDORSEMENT_CONFIG = "tenant.settings:manage_endorsement_config";
+    /** Manage the per-tenant persistency / mortality / morbidity basis tables consumed by the actuarial studies (Phase 14 §2). */
+    public static final String TENANT_SETTINGS_MANAGE_ACTUARIAL_BASES    = "tenant.settings:manage_actuarial_bases";
 
     // ── Underwriting (Phase 12 §A) ──────────────────────────────────────────
     public static final String UNDERWRITING_PORTFOLIO_MANAGE     = "underwriting.portfolio:manage";
@@ -186,6 +193,7 @@ public final class Permissions {
             CLAIMS_MANAGE_VERIFICATION_CODES, CLAIMS_ASSIGN,
             CLAIMS_VIEW_CTC_PAYMENTS, CLAIMS_COMMIT_CTC_PAYMENT,
             CLAIMS_REQUEST_QUOTE,
+            CLAIMS_SET_RESERVE,
 
             BILLING_VIEW, BILLING_MANAGE_SCHEMES, BILLING_MANAGE_AGE_GROUPS,
             BILLING_MANAGE_WAITING_PERIODS, BILLING_MANAGE_GROUPS, BILLING_MANAGE_DEPENDANTS,
@@ -217,12 +225,14 @@ public final class Permissions {
 
             MEMBERS_VIEW, MEMBERS_CREATE, MEMBERS_UPDATE, MEMBERS_DEACTIVATE,
             MEMBERS_VIEW_DEPENDANTS, MEMBERS_MANAGE_WAIVERS, MEMBERS_VIEW_HISTORY,
+            MEMBERS_RECORD_DEATH,
 
             PROVIDERS_VIEW, PROVIDERS_CREATE, PROVIDERS_UPDATE, PROVIDERS_MANAGE_CONTRACTS,
 
             ADMIN_MANAGE_ROLES, ADMIN_MANAGE_USERS, ADMIN_VIEW_AUDIT,
             ADMIN_MANAGE_SETTINGS, ADMIN_MANAGE_RULES, ADMIN_BANK_ACCOUNTS_MANAGE,
             TENANT_SETTINGS_MANAGE_AUTO_LAPSE, TENANT_SETTINGS_MANAGE_ENDORSEMENT_CONFIG,
+            TENANT_SETTINGS_MANAGE_ACTUARIAL_BASES,
 
             UNDERWRITING_PORTFOLIO_MANAGE, UNDERWRITING_COHORT_MANAGE,
             PREMIUM_EARNING_MANAGE_BACKFILL, PREMIUM_EARNING_VIEW_DEBUG,

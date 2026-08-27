@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Flyway-only integration test: boots a fresh Postgres via Testcontainers,
@@ -138,6 +139,22 @@ class TenantMigrationFlywayIT {
                     "member_id", "from_status", "to_status",
                     "effective_at", "actor_id", "actor_email", "reason_code", "reason_note"));
             assertColumns(conn, "tenant_it", "providers", List.of("network_tier"));
+
+            // Phase 14 §A/B/D — V139 claim_reserve_history + V140 member death columns
+            // + V141 actuarial_report_job.
+            assertColumns(conn, "tenant_it", "claim_reserve_history", List.of(
+                    "id", "claim_id", "reserved_amount", "effective_at",
+                    "actor_id", "actor_email", "reason_note", "created_at"));
+            assertIndexExists(conn, "tenant_it", "idx_crh_claim_time");
+
+            assertColumns(conn, "tenant_it", "members", List.of("death_date", "cause_of_death"));
+
+            assertColumns(conn, "tenant_it", "actuarial_report_job", List.of(
+                    "job_id", "tenant_id", "report_key", "status",
+                    "params_json", "params_hash", "result_json", "error_message",
+                    "requested_at", "completed_at", "requested_by", "requested_by_email"));
+            assertIndexExists(conn, "tenant_it", "idx_arj_lookup");
+            assertIndexExists(conn, "tenant_it", "ux_arj_inflight");
 
             // V107 — MISC portfolio seeded on every fresh tenant.
             try (PreparedStatement ps = conn.prepareStatement(
@@ -693,6 +710,61 @@ class TenantMigrationFlywayIT {
                             .as("Active rows keep effective_date null")
                             .isNull();
                 }
+            }
+        }
+    }
+
+    /**
+     * V141 append-only guard: once a row lands in a terminal status
+     * (completed/failed), subsequent UPDATEs must raise. Seeds a job row,
+     * transitions to completed, then attempts a second UPDATE and asserts
+     * the trigger fires. Protects the audit-trail invariant per A16 +
+     * Grill note 21 — a consumer bug that tried to rewrite the row would
+     * be silent otherwise.
+     */
+    @Test
+    void v141_actuarialReportJob_appendOnlyAfterTerminalStatus() throws Exception {
+        String schema = "tenant_v141_append_only_it";
+
+        Flyway flyway = Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .locations("classpath:db/migration/tenant")
+                .schemas(schema)
+                .createSchemas(true)
+                .load();
+        flyway.migrate();
+
+        try (Connection conn = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
+            String jobId;
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO " + schema + ".actuarial_report_job " +
+                    "  (tenant_id, report_key, status, params_json, params_hash, requested_by_email) " +
+                    "  VALUES (gen_random_uuid(), 'IBNR_TRIANGLE', 'requested', '{}'::jsonb, 'h1', 'it@test') " +
+                    "  RETURNING job_id")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    jobId = rs.getString(1);
+                }
+            }
+
+            // First terminal write from 'requested' → 'completed' — permitted.
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE " + schema + ".actuarial_report_job " +
+                    "   SET status = 'completed', completed_at = NOW(), result_json = '{\"k\":1}'::jsonb " +
+                    " WHERE job_id = ?::uuid")) {
+                ps.setString(1, jobId);
+                assertThat(ps.executeUpdate()).isEqualTo(1);
+            }
+
+            // Second UPDATE must raise via the trigger.
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE " + schema + ".actuarial_report_job " +
+                    "   SET result_json = '{\"k\":2}'::jsonb WHERE job_id = ?::uuid")) {
+                ps.setString(1, jobId);
+                assertThatThrownBy(ps::executeUpdate)
+                        .isInstanceOf(java.sql.SQLException.class)
+                        .hasMessageContaining("append-only after terminal status");
             }
         }
     }

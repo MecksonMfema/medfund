@@ -30,7 +30,7 @@ import java.util.List;
 public class PersistencyCohortReportService {
 
     private static final Duration STALENESS_LIMIT = Duration.ofHours(24);
-    static final List<Integer> DEFAULT_CHECKPOINTS = List.of(6, 12, 24);
+    public static final List<Integer> DEFAULT_CHECKPOINTS = List.of(6, 12, 24);
 
     private final PolicyLifecycleReportQueryRepository queryRepository;
     private final ReportEnvelopeBuilder envelopeBuilder;
