@@ -1,0 +1,158 @@
+<header class="page-header">
+  <div>
+    <h1>{{ pageTitle }}</h1>
+    <p class="page-sub">{{ pageSubtitle }}</p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="!currentJob || currentJob.status !== 'completed'"
+    (click)="exportXlsx()">
+    <app-icon name="download" [size]="14"></app-icon>
+    Export XLSX
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input type="date" class="input" name="periodStart"
+           [(ngModel)]="periodStart" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input type="date" class="input" name="periodEnd"
+           [(ngModel)]="periodEnd" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Insurance line</span>
+    <app-select
+      name="insuranceLine"
+      [ngModel]="insuranceLine"
+      (selectionChange)="onLineChange($event)"
+      [options]="lineOptions"
+      placeholder="All lines"
+      [searchable]="false"></app-select>
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Basis override</span>
+    <app-select
+      name="basisNameOverride"
+      [ngModel]="basisNameOverride"
+      (selectionChange)="onBasisChange($event)"
+      [options]="basisOptions"
+      placeholder="Tenant configured basis"
+      [searchable]="false"></app-select>
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Multiplier override</span>
+    <input type="number" class="input" name="multiplierOverride"
+           step="0.01" min="0.01"
+           [(ngModel)]="multiplierOverride"
+           placeholder="Tenant default" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      name="reportingCurrency"
+      [ngModel]="reportingCurrency"
+      (selectionChange)="onCurrencyChange($event)"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"></app-select>
+  </div>
+  <div class="toolbar-cell toolbar-cell-cta">
+    <button type="button" class="btn btn-primary"
+            [disabled]="submitting"
+            (click)="submit()">
+      {{ submitting ? 'Submitting…' : 'Run report' }}
+    </button>
+  </div>
+</div>
+
+@if (currentJob) {
+  <div class="ajp-slot">
+    <app-actuarial-job-progress
+      [status]="currentJob"
+      [startedAt]="startedAt"
+      (cancel)="cancelPolling()"></app-actuarial-job-progress>
+  </div>
+}
+
+@if (shapeWarnings.length || resultWarnings.length) {
+  <div class="banner banner-warning">
+    @for (w of shapeWarnings; track w) {
+      <div>{{ w }}</div>
+    }
+    @for (w of resultWarnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+@if (result) {
+  @if (resultLines.length === 0) {
+    <p class="matrix-empty">No exposure landed in the requested period.</p>
+  }
+  @for (line of resultLines; track line) {
+    <section class="triangle-split morbidity-line">
+      <div class="triangle-matrix" data-testid="morbidity-matrix">
+        <h3 class="pane-title">
+          {{ line }} — A/E by age band × sex
+          <small class="pane-sub">
+            basis: {{ lineResult(line)?.basis_name }} × {{ lineResult(line)?.multiplier | number:'1.3-3' }}
+          </small>
+        </h3>
+        <div class="matrix-scroll">
+          <table class="matrix-table">
+            <thead>
+              <tr>
+                <th class="sticky">Age band</th>
+                <th class="num">Sex</th>
+                <th class="num">Exposure yrs</th>
+                <th class="num">Observed incidents</th>
+                <th class="num">Expected incidents</th>
+                <th class="num">Actual /1000</th>
+                <th class="num">Expected /1000</th>
+                <th class="num">A/E</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of rowsFor(line); track row.age_band + ':' + row.sex) {
+                <tr>
+                  <th class="sticky">{{ row.age_band }}</th>
+                  <td class="num">{{ row.sex }}</td>
+                  <td class="num">{{ row.exposure_years | number:'1.0-0' }}</td>
+                  <td class="num">{{ row.observed_incidents }}</td>
+                  <td class="num">{{ row.expected_incidents | number:'1.2-2' }}</td>
+                  <td class="num">{{ row.actual_morbidity_rate * 1000 | number:'1.3-3' }}</td>
+                  <td class="num">{{ row.expected_morbidity_rate * 1000 | number:'1.3-3' }}</td>
+                  <td class="num" [ngStyle]="aeCellStyle(row)">
+                    @if (row.ae_ratio != null) {
+                      {{ row.ae_ratio | number:'1.3-3' }}
+                    } @else {
+                      —
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="triangle-chart">
+        <h3 class="pane-title">Actual vs expected (rate per 1000)</h3>
+        <app-line-chart
+          [data]="morbidityChartData(line)"
+          [xAxisLabel]="'Age band'"
+          [yAxisLabel]="'Morbidity per 1000'"
+          [legend]="true"
+          [view]="[undefined, 320]"></app-line-chart>
+      </div>
+    </section>
+  }
+}

@@ -34,6 +34,35 @@ export interface PersistencyStudyJobRequest {
   reportingCurrency?: string | null;
 }
 
+/** Request body for {@code POST /reports/actuarial/lapse-study}. */
+export interface LapseStudyJobRequest {
+  periodStart: string;
+  periodEnd: string;
+  checkpoints?: number[] | null;
+  insuranceLine?: string | null;
+  reportingCurrency?: string | null;
+}
+
+/** Request body for {@code POST /reports/actuarial/mortality-study}. */
+export interface MortalityStudyJobRequest {
+  periodStart: string;
+  periodEnd: string;
+  insuranceLine?: string | null;
+  basisNameOverride?: string | null;
+  multiplierOverride?: number | null;
+  reportingCurrency?: string | null;
+}
+
+/** Request body for {@code POST /reports/actuarial/morbidity-study}. */
+export interface MorbidityStudyJobRequest {
+  periodStart: string;
+  periodEnd: string;
+  insuranceLine?: string | null;
+  basisNameOverride?: string | null;
+  multiplierOverride?: number | null;
+  reportingCurrency?: string | null;
+}
+
 /** Row shape published by the ai-service persistency compute. */
 export interface PersistencyResultRow {
   cohort_month: string;
@@ -50,6 +79,90 @@ export interface PersistencyResult {
   warnings: string[];
 }
 
+/** Row shape published by the ai-service lapse compute. */
+export interface LapseResultRow {
+  cohort_month: string;
+  checkpoint_months: number;
+  cohort_size: number;
+  lapsed_count: number;
+  actual_lapse_pct: number;
+  expected_lapse_pct: number | null;
+  ae_ratio: number | null;
+}
+
+export interface LapseResult {
+  per_line: Record<string, LapseResultRow[]>;
+  warnings: string[];
+}
+
+/** Row shape published by the ai-service mortality compute. */
+export interface MortalityResultRow {
+  age_band: string;
+  sex: string;
+  exposure_years: number;
+  observed_deaths: number;
+  expected_deaths: number;
+  actual_mortality_rate: number;
+  expected_mortality_rate: number;
+  ae_ratio: number | null;
+}
+
+/** Per-line envelope from the ai-service mortality compute. */
+export interface MortalityLineResult {
+  basis_name: string;
+  multiplier: number;
+  rows: MortalityResultRow[];
+}
+
+export interface MortalityResult {
+  per_line: Record<string, MortalityLineResult>;
+  warnings: string[];
+}
+
+/** Exposure input carried on {@code paramsJson.exposure} for the mortality job. */
+export interface MortalityExposurePayload {
+  cohorts: Array<{
+    insurance_line: string;
+    basis_name: string;
+    multiplier: number;
+    bands: Array<{ age_band: string; sex: string; exposure_years: number; deaths: number }>;
+  }>;
+}
+
+/** Row shape published by the ai-service morbidity compute. */
+export interface MorbidityResultRow {
+  age_band: string;
+  sex: string;
+  exposure_years: number;
+  observed_incidents: number;
+  expected_incidents: number;
+  actual_morbidity_rate: number;
+  expected_morbidity_rate: number;
+  ae_ratio: number | null;
+}
+
+/** Per-line envelope from the ai-service morbidity compute. */
+export interface MorbidityLineResult {
+  basis_name: string;
+  multiplier: number;
+  rows: MorbidityResultRow[];
+}
+
+export interface MorbidityResult {
+  per_line: Record<string, MorbidityLineResult>;
+  warnings: string[];
+}
+
+/** Exposure input carried on {@code paramsJson.exposure} for the morbidity job. */
+export interface MorbidityExposurePayload {
+  cohorts: Array<{
+    insurance_line: string;
+    basis_name: string;
+    multiplier: number;
+    bands: Array<{ age_band: string; sex: string; exposure_years: number; incidents: number }>;
+  }>;
+}
+
 /** Cohort input carried on {@code paramsJson.cohort} for the persistency job. */
 export interface PersistencyCohortPayload {
   cohorts: Array<{
@@ -57,6 +170,20 @@ export interface PersistencyCohortPayload {
     insurance_line: string;
     cohort_size: number;
     checkpoints: Array<{ months: number; retained_count: number }>;
+  }>;
+  expected_basis: Record<
+    string,
+    Array<{ cohort_months: number; expected_retention_pct: number }>
+  >;
+}
+
+/** Cohort input carried on {@code paramsJson.cohort} for the lapse job. */
+export interface LapseCohortPayload {
+  cohorts: Array<{
+    cohort_month: string;
+    insurance_line: string;
+    cohort_size: number;
+    checkpoints: Array<{ months: number; still_active: number }>;
   }>;
   expected_basis: Record<
     string,
@@ -112,7 +239,10 @@ export interface JobParams {
   ldfMethod?: string;
   checkpoints?: number[];
   triangle?: TrianglePayload;
-  cohort?: PersistencyCohortPayload;
+  cohort?: PersistencyCohortPayload | LapseCohortPayload;
+  exposure?: MortalityExposurePayload | MorbidityExposurePayload;
+  basisNameOverride?: string;
+  multiplierOverride?: string;
   shape_warnings?: string[];
 }
 
@@ -142,6 +272,18 @@ export class ActuarialReportsService {
 
   submitPersistencyStudy(body: PersistencyStudyJobRequest): Observable<JobSubmissionResponse> {
     return this.api.post<JobSubmissionResponse>('/reports/actuarial/persistency-study', body);
+  }
+
+  submitLapseStudy(body: LapseStudyJobRequest): Observable<JobSubmissionResponse> {
+    return this.api.post<JobSubmissionResponse>('/reports/actuarial/lapse-study', body);
+  }
+
+  submitMortalityStudy(body: MortalityStudyJobRequest): Observable<JobSubmissionResponse> {
+    return this.api.post<JobSubmissionResponse>('/reports/actuarial/mortality-study', body);
+  }
+
+  submitMorbidityStudy(body: MorbidityStudyJobRequest): Observable<JobSubmissionResponse> {
+    return this.api.post<JobSubmissionResponse>('/reports/actuarial/morbidity-study', body);
   }
 
   status(jobId: string): Observable<JobStatusResponse> {

@@ -89,5 +89,17 @@ public enum RuleCategory {
      * ({@code MONTHLY_24THS}, {@code LINEAR_WITH_LOADING:<pct>}) based on
      * the {@code PremiumFact} shape (line, product code, coverage window).
      */
-    PREMIUM_EARNING
+    PREMIUM_EARNING,
+
+    // ── Actuarial ────────────────────────────────────────────────────────────
+    /**
+     * Loss-development-factor selection for IBNR / loss-triangle reports.
+     * Agenda-gated — finance-service's {@code TriangleShapingService} focuses
+     * this group before building the shaped triangle so actuarial rules
+     * never fire during the stage-7 tenant sweep. The default LDF method
+     * is {@code volume}; rules in this category route a triangle to a
+     * specific method ({@code simple}, {@code 5yr}) based on the
+     * {@code TriangleFact} shape (line, currency, period).
+     */
+    ACTUARIAL
 }

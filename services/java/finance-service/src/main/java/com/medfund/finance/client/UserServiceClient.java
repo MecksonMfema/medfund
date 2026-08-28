@@ -78,6 +78,80 @@ public class UserServiceClient {
     }
 
     /**
+     * GET {@code /api/v1/reports/policy-lifecycle/mortality-exposure-feed}.
+     * Returns one row per (ageBand, sex) with exposure-years + deaths
+     * aggregated over the requested window; the shaping service pivots
+     * this into the MORTALITY_STUDY exposure payload for the Python
+     * compute.
+     */
+    public Mono<List<MortalityExposureFeedRow>> mortalityExposureFeed(
+            LocalDate periodStart, LocalDate periodEnd, String insuranceLine) {
+        return Mono.deferContextual(ctx -> {
+            String tenantId = TenantContext.get(ctx);
+            return http.get()
+                    .uri(uri -> {
+                        var b = uri.path("/api/v1/reports/policy-lifecycle/mortality-exposure-feed")
+                                .queryParam("periodStart", periodStart.toString())
+                                .queryParam("periodEnd",   periodEnd.toString());
+                        if (insuranceLine != null && !insuranceLine.isBlank()) {
+                            b = b.queryParam("insuranceLine", insuranceLine);
+                        }
+                        return b.build();
+                    })
+                    .header("X-Tenant-ID", tenantId != null ? tenantId : "")
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .map(this::decodeMortality);
+        });
+    }
+
+    private List<MortalityExposureFeedRow> decodeMortality(String body) {
+        try {
+            return objectMapper.readValue(body, new TypeReference<List<MortalityExposureFeedRow>>() {});
+        } catch (Exception e) {
+            log.warn("[user-service] failed to decode mortality-exposure-feed body: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
+     * GET {@code /api/v1/reports/policy-lifecycle/morbidity-incidence-feed}.
+     * Returns one row per (ageBand, sex) with exposure-years + incidents
+     * (illness / disability / hospitalization onsets) aggregated over the
+     * requested window; the shaping service pivots this into the
+     * MORBIDITY_STUDY exposure payload for the Python compute.
+     */
+    public Mono<List<MorbidityExposureFeedRow>> morbidityIncidenceFeed(
+            LocalDate periodStart, LocalDate periodEnd, String insuranceLine) {
+        return Mono.deferContextual(ctx -> {
+            String tenantId = TenantContext.get(ctx);
+            return http.get()
+                    .uri(uri -> {
+                        var b = uri.path("/api/v1/reports/policy-lifecycle/morbidity-incidence-feed")
+                                .queryParam("periodStart", periodStart.toString())
+                                .queryParam("periodEnd",   periodEnd.toString());
+                        if (insuranceLine != null && !insuranceLine.isBlank()) {
+                            b = b.queryParam("insuranceLine", insuranceLine);
+                        }
+                        return b.build();
+                    })
+                    .header("X-Tenant-ID", tenantId != null ? tenantId : "")
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .map(this::decodeMorbidity);
+        });
+    }
+
+    private List<MorbidityExposureFeedRow> decodeMorbidity(String body) {
+        try {
+            return objectMapper.readValue(body, new TypeReference<List<MorbidityExposureFeedRow>>() {});
+        } catch (Exception e) {
+            log.warn("[user-service] failed to decode morbidity-incidence-feed body: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
      * Wire shape for a single cohort row — matches
      * {@code com.medfund.user.reports.lifecycle.dto.PersistencyCohortRow} on
      * the user-service side. Kept local to avoid a shared-module coupling.
@@ -89,5 +163,29 @@ public class UserServiceClient {
             long cohortSize,
             long stillActive,
             BigDecimal retentionRate
+    ) {}
+
+    /**
+     * Wire shape for the mortality exposure feed — matches
+     * {@code com.medfund.user.reports.lifecycle.dto.MortalityExposureRow}
+     * on the user-service side.
+     */
+    public record MortalityExposureFeedRow(
+            String ageBand,
+            String sex,
+            double exposureYears,
+            long deaths
+    ) {}
+
+    /**
+     * Wire shape for the morbidity incidence feed — matches
+     * {@code com.medfund.user.reports.lifecycle.dto.MorbidityExposureRow}
+     * on the user-service side.
+     */
+    public record MorbidityExposureFeedRow(
+            String ageBand,
+            String sex,
+            double exposureYears,
+            long incidents
     ) {}
 }

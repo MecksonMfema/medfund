@@ -3,6 +3,9 @@ package com.medfund.finance.actuarial.controller;
 import com.medfund.finance.actuarial.dto.IbnrJobRequest;
 import com.medfund.finance.actuarial.dto.JobStatusResponse;
 import com.medfund.finance.actuarial.dto.JobSubmissionResponse;
+import com.medfund.finance.actuarial.dto.LapseStudyJobRequest;
+import com.medfund.finance.actuarial.dto.MorbidityStudyJobRequest;
+import com.medfund.finance.actuarial.dto.MortalityStudyJobRequest;
 import com.medfund.finance.actuarial.dto.PersistencyStudyJobRequest;
 import com.medfund.finance.actuarial.service.ActuarialJobService;
 import com.medfund.finance.actuarial.service.ActuarialXlsxService;
@@ -102,6 +105,75 @@ public class ActuarialReportController {
                         "Tenant context missing on request"));
             }
             return jobService.submitPersistencyStudy(body, tenantId,
+                            AuditActor.id(jwt), AuditActor.email(jwt))
+                    .map(resp -> ResponseEntity.status(HttpStatus.CREATED).body(resp));
+        });
+    }
+
+    @PostMapping("/lapse-study")
+    @RequiresReport(ReportKey.LAPSE_STUDY)
+    @Operation(summary = "Submit a lapse study job",
+            description = "Reuses the persistency cohort feed and the tenant's expected retention "
+                        + "basis — but computes the complement (lapse = cohort_size − still_active) "
+                        + "and A/E against expected lapse (1 − expected retention). Async — POST "
+                        + "returns jobId; poll /jobs/{jobId}.")
+    @ApiResponse(responseCode = "201", description = "Job submitted (or existing in-flight duplicate reused)")
+    public Mono<ResponseEntity<JobSubmissionResponse>> submitLapseStudy(
+            @Valid @RequestBody LapseStudyJobRequest body,
+            @AuthenticationPrincipal Jwt jwt) {
+        return Mono.deferContextual(ctx -> {
+            UUID tenantId = resolveTenant(ctx);
+            if (tenantId == null) {
+                return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Tenant context missing on request"));
+            }
+            return jobService.submitLapseStudy(body, tenantId,
+                            AuditActor.id(jwt), AuditActor.email(jwt))
+                    .map(resp -> ResponseEntity.status(HttpStatus.CREATED).body(resp));
+        });
+    }
+
+    @PostMapping("/mortality-study")
+    @RequiresReport(ReportKey.MORTALITY_STUDY)
+    @Operation(summary = "Submit a mortality study job",
+            description = "Aggregates member exposure (age_band × sex × exposure-years × deaths) "
+                        + "over the requested window, resolves the tenant's mortality basis "
+                        + "table + multiplier, and computes actual-vs-expected mortality per "
+                        + "age band. Async — POST returns jobId; poll /jobs/{jobId}.")
+    @ApiResponse(responseCode = "201", description = "Job submitted (or existing in-flight duplicate reused)")
+    public Mono<ResponseEntity<JobSubmissionResponse>> submitMortalityStudy(
+            @Valid @RequestBody MortalityStudyJobRequest body,
+            @AuthenticationPrincipal Jwt jwt) {
+        return Mono.deferContextual(ctx -> {
+            UUID tenantId = resolveTenant(ctx);
+            if (tenantId == null) {
+                return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Tenant context missing on request"));
+            }
+            return jobService.submitMortalityStudy(body, tenantId,
+                            AuditActor.id(jwt), AuditActor.email(jwt))
+                    .map(resp -> ResponseEntity.status(HttpStatus.CREATED).body(resp));
+        });
+    }
+
+    @PostMapping("/morbidity-study")
+    @RequiresReport(ReportKey.MORBIDITY_STUDY)
+    @Operation(summary = "Submit a morbidity study job",
+            description = "Aggregates member exposure (age_band × sex × exposure-years × incidents) "
+                        + "over the requested window, resolves the tenant's morbidity basis "
+                        + "table + multiplier, and computes actual-vs-expected morbidity per "
+                        + "age band. Async — POST returns jobId; poll /jobs/{jobId}.")
+    @ApiResponse(responseCode = "201", description = "Job submitted (or existing in-flight duplicate reused)")
+    public Mono<ResponseEntity<JobSubmissionResponse>> submitMorbidityStudy(
+            @Valid @RequestBody MorbidityStudyJobRequest body,
+            @AuthenticationPrincipal Jwt jwt) {
+        return Mono.deferContextual(ctx -> {
+            UUID tenantId = resolveTenant(ctx);
+            if (tenantId == null) {
+                return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Tenant context missing on request"));
+            }
+            return jobService.submitMorbidityStudy(body, tenantId,
                             AuditActor.id(jwt), AuditActor.email(jwt))
                     .map(resp -> ResponseEntity.status(HttpStatus.CREATED).body(resp));
         });

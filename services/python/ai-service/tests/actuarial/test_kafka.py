@@ -226,6 +226,35 @@ async def test_persistency_study_dispatches_via_cohort_branch():
 
 
 @pytest.mark.asyncio
+async def test_lapse_study_dispatches_via_cohort_branch():
+    body = _requested(
+        report_key="LAPSE_STUDY",
+        job_id="job-lapse",
+        triangle=None,
+    )
+    body["cohort"] = {
+        "cohorts": [{
+            "cohort_month": "2024-01", "insurance_line": "HEALTH",
+            "cohort_size": 100,
+            "checkpoints": [{"months": 3, "still_active": 90}],
+        }],
+        "expected_basis": {
+            "HEALTH": [{"cohort_months": 3, "expected_retention_pct": 0.90}],
+        },
+    }
+    runner, consumer, producer = _make_runner([body])
+    await _drive(runner)
+    assert consumer.commits == 1
+    payload = producer.sent[0][1]
+    assert payload["status"] == "completed"
+    assert payload["report_key"] == "LAPSE_STUDY"
+    per_line = payload["result_json"]["per_line"]
+    assert "HEALTH" in per_line and len(per_line["HEALTH"]) == 1
+    # 10/100 actual lapse vs 0.10 expected lapse → A/E = 1.0.
+    assert per_line["HEALTH"][0]["ae_ratio"] == pytest.approx(1.0, rel=1e-6)
+
+
+@pytest.mark.asyncio
 async def test_persistency_missing_cohort_publishes_failed():
     body = _requested(report_key="PERSISTENCY_STUDY", triangle=None)
     body["cohort"] = None
@@ -275,16 +304,102 @@ async def test_compute_error_publishes_failed_and_commits():
 
 @pytest.mark.asyncio
 async def test_unknown_report_key_publishes_failed():
-    # MORTALITY_STUDY lands in Phase 13; until then it hits the runner's
-    # NotImplementedError branch, which is what this test pins.
+    # All six actuarial ReportKeys land through Phases 7-14. This test uses
+    # a fabricated unknown key to pin the runner's NotImplementedError
+    # branch — it must reject anything outside the wired set with a durable
+    # failed envelope, not silently accept.
     runner, consumer, producer = _make_runner(
-        [_requested(report_key="MORTALITY_STUDY")]
+        [_requested(report_key="NOT_A_REAL_KEY")]
     )
     await _drive(runner)
     assert consumer.commits == 1
     payload = producer.sent[0][1]
     assert payload["status"] == "failed"
     assert "not yet wired" in payload["error_message"]
+
+
+@pytest.mark.asyncio
+async def test_mortality_study_dispatches_via_exposure_branch():
+    body = _requested(
+        report_key="MORTALITY_STUDY",
+        job_id="job-mortality",
+        triangle=None,
+    )
+    body["exposure"] = {
+        "cohorts": [{
+            "insurance_line": "LIFE",
+            "basis_name": "A1949_52",
+            "multiplier": 1.0,
+            "bands": [
+                {"age_band": "30-34", "sex": "male",
+                 "exposure_years": 100_000.0, "deaths": 234},
+            ],
+        }],
+    }
+    runner, consumer, producer = _make_runner([body])
+    await _drive(runner)
+    assert consumer.commits == 1
+    payload = producer.sent[0][1]
+    assert payload["status"] == "completed"
+    assert payload["report_key"] == "MORTALITY_STUDY"
+    per_line = payload["result_json"]["per_line"]
+    assert "LIFE" in per_line
+    row = per_line["LIFE"]["rows"][0]
+    assert row["ae_ratio"] == pytest.approx(1.0, rel=1e-6)
+
+
+@pytest.mark.asyncio
+async def test_mortality_missing_exposure_publishes_failed():
+    body = _requested(report_key="MORTALITY_STUDY", triangle=None)
+    body["exposure"] = None
+    runner, consumer, producer = _make_runner([body])
+    await _drive(runner)
+    assert consumer.commits == 1
+    envelope = producer.sent[0][1]
+    assert envelope["status"] == "failed"
+    assert "exposure" in envelope["error_message"]
+
+
+@pytest.mark.asyncio
+async def test_morbidity_study_dispatches_via_exposure_branch():
+    body = _requested(
+        report_key="MORBIDITY_STUDY",
+        job_id="job-morbidity",
+        triangle=None,
+    )
+    body["exposure"] = {
+        "cohorts": [{
+            "insurance_line": "HEALTH",
+            "basis_name": "CIDA",
+            "multiplier": 1.0,
+            "bands": [
+                {"age_band": "30-34", "sex": "male",
+                 "exposure_years": 100_000.0, "incidents": 214},
+            ],
+        }],
+    }
+    runner, consumer, producer = _make_runner([body])
+    await _drive(runner)
+    assert consumer.commits == 1
+    payload = producer.sent[0][1]
+    assert payload["status"] == "completed"
+    assert payload["report_key"] == "MORBIDITY_STUDY"
+    per_line = payload["result_json"]["per_line"]
+    assert "HEALTH" in per_line
+    row = per_line["HEALTH"]["rows"][0]
+    assert row["ae_ratio"] == pytest.approx(1.0, rel=1e-6)
+
+
+@pytest.mark.asyncio
+async def test_morbidity_missing_exposure_publishes_failed():
+    body = _requested(report_key="MORBIDITY_STUDY", triangle=None)
+    body["exposure"] = None
+    runner, consumer, producer = _make_runner([body])
+    await _drive(runner)
+    assert consumer.commits == 1
+    envelope = producer.sent[0][1]
+    assert envelope["status"] == "failed"
+    assert "exposure" in envelope["error_message"]
 
 
 @pytest.mark.asyncio

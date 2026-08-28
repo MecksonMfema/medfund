@@ -35,6 +35,9 @@ from app.actuarial.events import (
     ActuarialJobCompletedEvent,
     ActuarialJobRequestedEvent,
 )
+from app.actuarial.lapse import compute_from_dict as compute_lapse
+from app.actuarial.morbidity import compute_from_dict as compute_morbidity
+from app.actuarial.mortality import compute_from_dict as compute_mortality
 from app.actuarial.persistency import compute_from_dict as compute_persistency
 
 log = logging.getLogger(__name__)
@@ -45,7 +48,8 @@ WARN_KB = 800
 REJECT_KB = 900
 
 _TRIANGLE_KEYS = {"IBNR_TRIANGLE", "LOSS_TRIANGLE"}
-_COHORT_KEYS = {"PERSISTENCY_STUDY"}
+_COHORT_KEYS = {"PERSISTENCY_STUDY", "LAPSE_STUDY"}
+_EXPOSURE_KEYS = {"MORTALITY_STUDY", "MORBIDITY_STUDY"}
 
 
 class PayloadTooLargeError(ValueError):
@@ -213,13 +217,35 @@ class ActuarialJobRunner:
                 raise ValueError(
                     f"report_key={event.report_key} requires a cohort payload"
                 )
-            persistency_result = compute_persistency(event.cohort)
+            if event.report_key == "LAPSE_STUDY":
+                cohort_result = compute_lapse(event.cohort)
+            else:
+                cohort_result = compute_persistency(event.cohort)
             return ActuarialJobCompletedEvent(
                 job_id=event.job_id,
                 tenant_id=event.tenant_id,
                 report_key=event.report_key,
                 status="completed",
-                result_json=persistency_result.model_dump(),
+                result_json=cohort_result.model_dump(),
+                model_version=MODEL_VERSION,
+                method=method,
+                computed_at=_now_iso(),
+            )
+        if event.report_key in _EXPOSURE_KEYS:
+            if event.exposure is None:
+                raise ValueError(
+                    f"report_key={event.report_key} requires an exposure payload"
+                )
+            if event.report_key == "MORBIDITY_STUDY":
+                exposure_result = compute_morbidity(event.exposure)
+            else:
+                exposure_result = compute_mortality(event.exposure)
+            return ActuarialJobCompletedEvent(
+                job_id=event.job_id,
+                tenant_id=event.tenant_id,
+                report_key=event.report_key,
+                status="completed",
+                result_json=exposure_result.model_dump(),
                 model_version=MODEL_VERSION,
                 method=method,
                 computed_at=_now_iso(),

@@ -67,6 +67,9 @@ const ACTION_TYPES: { id: string; label: string; description: string; valueHint?
 
   // Premium earning (Phase 12)
   { id: 'ACCRUE_PREMIUM',       label: 'Accrue premium',       description: 'Pick an earning method for the policy at bind time. Value encodes the method and an optional front-loaded percent for LINEAR_WITH_LOADING.', valueHint: 'EARNING_METHOD:DAILY_LINEAR  or  EARNING_METHOD:MONTHLY_24THS  or  EARNING_METHOD:LINEAR_WITH_LOADING:15' },
+
+  // Actuarial (Phase 14)
+  { id: 'SELECT_LDF',           label: 'Select LDF method',    description: 'Pick a loss-development-factor selection method for IBNR / loss-triangle chain-ladder compute. Value encodes the method as LDF_METHOD:<name> where <name> is volume, simple, or 5yr.', valueHint: 'LDF_METHOD:volume  or  LDF_METHOD:simple  or  LDF_METHOD:5yr' },
 ];
 
 interface EditorFormState {

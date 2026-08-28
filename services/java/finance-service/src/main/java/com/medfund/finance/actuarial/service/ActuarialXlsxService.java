@@ -95,6 +95,9 @@ public class ActuarialXlsxService {
         r = writeLabelValue(sheet, r, label, bold, "Insurance line", line);
         r = writeLabelValue(sheet, r, label, bold, "Reporting currency", currency);
         r = writeLabelValue(sheet, r, label, bold, "LDF method", ldfMethod);
+        String ldfRuleApplied = params != null && params.hasNonNull("ldfRuleApplied")
+                ? params.get("ldfRuleApplied").asText() : "—";
+        r = writeLabelValue(sheet, r, label, bold, "Rule applied", ldfRuleApplied);
         r = writeLabelValue(sheet, r, label, bold, "Job ID", job.getJobId().toString());
         r++;
 
@@ -172,6 +175,9 @@ public class ActuarialXlsxService {
         String ldfMethod = params != null && params.hasNonNull("ldfMethod")
                 ? params.get("ldfMethod").asText() : "volume";
         r = writeLabelValue(sheet, r, label, bold, "LDF method", ldfMethod);
+        String ldfRuleApplied = params != null && params.hasNonNull("ldfRuleApplied")
+                ? params.get("ldfRuleApplied").asText() : "—";
+        r = writeLabelValue(sheet, r, label, bold, "Rule applied", ldfRuleApplied);
         if (params != null && params.hasNonNull("shape_warnings")) {
             r = writeLabelValue(sheet, r, label, bold, "Warnings", params.get("shape_warnings").toString());
         }

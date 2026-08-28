@@ -9,6 +9,8 @@ import com.medfund.shared.security.RequiresPermission;
 import com.medfund.shared.security.SecurityEventPublisher;
 import com.medfund.shared.tenant.TenantContext;
 import com.medfund.user.reports.lifecycle.dto.GroupCensusResult;
+import com.medfund.user.reports.lifecycle.dto.MorbidityExposureRow;
+import com.medfund.user.reports.lifecycle.dto.MortalityExposureRow;
 import com.medfund.user.reports.lifecycle.dto.PersistencyCohortResult;
 import com.medfund.user.reports.lifecycle.dto.PersistencyCohortRow;
 import com.medfund.user.reports.lifecycle.dto.PolicyMovementResult;
@@ -176,6 +178,63 @@ public class PolicyLifecycleReportController {
             parsed = PersistencyCohortReportService.DEFAULT_CHECKPOINTS;
         }
         return lifecycleQueryRepository.persistencyCohortRows(periodStart, periodEnd, parsed, insuranceLine);
+    }
+
+    // ── MORTALITY_STUDY exposure feed (Phase 14 §Actuarial Phase 13) ─────
+
+    /**
+     * Exposure feed for the actuarial MORTALITY_STUDY report. Returns one
+     * row per (age_band, sex) aggregated over the requested window; the
+     * finance-service shaping service pivots this into the exposure
+     * payload slot on {@code ActuarialJobRequestedEvent}. Not gated by
+     * {@code @RequiresReport} — mirrors the persistency-cohort-feed
+     * carve-out per Phase 11's deviation so MORTALITY_STUDY runs even
+     * when a sibling policy-lifecycle report is toggled off. Permission
+     * stays gated at {@code FINANCE_VIEW_SUBLEDGER} matching the sibling
+     * feed.
+     */
+    @GetMapping("/mortality-exposure-feed")
+    @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
+    @Operation(summary = "Mortality exposure raw feed (Phase 14 actuarial)",
+            description = "Aggregated (age_band, sex, exposure_years, deaths) rows over "
+                        + "[periodStart, periodEnd] for MORTALITY_STUDY shaping.")
+    public Flux<MortalityExposureRow> mortalityExposureFeed(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodStart,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodEnd,
+            @RequestParam(required = false) String insuranceLine) {
+        if (periodStart.isAfter(periodEnd)) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "periodStart must be on or before periodEnd");
+        }
+        return lifecycleQueryRepository.mortalityExposureRows(periodStart, periodEnd, insuranceLine);
+    }
+
+    // ── MORBIDITY_STUDY incidence feed (Phase 14 §Actuarial Phase 14) ─────
+
+    /**
+     * Incidence feed for the actuarial MORBIDITY_STUDY report. Same shape
+     * as the mortality feed but the numerator counts morbidity onsets
+     * (member_status_history rows with reason_code in the morbidity
+     * vocabulary) instead of deaths. Not gated by {@code @RequiresReport}
+     * — mirrors the persistency-cohort-feed + mortality-exposure-feed
+     * carve-out so MORBIDITY_STUDY runs even when a sibling policy-lifecycle
+     * report is toggled off. Permission stays at {@code FINANCE_VIEW_SUBLEDGER}
+     * matching the sibling feeds.
+     */
+    @GetMapping("/morbidity-incidence-feed")
+    @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
+    @Operation(summary = "Morbidity incidence raw feed (Phase 14 actuarial)",
+            description = "Aggregated (age_band, sex, exposure_years, incidents) rows over "
+                        + "[periodStart, periodEnd] for MORBIDITY_STUDY shaping.")
+    public Flux<MorbidityExposureRow> morbidityIncidenceFeed(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodStart,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate periodEnd,
+            @RequestParam(required = false) String insuranceLine) {
+        if (periodStart.isAfter(periodEnd)) {
+            throw new ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "periodStart must be on or before periodEnd");
+        }
+        return lifecycleQueryRepository.morbidityIncidenceRows(periodStart, periodEnd, insuranceLine);
     }
 
     // ── GROUP_CENSUS ────────────────────────────────────────────────────

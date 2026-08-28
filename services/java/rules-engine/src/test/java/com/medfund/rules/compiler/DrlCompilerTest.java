@@ -38,7 +38,8 @@ class DrlCompilerTest {
                 new ActionEmitters.MatchRecordsEmitter(),
                 new CedeToTreatyEmitter(),
                 new PayCommissionEmitter(),
-                new AccruePremiumEmitter()
+                new AccruePremiumEmitter(),
+                new SelectLdfEmitter()
         ));
     }
 
@@ -294,6 +295,30 @@ class DrlCompilerTest {
         assertThat(drl).contains("$premium.accrue(");
         assertThat(drl).contains("\"LINEAR_WITH_LOADING\"");
         assertThat(drl).contains("new java.math.BigDecimal(\"15\")");
+    }
+
+    @Test
+    void compile_actuarialRule_addsAgendaGroupAndSelectsLdf() {
+        RuleDefinition rule = new RuleDefinition();
+        rule.setName("HEALTH 5yr weighted");
+        rule.setCategory("ACTUARIAL");
+        rule.setPriority(80);
+        rule.setEnabled(true);
+        rule.setConditions(conditions("AND",
+                condition("triangle.insuranceLine", "EQUALS", "HEALTH")));
+        RuleAction action = new RuleAction();
+        action.setType("SELECT_LDF");
+        action.setValue("LDF_METHOD:5yr");
+        action.setMessage("5-year weighted for HEALTH");
+        rule.setAction(action);
+
+        String drl = compiler.compile(rule);
+
+        assertThat(drl).contains("agenda-group \"ACTUARIAL\"");
+        assertThat(drl).contains("$triangle : TriangleFact(");
+        assertThat(drl).contains("$triangle.selectLdf(");
+        assertThat(drl).contains("\"5yr\"");
+        assertThat(drl).contains("\"5-year weighted for HEALTH\"");
     }
 
     @Test

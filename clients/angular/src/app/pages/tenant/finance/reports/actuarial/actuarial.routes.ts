@@ -50,4 +50,40 @@ export const ACTUARIAL_REPORT_ROUTES: Routes = [
       reportKey: 'PERSISTENCY_STUDY',
     },
   },
+  {
+    path: 'reports/actuarial/lapse-study',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./lapse-study.component').then(m => m.LapseStudyComponent),
+    data: {
+      title: 'Lapse study',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'LAPSE_STUDY',
+    },
+  },
+  {
+    path: 'reports/actuarial/mortality-study',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./mortality-study.component').then(m => m.MortalityStudyComponent),
+    data: {
+      title: 'Mortality study',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'MORTALITY_STUDY',
+    },
+  },
+  {
+    path: 'reports/actuarial/morbidity-study',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./morbidity-study.component').then(m => m.MorbidityStudyComponent),
+    data: {
+      title: 'Morbidity study',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'MORBIDITY_STUDY',
+    },
+  },
 ];

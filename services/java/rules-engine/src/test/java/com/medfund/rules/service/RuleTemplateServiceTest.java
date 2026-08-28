@@ -3,6 +3,7 @@ package com.medfund.rules.service;
 import com.medfund.rules.model.RuleCategory;
 import com.medfund.rules.model.RuleDefinition;
 import com.medfund.rules.template.TemplateProvider;
+import com.medfund.rules.template.providers.ActuarialTemplates;
 import com.medfund.rules.template.providers.AgeGroupTemplates;
 import com.medfund.rules.template.providers.BenefitLimitTemplates;
 import com.medfund.rules.template.providers.ClinicalValidationTemplates;
@@ -61,7 +62,8 @@ class RuleTemplateServiceTest {
                 new ModifierAdjustmentTemplates(),
                 new ReinsuranceTemplates(),
                 new CommissionTemplates(),
-                new PremiumEarningTemplates()
+                new PremiumEarningTemplates(),
+                new ActuarialTemplates()
         );
         service = new RuleTemplateService(providers);
     }

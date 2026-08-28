@@ -113,5 +113,23 @@ public enum ActionType {
      *       {@code PremiumFact.results}.</li>
      * </ul>
      */
-    ACCRUE_PREMIUM
+    ACCRUE_PREMIUM,
+
+    // ── Actuarial outputs ────────────────────────────────────────────────────
+    /**
+     * Route an IBNR / loss-triangle report to a specific LDF selection
+     * method. Populates {@code TriangleFact.ldfMethod} so the downstream
+     * chain-ladder compute in ai-service knows which LDF strategy to
+     * apply. Rules with this action must live in the {@code ACTUARIAL}
+     * category (agenda-gated per {@code DrlCompiler.AGENDA_GATED_CATEGORIES}).
+     *
+     * <p>Action fields (see {@code RuleAction}):
+     * <ul>
+     *   <li>{@code value} — {@code LDF_METHOD:<name>} where {@code name}
+     *       is one of {@code volume}, {@code simple}, or {@code 5yr}.</li>
+     *   <li>{@code message} — human-readable audit note recorded on
+     *       {@code TriangleFact.results}.</li>
+     * </ul>
+     */
+    SELECT_LDF
 }

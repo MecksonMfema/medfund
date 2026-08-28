@@ -2,6 +2,8 @@ package com.medfund.user.reports.lifecycle.repository;
 
 import com.medfund.shared.report.PerCurrencyTotal;
 import com.medfund.user.reports.lifecycle.dto.GroupCensusRow;
+import com.medfund.user.reports.lifecycle.dto.MorbidityExposureRow;
+import com.medfund.user.reports.lifecycle.dto.MortalityExposureRow;
 import com.medfund.user.reports.lifecycle.dto.PersistencyCohortRow;
 import com.medfund.user.reports.lifecycle.dto.PolicyMovementRow;
 import io.r2dbc.spi.Parameters;
@@ -310,6 +312,204 @@ public class PolicyLifecycleReportQueryRepository {
                         nonNull(row.get("lapsed_members", Long.class)),
                         nonNull(row.get("terminated_members", Long.class)),
                         nonNull(row.get("total_members", Long.class))))
+                .all();
+    }
+
+    // ── MORTALITY_STUDY exposure feed (Phase 14 §Actuarial Phase 13) ────
+
+    /**
+     * Aggregate member exposure over {@code [periodStart, periodEnd]} into
+     * (age_band, sex) rows. Feeds finance-service's
+     * {@code MortalityExposureShapingService}, which pivots this into the
+     * exposure payload slot on {@code ActuarialJobRequestedEvent} for the
+     * Python MORTALITY_STUDY compute.
+     *
+     * <p>Age bands are 5-year buckets from 0-4 up to 85+; the bucket is
+     * taken at {@code periodEnd} (i.e. the member's age on the last day
+     * of the window), which matches the SOA convention for cohort-year
+     * exposure studies. Exposure days = days between (max enrollment or
+     * periodStart) and (min termination-or-death-or-periodEnd), floor 0.
+     * Deaths count members whose {@code death_date} lands in the window
+     * (inclusive on both ends).
+     *
+     * <p>{@code insuranceLine} filter narrows the population — HEALTH
+     * uses the {@code member_first_contribution} matview (Phase-13 signal
+     * that a member has an active health cover); LIFE / FUNERAL /
+     * DISABILITY / TRAVEL join their respective policy tables via
+     * {@code insured_member_id}. NULL / blank returns every member with
+     * a valid date_of_birth.
+     */
+    public Flux<MortalityExposureRow> mortalityExposureRows(LocalDate periodStart, LocalDate periodEnd,
+                                                            String insuranceLine) {
+        String lineNorm = insuranceLine == null || insuranceLine.isBlank() ? null : insuranceLine.trim();
+        String populationSql = mortalityPopulationSql(lineNorm);
+        String sql = """
+                WITH population AS (%s),
+                per_member AS (
+                    SELECT
+                        FLOOR(EXTRACT(EPOCH FROM AGE(:periodEnd::date, m.date_of_birth::date))
+                              / (86400 * 365.25))::int AS age_years,
+                        LOWER(COALESCE(NULLIF(m.gender, ''), 'unknown')) AS sex,
+                        GREATEST(0,
+                            LEAST(:periodEnd::date,
+                                  COALESCE(m.death_date, m.termination_date, :periodEnd::date))
+                            - GREATEST(:periodStart::date, m.enrollment_date)
+                        ) AS exposure_days,
+                        CASE
+                            WHEN m.death_date IS NOT NULL
+                             AND m.death_date >= :periodStart::date
+                             AND m.death_date <= :periodEnd::date THEN 1
+                            ELSE 0
+                        END AS died
+                      FROM members m
+                     WHERE m.id IN (SELECT id FROM population)
+                       AND m.date_of_birth IS NOT NULL
+                       AND m.enrollment_date IS NOT NULL
+                       AND m.enrollment_date <= :periodEnd::date
+                )
+                SELECT
+                    CASE
+                        WHEN age_years < 0 THEN NULL
+                        WHEN age_years >= 85 THEN '85+'
+                        ELSE (FLOOR(age_years / 5) * 5)::text
+                             || '-' || (FLOOR(age_years / 5) * 5 + 4)::text
+                    END AS age_band,
+                    sex,
+                    SUM(exposure_days)::numeric / 365.25 AS exposure_years,
+                    SUM(died)::bigint AS deaths
+                  FROM per_member
+                 WHERE exposure_days > 0
+                 GROUP BY age_band, sex
+                HAVING SUM(exposure_days) > 0 AND age_band IS NOT NULL
+                 ORDER BY age_band, sex
+                """.formatted(populationSql);
+        DatabaseClient.GenericExecuteSpec spec = db.sql(sql)
+                .bind("periodStart", periodStart)
+                .bind("periodEnd", periodEnd);
+        if (lineNorm != null && requiresLineBind(lineNorm)) {
+            spec = spec.bind("insuranceLine", lineNorm);
+        }
+        return spec
+                .map((row, meta) -> new MortalityExposureRow(
+                        row.get("age_band", String.class),
+                        row.get("sex", String.class),
+                        row.get("exposure_years", BigDecimal.class) == null
+                                ? 0.0
+                                : row.get("exposure_years", BigDecimal.class).doubleValue(),
+                        nonNull(row.get("deaths", Long.class))))
+                .all();
+    }
+
+    private static String mortalityPopulationSql(String insuranceLine) {
+        // Every branch returns "id" from the members table; the outer query
+        // joins members back to pull dob/gender/exposure/death fields.
+        if (insuranceLine == null) {
+            return "SELECT id FROM members";
+        }
+        return switch (insuranceLine) {
+            case "HEALTH" -> "SELECT member_id AS id FROM member_first_contribution";
+            case "LIFE" -> "SELECT DISTINCT insured_member_id AS id FROM life_policies "
+                        + "WHERE insured_member_id IS NOT NULL "
+                        + "  AND bound_at <= (:periodEnd::timestamp + interval '1 day')";
+            case "FUNERAL" -> "SELECT DISTINCT insured_member_id AS id FROM funeral_policies "
+                        + "WHERE insured_member_id IS NOT NULL "
+                        + "  AND bound_at <= (:periodEnd::timestamp + interval '1 day')";
+            case "DISABILITY" -> "SELECT DISTINCT insured_member_id AS id FROM disability_policies "
+                        + "WHERE insured_member_id IS NOT NULL "
+                        + "  AND bound_at <= (:periodEnd::timestamp + interval '1 day')";
+            case "TRAVEL" -> "SELECT DISTINCT insured_member_id AS id FROM travel_policies "
+                        + "WHERE insured_member_id IS NOT NULL "
+                        + "  AND bound_at <= (:periodEnd::timestamp + interval '1 day')";
+            default -> "SELECT id FROM members WHERE FALSE";  // unknown line → empty population
+        };
+    }
+
+    private static boolean requiresLineBind(String insuranceLine) {
+        // Every current branch has the line baked in as literal text (matched
+        // via switch), not a bind. Reserved for future extension.
+        return false;
+    }
+
+    // ── MORBIDITY_STUDY exposure feed (Phase 14 §Actuarial Phase 14) ─────
+
+    /**
+     * Per-tenant morbidity exposure feed. Mirrors
+     * {@link #mortalityExposureRows} — same population, same age-band
+     * bucketing, same exposure-years denominator — but the numerator is
+     * {@code incidents} instead of {@code deaths}.
+     *
+     * <p>An "incident" is a {@code member_status_history} transition in
+     * the requested window whose {@code reason_code} matches the morbidity
+     * vocabulary ({@code illness_onset}, {@code disability_onset},
+     * {@code hospitalization}). Distinct per member per window — a member
+     * who transitions in and out repeatedly counts once. Absent codes yield
+     * zero incidents, mirroring the Phase-13 "empty envelope with warnings"
+     * acceptance for tenants with no configured signal.
+     */
+    public Flux<MorbidityExposureRow> morbidityIncidenceRows(LocalDate periodStart, LocalDate periodEnd,
+                                                              String insuranceLine) {
+        String lineNorm = insuranceLine == null || insuranceLine.isBlank() ? null : insuranceLine.trim();
+        String populationSql = mortalityPopulationSql(lineNorm);
+        String sql = """
+                WITH population AS (%s),
+                per_member AS (
+                    SELECT
+                        FLOOR(EXTRACT(EPOCH FROM AGE(:periodEnd::date, m.date_of_birth::date))
+                              / (86400 * 365.25))::int AS age_years,
+                        LOWER(COALESCE(NULLIF(m.gender, ''), 'unknown')) AS sex,
+                        GREATEST(0,
+                            LEAST(:periodEnd::date,
+                                  COALESCE(m.death_date, m.termination_date, :periodEnd::date))
+                            - GREATEST(:periodStart::date, m.enrollment_date)
+                        ) AS exposure_days,
+                        CASE
+                            WHEN EXISTS (
+                                SELECT 1 FROM member_status_history h
+                                 WHERE h.member_id = m.id
+                                   AND h.reason_code IN (
+                                       'illness_onset', 'disability_onset', 'hospitalization'
+                                   )
+                                   AND h.transitioned_at >= :periodStart::timestamp
+                                   AND h.transitioned_at <  (:periodEnd::timestamp + interval '1 day')
+                            ) THEN 1
+                            ELSE 0
+                        END AS had_incident
+                      FROM members m
+                     WHERE m.id IN (SELECT id FROM population)
+                       AND m.date_of_birth IS NOT NULL
+                       AND m.enrollment_date IS NOT NULL
+                       AND m.enrollment_date <= :periodEnd::date
+                )
+                SELECT
+                    CASE
+                        WHEN age_years < 0 THEN NULL
+                        WHEN age_years >= 85 THEN '85+'
+                        ELSE (FLOOR(age_years / 5) * 5)::text
+                             || '-' || (FLOOR(age_years / 5) * 5 + 4)::text
+                    END AS age_band,
+                    sex,
+                    SUM(exposure_days)::numeric / 365.25 AS exposure_years,
+                    SUM(had_incident)::bigint AS incidents
+                  FROM per_member
+                 WHERE exposure_days > 0
+                 GROUP BY age_band, sex
+                HAVING SUM(exposure_days) > 0 AND age_band IS NOT NULL
+                 ORDER BY age_band, sex
+                """.formatted(populationSql);
+        DatabaseClient.GenericExecuteSpec spec = db.sql(sql)
+                .bind("periodStart", periodStart)
+                .bind("periodEnd", periodEnd);
+        if (lineNorm != null && requiresLineBind(lineNorm)) {
+            spec = spec.bind("insuranceLine", lineNorm);
+        }
+        return spec
+                .map((row, meta) -> new MorbidityExposureRow(
+                        row.get("age_band", String.class),
+                        row.get("sex", String.class),
+                        row.get("exposure_years", BigDecimal.class) == null
+                                ? 0.0
+                                : row.get("exposure_years", BigDecimal.class).doubleValue(),
+                        nonNull(row.get("incidents", Long.class))))
                 .all();
     }
 

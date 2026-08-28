@@ -3,6 +3,9 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { provideHttpClient } from '@angular/common/http';
 import {
   ActuarialReportsService,
+  LapseStudyJobRequest,
+  MorbidityStudyJobRequest,
+  MortalityStudyJobRequest,
   PersistencyStudyJobRequest,
   TriangleJobRequest,
 } from './actuarial-reports.service';
@@ -83,5 +86,52 @@ describe('ActuarialReportsService', () => {
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual(study);
     req.flush({ jobId: 'p', status: 'requested', deduplicated: false });
+  });
+
+  it('POST /reports/actuarial/lapse-study forwards the study body', () => {
+    const study: LapseStudyJobRequest = {
+      periodStart: '2024-01-01',
+      periodEnd: '2024-12-31',
+      checkpoints: [3, 6, 12, 24],
+      insuranceLine: 'LIFE',
+      reportingCurrency: 'USD',
+    };
+    service.submitLapseStudy(study).subscribe();
+    const req = http.expectOne(`${baseUrl}/reports/actuarial/lapse-study`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(study);
+    req.flush({ jobId: 'l', status: 'requested', deduplicated: false });
+  });
+
+  it('POST /reports/actuarial/mortality-study forwards the study body', () => {
+    const study: MortalityStudyJobRequest = {
+      periodStart: '2024-01-01',
+      periodEnd: '2024-12-31',
+      insuranceLine: 'LIFE',
+      basisNameOverride: 'CSO_2017',
+      multiplierOverride: 1.15,
+      reportingCurrency: 'USD',
+    };
+    service.submitMortalityStudy(study).subscribe();
+    const req = http.expectOne(`${baseUrl}/reports/actuarial/mortality-study`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(study);
+    req.flush({ jobId: 'm', status: 'requested', deduplicated: false });
+  });
+
+  it('POST /reports/actuarial/morbidity-study forwards the study body', () => {
+    const study: MorbidityStudyJobRequest = {
+      periodStart: '2024-01-01',
+      periodEnd: '2024-12-31',
+      insuranceLine: 'HEALTH',
+      basisNameOverride: 'GLTD87',
+      multiplierOverride: 1.10,
+      reportingCurrency: 'USD',
+    };
+    service.submitMorbidityStudy(study).subscribe();
+    const req = http.expectOne(`${baseUrl}/reports/actuarial/morbidity-study`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(study);
+    req.flush({ jobId: 'mb', status: 'requested', deduplicated: false });
   });
 });

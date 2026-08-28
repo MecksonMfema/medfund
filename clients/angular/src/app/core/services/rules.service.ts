@@ -58,7 +58,9 @@ export type RuleCategory =
   // Commission
   | 'COMMISSION'
   // Premium earning
-  | 'PREMIUM_EARNING';
+  | 'PREMIUM_EARNING'
+  // Actuarial
+  | 'ACTUARIAL';
 
 /**
  * Categories grouped by lifecycle stage. The Rules Engine page renders this
@@ -91,6 +93,8 @@ export const RULE_CATEGORIES: { id: RuleCategory; label: string; icon: string }[
   { id: 'COMMISSION',           label: 'Commission',           icon: 'percent' },
   // Premium earning
   { id: 'PREMIUM_EARNING',      label: 'Premium Earning',      icon: 'trending-up' },
+  // Actuarial
+  { id: 'ACTUARIAL',            label: 'Actuarial',            icon: 'chart-line' },
 ];
 
 export interface RuleDefinition {
@@ -137,6 +141,10 @@ export interface DryRunRequest {
   paymentRun?: Record<string, unknown>;
   /** Premium-at-bind fact — for PREMIUM_EARNING rules. */
   premium?: Record<string, unknown>;
+  /** Triangle-shape fact — for ACTUARIAL rules (finance-service builds this at IBNR/LOSS submit). */
+  triangle?: Record<string, unknown>;
+  /** Per-development-period LDF candidates — for ACTUARIAL rules that select at dev-period granularity. */
+  devPeriod?: Record<string, unknown>;
   /** "Today" fact — drives date-aware rules without reading the system clock. */
   time?: Record<string, unknown>;
 }

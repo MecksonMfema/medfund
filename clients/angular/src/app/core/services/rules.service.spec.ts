@@ -32,6 +32,14 @@ describe('RULE_CATEGORIES catalogue', () => {
     expect(ids).toContain('REINSURANCE');
   });
 
+  it('includes the Phase 14 ACTUARIAL category', () => {
+    // Phase 14 addition — exposes SELECT_LDF rules to the tenant-admin
+    // rule editor so tenants can override the default volume-weighted
+    // LDF method used by IBNR / loss triangle chain-ladder compute.
+    const ids: RuleCategory[] = RULE_CATEGORIES.map(c => c.id);
+    expect(ids).toContain('ACTUARIAL');
+  });
+
   it('has no duplicate category ids', () => {
     const ids = RULE_CATEGORIES.map(c => c.id);
     const unique = new Set(ids);

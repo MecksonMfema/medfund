@@ -38,9 +38,19 @@ class RuleCategoryTest {
     }
 
     @Test
+    void actuarialCategory_isDeclared() {
+        // Phase 14 addition — used by SELECT_LDF emitter + ACTUARIAL templates.
+        // Agenda-gated so it only fires when finance-service's
+        // TriangleShapingService focuses the group before shaping an IBNR /
+        // loss triangle.
+        assertThat(RuleCategory.valueOf("ACTUARIAL"))
+                .isEqualTo(RuleCategory.ACTUARIAL);
+    }
+
+    @Test
     void enumHasExpectedCatalogSize() {
         // Guardrail: if this fires, a new category was added — update the
         // Angular RULE_CATEGORIES + permissions catalog + tenant rules docs.
-        assertThat(RuleCategory.values()).hasSize(19);
+        assertThat(RuleCategory.values()).hasSize(20);
     }
 }
