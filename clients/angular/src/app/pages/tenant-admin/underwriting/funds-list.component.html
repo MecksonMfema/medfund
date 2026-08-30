@@ -1,0 +1,310 @@
+<header class="page-header">
+  <div>
+    <h1>VFA Unit-Linked Funds</h1>
+    <p class="page-sub">
+      Fund catalog for VFA (Variable Fee Approach) measurement. Each fund carries NAV history,
+      variable fee schedule and policy allocations — all consumed by IFRS 17 §16 VFA compute.
+      Fund currency is immutable; deactivate rather than delete to preserve history.
+    </p>
+  </div>
+  <div style="display: flex; gap: 8px;">
+    <button class="btn btn-primary" (click)="startCreate()" [disabled]="showForm">
+      <app-icon name="plus" [size]="14"></app-icon> New fund
+    </button>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+@if (successMessage) {
+  <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+}
+
+@if (showForm) {
+  <form (ngSubmit)="save()" class="add-form card form-grid">
+    <label class="field span-2">
+      <span class="field-label">Name *</span>
+      <input type="text" [(ngModel)]="draft.name" name="name" required maxlength="200"
+             placeholder="e.g. Balanced Growth USD" />
+    </label>
+    <label class="field">
+      <span class="field-label">Currency *</span>
+      <input type="text" [(ngModel)]="draft.currency" name="currency" required maxlength="3"
+             pattern="[A-Za-z]{3}" [readonly]="!!draft.id"
+             placeholder="ISO-4217 e.g. USD" />
+      @if (draft.id) {
+        <small class="field-hint">Currency is immutable — delete + re-add to change.</small>
+      }
+    </label>
+    <label class="field">
+      <span class="field-label">Asset class *</span>
+      <select [(ngModel)]="draft.baseAssetClass" name="baseAssetClass" required>
+        @for (cls of assetClasses; track cls) {
+          <option [value]="cls">{{ cls }}</option>
+        }
+      </select>
+    </label>
+    @if (draft.id) {
+      <label class="field span-2 checkbox-field">
+        <input type="checkbox" [(ngModel)]="draft.isActive" name="isActive" />
+        <span>Active — inactive funds are hidden from new-policy pickers but retain history</span>
+      </label>
+    }
+    <div class="form-actions span-2">
+      <button type="button" class="btn btn-default" (click)="cancel()">Cancel</button>
+      <button type="submit" class="btn btn-primary" [disabled]="saving">
+        {{ saving ? 'Saving…' : (draft.id ? 'Update fund' : 'Create fund') }}
+      </button>
+    </div>
+  </form>
+}
+
+@if (loading) {
+  <p>Loading funds…</p>
+} @else if (rows.length === 0) {
+  <p class="empty-state">No funds yet. Click "New fund" to create one.</p>
+} @else {
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th></th>
+        <th>Name</th>
+        <th>Currency</th>
+        <th>Asset class</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows; track row.id) {
+        <tr [class.inactive]="!row.isActive">
+          <td>
+            <button class="btn btn-sm btn-default" (click)="toggleExpand(row)">
+              {{ expandedFundId === row.id ? '−' : '+' }}
+            </button>
+          </td>
+          <td>{{ row.name }}</td>
+          <td>{{ row.currency }}</td>
+          <td>{{ row.baseAssetClass }}</td>
+          <td>
+            <span class="badge" [class.badge-success]="row.isActive" [class.badge-muted]="!row.isActive">
+              {{ row.isActive ? 'Active' : 'Inactive' }}
+            </span>
+          </td>
+          <td>
+            <button class="btn btn-sm btn-default" (click)="startEdit(row)">Edit</button>
+            <button class="btn btn-sm btn-danger" (click)="hardDelete(row)">Delete</button>
+          </td>
+        </tr>
+        @if (expandedFundId === row.id) {
+          <tr class="detail-row">
+            <td colspan="6">
+              <div class="tab-nav">
+                <button class="tab" [class.active]="activeTab === 'nav'" (click)="switchTab('nav')">NAV history</button>
+                <button class="tab" [class.active]="activeTab === 'fees'" (click)="switchTab('fees')">Variable fees</button>
+                <button class="tab" [class.active]="activeTab === 'ledger'" (click)="switchTab('ledger')">Policy allocations</button>
+              </div>
+
+              @if (detailLoading) { <p>Loading…</p> }
+
+              <!-- NAV tab ─────────────────────────────────────────────────── -->
+              @if (activeTab === 'nav' && !detailLoading) {
+                <div class="tab-content">
+                  <div class="row-actions">
+                    <button class="btn btn-primary btn-sm" (click)="startAddNav()" [disabled]="showNavForm">
+                      Append NAV row
+                    </button>
+                  </div>
+                  @if (showNavForm) {
+                    <form (ngSubmit)="submitNav()" class="add-form card form-grid">
+                      <label class="field">
+                        <span class="field-label">Valuation date *</span>
+                        <input type="date" [(ngModel)]="navDraft.valuationDate" name="navDate" required />
+                      </label>
+                      <label class="field">
+                        <span class="field-label">NAV per unit *</span>
+                        <input type="number" step="0.000001" [(ngModel)]="navDraft.navPerUnit"
+                               name="navPerUnit" required placeholder="1.2340" />
+                      </label>
+                      <div class="form-actions span-2">
+                        <button type="button" class="btn btn-default" (click)="cancelNav()">Cancel</button>
+                        <button type="submit" class="btn btn-primary" [disabled]="saving">
+                          {{ saving ? 'Saving…' : 'Add NAV row' }}
+                        </button>
+                      </div>
+                    </form>
+                  }
+                  @if (navRows.length === 0) {
+                    <p class="empty-state">No NAV rows yet.</p>
+                  } @else {
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Valuation date</th>
+                          <th>NAV per unit</th>
+                          <th>Source</th>
+                          <th>Actor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (n of navRows; track n.id) {
+                          <tr>
+                            <td>{{ n.valuationDate }}</td>
+                            <td>{{ n.navPerUnit }}</td>
+                            <td>{{ n.source }}</td>
+                            <td>{{ n.actorEmail ?? '—' }}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  }
+                </div>
+              }
+
+              <!-- Fees tab ────────────────────────────────────────────────── -->
+              @if (activeTab === 'fees' && !detailLoading) {
+                <div class="tab-content">
+                  <div class="row-actions">
+                    <button class="btn btn-primary btn-sm" (click)="startAddFee()" [disabled]="showFeeForm">
+                      New fee row
+                    </button>
+                  </div>
+                  @if (showFeeForm) {
+                    <form (ngSubmit)="submitFee()" class="add-form card form-grid">
+                      <label class="field">
+                        <span class="field-label">Effective from *</span>
+                        <input type="date" [(ngModel)]="feeDraft.effectiveFrom"
+                               name="feeFrom" required [readonly]="!!feeDraft.id" />
+                      </label>
+                      <label class="field">
+                        <span class="field-label">Effective to (exclusive)</span>
+                        <input type="date" [(ngModel)]="feeDraft.effectiveTo" name="feeTo" />
+                      </label>
+                      <label class="field span-2">
+                        <span class="field-label">Fee (decimal fraction, e.g. 0.0150 = 1.50%) *</span>
+                        <input type="number" step="0.0001" min="0" max="1"
+                               [(ngModel)]="feeDraft.feePercentage" name="feePct" required />
+                      </label>
+                      <div class="form-actions span-2">
+                        <button type="button" class="btn btn-default" (click)="cancelFee()">Cancel</button>
+                        <button type="submit" class="btn btn-primary" [disabled]="saving">
+                          {{ saving ? 'Saving…' : (feeDraft.id ? 'Update fee row' : 'Add fee row') }}
+                        </button>
+                      </div>
+                    </form>
+                  }
+                  @if (feeRows.length === 0) {
+                    <p class="empty-state">No variable fee rows yet.</p>
+                  } @else {
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Effective from</th>
+                          <th>Effective to</th>
+                          <th>Fee %</th>
+                          <th>Actor</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (f of feeRows; track f.id) {
+                          <tr>
+                            <td>{{ f.effectiveFrom }}</td>
+                            <td>{{ f.effectiveTo ?? '∞' }}</td>
+                            <td>{{ f.feePercentage }}</td>
+                            <td>{{ f.actorEmail ?? '—' }}</td>
+                            <td>
+                              <button class="btn btn-sm btn-default" (click)="startEditFee(f)">Edit</button>
+                              <button class="btn btn-sm btn-danger" (click)="deleteFee(f)">Delete</button>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  }
+                </div>
+              }
+
+              <!-- Ledger tab ──────────────────────────────────────────────── -->
+              @if (activeTab === 'ledger' && !detailLoading) {
+                <div class="tab-content">
+                  <div class="row-actions">
+                    <button class="btn btn-primary btn-sm" (click)="startAddLedger()" [disabled]="showLedgerForm">
+                      Append ledger row
+                    </button>
+                  </div>
+                  @if (showLedgerForm) {
+                    <form (ngSubmit)="submitLedger()" class="add-form card form-grid">
+                      <label class="field span-2">
+                        <span class="field-label">Policy ID *</span>
+                        <input type="text" [(ngModel)]="ledgerDraft.policyId" name="policyId" required
+                               placeholder="UUID of the VFA policy" />
+                      </label>
+                      <label class="field">
+                        <span class="field-label">Transaction date *</span>
+                        <input type="date" [(ngModel)]="ledgerDraft.transactionDate" name="txnDate" required />
+                      </label>
+                      <label class="field">
+                        <span class="field-label">Transaction type *</span>
+                        <select [(ngModel)]="ledgerDraft.transactionType" name="txnType" required>
+                          @for (t of ledgerTypes; track t) {
+                            <option [value]="t">{{ t }}</option>
+                          }
+                        </select>
+                      </label>
+                      <label class="field">
+                        <span class="field-label">Units *</span>
+                        <input type="number" step="0.000001" min="0" [(ngModel)]="ledgerDraft.units"
+                               name="units" required />
+                      </label>
+                      <label class="field">
+                        <span class="field-label">Price *</span>
+                        <input type="number" step="0.000001" min="0" [(ngModel)]="ledgerDraft.price"
+                               name="price" required />
+                      </label>
+                      <div class="form-actions span-2">
+                        <button type="button" class="btn btn-default" (click)="cancelLedger()">Cancel</button>
+                        <button type="submit" class="btn btn-primary" [disabled]="saving">
+                          {{ saving ? 'Saving…' : 'Append ledger row' }}
+                        </button>
+                      </div>
+                    </form>
+                  }
+                  @if (ledgerRows.length === 0) {
+                    <p class="empty-state">No ledger rows yet.</p>
+                  } @else {
+                    <table class="data-table">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Policy</th>
+                          <th>Type</th>
+                          <th>Units</th>
+                          <th>Price</th>
+                          <th>Actor</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (l of ledgerRows; track l.id) {
+                          <tr>
+                            <td>{{ l.transactionDate }}</td>
+                            <td><code>{{ l.policyId }}</code></td>
+                            <td>{{ l.transactionType }}</td>
+                            <td>{{ l.units }}</td>
+                            <td>{{ l.price }}</td>
+                            <td>{{ l.actorEmail ?? '—' }}</td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  }
+                </div>
+              }
+            </td>
+          </tr>
+        }
+      }
+    </tbody>
+  </table>
+}

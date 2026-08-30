@@ -1,7 +1,7 @@
 package com.medfund.finance.actuarial.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.medfund.finance.actuarial.entity.ActuarialReportJob;
+import com.medfund.finance.report.entity.ReportJob;
 import io.r2dbc.postgresql.codec.Json;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -27,7 +27,7 @@ class ActuarialXlsxServiceTest {
 
     @Test
     void renders_ldfRuleApplied_headerOnTriangleAndSummarySheets() throws Exception {
-        ActuarialReportJob job = new ActuarialReportJob();
+        ReportJob job = new ReportJob();
         job.setJobId(UUID.randomUUID());
         job.setStatus("completed");
         job.setReportKey("IBNR_TRIANGLE");
@@ -57,7 +57,7 @@ class ActuarialXlsxServiceTest {
 
     @Test
     void renders_ldfRuleApplied_dashWhenNoRuleFired() throws Exception {
-        ActuarialReportJob job = new ActuarialReportJob();
+        ReportJob job = new ReportJob();
         job.setJobId(UUID.randomUUID());
         job.setStatus("completed");
         job.setReportKey("IBNR_TRIANGLE");

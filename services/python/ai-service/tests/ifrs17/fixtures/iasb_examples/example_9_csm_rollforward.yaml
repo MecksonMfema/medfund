@@ -1,0 +1,88 @@
+# IASB IFRS 17 Illustrative Example 9 — CSM roll-forward golden.
+#
+# Following the same convention as example_3_paa and example_7_gmm (see
+# their fixture headers): the numbers here are the plan's hand-picked
+# regression targets rather than a verbatim transcription of the IASB IE.
+# They pin:
+#   * proportional CSM release against coverage units delivered,
+#   * unwind at the locked-in curve's shortest-tenor rate,
+#   * experience-adjustment straight-line into after-experience CSM,
+#   * loss-component recognition when after-experience turns negative,
+#   * closing = zero clamp when a period is the last one on the cohort.
+#
+# Two 3-period walks share the fixture:
+#
+# Golden path (steady_release):
+#   - Zero locked-in rate — accretion drops out so the arithmetic is exact.
+#   - opening_csm = 300 with 60 coverage units remaining; 5 units delivered
+#     every period. Straight-line: 300 × 5/60 = 25 released; residual 275
+#     with remaining 55 → 275 × 5/55 = 25; residual 250 with remaining 50
+#     → 25. Closings: 275, 250, 225. Sum of releases = 75 = 300 × 3/12
+#     (a quarter of coverage delivered → a quarter of CSM earned).
+#
+# Onerous transition (goes_onerous):
+#   - Same zero-rate simplification. Period 2's adverse experience of -60
+#     against a 45-CSM base tips after-experience below zero:
+#       opening=45 → +0 accretion → -60 experience = -15 after-experience.
+#     Per IFRS 17.49, no release fires; closing clamps to 0; loss component
+#     recognises 15. Period 3 rolls forward from opening_csm = 0 — nothing
+#     to release, nothing to accrete.
+steady_release:
+  opening_csm: "300"
+  locked_in_curve:
+    - tenor_months: 1
+      spot_rate: "0"
+    - tenor_months: 60
+      spot_rate: "0"
+  periods:
+    - experience_adjustment: "0"
+      coverage_units_delivered: "5"
+      coverage_units_remaining_before: "60"
+      expected_released: "25"
+      expected_closing: "275"
+      expected_went_negative: false
+      expected_loss_component_recognised: "0"
+    - experience_adjustment: "0"
+      coverage_units_delivered: "5"
+      coverage_units_remaining_before: "55"
+      expected_released: "25"
+      expected_closing: "250"
+      expected_went_negative: false
+      expected_loss_component_recognised: "0"
+    - experience_adjustment: "0"
+      coverage_units_delivered: "5"
+      coverage_units_remaining_before: "50"
+      expected_released: "25"
+      expected_closing: "225"
+      expected_went_negative: false
+      expected_loss_component_recognised: "0"
+
+goes_onerous:
+  opening_csm: "50"
+  locked_in_curve:
+    - tenor_months: 1
+      spot_rate: "0"
+    - tenor_months: 60
+      spot_rate: "0"
+  periods:
+    - experience_adjustment: "0"
+      coverage_units_delivered: "5"
+      coverage_units_remaining_before: "50"
+      expected_released: "5"
+      expected_closing: "45"
+      expected_went_negative: false
+      expected_loss_component_recognised: "0"
+    - experience_adjustment: "-60"
+      coverage_units_delivered: "5"
+      coverage_units_remaining_before: "45"
+      expected_released: "0"
+      expected_closing: "0"
+      expected_went_negative: true
+      expected_loss_component_recognised: "15"
+    - experience_adjustment: "0"
+      coverage_units_delivered: "5"
+      coverage_units_remaining_before: "40"
+      expected_released: "0"
+      expected_closing: "0"
+      expected_went_negative: false
+      expected_loss_component_recognised: "0"

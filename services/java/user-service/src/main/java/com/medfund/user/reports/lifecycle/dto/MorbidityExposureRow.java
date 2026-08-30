@@ -4,7 +4,7 @@ package com.medfund.user.reports.lifecycle.dto;
  * Phase 14 §Actuarial Phase 14 — one row per (age_band, sex) aggregation
  * of the member-exposure feed for the MORBIDITY_STUDY report. Feeds
  * finance-service's {@code MorbidityExposureShapingService} which pivots
- * this into the exposure payload slot on {@code ActuarialJobRequestedEvent}.
+ * this into the exposure payload slot on {@code ReportJobRequestedEvent}.
  *
  * <p>Same population + exposure window as
  * {@link MortalityExposureRow}, but the numerator is

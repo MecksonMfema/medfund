@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8" /><title>IFRS 17 — locked-in yield curve fallback used</title></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1f2937;max-width:600px;margin:24px auto;padding:0 16px">
+  <p style="background:#fef3c7;color:#92400e;padding:10px 14px;border-left:4px solid #d97706;font-weight:600">
+    Locked-in curve fallback engaged
+  </p>
+
+  <p>{{.Message}}</p>
+
+  <table style="border-collapse:collapse;font-size:13px;margin:12px 0">
+    {{if .CohortID}}<tr><td style="padding:4px 12px 4px 0;color:#6b7280">Cohort</td><td style="padding:4px 0"><code>{{.CohortID}}</code></td></tr>{{end}}
+    {{if .PortfolioID}}<tr><td style="padding:4px 12px 4px 0;color:#6b7280">Portfolio</td><td style="padding:4px 0"><code>{{.PortfolioID}}</code></td></tr>{{end}}
+    <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Severity</td><td style="padding:4px 0">{{.Severity}}</td></tr>
+    {{if .SourceRunID}}<tr><td style="padding:4px 12px 4px 0;color:#6b7280">Source run</td><td style="padding:4px 0"><code>{{.SourceRunID}}</code></td></tr>{{end}}
+    <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Occurred</td><td style="padding:4px 0">{{.OccurredAt}}</td></tr>
+  </table>
+
+  <p>The computation could not resolve a yield curve for the cohort's initial recognition date and fell back to the nearest available curve. Upload the missing rates in Tenant Admin → Settings → IFRS 17 Config → Yield Curves so the next report cycle can lock in the correct snapshot.</p>
+
+  <p style="color:#5b6371;font-size:12px;margin-top:32px">You're receiving this because your recipient email is subscribed to <strong>{{.EventType}}</strong> notifications for tenant <code>{{.TenantID}}</code>.</p>
+</body>
+</html>

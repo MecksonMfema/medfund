@@ -36,14 +36,21 @@ class Ifrs17CohortServiceTest {
     @Mock private Ifrs17PortfolioRepository portfolioRepository;
     @Mock private R2dbcEntityTemplate r2dbcTemplate;
     @Mock private AuditPublisher auditPublisher;
+    @Mock private CohortStatusHistoryService statusHistoryService;
 
     private Ifrs17CohortService service;
     private final UUID portfolioId = UUID.randomUUID();
 
     @BeforeEach
     void setUp() {
-        service = new Ifrs17CohortService(cohortRepository, portfolioRepository, r2dbcTemplate, auditPublisher);
+        service = new Ifrs17CohortService(cohortRepository, portfolioRepository, r2dbcTemplate,
+                auditPublisher, statusHistoryService);
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
+        // Only invoked when cohort_type actually changes; the strict-stub default returns null,
+        // which NPEs .thenReturn(saved). Lenient stub keeps unrelated tests silent.
+        org.mockito.Mockito.lenient().when(statusHistoryService.recordTransition(
+                        any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(Mono.just(new com.medfund.user.entity.CohortStatusHistory()));
     }
 
     @Test

@@ -186,7 +186,7 @@ public class PolicyLifecycleReportController {
      * Exposure feed for the actuarial MORTALITY_STUDY report. Returns one
      * row per (age_band, sex) aggregated over the requested window; the
      * finance-service shaping service pivots this into the exposure
-     * payload slot on {@code ActuarialJobRequestedEvent}. Not gated by
+     * payload slot on {@code ReportJobRequestedEvent}. Not gated by
      * {@code @RequiresReport} — mirrors the persistency-cohort-feed
      * carve-out per Phase 11's deviation so MORTALITY_STUDY runs even
      * when a sibling policy-lifecycle report is toggled off. Permission

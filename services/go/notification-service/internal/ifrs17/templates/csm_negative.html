@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8" /><title>IFRS 17 — CSM went negative</title></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1f2937;max-width:600px;margin:24px auto;padding:0 16px">
+  <p style="background:#fef3c7;color:#92400e;padding:10px 14px;border-left:4px solid #d97706;font-weight:600">
+    CSM went negative — loss recognised
+  </p>
+
+  <p>{{.Message}}</p>
+
+  <table style="border-collapse:collapse;font-size:13px;margin:12px 0">
+    {{if .CohortID}}<tr><td style="padding:4px 12px 4px 0;color:#6b7280">Cohort</td><td style="padding:4px 0"><code>{{.CohortID}}</code></td></tr>{{end}}
+    {{if .PortfolioID}}<tr><td style="padding:4px 12px 4px 0;color:#6b7280">Portfolio</td><td style="padding:4px 0"><code>{{.PortfolioID}}</code></td></tr>{{end}}
+    <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Severity</td><td style="padding:4px 0">{{.Severity}}</td></tr>
+    {{if .SourceRunID}}<tr><td style="padding:4px 12px 4px 0;color:#6b7280">Source run</td><td style="padding:4px 0"><code>{{.SourceRunID}}</code></td></tr>{{end}}
+    <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Occurred</td><td style="padding:4px 0">{{.OccurredAt}}</td></tr>
+  </table>
+
+  <p>The Contractual Service Margin crossed zero this reporting period and a loss component has been created. Check the CSM roll-forward for the cohort and the experience adjustments that drove the transition.</p>
+
+  <p style="color:#5b6371;font-size:12px;margin-top:32px">You're receiving this because your recipient email is subscribed to <strong>{{.EventType}}</strong> notifications for tenant <code>{{.TenantID}}</code>. Manage recipients in Tenant Admin → Settings → IFRS 17 Config → Notifications.</p>
+</body>
+</html>

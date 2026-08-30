@@ -1,0 +1,155 @@
+<div class="actuarial-basis-tab" data-testid="ifrs17-notifications-tab">
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+  }
+
+  <section class="section">
+    <header class="section-header">
+      <div>
+        <h3 class="section-title">Notifications</h3>
+        <p class="section-sub">
+          Recipient list for IFRS 17 material events — onerous transitions,
+          CSM negatives, locked-in curve fallbacks, stale IBNR sub-jobs and
+          auto-derived opening balances. Each row pairs one event type with
+          one recipient (email address or webhook URL) and a per-tuple
+          throttle in minutes. The notification-service dispatcher reads
+          active rows at fan-out time.
+        </p>
+      </div>
+      <div class="section-actions">
+        <button type="button" class="btn btn-default" (click)="refresh()" [disabled]="loading">
+          <app-icon name="refresh-cw" [size]="16"></app-icon>
+          Refresh
+        </button>
+        <button type="button" class="btn btn-primary" (click)="openAdd()" [disabled]="addingOpen">
+          <app-icon name="plus" [size]="16"></app-icon>
+          Add recipient
+        </button>
+      </div>
+    </header>
+
+    @if (loading) {
+      <app-skeleton></app-skeleton>
+    } @else if (rows.length === 0 && !addingOpen) {
+      <p class="empty-state">No notification rules configured for this tenant yet.</p>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Event type</th>
+            <th>Delivery</th>
+            <th>Recipient</th>
+            <th>Throttle (min)</th>
+            <th>Active</th>
+            <th>Updated by</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows; track row.id) {
+            <tr [class.pending]="pendingId === row.id" [class.editing]="row.editing">
+              <td><strong>{{ row.eventType }}</strong></td>
+              <td>
+                @if (row.editing) {
+                  <app-select
+                    [(ngModel)]="row.draftDeliveryMethod"
+                    [name]="'edit-delivery-' + row.id"
+                    [options]="deliveryMethodOptions"
+                  ></app-select>
+                } @else {
+                  {{ row.deliveryMethod }}
+                }
+              </td>
+              <td class="mono">{{ row.recipient }}</td>
+              <td>
+                @if (row.editing) {
+                  <input type="number" min="0" max="1440" class="inline-input"
+                         [(ngModel)]="row.draftThrottleMinutes"
+                         [name]="'edit-throttle-' + row.id" />
+                } @else {
+                  {{ row.throttleMinutes }}
+                }
+              </td>
+              <td>
+                @if (row.editing) {
+                  <input type="checkbox"
+                         [(ngModel)]="row.draftIsActive"
+                         [name]="'edit-active-' + row.id" />
+                } @else {
+                  {{ row.isActive ? 'Yes' : 'No' }}
+                }
+              </td>
+              <td>{{ row.updatedByEmail || '—' }}</td>
+              <td class="row-actions">
+                @if (row.editing) {
+                  <button type="button" class="link-btn" (click)="saveEdit(row)" [disabled]="pendingId === row.id">
+                    <app-icon name="check" [size]="14"></app-icon> Save
+                  </button>
+                  <button type="button" class="link-btn" (click)="cancelEdit(row)">
+                    <app-icon name="x" [size]="14"></app-icon> Cancel
+                  </button>
+                } @else {
+                  <button type="button" class="link-btn" (click)="startEdit(row)">
+                    <app-icon name="pencil" [size]="14"></app-icon>
+                  </button>
+                  <button type="button" class="link-btn danger" (click)="remove(row)" [disabled]="pendingId === row.id">
+                    <app-icon name="trash-2" [size]="14"></app-icon>
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+
+    @if (addingOpen) {
+      <form class="add-form" (submit)="$event.preventDefault(); add()">
+        <div class="grid">
+          <label class="field">
+            <span class="field-label">Event type</span>
+            <app-select
+              [(ngModel)]="newRow.eventType"
+              name="newEventType"
+              [options]="eventTypeOptions"
+              required
+            ></app-select>
+          </label>
+          <label class="field">
+            <span class="field-label">Delivery method</span>
+            <app-select
+              [(ngModel)]="newRow.deliveryMethod"
+              name="newDeliveryMethod"
+              [options]="deliveryMethodOptions"
+              required
+            ></app-select>
+          </label>
+          <label class="field field-wide">
+            <span class="field-label">Recipient (email or webhook URL)</span>
+            <input type="text" maxlength="500" [(ngModel)]="newRow.recipient"
+                   name="newRecipient" required
+                   placeholder="risk-team@medfund.example or https://ops.example.com/hooks/ifrs17" />
+          </label>
+          <label class="field">
+            <span class="field-label">Throttle (minutes)</span>
+            <input type="number" min="0" max="1440" [(ngModel)]="newRow.throttleMinutes"
+                   name="newThrottle" />
+          </label>
+          <label class="field">
+            <span class="field-label">Active</span>
+            <input type="checkbox" [(ngModel)]="newRow.isActive" name="newIsActive" />
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" (click)="cancelAdd()" [disabled]="adding">Cancel</button>
+          <button type="submit" class="btn btn-primary" [disabled]="adding">
+            {{ adding ? 'Adding…' : 'Add recipient' }}
+          </button>
+        </div>
+      </form>
+    }
+  </section>
+</div>

@@ -40,6 +40,15 @@ describe('RULE_CATEGORIES catalogue', () => {
     expect(ids).toContain('ACTUARIAL');
   });
 
+  it('includes the Phase 15 §9 IFRS17_MODEL category', () => {
+    // Phase 15 §9 addition — exposes SELECT_IFRS17_MODEL rules to the
+    // tenant-admin rule editor so tenants can author per-line IFRS 17
+    // measurement-model (PAA / GMM / VFA) selection rules on top of the
+    // 8 industry-default rows seeded by V165__seed_ifrs17_model_default_rules.
+    const ids: RuleCategory[] = RULE_CATEGORIES.map(c => c.id);
+    expect(ids).toContain('IFRS17_MODEL');
+  });
+
   it('has no duplicate category ids', () => {
     const ids = RULE_CATEGORIES.map(c => c.id);
     const unique = new Set(ids);

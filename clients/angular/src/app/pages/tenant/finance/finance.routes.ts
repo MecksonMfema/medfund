@@ -4,6 +4,7 @@ import { PermissionKey } from '../../../core/security/permissions';
 import { UNDERWRITING_REPORT_ROUTES } from './reports/underwriting/underwriting.routes';
 import { POLICY_LIFECYCLE_REPORT_ROUTES } from './reports/policy-lifecycle/policy-lifecycle.routes';
 import { ACTUARIAL_REPORT_ROUTES } from './reports/actuarial/actuarial.routes';
+import { IFRS17_REPORT_ROUTES } from './reports/ifrs17/ifrs17.routes';
 
 const loadComingSoon = () =>
   import('../../../shared/components/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent);
@@ -761,6 +762,12 @@ export const FINANCE_ROUTES: Routes = [
   // MORTALITY_STUDY, MORBIDITY_STUDY land in Phases 11-14 alongside. All
   // six wrap the async job pipeline (submit → jobId → poll → render).
   ...ACTUARIAL_REPORT_ROUTES,
+
+  // ── IFRS 17 reports (Phase 15 §21) ──────────────────────────────────────
+  // LRC/LIC reconciliation + insurance-revenue-service-result. Both wrap
+  // the same async submit → poll → render → XLSX shape as the actuarial
+  // reports; envelope shape produced by finance-service Ifrs17JobAggregator.
+  ...IFRS17_REPORT_ROUTES,
 
   // ── Commission reports (Phase 11 §A) ────────────────────────────────────
   {

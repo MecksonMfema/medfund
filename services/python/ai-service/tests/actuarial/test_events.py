@@ -1,9 +1,11 @@
-"""Schema tests for actuarial Kafka payloads.
+"""Schema tests for the async report job Kafka payloads.
 
-Pins the wire shape of ``ActuarialJobRequestedEvent`` +
-``ActuarialJobCompletedEvent`` so that any future field addition stays
+Pins the wire shape of ``ReportJobRequestedEvent`` +
+``ReportJobCompletedEvent`` so that any future field addition stays
 additive (schema_version defaults to 1) and that the requested envelope
-still round-trips the triangle branch cleanly.
+still round-trips the triangle branch cleanly. Renamed from the Phase-14
+actuarial-specific envelopes in Phase 15 §1; the shim
+(``app.actuarial.events``) was removed in Phase 15 §23.
 """
 
 from __future__ import annotations
@@ -13,13 +15,13 @@ import json
 import pytest
 
 from app.actuarial.chain_ladder import TriangleInput
-from app.actuarial.events import (
+from app.report.events import (
     CONSUMER_GROUP,
     SCHEMA_VERSION,
     TOPIC_COMPLETED,
     TOPIC_REQUESTED,
-    ActuarialJobCompletedEvent,
-    ActuarialJobRequestedEvent,
+    ReportJobCompletedEvent,
+    ReportJobRequestedEvent,
 )
 
 
@@ -35,14 +37,19 @@ def _sample_triangle() -> TriangleInput:
 
 
 def test_topic_constants_match_plan():
-    assert TOPIC_REQUESTED == "medfund.actuarial.job-requested"
-    assert TOPIC_COMPLETED == "medfund.actuarial.job-completed"
+    # Phase 15 §22 cutover: canonical topics only (§23 removed the legacy
+    # ``medfund.actuarial.*`` constants + the ``app.actuarial.events`` shim).
+    assert TOPIC_REQUESTED == "medfund.report.job-requested"
+    assert TOPIC_COMPLETED == "medfund.report.job-completed"
+    # Consumer group intentionally keeps the pre-rename identifier so the
+    # running rollup doesn't reset to offset-0 on deploy — see the
+    # comment in ``app/report/events.py``.
     assert CONSUMER_GROUP == "ai-service-actuarial"
     assert SCHEMA_VERSION == 1
 
 
 def test_requested_defaults_schema_version_to_one():
-    event = ActuarialJobRequestedEvent(
+    event = ReportJobRequestedEvent(
         job_id="job-1",
         tenant_id="tenant-a",
         report_key="IBNR_TRIANGLE",
@@ -57,7 +64,7 @@ def test_requested_defaults_schema_version_to_one():
 
 
 def test_requested_roundtrips_through_json():
-    event = ActuarialJobRequestedEvent(
+    event = ReportJobRequestedEvent(
         job_id="job-2",
         tenant_id="tenant-a",
         report_key="IBNR_TRIANGLE",
@@ -67,7 +74,7 @@ def test_requested_roundtrips_through_json():
         requested_by_email="a@b.co",
     )
     payload = json.loads(event.model_dump_json())
-    restored = ActuarialJobRequestedEvent(**payload)
+    restored = ReportJobRequestedEvent(**payload)
     assert restored.triangle is not None
     assert restored.triangle.accident_periods == ["2020Q1", "2020Q2"]
     assert restored.params["ldfMethod"] == "5yr"
@@ -75,7 +82,7 @@ def test_requested_roundtrips_through_json():
 
 def test_completed_requires_model_version_and_method():
     with pytest.raises(Exception):
-        ActuarialJobCompletedEvent(
+        ReportJobCompletedEvent(
             job_id="job-1",
             tenant_id="tenant-a",
             report_key="IBNR_TRIANGLE",
@@ -85,7 +92,7 @@ def test_completed_requires_model_version_and_method():
 
 
 def test_completed_success_shape():
-    event = ActuarialJobCompletedEvent(
+    event = ReportJobCompletedEvent(
         job_id="job-1",
         tenant_id="tenant-a",
         report_key="IBNR_TRIANGLE",
@@ -103,7 +110,7 @@ def test_completed_success_shape():
 
 
 def test_completed_failed_shape():
-    event = ActuarialJobCompletedEvent(
+    event = ReportJobCompletedEvent(
         job_id="job-1",
         tenant_id="tenant-a",
         report_key="IBNR_TRIANGLE",

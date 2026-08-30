@@ -9,8 +9,9 @@ import com.medfund.finance.actuarial.dto.LapseStudyJobRequest;
 import com.medfund.finance.actuarial.dto.MorbidityStudyJobRequest;
 import com.medfund.finance.actuarial.dto.MortalityStudyJobRequest;
 import com.medfund.finance.actuarial.dto.PersistencyStudyJobRequest;
-import com.medfund.finance.actuarial.entity.ActuarialReportJob;
-import com.medfund.finance.actuarial.kafka.ActuarialJobPublisher;
+import com.medfund.finance.report.entity.ReportJob;
+import com.medfund.finance.report.kafka.ReportJobPublisher;
+import com.medfund.finance.report.repository.ReportJobRepository;
 import com.medfund.finance.actuarial.service.LapseCohortShapingService.LapseShapeRequest;
 import com.medfund.finance.actuarial.service.LapseCohortShapingService.LapseShapeResult;
 import com.medfund.finance.actuarial.service.MorbidityExposureShapingService.MorbidityShapeRequest;
@@ -21,7 +22,7 @@ import com.medfund.finance.actuarial.service.PersistencyCohortShapingService.Per
 import com.medfund.finance.actuarial.service.PersistencyCohortShapingService.PersistencyShapeResult;
 import com.medfund.finance.actuarial.service.TriangleShapingService.TriangleShapeRequest;
 import com.medfund.finance.actuarial.service.TriangleShapingService.TriangleShapeResult;
-import com.medfund.shared.actuarial.ActuarialJobRequestedEvent;
+import com.medfund.shared.report.ReportJobRequestedEvent;
 import com.medfund.shared.report.ReportKey;
 import com.medfund.shared.report.ReportingCurrencyResolver;
 import io.r2dbc.postgresql.codec.Json;
@@ -63,8 +64,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ActuarialJobService {
 
-    private final com.medfund.finance.actuarial.repository.ActuarialReportJobRepository repository;
-    private final ActuarialJobPublisher publisher;
+    private final ReportJobRepository repository;
+    private final ReportJobPublisher publisher;
     private final TriangleShapingService triangleShapingService;
     private final PersistencyCohortShapingService persistencyShapingService;
     private final LapseCohortShapingService lapseShapingService;
@@ -123,7 +124,7 @@ public class ActuarialJobService {
         // Leave jobId null so R2DBC does an INSERT (defaults to gen_random_uuid()).
         // Setting the PK up-front makes R2DBC treat the persist as UPDATE and fail
         // "Row with Id [...] does not exist".
-        ActuarialReportJob row = new ActuarialReportJob();
+        ReportJob row = new ReportJob();
         row.setTenantId(tenantId);
         row.setReportKey(reportKey.name());
         row.setStatus("requested");
@@ -138,6 +139,7 @@ public class ActuarialJobService {
             }
         }
         row.setRequestedByEmail(actorEmail);
+        row.setRetentionClass(ReportJob.RETENTION_OPERATIONAL_90D);
 
         return repository.save(row)
                 .flatMap(saved -> shapeAndPublish(reportKey, request, tenantId, actorId, actorEmail,
@@ -147,7 +149,7 @@ public class ActuarialJobService {
     private Mono<JobSubmissionResponse> shapeAndPublish(ReportKey reportKey, IbnrJobRequest request,
                                                         UUID tenantId, String actorId, String actorEmail,
                                                         Map<String, Object> params, String resolvedCurrency,
-                                                        ActuarialReportJob saved) {
+                                                        ReportJob saved) {
         TriangleShapeRequest shapeRequest = new TriangleShapeRequest(
                 tenantId,
                 request.periodStart(),
@@ -162,7 +164,7 @@ public class ActuarialJobService {
                 .onErrorResume(err -> markFailedInline(saved, err));
     }
 
-    private Mono<JobSubmissionResponse> publishShapedJob(TriangleShapeResult shape, ActuarialReportJob saved,
+    private Mono<JobSubmissionResponse> publishShapedJob(TriangleShapeResult shape, ReportJob saved,
                                                          ReportKey reportKey, UUID tenantId,
                                                          String actorId, String actorEmail,
                                                          Map<String, Object> params) {
@@ -178,13 +180,16 @@ public class ActuarialJobService {
         paramsWithWarnings.put("triangle", shape.triangle());
         saved.setParamsJson(jsonOf(paramsWithWarnings));
 
-        ActuarialJobRequestedEvent event = new ActuarialJobRequestedEvent(
-                ActuarialJobRequestedEvent.CURRENT_SCHEMA_VERSION,
+        ReportJobRequestedEvent event = new ReportJobRequestedEvent(
+                ReportJobRequestedEvent.CURRENT_SCHEMA_VERSION,
                 saved.getJobId(),
                 tenantId,
+                null,
                 reportKey.name(),
                 paramsWithWarnings,
                 shape.triangle(),
+                null,
+                null,
                 null,
                 null,
                 parseUuidOrNull(actorId),
@@ -194,7 +199,7 @@ public class ActuarialJobService {
                 .thenReturn(new JobSubmissionResponse(saved.getJobId(), saved.getStatus(), false));
     }
 
-    private Mono<JobSubmissionResponse> markFailedInline(ActuarialReportJob saved, Throwable err) {
+    private Mono<JobSubmissionResponse> markFailedInline(ReportJob saved, Throwable err) {
         log.error("[actuarial-job] pre-publish failure for job {}: {}", saved.getJobId(), err.getMessage(), err);
         saved.setStatus("failed");
         saved.setErrorMessage(err.getMessage() != null ? err.getMessage() : err.getClass().getSimpleName());
@@ -224,7 +229,7 @@ public class ActuarialJobService {
     private Mono<JobSubmissionResponse> insertAndPublishPersistency(PersistencyStudyJobRequest request,
                                                                     UUID tenantId, String actorId, String actorEmail,
                                                                     Map<String, Object> params, String paramsHash) {
-        ActuarialReportJob row = new ActuarialReportJob();
+        ReportJob row = new ReportJob();
         row.setTenantId(tenantId);
         row.setReportKey(ReportKey.PERSISTENCY_STUDY.name());
         row.setStatus("requested");
@@ -239,6 +244,7 @@ public class ActuarialJobService {
             }
         }
         row.setRequestedByEmail(actorEmail);
+        row.setRetentionClass(ReportJob.RETENTION_OPERATIONAL_90D);
 
         return repository.save(row)
                 .flatMap(saved -> shapePersistencyAndPublish(request, tenantId, actorId, actorEmail,
@@ -248,7 +254,7 @@ public class ActuarialJobService {
     private Mono<JobSubmissionResponse> shapePersistencyAndPublish(PersistencyStudyJobRequest request,
                                                                     UUID tenantId, String actorId, String actorEmail,
                                                                     Map<String, Object> params,
-                                                                    ActuarialReportJob saved) {
+                                                                    ReportJob saved) {
         PersistencyShapeRequest shapeRequest = new PersistencyShapeRequest(
                 tenantId,
                 request.periodStart(),
@@ -261,7 +267,7 @@ public class ActuarialJobService {
     }
 
     private Mono<JobSubmissionResponse> publishShapedPersistency(PersistencyShapeResult shape,
-                                                                  ActuarialReportJob saved, UUID tenantId,
+                                                                  ReportJob saved, UUID tenantId,
                                                                   String actorId, String actorEmail,
                                                                   Map<String, Object> params) {
         Map<String, Object> paramsWithWarnings = new LinkedHashMap<>(params);
@@ -274,15 +280,18 @@ public class ActuarialJobService {
         paramsWithWarnings.put("cohort", shape.cohort());
         saved.setParamsJson(jsonOf(paramsWithWarnings));
 
-        ActuarialJobRequestedEvent event = new ActuarialJobRequestedEvent(
-                ActuarialJobRequestedEvent.CURRENT_SCHEMA_VERSION,
+        ReportJobRequestedEvent event = new ReportJobRequestedEvent(
+                ReportJobRequestedEvent.CURRENT_SCHEMA_VERSION,
                 saved.getJobId(),
                 tenantId,
+                null,
                 ReportKey.PERSISTENCY_STUDY.name(),
                 paramsWithWarnings,
                 null,
                 null,
                 shape.cohort(),
+                null,
+                null,
                 parseUuidOrNull(actorId),
                 actorEmail);
         return repository.save(saved)
@@ -323,7 +332,7 @@ public class ActuarialJobService {
     private Mono<JobSubmissionResponse> insertAndPublishLapse(LapseStudyJobRequest request,
                                                               UUID tenantId, String actorId, String actorEmail,
                                                               Map<String, Object> params, String paramsHash) {
-        ActuarialReportJob row = new ActuarialReportJob();
+        ReportJob row = new ReportJob();
         row.setTenantId(tenantId);
         row.setReportKey(ReportKey.LAPSE_STUDY.name());
         row.setStatus("requested");
@@ -338,6 +347,7 @@ public class ActuarialJobService {
             }
         }
         row.setRequestedByEmail(actorEmail);
+        row.setRetentionClass(ReportJob.RETENTION_OPERATIONAL_90D);
 
         return repository.save(row)
                 .flatMap(saved -> shapeLapseAndPublish(request, tenantId, actorId, actorEmail,
@@ -347,7 +357,7 @@ public class ActuarialJobService {
     private Mono<JobSubmissionResponse> shapeLapseAndPublish(LapseStudyJobRequest request,
                                                               UUID tenantId, String actorId, String actorEmail,
                                                               Map<String, Object> params,
-                                                              ActuarialReportJob saved) {
+                                                              ReportJob saved) {
         LapseShapeRequest shapeRequest = new LapseShapeRequest(
                 tenantId,
                 request.periodStart(),
@@ -360,7 +370,7 @@ public class ActuarialJobService {
     }
 
     private Mono<JobSubmissionResponse> publishShapedLapse(LapseShapeResult shape,
-                                                            ActuarialReportJob saved, UUID tenantId,
+                                                            ReportJob saved, UUID tenantId,
                                                             String actorId, String actorEmail,
                                                             Map<String, Object> params) {
         Map<String, Object> paramsWithWarnings = new LinkedHashMap<>(params);
@@ -373,15 +383,18 @@ public class ActuarialJobService {
         paramsWithWarnings.put("cohort", shape.cohort());
         saved.setParamsJson(jsonOf(paramsWithWarnings));
 
-        ActuarialJobRequestedEvent event = new ActuarialJobRequestedEvent(
-                ActuarialJobRequestedEvent.CURRENT_SCHEMA_VERSION,
+        ReportJobRequestedEvent event = new ReportJobRequestedEvent(
+                ReportJobRequestedEvent.CURRENT_SCHEMA_VERSION,
                 saved.getJobId(),
                 tenantId,
+                null,
                 ReportKey.LAPSE_STUDY.name(),
                 paramsWithWarnings,
                 null,
                 null,
                 shape.cohort(),
+                null,
+                null,
                 parseUuidOrNull(actorId),
                 actorEmail);
         return repository.save(saved)
@@ -422,7 +435,7 @@ public class ActuarialJobService {
     private Mono<JobSubmissionResponse> insertAndPublishMortality(MortalityStudyJobRequest request,
                                                                   UUID tenantId, String actorId, String actorEmail,
                                                                   Map<String, Object> params, String paramsHash) {
-        ActuarialReportJob row = new ActuarialReportJob();
+        ReportJob row = new ReportJob();
         row.setTenantId(tenantId);
         row.setReportKey(ReportKey.MORTALITY_STUDY.name());
         row.setStatus("requested");
@@ -437,6 +450,7 @@ public class ActuarialJobService {
             }
         }
         row.setRequestedByEmail(actorEmail);
+        row.setRetentionClass(ReportJob.RETENTION_OPERATIONAL_90D);
 
         return repository.save(row)
                 .flatMap(saved -> shapeMortalityAndPublish(request, tenantId, actorId, actorEmail,
@@ -446,7 +460,7 @@ public class ActuarialJobService {
     private Mono<JobSubmissionResponse> shapeMortalityAndPublish(MortalityStudyJobRequest request,
                                                                   UUID tenantId, String actorId, String actorEmail,
                                                                   Map<String, Object> params,
-                                                                  ActuarialReportJob saved) {
+                                                                  ReportJob saved) {
         Double multiplier = request.multiplierOverride() == null
                 ? null
                 : request.multiplierOverride().doubleValue();
@@ -463,7 +477,7 @@ public class ActuarialJobService {
     }
 
     private Mono<JobSubmissionResponse> publishShapedMortality(MortalityShapeResult shape,
-                                                               ActuarialReportJob saved, UUID tenantId,
+                                                               ReportJob saved, UUID tenantId,
                                                                String actorId, String actorEmail,
                                                                Map<String, Object> params) {
         Map<String, Object> paramsWithWarnings = new LinkedHashMap<>(params);
@@ -476,14 +490,17 @@ public class ActuarialJobService {
         paramsWithWarnings.put("exposure", shape.exposure());
         saved.setParamsJson(jsonOf(paramsWithWarnings));
 
-        ActuarialJobRequestedEvent event = new ActuarialJobRequestedEvent(
-                ActuarialJobRequestedEvent.CURRENT_SCHEMA_VERSION,
+        ReportJobRequestedEvent event = new ReportJobRequestedEvent(
+                ReportJobRequestedEvent.CURRENT_SCHEMA_VERSION,
                 saved.getJobId(),
                 tenantId,
+                null,
                 ReportKey.MORTALITY_STUDY.name(),
                 paramsWithWarnings,
                 null,
                 shape.exposure(),
+                null,
+                null,
                 null,
                 parseUuidOrNull(actorId),
                 actorEmail);
@@ -528,7 +545,7 @@ public class ActuarialJobService {
     private Mono<JobSubmissionResponse> insertAndPublishMorbidity(MorbidityStudyJobRequest request,
                                                                   UUID tenantId, String actorId, String actorEmail,
                                                                   Map<String, Object> params, String paramsHash) {
-        ActuarialReportJob row = new ActuarialReportJob();
+        ReportJob row = new ReportJob();
         row.setTenantId(tenantId);
         row.setReportKey(ReportKey.MORBIDITY_STUDY.name());
         row.setStatus("requested");
@@ -543,6 +560,7 @@ public class ActuarialJobService {
             }
         }
         row.setRequestedByEmail(actorEmail);
+        row.setRetentionClass(ReportJob.RETENTION_OPERATIONAL_90D);
 
         return repository.save(row)
                 .flatMap(saved -> shapeMorbidityAndPublish(request, tenantId, actorId, actorEmail,
@@ -552,7 +570,7 @@ public class ActuarialJobService {
     private Mono<JobSubmissionResponse> shapeMorbidityAndPublish(MorbidityStudyJobRequest request,
                                                                   UUID tenantId, String actorId, String actorEmail,
                                                                   Map<String, Object> params,
-                                                                  ActuarialReportJob saved) {
+                                                                  ReportJob saved) {
         Double multiplier = request.multiplierOverride() == null
                 ? null
                 : request.multiplierOverride().doubleValue();
@@ -569,7 +587,7 @@ public class ActuarialJobService {
     }
 
     private Mono<JobSubmissionResponse> publishShapedMorbidity(MorbidityShapeResult shape,
-                                                               ActuarialReportJob saved, UUID tenantId,
+                                                               ReportJob saved, UUID tenantId,
                                                                String actorId, String actorEmail,
                                                                Map<String, Object> params) {
         Map<String, Object> paramsWithWarnings = new LinkedHashMap<>(params);
@@ -582,14 +600,17 @@ public class ActuarialJobService {
         paramsWithWarnings.put("exposure", shape.exposure());
         saved.setParamsJson(jsonOf(paramsWithWarnings));
 
-        ActuarialJobRequestedEvent event = new ActuarialJobRequestedEvent(
-                ActuarialJobRequestedEvent.CURRENT_SCHEMA_VERSION,
+        ReportJobRequestedEvent event = new ReportJobRequestedEvent(
+                ReportJobRequestedEvent.CURRENT_SCHEMA_VERSION,
                 saved.getJobId(),
                 tenantId,
+                null,
                 ReportKey.MORBIDITY_STUDY.name(),
                 paramsWithWarnings,
                 null,
                 shape.exposure(),
+                null,
+                null,
                 null,
                 parseUuidOrNull(actorId),
                 actorEmail);
@@ -630,7 +651,7 @@ public class ActuarialJobService {
 
     /** Internal lookup for the XLSX export path — tenant guard applied by the caller
      *  (the export endpoint) so this returns the raw row. */
-    public Mono<ActuarialReportJob> get(UUID jobId, UUID tenantId) {
+    public Mono<ReportJob> get(UUID jobId, UUID tenantId) {
         return repository.findById(jobId)
                 .switchIfEmpty(Mono.error(new ResponseStatusException(
                         org.springframework.http.HttpStatus.NOT_FOUND,
@@ -645,7 +666,7 @@ public class ActuarialJobService {
                 });
     }
 
-    private JobStatusResponse toResponse(ActuarialReportJob job) {
+    private JobStatusResponse toResponse(ReportJob job) {
         int progressPct = switch (job.getStatus()) {
             case "requested" -> 10;
             case "processing" -> 50;

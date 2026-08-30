@@ -1,0 +1,168 @@
+<div class="actuarial-basis-tab" data-testid="ifrs17-opening-balances-tab">
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+  @if (successMessage) {
+    <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+  }
+
+  <section class="section">
+    <header class="section-header">
+      <div>
+        <h3 class="section-title">Opening balance seeds</h3>
+        <p class="section-sub">
+          Tenant-admin overrides on the auto-derived IFRS 17 LRC / LIC
+          opening balances. §17 shaping consults this table first per
+          (portfolio, cohort, currency, balance type, effective from);
+          falls back to the auto-derived value when nothing matches.
+          Every write requires an operator reason note that lands on the
+          audit trail.
+        </p>
+      </div>
+      <div class="section-actions">
+        <button type="button" class="btn btn-default" (click)="refresh()" [disabled]="loading">
+          <app-icon name="refresh-cw" [size]="16"></app-icon>
+          Refresh
+        </button>
+        <button type="button" class="btn btn-primary" (click)="openAdd()" [disabled]="addingOpen">
+          <app-icon name="plus" [size]="16"></app-icon>
+          Add seed
+        </button>
+      </div>
+    </header>
+
+    @if (loading) {
+      <app-skeleton></app-skeleton>
+    } @else if (rows.length === 0 && !addingOpen) {
+      <p class="empty-state">No opening balance seeds for this tenant yet — reports use the auto-derived values.</p>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Portfolio</th>
+            <th>Cohort</th>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Currency</th>
+            <th>Effective from</th>
+            <th>Reason note</th>
+            <th>Set by</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows; track row.id) {
+            <tr [class.pending]="pendingId === row.id" [class.editing]="row.editing">
+              <td><strong>{{ row.portfolioName }}</strong></td>
+              <td>{{ row.cohortName }}</td>
+              <td>{{ row.balanceType }}</td>
+              <td>
+                @if (row.editing) {
+                  <input type="number" step="0.01" min="0" class="inline-input"
+                         [(ngModel)]="row.draftAmount" name="edit-amount-{{row.id}}" />
+                } @else {
+                  {{ row.amount }}
+                }
+              </td>
+              <td>{{ row.currency }}</td>
+              <td>{{ row.effectiveFrom }}</td>
+              <td>
+                @if (row.editing) {
+                  <input type="text" class="inline-input" maxlength="2000"
+                         [(ngModel)]="row.draftReasonNote" name="edit-reason-{{row.id}}" />
+                } @else {
+                  {{ row.reasonNote }}
+                }
+              </td>
+              <td>{{ row.actorEmail || '—' }}</td>
+              <td class="row-actions">
+                @if (row.editing) {
+                  <button type="button" class="link-btn" (click)="saveEdit(row)" [disabled]="pendingId === row.id">
+                    <app-icon name="check" [size]="14"></app-icon> Save
+                  </button>
+                  <button type="button" class="link-btn" (click)="cancelEdit(row)">
+                    <app-icon name="x" [size]="14"></app-icon> Cancel
+                  </button>
+                } @else {
+                  <button type="button" class="link-btn" (click)="startEdit(row)">
+                    <app-icon name="pencil" [size]="14"></app-icon>
+                  </button>
+                  <button type="button" class="link-btn danger" (click)="remove(row)" [disabled]="pendingId === row.id">
+                    <app-icon name="trash-2" [size]="14"></app-icon>
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+
+    @if (addingOpen) {
+      <form class="add-form" (submit)="$event.preventDefault(); add()">
+        <div class="grid">
+          <label class="field">
+            <span class="field-label">Portfolio</span>
+            <app-select
+              [(ngModel)]="newRow.portfolioId"
+              (ngModelChange)="onPortfolioChange()"
+              name="newPortfolio"
+              [options]="portfolioOptions()"
+              placeholder="Pick a portfolio"
+              required
+            ></app-select>
+          </label>
+          <label class="field">
+            <span class="field-label">Cohort</span>
+            <app-select
+              [(ngModel)]="newRow.cohortId"
+              name="newCohort"
+              [options]="cohortOptionsForSelected()"
+              placeholder="Pick a cohort"
+              [disabled]="!newRow.portfolioId"
+              required
+            ></app-select>
+          </label>
+          <label class="field">
+            <span class="field-label">Balance type</span>
+            <app-select
+              [(ngModel)]="newRow.balanceType"
+              name="newBalanceType"
+              [options]="balanceTypeOptions"
+              required
+            ></app-select>
+          </label>
+          <label class="field">
+            <span class="field-label">Amount</span>
+            <input type="number" step="0.01" min="0" [(ngModel)]="newRow.amount"
+                   name="newAmount" required />
+          </label>
+          <label class="field">
+            <span class="field-label">Currency (ISO 4217)</span>
+            <input type="text" minlength="3" maxlength="3" [(ngModel)]="newRow.currency"
+                   name="newCurrency" required placeholder="USD" />
+          </label>
+          <label class="field">
+            <span class="field-label">Effective from</span>
+            <input type="date" [(ngModel)]="newRow.effectiveFrom"
+                   name="newFrom" required />
+          </label>
+          <label class="field field-wide">
+            <span class="field-label">Reason note (required)</span>
+            <input type="text" maxlength="2000"
+                   [(ngModel)]="newRow.reasonNote"
+                   name="newReasonNote"
+                   placeholder="e.g. Restated after 2025 external audit"
+                   required />
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" (click)="cancelAdd()" [disabled]="adding">Cancel</button>
+          <button type="submit" class="btn btn-primary" [disabled]="adding">
+            {{ adding ? 'Adding…' : 'Add seed' }}
+          </button>
+        </div>
+      </form>
+    }
+  </section>
+</div>

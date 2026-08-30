@@ -43,6 +43,14 @@ dependencies {
     // declared this directly; they now pick it up transitively.
     api("org.apache.poi:poi-ooxml:5.2.5")
 
+    // MinIO SDK — backs shared.kafka.MinIOPayloadStore (Phase 15 §10 / I25).
+    // Report-job chunk payloads over ~900 KB are streamed to the
+    // medfund-report-payloads bucket rather than pushed inline through Kafka.
+    // The MinIOConfig bean is @ConditionalOnProperty("minio.endpoint"), so
+    // services that don't opt in never construct a client — the class stays
+    // on the classpath for everyone.
+    api("io.minio:minio:8.5.11")
+
     // ── Test fixtures (java-test-fixtures plugin) ─────────────────────────
     // Downstream services pull these via:
     //   testImplementation(testFixtures(project(":shared")))

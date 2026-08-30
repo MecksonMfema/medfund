@@ -33,6 +33,14 @@ type Config struct {
 	MinIOAccessKey string
 	MinIOSecretKey string
 	MinIOUseSSL    string
+
+	// IFRS 17 dispatcher — the Redis URL backs the throttle SetNX,
+	// and TenancyServiceURL is where the dispatcher fetches active
+	// notification-config rows. Empty values disable the ifrs17
+	// pipeline (matching the "one channel down doesn't crash the
+	// service" pattern of the other consumers).
+	RedisURL          string
+	TenancyServiceURL string
 }
 
 func Load() *Config {
@@ -58,6 +66,9 @@ func Load() *Config {
 		MinIOAccessKey: getEnv("MINIO_ACCESS_KEY", "medfund"),
 		MinIOSecretKey: getEnv("MINIO_SECRET_KEY", "medfund123"),
 		MinIOUseSSL:    getEnv("MINIO_USE_SSL", "false"),
+
+		RedisURL:          getEnv("REDIS_URL", "redis://localhost:6379/0"),
+		TenancyServiceURL: getEnv("TENANCY_SERVICE_URL", "http://localhost:8081"),
 	}
 }
 

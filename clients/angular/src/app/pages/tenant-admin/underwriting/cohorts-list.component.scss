@@ -1,0 +1,47 @@
+// Phase 15 §4 (I11) — status history modal styles.
+// Adopted from shared/components/policy-status-action-modal so the shell feels
+// like the rest of the app; scoped to CohortsListComponent because
+// component-level Emulated view encapsulation is the codebase's default.
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.22);
+  min-width: 620px;
+  max-width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+
+  h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1f2c;
+  }
+}
+
+.modal-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+}

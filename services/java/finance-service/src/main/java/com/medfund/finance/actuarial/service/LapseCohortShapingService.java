@@ -34,7 +34,7 @@ import java.util.UUID;
  *       construction and both reports reconcile against each other.</li>
  * </ul>
  * The output map is the {@code cohort} payload slot on
- * {@code ActuarialJobRequestedEvent} — Python's {@code app.actuarial.lapse.compute}
+ * {@code ReportJobRequestedEvent} — Python's {@code app.actuarial.lapse.compute}
  * consumes it directly.
  */
 @Slf4j

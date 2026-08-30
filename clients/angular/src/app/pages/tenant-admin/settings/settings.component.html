@@ -574,6 +574,15 @@
   </div>
 }
 
+<!-- IFRS 17 configuration (RA methodology / yield curves / expense assumptions) -->
+@if (activeTab === 'ifrs17-config') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <app-ifrs17-config></app-ifrs17-config>
+    </div>
+  </div>
+}
+
 <!-- Roles & Permissions -->
 @if (activeTab === 'roles') {
   <div class="settings-section">

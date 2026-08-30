@@ -28,7 +28,7 @@ import java.util.UUID;
  * </ul>
  *
  * <p>The output map is the {@code exposure} payload slot on
- * {@code ActuarialJobRequestedEvent} — Python's
+ * {@code ReportJobRequestedEvent} — Python's
  * {@code app.actuarial.morbidity.compute} reads it verbatim.
  *
  * <p>Missing basis is not fatal — the shaping service still emits a

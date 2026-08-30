@@ -4,7 +4,7 @@ package com.medfund.user.reports.lifecycle.dto;
  * Phase 14 §Actuarial Phase 13 — one row per (age_band, sex) aggregation
  * of the member-exposure feed. Feeds finance-service's
  * {@code MortalityExposureShapingService} which pivots this into the
- * exposure payload slot on {@code ActuarialJobRequestedEvent}.
+ * exposure payload slot on {@code ReportJobRequestedEvent}.
  *
  * <p>{@code ageBand} is a 5-year canonical bucket ("0-4", "5-9", …, "85+").
  * {@code sex} is "male" / "female" / "unknown" (rows with unknown sex are

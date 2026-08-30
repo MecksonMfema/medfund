@@ -92,6 +92,9 @@ file-svc:
 payment:
 	cd services/go/payment-gateway && air
 
+market-data:
+	cd services/go/market-data-service && air
+
 # ── Elixir services (Phoenix live reload — built-in to dev mode) ─────────────
 
 live-dashboard:
@@ -160,7 +163,7 @@ test-coverage:
 
 .PHONY: infra infra-down infra-reset infra-ps infra-logs keycloak-setup \
         tenancy user claims contributions finance java-all \
-        gateway notification audit file-svc payment \
+        gateway notification audit file-svc payment market-data \
         live-dashboard chat elixir-setup \
         ai ai-setup \
         web web-setup \

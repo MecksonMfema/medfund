@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8" /><title>IFRS 17 — IBNR sub-job stale, refresh triggered</title></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1f2937;max-width:600px;margin:24px auto;padding:0 16px">
+  <p style="background:#e0f2fe;color:#075985;padding:10px 14px;border-left:4px solid #0284c7;font-weight:600">
+    IBNR triangle stale — sub-job auto-triggered
+  </p>
+
+  <p>{{.Message}}</p>
+
+  <table style="border-collapse:collapse;font-size:13px;margin:12px 0">
+    {{if .PortfolioID}}<tr><td style="padding:4px 12px 4px 0;color:#6b7280">Portfolio</td><td style="padding:4px 0"><code>{{.PortfolioID}}</code></td></tr>{{end}}
+    {{if .CohortID}}<tr><td style="padding:4px 12px 4px 0;color:#6b7280">Cohort</td><td style="padding:4px 0"><code>{{.CohortID}}</code></td></tr>{{end}}
+    <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Severity</td><td style="padding:4px 0">{{.Severity}}</td></tr>
+    {{if .SourceRunID}}<tr><td style="padding:4px 12px 4px 0;color:#6b7280">Source run</td><td style="padding:4px 0"><code>{{.SourceRunID}}</code></td></tr>{{end}}
+    <tr><td style="padding:4px 12px 4px 0;color:#6b7280">Occurred</td><td style="padding:4px 0">{{.OccurredAt}}</td></tr>
+  </table>
+
+  <p>The current IFRS 17 report needed loss-development data newer than what was available, so an IBNR sub-job was queued automatically. The parent report will resume once the sub-job completes; no action is required unless the sub-job itself fails.</p>
+
+  <p style="color:#5b6371;font-size:12px;margin-top:32px">You're receiving this because your recipient email is subscribed to <strong>{{.EventType}}</strong> notifications for tenant <code>{{.TenantID}}</code>.</p>
+</body>
+</html>

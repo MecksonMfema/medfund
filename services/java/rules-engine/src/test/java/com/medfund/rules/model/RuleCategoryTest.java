@@ -48,9 +48,19 @@ class RuleCategoryTest {
     }
 
     @Test
+    void ifrs17ModelCategory_isDeclared() {
+        // Phase 15 §9 addition — used by SELECT_IFRS17_MODEL emitter + IFRS17_MODEL
+        // templates. Agenda-gated so it only fires when finance-service's
+        // Ifrs17ShapingService focuses the group per portfolio at IFRS 17
+        // report-submit time.
+        assertThat(RuleCategory.valueOf("IFRS17_MODEL"))
+                .isEqualTo(RuleCategory.IFRS17_MODEL);
+    }
+
+    @Test
     void enumHasExpectedCatalogSize() {
         // Guardrail: if this fires, a new category was added — update the
         // Angular RULE_CATEGORIES + permissions catalog + tenant rules docs.
-        assertThat(RuleCategory.values()).hasSize(20);
+        assertThat(RuleCategory.values()).hasSize(21);
     }
 }

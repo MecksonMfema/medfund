@@ -70,6 +70,9 @@ const ACTION_TYPES: { id: string; label: string; description: string; valueHint?
 
   // Actuarial (Phase 14)
   { id: 'SELECT_LDF',           label: 'Select LDF method',    description: 'Pick a loss-development-factor selection method for IBNR / loss-triangle chain-ladder compute. Value encodes the method as LDF_METHOD:<name> where <name> is volume, simple, or 5yr.', valueHint: 'LDF_METHOD:volume  or  LDF_METHOD:simple  or  LDF_METHOD:5yr' },
+
+  // IFRS 17 (Phase 15 §9)
+  { id: 'SELECT_IFRS17_MODEL',  label: 'Select IFRS 17 model', description: 'Pick the IFRS 17 measurement model (PAA / GMM / VFA) + coverage-unit pattern + variable-fee pattern (VFA only) + finance-expense presentation for a portfolio. Value encodes the choices as IFRS17_MODEL:<model>:<coverage>:<fee>:<expense>. Fee is null for non-VFA models.', valueHint: 'IFRS17_MODEL:PAA:TIME:null:PL_ONLY  or  IFRS17_MODEL:GMM:TIME:null:OCI_OPTION  or  IFRS17_MODEL:VFA:TIME:FIXED_PCT:OCI_OPTION' },
 ];
 
 interface EditorFormState {

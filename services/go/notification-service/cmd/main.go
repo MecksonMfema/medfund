@@ -14,6 +14,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/medfund/shared/httpserver"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/medfund/notification-service/internal/events"
 	"github.com/medfund/notification-service/internal/arrears"
 	"github.com/medfund/notification-service/internal/handler"
+	"github.com/medfund/notification-service/internal/ifrs17"
 	"github.com/medfund/notification-service/internal/invoice"
 	"github.com/medfund/notification-service/internal/job"
 	"github.com/medfund/notification-service/internal/lifecycle"
@@ -166,6 +168,42 @@ func main() {
 		log.Fatalf("eob dispatcher: %v", err)
 	}
 
+	// IFRS 17 material-event pipeline (Phase 15 §20 / I30). Reads
+	// per-tenant recipients from tenancy-service on every fan-out
+	// and throttles duplicate deliveries via Redis SetNX. Both the
+	// Redis client and the tenancy-service client fail open: the
+	// pipeline just logs that the ifrs17 consumer is disabled and
+	// the rest of the service keeps running.
+	var ifrs17Redis *redis.Client
+	if cfg.RedisURL != "" {
+		if opts, parseErr := redis.ParseURL(cfg.RedisURL); parseErr == nil {
+			client := redis.NewClient(opts)
+			pingCtx, pingCancel := context.WithTimeout(context.Background(), 3*time.Second)
+			if err := client.Ping(pingCtx).Err(); err == nil {
+				ifrs17Redis = client
+				log.Printf("[notification] ifrs17 redis throttle enabled at %s", cfg.RedisURL)
+			} else {
+				log.Printf("[notification] ifrs17 redis ping failed: %v — throttle disabled",
+					err)
+				_ = client.Close()
+			}
+			pingCancel()
+		} else {
+			log.Printf("[notification] ifrs17 redis URL invalid: %v — throttle disabled",
+				parseErr)
+		}
+	}
+	var ifrs17Configs ifrs17.ConfigLookup
+	if cfg.TenancyServiceURL != "" {
+		ifrs17Configs = ifrs17.NewHTTPTenancyClient(cfg.TenancyServiceURL)
+	}
+	var ifrs17Throttle ifrs17.Throttle
+	if ifrs17Redis != nil {
+		ifrs17Throttle = ifrs17.NewRedisThrottle(ifrs17Redis)
+	}
+	ifrs17Dispatcher := ifrs17.NewDispatcher(
+		ifrs17Configs, sender, ifrs17.NewHTTPWebhookSender(), ifrs17Throttle, cfg.SMTPFrom)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	if cfg.KafkaBrokers != "" && fetcher != nil {
 		go runInvoiceConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID,
@@ -211,6 +249,12 @@ func main() {
 	} else {
 		log.Printf("[notification] eob consumer disabled (kafka=%q postgres=%v)",
 			cfg.KafkaBrokers, pool != nil)
+	}
+	if cfg.KafkaBrokers != "" && ifrs17Configs != nil {
+		go ifrs17.Run(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, ifrs17Dispatcher)
+	} else {
+		log.Printf("[notification] ifrs17 consumer disabled (kafka=%q tenancyService=%v)",
+			cfg.KafkaBrokers, ifrs17Configs != nil)
 	}
 
 	go func() {

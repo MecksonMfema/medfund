@@ -26,7 +26,7 @@ import java.util.UUID;
  *       schema) — expected retention percentages per (line, cohort_months).</li>
  * </ul>
  * The output map is the {@code cohort} payload slot on
- * {@code ActuarialJobRequestedEvent} — Python's
+ * {@code ReportJobRequestedEvent} — Python's
  * {@code app.actuarial.persistency.compute} consumes it directly.
  *
  * <p>An empty feed is not a failure — the Python compute returns

@@ -12,6 +12,7 @@ import com.medfund.rules.template.providers.CommissionTemplates;
 import com.medfund.rules.template.providers.ContributionBillingTemplates;
 import com.medfund.rules.template.providers.ContributionPricingTemplates;
 import com.medfund.rules.template.providers.EligibilityTemplates;
+import com.medfund.rules.template.providers.Ifrs17ModelTemplates;
 import com.medfund.rules.template.providers.MemberLifecycleTemplates;
 import com.medfund.rules.template.providers.ModifierAdjustmentTemplates;
 import com.medfund.rules.template.providers.PreAuthorizationTemplates;
@@ -63,7 +64,8 @@ class RuleTemplateServiceTest {
                 new ReinsuranceTemplates(),
                 new CommissionTemplates(),
                 new PremiumEarningTemplates(),
-                new ActuarialTemplates()
+                new ActuarialTemplates(),
+                new Ifrs17ModelTemplates()
         );
         service = new RuleTemplateService(providers);
     }

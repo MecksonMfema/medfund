@@ -144,12 +144,15 @@ domains:
       - { key: "tenant.settings:manage_auto_lapse",           label: "Manage auto-lapse settings",        description: "Enable/disable the auto-lapse chain and configure arrears-threshold-months + grace-window-days (Phase 11 §B)." }
       - { key: "tenant.settings:manage_endorsement_config",   label: "Manage endorsement four-eyes gate", description: "Enable/disable the endorsement four-eyes threshold and configure its amount + currency (Phase 12 §C)." }
       - { key: "tenant.settings:manage_actuarial_bases",       label: "Manage actuarial basis tables",     description: "Add, edit, or delete per-tenant persistency / mortality / morbidity basis rows consumed by the actuarial studies (Phase 14 §2)." }
+      - { key: "tenant.settings:manage_ifrs17_config",         label: "Manage IFRS 17 admin config",       description: "Add, edit, or delete per-tenant IFRS 17 admin surfaces — risk adjustment methodology, yield curves and expense assumptions (Phase 15 §2)." }
 
   - id: underwriting
     label: Underwriting
     permissions:
       - { key: "underwriting.portfolio:manage",     label: "Manage IFRS 17 portfolios",         description: "Create, update, and soft-delete IFRS 17 portfolios used by Phase 12 underwriting reports." }
       - { key: "underwriting.cohort:manage",        label: "Manage IFRS 17 cohorts",            description: "Create, update, and soft-delete IFRS 17 cohorts (portfolio × year × type)." }
+      - { key: "underwriting.opening_balance:manage", label: "Manage IFRS 17 opening balance seeds", description: "Add, edit, or delete tenant-admin overrides on auto-derived IFRS 17 LRC / LIC opening balances (Phase 15 §7)." }
+      - { key: "underwriting.fund:manage",           label: "Manage VFA unit-linked funds",      description: "Add, edit, or delete VFA unit-linked funds, append NAV history rows, manage variable fee schedules and append policy unit ledger rows (Phase 15 §8)." }
       - { key: "premium.earning:manage_backfill",   label: "Trigger earning-schedule backfill", description: "Trigger a targeted earning-schedule backfill or replay for a single policy (Phase 12 §A U10)." }
       - { key: "premium.earning:view_debug",        label: "View earning-schedule debug rows",  description: "Dev-only: read raw earning_schedule rows for a policy. Not intended for production tenant admins." }
       - { key: "policy:draft_endorsement",          label: "Draft policy endorsement",          description: "Create a DRAFT policy endorsement and read the queue. Auto-commits below the four-eyes threshold (Phase 12 §C)." }

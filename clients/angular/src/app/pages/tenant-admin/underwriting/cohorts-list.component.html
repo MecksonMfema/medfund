@@ -100,6 +100,10 @@
             </span>
           </td>
           <td>
+            <button class="btn btn-sm btn-default" (click)="openHistory(row)">History</button>
+            @if (row.cohortType === 'ONEROUS') {
+              <button class="btn btn-sm btn-default" (click)="openLossComponent(row)">Loss component</button>
+            }
             @if (row.isActive) {
               <button class="btn btn-sm btn-default" (click)="startEdit(row)">Edit</button>
               <button class="btn btn-sm btn-danger" (click)="softDelete(row)">Deactivate</button>
@@ -109,4 +113,172 @@
       }
     </tbody>
   </table>
+}
+
+@if (lossModalOpen) {
+  <div class="modal-backdrop" (click)="closeLossComponent()">
+    <div class="modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h2>Loss component — {{ lossCohort?.name }}</h2>
+        <button class="btn btn-sm btn-default" (click)="closeLossComponent()">Close</button>
+      </header>
+      <div class="modal-body">
+        <p class="page-sub">
+          IFRS 17 loss-component journal. INITIAL_RECOGNITION adds; RELEASE / REVERSAL /
+          RECLASSIFICATION_TO_NON_ONEROUS subtract. Balance below reads the
+          <code>cohort_loss_component_current</code> matview — refreshed at the end of each report run.
+        </p>
+
+        <div class="balance-strip" style="display: flex; gap: 12px; align-items: center; margin: 8px 0 16px;">
+          <label>
+            <span class="field-label">Balance currency:</span>
+            <input type="text" [ngModel]="lossBalanceCurrency"
+                   (ngModelChange)="onLossBalanceCurrencyChange($event.toUpperCase())"
+                   name="lossBalanceCurrency" maxlength="3" pattern="[A-Z]{3}"
+                   style="width: 70px; margin-left: 6px;" />
+          </label>
+          @if (lossBalance) {
+            <strong>{{ lossBalance.balance }} {{ lossBalance.currency }}</strong>
+          } @else {
+            <span class="badge badge-muted">no balance</span>
+          }
+          <button type="button" class="btn btn-sm btn-primary" (click)="startRecordMovement()"
+                  [disabled]="lossFormOpen">
+            Record movement
+          </button>
+        </div>
+
+        @if (lossError) {
+          <div class="banner banner-error" (click)="lossError = null">{{ lossError }}</div>
+        }
+
+        @if (lossFormOpen) {
+          <form (ngSubmit)="saveMovement()" class="card form-grid" style="margin-bottom: 16px;">
+            <label class="field">
+              <span class="field-label">Movement type *</span>
+              <select [(ngModel)]="lossDraft.movementType" name="movementType" required>
+                @for (t of movementTypes; track t) {
+                  <option [value]="t">{{ t }}</option>
+                }
+              </select>
+            </label>
+            <label class="field">
+              <span class="field-label">Amount *</span>
+              <input type="number" step="0.01" min="0.01"
+                     [(ngModel)]="lossDraft.amount" name="lossAmount" required />
+            </label>
+            <label class="field">
+              <span class="field-label">Currency *</span>
+              <input type="text" [(ngModel)]="lossDraft.currency" name="lossCurrency"
+                     required maxlength="3" pattern="[A-Z]{3}" />
+            </label>
+            <label class="field span-2">
+              <span class="field-label">Note</span>
+              <textarea [(ngModel)]="lossDraft.reasonNote" name="lossNote" maxlength="2000"
+                        rows="2" placeholder="Optional — captured on the audit event"></textarea>
+            </label>
+            <div class="form-actions span-2">
+              <button type="button" class="btn btn-default" (click)="cancelRecordMovement()">Cancel</button>
+              <button type="submit" class="btn btn-primary" [disabled]="lossFormSaving">
+                {{ lossFormSaving ? 'Saving…' : 'Record movement' }}
+              </button>
+            </div>
+          </form>
+        }
+
+        @if (lossLoading) {
+          <p>Loading loss-component history…</p>
+        } @else if (lossRows.length === 0) {
+          <p class="empty-state">No movements recorded yet.</p>
+        } @else {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Effective at</th>
+                <th>Movement</th>
+                <th>Amount</th>
+                <th>Currency</th>
+                <th>Source</th>
+                <th>Actor</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (m of lossRows; track m.id) {
+                <tr>
+                  <td>{{ m.effectiveAt | date: 'yyyy-MM-dd HH:mm' }}</td>
+                  <td>{{ m.movementType }}</td>
+                  <td>{{ m.amount }}</td>
+                  <td>{{ m.currency }}</td>
+                  <td>
+                    <span class="badge"
+                          [class.badge-warn]="m.sourceRunId !== null"
+                          [class.badge-muted]="m.sourceRunId === null">
+                      {{ m.sourceRunId ? 'AUTO' : 'MANUAL' }}
+                    </span>
+                  </td>
+                  <td>{{ m.actorEmail || '—' }}</td>
+                  <td>{{ m.reasonNote || '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+@if (historyModalOpen) {
+  <div class="modal-backdrop" (click)="closeHistory()">
+    <div class="modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <header class="modal-header">
+        <h2>Status history — {{ historyCohort?.name }}</h2>
+        <button class="btn btn-sm btn-default" (click)="closeHistory()">Close</button>
+      </header>
+      <div class="modal-body">
+        @if (historyError) {
+          <div class="banner banner-error">{{ historyError }}</div>
+        }
+        @if (historyLoading) {
+          <p>Loading history…</p>
+        } @else if (historyRows.length === 0) {
+          <p class="empty-state">No transitions recorded yet — this cohort's type has not been changed.</p>
+        } @else {
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Effective at</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Source</th>
+                <th>Reason</th>
+                <th>Actor</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (h of historyRows; track h.id) {
+                <tr>
+                  <td>{{ h.effectiveAt | date: 'yyyy-MM-dd HH:mm' }}</td>
+                  <td>{{ h.fromStatus }}</td>
+                  <td>{{ h.toStatus }}</td>
+                  <td>
+                    <span class="badge"
+                          [class.badge-warn]="h.transitionSource === 'AUTO'"
+                          [class.badge-muted]="h.transitionSource === 'MANUAL'">
+                      {{ h.transitionSource }}
+                    </span>
+                  </td>
+                  <td>{{ h.transitionReason }}</td>
+                  <td>{{ h.actorEmail || '—' }}</td>
+                  <td>{{ h.reasonNote || '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>
+  </div>
 }

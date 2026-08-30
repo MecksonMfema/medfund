@@ -131,5 +131,31 @@ public enum ActionType {
      *       {@code TriangleFact.results}.</li>
      * </ul>
      */
-    SELECT_LDF
+    SELECT_LDF,
+
+    // ── IFRS 17 outputs ──────────────────────────────────────────────────────
+    /**
+     * Select the IFRS 17 measurement model (PAA / GMM / VFA) plus supporting
+     * shape choices (coverage-unit pattern, variable-fee pattern for VFA,
+     * finance-expense presentation) for a portfolio. Populates
+     * {@code IfrsPortfolioFact.measurementModel},
+     * {@code coverageUnitPattern}, {@code variableFeePattern} (VFA only),
+     * and {@code financeExpensePresentation}. Rules with this action must
+     * live in the {@code IFRS17_MODEL} category (agenda-gated per
+     * {@code DrlCompiler.AGENDA_GATED_CATEGORIES}).
+     *
+     * <p>Action fields (see {@code RuleAction}):
+     * <ul>
+     *   <li>{@code value} — {@code IFRS17_MODEL:<model>:<coverage>:<fee>:<expense>}
+     *       where {@code model} is one of {@code PAA}, {@code GMM}, {@code VFA};
+     *       {@code coverage} is one of {@code TIME}, {@code SUM_INSURED_TIME},
+     *       {@code SUM_AT_RISK_TIME}, {@code CLAIM_FREQUENCY_TIME};
+     *       {@code fee} is one of {@code FIXED_PCT}, {@code TIERED},
+     *       {@code NAV_LINKED}, or {@code null} for non-VFA models;
+     *       {@code expense} is one of {@code PL_ONLY}, {@code OCI_OPTION}.</li>
+     *   <li>{@code message} — human-readable audit note recorded on
+     *       {@code IfrsPortfolioFact.results}.</li>
+     * </ul>
+     */
+    SELECT_IFRS17_MODEL
 }

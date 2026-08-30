@@ -1,6 +1,7 @@
 package com.medfund.contributions.premium.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.medfund.contributions.client.Ifrs17CohortClient;
 import com.medfund.contributions.premium.service.EarningScheduleService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,7 @@ import static org.mockito.Mockito.when;
 class PolicyIssuedConsumerTest {
 
     @Mock EarningScheduleService earningScheduleService;
+    @Mock Ifrs17CohortClient ifrs17CohortClient;
 
     private PolicyIssuedPayloadParser parser;
     private PolicyIssuedConsumer consumer;
@@ -42,7 +44,7 @@ class PolicyIssuedConsumerTest {
     @BeforeEach
     void setUp() {
         parser = new PolicyIssuedPayloadParser(new ObjectMapper());
-        consumer = new PolicyIssuedConsumer(null, parser, earningScheduleService);
+        consumer = new PolicyIssuedConsumer(null, parser, earningScheduleService, ifrs17CohortClient);
     }
 
     @Test

@@ -18,7 +18,7 @@ from app.api.analytics import router as analytics_router
 from app.api.pricing import router as pricing_router
 from app.api.actuarial import router as actuarial_router
 from app.actuarial.chain_ladder import TriangleInput, compute as chain_ladder_compute
-from app.actuarial.kafka import ActuarialJobRunner
+from app.report.kafka import ReportJobRunner
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ async def lifespan(app: FastAPI):
         logger.warning(f"chainladder pre-warm skipped: {e}")
 
     kafka_consumer = None
-    actuarial_runner: ActuarialJobRunner | None = None
+    report_runner: ReportJobRunner | None = None
     if settings.kafka_bootstrap_servers:
         try:
             from app.core.kafka_consumer import ClaimsEventConsumer
@@ -70,16 +70,16 @@ async def lifespan(app: FastAPI):
             logger.warning(f"Kafka consumer failed: {e}")
 
         try:
-            actuarial_runner = ActuarialJobRunner(settings.kafka_bootstrap_servers)
-            await actuarial_runner.start()
+            report_runner = ReportJobRunner(settings.kafka_bootstrap_servers)
+            await report_runner.start()
         except Exception as e:
-            logger.warning(f"Actuarial job runner failed: {e}")
-            actuarial_runner = None
+            logger.warning(f"Report job runner failed: {e}")
+            report_runner = None
 
     yield
 
-    if actuarial_runner:
-        await actuarial_runner.stop()
+    if report_runner:
+        await report_runner.stop()
     if kafka_consumer:
         await kafka_consumer.stop()
     await close_db()

@@ -696,6 +696,18 @@ All authentication and authorization events must be logged, regardless of succes
 1. **Keycloak event listener** — Login, logout, MFA, password events. Configure a custom SPI or use Keycloak's built-in event listener to publish to Kafka (`medfund.security.*` topics).
 2. **Service-level guards** — Permission denied, impersonation events. Emitted by API Gateway and individual services.
 
+#### AI-Assisted Decision Audit Trails
+
+Critical Rule 3 requires every AI-assisted output to be reproducible: the reviewer must be able to reach the model version, the input features, the confidence, and the decision. The trail lives in different tables depending on which pipeline produced the decision.
+
+| Pipeline | Trail location | What's captured |
+|----------|----------------|-----------------|
+| **Actuarial reports** (IBNR / LOSS / PERSISTENCY / MORTALITY / MORBIDITY / LAPSE) | `report_job` (renamed from `actuarial_report_job` in Phase 15 §1). `result_json` holds the compute output; `params_json` holds the shaped inputs; `model_version` + `method` on the Kafka `job-completed` envelope stamp the compute-side library. | Model version, method, params, per-row results, error message on failure. Retention 90 days per `OPERATIONAL_90D` class. |
+| **IFRS 17 reports** (LRC/LIC reconciliation, Insurance Revenue + Service Result) | `report_job.result_json` for the aggregated envelope; per-chunk detail in `report_job_chunk.result_json`. Cohort lifecycle events (onerous auto-transitions, loss-component recognitions) additionally land in `cohort_status_history` + `cohort_loss_component_history`. | Measurement model chosen (PAA / GMM / VFA), per-portfolio × cohort × currency chunk breakdown, applied `IFRS17_MODEL` rule name, RA methodology + basis, locked-in curve snapshot. Retention 7 years per `STATUTORY_7Y` class. |
+| **Claims adjudication** | `AiDecision` table in claims-service. Row-per-decision with FK to `Claim`. | Model version, input features, confidence score, decision, human override (if any). |
+
+**Adding a new AI-assisted pipeline:** persist model version + input features + output + confidence in a dedicated table (or reuse `report_job` for async pipelines). Do not rely on log messages — they roll over. Do not rely on the Kafka topic — it drops after retention. The audit trail must survive both.
+
 ### Per-Language Implementation
 
 #### Java (Spring Boot WebFlux) — Reactive Audit via Service Layer + Reactor Kafka

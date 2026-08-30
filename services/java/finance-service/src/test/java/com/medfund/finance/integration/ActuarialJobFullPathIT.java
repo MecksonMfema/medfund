@@ -2,8 +2,8 @@ package com.medfund.finance.integration;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.medfund.finance.actuarial.repository.ActuarialReportJobRepository;
-import com.medfund.shared.actuarial.ActuarialJobCompletedEvent;
+import com.medfund.finance.report.repository.ReportJobRepository;
+import com.medfund.shared.report.ReportJobCompletedEvent;
 import com.medfund.shared.testfixtures.AbstractIntegrationTest;
 import com.medfund.shared.testfixtures.WithTenant;
 import okhttp3.mockwebserver.MockResponse;
@@ -49,8 +49,9 @@ import static org.awaitility.Awaitility.await;
 /**
  * End-to-end Phase 9 pipeline test. Uses Testcontainers Postgres + Kafka.
  *
- * <p>Boot-up: fresh finance-service context → the {@code ActuarialResultConsumer}
- * subscribes to {@code medfund.actuarial.job-completed} in {@code @PostConstruct}.
+ * <p>Boot-up: fresh finance-service context → the {@code ReportResultConsumer}
+ * subscribes to {@code medfund.report.job-completed} (canonical only,
+ * Phase 15 §22 rename Phase B cutover) in {@code @PostConstruct}.
  * Then the flow:
  * <ol>
  *   <li>POST {@code /api/v1/reports/actuarial/ibnr} → publisher lands a message
@@ -73,7 +74,7 @@ import static org.awaitility.Awaitility.await;
 @TestPropertySource(properties = {
     "spring.flyway.locations=classpath:db/test-migration",
     "spring.flyway.baseline-on-migrate=true",
-    "actuarial.retention.enabled=false"
+    "report.retention.enabled=false"
 })
 @Import(ActuarialJobFullPathIT.SecurityStub.class)
 @WithTenant(ActuarialJobFullPathIT.TENANT)
@@ -103,7 +104,7 @@ class ActuarialJobFullPathIT extends AbstractIntegrationTest {
     }
 
     @Autowired private WebTestClient webTestClient;
-    @Autowired private ActuarialReportJobRepository jobRepository;
+    @Autowired private ReportJobRepository jobRepository;
     @Autowired private ObjectMapper objectMapper;
 
     @BeforeEach
@@ -135,14 +136,20 @@ class ActuarialJobFullPathIT extends AbstractIntegrationTest {
                     assertThat(row.getReportKey()).isEqualTo("IBNR_TRIANGLE");
                 });
 
-        // job-requested event published — filter by jobId because other tests share
-        // the same topic and their older messages replay from earliest.
-        JsonNode requested = consumeMatching("medfund.actuarial.job-requested",
+        // Phase 15 §22 Phase B cutover: publisher writes to the canonical
+        // medfund.report.job-requested topic only; the legacy
+        // medfund.actuarial.job-requested topic no longer receives records.
+        JsonNode canonical = consumeMatching("medfund.report.job-requested",
                 n -> jobId.toString().equals(n.path("jobId").asText()),
                 Duration.ofSeconds(15));
-        assertThat(requested).isNotNull();
-        assertThat(requested.path("reportKey").asText()).isEqualTo("IBNR_TRIANGLE");
-        assertThat(requested.path("tenantId").asText()).isEqualTo(TENANT);
+        assertThat(canonical).as("canonical topic").isNotNull();
+        assertThat(canonical.path("reportKey").asText()).isEqualTo("IBNR_TRIANGLE");
+        assertThat(canonical.path("tenantId").asText()).isEqualTo(TENANT);
+
+        JsonNode legacy = consumeMatching("medfund.actuarial.job-requested",
+                n -> jobId.toString().equals(n.path("jobId").asText()),
+                Duration.ofSeconds(3));
+        assertThat(legacy).as("legacy topic must be dormant post-cutover").isNull();
     }
 
     @Test
@@ -210,10 +217,10 @@ class ActuarialJobFullPathIT extends AbstractIntegrationTest {
 
     private void publishCompleted(UUID jobId, String tenantId, String status,
                                   Map<String, Object> result, String errorMessage) throws Exception {
-        ActuarialJobCompletedEvent event = new ActuarialJobCompletedEvent(
-                ActuarialJobCompletedEvent.CURRENT_SCHEMA_VERSION,
+        ReportJobCompletedEvent event = new ReportJobCompletedEvent(
+                ReportJobCompletedEvent.CURRENT_SCHEMA_VERSION,
                 jobId, UUID.fromString(tenantId), "IBNR_TRIANGLE",
-                status, result, errorMessage,
+                status, result, null, errorMessage,
                 "chainladder-python:0.10.0", "volume",
                 null, Instant.now().toString());
         Properties props = new Properties();
@@ -221,8 +228,9 @@ class ActuarialJobFullPathIT extends AbstractIntegrationTest {
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         try (KafkaProducer<String, String> producer = new KafkaProducer<>(props)) {
+            // Phase 15 §22 cutover: consumer subscribes to canonical only.
             producer.send(new ProducerRecord<>(
-                    "medfund.actuarial.job-completed",
+                    "medfund.report.job-completed",
                     jobId.toString(),
                     objectMapper.writeValueAsString(event))).get(5, TimeUnit.SECONDS);
         }

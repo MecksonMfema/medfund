@@ -1,0 +1,119 @@
+<header class="page-header">
+  <div>
+    <h1>{{ pageTitle }}</h1>
+    <p class="page-sub">{{ pageSubtitle }}</p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="!currentJob || currentJob.status !== 'completed'"
+    (click)="exportXlsx()">
+    <app-icon name="download" [size]="14"></app-icon>
+    Export XLSX
+  </button>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input type="date" class="input" name="periodStart" [(ngModel)]="periodStart" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input type="date" class="input" name="periodEnd" [(ngModel)]="periodEnd" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      name="reportingCurrency"
+      [ngModel]="reportingCurrency"
+      (selectionChange)="onCurrencyChange($event)"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"></app-select>
+  </div>
+  <div class="toolbar-cell toolbar-cell-cta">
+    <button type="button" class="btn btn-primary"
+            [disabled]="submitting" (click)="submit()">
+      {{ submitting ? 'Submitting…' : 'Run report' }}
+    </button>
+  </div>
+</div>
+
+@if (currentJob) {
+  <div class="ajp-slot">
+    <app-actuarial-job-progress
+      [status]="currentJob"
+      [startedAt]="startedAt"
+      (cancel)="cancelPolling()"></app-actuarial-job-progress>
+  </div>
+}
+
+@if (summary) {
+  <div class="ifrs17-summary-strip" data-testid="ifrs17-summary">
+    <div><span>Chunks:</span><strong>{{ summary.completedChunks }} / {{ summary.totalChunks }}</strong></div>
+    @if (summary.failedChunks > 0) {
+      <div><span>Failed:</span><strong>{{ summary.failedChunks }}</strong></div>
+    }
+    <div><span>Models:</span><strong>{{ summary.measurementModelsSeen.join(', ') || '—' }}</strong></div>
+    <div><span>Currencies:</span><strong>{{ summary.currenciesSeen.join(', ') || '—' }}</strong></div>
+  </div>
+}
+
+@if (envelope) {
+  @if (portfolios.length === 0) {
+    <p class="ifrs17-empty">No portfolios produced results for the requested period.</p>
+  }
+  @for (bucket of portfolios; track bucket.portfolioId) {
+    <section class="ifrs17-portfolio-block" data-testid="ifrs17-portfolio">
+      <div class="ifrs17-matrix-scroll">
+        <h3 class="pane-title">Portfolio {{ bucket.portfolioId }}</h3>
+        <table class="ifrs17-table" data-testid="ifrs17-revenue-table">
+          <thead>
+            <tr>
+              <th>Cohort</th>
+              <th>Currency</th>
+              <th class="num">Revenue</th>
+              <th class="num">Service expenses</th>
+              <th class="num">Service result</th>
+              <th class="num">Finance expense</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of bucket.cohorts; track row.cohortId + ':' + row.currency) {
+              <tr class="cohort-row">
+                <td>{{ row.cohortId }}</td>
+                <td>{{ row.currency }}</td>
+                <td class="num">{{ row.insuranceRevenue | number:'1.2-2' }}</td>
+                <td class="num">{{ row.insuranceServiceExpenses | number:'1.2-2' }}</td>
+                <td class="num">{{ row.insuranceServiceResult | number:'1.2-2' }}</td>
+                <td class="num">{{ row.insuranceFinanceExpense | number:'1.2-2' }}</td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2">Total</td>
+              <td class="num">{{ bucket.totals.insuranceRevenue | number:'1.2-2' }}</td>
+              <td class="num">{{ bucket.totals.insuranceServiceExpenses | number:'1.2-2' }}</td>
+              <td class="num">{{ bucket.totals.insuranceServiceResult | number:'1.2-2' }}</td>
+              <td class="num">{{ bucket.totals.insuranceFinanceExpense | number:'1.2-2' }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="triangle-chart">
+        <h3 class="pane-title">Revenue waterfall</h3>
+        <app-waterfall-chart
+          [movements]="waterfallFor(bucket)"
+          [xAxisLabel]="'Step'"
+          [yAxisLabel]="'Amount'"
+          [view]="[undefined, 320]"></app-waterfall-chart>
+      </div>
+    </section>
+  }
+}

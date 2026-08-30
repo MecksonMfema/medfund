@@ -133,6 +133,28 @@ services:
       - "9001:9001"
     volumes:
       - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Provisions the medfund-report-payloads bucket used by the report-job
+  # pipeline (Phase 15 §10 / I25). Runs once, exits, and is safe to re-run.
+  minio-init:
+    image: minio/mc:latest
+    container_name: medfund-minio-init
+    depends_on:
+      minio:
+        condition: service_started
+    environment:
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: medfund
+      MINIO_ROOT_PASSWORD: medfund123
+    volumes:
+      - ./scripts/init-minio-buckets.sh:/init-minio-buckets.sh:ro
+    entrypoint: ["/bin/sh", "/init-minio-buckets.sh"]
+    restart: "no"
 
   # ── Java Services (Stream A) ───────────────────────────────────
 
@@ -232,6 +254,11 @@ services:
       SPRING_R2DBC_PASSWORD: medfund
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:9080/realms/medfund-platform/protocol/openid-connect/certs
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      # MinIO oversize-payload fallback (Phase 15 §10 / I25).
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: medfund
+      MINIO_SECRET_KEY: medfund123
+      MINIO_BUCKET_REPORT_PAYLOADS: medfund-report-payloads
     depends_on:
       postgres:
         condition: service_healthy
@@ -321,6 +348,29 @@ services:
     environment:
       PORT: "3004"
 
+  # Phase 24 (Phase 15 §24 / I12 + I16): market-data daemon polling
+  # tenant_market_data_config every fetch tick and publishing curves
+  # to medfund.market-data.yield-curve-updated; tenancy-service's
+  # YieldCurveConsumer upserts the resulting tenor points.
+  market-data-service:
+    build:
+      context: ./services/go
+      dockerfile: market-data-service/Dockerfile
+    container_name: medfund-market-data
+    ports:
+      - "3005:3005"
+    environment:
+      PORT: "3005"
+      KAFKA_BROKERS: kafka:29092
+      TENANCY_SERVICE_URL: http://tenancy-service:8081
+      # Cron expression driving fetch cadence. Default: daily 06:00 UTC.
+      FETCH_CRON: "0 6 * * *"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      tenancy-service:
+        condition: service_started
+
   # ── Python AI Service (Stream D) ──────────────────────────────
 
   ai-service:
@@ -333,6 +383,11 @@ services:
       MEDFUND_DATABASE_URL: postgresql+asyncpg://medfund:medfund@postgres:5432/medfund
       MEDFUND_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       MEDFUND_REDIS_URL: redis://redis:6379/0
+      # MinIO oversize-payload fallback (Phase 15 §10 / I25).
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: medfund
+      MINIO_SECRET_KEY: medfund123
+      MINIO_BUCKET_REPORT_PAYLOADS: medfund-report-payloads
     depends_on:
       postgres:
         condition: service_healthy

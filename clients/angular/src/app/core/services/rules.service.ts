@@ -60,7 +60,9 @@ export type RuleCategory =
   // Premium earning
   | 'PREMIUM_EARNING'
   // Actuarial
-  | 'ACTUARIAL';
+  | 'ACTUARIAL'
+  // IFRS 17
+  | 'IFRS17_MODEL';
 
 /**
  * Categories grouped by lifecycle stage. The Rules Engine page renders this
@@ -95,6 +97,8 @@ export const RULE_CATEGORIES: { id: RuleCategory; label: string; icon: string }[
   { id: 'PREMIUM_EARNING',      label: 'Premium Earning',      icon: 'trending-up' },
   // Actuarial
   { id: 'ACTUARIAL',            label: 'Actuarial',            icon: 'chart-line' },
+  // IFRS 17
+  { id: 'IFRS17_MODEL',         label: 'IFRS 17 Model',        icon: 'file-spreadsheet' },
 ];
 
 export interface RuleDefinition {

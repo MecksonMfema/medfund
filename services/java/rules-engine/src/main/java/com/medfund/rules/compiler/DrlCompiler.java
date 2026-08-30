@@ -48,6 +48,7 @@ public class DrlCompiler {
             "import com.medfund.rules.fact.TimeFact;\n",
             "import com.medfund.rules.fact.TriangleFact;\n",
             "import com.medfund.rules.fact.DevelopmentPeriodFact;\n",
+            "import com.medfund.rules.fact.IfrsPortfolioFact;\n",
             "import java.math.BigDecimal;\n");
 
     /**
@@ -58,7 +59,8 @@ public class DrlCompiler {
      * sweep. All other categories stay in MAIN and fire by default.
      */
     private static final Set<String> AGENDA_GATED_CATEGORIES = Set.of(
-            "BENEFIT_PRORATION", "REINSURANCE", "COMMISSION", "PREMIUM_EARNING", "ACTUARIAL");
+            "BENEFIT_PRORATION", "REINSURANCE", "COMMISSION", "PREMIUM_EARNING", "ACTUARIAL",
+            "IFRS17_MODEL");
 
     private static final Map<String, FactMapping> FACT_MAPPINGS;
     static {
@@ -77,6 +79,7 @@ public class DrlCompiler {
         m.put("time",         new FactMapping("$time",         "TimeFact"));
         m.put("triangle",     new FactMapping("$triangle",     "TriangleFact"));
         m.put("devPeriod",    new FactMapping("$devPeriod",    "DevelopmentPeriodFact"));
+        m.put("portfolio",    new FactMapping("$portfolio",    "IfrsPortfolioFact"));
         FACT_MAPPINGS = Map.copyOf(m);
     }
 
@@ -184,6 +187,7 @@ public class DrlCompiler {
             case "SCHEDULE_PAYMENT_RUN", "WITHHOLD_PAYMENT", "MATCH_RECORDS"  -> "paymentRun";
             case "ACCRUE_PREMIUM"                                             -> "premium";
             case "SELECT_LDF"                                                 -> "triangle";
+            case "SELECT_IFRS17_MODEL"                                        -> "portfolio";
             default                                                            -> null;
         };
     }

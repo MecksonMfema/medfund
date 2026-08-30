@@ -1,0 +1,84 @@
+/* Shared styles for the two IFRS 17 report pages. Kept small — the
+ * pages reuse the actuarial page shell (page-header, tx-toolbar,
+ * banner) via global styles; this file only adds ifrs17-specific
+ * bits (portfolio treetable, split view, currency toggle). */
+
+.ifrs17-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ifrs17-portfolio-block {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 20px;
+  padding: 16px 0;
+  border-top: 1px solid var(--color-border, #e5e7eb);
+}
+
+.ifrs17-portfolio-block h3.pane-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ifrs17-matrix-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.ifrs17-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th, td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--color-border, #e5e7eb);
+    text-align: left;
+  }
+  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tbody tr.cohort-row td { background: var(--color-surface, #fff); }
+  tbody tr.cohort-row + tr.currency-row td { padding-left: 20px; color: var(--color-text-muted, #4b5563); }
+  tfoot td { font-weight: 600; }
+}
+
+.ifrs17-view-toggle {
+  display: inline-flex;
+  gap: 4px;
+  border: 1px solid var(--color-border, #d1d5db);
+  border-radius: 6px;
+  overflow: hidden;
+
+  button {
+    padding: 6px 12px;
+    background: transparent;
+    border: none;
+    font-size: 13px;
+    cursor: pointer;
+
+    &.active {
+      background: var(--color-primary, #0077b6);
+      color: #fff;
+    }
+  }
+}
+
+.ifrs17-summary-strip {
+  display: flex;
+  gap: 24px;
+  padding: 8px 12px;
+  background: var(--color-surface-alt, #f9fafb);
+  border-radius: 6px;
+  font-size: 13px;
+
+  span { color: var(--color-text-muted, #4b5563); }
+  strong { color: var(--color-text, #111827); margin-left: 4px; }
+}
+
+.ifrs17-empty {
+  padding: 32px 0;
+  text-align: center;
+  color: var(--color-text-muted, #6b7280);
+}

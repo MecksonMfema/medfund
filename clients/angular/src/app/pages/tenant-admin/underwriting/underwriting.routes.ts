@@ -21,6 +21,12 @@ export const UNDERWRITING_ROUTES: Routes = [
     data: { title: 'IFRS 17 Cohorts', permission: 'underwriting.cohort:manage' },
   },
   {
+    path: 'funds',
+    loadComponent: () =>
+      import('./funds-list.component').then(m => m.FundsListComponent),
+    data: { title: 'VFA Unit-Linked Funds', permission: 'underwriting.fund:manage' },
+  },
+  {
     path: 'legacy-retrofit',
     loadComponent: () =>
       import('./legacy-retrofit.component').then(m => m.LegacyRetrofitComponent),

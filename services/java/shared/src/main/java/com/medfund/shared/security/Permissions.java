@@ -160,10 +160,16 @@ public final class Permissions {
     public static final String TENANT_SETTINGS_MANAGE_ENDORSEMENT_CONFIG = "tenant.settings:manage_endorsement_config";
     /** Manage the per-tenant persistency / mortality / morbidity basis tables consumed by the actuarial studies (Phase 14 §2). */
     public static final String TENANT_SETTINGS_MANAGE_ACTUARIAL_BASES    = "tenant.settings:manage_actuarial_bases";
+    /** Manage the per-tenant IFRS 17 admin surfaces — RA methodology, yield curves and expense assumptions (Phase 15 §2). */
+    public static final String TENANT_SETTINGS_MANAGE_IFRS17_CONFIG      = "tenant.settings:manage_ifrs17_config";
 
     // ── Underwriting (Phase 12 §A) ──────────────────────────────────────────
     public static final String UNDERWRITING_PORTFOLIO_MANAGE     = "underwriting.portfolio:manage";
     public static final String UNDERWRITING_COHORT_MANAGE        = "underwriting.cohort:manage";
+    /** Tenant-admin overrides on auto-derived IFRS 17 LRC / LIC opening balances (Phase 15 §7). */
+    public static final String UNDERWRITING_OPENING_BALANCE_MANAGE = "underwriting.opening_balance:manage";
+    /** VFA unit-linked fund catalog + NAV history + variable fee schedule + policy unit ledger (Phase 15 §8). */
+    public static final String UNDERWRITING_FUND_MANAGE            = "underwriting.fund:manage";
     /** Trigger a targeted earning-schedule backfill / replay for a policy. */
     public static final String PREMIUM_EARNING_MANAGE_BACKFILL   = "premium.earning:manage_backfill";
     /** Dev-only read access to raw earning_schedule rows for a policy. */
@@ -232,9 +238,10 @@ public final class Permissions {
             ADMIN_MANAGE_ROLES, ADMIN_MANAGE_USERS, ADMIN_VIEW_AUDIT,
             ADMIN_MANAGE_SETTINGS, ADMIN_MANAGE_RULES, ADMIN_BANK_ACCOUNTS_MANAGE,
             TENANT_SETTINGS_MANAGE_AUTO_LAPSE, TENANT_SETTINGS_MANAGE_ENDORSEMENT_CONFIG,
-            TENANT_SETTINGS_MANAGE_ACTUARIAL_BASES,
+            TENANT_SETTINGS_MANAGE_ACTUARIAL_BASES, TENANT_SETTINGS_MANAGE_IFRS17_CONFIG,
 
             UNDERWRITING_PORTFOLIO_MANAGE, UNDERWRITING_COHORT_MANAGE,
+            UNDERWRITING_OPENING_BALANCE_MANAGE,
             PREMIUM_EARNING_MANAGE_BACKFILL, PREMIUM_EARNING_VIEW_DEBUG,
             POLICY_DRAFT_ENDORSEMENT, POLICY_APPROVE_ENDORSEMENT,
             POLICY_STATUS_MANAGE,

@@ -9,7 +9,11 @@ import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
         "com.medfund.finance.repository",
         "com.medfund.finance.reinsurance.repository",
         "com.medfund.finance.producer.repository",
+        // Phase 15 §1 rename — actuarial.repository is now empty (its sole
+        // occupant ActuarialReportJobRepository moved to report.repository as
+        // ReportJobRepository). Kept in the scan list until §23 removes it.
         "com.medfund.finance.actuarial.repository",
+        "com.medfund.finance.report.repository",
         "com.medfund.shared.scheduler",
         // NotificationRepository — required wherever JobEventPublisher loads.
         "com.medfund.shared.notification",

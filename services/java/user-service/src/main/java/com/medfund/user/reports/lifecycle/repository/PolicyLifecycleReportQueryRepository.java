@@ -321,7 +321,7 @@ public class PolicyLifecycleReportQueryRepository {
      * Aggregate member exposure over {@code [periodStart, periodEnd]} into
      * (age_band, sex) rows. Feeds finance-service's
      * {@code MortalityExposureShapingService}, which pivots this into the
-     * exposure payload slot on {@code ActuarialJobRequestedEvent} for the
+     * exposure payload slot on {@code ReportJobRequestedEvent} for the
      * Python MORTALITY_STUDY compute.
      *
      * <p>Age bands are 5-year buckets from 0-4 up to 85+; the bucket is

@@ -101,5 +101,19 @@ public enum RuleCategory {
      * specific method ({@code simple}, {@code 5yr}) based on the
      * {@code TriangleFact} shape (line, currency, period).
      */
-    ACTUARIAL
+    ACTUARIAL,
+
+    // ── IFRS 17 ──────────────────────────────────────────────────────────────
+    /**
+     * IFRS 17 measurement-model selection (PAA / GMM / VFA) per portfolio +
+     * cohort year. Agenda-gated — finance-service's {@code Ifrs17ShapingService}
+     * focuses this group per portfolio at report-submit time so IFRS 17 rules
+     * never fire during the stage-7 tenant sweep. Rules in this category
+     * mutate {@code IfrsPortfolioFact} — measurementModel, coverageUnitPattern,
+     * variableFeePattern, financeExpensePresentation — via
+     * {@code SELECT_IFRS17_MODEL} actions. Each tenant is seeded with 8
+     * industry-default rules on provisioning (see the
+     * {@code seed_ifrs17_model_default_rules} migration).
+     */
+    IFRS17_MODEL
 }

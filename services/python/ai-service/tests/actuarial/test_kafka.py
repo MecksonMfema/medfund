@@ -5,7 +5,8 @@ consume-compute-publish loop can be exercised deterministically. The
 happy-path assertion pins the plan's shape:
 
 * IBNR/LOSS jobs → chain-ladder compute → completed envelope with
-  ``status='completed'`` published to ``medfund.actuarial.job-completed``.
+  ``status='completed'`` published to ``medfund.report.job-completed``
+  (canonical only after Phase 15 §22 cutover).
 * Failed compute → completed envelope with ``status='failed'`` +
   ``error_message`` published, offset committed anyway.
 * Unknown ``report_key`` → failure envelope.
@@ -22,14 +23,11 @@ from typing import Any
 import pytest
 
 from app.actuarial.chain_ladder import ChainLadderResult, TriangleInput
-from app.actuarial.events import (
-    TOPIC_COMPLETED,
-    ActuarialJobRequestedEvent,
-)
-from app.actuarial.kafka import (
+from app.report.events import TOPIC_COMPLETED
+from app.report.kafka import (
     MODEL_VERSION,
     REJECT_KB,
-    ActuarialJobRunner,
+    ReportJobRunner,
     PayloadTooLargeError,
     _guard_size,
 )
@@ -138,10 +136,10 @@ def _make_runner(
     *,
     compute_fn=None,
     fail_producer: bool = False,
-) -> tuple[ActuarialJobRunner, FakeConsumer, FakeProducer]:
+) -> tuple[ReportJobRunner, FakeConsumer, FakeProducer]:
     consumer = FakeConsumer(messages)
     producer = FakeProducer(fail_on_send=fail_producer)
-    runner = ActuarialJobRunner(
+    runner = ReportJobRunner(
         bootstrap_servers="unused",
         consumer_factory=lambda: consumer,
         producer_factory=lambda: producer,
@@ -150,7 +148,7 @@ def _make_runner(
     return runner, consumer, producer
 
 
-async def _drive(runner: ActuarialJobRunner) -> None:
+async def _drive(runner: ReportJobRunner) -> None:
     """Run runner start/loop/stop with a timeout guard for pytest safety."""
     await runner.start()
     try:
@@ -174,6 +172,8 @@ async def test_ibnr_happy_path_publishes_completed_and_commits():
     assert consumer.started and consumer.stopped
     assert producer.started and producer.stopped
     assert consumer.commits == 1
+    # Phase 15 §22 cutover: publish to canonical topic only; legacy
+    # medfund.actuarial.job-completed dual-write dropped.
     assert len(producer.sent) == 1
     topic, payload = producer.sent[0]
     assert topic == TOPIC_COMPLETED
@@ -295,6 +295,7 @@ async def test_compute_error_publishes_failed_and_commits():
     await _drive(runner)
 
     assert consumer.commits == 1
+    # Phase 15 §22 cutover: failed envelope publishes to canonical only.
     assert len(producer.sent) == 1
     payload = producer.sent[0][1]
     assert payload["status"] == "failed"
@@ -473,7 +474,7 @@ def test_size_guard_silent_under_800_kb(caplog):
 
 @pytest.mark.asyncio
 async def test_stop_before_start_is_noop():
-    runner = ActuarialJobRunner(
+    runner = ReportJobRunner(
         bootstrap_servers="unused",
         consumer_factory=lambda: FakeConsumer([]),
         producer_factory=lambda: FakeProducer(),

@@ -1,0 +1,48 @@
+<div class="actuarial-bases">
+  <div class="section-header sub-tabs-header">
+    <div>
+      <h3 class="section-title">IFRS 17 configuration</h3>
+      <p class="section-sub">
+        Per-tenant admin surfaces for the IFRS 17 compute pipeline —
+        per-portfolio Risk Adjustment methodology (CoC or CI), per-currency
+        yield curve points used for discounting, and per-line expense
+        assumptions consumed by the GMM fulfilment cash-flow projection.
+        Every mutation is audit-logged with the acting admin's identity.
+      </p>
+    </div>
+  </div>
+
+  <div class="sub-tabs">
+    @for (tab of subTabs; track tab.id) {
+      <button type="button"
+              class="sub-tab"
+              [class.active]="activeSubTab === tab.id"
+              (click)="activeSubTab = tab.id"
+              [attr.data-tab-id]="tab.id">
+        <app-icon [name]="tab.icon" [size]="16"></app-icon>
+        {{ tab.label }}
+      </button>
+    }
+  </div>
+
+  <div class="sub-tab-body">
+    @if (activeSubTab === 'ra') {
+      <app-ifrs17-ra-config-tab></app-ifrs17-ra-config-tab>
+    }
+    @if (activeSubTab === 'yield-curves') {
+      <app-ifrs17-yield-curves-tab></app-ifrs17-yield-curves-tab>
+    }
+    @if (activeSubTab === 'market-data') {
+      <app-ifrs17-market-data-tab></app-ifrs17-market-data-tab>
+    }
+    @if (activeSubTab === 'expense-assumptions') {
+      <app-ifrs17-expense-assumptions-tab></app-ifrs17-expense-assumptions-tab>
+    }
+    @if (activeSubTab === 'opening-balances') {
+      <app-ifrs17-opening-balances-tab></app-ifrs17-opening-balances-tab>
+    }
+    @if (activeSubTab === 'notifications') {
+      <app-ifrs17-notifications-tab></app-ifrs17-notifications-tab>
+    }
+  </div>
+</div>

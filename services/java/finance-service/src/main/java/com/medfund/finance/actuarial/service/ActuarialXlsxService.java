@@ -2,7 +2,7 @@ package com.medfund.finance.actuarial.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.medfund.finance.actuarial.entity.ActuarialReportJob;
+import com.medfund.finance.report.entity.ReportJob;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.BorderStyle;
@@ -43,11 +43,11 @@ public class ActuarialXlsxService {
 
     private final ObjectMapper objectMapper;
 
-    public Mono<byte[]> render(ActuarialReportJob job) {
+    public Mono<byte[]> render(ReportJob job) {
         return Mono.fromCallable(() -> renderSync(job));
     }
 
-    private byte[] renderSync(ActuarialReportJob job) throws IOException {
+    private byte[] renderSync(ReportJob job) throws IOException {
         JsonNode params = readJsonOrNull(job.getParamsJson() != null ? job.getParamsJson().asString() : null);
         JsonNode result = readJsonOrNull(job.getResultJson() != null ? job.getResultJson().asString() : null);
 
@@ -72,7 +72,7 @@ public class ActuarialXlsxService {
         }
     }
 
-    private void writeTriangleSheet(Workbook wb, ActuarialReportJob job, JsonNode params,
+    private void writeTriangleSheet(Workbook wb, ReportJob job, JsonNode params,
                                     CellStyle title, CellStyle label, CellStyle bold,
                                     CellStyle th, CellStyle money) {
         Sheet sheet = wb.createSheet("Triangle");
@@ -162,7 +162,7 @@ public class ActuarialXlsxService {
         }
     }
 
-    private void writeSummarySheet(Workbook wb, ActuarialReportJob job, JsonNode params, JsonNode result,
+    private void writeSummarySheet(Workbook wb, ReportJob job, JsonNode params, JsonNode result,
                                    CellStyle title, CellStyle label, CellStyle bold, CellStyle moneyBold) {
         Sheet sheet = wb.createSheet("Summary");
         int r = 0;
@@ -193,7 +193,7 @@ public class ActuarialXlsxService {
         sheet.setColumnWidth(1, 6000);
     }
 
-    private void writeFailedSheet(Workbook wb, ActuarialReportJob job,
+    private void writeFailedSheet(Workbook wb, ReportJob job,
                                   CellStyle title, CellStyle label, CellStyle bold) {
         Sheet sheet = wb.createSheet("Report failed");
         int r = 0;

@@ -16,6 +16,23 @@ interface FamilyGroup {
 }
 
 /**
+ * ReportKey → tenant-portal route. Kept in one place so the hub can
+ * light up as a router link once a report page ships; anything not
+ * listed here still shows in the hub as a plain label ("landing but
+ * no page yet"). Phase 21 adds the IFRS 17 pair.
+ */
+const REPORT_ROUTES: Record<string, string> = {
+  IBNR_TRIANGLE: '/tenant/finance/reports/actuarial/ibnr-triangle',
+  LOSS_TRIANGLE: '/tenant/finance/reports/actuarial/loss-triangle',
+  PERSISTENCY_STUDY: '/tenant/finance/reports/actuarial/persistency-study',
+  LAPSE_STUDY: '/tenant/finance/reports/actuarial/lapse-study',
+  MORTALITY_STUDY: '/tenant/finance/reports/actuarial/mortality-study',
+  MORBIDITY_STUDY: '/tenant/finance/reports/actuarial/morbidity-study',
+  IFRS17_LRC_LIC_RECONCILIATION: '/tenant/finance/reports/ifrs17/lrc-lic-reconciliation',
+  IFRS17_INSURANCE_REVENUE_SERVICE_RESULT: '/tenant/finance/reports/ifrs17/insurance-revenue-service-result',
+};
+
+/**
  * Landing hub at /tenant/finance/reports. Shows every report the tenant
  * has *enabled*, grouped by family. Per-report detail pages are wired
  * as later phases build them; until then each card is informational.
@@ -66,6 +83,12 @@ export class ReportsHubComponent implements OnInit {
         this.loading      = false;
       },
     });
+  }
+
+  /** Route for a given report key, or null when the page hasn't shipped
+   *  yet — the hub falls back to a plain label in that case. */
+  routeFor(reportKey: string): string | null {
+    return REPORT_ROUTES[reportKey] ?? null;
   }
 
   private groupByFamily(rows: TenantReportConfigRow[]): FamilyGroup[] {

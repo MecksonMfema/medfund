@@ -34,6 +34,7 @@ public class Ifrs17CohortService {
     private final Ifrs17PortfolioRepository portfolioRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
+    private final CohortStatusHistoryService statusHistoryService;
 
     public Mono<Ifrs17Cohort> findById(UUID id) {
         return repository.findById(id)
@@ -93,6 +94,7 @@ public class Ifrs17CohortService {
                             "A cohort with that (portfolio, year, type) already exists"));
                     }
                     Map<String, Object> oldValue = snapshot(existing);
+                    String previousCohortType = existing.getCohortType();
                     existing.setPortfolioId(request.portfolioId());
                     existing.setCohortYear(request.cohortYear());
                     existing.setCohortType(request.cohortType());
@@ -102,7 +104,9 @@ public class Ifrs17CohortService {
                     existing.setActorEmail(actorEmail);
                     return repository.save(existing)
                         .flatMap(saved -> publishAudit(saved, "UPDATE", oldValue, actorId, actorEmail)
-                            .thenReturn(saved));
+                            .thenReturn(saved))
+                        .flatMap(saved -> recordManualStatusHistoryIfChanged(
+                                previousCohortType, saved, actorId, actorEmail));
                 }));
     }
 
@@ -135,6 +139,33 @@ public class Ifrs17CohortService {
         m.put("name", c.getName());
         m.put("isActive", c.getIsActive());
         return m;
+    }
+
+    /**
+     * Phase 15 §4 (I11): when a MANUAL edit flips {@code cohortType}, append a
+     * transition row to {@code cohort_status_history}. Same-type edits (name /
+     * year only) are ignored so the history is a real transition log, not a
+     * "row was touched" log.
+     */
+    private Mono<Ifrs17Cohort> recordManualStatusHistoryIfChanged(String previousCohortType,
+                                                                  Ifrs17Cohort saved,
+                                                                  String actorId,
+                                                                  String actorEmail) {
+        if (java.util.Objects.equals(previousCohortType, saved.getCohortType())) {
+            return Mono.just(saved);
+        }
+        UUID actorUuid = actorId != null ? UUID.fromString(actorId) : null;
+        return statusHistoryService.recordTransition(
+                        saved.getId(),
+                        previousCohortType,
+                        saved.getCohortType(),
+                        "MANUAL_OVERRIDE",
+                        "MANUAL",
+                        null,
+                        actorUuid,
+                        actorEmail,
+                        null)
+                .thenReturn(saved);
     }
 
     private Mono<Void> publishAudit(Ifrs17Cohort c, String action, Map<String, Object> oldValue,

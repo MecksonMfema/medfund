@@ -47,7 +47,11 @@
           <ul class="hub-report-list">
             @for (r of group.reports; track r.reportKey) {
               <li class="hub-report-item">
-                <span class="hub-report-name">{{ r.label }}</span>
+                @if (routeFor(r.reportKey); as route) {
+                  <a class="hub-report-name" [routerLink]="route">{{ r.label }}</a>
+                } @else {
+                  <span class="hub-report-name">{{ r.label }}</span>
+                }
                 @if (r.cadenced) {
                   <span class="badge badge-cadenced">Cadenced</span>
                 }

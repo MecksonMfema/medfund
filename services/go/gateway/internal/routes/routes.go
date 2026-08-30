@@ -244,11 +244,20 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// Phase 14 §Actuarial Phase 10 — actuarial report family (IBNR, LOSS,
 	// PERSISTENCY, MORTALITY, MORBIDITY, LAPSE). Async job orchestrator
 	// lives in finance-service; the Kafka-mediated compute path lands in
-	// ai-service via the /api/v1/actuarial/* proxy above. Reports at
-	// /api/v1/reports/actuarial/{ibnr|loss-triangle|…} + /jobs/{jobId}/*
-	// (poll + XLSX export) all forward to finance-service.
+	// ai-service via the /api/v1/actuarial/* proxy above.
+	//
+	// Actuarial submit endpoints — POST /reports/actuarial/{ibnr,
+	// loss-triangle, persistency-study, mortality-study, morbidity-study,
+	// lapse-study} — plus the XLSX export URL owned by ActuarialReportController
+	// still land here (finance-service). The Phase-15 §22 rename Phase B 301
+	// redirect on /reports/actuarial/jobs/* was removed in §23; the
+	// canonical /reports/jobs/* URL is the sole poll surface now.
 	app.All("/api/v1/reports/actuarial", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reports/actuarial/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 15 §1 rename canonical — report-key-agnostic job poll + XLSX
+	// export URL that serves both actuarial and IFRS 17 reports.
+	app.All("/api/v1/reports/jobs", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/jobs/*", proxy.Handler(cfg.FinanceServiceURL))
 
 	// ── Rules Service (per-tenant Drools rules) ───────────────────────────────
 	app.All("/api/v1/rules", proxy.Handler(cfg.RulesServiceURL))
@@ -276,3 +285,4 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/files/*", proxy.Handler(cfg.FileServiceURL))
 	app.All("/api/v1/pay/*", proxy.Handler(cfg.PaymentServiceURL))
 }
+

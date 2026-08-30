@@ -141,7 +141,8 @@ class TenantMigrationFlywayIT {
             assertColumns(conn, "tenant_it", "providers", List.of("network_tier"));
 
             // Phase 14 §A/B/D — V139 claim_reserve_history + V140 member death columns
-            // + V141 actuarial_report_job.
+            // + V141 report_job (renamed to report_job by V151 in Phase 15 §1,
+            // widened with retention_class + parent_job_id).
             assertColumns(conn, "tenant_it", "claim_reserve_history", List.of(
                     "id", "claim_id", "reserved_amount", "effective_at",
                     "actor_id", "actor_email", "reason_note", "created_at"));
@@ -149,12 +150,48 @@ class TenantMigrationFlywayIT {
 
             assertColumns(conn, "tenant_it", "members", List.of("death_date", "cause_of_death"));
 
-            assertColumns(conn, "tenant_it", "actuarial_report_job", List.of(
+            assertColumns(conn, "tenant_it", "report_job", List.of(
                     "job_id", "tenant_id", "report_key", "status",
                     "params_json", "params_hash", "result_json", "error_message",
-                    "requested_at", "completed_at", "requested_by", "requested_by_email"));
+                    "requested_at", "completed_at", "requested_by", "requested_by_email",
+                    "retention_class", "parent_job_id"));
             assertIndexExists(conn, "tenant_it", "idx_arj_lookup");
             assertIndexExists(conn, "tenant_it", "ux_arj_inflight");
+            assertIndexExists(conn, "tenant_it", "ix_report_job_parent");
+            assertIndexExists(conn, "tenant_it", "ix_report_job_retention");
+
+            // Phase 15 §6 — V158 widens ifrs17_cohort with the locked-in yield curve snapshot.
+            assertColumns(conn, "tenant_it", "ifrs17_cohort",
+                    List.of("locked_in_yield_curve_snapshot", "locked_in_at"));
+            assertIndexExists(conn, "tenant_it", "ix_ifrs17_cohort_locked_in");
+
+            // Phase 15 §7 — V160 tenant-admin overrides on auto-derived opening balances.
+            assertColumns(conn, "tenant_it", "ifrs17_opening_balance_seed", List.of(
+                    "portfolio_id", "cohort_id", "currency", "balance_type", "amount",
+                    "effective_from", "reason_note", "actor_id", "actor_email", "created_at"));
+            assertIndexExists(conn, "tenant_it", "ix_ifrs17_opening_balance_seed_lookup");
+
+            // Phase 15 §8 — V161/V162/V163/V164 VFA underlying-item entity model.
+            assertColumns(conn, "tenant_it", "unit_linked_fund", List.of(
+                    "name", "currency", "base_asset_class", "is_active",
+                    "created_at", "updated_at", "actor_id", "actor_email"));
+            assertIndexExists(conn, "tenant_it", "ix_unit_linked_fund_active");
+
+            assertColumns(conn, "tenant_it", "fund_nav_history", List.of(
+                    "fund_id", "valuation_date", "nav_per_unit", "source",
+                    "created_at", "actor_id", "actor_email"));
+            assertIndexExists(conn, "tenant_it", "ix_fund_nav_history_lookup");
+
+            assertColumns(conn, "tenant_it", "policy_unit_ledger", List.of(
+                    "policy_id", "fund_id", "transaction_date", "transaction_type",
+                    "units", "price", "created_at", "actor_id", "actor_email"));
+            assertIndexExists(conn, "tenant_it", "ix_policy_unit_ledger_policy");
+            assertIndexExists(conn, "tenant_it", "ix_policy_unit_ledger_fund");
+
+            assertColumns(conn, "tenant_it", "variable_fee_schedule", List.of(
+                    "fund_id", "effective_from", "effective_to", "fee_percentage",
+                    "created_at", "actor_id", "actor_email"));
+            assertIndexExists(conn, "tenant_it", "ix_variable_fee_schedule_lookup");
 
             // V107 — MISC portfolio seeded on every fresh tenant.
             try (PreparedStatement ps = conn.prepareStatement(
@@ -738,7 +775,7 @@ class TenantMigrationFlywayIT {
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
             String jobId;
             try (PreparedStatement ps = conn.prepareStatement(
-                    "INSERT INTO " + schema + ".actuarial_report_job " +
+                    "INSERT INTO " + schema + ".report_job " +
                     "  (tenant_id, report_key, status, params_json, params_hash, requested_by_email) " +
                     "  VALUES (gen_random_uuid(), 'IBNR_TRIANGLE', 'requested', '{}'::jsonb, 'h1', 'it@test') " +
                     "  RETURNING job_id")) {
@@ -750,7 +787,7 @@ class TenantMigrationFlywayIT {
 
             // First terminal write from 'requested' → 'completed' — permitted.
             try (PreparedStatement ps = conn.prepareStatement(
-                    "UPDATE " + schema + ".actuarial_report_job " +
+                    "UPDATE " + schema + ".report_job " +
                     "   SET status = 'completed', completed_at = NOW(), result_json = '{\"k\":1}'::jsonb " +
                     " WHERE job_id = ?::uuid")) {
                 ps.setString(1, jobId);
@@ -759,7 +796,7 @@ class TenantMigrationFlywayIT {
 
             // Second UPDATE must raise via the trigger.
             try (PreparedStatement ps = conn.prepareStatement(
-                    "UPDATE " + schema + ".actuarial_report_job " +
+                    "UPDATE " + schema + ".report_job " +
                     "   SET result_json = '{\"k\":2}'::jsonb WHERE job_id = ?::uuid")) {
                 ps.setString(1, jobId);
                 assertThatThrownBy(ps::executeUpdate)

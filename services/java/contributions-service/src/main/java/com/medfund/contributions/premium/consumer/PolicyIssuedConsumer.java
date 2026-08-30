@@ -1,5 +1,6 @@
 package com.medfund.contributions.premium.consumer;
 
+import com.medfund.contributions.client.Ifrs17CohortClient;
 import com.medfund.contributions.premium.service.EarningScheduleService;
 import com.medfund.shared.tenant.TenantContext;
 import jakarta.annotation.PostConstruct;
@@ -34,6 +35,7 @@ public class PolicyIssuedConsumer {
     private final ReceiverOptions<String, String> receiverOptions;
     private final PolicyIssuedPayloadParser parser;
     private final EarningScheduleService earningScheduleService;
+    private final Ifrs17CohortClient ifrs17CohortClient;
 
     @PostConstruct
     public void consume() {
@@ -67,8 +69,26 @@ public class PolicyIssuedConsumer {
                 return Mono.empty();
             }
             return earningScheduleService.writeSchedule(payload)
+                    .then(maybeLockInYieldCurve(payload))
                     .contextWrite(Context.of(TenantContext.KEY, tenantId));
         });
+    }
+
+    /**
+     * Phase 15 §6 (I18): fire-and-forget lock-in call so the cohort captures
+     * its discount curve at initial recognition. The user-service side is
+     * idempotent — repeat calls after the first are cheap no-ops. Failures
+     * are swallowed by {@link Ifrs17CohortClient} so a user-service outage
+     * cannot block premium earning.
+     */
+    private Mono<Void> maybeLockInYieldCurve(PolicyIssuedPayload payload) {
+        if (payload.cohortId() == null || payload.currencyCode() == null || payload.coverageStart() == null) {
+            return Mono.empty();
+        }
+        return ifrs17CohortClient.lockInIfFirstPolicy(
+                payload.cohortId(),
+                payload.currencyCode(),
+                payload.coverageStart());
     }
 
     static String chainMessages(Throwable t) {
