@@ -73,6 +73,9 @@ const ACTION_TYPES: { id: string; label: string; description: string; valueHint?
 
   // IFRS 17 (Phase 15 §9)
   { id: 'SELECT_IFRS17_MODEL',  label: 'Select IFRS 17 model', description: 'Pick the IFRS 17 measurement model (PAA / GMM / VFA) + coverage-unit pattern + variable-fee pattern (VFA only) + finance-expense presentation for a portfolio. Value encodes the choices as IFRS17_MODEL:<model>:<coverage>:<fee>:<expense>. Fee is null for non-VFA models.', valueHint: 'IFRS17_MODEL:PAA:TIME:null:PL_ONLY  or  IFRS17_MODEL:GMM:TIME:null:OCI_OPTION  or  IFRS17_MODEL:VFA:TIME:FIXED_PCT:OCI_OPTION' },
+
+  // Regulatory parameter override (Phase 16 §Phase-15)
+  { id: 'SET_REGULATORY_PARAMETER', label: 'Set regulatory parameter', description: 'Override a numeric parameter that would otherwise resolve from a bundled regulator YAML default (IPEC solvency ratio, CMS cost target, NAIC Schedule F provision percentage, etc.). Value encodes the override as PARAMETER_VALUE:<decimal>. Rule conditions must filter on regulatoryParameter.parameterKey + regulatoryParameter.jurisdiction so the override only fires for the intended lookup.', valueHint: 'PARAMETER_VALUE:1.30  or  PARAMETER_VALUE:0.20' },
 ];
 
 interface EditorFormState {

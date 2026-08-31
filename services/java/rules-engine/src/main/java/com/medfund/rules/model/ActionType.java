@@ -157,5 +157,52 @@ public enum ActionType {
      *       {@code IfrsPortfolioFact.results}.</li>
      * </ul>
      */
-    SELECT_IFRS17_MODEL
+    SELECT_IFRS17_MODEL,
+
+    // ── Regulatory-parameter outputs ─────────────────────────────────────────
+    /**
+     * Override a numeric parameter that would otherwise resolve from a bundled
+     * regulator YAML default (see
+     * {@code shared/src/main/resources/regulatory-defaults/}). Populates
+     * {@code RegulatoryParameterFact.parameterValue}. Rules with this action
+     * must live in the {@code REGULATORY_PARAMETER} category (agenda-gated per
+     * {@code DrlCompiler.AGENDA_GATED_CATEGORIES}) — finance-service's
+     * {@code RegulatoryParameterResolver} focuses that group per parameter
+     * lookup so overrides never fire during the stage-7 tenant sweep.
+     *
+     * <p>Action fields (see {@code RuleAction}):
+     * <ul>
+     *   <li>{@code value} — {@code PARAMETER_VALUE:<decimal>} where
+     *       {@code decimal} is parsed as {@link java.math.BigDecimal} (e.g.
+     *       {@code PARAMETER_VALUE:1.45}). Bad or missing values fall back to
+     *       the bundled YAML default so a typo in a tenant rule cannot break
+     *       the compute.</li>
+     *   <li>{@code message} — human-readable audit note recorded on
+     *       {@code RegulatoryParameterFact.results}.</li>
+     * </ul>
+     */
+    SET_REGULATORY_PARAMETER,
+
+    // ── PMB classification outputs (Phase 17 §B REG7) ────────────────────────
+    /**
+     * Classify a claim as PMB (Prescribed Minimum Benefit) and record the
+     * matched CMS condition code. Populates {@code PmbClassificationFact}'s
+     * {@code isPmb} + {@code pmbConditionCode} slots. Rules with this action
+     * must live in the {@code PMB_CLASSIFICATION} category (agenda-gated per
+     * {@code DrlCompiler.AGENDA_GATED_CATEGORIES}) — the claims-service
+     * {@code RulesEnginePmbClassifier} focuses that group per claim so PMB
+     * rules never fire during the stage-7 tenant sweep.
+     *
+     * <p>Action fields (see {@code RuleAction}):
+     * <ul>
+     *   <li>{@code value} — {@code PMB_CONDITION_CODE:<code>} where
+     *       {@code code} is the CMS PMB condition code (up to 20 chars,
+     *       matches {@code claims.pmb_condition_code}). Missing / blank
+     *       values fall back to a NOT_PMB no-op so a typo in a tenant rule
+     *       cannot silently mark a claim as PMB without a code.</li>
+     *   <li>{@code message} — human-readable audit note recorded on
+     *       {@code PmbClassificationFact.results}.</li>
+     * </ul>
+     */
+    SET_PMB_CLASSIFICATION
 }

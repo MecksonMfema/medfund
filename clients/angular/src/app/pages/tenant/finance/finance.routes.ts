@@ -5,6 +5,7 @@ import { UNDERWRITING_REPORT_ROUTES } from './reports/underwriting/underwriting.
 import { POLICY_LIFECYCLE_REPORT_ROUTES } from './reports/policy-lifecycle/policy-lifecycle.routes';
 import { ACTUARIAL_REPORT_ROUTES } from './reports/actuarial/actuarial.routes';
 import { IFRS17_REPORT_ROUTES } from './reports/ifrs17/ifrs17.routes';
+import { AML_ALERT_ROUTES } from './reports/compliance/aml-str/aml-alerts.routes';
 
 const loadComingSoon = () =>
   import('../../../shared/components/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent);
@@ -768,6 +769,13 @@ export const FINANCE_ROUTES: Routes = [
   // the same async submit → poll → render → XLSX shape as the actuarial
   // reports; envelope shape produced by finance-service Ifrs17JobAggregator.
   ...IFRS17_REPORT_ROUTES,
+
+  // ── AML/STR alerts (Phase 22 REG8 + Phase 23) ───────────────────────────
+  // Compliance staff workflow: raise → review → file (regulator) or close.
+  // Route lives under reports/compliance/aml-str/* so the sidebar can nest
+  // future compliance surfaces (Phase 25 periodic AML summary etc.) under
+  // the same parent.
+  ...AML_ALERT_ROUTES,
 
   // ── Commission reports (Phase 11 §A) ────────────────────────────────────
   {

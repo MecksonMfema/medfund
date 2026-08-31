@@ -72,10 +72,16 @@ export type PermissionKey =
   | 'tenant.settings:manage_auto_lapse'
   | 'tenant.settings:manage_endorsement_config'
   | 'tenant.settings:manage_actuarial_bases'
+  | 'tenant.settings:manage_regulatory_templates'
+  | 'tenant.settings:manage_regulatory_notifications'
   // Underwriting (Phase 12 §A + §C)
   | 'underwriting.portfolio:manage' | 'underwriting.cohort:manage'
   | 'premium.earning:manage_backfill' | 'premium.earning:view_debug'
   | 'policy:draft_endorsement' | 'policy:approve_endorsement'
+  // Compliance / AML (Phase 22 REG8)
+  | 'compliance:aml_raise' | 'compliance:aml_review'
+  | 'compliance:aml_file' | 'compliance:aml_close'
+  | 'compliance:aml_configure_thresholds'
   // Platform administration (super-admin only)
   | 'platform:view_jobs' | 'platform:manage_jobs';
 
@@ -86,7 +92,7 @@ export interface PermissionDescriptor {
 }
 
 export interface PermissionDomain {
-  id: 'claims' | 'billing' | 'finance' | 'members' | 'providers' | 'admin' | 'tenant' | 'underwriting' | 'platform';
+  id: 'claims' | 'billing' | 'finance' | 'members' | 'providers' | 'admin' | 'tenant' | 'underwriting' | 'compliance' | 'platform';
   label: string;
   permissions: PermissionDescriptor[];
 }
@@ -233,6 +239,8 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'tenant.settings:manage_auto_lapse',           label: 'Manage auto-lapse settings',        description: 'Enable/disable the auto-lapse chain and configure arrears-threshold-months + grace-window-days (Phase 11 §B).' },
       { key: 'tenant.settings:manage_endorsement_config',   label: 'Manage endorsement four-eyes gate', description: 'Enable/disable the endorsement four-eyes threshold and configure its amount + currency (Phase 12 §C).' },
       { key: 'tenant.settings:manage_actuarial_bases',      label: 'Manage actuarial basis tables',     description: 'Add, edit, or delete per-tenant persistency / mortality / morbidity basis rows consumed by the actuarial studies (Phase 14 §2).' },
+      { key: 'tenant.settings:manage_regulatory_templates', label: 'Manage regulator XLSX templates',   description: 'Upload / delete tenant-side overrides of the bundled regulator XLSX templates (IPEC, CMS, NAIC, PMB, VAT, tax-withheld, AML) consumed by the regulatory report exporter (Phase 16 §0 REG3).' },
+      { key: 'tenant.settings:manage_regulatory_notifications', label: 'Manage regulator due-date recipients', description: 'Add, edit, or delete the tenant\'s email recipient list for the RegulatoryDueDateScanner reminders (7d / 1d / due / overdue) — Phase 16 §0 REG20.' },
     ],
   },
   {
@@ -245,6 +253,17 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'premium.earning:view_debug',       label: 'View earning-schedule debug rows', description: 'Dev-only: read raw earning_schedule rows for a policy.' },
       { key: 'policy:draft_endorsement',         label: 'Draft policy endorsement',         description: 'Create a DRAFT policy endorsement and read the queue. Auto-commits below the four-eyes threshold (Phase 12 §C).' },
       { key: 'policy:approve_endorsement',       label: 'Approve policy endorsement',       description: 'Approve, commit, void, or mark-computed a policy endorsement. Four-eyes counterpart to policy:draft_endorsement (Phase 12 §C).' },
+    ],
+  },
+  {
+    id: 'compliance',
+    label: 'Compliance',
+    permissions: [
+      { key: 'compliance:aml_raise',             label: 'Raise AML/STR alert',              description: 'Raise a Suspicious Transaction Alert against a transaction. Front-line finance / claims staff typically hold this (Phase 22 REG8).' },
+      { key: 'compliance:aml_review',            label: 'Review AML/STR alerts',            description: 'Read the AML alert queue and move RAISED alerts to REVIEWED with a triage note. Compliance officer role (Phase 22 REG8).' },
+      { key: 'compliance:aml_file',              label: 'File AML/STR alerts with regulator', description: 'Move a REVIEWED alert to FILED, recording the FIU/FIC/FinCEN filing reference. Compliance lead role (Phase 22 REG8).' },
+      { key: 'compliance:aml_close',             label: 'Close AML/STR alerts',             description: 'Close a RAISED or REVIEWED alert as not-reportable with a mandatory reason (Phase 22 REG8).' },
+      { key: 'compliance:aml_configure_thresholds', label: 'Manage AML reporting thresholds', description: 'Add, edit, or delete per-tenant AML reporting thresholds per transaction type × currency (Phase 25 REG8). Consumed by the AML/STR periodic summary calculator.' },
     ],
   },
   {

@@ -1,0 +1,33 @@
+# NAIC solvency + loss-development + reinsurance-provision defaults for
+# US_NAIC insurers (Phase 16 §A / Phases 12-13). Effective from 2024-06-01.
+# Tenant admins can override any of these via rules-engine
+# RuleCategory.REGULATORY_PARAMETER (Phase 15 wiring) — the calculators
+# resolve rules-engine first, fall back here, throw otherwise.
+#
+# Sources (synthetic — hand-approximated from NAIC RBC formula guidance +
+# Annual Statement Instructions + credit-for-reinsurance model law
+# pending compliance-domain sign-off per parent-plan "Owed back" list):
+#   - min_rbc_ratio_company_action_level: RBC ratio floor below which NAIC
+#     triggers Company Action Level regulatory review (2.00 = 200%)
+#   - ulae_ratio: Unallocated Loss Adjustment Expense as a fraction of
+#     incurred losses (used by the loss-reserve calc if separated ULAE
+#     input is not supplied — synthetic proxy)
+#   - loss_ratio_high_watermark: informational threshold above which a
+#     given accident-year loss ratio flags for actuarial review
+#   - unauthorized_reinsurer_provision_percentage: statutory Schedule F
+#     provision on the liability ceded to unauthorized (non-licensed,
+#     non-accredited) reinsurers absent collateral — 1.00 = 100%
+#   - certified_reinsurer_provision_percentage: statutory Schedule F
+#     provision on the liability ceded to certified reinsurers absent
+#     collateral — 0.20 is a mid-range placeholder pending the graduated
+#     AM Best / S&P rating table
+# All ratios are decimal (2.00 = 200%; 0.10 = 10%).
+
+jurisdiction: US_NAIC
+effective_from: 2024-06-01
+parameters:
+  min_rbc_ratio_company_action_level: 2.00
+  ulae_ratio: 0.05
+  loss_ratio_high_watermark: 1.00
+  unauthorized_reinsurer_provision_percentage: 1.00
+  certified_reinsurer_provision_percentage: 0.20

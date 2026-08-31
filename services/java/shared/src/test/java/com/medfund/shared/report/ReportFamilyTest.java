@@ -26,4 +26,16 @@ class ReportFamilyTest {
         // renders a distinct card instead of squatting under CLAIMS_FINANCIAL.
         assertThat(ReportFamily.POLICY_LIFECYCLE.getLabel()).isEqualTo("Policy lifecycle");
     }
+
+    @Test
+    void phase16RegulatoryFamilySplit() {
+        // Phase 16 §0 REG19 — REGULATORY retains IFRS 17 only; three new
+        // families carve out prudential returns, tax, and compliance so the
+        // reports hub renders distinct cards per bucket instead of one
+        // heaving Regulatory pile.
+        assertThat(ReportFamily.PRUDENTIAL.getLabel()).isEqualTo("Prudential Returns");
+        assertThat(ReportFamily.TAX.getLabel()).isEqualTo("Tax");
+        assertThat(ReportFamily.COMPLIANCE.getLabel()).isEqualTo("Compliance");
+        assertThat(ReportFamily.REGULATORY.getLabel()).isEqualTo("Regulatory");
+    }
 }

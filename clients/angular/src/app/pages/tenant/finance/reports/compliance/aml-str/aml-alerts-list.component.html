@@ -1,0 +1,103 @@
+<header class="page-header">
+  <div>
+    <h1>{{ pageTitle }}</h1>
+    <p class="page-sub">{{ pageSubtitle }}</p>
+  </div>
+  @if (canRaise) {
+    <button type="button" class="btn btn-primary" (click)="openRaise()">
+      <app-icon name="plus" [size]="14"></app-icon>
+      Raise alert
+    </button>
+  }
+</header>
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Status filter</span>
+    <app-select
+      name="statusFilter"
+      [ngModel]="statusFilter"
+      (selectionChange)="onStatusChange($event)"
+      [options]="statusOptions"
+      [searchable]="false"></app-select>
+  </div>
+  <div class="toolbar-cell right">
+    <span class="cell-label">Total</span>
+    <span class="cell-value">{{ total }} alert{{ total === 1 ? '' : 's' }}</span>
+  </div>
+</div>
+
+@if (loadError) {
+  <div class="banner banner-error" (click)="loadError = null">{{ loadError }}</div>
+}
+
+<div class="table-wrap">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Txn ref</th>
+        <th>Status</th>
+        <th>Type</th>
+        <th class="right">Amount</th>
+        <th>Currency</th>
+        <th>Raised</th>
+        <th>Description</th>
+        <th class="right">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      @if (loading) {
+        <tr><td colspan="8" class="empty">Loading…</td></tr>
+      } @else if (rows.length === 0) {
+        <tr><td colspan="8" class="empty">
+          No alerts in this slice. Nothing to review.
+        </td></tr>
+      } @else {
+        @for (row of rows; track row.id) {
+          <tr>
+            <td class="mono">{{ row.transactionRef }}</td>
+            <td><span [class]="statusClass(row.status)">{{ row.status }}</span></td>
+            <td>{{ row.transactionType }}</td>
+            <td class="right mono">{{ row.amountNative }}</td>
+            <td>{{ row.currency }}</td>
+            <td class="mono small">
+              {{ row.raisedAt | date:'y-MM-dd HH:mm' }}
+              <div class="muted">{{ row.raisedByActorEmail || '—' }}</div>
+            </td>
+            <td class="clip">{{ row.description }}</td>
+            <td class="right actions-cell">
+              @if (canRow(row, 'review')) {
+                <button type="button" class="btn btn-small"
+                        (click)="openWorkflow(row, 'review')">Review</button>
+              }
+              @if (canRow(row, 'file')) {
+                <button type="button" class="btn btn-small btn-primary"
+                        (click)="openWorkflow(row, 'file')">File</button>
+              }
+              @if (canRow(row, 'close')) {
+                <button type="button" class="btn btn-small btn-warning"
+                        (click)="openWorkflow(row, 'close')">Close</button>
+              }
+            </td>
+          </tr>
+        }
+      }
+    </tbody>
+  </table>
+</div>
+
+<app-raise-aml-alert-modal
+  [open]="raiseOpen"
+  [submitting]="raiseSubmitting"
+  [serverError]="raiseError"
+  (cancel)="cancelRaise()"
+  (submit)="submitRaise($event)"></app-raise-aml-alert-modal>
+
+<app-aml-workflow-modal
+  [open]="workflowOpen"
+  [mode]="workflowMode"
+  [transactionRef]="workflowTxnRef"
+  [submitting]="workflowSubmitting"
+  [serverError]="workflowError"
+  (cancel)="cancelWorkflow()"
+  (submit)="submitWorkflow($event)"></app-aml-workflow-modal>

@@ -146,6 +146,18 @@ public class Claim {
     @Column("member_responsibility")
     private BigDecimal memberResponsibility;
 
+    // ── V166 PMB classification (Phase 16 §B REG7) ────────────────────────
+    // Populated at adjudication by RuleCategory.PMB_CLASSIFICATION (Phase 17)
+    // and by PmbBackfillJob for historical rows. is_pmb defaults FALSE at
+    // the DB level so historical claims stay valid; pmbConditionCode is
+    // NULL for non-PMB claims.
+
+    @Column("is_pmb")
+    private Boolean isPmb;
+
+    @Column("pmb_condition_code")
+    private String pmbConditionCode;
+
     // Getters and setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -263,4 +275,10 @@ public class Claim {
 
     public BigDecimal getMemberResponsibility() { return memberResponsibility; }
     public void setMemberResponsibility(BigDecimal memberResponsibility) { this.memberResponsibility = memberResponsibility; }
+
+    public Boolean getIsPmb() { return isPmb; }
+    public void setIsPmb(Boolean isPmb) { this.isPmb = isPmb; }
+
+    public String getPmbConditionCode() { return pmbConditionCode; }
+    public void setPmbConditionCode(String pmbConditionCode) { this.pmbConditionCode = pmbConditionCode; }
 }

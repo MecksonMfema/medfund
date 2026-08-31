@@ -1,6 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { TenantService } from '../../../../core/services/tenant.service';
@@ -8,6 +10,11 @@ import {
   TenantReportConfigRow,
   TenantReportConfigService,
 } from '../../../../core/services/tenant-report-config.service';
+import {
+  DueDateBannerRow,
+  RegulatoryDueDatesService,
+} from '../../../../core/services/regulatory-due-dates.service';
+import { DueDateBannerComponent } from './regulatory/due-date-banner/due-date-banner.component';
 
 interface FamilyGroup {
   family: string;
@@ -44,7 +51,7 @@ const REPORT_ROUTES: Record<string, string> = {
 @Component({
   selector: 'app-reports-hub',
   standalone: true,
-  imports: [CommonModule, RouterModule, IconComponent, SkeletonComponent],
+  imports: [CommonModule, RouterModule, IconComponent, SkeletonComponent, DueDateBannerComponent],
   templateUrl: './reports-hub.component.html',
   styleUrl: './reports-hub.component.scss',
 })
@@ -53,10 +60,12 @@ export class ReportsHubComponent implements OnInit {
   errorMessage: string | null = null;
   groups: FamilyGroup[] = [];
   totalEnabled = 0;
+  private banners = new Map<string, DueDateBannerRow>();
 
   constructor(
     private reportConfig: TenantReportConfigService,
     private tenantService: TenantService,
+    private dueDates: RegulatoryDueDatesService,
   ) {}
 
   ngOnInit(): void {
@@ -71,11 +80,17 @@ export class ReportsHubComponent implements OnInit {
     }
     this.loading = true;
     this.errorMessage = null;
-    this.reportConfig.list(tenantId).subscribe({
-      next: (rows) => {
+    // Fetch banner rows in parallel with the catalogue; if the banner call
+    // fails we fall through with an empty map so the hub still renders.
+    forkJoin({
+      rows: this.reportConfig.list(tenantId),
+      banners: this.dueDates.list().pipe(catchError(() => of([] as DueDateBannerRow[]))),
+    }).subscribe({
+      next: ({ rows, banners }) => {
         const enabled = rows.filter(r => r.enabled);
         this.totalEnabled = enabled.length;
         this.groups = this.groupByFamily(enabled);
+        this.banners = new Map(banners.map(b => [b.reportKey, b]));
         this.loading = false;
       },
       error: (err) => {
@@ -89,6 +104,12 @@ export class ReportsHubComponent implements OnInit {
    *  yet — the hub falls back to a plain label in that case. */
   routeFor(reportKey: string): string | null {
     return REPORT_ROUTES[reportKey] ?? null;
+  }
+
+  /** Server-computed due-date banner for the report, or null when the
+   *  report is not a Phase-16 regulator key for this tenant. */
+  bannerFor(reportKey: string): DueDateBannerRow | null {
+    return this.banners.get(reportKey) ?? null;
   }
 
   private groupByFamily(rows: TenantReportConfigRow[]): FamilyGroup[] {

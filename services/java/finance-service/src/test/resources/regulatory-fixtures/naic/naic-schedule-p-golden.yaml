@@ -1,0 +1,92 @@
+# SYNTHETIC NAIC Schedule P golden fixture (Phase 12).
+# Hand-computed against the compute formulas in NaicSchedulePCalculator +
+# NaicSchedulePReportShaper — every expected cell value has a stated
+# derivation below.
+#
+# Note: values are illustrative; compliance-domain sign-off is owed
+# before first real filing per the parent plan's "Owed back" list. The
+# synthetic template compresses NAIC's full 10-year triangle to the most
+# recent three accident years.
+
+report_key: NAIC_SCHEDULE_P
+company_name: "Acme Insurance US"
+naic_code: "12345"
+group_code: "0999"
+fein: "12-3456789"
+state_of_domicile: "IL"
+period_start: 2026-01-01
+period_end: 2026-12-31
+reporting_currency: USD
+
+# Raw inputs the shaper receives from NaicSchedulePRawDataProvider (all in USD).
+raw_data:
+  paid_ay_minus_2:           100000000.00
+  paid_ay_minus_1:            60000000.00
+  paid_ay_current:            20000000.00
+  case_ay_minus_2:            20000000.00
+  case_ay_minus_1:            30000000.00
+  case_ay_current:            50000000.00
+  ibnr_ay_minus_2:             5000000.00
+  ibnr_ay_minus_1:            10000000.00
+  ibnr_ay_current:            30000000.00
+  earned_premium_ay_minus_2: 180000000.00
+  earned_premium_ay_minus_1: 190000000.00
+  earned_premium_ay_current: 200000000.00
+
+# YAML parameter file consulted (bundled default).
+solvency_params:
+  min_rbc_ratio_company_action_level: 2.00
+  ulae_ratio:                          0.05
+  loss_ratio_high_watermark:           1.00
+
+# Expected computed cells (after NaicSchedulePReportShaper.compose).
+expected:
+  # Part 1 — Incurred by AY (paid + case + IBNR)
+  #   AY-2: 100M + 20M + 5M  = 125M
+  #   AY-1:  60M + 30M + 10M = 100M
+  #   AY0:   20M + 50M + 30M = 100M
+  P1_INCURRED_AY_MINUS_2:    125000000.00
+  P1_INCURRED_AY_MINUS_1:    100000000.00
+  P1_INCURRED_AY_CURRENT:    100000000.00
+
+  # Part 2 — Paid (echoed from raw)
+  P2_PAID_AY_MINUS_2:        100000000.00
+  P2_PAID_AY_MINUS_1:         60000000.00
+  P2_PAID_AY_CURRENT:         20000000.00
+
+  # Part 3 — Case reserves (echoed from raw)
+  P3_CASE_AY_MINUS_2:         20000000.00
+  P3_CASE_AY_MINUS_1:         30000000.00
+  P3_CASE_AY_CURRENT:         50000000.00
+
+  # Part 4 — IBNR (echoed from raw)
+  P4_IBNR_AY_MINUS_2:          5000000.00
+  P4_IBNR_AY_MINUS_1:         10000000.00
+  P4_IBNR_AY_CURRENT:         30000000.00
+
+  # Part 5 — Earned premium (echoed from raw)
+  P5_EARNED_PREMIUM_AY_MINUS_2: 180000000.00
+  P5_EARNED_PREMIUM_AY_MINUS_1: 190000000.00
+  P5_EARNED_PREMIUM_AY_CURRENT: 200000000.00
+
+  # Part 6 — Loss ratios (incurred / earned premium), 4-dp HALF_UP
+  #   AY-2: 125M / 180M = 0.6944 (0.6944444... → HALF_UP)
+  #   AY-1: 100M / 190M = 0.5263 (0.5263157... → HALF_UP)
+  #   AY0:  100M / 200M = 0.5000
+  P6_LOSS_RATIO_AY_MINUS_2:               0.6944
+  P6_LOSS_RATIO_AY_MINUS_1:               0.5263
+  P6_LOSS_RATIO_AY_CURRENT:               0.5000
+
+  # Totals across all AYs
+  #   total_incurred        = 125M + 100M + 100M = 325M
+  #   total_paid            = 100M +  60M +  20M = 180M
+  #   total_case_reserves   =  20M +  30M +  50M = 100M
+  #   total_ibnr            =   5M +  10M +  30M =  45M
+  #   total_earned_premium  = 180M + 190M + 200M = 570M
+  #   overall_loss_ratio    = 325M / 570M = 0.5702 (0.5701754... → HALF_UP)
+  TOTAL_INCURRED:              325000000.00
+  TOTAL_PAID:                  180000000.00
+  TOTAL_CASE_RESERVES:         100000000.00
+  TOTAL_IBNR:                   45000000.00
+  TOTAL_EARNED_PREMIUM:        570000000.00
+  OVERALL_LOSS_RATIO:                    0.5702

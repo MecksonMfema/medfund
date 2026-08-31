@@ -103,6 +103,7 @@ public class ClaimService {
     private final ClaimFactBuilder claimFactBuilder;
     private final RuleEvaluationService ruleEvaluationService;
     private final ClaimReserveHistoryService claimReserveHistoryService;
+    private final com.medfund.claims.pmb.PmbClassificationExecutor pmbClassificationExecutor;
 
     public ClaimService(ClaimRepository claimRepository,
                         ClaimLineRepository claimLineRepository,
@@ -116,7 +117,8 @@ public class ClaimService {
                         TariffBenefitResolver tariffBenefitResolver,
                         ClaimFactBuilder claimFactBuilder,
                         RuleEvaluationService ruleEvaluationService,
-                        ClaimReserveHistoryService claimReserveHistoryService) {
+                        ClaimReserveHistoryService claimReserveHistoryService,
+                        com.medfund.claims.pmb.PmbClassificationExecutor pmbClassificationExecutor) {
         this.claimRepository = claimRepository;
         this.claimLineRepository = claimLineRepository;
         this.claimQueryRepository = claimQueryRepository;
@@ -130,6 +132,7 @@ public class ClaimService {
         this.claimFactBuilder = claimFactBuilder;
         this.ruleEvaluationService = ruleEvaluationService;
         this.claimReserveHistoryService = claimReserveHistoryService;
+        this.pmbClassificationExecutor = pmbClassificationExecutor;
     }
 
     /**
@@ -668,7 +671,13 @@ public class ClaimService {
                                 return claimLineRepository.saveAll(lines).then(Mono.just(saved));
                             }
                             return Mono.just(saved);
-                        }))));
+                        })
+                        // Phase 17 §B REG7: PMB classification runs after the standard
+                        // adjudication sweep so the fired-rule set + resulting claim
+                        // shape is stable when we probe. Errors here don't fail the
+                        // adjudication — see PmbClassificationExecutor's swallow.
+                        .flatMap(saved -> pmbClassificationExecutor.classifyAndPersist(
+                                saved, actorId, actorEmail)))));
     }
 
     @Transactional

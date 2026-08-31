@@ -123,6 +123,17 @@ class PublicMigrationFlywayIT {
                     assertThat(rs.getLong(1)).isGreaterThanOrEqualTo(0);
                 }
             }
+
+            // V172 — seed PMB_CLASSIFICATION industry-default rules. Same shape:
+            // per-tenant count exercised by v172_seedsPmbClassificationDefaults_forEveryTenant.
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT COUNT(*) FROM public.tenant_rules " +
+                    " WHERE category = 'PMB_CLASSIFICATION'")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getLong(1)).isGreaterThanOrEqualTo(0);
+                }
+            }
         }
     }
 
@@ -261,6 +272,107 @@ class PublicMigrationFlywayIT {
                     try (ResultSet rs = ps.executeQuery()) {
                         assertThat(rs.next()).isTrue();
                         assertThat(rs.getLong(1)).isEqualTo(8);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * V172 seed guard (Phase 17 §B REG7): with a fresh tenant seeded before V172
+     * runs, the seed lands 15 industry-default PMB_CLASSIFICATION rules per
+     * tenant (representative CMS PMB sample: respiratory / cardiac / metabolic /
+     * oncology / mental health / renal). Isolated container for the same
+     * reason as {@link #v165_seedsIfrs17ModelDefaults_forEveryTenant} — the
+     * seeded INSERT hardcodes {@code public.} prefixes.
+     */
+    @Test
+    void v172_seedsPmbClassificationDefaults_forEveryTenant() throws Exception {
+        try (PostgreSQLContainer<?> isolated = new PostgreSQLContainer<>("postgres:17-alpine")
+                .withDatabaseName("v172_seed_it")
+                .withUsername("medfund")
+                .withPassword("medfund")) {
+            isolated.start();
+
+            // Migrate up to V171 (highest public row below V172) so we can seed
+            // a tenant BEFORE V172's INSERT fires.
+            Flyway prelude = Flyway.configure()
+                    .dataSource(isolated.getJdbcUrl(), isolated.getUsername(), isolated.getPassword())
+                    .locations("classpath:db/migration/public")
+                    .schemas("public")
+                    .target("171")
+                    .load();
+            prelude.migrate();
+
+            try (Connection conn = DriverManager.getConnection(
+                    isolated.getJdbcUrl(), isolated.getUsername(), isolated.getPassword())) {
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "INSERT INTO public.tenants (id, name, slug, schema_name) " +
+                        "  VALUES (gen_random_uuid(), 'V172 Seed Tenant', 'v172-seed', 'public')")) {
+                    ps.executeUpdate();
+                }
+            }
+
+            Flyway toLatest = Flyway.configure()
+                    .dataSource(isolated.getJdbcUrl(), isolated.getUsername(), isolated.getPassword())
+                    .locations("classpath:db/migration/public")
+                    .schemas("public")
+                    .load();
+            toLatest.migrate();
+
+            try (Connection conn = DriverManager.getConnection(
+                    isolated.getJdbcUrl(), isolated.getUsername(), isolated.getPassword())) {
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "SELECT COUNT(*) FROM public.tenant_rules " +
+                        " WHERE category = 'PMB_CLASSIFICATION'")) {
+                    try (ResultSet rs = ps.executeQuery()) {
+                        assertThat(rs.next()).isTrue();
+                        // 3 respiratory + 3 cardiac + 2 metabolic + 3 oncology
+                        // + 3 mental health + 1 renal = 15 rows per tenant.
+                        assertThat(rs.getLong(1)).isEqualTo(15);
+                    }
+                }
+
+                // Rows are enabled + carry the PMB1 template id + priority 100.
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "SELECT COUNT(*) FROM public.tenant_rules " +
+                        " WHERE category = 'PMB_CLASSIFICATION' AND enabled = TRUE " +
+                        "   AND template_id = 'PMB1 - Match by ICD diagnosis code' " +
+                        "   AND priority = 100")) {
+                    try (ResultSet rs = ps.executeQuery()) {
+                        assertThat(rs.next()).isTrue();
+                        assertThat(rs.getLong(1)).isEqualTo(15);
+                    }
+                }
+
+                // Sample: the pulmonary-TB rule (A15.0 → PMB-001) is present with
+                // the expected condition + action shape.
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "SELECT definition FROM public.tenant_rules " +
+                        " WHERE category = 'PMB_CLASSIFICATION' " +
+                        "   AND rule_key = 'pmb-default-a15-0'")) {
+                    try (ResultSet rs = ps.executeQuery()) {
+                        assertThat(rs.next()).isTrue();
+                        String defn = rs.getString(1);
+                        assertThat(defn).contains("\"A15.0\"");
+                        assertThat(defn).contains("PMB_CONDITION_CODE:PMB-001");
+                        assertThat(defn).contains("pmbClassification.diagnosisCode");
+                    }
+                }
+
+                // Idempotency: re-running V172's INSERT is a no-op.
+                Flyway rerun = Flyway.configure()
+                        .dataSource(isolated.getJdbcUrl(), isolated.getUsername(), isolated.getPassword())
+                        .locations("classpath:db/migration/public")
+                        .schemas("public")
+                        .load();
+                rerun.migrate();
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "SELECT COUNT(*) FROM public.tenant_rules " +
+                        " WHERE category = 'PMB_CLASSIFICATION'")) {
+                    try (ResultSet rs = ps.executeQuery()) {
+                        assertThat(rs.next()).isTrue();
+                        assertThat(rs.getLong(1)).isEqualTo(15);
                     }
                 }
             }

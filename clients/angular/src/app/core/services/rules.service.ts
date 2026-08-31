@@ -62,7 +62,11 @@ export type RuleCategory =
   // Actuarial
   | 'ACTUARIAL'
   // IFRS 17
-  | 'IFRS17_MODEL';
+  | 'IFRS17_MODEL'
+  // Regulatory parameter override
+  | 'REGULATORY_PARAMETER'
+  // PMB (Prescribed Minimum Benefit) classification
+  | 'PMB_CLASSIFICATION';
 
 /**
  * Categories grouped by lifecycle stage. The Rules Engine page renders this
@@ -99,6 +103,10 @@ export const RULE_CATEGORIES: { id: RuleCategory; label: string; icon: string }[
   { id: 'ACTUARIAL',            label: 'Actuarial',            icon: 'chart-line' },
   // IFRS 17
   { id: 'IFRS17_MODEL',         label: 'IFRS 17 Model',        icon: 'file-spreadsheet' },
+  // Regulatory parameter override
+  { id: 'REGULATORY_PARAMETER', label: 'Regulatory Parameter', icon: 'sliders' },
+  // PMB (Prescribed Minimum Benefit) classification (Phase 17 §B REG7)
+  { id: 'PMB_CLASSIFICATION',   label: 'PMB Classification',   icon: 'stethoscope' },
 ];
 
 export interface RuleDefinition {

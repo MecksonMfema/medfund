@@ -57,13 +57,18 @@ const MEMBERSHIP_MODELS = [
 ];
 
 /**
- * Regulator jurisdictions that gate regulator-templated reports. Kept short
- * in Phase 0 — Phase 16 expands as each regulator's XLSX template lands.
+ * Regulator jurisdictions that gate regulator-templated reports. Must stay in
+ * sync with the Java {@code TenantJurisdiction} enum — the tenancy-service
+ * PUT-tenant handler validates the picked value against that enum and returns
+ * 422 on drift.
  */
-const JURISDICTIONS = [
+export const JURISDICTIONS = [
   { value: '',                       label: '— None —' },
   { value: 'ZW_IPEC_SHORT_TERM',     label: 'Zimbabwe — IPEC short-term insurance' },
+  { value: 'ZW_IPEC_LIFE',           label: 'Zimbabwe — IPEC life insurance' },
   { value: 'ZA_CMS_MEDICAL_SCHEME',  label: 'South Africa — CMS medical scheme' },
+  { value: 'ZA_FSCA_SHORT_TERM',     label: 'South Africa — FSCA short-term insurance' },
+  { value: 'ZA_FSCA_LONG_TERM',      label: 'South Africa — FSCA long-term (life) insurance' },
   { value: 'US_NAIC',                label: 'United States — NAIC' },
 ];
 

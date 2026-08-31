@@ -1,0 +1,101 @@
+# SYNTHETIC NAIC Schedule F golden fixture (Phase 13).
+# Hand-computed against the compute formulas in NaicScheduleFCalculator +
+# NaicScheduleFReportShaper — every expected cell value has a stated
+# derivation below.
+#
+# Note: values are illustrative; compliance-domain sign-off is owed
+# before first real filing per the parent plan's "Owed back" list. The
+# synthetic template compresses NAIC's per-reinsurer detail to per-stratum
+# aggregates (affiliated / authorized / unauthorized / certified).
+
+report_key: NAIC_SCHEDULE_F
+company_name: "Acme Insurance US"
+naic_code: "12345"
+group_code: "0999"
+fein: "12-3456789"
+state_of_domicile: "IL"
+period_start: 2026-01-01
+period_end: 2026-12-31
+reporting_currency: USD
+
+# Raw inputs the shaper receives from NaicScheduleFRawDataProvider (all in USD).
+raw_data:
+  # Assumed reinsurance (informational aggregate — not part of the
+  # provision computation).
+  assumed_premiums:                       15000000.00
+  assumed_losses_paid:                     8000000.00
+  assumed_losses_unpaid:                   4000000.00
+
+  # Ceded to affiliated reinsurers
+  ceded_affiliated_premiums:              10000000.00
+  ceded_affiliated_losses_paid:            5000000.00
+  ceded_affiliated_losses_unpaid:          3000000.00
+
+  # Ceded to non-affiliated authorized reinsurers
+  ceded_authorized_premiums:              25000000.00
+  ceded_authorized_losses_paid:           12000000.00
+  ceded_authorized_losses_unpaid:          8000000.00
+
+  # Ceded to non-affiliated unauthorized reinsurers
+  ceded_unauthorized_premiums:             5000000.00
+  ceded_unauthorized_losses_paid:          2000000.00
+  ceded_unauthorized_losses_unpaid:        1000000.00
+
+  # Ceded to certified reinsurers
+  ceded_certified_premiums:                8000000.00
+  ceded_certified_losses_paid:             3000000.00
+  ceded_certified_losses_unpaid:           2000000.00
+
+# YAML parameter file consulted (bundled default from
+# regulatory-defaults/US_NAIC/2024-06-01.yaml). Both provision
+# percentages are decimal (1.00 = 100%; 0.20 = 20%).
+schedule_f_params:
+  unauthorized_reinsurer_provision_percentage: 1.00
+  certified_reinsurer_provision_percentage:    0.20
+
+# Expected computed cells (after NaicScheduleFReportShaper.compose).
+expected:
+  # Part 1 — Assumed (echoed from raw, normalised to 2-dp)
+  P1_ASSUMED_PREMIUMS:        15000000.00
+  P1_ASSUMED_LOSSES_PAID:      8000000.00
+  P1_ASSUMED_LOSSES_UNPAID:    4000000.00
+
+  # Part 2 — Ceded affiliated (echoed from raw)
+  P2_CEDED_AFFILIATED_PREMIUMS:      10000000.00
+  P2_CEDED_AFFILIATED_LOSSES_PAID:    5000000.00
+  P2_CEDED_AFFILIATED_LOSSES_UNPAID:  3000000.00
+
+  # Part 3 — Ceded authorized (echoed from raw)
+  P3_CEDED_AUTHORIZED_PREMIUMS:      25000000.00
+  P3_CEDED_AUTHORIZED_LOSSES_PAID:   12000000.00
+  P3_CEDED_AUTHORIZED_LOSSES_UNPAID:  8000000.00
+
+  # Part 4 — Ceded unauthorized (echoed from raw)
+  P4_CEDED_UNAUTHORIZED_PREMIUMS:      5000000.00
+  P4_CEDED_UNAUTHORIZED_LOSSES_PAID:   2000000.00
+  P4_CEDED_UNAUTHORIZED_LOSSES_UNPAID: 1000000.00
+
+  # Part 5 — Ceded certified (echoed from raw)
+  P5_CEDED_CERTIFIED_PREMIUMS:      8000000.00
+  P5_CEDED_CERTIFIED_LOSSES_PAID:   3000000.00
+  P5_CEDED_CERTIFIED_LOSSES_UNPAID: 2000000.00
+
+  # Totals across the four ceded strata
+  #   total_ceded_premiums     = 10M + 25M +  5M + 8M = 48M
+  #   total_ceded_losses_paid  =  5M + 12M +  2M + 3M = 22M
+  #   total_ceded_losses_unpaid=  3M +  8M +  1M + 2M = 14M
+  #   total_reinsurance_recoverable = 22M + 14M       = 36M
+  TOTAL_CEDED_PREMIUMS:            48000000.00
+  TOTAL_CEDED_LOSSES_PAID:         22000000.00
+  TOTAL_CEDED_LOSSES_UNPAID:       14000000.00
+  TOTAL_REINSURANCE_RECOVERABLE:   36000000.00
+
+  # Provision for reinsurance (statutory deduction from surplus):
+  #   unauthorized recoverable = 2M + 1M = 3M; provision = 3M × 1.00 = 3M
+  #   certified   recoverable = 3M + 2M = 5M; provision = 5M × 0.20 = 1M
+  #   Total provision                                              = 4M
+  PROVISION_FOR_REINSURANCE:        4000000.00
+
+  # Net reinsurance position = total recoverable − provision
+  #   = 36M − 4M = 32M
+  NET_REINSURANCE_POSITION:        32000000.00

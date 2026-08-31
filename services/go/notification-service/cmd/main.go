@@ -27,11 +27,13 @@ import (
 	"github.com/medfund/notification-service/internal/ifrs17"
 	"github.com/medfund/notification-service/internal/invoice"
 	"github.com/medfund/notification-service/internal/job"
+	"github.com/medfund/notification-service/internal/aml"
 	"github.com/medfund/notification-service/internal/lifecycle"
 	"github.com/medfund/notification-service/internal/mail"
 	"github.com/medfund/notification-service/internal/notification"
 	"github.com/medfund/notification-service/internal/receipt"
 	"github.com/medfund/notification-service/internal/recipient"
+	"github.com/medfund/notification-service/internal/regulatory"
 	"github.com/medfund/notification-service/internal/retry"
 	"github.com/medfund/notification-service/internal/storage"
 	"github.com/medfund/notification-service/internal/template"
@@ -204,6 +206,20 @@ func main() {
 	ifrs17Dispatcher := ifrs17.NewDispatcher(
 		ifrs17Configs, sender, ifrs17.NewHTTPWebhookSender(), ifrs17Throttle, cfg.SMTPFrom)
 
+	// Phase 16 §0 REG20 — regulator due-date reminder pipeline. Consumes
+	// medfund.regulatory.due-date-approaching, fans out to
+	// public.tenant_regulatory_recipient via tenancy-service. No throttle
+	// backend: the finance-service scanner's dedupe table already blocks
+	// duplicate publishes within 24h. Deploy-order per F-REG7: this
+	// consumer must be live BEFORE the finance-service scanner cron
+	// starts publishing, otherwise events land against an empty consumer
+	// group and are picked up only when the dispatcher rolls.
+	var regulatoryRecipients regulatory.RecipientLookup
+	if cfg.TenancyServiceURL != "" {
+		regulatoryRecipients = regulatory.NewHTTPTenancyClient(cfg.TenancyServiceURL)
+	}
+	regulatoryDispatcher := regulatory.NewDispatcher(regulatoryRecipients, sender, cfg.SMTPFrom)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	if cfg.KafkaBrokers != "" && fetcher != nil {
 		go runInvoiceConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID,
@@ -255,6 +271,27 @@ func main() {
 	} else {
 		log.Printf("[notification] ifrs17 consumer disabled (kafka=%q tenancyService=%v)",
 			cfg.KafkaBrokers, ifrs17Configs != nil)
+	}
+	if cfg.KafkaBrokers != "" && regulatoryRecipients != nil {
+		go regulatory.Run(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, regulatoryDispatcher)
+	} else {
+		log.Printf("[notification] regulatory due-date consumer disabled (kafka=%q tenancyService=%v)",
+			cfg.KafkaBrokers, regulatoryRecipients != nil)
+	}
+
+	// Phase 22 REG8 + Phase 24 — AML/STR alert fan-out. Stub consumer:
+	// logs every transition + calls the optional Hook slot (reserved for
+	// the future fraud-detector AI integration; Phase 24 ships nil hook).
+	// Deploy-order per F-REG7: this consumer must be live BEFORE the
+	// finance-service AmlAlertService begins publishing, otherwise
+	// events land against an empty consumer group and are only picked up
+	// when this dispatcher rolls, arriving late.
+	amlDispatcher := aml.NewDispatcher(nil)
+	if cfg.KafkaBrokers != "" {
+		go aml.Run(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, amlDispatcher)
+	} else {
+		log.Printf("[notification] aml suspicious-transaction consumer disabled (kafka=%q)",
+			cfg.KafkaBrokers)
 	}
 
 	go func() {

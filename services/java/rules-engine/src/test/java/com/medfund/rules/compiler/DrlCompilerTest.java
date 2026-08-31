@@ -39,7 +39,8 @@ class DrlCompilerTest {
                 new CedeToTreatyEmitter(),
                 new PayCommissionEmitter(),
                 new AccruePremiumEmitter(),
-                new SelectLdfEmitter()
+                new SelectLdfEmitter(),
+                new SetRegulatoryParameterEmitter()
         ));
     }
 
@@ -319,6 +320,36 @@ class DrlCompilerTest {
         assertThat(drl).contains("$triangle.selectLdf(");
         assertThat(drl).contains("\"5yr\"");
         assertThat(drl).contains("\"5-year weighted for HEALTH\"");
+    }
+
+    @Test
+    void compile_regulatoryParameterRule_addsAgendaGroupAndSetsValue() {
+        RuleDefinition rule = new RuleDefinition();
+        rule.setName("IPEC min_solvency_ratio override");
+        rule.setCategory("REGULATORY_PARAMETER");
+        rule.setPriority(100);
+        rule.setEnabled(true);
+        rule.setConditions(conditions("AND",
+                condition("regulatoryParameter.parameterKey", "EQUALS", "min_solvency_ratio"),
+                condition("regulatoryParameter.jurisdiction", "EQUALS", "ZW_IPEC_SHORT_TERM")));
+        RuleAction action = new RuleAction();
+        action.setType("SET_REGULATORY_PARAMETER");
+        action.setValue("PARAMETER_VALUE:1.45");
+        action.setMessage("Regulator uplift 2027-Q1");
+        rule.setAction(action);
+
+        String drl = compiler.compile(rule);
+
+        // Agenda-group gate keeps regulatory-parameter rules out of the stage-7 sweep.
+        assertThat(drl).contains("agenda-group \"REGULATORY_PARAMETER\"");
+        assertThat(drl).contains("$regulatoryParameter : RegulatoryParameterFact(");
+        assertThat(drl).contains("parameterKey == \"min_solvency_ratio\"");
+        assertThat(drl).contains("jurisdiction == \"ZW_IPEC_SHORT_TERM\"");
+        // Decimal literal round-trips through BigDecimal constructor so a rule
+        // typo cannot silently ship an unparseable literal.
+        assertThat(drl).contains("$regulatoryParameter.setParameterValue(");
+        assertThat(drl).contains("new java.math.BigDecimal(\"1.45\")");
+        assertThat(drl).contains("\"Regulator uplift 2027-Q1\"");
     }
 
     @Test

@@ -22,7 +22,13 @@ public enum ReportFamily {
     POLICY_LIFECYCLE     ("Policy lifecycle"),
     RECONCILIATION       ("Reconciliation"),
     ACTUARIAL            ("Actuarial"),
+    // Phase 16 §0 REG19 split: REGULATORY now holds IFRS 17 only; the four
+    // country/regulator returns from Phase 16 fan out into the three new
+    // families below.
     REGULATORY           ("Regulatory"),
+    PRUDENTIAL           ("Prudential Returns"),
+    TAX                  ("Tax"),
+    COMPLIANCE           ("Compliance"),
     REINSURANCE          ("Reinsurance"),
     COMMISSION           ("Commission"),
     DASHBOARD            ("Executive Dashboards"),

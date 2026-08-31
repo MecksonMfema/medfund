@@ -1,0 +1,71 @@
+# SYNTHETIC PMB Spend golden fixture (Phase 18).
+# Hand-computed against the compute formulas in PmbSpendCalculator +
+# PmbSpendReportShaper — every expected cell value has a stated derivation
+# below.
+#
+# Note: values are illustrative; compliance-domain sign-off is owed
+# before first real filing per the parent plan's "Owed back" list.
+
+report_key: PMB_SPEND
+scheme_name: "Acme Medical Scheme ZA"
+registration_number: "CMS-MS-000456"
+period_start: 2026-01-01
+period_end: 2026-12-31
+reporting_currency: ZAR
+
+# Raw inputs the shaper receives from PmbSpendRawDataProvider (all in ZAR).
+raw_data:
+  total_beneficiaries:                  130000
+  pmb_paid_by_category:
+    RESPIRATORY:                    15000000.00
+    CARDIAC:                        25000000.00
+    METABOLIC:                      12000000.00
+    ONCOLOGY:                       40000000.00
+    MENTAL_HEALTH:                   8000000.00
+    RENAL:                          10000000.00
+    OTHER:                           5000000.00
+  pmb_count_by_category:
+    RESPIRATORY:                       1200
+    CARDIAC:                           2500
+    METABOLIC:                         1800
+    ONCOLOGY:                           450
+    MENTAL_HEALTH:                      900
+    RENAL:                              300
+    OTHER:                              350
+  non_pmb_paid:                    285000000.00
+
+# Expected computed cells (after PmbSpendReportShaper.compose).
+expected:
+  # Membership (raw pass-through)
+  MEM_TOTAL_BENEFICIARIES:                 130000
+
+  # Per-category paid (raw pass-through, defensively-defaulted to ZERO)
+  CAT_RESPIRATORY_PAID:              15000000.00
+  CAT_CARDIAC_PAID:                  25000000.00
+  CAT_METABOLIC_PAID:                12000000.00
+  CAT_ONCOLOGY_PAID:                 40000000.00
+  CAT_MENTAL_HEALTH_PAID:             8000000.00
+  CAT_RENAL_PAID:                    10000000.00
+  CAT_OTHER_PAID:                     5000000.00
+
+  # Per-category count (raw pass-through)
+  CAT_RESPIRATORY_COUNT:                     1200
+  CAT_CARDIAC_COUNT:                         2500
+  CAT_METABOLIC_COUNT:                       1800
+  CAT_ONCOLOGY_COUNT:                         450
+  CAT_MENTAL_HEALTH_COUNT:                    900
+  CAT_RENAL_COUNT:                            300
+  CAT_OTHER_COUNT:                            350
+
+  # Totals derivations
+  #   total_pmb_paid  = 15M + 25M + 12M + 40M + 8M + 10M + 5M = 115,000,000
+  #   total_pmb_count =  1200 + 2500 + 1800 + 450 + 900 + 300 + 350 = 7,500
+  #   total_all       = 115M + 285M                              = 400,000,000
+  #   pmb_ratio       = 115M / 400M (4 dp HALF_UP)               = 0.2875
+  #   per_beneficiary = 115M / 130,000 (2 dp HALF_UP)            = 884.62
+  TOTAL_PMB_PAID:                   115000000.00
+  TOTAL_PMB_COUNT:                        7500
+  TOTAL_NON_PMB_PAID:               285000000.00
+  TOTAL_ALL_CLAIMS_PAID:            400000000.00
+  TOTAL_PMB_RATIO:                          0.2875
+  TOTAL_PMB_PAID_PER_BENEFICIARY:            884.62

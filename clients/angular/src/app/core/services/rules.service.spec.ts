@@ -49,6 +49,28 @@ describe('RULE_CATEGORIES catalogue', () => {
     expect(ids).toContain('IFRS17_MODEL');
   });
 
+  it('includes the Phase 16 §Phase-15 REGULATORY_PARAMETER category', () => {
+    // Phase 16 §Phase-15 REG15 addition — exposes SET_REGULATORY_PARAMETER
+    // rules to the tenant-admin rule editor so tenants can override numeric
+    // parameters that would otherwise resolve from bundled regulator YAML
+    // defaults (IPEC min_solvency_ratio, CMS non_healthcare_cost_target,
+    // NAIC provision percentages, ...). Agenda-gated so overrides only fire
+    // when RegulatoryParameterResolver focuses the group per lookup.
+    const ids: RuleCategory[] = RULE_CATEGORIES.map(c => c.id);
+    expect(ids).toContain('REGULATORY_PARAMETER');
+  });
+
+  it('includes the Phase 17 §B REG7 PMB_CLASSIFICATION category', () => {
+    // Phase 17 §B REG7 addition — exposes SET_PMB_CLASSIFICATION rules to
+    // the tenant-admin rule editor so scheme admins can top up the
+    // industry_default_v1 seed (V172) with scheme-specific PMB entries
+    // beyond the representative sample. Agenda-gated so classifier only
+    // fires when RulesEnginePmbClassifier focuses the group at
+    // adjudication + PmbBackfillJob run time.
+    const ids: RuleCategory[] = RULE_CATEGORIES.map(c => c.id);
+    expect(ids).toContain('PMB_CLASSIFICATION');
+  });
+
   it('has no duplicate category ids', () => {
     const ids = RULE_CATEGORIES.map(c => c.id);
     const unique = new Set(ids);

@@ -58,9 +58,29 @@ class RuleCategoryTest {
     }
 
     @Test
+    void regulatoryParameterCategory_isDeclared() {
+        // Phase 16 §Phase-15 addition — used by SET_REGULATORY_PARAMETER emitter
+        // + REGULATORY_PARAMETER templates. Agenda-gated so it only fires when
+        // finance-service's RegulatoryParameterResolver focuses the group per
+        // parameter lookup at regulator-report compute time.
+        assertThat(RuleCategory.valueOf("REGULATORY_PARAMETER"))
+                .isEqualTo(RuleCategory.REGULATORY_PARAMETER);
+    }
+
+    @Test
+    void pmbClassificationCategory_isDeclared() {
+        // Phase 17 §B REG7 addition — used by SET_PMB_CLASSIFICATION emitter
+        // + PMB_CLASSIFICATION templates. Agenda-gated so it only fires when
+        // claims-service's RulesEnginePmbClassifier focuses the group per
+        // (claim, diagnosis, procedure) probe at adjudication + backfill time.
+        assertThat(RuleCategory.valueOf("PMB_CLASSIFICATION"))
+                .isEqualTo(RuleCategory.PMB_CLASSIFICATION);
+    }
+
+    @Test
     void enumHasExpectedCatalogSize() {
         // Guardrail: if this fires, a new category was added — update the
         // Angular RULE_CATEGORIES + permissions catalog + tenant rules docs.
-        assertThat(RuleCategory.values()).hasSize(21);
+        assertThat(RuleCategory.values()).hasSize(23);
     }
 }

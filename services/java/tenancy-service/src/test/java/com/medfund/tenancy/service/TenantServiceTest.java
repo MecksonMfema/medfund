@@ -22,6 +22,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -262,6 +264,70 @@ class TenantServiceTest {
                 .verifyComplete();
 
         verify(auditPublisher).publish(any(AuditEvent.class));
+    }
+
+    @Test
+    void update_unknownJurisdictionCode_rejectedWith422() {
+        UUID tenantId = UUID.randomUUID();
+        var request = new UpdateTenantRequest(
+                null, null, null, null,
+                null, null, null, null, "XX_INVALID", null, null
+        );
+
+        StepVerifier.create(tenantService.update(tenantId, request, "actor-123", "actor@test.com"))
+                .expectErrorSatisfies(err -> {
+                    assertThat(err).isInstanceOf(ResponseStatusException.class);
+                    var rse = (ResponseStatusException) err;
+                    assertThat(rse.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+                    assertThat(rse.getReason()).contains("XX_INVALID");
+                    assertThat(rse.getReason()).contains("ZW_IPEC_SHORT_TERM");
+                    assertThat(rse.getReason()).contains("US_NAIC");
+                })
+                .verify();
+
+        // Repository never touched — validation short-circuits before the read.
+        verify(tenantRepository, never()).findById(any(UUID.class));
+        verify(tenantRepository, never()).save(any(Tenant.class));
+    }
+
+    @Test
+    void update_blankJurisdictionCode_allowedThrough() {
+        Tenant existing = createTestTenant();
+        existing.setJurisdictionCode("ZW_IPEC_SHORT_TERM");
+        UUID tenantId = existing.getId();
+        var request = new UpdateTenantRequest(
+                null, null, null, null,
+                null, null, null, null, "", null, null
+        );
+
+        when(tenantRepository.findById(tenantId)).thenReturn(Mono.just(existing));
+        when(tenantRepository.save(any(Tenant.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any(AuditEvent.class))).thenReturn(Mono.empty());
+
+        StepVerifier.create(tenantService.update(tenantId, request, "actor-123", "actor@test.com"))
+                .assertNext(tenant -> {
+                    // Blank string unsets the jurisdiction (per V131 nullable column).
+                    assertThat(tenant.getJurisdictionCode()).isNull();
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void update_knownJurisdictionCode_persisted() {
+        Tenant existing = createTestTenant();
+        UUID tenantId = existing.getId();
+        var request = new UpdateTenantRequest(
+                null, null, null, null,
+                null, null, null, null, "ZA_FSCA_LONG_TERM", null, null
+        );
+
+        when(tenantRepository.findById(tenantId)).thenReturn(Mono.just(existing));
+        when(tenantRepository.save(any(Tenant.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        when(auditPublisher.publish(any(AuditEvent.class))).thenReturn(Mono.empty());
+
+        StepVerifier.create(tenantService.update(tenantId, request, "actor-123", "actor@test.com"))
+                .assertNext(tenant -> assertThat(tenant.getJurisdictionCode()).isEqualTo("ZA_FSCA_LONG_TERM"))
+                .verifyComplete();
     }
 
     @Test

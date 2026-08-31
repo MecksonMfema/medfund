@@ -1,0 +1,60 @@
+# SYNTHETIC Tax-Withheld Return golden fixture (Phase 21).
+# Hand-computed against the compute formulas in TaxWithheldCalculator +
+# TaxWithheldReturnReportShaper. Every expected cell value has a stated
+# derivation below.
+#
+# Fixture models a ZA tenant on the SARS IRP5-shape (a matching ZW
+# fixture is deferred to Phase 21b — math is symmetric).
+#
+# Note: values are illustrative; compliance-domain sign-off is owed
+# before first real filing.
+
+report_key: TAX_WITHHELD_RETURN
+agent_name: "Acme Insurance ZA (Pty) Ltd"
+tax_identification_number: "9012345678"
+country_code: ZA
+period_start: 2026-04-01
+period_end: 2026-06-30
+reporting_currency: ZAR
+
+# Rates: SARS WHT rates on commission + professional fees + dividends
+# (interest for non-residents) at 15 %; other at 15 %.
+rates:
+  commission_rate:         0.15
+  professional_fees_rate:  0.15
+  dividends_rate:          0.15
+  other_rate:              0.15
+
+# Raw bases (all in ZAR). Per-line override_wht is 0 for every line so
+# the calculator falls back to base × tenant-default-rate.
+raw_data:
+  commission_base:                 4000000.00
+  commission_override_wht:               0.00
+  professional_fees_base:          1200000.00
+  professional_fees_override_wht:        0.00
+  dividends_base:                   500000.00
+  dividends_override_wht:                0.00
+  other_base:                       100000.00
+  other_override_wht:                    0.00
+
+# Expected computed cells (after TaxWithheldReturnReportShaper.compose).
+expected:
+  # Per-category derivations
+  #   commission_wht   = 4M   * 0.15 = 600,000.00
+  #   prof_fees_wht    = 1.2M * 0.15 = 180,000.00
+  #   dividends_wht    = 500k * 0.15 = 75,000.00
+  #   other_wht        = 100k * 0.15 = 15,000.00
+  CAT_COMMISSION_BASE:                4000000.00
+  CAT_COMMISSION_WHT:                  600000.00
+  CAT_PROFESSIONAL_FEES_BASE:         1200000.00
+  CAT_PROFESSIONAL_FEES_WHT:           180000.00
+  CAT_DIVIDENDS_BASE:                  500000.00
+  CAT_DIVIDENDS_WHT:                    75000.00
+  CAT_OTHER_BASE:                      100000.00
+  CAT_OTHER_WHT:                        15000.00
+
+  # Totals derivations
+  #   total_payments_base   = 4M + 1.2M + 500k + 100k       = 5,800,000.00
+  #   total_wht_payable     = 600k + 180k + 75k + 15k       = 870,000.00
+  TOTAL_PAYMENTS_BASE:                5800000.00
+  TOTAL_WITHHOLDING_PAYABLE:           870000.00

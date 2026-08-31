@@ -105,6 +105,7 @@ public final class Permissions {
     public static final String FINANCE_MANAGE_COPAYMENTS         = "finance:manage_copayments";
     public static final String FINANCE_VIEW_MEMBER_LIABILITIES   = "finance:view_member_liabilities";
     public static final String FINANCE_VIEW_WITHHELD_TAX         = "finance:view_withheld_tax";
+    public static final String FINANCE_EXPORT_REGULATORY         = "finance:export_regulatory";
 
     // ── Reinsurance sub-namespace (Phase 10) ─────────────────────────────────
     public static final String REINSURANCE_VIEW                     = "finance.reinsurance:view";
@@ -162,6 +163,14 @@ public final class Permissions {
     public static final String TENANT_SETTINGS_MANAGE_ACTUARIAL_BASES    = "tenant.settings:manage_actuarial_bases";
     /** Manage the per-tenant IFRS 17 admin surfaces — RA methodology, yield curves and expense assumptions (Phase 15 §2). */
     public static final String TENANT_SETTINGS_MANAGE_IFRS17_CONFIG      = "tenant.settings:manage_ifrs17_config";
+    /** Upload / delete tenant-side overrides of the bundled regulator XLSX templates (Phase 16 §0 REG3). */
+    public static final String TENANT_SETTINGS_MANAGE_REGULATORY_TEMPLATES = "tenant.settings:manage_regulatory_templates";
+    /** Manage the tenant's regulator due-date reminder recipient list (Phase 16 §0 REG20). */
+    public static final String TENANT_SETTINGS_MANAGE_REGULATORY_NOTIFICATIONS = "tenant.settings:manage_regulatory_notifications";
+    /** Manage the per-tenant NAIC company identity (state of domicile / company code / group code / FEIN) — US only (Phase 16 §A / Phase 14 REG16). */
+    public static final String TENANT_SETTINGS_MANAGE_NAIC_CONFIG              = "tenant.settings:manage_naic_config";
+    /** Manage per-tenant statutory tax rates (VAT + Withholding) consumed by the VAT Return + TaxWithheldReturn shapers (Phase 16 §C / Phase 19 REG9). */
+    public static final String TENANT_SETTINGS_MANAGE_TAX_CONFIG               = "tenant.settings:manage_tax_config";
 
     // ── Underwriting (Phase 12 §A) ──────────────────────────────────────────
     public static final String UNDERWRITING_PORTFOLIO_MANAGE     = "underwriting.portfolio:manage";
@@ -184,6 +193,18 @@ public final class Permissions {
     // ── Policy status actions (Phase 13 §A) ─────────────────────────────────
     /** Operator action: lapse / terminate / suspend / reinstate an annual-bind policy. */
     public static final String POLICY_STATUS_MANAGE              = "policy:status_manage";
+
+    // ── Compliance / AML (Phase 22 REG8) ────────────────────────────────────
+    /** Raise a new AML/STR alert against a transaction. Front-line staff hold this. */
+    public static final String COMPLIANCE_AML_RAISE              = "compliance:aml_raise";
+    /** Review + triage AML alerts (RAISED → REVIEWED); also grants read access to the queue. */
+    public static final String COMPLIANCE_AML_REVIEW             = "compliance:aml_review";
+    /** File a REVIEWED AML alert with the regulator (REVIEWED → FILED). Compliance lead role. */
+    public static final String COMPLIANCE_AML_FILE               = "compliance:aml_file";
+    /** Close a RAISED|REVIEWED AML alert as not-reportable. */
+    public static final String COMPLIANCE_AML_CLOSE              = "compliance:aml_close";
+    /** Manage per-tenant AML reporting thresholds (Phase 25 REG8). */
+    public static final String COMPLIANCE_AML_CONFIGURE_THRESHOLDS = "compliance:aml_configure_thresholds";
 
     // Platform-level (super-admin) permissions. Tenant admins should never
     // hold these; they gate the cross-tenant operational tooling.
@@ -239,12 +260,19 @@ public final class Permissions {
             ADMIN_MANAGE_SETTINGS, ADMIN_MANAGE_RULES, ADMIN_BANK_ACCOUNTS_MANAGE,
             TENANT_SETTINGS_MANAGE_AUTO_LAPSE, TENANT_SETTINGS_MANAGE_ENDORSEMENT_CONFIG,
             TENANT_SETTINGS_MANAGE_ACTUARIAL_BASES, TENANT_SETTINGS_MANAGE_IFRS17_CONFIG,
+            TENANT_SETTINGS_MANAGE_REGULATORY_TEMPLATES,
+            TENANT_SETTINGS_MANAGE_REGULATORY_NOTIFICATIONS,
+            TENANT_SETTINGS_MANAGE_NAIC_CONFIG,
+            TENANT_SETTINGS_MANAGE_TAX_CONFIG,
 
             UNDERWRITING_PORTFOLIO_MANAGE, UNDERWRITING_COHORT_MANAGE,
             UNDERWRITING_OPENING_BALANCE_MANAGE,
             PREMIUM_EARNING_MANAGE_BACKFILL, PREMIUM_EARNING_VIEW_DEBUG,
             POLICY_DRAFT_ENDORSEMENT, POLICY_APPROVE_ENDORSEMENT,
             POLICY_STATUS_MANAGE,
+
+            COMPLIANCE_AML_RAISE, COMPLIANCE_AML_REVIEW, COMPLIANCE_AML_FILE, COMPLIANCE_AML_CLOSE,
+            COMPLIANCE_AML_CONFIGURE_THRESHOLDS,
 
             PLATFORM_VIEW_JOBS, PLATFORM_MANAGE_JOBS
     );

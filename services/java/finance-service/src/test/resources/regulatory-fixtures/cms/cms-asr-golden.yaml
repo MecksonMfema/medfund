@@ -1,0 +1,86 @@
+# SYNTHETIC CMS ASR golden fixture (Phase 11).
+# Hand-computed against the compute formulas in CmsAsrCalculator +
+# CmsAsrReportShaper — every expected cell value has a stated derivation
+# below.
+#
+# Note: values are illustrative; compliance-domain sign-off is owed
+# before first real filing per the parent plan's "Owed back" list.
+
+report_key: CMS_ASR
+scheme_name: "Acme Medical Scheme ZA"
+registration_number: "CMS-MS-000456"
+period_start: 2026-01-01
+period_end: 2026-12-31
+reporting_currency: ZAR
+
+# Raw inputs the shaper receives from CmsAsrRawDataProvider (all in ZAR).
+raw_data:
+  principal_members:                     50000
+  dependants:                            80000
+  pensioner_ratio:                       0.1500
+  total_assets:                    250000000.00
+  total_liabilities:               100000000.00
+  gross_contributions:             500000000.00
+  net_contributions:               490000000.00
+  risk_claims_incurred:            400000000.00
+  admin_expenses:                   40000000.00
+  broker_fees:                      15000000.00
+  managed_care_fees:                10000000.00
+
+# YAML parameter file consulted (bundled default).
+solvency_params:
+  min_solvency_ratio:              0.25
+  non_healthcare_cost_target:      0.10
+  broker_fees_cap:                 0.03
+  managed_care_fees_cap:           0.06
+
+# Expected computed cells (after CmsAsrReportShaper.compose).
+expected:
+  # Membership derivations
+  #   total_beneficiaries = 50,000 + 80,000 = 130,000
+  MEM_PRINCIPAL_MEMBERS:                     50000
+  MEM_DEPENDANTS:                            80000
+  MEM_TOTAL_BENEFICIARIES:                  130000
+  MEM_PENSIONER_RATIO:                       0.1500
+
+  # Balance sheet
+  #   accumulated_funds = 250,000,000 - 100,000,000 = 150,000,000
+  BS_TOTAL_ASSETS:                 250000000.00
+  BS_TOTAL_LIABILITIES:            100000000.00
+  BS_ACCUMULATED_FUNDS:            150000000.00
+
+  # Income statement
+  #   non_healthcare_total = 40M + 15M + 10M = 65,000,000
+  #   net_surplus = 490M - 400M - 65M = 25,000,000
+  INC_GROSS_CONTRIBUTIONS:         500000000.00
+  INC_NET_CONTRIBUTIONS:           490000000.00
+  INC_RISK_CLAIMS_INCURRED:        400000000.00
+  INC_ADMIN_EXPENSES:               40000000.00
+  INC_BROKER_FEES:                  15000000.00
+  INC_MANAGED_CARE_FEES:            10000000.00
+  INC_NON_HEALTHCARE_TOTAL:         65000000.00
+  INC_NET_SURPLUS:                  25000000.00
+
+  # Cost ratios (all against gross_contributions = 500,000,000)
+  #   claims_ratio        = 400,000,000 / 500,000,000 = 0.8000
+  #   non_healthcare_ratio =  65,000,000 / 500,000,000 = 0.1300
+  #   admin_ratio         =  40,000,000 / 500,000,000 = 0.0800
+  #   broker_ratio        =  15,000,000 / 500,000,000 = 0.0300
+  #   managed_care_ratio  =  10,000,000 / 500,000,000 = 0.0200
+  RATIO_CLAIMS:                                0.8000
+  RATIO_NON_HEALTHCARE:                        0.1300
+  RATIO_ADMIN:                                 0.0800
+  RATIO_BROKER:                                0.0300
+  RATIO_MANAGED_CARE:                          0.0200
+
+  # Solvency (all values two-decimal HALF_UP where applicable; ratios 4-dp)
+  #   accumulated_funds = 250,000,000 - 100,000,000 = 150,000,000
+  #   min_required_reserves = 500,000,000 * 0.25 = 125,000,000
+  #   actual_ratio = 150,000,000 / 500,000,000 (4 dp HALF_UP) = 0.3000
+  #   surplus_deficit = 150,000,000 - 125,000,000 = 25,000,000
+  SOL_ACCUMULATED_FUNDS:           150000000.00
+  SOL_MIN_REQUIRED_RESERVES:       125000000.00
+  SOL_ACTUAL_RATIO:                        0.3000
+  SOL_MIN_REQUIRED_RATIO:                  0.2500
+  SOL_SURPLUS_DEFICIT:              25000000.00
+  meets_minimum:                             true

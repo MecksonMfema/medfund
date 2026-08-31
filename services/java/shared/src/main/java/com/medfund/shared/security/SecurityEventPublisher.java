@@ -36,6 +36,9 @@ public class SecurityEventPublisher {
     /** Event type recorded for every report export — XLSX, PDF, CSV. */
     public static final String EVENT_TYPE_DATA_ACCESS = "DATA_ACCESS";
 
+    /** Event type recorded when a guard aspect (jurisdiction/country/report) denies. */
+    public static final String EVENT_TYPE_ACCESS_DENIED = "ACCESS_DENIED";
+
     private final KafkaSender<String, String> kafkaSender;
     private final ObjectMapper objectMapper;
 
@@ -79,18 +82,49 @@ public class SecurityEventPublisher {
         Map<String, Object> merged = new LinkedHashMap<>();
         merged.put("reportKey", reportKey);
         if (details != null) merged.putAll(details);
+        return sendWithDetails(EVENT_TYPE_DATA_ACCESS, tenantId, actorId, actorEmail, merged,
+                "report " + reportKey);
+    }
+
+    /**
+     * Emit an {@code ACCESS_DENIED} event when a guard aspect refuses to invoke
+     * a controller method. Reason is a short human-facing string ("jurisdiction
+     * mismatch: required=[…] actual=…"); the details map carries the guard type
+     * plus any per-check contextual fields (annotation values, actual tenant
+     * metadata) so audit-service can render an operator-friendly timeline.
+     *
+     * <p>Rule 9: every permission denial goes on the security-events stream.
+     */
+    public Mono<Void> publishAccessDenied(String tenantId,
+                                          String actorId,
+                                          String actorEmail,
+                                          String reason,
+                                          Map<String, Object> details) {
+        Map<String, Object> merged = new LinkedHashMap<>();
+        merged.put("reason", reason);
+        if (details != null) merged.putAll(details);
+        return sendWithDetails(EVENT_TYPE_ACCESS_DENIED, tenantId, actorId, actorEmail, merged,
+                "denial " + reason);
+    }
+
+    private Mono<Void> sendWithDetails(String eventType,
+                                       String tenantId,
+                                       String actorId,
+                                       String actorEmail,
+                                       Map<String, Object> merged,
+                                       String logSubject) {
         String detailsJson;
         try {
             detailsJson = objectMapper.writeValueAsString(merged);
         } catch (JsonProcessingException e) {
-            log.warn("[security-event] details serialise failed for report {}: {}",
-                    reportKey, e.getMessage());
+            log.warn("[security-event] details serialise failed for {}: {}",
+                    logSubject, e.getMessage());
             detailsJson = "{}";
         }
         SecurityEventMessage msg = new SecurityEventMessage(
                 UUID.randomUUID().toString(),
                 tenantId != null ? tenantId : "",
-                EVENT_TYPE_DATA_ACCESS,
+                eventType,
                 actorId != null ? actorId : "",
                 actorEmail != null ? actorEmail : "",
                 "",

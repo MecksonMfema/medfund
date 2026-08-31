@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.scheduler.ScheduledJobService;
+import com.medfund.tenancy.TenantJurisdiction;
 import com.medfund.tenancy.dto.CreateTenantRequest;
 import com.medfund.tenancy.dto.TenantPage;
 import com.medfund.tenancy.dto.TenantQueryParams;
@@ -22,8 +23,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -168,6 +171,17 @@ public class TenantService {
 
     @Transactional
     public Mono<Tenant> update(UUID id, UpdateTenantRequest request, String actorId, String actorEmail) {
+        // Non-blank jurisdictionCode must resolve against the TenantJurisdiction enum;
+        // blank/null is allowed (unsets the field per V131). Rejecting an unknown value
+        // as a 422 catches typos before they land in the DB and confuse regulator gating.
+        if (request.jurisdictionCode() != null
+                && !request.jurisdictionCode().isBlank()
+                && TenantJurisdiction.parse(request.jurisdictionCode()).isEmpty()) {
+            return Mono.error(new ResponseStatusException(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "Unknown jurisdiction_code: " + request.jurisdictionCode()
+                            + ". Valid values: " + TenantJurisdiction.validValues()));
+        }
         return tenantRepository.findById(id)
                 .switchIfEmpty(Mono.error(new TenantNotFoundException(id)))
                 .flatMap(existing -> {

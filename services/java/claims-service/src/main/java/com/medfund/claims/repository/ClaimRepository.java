@@ -33,4 +33,11 @@ public interface ClaimRepository extends R2dbcRepository<Claim, UUID> {
 
     @Query("SELECT * FROM claims WHERE claim_type = :claimType ORDER BY created_at DESC")
     Flux<Claim> findByClaimType(String claimType);
+
+    /** Chunked scan used by {@code PmbBackfillJob} (Phase 16 §B REG7). Keyset pagination
+     *  keyed on {@code id} keeps chunks stable even when claim rows are being written
+     *  concurrently. Ordered by {@code id ASC} so a caller can pass the last-seen id
+     *  as {@code afterId} on the next call. */
+    @Query("SELECT * FROM claims WHERE id > :afterId ORDER BY id ASC LIMIT :chunkSize")
+    Flux<Claim> findChunkAfterId(UUID afterId, int chunkSize);
 }

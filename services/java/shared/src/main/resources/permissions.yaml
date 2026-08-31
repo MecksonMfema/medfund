@@ -87,6 +87,7 @@ domains:
       - { key: "finance:manage_copayments",         label: "Manage cost-share receipts",        description: "Record or adjust member cost-share (copayment) receipts." }
       - { key: "finance:view_member_liabilities",   label: "View member liabilities",           description: "View the fund-issued 'the member owes' ledger — one row per adjudicated claim with a cost-share balance." }
       - { key: "finance:view_withheld_tax",         label: "View withheld tax",                 description: "View tax-withheld claims and payments." }
+      - { key: "finance:export_regulatory",         label: "Export regulator returns",          description: "Submit a regulator-format return (IPEC quarterly, CMS ASR, NAIC Schedule P/F, PMB spend, VAT, tax-withheld, AML/STR) and download the composed XLSX — Phase 16 §A REG1." }
       # ── Reinsurance sub-namespace (Phase 10) ────────────────────────────
       - { key: "finance.reinsurance:view",                     label: "View reinsurance",                    description: "Read access to reinsurers, treaties, cessions, and recoveries." }
       - { key: "finance.reinsurance:manage_treaty",            label: "Manage treaties",                     description: "Full CRUD on reinsurers and treaties including draft creation and activation." }
@@ -145,6 +146,10 @@ domains:
       - { key: "tenant.settings:manage_endorsement_config",   label: "Manage endorsement four-eyes gate", description: "Enable/disable the endorsement four-eyes threshold and configure its amount + currency (Phase 12 §C)." }
       - { key: "tenant.settings:manage_actuarial_bases",       label: "Manage actuarial basis tables",     description: "Add, edit, or delete per-tenant persistency / mortality / morbidity basis rows consumed by the actuarial studies (Phase 14 §2)." }
       - { key: "tenant.settings:manage_ifrs17_config",         label: "Manage IFRS 17 admin config",       description: "Add, edit, or delete per-tenant IFRS 17 admin surfaces — risk adjustment methodology, yield curves and expense assumptions (Phase 15 §2)." }
+      - { key: "tenant.settings:manage_regulatory_templates",  label: "Manage regulator XLSX templates",   description: "Upload / delete tenant-side overrides of the bundled regulator XLSX templates (IPEC, CMS, NAIC, PMB, VAT, tax-withheld, AML) consumed by the regulatory report exporter (Phase 16 §0 REG3)." }
+      - { key: "tenant.settings:manage_regulatory_notifications", label: "Manage regulator due-date recipients", description: "Add, edit, or delete the tenant's email recipient list for the RegulatoryDueDateScanner reminders (7d / 1d / due / overdue) — Phase 16 §0 REG20." }
+      - { key: "tenant.settings:manage_naic_config",           label: "Manage NAIC company identity",      description: "Manage the per-tenant US NAIC identity (state of domicile, company code, group code, FEIN) consumed by the NAIC Schedule P/F shapers (Phase 16 §A / Phase 14 REG16). US-only surface." }
+      - { key: "tenant.settings:manage_tax_config",            label: "Manage tenant tax rates",           description: "Manage per-tenant statutory tax rates (VAT + Withholding) per transaction category × currency, consumed by the VAT Return + TaxWithheldReturn shapers (Phase 16 §C / Phase 19 REG9)." }
 
   - id: underwriting
     label: Underwriting
@@ -157,6 +162,15 @@ domains:
       - { key: "premium.earning:view_debug",        label: "View earning-schedule debug rows",  description: "Dev-only: read raw earning_schedule rows for a policy. Not intended for production tenant admins." }
       - { key: "policy:draft_endorsement",          label: "Draft policy endorsement",          description: "Create a DRAFT policy endorsement and read the queue. Auto-commits below the four-eyes threshold (Phase 12 §C)." }
       - { key: "policy:approve_endorsement",        label: "Approve policy endorsement",        description: "Approve, commit, void, or mark-computed a policy endorsement. Four-eyes counterpart to policy:draft_endorsement (Phase 12 §C)." }
+
+  - id: compliance
+    label: Compliance
+    permissions:
+      - { key: "compliance:aml_raise",              label: "Raise AML/STR alert",               description: "Raise a Suspicious Transaction Alert against a transaction. Front-line finance / claims staff typically hold this (Phase 22 REG8)." }
+      - { key: "compliance:aml_review",             label: "Review AML/STR alerts",             description: "Read the AML alert queue and move RAISED alerts to REVIEWED with a triage note. Compliance officer role (Phase 22 REG8)." }
+      - { key: "compliance:aml_file",               label: "File AML/STR alerts with regulator", description: "Move a REVIEWED alert to FILED, recording the FIU/FIC/FinCEN filing reference. Compliance lead role (Phase 22 REG8)." }
+      - { key: "compliance:aml_close",              label: "Close AML/STR alerts",              description: "Close a RAISED or REVIEWED alert as not-reportable with a mandatory reason (Phase 22 REG8)." }
+      - { key: "compliance:aml_configure_thresholds", label: "Manage AML reporting thresholds", description: "Add, edit, or delete per-tenant AML reporting thresholds per transaction type × currency (Phase 25 REG8). Consumed by the AML/STR periodic summary calculator." }
 
   - id: platform
     label: Platform administration

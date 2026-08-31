@@ -1,0 +1,56 @@
+@if (open && mode) {
+  <div class="modal-backdrop" (click)="onCancel()">
+    <div class="modal-card" (click)="$event.stopPropagation()"
+         role="dialog" aria-modal="true" [attr.aria-label]="title">
+      <h3 class="modal-title">{{ title }}</h3>
+      <p class="modal-message">
+        <strong>Alert #{{ transactionRef }}</strong> — {{ description }}
+      </p>
+
+      @if (mode === 'review') {
+        <div class="field full">
+          <label for="review-note">Review note * (≥ 10 chars)</label>
+          <textarea id="review-note" name="reviewNote" class="input textarea"
+                    [(ngModel)]="reviewNote" rows="4"
+                    placeholder="What did compliance conclude on triage?"></textarea>
+        </div>
+      }
+
+      @if (mode === 'file') {
+        <div class="field full">
+          <label for="filed-ref">Regulator filing reference * (max 120 chars)</label>
+          <input id="filed-ref" name="filedRef" class="input"
+                 [(ngModel)]="filedRef" maxlength="120"
+                 placeholder="e.g. FIU-STR-2026-0001234" />
+        </div>
+        <div class="field full">
+          <label for="xlsx-ref">Filed XLSX reference (optional)</label>
+          <input id="xlsx-ref" name="filedXlsxRef" class="input"
+                 [(ngModel)]="filedXlsxRef" maxlength="255"
+                 placeholder="s3:// or MinIO ref if pre-uploaded (Phase 26 handles auto-generation)" />
+        </div>
+      }
+
+      @if (mode === 'close') {
+        <div class="field full">
+          <label for="close-reason">Closed reason * (5-120 chars)</label>
+          <input id="close-reason" name="closedReason" class="input"
+                 [(ngModel)]="closedReason" maxlength="120"
+                 placeholder="e.g. Duplicate of #TXN-000000, or Not reportable — legitimate premium prepayment" />
+        </div>
+      }
+
+      @if (clientError) { <div class="error">{{ clientError }}</div> }
+      @if (serverError) { <div class="error">{{ serverError }}</div> }
+
+      <div class="actions">
+        <button type="button" class="btn btn-default" (click)="onCancel()"
+                [disabled]="submitting">Cancel</button>
+        <button type="button" class="btn btn-primary" (click)="onSubmit()"
+                [disabled]="submitting">
+          {{ submitLabel }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

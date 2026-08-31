@@ -1,0 +1,93 @@
+# SYNTHETIC IPEC quarterly-return golden fixture (Phase 10).
+# Hand-computed against the compute formulas in IpecSolvencyCalculator +
+# IpecReportShaper — every expected cell value has a stated derivation
+# below.
+#
+# Note: values are illustrative; compliance-domain sign-off is owed
+# before first real filing per the parent plan's "Owed back" list.
+
+report_key: IPEC_QUARTERLY_RETURN
+tenant_name: "Acme Insurance ZW"
+licence_number: "IPEC-STI-000123"
+period_start: 2026-04-01
+period_end: 2026-06-30
+reporting_currency: ZWL
+
+# Raw inputs the shaper receives from IpecRawDataProvider (all in ZWL).
+raw_data:
+  total_assets:                 12500000.00
+  total_liabilities:             8300000.00
+  gwp_health:                    3000000.00
+  gwp_motor:                     1500000.00
+  gwp_property:                   500000.00
+  ceded_reinsurance_premium:     1000000.00
+  net_earned_premium:            3800000.00
+  net_claims_incurred:           2400000.00
+  management_expenses:            600000.00
+  upr_health:                     800000.00
+  upr_motor:                      400000.00
+  upr_property:                   150000.00
+  osc_health:                     900000.00
+  osc_motor:                      300000.00
+  osc_property:                   100000.00
+  ibnr_health:                    250000.00
+  ibnr_motor:                      80000.00
+  ibnr_property:                   40000.00
+  rei_recoverables_outstanding:   200000.00
+  rei_recoverables_ibnr:           90000.00
+
+# YAML parameter file consulted (bundled default).
+solvency_params:
+  min_solvency_ratio:                   1.30
+  min_required_capital_multiplier:      0.30
+  reserve_haircut_pct:                  0.10
+  reinsurance_recoverable_pct_haircut:  0.05
+
+# Expected computed cells (after IpecReportShaper.compose).
+expected:
+  # Balance sheet
+  BS_TOTAL_ASSETS:      12500000.00
+  BS_TOTAL_LIABILITIES:  8300000.00
+  # 12,500,000 - 8,300,000 = 4,200,000
+  BS_TOTAL_EQUITY:       4200000.00
+
+  # Revenue account
+  REV_GWP_HEALTH:        3000000.00
+  REV_GWP_MOTOR:         1500000.00
+  REV_GWP_PROPERTY:       500000.00
+  REV_CEDED_REINSURANCE: 1000000.00
+  REV_NET_EARNED_PREMIUM: 3800000.00
+  REV_NET_CLAIMS_INCURRED: 2400000.00
+  REV_MANAGEMENT_EXPENSES: 600000.00
+  # 3,800,000 - 2,400,000 - 600,000 = 800,000
+  REV_UNDERWRITING_RESULT: 800000.00
+
+  # UPR / OSC / IBNR
+  UPR_HEALTH:  800000.00
+  UPR_MOTOR:   400000.00
+  UPR_PROPERTY: 150000.00
+  OSC_HEALTH:  900000.00
+  OSC_MOTOR:   300000.00
+  OSC_PROPERTY: 100000.00
+  IBNR_HEALTH:  250000.00
+  IBNR_MOTOR:    80000.00
+  IBNR_PROPERTY: 40000.00
+
+  # Reinsurance recoverables
+  REI_RECOVERABLES_OUTSTANDING: 200000.00
+  REI_RECOVERABLES_IBNR:         90000.00
+
+  # Solvency (all values two-decimal HALF_UP where applicable)
+  #   admitted_capital = 12,500,000 - 8,300,000 = 4,200,000
+  #   reserves_total = (900k + 300k + 100k) + (250k + 80k + 40k)
+  #                  = 1,300,000 + 370,000 = 1,670,000
+  #   haircut_reserves = 1,670,000 * (1 - 0.10) = 1,503,000
+  #   min_required = (3,800,000 + 1,503,000) * 0.30 = 5,303,000 * 0.30
+  #                = 1,590,900
+  #   margin = 4,200,000 - 1,590,900 = 2,609,100
+  #   ratio = 4,200,000 / 1,590,900 (4 dp HALF_UP) = 2.6400
+  SOL_ADMITTED_CAPITAL:      4200000.00
+  SOL_MIN_REQUIRED_CAPITAL:  1590900.00
+  SOL_MARGIN:                2609100.00
+  SOL_RATIO:                 2.6400
+  meets_minimum:             true

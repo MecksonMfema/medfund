@@ -15,10 +15,12 @@ import com.medfund.rules.template.providers.EligibilityTemplates;
 import com.medfund.rules.template.providers.Ifrs17ModelTemplates;
 import com.medfund.rules.template.providers.MemberLifecycleTemplates;
 import com.medfund.rules.template.providers.ModifierAdjustmentTemplates;
+import com.medfund.rules.template.providers.PmbClassificationTemplates;
 import com.medfund.rules.template.providers.PreAuthorizationTemplates;
 import com.medfund.rules.template.providers.PremiumEarningTemplates;
 import com.medfund.rules.template.providers.ProviderPaymentTemplates;
 import com.medfund.rules.template.providers.ReconciliationTemplates;
+import com.medfund.rules.template.providers.RegulatoryParameterTemplates;
 import com.medfund.rules.template.providers.ReinsuranceTemplates;
 import com.medfund.rules.template.providers.SchemeChangeProrationTemplates;
 import com.medfund.rules.template.providers.TariffPricingTemplates;
@@ -65,7 +67,9 @@ class RuleTemplateServiceTest {
                 new CommissionTemplates(),
                 new PremiumEarningTemplates(),
                 new ActuarialTemplates(),
-                new Ifrs17ModelTemplates()
+                new Ifrs17ModelTemplates(),
+                new RegulatoryParameterTemplates(),
+                new PmbClassificationTemplates()
         );
         service = new RuleTemplateService(providers);
     }

@@ -35,6 +35,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -53,6 +54,7 @@ class ClaimServiceTest {
     @Mock private com.medfund.claims.repository.BeneficiaryBenefitRepository beneficiaryBenefitRepository;
     @Mock private org.springframework.r2dbc.core.DatabaseClient databaseClient;
     @Mock private TariffBenefitResolver tariffBenefitResolver;
+    @Mock private com.medfund.claims.pmb.PmbClassificationExecutor pmbClassificationExecutor;
 
     @InjectMocks
     private ClaimService claimService;
@@ -63,6 +65,11 @@ class ClaimServiceTest {
     @BeforeEach
     void setUp() {
         actorId = UUID.randomUUID().toString();
+        // Default the PMB executor to a passthrough — most tests don't care
+        // about PMB classification; Phase 17 wires the call at the end of
+        // adjudicate() so we stub it as identity so the chain completes.
+        lenient().when(pmbClassificationExecutor.classifyAndPersist(any(), any(), any()))
+                .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
     }
 
     // ── Existing surface: findAll / findById ─────────────────────────

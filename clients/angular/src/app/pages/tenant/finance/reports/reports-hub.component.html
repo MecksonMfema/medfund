@@ -47,13 +47,18 @@
           <ul class="hub-report-list">
             @for (r of group.reports; track r.reportKey) {
               <li class="hub-report-item">
-                @if (routeFor(r.reportKey); as route) {
-                  <a class="hub-report-name" [routerLink]="route">{{ r.label }}</a>
-                } @else {
-                  <span class="hub-report-name">{{ r.label }}</span>
-                }
-                @if (r.cadenced) {
-                  <span class="badge badge-cadenced">Cadenced</span>
+                <div class="hub-report-row">
+                  @if (routeFor(r.reportKey); as route) {
+                    <a class="hub-report-name" [routerLink]="route">{{ r.label }}</a>
+                  } @else {
+                    <span class="hub-report-name">{{ r.label }}</span>
+                  }
+                  @if (r.cadenced) {
+                    <span class="badge badge-cadenced">Cadenced</span>
+                  }
+                </div>
+                @if (bannerFor(r.reportKey); as banner) {
+                  <app-due-date-banner [row]="banner"></app-due-date-banner>
                 }
               </li>
             }

@@ -193,6 +193,10 @@ class TenantMigrationFlywayIT {
                     "created_at", "actor_id", "actor_email"));
             assertIndexExists(conn, "tenant_it", "ix_variable_fee_schedule_lookup");
 
+            // Phase 16 §B REG7 — V166 PMB classification columns on claims + partial index.
+            assertColumns(conn, "tenant_it", "claims", List.of("is_pmb", "pmb_condition_code"));
+            assertIndexExists(conn, "tenant_it", "ix_claims_pmb");
+
             // V107 — MISC portfolio seeded on every fresh tenant.
             try (PreparedStatement ps = conn.prepareStatement(
                     "SELECT insurance_line FROM tenant_it.ifrs17_portfolio WHERE name = 'MISC'")) {

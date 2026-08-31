@@ -1,0 +1,4 @@
+# Per-regulator XLSX templates land here as each Phase 16 sub-plan phase (10-13, 18, 20-21, 26) ships.
+# Naming convention is documented on RegulatoryTemplateService (Javadoc + VERSION_PATTERN regex):
+#   report-templates/{regulator}/{report-key-kebab}-v_{yyyy-MM-dd}.xlsx
+# Synthetic templates use -v_SYNTHETIC_{yyyy-MM-dd}.xlsx — Angular renders a warning banner on those.

@@ -115,5 +115,36 @@ public enum RuleCategory {
      * industry-default rules on provisioning (see the
      * {@code seed_ifrs17_model_default_rules} migration).
      */
-    IFRS17_MODEL
+    IFRS17_MODEL,
+
+    // ── Regulatory parameter override ────────────────────────────────────────
+    /**
+     * Tenant escape hatch for numeric parameters in regulator reports (IPEC
+     * solvency, CMS solvency + cost-ratio, NAIC Schedule P + F provision
+     * percentages, and every future regulator that reads YAML defaults from
+     * {@code shared/src/main/resources/regulatory-defaults/}). Agenda-gated —
+     * finance-service's {@code RegulatoryParameterResolver} focuses this group
+     * per parameter lookup so overrides never fire during the stage-7 tenant
+     * sweep. Rules in this category mutate {@code RegulatoryParameterFact}'s
+     * {@code parameterValue} slot via {@code SET_REGULATORY_PARAMETER} actions.
+     * When no matching rule fires the resolver falls back to the bundled YAML
+     * default; both missing → fail-loud
+     * {@code RegulatoryParameterMissingException}. See Phase 16 §Phase-15 REG15.
+     */
+    REGULATORY_PARAMETER,
+
+    // ── PMB classification (Phase 17 §B REG7) ────────────────────────────────
+    /**
+     * CMS Prescribed Minimum Benefit classification. Fires at claim
+     * adjudication time (from {@code PmbClassificationExecutor} in
+     * claims-service, after the standard rule sweep) and at backfill time
+     * (from {@code PmbBackfillJob}). Agenda-gated — the classifier explicitly
+     * focuses {@code PMB_CLASSIFICATION} so these rules never fire during the
+     * stage-7 tenant-rule sweep alongside eligibility / co-pay / tariff
+     * evaluations. Rules mutate {@code PmbClassificationFact} via
+     * {@code SET_PMB_CLASSIFICATION} actions carrying the matched CMS PMB
+     * condition code. When no rule matches the classifier records
+     * {@code is_pmb = FALSE} on the claim row.
+     */
+    PMB_CLASSIFICATION
 }

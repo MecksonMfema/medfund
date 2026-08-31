@@ -94,4 +94,37 @@ class ReportKeyTest {
         // family enum would carry a dead entry.
         assertThat(covered).containsAll(Set.of(ReportFamily.values()));
     }
+
+    @Test
+    void phase16KeysMoveIntoNewFamilies() {
+        // Phase 16 §0 REG19 — the 8 regulator keys previously all under
+        // REGULATORY now split into PRUDENTIAL / TAX / COMPLIANCE. REGULATORY
+        // retains IFRS 17 only.
+        assertThat(ReportKey.IPEC_QUARTERLY_RETURN.getFamily()).isEqualTo(ReportFamily.PRUDENTIAL);
+        assertThat(ReportKey.CMS_ASR.getFamily()).isEqualTo(ReportFamily.PRUDENTIAL);
+        assertThat(ReportKey.NAIC_SCHEDULE_P.getFamily()).isEqualTo(ReportFamily.PRUDENTIAL);
+        assertThat(ReportKey.NAIC_SCHEDULE_F.getFamily()).isEqualTo(ReportFamily.PRUDENTIAL);
+
+        assertThat(ReportKey.PMB_SPEND.getFamily()).isEqualTo(ReportFamily.COMPLIANCE);
+        assertThat(ReportKey.AML_STR.getFamily()).isEqualTo(ReportFamily.COMPLIANCE);
+
+        assertThat(ReportKey.TAX_WITHHELD_RETURN.getFamily()).isEqualTo(ReportFamily.TAX);
+        assertThat(ReportKey.VAT_RETURN.getFamily()).isEqualTo(ReportFamily.TAX);
+    }
+
+    @Test
+    void ifrs17KeysStayUnderRegulatoryAfterSplit() {
+        // Phase 15 keys are the sole tenants of REGULATORY after Phase 7.
+        assertThat(ReportKey.IFRS17_LRC_LIC_RECONCILIATION.getFamily())
+                .isEqualTo(ReportFamily.REGULATORY);
+        assertThat(ReportKey.IFRS17_INSURANCE_REVENUE_SERVICE_RESULT.getFamily())
+                .isEqualTo(ReportFamily.REGULATORY);
+
+        Set<ReportKey> regulatoryKeys = Stream.of(ReportKey.values())
+                .filter(k -> k.getFamily() == ReportFamily.REGULATORY)
+                .collect(java.util.stream.Collectors.toSet());
+        assertThat(regulatoryKeys).containsExactlyInAnyOrder(
+                ReportKey.IFRS17_LRC_LIC_RECONCILIATION,
+                ReportKey.IFRS17_INSURANCE_REVENUE_SERVICE_RESULT);
+    }
 }

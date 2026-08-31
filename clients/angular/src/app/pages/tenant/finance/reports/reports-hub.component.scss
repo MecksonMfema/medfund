@@ -63,9 +63,8 @@
 
 .hub-report-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  flex-direction: column;
+  gap: 4px;
   padding: 8px 10px;
   border-radius: 6px;
   border: 1px solid transparent;
@@ -74,6 +73,13 @@
     background: rgba(0, 119, 182, 0.04);
     border-color: rgba(0, 119, 182, 0.12);
   }
+}
+
+.hub-report-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .hub-report-name {

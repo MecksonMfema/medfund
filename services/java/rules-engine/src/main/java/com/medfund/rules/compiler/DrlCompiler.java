@@ -49,6 +49,8 @@ public class DrlCompiler {
             "import com.medfund.rules.fact.TriangleFact;\n",
             "import com.medfund.rules.fact.DevelopmentPeriodFact;\n",
             "import com.medfund.rules.fact.IfrsPortfolioFact;\n",
+            "import com.medfund.rules.fact.RegulatoryParameterFact;\n",
+            "import com.medfund.rules.fact.PmbClassificationFact;\n",
             "import java.math.BigDecimal;\n");
 
     /**
@@ -60,7 +62,7 @@ public class DrlCompiler {
      */
     private static final Set<String> AGENDA_GATED_CATEGORIES = Set.of(
             "BENEFIT_PRORATION", "REINSURANCE", "COMMISSION", "PREMIUM_EARNING", "ACTUARIAL",
-            "IFRS17_MODEL");
+            "IFRS17_MODEL", "REGULATORY_PARAMETER", "PMB_CLASSIFICATION");
 
     private static final Map<String, FactMapping> FACT_MAPPINGS;
     static {
@@ -80,6 +82,10 @@ public class DrlCompiler {
         m.put("triangle",     new FactMapping("$triangle",     "TriangleFact"));
         m.put("devPeriod",    new FactMapping("$devPeriod",    "DevelopmentPeriodFact"));
         m.put("portfolio",    new FactMapping("$portfolio",    "IfrsPortfolioFact"));
+        m.put("regulatoryParameter",
+                              new FactMapping("$regulatoryParameter", "RegulatoryParameterFact"));
+        m.put("pmbClassification",
+                              new FactMapping("$pmbClassification", "PmbClassificationFact"));
         FACT_MAPPINGS = Map.copyOf(m);
     }
 
@@ -188,6 +194,8 @@ public class DrlCompiler {
             case "ACCRUE_PREMIUM"                                             -> "premium";
             case "SELECT_LDF"                                                 -> "triangle";
             case "SELECT_IFRS17_MODEL"                                        -> "portfolio";
+            case "SET_REGULATORY_PARAMETER"                                   -> "regulatoryParameter";
+            case "SET_PMB_CLASSIFICATION"                                     -> "pmbClassification";
             default                                                            -> null;
         };
     }

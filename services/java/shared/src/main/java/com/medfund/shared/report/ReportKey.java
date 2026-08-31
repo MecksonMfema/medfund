@@ -116,15 +116,19 @@ public enum ReportKey {
     IFRS17_LRC_LIC_RECONCILIATION       ("IFRS 17 — LRC / LIC reconciliation",       ReportFamily.REGULATORY, true),
     IFRS17_INSURANCE_REVENUE_SERVICE_RESULT ("IFRS 17 — insurance revenue & service result", ReportFamily.REGULATORY, true),
 
-    // ── Regulatory (Phase 16) — jurisdiction-gated on top of the toggle ──────
-    IPEC_QUARTERLY_RETURN       ("IPEC — quarterly return (ZW)",            ReportFamily.REGULATORY,       true),
-    CMS_ASR                     ("CMS — annual statutory return (ZA)",      ReportFamily.REGULATORY,       true),
-    NAIC_SCHEDULE_P             ("NAIC Schedule P (US)",                    ReportFamily.REGULATORY,       true),
-    NAIC_SCHEDULE_F             ("NAIC Schedule F (US)",                    ReportFamily.REGULATORY,       true),
-    PMB_SPEND                   ("PMB spend",                               ReportFamily.REGULATORY,       true),
-    AML_STR                     ("AML / STR return",                        ReportFamily.REGULATORY,       true),
-    TAX_WITHHELD_RETURN         ("Tax-withheld return",                     ReportFamily.REGULATORY,       true),
-    VAT_RETURN                  ("VAT return",                              ReportFamily.REGULATORY,       true),
+    // ── Prudential returns (Phase 16 §A) — jurisdiction-gated on top of the toggle ──
+    IPEC_QUARTERLY_RETURN       ("IPEC — quarterly return (ZW)",            ReportFamily.PRUDENTIAL,       true),
+    CMS_ASR                     ("CMS — annual statutory return (ZA)",      ReportFamily.PRUDENTIAL,       true),
+    NAIC_SCHEDULE_P             ("NAIC Schedule P (US)",                    ReportFamily.PRUDENTIAL,       true),
+    NAIC_SCHEDULE_F             ("NAIC Schedule F (US)",                    ReportFamily.PRUDENTIAL,       true),
+
+    // ── Compliance (Phase 16 §B + §D) — jurisdiction/country-gated ──────────
+    PMB_SPEND                   ("PMB spend",                               ReportFamily.COMPLIANCE,       true),
+    AML_STR                     ("AML / STR return",                        ReportFamily.COMPLIANCE,       true),
+
+    // ── Tax (Phase 16 §C) — country-gated ───────────────────────────────────
+    TAX_WITHHELD_RETURN         ("Tax-withheld return",                     ReportFamily.TAX,              true),
+    VAT_RETURN                  ("VAT return",                              ReportFamily.TAX,              true),
 
     // ── Executive KPI (Phase 18) ─────────────────────────────────────────────
     COMBINED_RATIO              ("Combined ratio",                          ReportFamily.DASHBOARD,        false),

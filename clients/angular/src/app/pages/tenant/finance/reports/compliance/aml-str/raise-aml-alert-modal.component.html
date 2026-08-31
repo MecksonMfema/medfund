@@ -1,0 +1,77 @@
+@if (open) {
+  <div class="modal-backdrop" (click)="onCancel()">
+    <div class="modal-card" (click)="$event.stopPropagation()"
+         role="dialog" aria-modal="true" aria-label="Raise AML alert">
+      <h3 class="modal-title">Raise AML/STR alert</h3>
+      <p class="modal-message">
+        Log a Suspicious Transaction Alert for compliance review.
+        Include enough detail in the description that a reviewer without
+        the ledger open can make the reportable-or-not call.
+      </p>
+
+      <div class="grid">
+        <div class="field">
+          <label for="txn-ref">Transaction reference *</label>
+          <input id="txn-ref" name="transactionRef" class="input"
+                 [(ngModel)]="transactionRef" maxlength="120"
+                 placeholder="e.g. RCT-2026-000123" />
+        </div>
+
+        <div class="field">
+          <label>Transaction type *</label>
+          <app-select
+            name="transactionType"
+            [ngModel]="transactionType"
+            (selectionChange)="onTypeChange($event)"
+            [options]="typeOptions"
+            placeholder="Pick a type…"
+            [searchable]="false"></app-select>
+        </div>
+
+        <div class="field">
+          <label for="amount">Amount (native currency) *</label>
+          <input id="amount" name="amount" class="input" type="number" step="0.01" min="0.01"
+                 [(ngModel)]="amountNative" placeholder="15000.00" />
+        </div>
+
+        <div class="field">
+          <label for="ccy">Currency *</label>
+          <input id="ccy" name="currency" class="input"
+                 [(ngModel)]="currency" maxlength="3"
+                 placeholder="USD" />
+        </div>
+
+        <div class="field">
+          <label>Member (optional)</label>
+          <app-entity-picker kind="member" [(value)]="memberId"
+                             placeholder="Search by member name…"></app-entity-picker>
+        </div>
+
+        <div class="field">
+          <label>Provider (optional)</label>
+          <app-entity-picker kind="provider" [(value)]="providerId"
+                             placeholder="Search by provider name…"></app-entity-picker>
+        </div>
+      </div>
+
+      <div class="field full">
+        <label for="desc">Description * (≥ 20 chars — will be attached to the audit event)</label>
+        <textarea id="desc" name="description" class="input textarea"
+                  [(ngModel)]="description" rows="5"
+                  placeholder="What raised suspicion here? Include amounts, counterparties, timing, and anything the reviewer needs."></textarea>
+      </div>
+
+      @if (clientError) { <div class="error">{{ clientError }}</div> }
+      @if (serverError) { <div class="error">{{ serverError }}</div> }
+
+      <div class="actions">
+        <button type="button" class="btn btn-default" (click)="onCancel()"
+                [disabled]="submitting">Cancel</button>
+        <button type="button" class="btn btn-primary" (click)="onSubmit()"
+                [disabled]="submitting">
+          {{ submitting ? 'Raising…' : 'Raise alert' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

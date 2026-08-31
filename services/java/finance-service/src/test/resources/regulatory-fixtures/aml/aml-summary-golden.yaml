@@ -1,0 +1,68 @@
+# SYNTHETIC AML/STR periodic summary golden fixture (Phase 25).
+# Hand-computed against AmlSummaryCalculator + AmlSummaryReportShaper —
+# every expected cell value has its derivation below.
+#
+# Fixture models a ZA tenant on the placeholder synthetic template
+# (za-aml-summary-v_SYNTHETIC_2024-01-01.xlsx). A matching ZW / US
+# fixture is deferred to Phase 26 alongside the real FIU / FIC / FinCEN
+# templates. Values are illustrative — compliance-domain sign-off is
+# owed before first real filing per the parent plan's "Owed back" list.
+
+report_key: AML_STR
+reporting_entity_name: "Acme Insurance ZA (Pty) Ltd"
+regulator_reference: "FIC-REG-2026-0000042"
+country_code: ZA
+period_start: 2026-04-01
+period_end: 2026-06-30
+reporting_currency: ZAR
+
+# Configured per-category thresholds in ZAR. Values chosen to mirror the
+# FIC's Cash Threshold Reporting (CTR) rule of thumb (ZAR 25,000) with a
+# tighter risk-based override for the insurer's own high-signal channels.
+thresholds:
+  premium:          25000.00
+  claim_payout:     25000.00
+  advance_payment:  10000.00
+  commission:       10000.00
+  other:            25000.00
+
+# Above-threshold aggregates. Category totals sum to ACTIVITY_TOTAL_*.
+raw_activity:
+  premium:          { count:  15, total:   3_500_000.00 }
+  claim_payout:     { count:   8, total:   1_200_000.00 }
+  advance_payment:  { count:   3, total:     450_000.00 }
+  commission:       { count:   4, total:      80_000.00 }
+  other:            { count:   0, total:           0.00 }
+
+# STR workflow counters over the period + total FILED amount.
+raw_str:
+  raised_count:      12
+  reviewed_count:    10
+  filed_count:        6
+  closed_count:       4
+  filed_total_amount: 875_000.00
+
+# Expected computed values (asserted by AmlSummaryReportShaperTest +
+# AmlXlsxServiceTest):
+expected:
+  # ── Activity totals ──────────────────────────────────────────
+  all_above_threshold_count: 30              # 15 + 8 + 3 + 4 + 0
+  all_above_threshold_total: 5_230_000.00    # 3_500_000 + 1_200_000 + 450_000 + 80_000 + 0
+  # Category rounding: HALF_UP 2dp (identity for these inputs).
+  premium_count_out:          15
+  premium_total_out:      3_500_000.00
+  claim_payout_count_out:      8
+  claim_payout_total_out: 1_200_000.00
+  advance_payment_count_out:   3
+  advance_payment_total_out: 450_000.00
+  commission_count_out:        4
+  commission_total_out:     80_000.00
+  # ── STR mirror ──────────────────────────────────────────────
+  str_raised_out:   12
+  str_reviewed_out: 10
+  str_filed_out:     6
+  str_closed_out:    4
+  str_filed_total_out: 875_000.00
+  # ── Summary ─────────────────────────────────────────────────
+  # 6 / 30 = 0.2000 (HALF_UP, 4dp)
+  filed_rate: 0.2000

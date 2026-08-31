@@ -121,6 +121,66 @@ class SecurityEventPublisherTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void publishAccessDenied_emitsAccessDeniedEventWithReasonInDetails() throws Exception {
+        when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
+
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("guard", "RequiresJurisdiction");
+        details.put("required", "[ZW_IPEC_SHORT_TERM]");
+        details.put("actualJurisdiction", "US_NAIC");
+
+        StepVerifier.create(publisher.publishAccessDenied(
+                        "tenant-1", "actor-1", "actor@example.com",
+                        "jurisdiction gate failed", details))
+                .verifyComplete();
+
+        verify(kafkaSender).send(captor.capture());
+        StepVerifier.create(captor.getValue())
+                .assertNext(record -> {
+                    assertThat(record.topic()).isEqualTo("medfund.security.events");
+                    try {
+                        JsonNode outer = objectMapper.readTree(record.value());
+                        assertThat(outer.get("eventType").asText()).isEqualTo("ACCESS_DENIED");
+                        assertThat(outer.get("tenantId").asText()).isEqualTo("tenant-1");
+                        assertThat(outer.get("userId").asText()).isEqualTo("actor-1");
+                        assertThat(outer.get("actorEmail").asText()).isEqualTo("actor@example.com");
+                        JsonNode inner = objectMapper.readTree(outer.get("details").asText());
+                        assertThat(inner.get("reason").asText()).isEqualTo("jurisdiction gate failed");
+                        assertThat(inner.get("guard").asText()).isEqualTo("RequiresJurisdiction");
+                        assertThat(inner.get("actualJurisdiction").asText()).isEqualTo("US_NAIC");
+                    } catch (Exception e) {
+                        throw new AssertionError("Failed to parse payload", e);
+                    }
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void publishAccessDenied_tolerantOfNullDetailsAndBlankIds() throws Exception {
+        when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
+
+        StepVerifier.create(publisher.publishAccessDenied(
+                        null, null, null, "country gate failed", null))
+                .verifyComplete();
+
+        verify(kafkaSender).send(captor.capture());
+        StepVerifier.create(captor.getValue())
+                .assertNext(record -> {
+                    try {
+                        JsonNode outer = objectMapper.readTree(record.value());
+                        assertThat(outer.get("eventType").asText()).isEqualTo("ACCESS_DENIED");
+                        JsonNode inner = objectMapper.readTree(outer.get("details").asText());
+                        assertThat(inner.get("reason").asText()).isEqualTo("country gate failed");
+                    } catch (Exception e) {
+                        throw new AssertionError("Failed to parse payload", e);
+                    }
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void publishDataAccess_serialiseFailureFallsBackToEmptyDetails() {
         var self = new java.util.HashMap<String, Object>();
         self.put("cycle", self);
