@@ -8,6 +8,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -75,4 +76,27 @@ public class ReportJob {
 
     @Column("retention_class")
     private String retentionClass;
+
+    /**
+     * Phase 17 §0.2 — {@code ADHOC} (default, legacy) for user-triggered exports;
+     * {@code SCHEDULED} for probe-fired runs.
+     */
+    private String source;
+
+    /**
+     * Phase 17 §0.2 — back-reference to the {@code public.tenant_report_schedule}
+     * row that fired this job. NULL for ADHOC runs.
+     */
+    @Column("schedule_id")
+    private UUID scheduleId;
+
+    /**
+     * Phase 17 §0.2 — period covered by the fire. Used by the partial UNIQUE
+     * dedup index and by the delivery-event payload rendering. NULL for ADHOC.
+     */
+    @Column("period_start")
+    private LocalDate periodStart;
+
+    @Column("period_end")
+    private LocalDate periodEnd;
 }

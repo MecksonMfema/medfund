@@ -17,6 +17,10 @@ public class SecurityConfig {
             .authorizeExchange(exchanges -> exchanges
                 .pathMatchers("/actuator/**").permitAll()
                 .pathMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html", "/webjars/**").permitAll()
+                // Phase 17 §B.2 — public signed-link download from delivery email.
+                // Auth is the HMAC token query param, not a JWT — see
+                // ScheduledDownloadTokenVerifier.
+                .pathMatchers("/api/v1/reports/scheduled/*/download").permitAll()
                 .anyExchange().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2

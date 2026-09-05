@@ -1,0 +1,59 @@
+<div class="recipient-list">
+  <table class="recipient-table" *ngIf="recipients.length > 0">
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Display name</th>
+        <th>Status</th>
+        <th class="actions-col">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let r of recipients" [class.inactive]="!r.isActive">
+        <td>{{ r.email }}</td>
+        <td>{{ r.displayName || '—' }}</td>
+        <td>
+          <span class="pill" [class.pill-active]="r.isActive" [class.pill-inactive]="!r.isActive">
+            {{ r.isActive ? 'Active' : 'Paused' }}
+          </span>
+        </td>
+        <td class="actions-col">
+          <button type="button" class="btn-icon" (click)="toggleActive(r)"
+                  [title]="r.isActive ? 'Pause deliveries' : 'Resume deliveries'">
+            <app-icon [name]="r.isActive ? 'pause-circle' : 'play-circle'" />
+          </button>
+          <button type="button" class="btn-icon danger" (click)="remove(r)"
+                  title="Remove recipient">
+            <app-icon name="x" />
+          </button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="empty" *ngIf="recipients.length === 0">
+    No recipients yet — add one below to start receiving deliveries.
+  </p>
+
+  <form #addForm="ngForm" class="add-row" (ngSubmit)="add(addForm)">
+    <div class="fields">
+      <label class="field">
+        <span class="label">Email</span>
+        <input type="email" name="email" [(ngModel)]="draft.email" required email
+               placeholder="finance@acme.com" [disabled]="saving">
+      </label>
+      <label class="field">
+        <span class="label">Display name (optional)</span>
+        <input type="text" name="displayName" [(ngModel)]="draft.displayName"
+               placeholder="Finance Director" [disabled]="saving">
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" name="isActive" [(ngModel)]="draft.isActive" [disabled]="saving">
+        <span>Active on save</span>
+      </label>
+    </div>
+    <button type="submit" class="btn primary" [disabled]="addForm.invalid || saving">
+      {{ saving ? 'Adding…' : 'Add recipient' }}
+    </button>
+  </form>
+</div>

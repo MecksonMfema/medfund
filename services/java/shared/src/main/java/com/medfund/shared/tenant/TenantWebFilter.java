@@ -64,6 +64,15 @@ public class TenantWebFilter implements WebFilter {
             return chain.filter(exchange);
         }
 
+        // Phase 17 §B.2 — the signed-link scheduled-report download endpoint
+        // carries tenantId inside its HMAC token (verified by
+        // ScheduledDownloadTokenVerifier). The controller then explicitly
+        // sets TenantContext for the R2DBC connection. No X-Tenant-ID header
+        // is present because the URL is clicked from a delivery email.
+        if (path.startsWith("/api/v1/reports/scheduled/") && path.endsWith("/download")) {
+            return chain.filter(exchange);
+        }
+
         String tenantId = exchange.getRequest().getHeaders().getFirst("X-Tenant-ID");
         if (tenantId == null || tenantId.isBlank()) {
             return missingTenantResponse(exchange, path);

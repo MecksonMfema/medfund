@@ -19,6 +19,10 @@ export interface TenantReportConfigRow {
   cadenced: boolean;
   updatedAt: string | null;
   updatedBy: string | null;
+  /** Count of enabled schedule rows for this reportKey. Only populated for
+   *  cadenced keys; 0 or undefined otherwise. Drives the cascade-disable
+   *  confirm modal in the Reports tab. */
+  activeScheduleCount?: number;
 }
 
 export interface ToggleEntry {

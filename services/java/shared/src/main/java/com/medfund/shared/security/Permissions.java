@@ -171,6 +171,10 @@ public final class Permissions {
     public static final String TENANT_SETTINGS_MANAGE_NAIC_CONFIG              = "tenant.settings:manage_naic_config";
     /** Manage per-tenant statutory tax rates (VAT + Withholding) consumed by the VAT Return + TaxWithheldReturn shapers (Phase 16 §C / Phase 19 REG9). */
     public static final String TENANT_SETTINGS_MANAGE_TAX_CONFIG               = "tenant.settings:manage_tax_config";
+    /** Manage scheduled report delivery configurations + recipients + run history (Phase 17 §A.1). */
+    public static final String TENANT_SETTINGS_MANAGE_REPORT_SCHEDULES         = "tenant.settings:manage_report_schedules";
+    /** Umbrella tenant-admin capability; gates privileged actions like the test-only scheduled report probe force-fire (Phase 17 §A.2). */
+    public static final String TENANT_SETTINGS_TENANT_ADMIN                    = "tenant.settings:tenant_admin";
 
     // ── Underwriting (Phase 12 §A) ──────────────────────────────────────────
     public static final String UNDERWRITING_PORTFOLIO_MANAGE     = "underwriting.portfolio:manage";
@@ -210,6 +214,10 @@ public final class Permissions {
     // hold these; they gate the cross-tenant operational tooling.
     public static final String PLATFORM_VIEW_JOBS                = "platform:view_jobs";
     public static final String PLATFORM_MANAGE_JOBS              = "platform:manage_jobs";
+
+    /** Internal M2M-only: finance-service's client_credentials token holds this so it can call
+     *  owner-service scheduled-render endpoints (Phase 17 §A.3). Never grant to a human role. */
+    public static final String SCHEDULED_REPORT_RENDER           = "scheduled_report:render";
 
     /** Every key the platform recognises. Validation gate for tenant-admin role edits. */
     public static final Set<String> ALL = Set.of(
@@ -264,6 +272,8 @@ public final class Permissions {
             TENANT_SETTINGS_MANAGE_REGULATORY_NOTIFICATIONS,
             TENANT_SETTINGS_MANAGE_NAIC_CONFIG,
             TENANT_SETTINGS_MANAGE_TAX_CONFIG,
+            TENANT_SETTINGS_MANAGE_REPORT_SCHEDULES,
+            TENANT_SETTINGS_TENANT_ADMIN,
 
             UNDERWRITING_PORTFOLIO_MANAGE, UNDERWRITING_COHORT_MANAGE,
             UNDERWRITING_OPENING_BALANCE_MANAGE,
@@ -274,6 +284,8 @@ public final class Permissions {
             COMPLIANCE_AML_RAISE, COMPLIANCE_AML_REVIEW, COMPLIANCE_AML_FILE, COMPLIANCE_AML_CLOSE,
             COMPLIANCE_AML_CONFIGURE_THRESHOLDS,
 
-            PLATFORM_VIEW_JOBS, PLATFORM_MANAGE_JOBS
+            PLATFORM_VIEW_JOBS, PLATFORM_MANAGE_JOBS,
+
+            SCHEDULED_REPORT_RENDER
     );
 }

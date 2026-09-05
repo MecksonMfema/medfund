@@ -1,0 +1,73 @@
+<div class="unsubscribe-page">
+  <div class="card">
+    <h1 class="title">Unsubscribe from scheduled reports</h1>
+
+    @switch (state) {
+      @case ('invalid_token') {
+        <p class="body">
+          This unsubscribe link is malformed. Copy the full URL from your email
+          and try again, or reply to the sender to be removed manually.
+        </p>
+      }
+
+      @case ('success') {
+        <p class="body success">
+          You've been removed from this scheduled delivery.
+          @if (deactivatedEmail) {
+            No further emails will be sent to <strong>{{ deactivatedEmail }}</strong>
+            for this report schedule.
+          } @else {
+            No further emails will be sent for this report schedule.
+          }
+        </p>
+        <p class="fine-print">
+          If this was a mistake, contact your tenant administrator to be re-added.
+        </p>
+      }
+
+      @case ('not_found') {
+        <p class="body warning">
+          We couldn't process this unsubscribe request. The link may have
+          already been used or expired. If you continue to receive emails,
+          contact your tenant administrator.
+        </p>
+      }
+
+      @case ('error') {
+        <p class="body error">
+          Something went wrong. {{ errorDetail }}
+        </p>
+        <button type="button" class="btn btn-primary" (click)="confirm()">
+          Try again
+        </button>
+      }
+
+      @default {
+        <p class="body">
+          Click below to stop receiving future scheduled report emails at this
+          address. You can optionally tell us why — it helps us tune what we
+          send.
+        </p>
+        <label class="reason-label">
+          Reason (optional)
+          <textarea
+            [(ngModel)]="reason"
+            maxlength="500"
+            rows="3"
+            placeholder="Too many emails, no longer relevant, wrong recipient…"
+          ></textarea>
+        </label>
+        <div class="actions">
+          <button
+            type="button"
+            class="btn btn-primary"
+            [disabled]="state === 'submitting'"
+            (click)="confirm()"
+          >
+            {{ state === 'submitting' ? 'Unsubscribing…' : 'Unsubscribe me' }}
+          </button>
+        </div>
+      }
+    }
+  </div>
+</div>

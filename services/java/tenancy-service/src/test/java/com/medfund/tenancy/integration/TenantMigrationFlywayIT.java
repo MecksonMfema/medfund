@@ -1,6 +1,7 @@
 package com.medfund.tenancy.integration;
 
 import org.flywaydb.core.Flyway;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -36,6 +37,23 @@ class TenantMigrationFlywayIT {
             .withDatabaseName("medfund_migration_it")
             .withUsername("medfund")
             .withPassword("medfund");
+
+    /**
+     * Phase 17 §0.2: tenant V168 adds a cross-schema FK to
+     * {@code public.tenant_report_schedule}, so the public migration set
+     * must land in the shared container before any tenant migration runs.
+     * Mirrors production tenancy-service application.yml where both
+     * locations are configured on the same Flyway instance.
+     */
+    @BeforeAll
+    static void applyPublicMigrationsOnce() {
+        Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .locations("classpath:db/migration/public")
+                .schemas("public")
+                .load()
+                .migrate();
+    }
 
     @Test
     void tenantMigrations_landAllExpectedColumns() throws Exception {

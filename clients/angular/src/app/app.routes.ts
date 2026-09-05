@@ -68,6 +68,14 @@ export const routes: Routes = [
       { path: 'audit',     loadComponent: () => import('./pages/tenant-admin/audit/audit.component').then(m => m.TenantAuditComponent), data: { title: 'Audit Logs' } },
       { path: 'rules',     loadComponent: () => import('./pages/tenant-admin/rules/rules.component').then(m => m.TenantRulesComponent), data: { title: 'Rules Engine' } },
       { path: 'settings',  loadComponent: () => import('./pages/tenant-admin/settings/settings.component').then(m => m.TenantSettingsComponent), data: { title: 'Settings' } },
+      // Phase 17 §C.1 — standalone report-schedules admin page. Deep-linked
+      // from the Reports tab "Manage schedule" column (Phase 9) using a
+      // fragment anchor per row.reportKey; too much surface (recipient list +
+      // run history + per-schedule pickers) to fit as a settings tab.
+      { path: 'settings/report-schedules',
+        loadComponent: () => import('./pages/tenant-admin/settings/report-schedules/report-schedules-page.component')
+          .then(m => m.ReportSchedulesPageComponent),
+        data: { title: 'Report schedules' } },
       // V063 — tariff categories catalogue (required on tariffs and benefits).
       { path: 'tariff-categories', loadComponent: () => import('./pages/tenant-admin/tariff-categories/tariff-categories-list.component').then(m => m.TariffCategoriesListComponent), data: { title: 'Tariff Categories', fullbleed: true } },
       // Phase 10 — reinsurance module (Reinsurers + Treaties CRUD; bordereau
@@ -142,6 +150,15 @@ export const routes: Routes = [
     children: [],
   },
   { path: 'unauthorized', loadComponent: () => import('./pages/unauthorized/unauthorized.component').then(m => m.UnauthorizedComponent) },
+  // Phase 17 §C.2 — public unsubscribe confirmation page (token-gated, no auth).
+  // Gateway allowlists /api/v1/report-schedule-recipients/unsubscribe/* through
+  // the JWT middleware; this route is the browser-facing landing page.
+  {
+    path: 'public/unsubscribe/:token',
+    loadComponent: () => import('./pages/public/unsubscribe/unsubscribe-page.component')
+      .then(m => m.UnsubscribePageComponent),
+    data: { title: 'Unsubscribe' },
+  },
   // Catch-all — same dispatcher so a 404'd URL doesn't strand the user.
   { path: '**', canActivate: [rootRedirectGuard], children: [] },
 ];

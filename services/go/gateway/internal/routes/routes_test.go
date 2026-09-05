@@ -67,6 +67,44 @@ func TestActuarialSubmitEndpointsAreProxied(t *testing.T) {
 	}
 }
 
+// Phase 17 §B.2 — the four new routes must be registered against the
+// correct backend service. We assert on registration presence by hitting
+// the path and confirming Fiber routes it (non-404) — the actual proxy
+// upstream is set to a bogus host so the request will fail at connect
+// time, which is fine: we care about the routing decision, not the wire.
+func TestPhase17ScheduledReportRoutesRegistered(t *testing.T) {
+	app := newAppUnderTest()
+
+	// A registered proxy route returns 502/Bad Gateway when the upstream
+	// is unreachable — that proves Fiber matched the route. An unregistered
+	// path returns 404.
+	cases := []struct {
+		method, path string
+	}{
+		{"GET", "/api/v1/reports/scheduled/11111111-2222-3333-4444-555555555555/download?token=x"},
+		{"POST", "/api/v1/reports/scheduled/11111111-2222-3333-4444-555555555555/rerun"},
+		{"POST", "/api/v1/reports/scheduled/probe/force-fire"},
+		{"POST", "/api/v1/report-schedule-recipients/unsubscribe/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"},
+		{"GET", "/api/v1/tenants/11111111-2222-3333-4444-555555555555/report-schedules"},
+		{"POST", "/api/v1/tenants/11111111-2222-3333-4444-555555555555/report-schedules"},
+		{"GET", "/api/v1/tenants/11111111-2222-3333-4444-555555555555/report-schedules/aaa/recipients/active"},
+		// Phase 17 §C.1 — tenant-admin history + in-app download.
+		{"GET", "/api/v1/reports/scheduled/schedules/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/runs?limit=20"},
+		{"GET", "/api/v1/reports/scheduled/runs/11111111-2222-3333-4444-555555555555/download"},
+	}
+	for _, tc := range cases {
+		req := httptest.NewRequest(tc.method, tc.path, nil)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("%s %s: %v", tc.method, tc.path, err)
+		}
+		if resp.StatusCode == fiber.StatusNotFound {
+			t.Errorf("%s %s: expected registered route (non-404), got %d",
+				tc.method, tc.path, resp.StatusCode)
+		}
+	}
+}
+
 func newAppUnderTest() *fiber.App {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	cfg := &config.Config{

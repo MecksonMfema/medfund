@@ -41,11 +41,15 @@ public class TenantReportConfigService {
     private static final String ENTITY_TYPE = "TENANT_REPORT_CONFIG";
 
     private final TenantReportConfigRepository repository;
+    private final TenantReportScheduleService scheduleService;
+    private final com.medfund.tenancy.repository.TenantReportScheduleRepository scheduleRepository;
     private final AuditPublisher auditPublisher;
 
     /**
-     * Returns every catalogue key merged with the tenant's persisted overrides.
-     * Sorted by family, then label — same order the settings grid renders.
+     * Returns every catalogue key merged with the tenant's persisted overrides
+     * and the {@code activeScheduleCount} for cadenced keys — the Angular
+     * grid uses that count to render the "Manage schedule (N)" link and the
+     * cascade-disable confirm modal (Phase 9). Sorted by family, then label.
      */
     public Flux<TenantReportConfigResponse> list(UUID tenantId) {
         return repository.findByTenantId(tenantId)
@@ -54,12 +58,19 @@ public class TenantReportConfigService {
                         .sort(Comparator
                                 .comparing((ReportKey k) -> k.getFamily().ordinal())
                                 .thenComparing(ReportKey::getLabel))
-                        .map(k -> {
-                            TenantReportConfig row = byKey.get(k.name());
-                            return row != null
-                                    ? TenantReportConfigResponse.from(row)
-                                    : TenantReportConfigResponse.defaultFor(tenantId, k);
-                        }));
+                        .concatMap(k -> resolveActiveScheduleCount(tenantId, k)
+                                .map(count -> {
+                                    TenantReportConfig row = byKey.get(k.name());
+                                    return row != null
+                                            ? TenantReportConfigResponse.from(row, count)
+                                            : TenantReportConfigResponse.defaultFor(tenantId, k, count);
+                                })));
+    }
+
+    private Mono<Long> resolveActiveScheduleCount(UUID tenantId, ReportKey k) {
+        if (!k.isCadenced()) return Mono.just(0L);
+        return scheduleRepository.countActiveByTenantIdAndReportKey(tenantId, k.name())
+                .defaultIfEmpty(0L);
     }
 
     /**
@@ -131,13 +142,23 @@ public class TenantReportConfigService {
             // No-op — return without a write or an audit event.
             return Mono.just(existing);
         }
+        boolean nowDisabling = wasEnabled && !entry.enabled();
         TenantReportConfig snapshot = copy(existing);
         existing.setEnabled(entry.enabled());
         existing.setUpdatedAt(OffsetDateTime.now());
         existing.setUpdatedBy(parseUuid(actorId));
-        return repository.save(existing)
-                .flatMap(saved -> publishAudit(saved, snapshot, "UPDATE", actorId, actorEmail)
-                        .thenReturn(saved));
+        Mono<TenantReportConfig> save = repository.save(existing);
+        if (nowDisabling) {
+            // Phase 17 §A cascade: pause every matching enabled schedule in
+            // the same transaction so a report toggle-off doesn't leave orphan
+            // schedules that would fire against a disabled key.
+            return save.flatMap(saved -> scheduleService.cascadeDisable(
+                            saved.getTenantId(), saved.getReportKey(), actorId, actorEmail)
+                    .then(publishAudit(saved, snapshot, "UPDATE", actorId, actorEmail))
+                    .thenReturn(saved));
+        }
+        return save.flatMap(saved -> publishAudit(saved, snapshot, "UPDATE", actorId, actorEmail)
+                .thenReturn(saved));
     }
 
     private TenantReportConfig copy(TenantReportConfig src) {

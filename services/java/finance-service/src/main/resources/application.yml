@@ -43,3 +43,44 @@ management:
 
 kafka:
   bootstrap-servers: localhost:9092
+
+# Phase 17 §A.3 — owner-service base URLs for the cross-service
+# scheduled-render adapters. Dev defaults to localhost ports; production
+# overrides via env with the k8s service DNS.
+services:
+  contributions:
+    base-url: http://localhost:8084
+  claims:
+    base-url: http://localhost:8083
+  user:
+    base-url: http://localhost:8082
+
+# Phase 17 §A.3 — Keycloak M2M client for scheduled_report:render tokens.
+# Left unset in the default profile so M2MTokenProvider stays dormant in
+# unit-test slices; dev/staging/prod profiles wire the client credentials.
+keycloak:
+  token-endpoint: http://localhost:9080/realms/medfund-platform/protocol/openid-connect/token
+
+# Phase 17 §A.2 — hourly scheduled-report probe. Disabled leaves the code path
+# dormant; production enables via config once the notification consumer is deployed.
+#
+# Phase 17 §B.2 — download.token-secret is the shared HMAC key with
+# notification-service. Empty leaves the download endpoint 403-only + the Go
+# signer dormant. Rotate on both sides together.
+scheduled:
+  report:
+    probe:
+      enabled: true
+      cron: "0 5 * * * *"
+      concurrency: 4
+      force-fire-enabled: false
+    download:
+      token-secret: ${SCHEDULED_REPORT_DOWNLOAD_TOKEN_SECRET:}
+      expiry-days: 7
+
+# Phase 17 §A.2 — MinIO destination for scheduled XLSX blobs.
+# minio.endpoint left unset in the default profile so MinIOConfig / ReportPayloadStore
+# stay dormant in slice tests. Dev/staging profiles override.
+minio:
+  bucket:
+    report-payloads: medfund-report-payloads

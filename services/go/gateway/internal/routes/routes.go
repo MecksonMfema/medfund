@@ -27,6 +27,11 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// this documents the path and survives a future catch-all split).
 	app.All("/api/v1/tenants/*/high-cost-claimant-config", proxy.Handler(cfg.TenancyServiceURL))
 	app.All("/api/v1/tenants/*/auto-lapse-config", proxy.Handler(cfg.TenancyServiceURL))
+	// Phase 17 §C.1 — tenant report-schedule CRUD + recipients (nested).
+	// Registered BEFORE the /api/v1/tenants/* wildcard so the intent is
+	// documented; both paths land in tenancy-service.
+	app.All("/api/v1/tenants/*/report-schedules", proxy.Handler(cfg.TenancyServiceURL))
+	app.All("/api/v1/tenants/*/report-schedules/*", proxy.Handler(cfg.TenancyServiceURL))
 	app.All("/api/v1/tenants/*", proxy.Handler(cfg.TenancyServiceURL))
 	app.All("/api/v1/plans/*", proxy.Handler(cfg.TenancyServiceURL))
 	app.All("/api/v1/currencies", proxy.Handler(cfg.TenancyServiceURL))
@@ -258,6 +263,21 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// export URL that serves both actuarial and IFRS 17 reports.
 	app.All("/api/v1/reports/jobs", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reports/jobs/*", proxy.Handler(cfg.FinanceServiceURL))
+	// ── Phase 17 §B.2 — Scheduled report delivery ──────────────────────────
+	// Signed-link download is a public route (JWT bypass in middleware/jwt.go)
+	// authenticated by the HMAC token minted by notification-service.
+	// Rerun + force-fire are authenticated (JWT enforced).
+	app.Get("/api/v1/reports/scheduled/:jobId/download", proxy.Handler(cfg.FinanceServiceURL))
+	app.Post("/api/v1/reports/scheduled/:jobId/rerun", proxy.Handler(cfg.FinanceServiceURL))
+	app.Post("/api/v1/reports/scheduled/probe/force-fire", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 17 §C.1 — tenant-admin history + in-app download for the
+	// schedule detail accordion. Both authenticated (JWT + permission
+	// gate); tenant scope is the standard X-Tenant-ID header flow.
+	app.Get("/api/v1/reports/scheduled/schedules/:scheduleId/runs", proxy.Handler(cfg.FinanceServiceURL))
+	app.Get("/api/v1/reports/scheduled/runs/:jobId/download", proxy.Handler(cfg.FinanceServiceURL))
+	// Unsubscribe is a public route (JWT bypass) — the URL is clicked from a
+	// delivery email so it cannot require login. Proxied to tenancy-service.
+	app.Post("/api/v1/report-schedule-recipients/unsubscribe/:token", proxy.Handler(cfg.TenancyServiceURL))
 
 	// ── Rules Service (per-tenant Drools rules) ───────────────────────────────
 	app.All("/api/v1/rules", proxy.Handler(cfg.RulesServiceURL))

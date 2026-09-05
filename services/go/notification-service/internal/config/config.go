@@ -41,6 +41,17 @@ type Config struct {
 	// service" pattern of the other consumers).
 	RedisURL          string
 	TenancyServiceURL string
+
+	// Phase 17 scheduled-report delivery. GatewayBaseURL is the
+	// public host the signed download link points at (the URL a
+	// recipient clicks in an email). WebBaseURL is the Angular host
+	// used for the /public/unsubscribe/:token confirm page. The
+	// download-token secret is the shared HMAC key — must match
+	// finance-service SCHEDULED_REPORT_DOWNLOAD_TOKEN_SECRET.
+	ReportPayloadsBucket        string
+	ScheduledReportDownloadURL  string
+	ScheduledUnsubscribeWebURL  string
+	ScheduledDownloadSecret     string
 }
 
 func Load() *Config {
@@ -69,6 +80,11 @@ func Load() *Config {
 
 		RedisURL:          getEnv("REDIS_URL", "redis://localhost:6379/0"),
 		TenancyServiceURL: getEnv("TENANCY_SERVICE_URL", "http://localhost:8081"),
+
+		ReportPayloadsBucket:       getEnv("REPORT_PAYLOADS_BUCKET", "medfund-report-payloads"),
+		ScheduledReportDownloadURL: getEnv("SCHEDULED_REPORT_GATEWAY_URL", "http://localhost:3000"),
+		ScheduledUnsubscribeWebURL: getEnv("SCHEDULED_REPORT_WEB_URL", "http://localhost:5100"),
+		ScheduledDownloadSecret:    getEnv("SCHEDULED_REPORT_DOWNLOAD_TOKEN_SECRET", ""),
 	}
 }
 

@@ -49,6 +49,9 @@ func (j *JWTMiddleware) Handler() fiber.Handler {
 		if strings.HasPrefix(path, "/health") || strings.HasPrefix(path, "/swagger") {
 			return c.Next()
 		}
+		if isPublicPath(path) {
+			return c.Next()
+		}
 
 		tokenStr := j.extractToken(c)
 		if tokenStr == "" {
@@ -97,6 +100,20 @@ func (j *JWTMiddleware) Handler() fiber.Handler {
 
 		return c.Next()
 	}
+}
+
+// isPublicPath returns true for JWT-optional routes that self-authenticate
+// via other mechanisms — Phase 17 signed-link download (HMAC token in query
+// param) and unsubscribe (opaque UUID token in path). These are clicked from
+// delivery emails so they cannot require a browser session.
+func isPublicPath(path string) bool {
+	if strings.HasPrefix(path, "/api/v1/reports/scheduled/") && strings.HasSuffix(path, "/download") {
+		return true
+	}
+	if strings.HasPrefix(path, "/api/v1/report-schedule-recipients/unsubscribe/") {
+		return true
+	}
+	return false
 }
 
 // hasSuperAdminRole reports whether the Keycloak realm-role claim

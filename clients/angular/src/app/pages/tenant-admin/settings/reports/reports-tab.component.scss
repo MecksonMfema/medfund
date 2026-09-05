@@ -102,6 +102,33 @@
     background: rgba(0, 119, 182, 0.1);
     color: #0369a1;
   }
+
+  &.badge-count {
+    background: var(--primary, #0369a1);
+    color: #fff;
+    margin-left: 6px;
+  }
+}
+
+.row-actions {
+  padding-left: 32px;
+  margin-top: 2px;
+}
+
+.link.manage-schedule {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--primary, #0369a1);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+
+  &:hover {
+    text-decoration: underline;
+  }
 }
 
 .section-header {

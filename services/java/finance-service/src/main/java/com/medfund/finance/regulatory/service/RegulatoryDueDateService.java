@@ -122,6 +122,9 @@ public class RegulatoryDueDateService {
                 yield new Period(LocalDate.of(priorYear, 1, 1), LocalDate.of(priorYear, 12, 31));
             }
             case EVENT_DRIVEN -> new Period(today, today);
+            case WEEKLY -> throw new IllegalArgumentException(
+                    "WEEKLY cadence is a Phase 17 scheduling-only value; regulator due-date "
+                            + "catalog does not map any key to it");
         };
     }
 

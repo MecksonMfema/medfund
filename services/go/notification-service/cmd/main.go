@@ -34,6 +34,7 @@ import (
 	"github.com/medfund/notification-service/internal/receipt"
 	"github.com/medfund/notification-service/internal/recipient"
 	"github.com/medfund/notification-service/internal/regulatory"
+	"github.com/medfund/notification-service/internal/report"
 	"github.com/medfund/notification-service/internal/retry"
 	"github.com/medfund/notification-service/internal/storage"
 	"github.com/medfund/notification-service/internal/template"
@@ -220,6 +221,42 @@ func main() {
 	}
 	regulatoryDispatcher := regulatory.NewDispatcher(regulatoryRecipients, sender, cfg.SMTPFrom)
 
+	// Phase 17 §S2 — scheduled operational report delivery. Consumer
+	// runs as long as tenancy-service is reachable + kafka is reachable.
+	// Signed-link path only fires when SCHEDULED_REPORT_DOWNLOAD_TOKEN_SECRET
+	// is set — otherwise oversized XLSXs would produce broken tokens; in
+	// that case the dispatcher fails the per-recipient send with a clear
+	// error rather than sending an unusable URL. Deploy-order per F-S9:
+	// this consumer must be live before finance-service's probe starts
+	// publishing.
+	var reportTenancy *report.HTTPTenancyClient
+	if cfg.TenancyServiceURL != "" {
+		reportTenancy = report.NewHTTPTenancyClient(cfg.TenancyServiceURL)
+	}
+	var reportSignedURL *report.SignedURLBuilder
+	if cfg.ScheduledDownloadSecret != "" {
+		reportSignedURL = report.NewSignedURLBuilder(cfg.ScheduledReportDownloadURL,
+			cfg.ScheduledDownloadSecret, 7*24*time.Hour)
+	} else {
+		log.Printf("[notification] SCHEDULED_REPORT_DOWNLOAD_TOKEN_SECRET empty — oversize XLSX deliveries will fail")
+	}
+	reportUnsubscribeURL := report.NewUnsubscribeURLBuilder(cfg.ScheduledUnsubscribeWebURL)
+	var reportFetcher report.BlobFetcher
+	if fetcher != nil {
+		reportFetcher = fetcher
+	}
+	var reportRecipients report.RecipientLookup
+	var reportTenantMeta report.TenantMetadataLookup
+	if reportTenancy != nil {
+		reportRecipients = reportTenancy
+		reportTenantMeta = reportTenancy
+	}
+	reportDispatcher := report.NewDispatcher(
+		sender, cfg.SMTPFrom,
+		reportRecipients, reportTenantMeta,
+		reportFetcher, cfg.ReportPayloadsBucket,
+		reportSignedURL, reportUnsubscribeURL)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	if cfg.KafkaBrokers != "" && fetcher != nil {
 		go runInvoiceConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID,
@@ -277,6 +314,12 @@ func main() {
 	} else {
 		log.Printf("[notification] regulatory due-date consumer disabled (kafka=%q tenancyService=%v)",
 			cfg.KafkaBrokers, regulatoryRecipients != nil)
+	}
+	if cfg.KafkaBrokers != "" && reportRecipients != nil {
+		report.Run(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID, reportDispatcher)
+	} else {
+		log.Printf("[notification] scheduled report consumer disabled (kafka=%q tenancyService=%v)",
+			cfg.KafkaBrokers, reportRecipients != nil)
 	}
 
 	// Phase 22 REG8 + Phase 24 — AML/STR alert fan-out. Stub consumer:

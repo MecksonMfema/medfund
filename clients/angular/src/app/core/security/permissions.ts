@@ -74,6 +74,8 @@ export type PermissionKey =
   | 'tenant.settings:manage_actuarial_bases'
   | 'tenant.settings:manage_regulatory_templates'
   | 'tenant.settings:manage_regulatory_notifications'
+  | 'tenant.settings:manage_report_schedules'
+  | 'tenant.settings:tenant_admin'
   // Underwriting (Phase 12 §A + §C)
   | 'underwriting.portfolio:manage' | 'underwriting.cohort:manage'
   | 'premium.earning:manage_backfill' | 'premium.earning:view_debug'
@@ -83,7 +85,9 @@ export type PermissionKey =
   | 'compliance:aml_file' | 'compliance:aml_close'
   | 'compliance:aml_configure_thresholds'
   // Platform administration (super-admin only)
-  | 'platform:view_jobs' | 'platform:manage_jobs';
+  | 'platform:view_jobs' | 'platform:manage_jobs'
+  // Internal M2M-only (Phase 17 §A.3)
+  | 'scheduled_report:render';
 
 export interface PermissionDescriptor {
   key: PermissionKey;
@@ -241,6 +245,8 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'tenant.settings:manage_actuarial_bases',      label: 'Manage actuarial basis tables',     description: 'Add, edit, or delete per-tenant persistency / mortality / morbidity basis rows consumed by the actuarial studies (Phase 14 §2).' },
       { key: 'tenant.settings:manage_regulatory_templates', label: 'Manage regulator XLSX templates',   description: 'Upload / delete tenant-side overrides of the bundled regulator XLSX templates (IPEC, CMS, NAIC, PMB, VAT, tax-withheld, AML) consumed by the regulatory report exporter (Phase 16 §0 REG3).' },
       { key: 'tenant.settings:manage_regulatory_notifications', label: 'Manage regulator due-date recipients', description: 'Add, edit, or delete the tenant\'s email recipient list for the RegulatoryDueDateScanner reminders (7d / 1d / due / overdue) — Phase 16 §0 REG20.' },
+      { key: 'tenant.settings:manage_report_schedules',     label: 'Manage scheduled report delivery',  description: 'Create, edit, delete, and re-run scheduled report delivery configurations and their recipient lists (Phase 17 §A.1). Also grants access to the schedule run history.' },
+      { key: 'tenant.settings:tenant_admin',                label: 'Tenant admin — privileged actions', description: 'Umbrella capability for privileged tenant-scoped actions such as the test-only ScheduledReportProbe force-fire endpoint (Phase 17 §A.2). Grant sparingly.' },
     ],
   },
   {
@@ -272,6 +278,7 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
     permissions: [
       { key: 'platform:view_jobs',               label: 'View scheduled jobs',              description: 'View scheduled job configs and recent run history. Platform admins only.' },
       { key: 'platform:manage_jobs',             label: 'Manage scheduled jobs',            description: 'Manually trigger jobs and edit schedules. Platform admins only.' },
+      { key: 'scheduled_report:render',          label: 'Render scheduled report (M2M)',    description: 'Internal service-to-service permission held by finance-service\'s M2M client so it can call each owner service\'s scheduled-render endpoint (Phase 17 §A.3). Never grant to a human role.' },
     ],
   },
 ];

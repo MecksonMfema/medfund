@@ -11,6 +11,8 @@ import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
         "com.medfund.finance.producer.repository",
         // Phase 16 §5 REG12 regulator submission log.
         "com.medfund.finance.regulatory.repository",
+        // Phase 16 REG8 AML STR alert workflow — SuspiciousTransactionAlertRepository.
+        "com.medfund.finance.regulatory.aml.repository",
         // Phase 15 §1 rename — actuarial.repository is now empty (its sole
         // occupant ActuarialReportJobRepository moved to report.repository as
         // ReportJobRepository). Kept in the scan list until §23 removes it.

@@ -1,0 +1,62 @@
+<div class="run-history">
+  <div class="header">
+    <span class="hint">Newest {{ limit }} fires</span>
+    <button type="button" class="btn-refresh" (click)="load()" [disabled]="loading">
+      Refresh
+    </button>
+  </div>
+
+  <app-skeleton *ngIf="loading" />
+
+  <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+  <table class="run-table" *ngIf="!loading && runs.length > 0">
+    <thead>
+      <tr>
+        <th>Fired at</th>
+        <th>Period</th>
+        <th>Status</th>
+        <th>Duration</th>
+        <th class="actions-col">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let r of runs">
+        <td>{{ r.requestedAt | date: 'medium' }}</td>
+        <td>
+          <ng-container *ngIf="r.periodStart">
+            {{ r.periodStart }}<ng-container *ngIf="r.periodEnd && r.periodEnd !== r.periodStart">
+              → {{ r.periodEnd }}</ng-container>
+          </ng-container>
+          <ng-container *ngIf="!r.periodStart">—</ng-container>
+        </td>
+        <td>
+          <span class="pill" [ngClass]="statusPillClass(r.status)"
+                [title]="r.errorMessage || ''">
+            {{ r.status }}
+          </span>
+        </td>
+        <td>
+          <ng-container *ngIf="durationSeconds(r) !== null">
+            {{ durationSeconds(r) | number: '1.0-1' }}s
+          </ng-container>
+          <ng-container *ngIf="durationSeconds(r) === null">—</ng-container>
+        </td>
+        <td class="actions-col">
+          <button type="button" class="btn-icon" (click)="download(r)"
+                  [disabled]="!r.hasXlsx" title="Download XLSX">
+            <app-icon name="download" />
+          </button>
+          <button type="button" class="btn-icon" (click)="rerun(r)"
+                  [disabled]="rerunning[r.jobId]" title="Re-run for the same period">
+            <app-icon name="history" />
+          </button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="empty" *ngIf="!loading && !errorMessage && runs.length === 0">
+    No fires yet — history will populate once the schedule runs.
+  </p>
+</div>

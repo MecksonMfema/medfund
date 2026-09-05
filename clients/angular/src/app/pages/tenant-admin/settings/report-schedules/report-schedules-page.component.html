@@ -1,0 +1,197 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Report schedules</h1>
+      <p class="hint">
+        Automatically deliver cadenced reports to a list of recipients. Only reports
+        marked as cadenceable appear here — regulator and IFRS 17 keys are not
+        schedulable in v1.
+      </p>
+    </div>
+    <a class="btn secondary" routerLink="/tenant/admin/settings">
+      Back to settings
+    </a>
+  </header>
+
+  <app-skeleton *ngIf="loading" />
+
+  <div class="error" *ngIf="errorMessage">{{ errorMessage }}</div>
+
+  <ng-container *ngIf="!loading && !errorMessage">
+
+    <!-- Existing schedules, grouped by family -->
+    <section *ngFor="let group of groups" class="family-group">
+      <h2>{{ group.familyLabel }}</h2>
+
+      <article *ngFor="let card of group.cards"
+               class="schedule-card"
+               [id]="card.row.reportKey"
+               [class.card-disabled]="!card.row.enabled">
+        <header class="card-header">
+          <div class="card-title">
+            <span class="label">{{ card.row.reportLabel }}</span>
+            <span class="cadence-chip">
+              {{ cadenceLabel(card.row.cadence) }} · {{ hourLabel(card.row.hourOfDay) }}
+            </span>
+            <span *ngIf="!card.configEnabled" class="warning-chip"
+                  title="Report is disabled in Settings → Reports. This schedule cannot fire.">
+              Report disabled
+            </span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox"
+                   [(ngModel)]="card.row.enabled"
+                   (change)="toggleEnabled(card)"
+                   [disabled]="card.saving">
+            <span>{{ card.row.enabled ? 'Enabled' : 'Paused' }}</span>
+          </label>
+        </header>
+
+        <div class="card-body">
+          <div class="form-grid">
+            <div class="field">
+              <label>Cadence</label>
+              <app-select [(ngModel)]="card.row.cadence"
+                          [options]="cadenceOptions"
+                          (ngModelChange)="saveCard(card)" />
+            </div>
+
+            <div class="field" *ngIf="card.row.cadence === 'WEEKLY'">
+              <label>Day of week</label>
+              <app-select [(ngModel)]="card.row.dayOfWeek"
+                          [options]="dayOfWeekOptions"
+                          (ngModelChange)="saveCard(card)" />
+            </div>
+
+            <div class="field" *ngIf="card.row.cadence === 'MONTHLY'">
+              <label>Day of month</label>
+              <app-select [(ngModel)]="card.row.dayOfMonth"
+                          [options]="dayOfMonthOptions"
+                          (ngModelChange)="saveCard(card)" />
+              <span class="micro-hint">Capped at 28 to avoid the Feb boundary.</span>
+            </div>
+
+            <div class="field">
+              <label>Hour (tenant TZ)</label>
+              <app-select [(ngModel)]="card.row.hourOfDay"
+                          [options]="hourOptions"
+                          (ngModelChange)="saveCard(card)" />
+            </div>
+
+            <div class="field">
+              <label>Reporting currency (optional)</label>
+              <input type="text"
+                     [(ngModel)]="card.row.reportingCurrency"
+                     (change)="saveCard(card)"
+                     placeholder="Tenant default"
+                     maxlength="3"
+                     class="currency-input">
+              <span class="micro-hint">Leave blank to use the tenant's default currency.</span>
+            </div>
+          </div>
+
+          <div class="card-toolbar">
+            <button type="button" class="link-btn"
+                    (click)="toggleRecipients(card)">
+              <app-icon [name]="card.showRecipients ? 'chevron-down' : 'chevron-right'" />
+              Recipients ({{ activeRecipientCount(card) }} active)
+            </button>
+            <button type="button" class="link-btn"
+                    (click)="toggleRuns(card)">
+              <app-icon [name]="card.showRuns ? 'chevron-down' : 'chevron-right'" />
+              Run history
+            </button>
+            <span class="spacer"></span>
+            <button type="button" class="btn danger-link"
+                    (click)="deleteCard(card)"
+                    [disabled]="card.saving">
+              Delete schedule
+            </button>
+          </div>
+
+          <div *ngIf="card.showRecipients" class="panel">
+            <app-schedule-recipient-list
+              [scheduleId]="card.row.id"
+              [recipients]="card.row.recipients"
+              (changed)="onRecipientsChanged(card)" />
+          </div>
+
+          <div *ngIf="card.showRuns" class="panel">
+            <app-schedule-run-history [scheduleId]="card.row.id" />
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- No schedules yet -->
+    <div *ngIf="groups.length === 0" class="empty-state">
+      <p>No schedules configured yet — add one below to start receiving delivered reports.</p>
+    </div>
+
+    <!-- Add a schedule -->
+    <section *ngIf="eligibleCandidates.length > 0" class="add-section">
+      <h2>Add a schedule</h2>
+      <p class="hint">Pick a report and set the cadence — the first fire happens on the next matching tick.</p>
+
+      <div class="candidate-grid">
+        <div *ngFor="let cand of eligibleCandidates"
+             class="candidate"
+             [class.open]="createOpenFor === cand.reportKey">
+          <div class="candidate-head">
+            <div>
+              <span class="candidate-label">{{ cand.label }}</span>
+              <span class="candidate-family">{{ cand.familyLabel }}</span>
+            </div>
+            <button type="button" class="btn primary small"
+                    (click)="openCreate(cand)"
+                    [disabled]="createOpenFor === cand.reportKey">
+              {{ createOpenFor === cand.reportKey ? 'Editing…' : 'Create schedule' }}
+            </button>
+          </div>
+
+          <div *ngIf="createOpenFor === cand.reportKey" class="candidate-form">
+            <div class="form-grid">
+              <div class="field">
+                <label>Cadence</label>
+                <app-select [(ngModel)]="createDraft.cadence" [options]="cadenceOptions" />
+              </div>
+              <div class="field" *ngIf="createDraft.cadence === 'WEEKLY'">
+                <label>Day of week</label>
+                <app-select [(ngModel)]="createDraft.dayOfWeek" [options]="dayOfWeekOptions" />
+              </div>
+              <div class="field" *ngIf="createDraft.cadence === 'MONTHLY'">
+                <label>Day of month</label>
+                <app-select [(ngModel)]="createDraft.dayOfMonth" [options]="dayOfMonthOptions" />
+              </div>
+              <div class="field">
+                <label>Hour (tenant TZ)</label>
+                <app-select [(ngModel)]="createDraft.hourOfDay" [options]="hourOptions" />
+              </div>
+              <div class="field">
+                <label>Reporting currency (optional)</label>
+                <input type="text" [(ngModel)]="createDraft.reportingCurrency"
+                       placeholder="Tenant default" maxlength="3" class="currency-input">
+              </div>
+              <div class="field checkbox">
+                <label>
+                  <input type="checkbox" [(ngModel)]="createDraft.enabled">
+                  Enabled on save
+                </label>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn" (click)="closeCreate()" [disabled]="creating">
+                Cancel
+              </button>
+              <button type="button" class="btn primary" (click)="submitCreate()"
+                      [disabled]="creating">
+                {{ creating ? 'Creating…' : 'Create' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </ng-container>
+</div>

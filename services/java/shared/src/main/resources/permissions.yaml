@@ -150,6 +150,8 @@ domains:
       - { key: "tenant.settings:manage_regulatory_notifications", label: "Manage regulator due-date recipients", description: "Add, edit, or delete the tenant's email recipient list for the RegulatoryDueDateScanner reminders (7d / 1d / due / overdue) — Phase 16 §0 REG20." }
       - { key: "tenant.settings:manage_naic_config",           label: "Manage NAIC company identity",      description: "Manage the per-tenant US NAIC identity (state of domicile, company code, group code, FEIN) consumed by the NAIC Schedule P/F shapers (Phase 16 §A / Phase 14 REG16). US-only surface." }
       - { key: "tenant.settings:manage_tax_config",            label: "Manage tenant tax rates",           description: "Manage per-tenant statutory tax rates (VAT + Withholding) per transaction category × currency, consumed by the VAT Return + TaxWithheldReturn shapers (Phase 16 §C / Phase 19 REG9)." }
+      - { key: "tenant.settings:manage_report_schedules",      label: "Manage scheduled report delivery",  description: "Create, edit, delete, and re-run scheduled report delivery configurations and their recipient lists (Phase 17 §A.1). Also grants access to the schedule run history." }
+      - { key: "tenant.settings:tenant_admin",                 label: "Tenant admin — privileged actions", description: "Umbrella capability for privileged tenant-scoped actions such as the test-only ScheduledReportProbe force-fire endpoint (Phase 17 §A.2). Grant sparingly." }
 
   - id: underwriting
     label: Underwriting
@@ -177,3 +179,4 @@ domains:
     permissions:
       - { key: "platform:view_jobs",                label: "View scheduled jobs",               description: "View scheduled job configs and recent run history. Platform admins only." }
       - { key: "platform:manage_jobs",              label: "Manage scheduled jobs",             description: "Manually trigger jobs and edit schedules. Platform admins only." }
+      - { key: "scheduled_report:render",           label: "Render scheduled report (M2M)",     description: "Internal service-to-service permission held by finance-service's M2M client so it can call each owner service's POST /api/v1/reports/{reportKey}/scheduled-render endpoint (Phase 17 §A.3). Never grant to a human role." }

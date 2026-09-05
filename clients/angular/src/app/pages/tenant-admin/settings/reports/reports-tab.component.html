@@ -63,13 +63,28 @@
                   <span class="report-label">
                     <span class="report-name">{{ row.label }}</span>
                     @if (row.cadenced) {
-                      <span class="badge badge-cadenced" title="Suitable for scheduled email delivery (Phase 17)">
+                      <span class="badge badge-cadenced" title="Suitable for scheduled email delivery">
                         Cadenced
                       </span>
                     }
                   </span>
                   <span class="report-key">{{ row.reportKey }}</span>
                 </label>
+                @if (row.cadenced) {
+                  <div class="row-actions">
+                    <button
+                      type="button"
+                      class="link manage-schedule"
+                      (click)="manageSchedule(row)"
+                      [title]="'Manage scheduled email delivery for ' + row.label"
+                    >
+                      Manage schedule
+                      @if (row.activeScheduleCount && row.activeScheduleCount > 0) {
+                        <span class="badge badge-count">{{ row.activeScheduleCount }}</span>
+                      }
+                    </button>
+                  </div>
+                }
               </li>
             }
           </ul>
