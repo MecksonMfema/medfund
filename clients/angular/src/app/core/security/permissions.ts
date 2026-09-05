@@ -86,8 +86,9 @@ export type PermissionKey =
   | 'compliance:aml_configure_thresholds'
   // Platform administration (super-admin only)
   | 'platform:view_jobs' | 'platform:manage_jobs'
-  // Internal M2M-only (Phase 17 §A.3)
-  | 'scheduled_report:render';
+  // Internal M2M-only (Phase 17 §A.3 + Phase 18 executive KPI composer)
+  | 'scheduled_report:render'
+  | 'contributions:read_aggregate' | 'claims:read_aggregate';
 
 export interface PermissionDescriptor {
   key: PermissionKey;
@@ -279,6 +280,8 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'platform:view_jobs',               label: 'View scheduled jobs',              description: 'View scheduled job configs and recent run history. Platform admins only.' },
       { key: 'platform:manage_jobs',             label: 'Manage scheduled jobs',            description: 'Manually trigger jobs and edit schedules. Platform admins only.' },
       { key: 'scheduled_report:render',          label: 'Render scheduled report (M2M)',    description: 'Internal service-to-service permission held by finance-service\'s M2M client so it can call each owner service\'s scheduled-render endpoint (Phase 17 §A.3). Never grant to a human role.' },
+      { key: 'contributions:read_aggregate',     label: 'Read contributions aggregate (M2M)', description: 'Internal service-to-service permission held by finance-service\'s M2M client so it can call contributions-service\'s cross-service aggregate feeds consumed by the Phase 18 executive KPI composer. Never grant to a human role.' },
+      { key: 'claims:read_aggregate',            label: 'Read claims aggregate (M2M)',      description: 'Internal service-to-service permission held by finance-service\'s M2M client so it can call claims-service\'s cross-service aggregate feeds consumed by the Phase 18 executive KPI composer. Never grant to a human role.' },
     ],
   },
 ];

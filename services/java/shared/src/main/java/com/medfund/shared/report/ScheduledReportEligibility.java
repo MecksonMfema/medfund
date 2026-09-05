@@ -30,7 +30,16 @@ public final class ScheduledReportEligibility {
             ReportKey.PROVIDER_NETWORK_UTILIZATION,
             ReportKey.REINSURANCE_CESSION_BORDEREAU,
             ReportKey.REINSURANCE_RECOVERIES,
-            ReportKey.UPR_MOVEMENT
+            ReportKey.UPR_MOVEMENT,
+            // Phase 18 §Phase 8 — executive KPI dashboards. Every KPI carries
+            // its own composite ratio + per-currency breakdown; the
+            // corresponding adapter delegates to KpiWorkbookService for a
+            // 2-sheet workbook (Summary + Trend). K11 whitelist widening.
+            ReportKey.LOSS_RATIO_KPI,
+            ReportKey.EXPENSE_RATIO,
+            ReportKey.COMBINED_RATIO,
+            ReportKey.CLAIMS_FREQUENCY,
+            ReportKey.AVERAGE_SEVERITY
     );
 
     private ScheduledReportEligibility() {}

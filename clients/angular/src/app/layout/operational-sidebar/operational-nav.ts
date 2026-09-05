@@ -171,6 +171,11 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
       // Single "Endorsement Review" peer entry per plan; drafting stays
       // on the per-policy endorsement page under /tenant/policies.
       { label: 'Endorsement Review',    icon: 'shield',      route: '/tenant/finance/underwriting/endorsements/review-queue', permissions: ['policy:approve_endorsement'] },
+      // Phase 7 (financial-reporting Phase 18) — executive KPI batch page.
+      // reportKey stamps COMBINED_RATIO so the sidebar hides the entry only
+      // when the tenant has disabled every KPI (matches the batch endpoint
+      // gate).
+      { label: 'Executive KPIs',     icon: 'chart',        route: '/tenant/finance/reports/kpi',           permissions: ['finance:view_subledger'], reportKey: 'COMBINED_RATIO' },
       { label: 'Reports',            icon: 'chart',        route: '/tenant/finance/reports',               permissions: ['finance:view_debtors', 'finance:view_subledger'] },
     ],
   },

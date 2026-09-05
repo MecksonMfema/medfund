@@ -1,0 +1,61 @@
+<div
+  class="kpi-tile"
+  [class.disabled]="loading"
+  [class.clickable]="hasDrillTarget && !loading"
+  [attr.role]="hasDrillTarget ? 'button' : null"
+  [attr.tabindex]="hasDrillTarget && !loading ? 0 : null"
+  (click)="onTileClick()"
+  (keydown.enter)="onTileClick()"
+  (keydown.space)="onTileClick()"
+>
+  <header>
+    <h3>{{ label }}</h3>
+    @if (basisNote) {
+      <span class="basis-note" [title]="basisTooltip" aria-label="Basis note">ⓘ</span>
+    }
+    <span
+      class="trend-arrow"
+      [class.up]="trendDirection === 'up'"
+      [class.down]="trendDirection === 'down'"
+      [class.flat]="trendDirection === 'flat'"
+      aria-hidden="true"
+    ></span>
+  </header>
+
+  <div class="composite">
+    {{ composite !== null ? (composite | percent:'1.1-1') : '—' }}
+  </div>
+
+  <app-sparkline [data]="sparklineData" [height]="60"></app-sparkline>
+
+  @if (perCurrencyList.length) {
+    <div class="per-currency">
+      @for (entry of perCurrencyList; track entry.currency) {
+        <span class="chip">
+          {{ entry.currency }} {{ entry.value.ratio !== null ? (entry.value.ratio | percent:'1.0-1') : '—' }}
+        </span>
+      }
+    </div>
+  }
+
+  <footer class="tile-footer">
+    <span>Period: {{ periodLabel || '—' }}</span>
+    <button
+      type="button"
+      class="btn-export"
+      [disabled]="loading || exporting"
+      (click)="onExportClick($event)"
+      aria-label="Export XLSX"
+    >
+      {{ exporting ? 'Exporting…' : 'Export XLSX' }}
+    </button>
+  </footer>
+
+  @if (warnings.length) {
+    <div class="warnings">
+      @for (w of warnings; track w) {
+        <span class="warning">⚠ {{ w }}</span>
+      }
+    </div>
+  }
+</div>

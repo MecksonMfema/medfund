@@ -37,6 +37,14 @@ const REPORT_ROUTES: Record<string, string> = {
   MORBIDITY_STUDY: '/tenant/finance/reports/actuarial/morbidity-study',
   IFRS17_LRC_LIC_RECONCILIATION: '/tenant/finance/reports/ifrs17/lrc-lic-reconciliation',
   IFRS17_INSURANCE_REVENUE_SERVICE_RESULT: '/tenant/finance/reports/ifrs17/insurance-revenue-service-result',
+  // Phase 7 — every executive KPI card in the hub deep-links into the
+  // shared batch dashboard. Individual tile visibility on the dashboard
+  // is gated per-key against the tenant's report toggles.
+  LOSS_RATIO_KPI:   '/tenant/finance/reports/kpi',
+  EXPENSE_RATIO:    '/tenant/finance/reports/kpi',
+  COMBINED_RATIO:   '/tenant/finance/reports/kpi',
+  CLAIMS_FREQUENCY: '/tenant/finance/reports/kpi',
+  AVERAGE_SEVERITY: '/tenant/finance/reports/kpi',
 };
 
 /**

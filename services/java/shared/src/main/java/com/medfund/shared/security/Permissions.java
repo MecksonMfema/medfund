@@ -219,6 +219,16 @@ public final class Permissions {
      *  owner-service scheduled-render endpoints (Phase 17 §A.3). Never grant to a human role. */
     public static final String SCHEDULED_REPORT_RENDER           = "scheduled_report:render";
 
+    /** Internal M2M-only: finance-service's client_credentials token holds this so it can call
+     *  contributions-service cross-service aggregate feeds used by the Phase 18 executive KPI
+     *  composer. Never grant to a human role. */
+    public static final String CONTRIBUTIONS_READ_AGGREGATE      = "contributions:read_aggregate";
+
+    /** Internal M2M-only: finance-service's client_credentials token holds this so it can call
+     *  claims-service cross-service aggregate feeds used by the Phase 18 executive KPI composer.
+     *  Never grant to a human role. */
+    public static final String CLAIMS_READ_AGGREGATE             = "claims:read_aggregate";
+
     /** Every key the platform recognises. Validation gate for tenant-admin role edits. */
     public static final Set<String> ALL = Set.of(
             CLAIMS_VIEW, CLAIMS_CREATE, CLAIMS_ASSESS, CLAIMS_ADJUDICATE, CLAIMS_REJECT,
@@ -286,6 +296,7 @@ public final class Permissions {
 
             PLATFORM_VIEW_JOBS, PLATFORM_MANAGE_JOBS,
 
-            SCHEDULED_REPORT_RENDER
+            SCHEDULED_REPORT_RENDER,
+            CONTRIBUTIONS_READ_AGGREGATE, CLAIMS_READ_AGGREGATE
     );
 }

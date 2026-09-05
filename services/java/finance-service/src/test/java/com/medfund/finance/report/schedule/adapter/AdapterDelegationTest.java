@@ -1,14 +1,18 @@
 package com.medfund.finance.report.schedule.adapter;
 
+import com.medfund.finance.kpi.dto.KpiRequest;
+import com.medfund.finance.kpi.service.KpiWorkbookService;
 import com.medfund.finance.producer.service.CommissionWorkbookService;
 import com.medfund.finance.reinsurance.service.BordereauReportWorkbookService;
 import com.medfund.finance.report.schedule.ScheduledFireContext;
+import com.medfund.finance.report.schedule.ScheduledReportShapeAdapter;
 import com.medfund.finance.service.CollectionRateExcelService;
 import com.medfund.finance.service.LossRatioExcelService;
 import com.medfund.shared.report.ReportKey;
 import com.medfund.shared.report.ReportPeriodShape;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
@@ -40,6 +44,7 @@ class AdapterDelegationTest {
     @Mock private LossRatioExcelService lossRatioService;
     @Mock private CollectionRateExcelService collectionRateService;
     @Mock private BordereauReportWorkbookService bordereauService;
+    @Mock private KpiWorkbookService kpiWorkbookService;
 
     private static final UUID TENANT = UUID.randomUUID();
     private static final UUID SCHEDULE = UUID.randomUUID();
@@ -132,6 +137,61 @@ class AdapterDelegationTest {
 
         verify(bordereauService).recoveriesWorkbook(isNull(), isNull(), eq(2026), eq(3),
                 eq("USD"), eq(TENANT));
+    }
+
+    // ── Phase 18 §Phase 8 — KPI adapters ────────────────────────────────
+
+    /** Every KPI adapter is a one-line delegation: same context → same
+     *  {@link KpiRequest} with schedule-scope filter chips (null). */
+    private void assertKpiAdapter(ScheduledReportShapeAdapter adapter,
+                                  ReportKey expectedKey) {
+        when(kpiWorkbookService.workbook(eq(expectedKey), any(KpiRequest.class)))
+                .thenReturn(Mono.just(new byte[]{1}));
+
+        assertThat(adapter.key()).isEqualTo(expectedKey);
+        assertThat(adapter.periodShape()).isEqualTo(ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD);
+
+        StepVerifier.create(adapter.render(ctx(expectedKey)))
+                .expectNextCount(1)
+                .verifyComplete();
+
+        ArgumentCaptor<KpiRequest> captor = ArgumentCaptor.forClass(KpiRequest.class);
+        verify(kpiWorkbookService).workbook(eq(expectedKey), captor.capture());
+        KpiRequest req = captor.getValue();
+        assertThat(req.tenantId()).isEqualTo(TENANT);
+        assertThat(req.periodStart()).isEqualTo(PS);
+        assertThat(req.periodEnd()).isEqualTo(PE);
+        assertThat(req.reportingCurrency()).isEqualTo("USD");
+        // K13: filter chips are never populated on scheduled fires — the
+        // schedule scope is tenant-wide.
+        assertThat(req.insuranceLine()).isNull();
+        assertThat(req.schemeId()).isNull();
+        assertThat(req.producerId()).isNull();
+    }
+
+    @Test
+    void lossRatioKpiAdapter_delegatesToWorkbookServiceWithTenantWideSlice() {
+        assertKpiAdapter(new LossRatioKpiAdapter(kpiWorkbookService), ReportKey.LOSS_RATIO_KPI);
+    }
+
+    @Test
+    void expenseRatioAdapter_delegatesToWorkbookServiceWithTenantWideSlice() {
+        assertKpiAdapter(new ExpenseRatioAdapter(kpiWorkbookService), ReportKey.EXPENSE_RATIO);
+    }
+
+    @Test
+    void combinedRatioAdapter_delegatesToWorkbookServiceWithTenantWideSlice() {
+        assertKpiAdapter(new CombinedRatioAdapter(kpiWorkbookService), ReportKey.COMBINED_RATIO);
+    }
+
+    @Test
+    void claimsFrequencyAdapter_delegatesToWorkbookServiceWithTenantWideSlice() {
+        assertKpiAdapter(new ClaimsFrequencyAdapter(kpiWorkbookService), ReportKey.CLAIMS_FREQUENCY);
+    }
+
+    @Test
+    void averageSeverityAdapter_delegatesToWorkbookServiceWithTenantWideSlice() {
+        assertKpiAdapter(new AverageSeverityAdapter(kpiWorkbookService), ReportKey.AVERAGE_SEVERITY);
     }
 
     @Test

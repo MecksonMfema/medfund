@@ -1,6 +1,9 @@
 package com.medfund.claims.controller;
 
 import com.medfund.claims.dto.ClaimsAggregateRow;
+import com.medfund.claims.dto.ClaimsIncurredAggregateRow;
+import com.medfund.claims.repository.ClaimsAggregateQueryRepository.Dimension;
+import com.medfund.claims.service.ClaimsAggregateService;
 import com.medfund.claims.service.ClaimsReportService;
 import com.medfund.shared.report.MonthlyAggregateRow;
 import com.medfund.shared.report.ReportEnvelopeBuilder;
@@ -19,7 +22,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Cross-service aggregate endpoints for Phase 5 loss-ratio and Phase 8
@@ -46,6 +51,7 @@ public class ClaimsAggregateController {
 
     private final ClaimsReportService claimsReportService;
     private final ReportEnvelopeBuilder envelopeBuilder;
+    private final ClaimsAggregateService claimsAggregateService;
 
     @GetMapping("/claims")
     @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
@@ -86,5 +92,28 @@ public class ClaimsAggregateController {
                 period,
                 reportingCurrency,
                 claimsReportService.aggregateMonthly(dimension, period.periodStart(), period.periodEnd()));
+    }
+
+    @GetMapping("/claims-incurred")
+    @RequiresPermission(Permissions.CLAIMS_READ_AGGREGATE)
+    @Operation(summary = "Incurred claims per (currency[, line][, scheme]) — paid + Δreserve for the period",
+            description = "K9: totalPaid + (reserveBalanceEnd - reserveBalanceStart). IBNR is NOT "
+                        + "included; the KPI composer adds it from the latest report_job IBNR run. "
+                        + "reserveBalance(T) uses DISTINCT ON (claim_id) with effective_at <= T on "
+                        + "claim_reserve_history. Period clock is claims.adjudicated_at (K9 originally "
+                        + "named paid_at + claim_details.paid_amount but neither exists on the tenant "
+                        + "schema — claims.paid_amount is a direct column set by finance-service).")
+    public Mono<List<ClaimsIncurredAggregateRow>> claimsIncurred(
+            @RequestParam String periodStart,
+            @RequestParam String periodEnd,
+            @RequestParam(defaultValue = "TENANT") Dimension dimension,
+            @RequestParam(required = false) String insuranceLine,
+            @RequestParam(required = false) UUID schemeId) {
+        return claimsAggregateService.claimsIncurred(
+                LocalDate.parse(periodStart),
+                LocalDate.parse(periodEnd),
+                dimension,
+                insuranceLine,
+                schemeId);
     }
 }

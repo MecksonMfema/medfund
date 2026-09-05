@@ -27,9 +27,10 @@ phases_status:
   "15": grilled 2026-08-28 (I1..I30 — IFRS-17-pack decisions numbered `I*` for IFRS 17 to avoid collision with plan-wide `G*` numbering (G1..G44) and with prior phase prefixes R*/P*/U*/L*/A*; plus F15-1..F15-15 settled-by-fact; full expanded scope replaces the 12-line outline; single sub-plan `thoughts/shared/plans/2026-08-28-ifrs17-pack.md` planned via `create-plan` at implement time per I7 with ~20-25 verifiable phases; scope escalated substantially beyond the original outline — three-model end-to-end per I1 (PAA + GMM + VFA), full VFA entity model per I4 (unit_linked_fund + fund_nav_history + policy_unit_ledger + variable_fee_schedule), full GMM projection engine per I5 (tenant_yield_curve + tenant_expense_assumption + Phase-14 basis reuse), rename Phase-14 actuarial_report_job → report_job with 3-phase dual-write sequence per I10 + I22, chunk + MinIO fallback per I14 + I25, IBNR + CoC→CI sub-job dependency chain per I24 + I6, split retention per I28, notification-service dispatcher per I30 + rules-engine IFRS17_MODEL category per I2/I9/I17)
   "16": grilled 2026-08-30 (REG1..REG21 — regulatory-format-reports decisions numbered `REG*` for Regulatory to avoid collision with plan-wide `G*` numbering and with prior phase prefixes `R*`/`P*`/`U*`/`L*`/`A*`/`I*`; single sub-plan `thoughts/shared/plans/2026-08-30-regulatory-format-reports.md` with 25-30 phases across §0/§A/§B/§C/§D + closeout per REG21); landed 2026-08-30 (commit ba9e65c "Land Phase 16 regulatory-format reports (Phases 1-28)" via sub-plan)
   "17": grilled 2026-08-31 (S1..S13 — scheduled-email-delivery decisions numbered `S*` for Scheduled to avoid collision with plan-wide `G*` numbering and with prior phase prefixes `R*`/`P*`/`U*`/`L*`/`A*`/`I*`/`REG*`; scope narrowed from all 24 cadenced ReportKeys to 13 non-regulator operational keys per S1 — regulator + IFRS 17 + AML periodic + FRAUD_SIU_REPORT auto-run deferred to Phase 17.5 follow-up; single sub-plan `thoughts/shared/plans/2026-08-31-scheduled-email-delivery.md` with 5 tranches (§0 shared types + migrations, §A backend probe + orchestrator + adapters, §B notification dispatcher, §C Angular, §D e2e + rollout) totaling ~10-12 phases per S13)
-  "18-19": outline depth; each needs its own grilling pass before implementation
-last_grilled_phase: 17
-last_grilled_date: 2026-08-31
+  "18": grilled 2026-09-05 (K1..K18 — executive-KPI-dashboards decisions numbered `K*` for KPI to avoid collision with plan-wide `G*` numbering and with prior phase prefixes `R*` (reinsurance, Phase 10) / `P*` (producer, Phase 11) / `U*` (underwriting, Phase 12) / `L*` (lifecycle, Phase 13) / `A*` (actuarial, Phase 14) / `I*` (IFRS 17, Phase 15) / `REG*` (regulatory, Phase 16) / `S*` (scheduled email, Phase 17); scope escalated beyond outline — 5 KPI keys instead of 3 (K1 adds `CLAIMS_FREQUENCY` + `AVERAGE_SEVERITY`), 5 KPI keys flip to `cadenced=true` (K11) widening Phase 17 S1 whitelist, incurred-basis loss ratio requires new `/aggregate/claims-incurred` on claims-service (K9) + latest-IBNR read from `report_job.result_json` (K9), earned-basis denominator requires new `/aggregate/premium-earned` on contributions-service (K8), commission-only acquisition-ratio proxy for EXPENSE_RATIO with UI rename (K4) requires new `/aggregate/commissions` on finance-service (K7), mixed-basis COMBINED_RATIO with UI footnote (K6), on-demand compute + Redis 15-min TTL (K10), per-currency native rows + reporting-currency composite scalar with fail-loud composite / best-effort envelope (K12), line+scheme+producer 3-chip slicing (K13), 12-month default trend extendable to 24 monthly (K14), KPI tile + `app-sparkline` compact chart + click-through drill-down (K15), route at `/tenant/finance/reports/kpi` under Reports Hub Dashboard family (K16), reuse `finance:reports:view` + `@RequiresReport` (K17); single sub-plan `thoughts/shared/plans/2026-09-05-executive-kpi-dashboards.md` with 3 tranches (§0 enum + aggregates, §A composer + Angular, §B scheduled adapter + e2e) totaling ~6-8 phases per K18)
+  "19": outline depth; needs its own grilling pass before implementation
+last_grilled_phase: 18
+last_grilled_date: 2026-09-05
 ---
 
 # Financial Reporting Suite Implementation Plan
@@ -4442,14 +4443,195 @@ Corrections + contradictions the grill surfaced that touch other sections of the
 
 ## Phase 18: Executive KPI Dashboards
 
+> **Grilled 2026-09-05.** Decisions K1..K18 (numbered `K*` — for KPI — to avoid collision with plan-wide `G*` numbering and with prior phase prefixes `R*` (reinsurance, Phase 10) / `P*` (producer, Phase 11) / `U*` (underwriting, Phase 12) / `L*` (lifecycle, Phase 13) / `A*` (actuarial, Phase 14) / `I*` (IFRS 17, Phase 15) / `REG*` (regulatory, Phase 16) / `S*` (scheduled email, Phase 17)).
+>
+> Original 3-line outline retained below as ~~strike-through~~ for provenance. Scope escalated substantially beyond the outline: 5 KPI keys instead of 3 (K1 adds `CLAIMS_FREQUENCY` + `AVERAGE_SEVERITY`), incurred-basis loss ratio requires new aggregate endpoints on 3 services (K7/K8/K9), 5 KPI keys flip to `cadenced=true` widening Phase 17 S1 whitelist (K11), mixed-basis combined ratio (K6), on-demand + Redis cache storage (K10), per-currency native + composite scalar (K12), 3-chip slicing (K13), 12-month trend with dropdown to 24 (K14), tile + sparkline + click-through (K15).
+
+### Original outline (superseded 2026-09-05 by Decisions Log)
+
+~~Combined ratio + expense ratio + loss ratio dashboards for tenant execs.~~
+
+~~**finance-service** `ExecutiveKpiController`: `/reports/kpi/combined-ratio`, `/loss-ratio`, `/expense-ratio`. Report keys `COMBINED_RATIO`, `LOSS_RATIO_KPI`, `EXPENSE_RATIO`. Composes from billing + claims + expense aggregates.~~
+
+~~**Angular** `pages/tenant/finance/reports/kpi/` — dashboard shell with ratio trend charts.~~
+
 ### Overview
 
-Combined ratio + expense ratio + loss ratio dashboards for tenant execs.
+Executive KPI dashboard for tenant execs consisting of 5 KPI tiles (per K1: `COMBINED_RATIO`, `LOSS_RATIO_KPI`, `EXPENSE_RATIO`, `CLAIMS_FREQUENCY`, `AVERAGE_SEVERITY`) spanning shared (add 2 new enum keys per K1 + flip 5 existing/new keys to `cadenced=true, periodShape=PREVIOUS_COMPLETE_PERIOD` per K11), contributions-service (new `GET /api/v1/reports/aggregate/premium-earned` per K8 for earned-basis loss-ratio denominator), claims-service (new `GET /api/v1/reports/aggregate/claims-incurred` per K9 for paid+Δreserve numerator on incurred loss ratio), finance-service (new `GET /api/v1/reports/aggregate/commissions` per K7 for commission-only acquisition-ratio proxy + new `ExecutiveKpiController` + `KpiComposerService` fanning out via `CrossServiceCallHelper` + Redis 15-min TTL cache per K10 + IBNR lookup from `report_job.result_json` per K9 + K12 per-currency + composite scalar assembly + 5 individual + 1 batch + 5 trend endpoints under `/api/v1/reports/kpi/*` + 5 `ScheduledReportShapeAdapter` implementations for Phase 17 §D orchestrator per K11 + `KpiWorkbookService` for XLSX export), and Angular (new `KpiDashboardComponent` at `/tenant/finance/reports/kpi` per K16 + tile grid + new `app-sparkline` compact-height component per K15 + 3 filter chips for line/scheme/producer per K13 + click-through drill-down navigation per K15 + Reports Hub Dashboard family card + Phase 17 UI whitelist extension for 5 new cadenced keys per K11 consequence). No Flyway migrations (F18-8).
 
-### Changes Required (outline)
+Single sub-plan `thoughts/shared/plans/2026-09-05-executive-kpi-dashboards.md` with 3 tranches (§0 enum + aggregates, §A composer + Angular, §B scheduled adapter + e2e) totaling ~6-8 phases per K18. Full operating ratio (acquisition + admin + investment), acquisition-vs-servicing commission classifier, and `kpi_snapshot` materialized-warm-path deferred to Phase 18.5 follow-up.
 
-- **finance-service** `ExecutiveKpiController`: `/reports/kpi/combined-ratio`, `/loss-ratio`, `/expense-ratio`. Report keys `COMBINED_RATIO`, `LOSS_RATIO_KPI`, `EXPENSE_RATIO`. Composes from billing + claims + expense aggregates.
-- **Angular** `pages/tenant/finance/reports/kpi/` — dashboard shell with ratio trend charts.
+### Decisions Log (K1..K18)
+
+- **K1 — Ratio scope for v1**: **Three ratios + claims frequency + average severity**. Ship `COMBINED_RATIO` + `LOSS_RATIO_KPI` + `EXPENSE_RATIO` plus two new keys `CLAIMS_FREQUENCY` (claim count / policy-months exposure) + `AVERAGE_SEVERITY` (paid / claim count). Both new keys land in `DASHBOARD` family, non-cadenced-then-flipped-by-K11-to-cadenced, as part of Phase 18 §0. Frequency requires a policy-month exposure feed (Phase 13 lifecycle join — dependency surfaces again in K8/K9; sub-plan §0 needs a decision at code altitude between adding `/aggregate/policy-exposure` on contributions-service or approximating with `active_policy_count × period_length_in_months` from Phase 13's active-policy count). Severity is a straight claims-service aggregate (paid ÷ count) using the existing `/api/v1/reports/aggregate/claims` endpoint plus a new count column. Rejected: three-only (executes will demand adjacent KPIs on day 2); +solvency +ROE (needs an accounting ledger + capital-model service that don't exist — two-quarter build, not a phase). Adjacent unbuilt KPIs (solvency, ROE, policy-persistency variants) deferred to Phase 18.5.
+
+- **K2 — Formula: `LOSS_RATIO_KPI` numerator = incurred**: Numerator = paid + Δoutstanding reserves + IBNR. Matches actuarial + IFRS 17 framing. Requires (a) exposing reserve movement via a new `/aggregate/claims-incurred` endpoint on claims-service (K9); (b) reading the latest committed IBNR run per (line, cohort) from Phase 14's `report_job` output (K9). Freshness caveat: if the IBNR job hasn't run for the period, dashboard shows an "IBNR pending" warning banner rather than a zero (invariant #6 spirit). Rejected: paid-only (misleads execs + misaligns with regulator + IFRS 17); dual-line side-by-side (chart clutter + doubles compute; execs still fixate on the single "the ratio" reading).
+
+- **K3 — Formula: `LOSS_RATIO_KPI` denominator = earned premium**: Denominator = earned premium sourced from Phase 12's UPR earning schedule. Requires a new aggregate endpoint on `contributions-service` returning per-(scheme, currency, period) *earned* totals — mirrors the shape of the existing `BillingAggregateController` but reads `EarningSchedule.earned_at_period_end` sums over the period boundaries (see K8 for endpoint shape). Rejected: written premium via billing aggregate (mismatched exposure basis; contradicts the whole reason we built UPR); dual-axis (chart-clutter + "which one is THE ratio" ambiguity + still needs the Phase 12 work).
+
+- **K4 — Formula: `EXPENSE_RATIO` numerator = commission-only (Acquisition Ratio)**: Numerator = paid commission from Phase 11's `commission_statement` for the period. **Renamed on the UI to "Acquisition Ratio"** (or "Commission Ratio") so execs read the honest scope. The `EXPENSE_RATIO` `ReportKey` label stays as-is (it's a code identifier), but the report's `displayLabel` on the catalogue + Angular page title reads "Acquisition Ratio". Requires the new `/aggregate/commissions` endpoint on finance-service (K7). Rejected: manual-entry `operating_expense_entry` table (data-entry burden + two sources of truth vs the tenant's accounting system); IFRS 17 fulfilment cash flows (estimates vs actuals; conflates two audiences). Full operating ratio (acquisition + admin + investment) deferred to Phase 18.5 alongside a general-ledger integration.
+
+- **K5 — Formula: `EXPENSE_RATIO` denominator = written premium**: Denominator = written premium via existing `/api/v1/reports/aggregate/billing` endpoint (`services/java/contributions-service/src/main/java/com/medfund/contributions/controller/BillingAggregateController.java:50-66`). Matches when acquisition cost was actually incurred (commission paid at policy write). NAIC + trade-press convention. Reuses the billing aggregate endpoint verbatim — no new endpoint. **Consequence for K6**: combined ratio carries a "mixed basis" footnote (expense/written + loss/earned). Rejected: earned for both (mismatched timing; underestimates expense ratio early in a policy year); footnoted mixed-basis-with-recompute (subtle to reviewers scanning a widget). IFRS 17 auditor pushback acknowledged and left for the sub-plan to add a per-tenant override switch in a follow-up (v1 uses NAIC).
+
+- **K6 — Formula: `COMBINED_RATIO` = sum with mixed-basis footnote**: Combined = LossRatio(incurred/earned) + ExpenseRatio(commission/written). Widget carries a persistent info-icon tooltip: *"Mixed basis — loss on earned premium, expense on written premium (NAIC convention)."* Server response envelope includes a `basisNote: "MIXED_LOSS_EARNED_EXPENSE_WRITTEN"` string so downstream consumers (XLSX export, scheduled dispatch via K11) can render the same disclaimer. Rejected: recompute-on-earned (three numbers that don't add up + users try to reconcile and fail); skip-scalar / stacked-only (evasive tone to "what's our combined ratio"). A future "additive combined" toggle where the tenant sets a preferred basis lives in Phase 18.5.
+
+- **K7 — Expense fact source = sum PAID `commission_transaction`, classifier deferred**: New endpoint `GET /api/v1/reports/aggregate/commissions?periodStart&periodEnd&dimension&insuranceLine&producerId` in finance-service (mirrors `BillingAggregateController` + `ClaimsAggregateController` shape). SQL: `SELECT native_currency AS currency_code, SUM(native_amount) AS total_paid, COUNT(*) AS row_count FROM commission_transaction WHERE status='PAID' AND paid_at >= :periodStart AND paid_at < :periodEnd GROUP BY native_currency`, optionally faceted by `producer_id` + `insurance_line`. **No acquisition-vs-servicing split for v1** — `commission_transaction` lacks the classifier (`services/java/finance-service/src/main/java/com/medfund/finance/producer/entity/CommissionTransaction.java:38-100`) and Phase 18 does not add it. KPI page carries a UI note: *"Includes all paid commission; new-business/trail split in a future release."* Rejected: add `commission_type` column now (schema thrash without a live requirement; risks wrong enum); compose acquisition via `first_bind_date` (cross-service join per compute + year-boundary edge cases + still misses trail on old policies). Add classifier in Phase 18.5 when a tenant asks.
+
+- **K8 — Earned-premium source = new `/api/v1/reports/aggregate/premium-earned`**: New lean aggregate endpoint on `contributions-service/PremiumReportController` (or a sibling `PremiumAggregateController` following the `ClaimsAggregateController` / `BillingAggregateController` pattern). Shape: `GET /api/v1/reports/aggregate/premium-earned?periodStart&periodEnd&dimension&insuranceLine` returns `List<{schemeId, schemeName, insuranceLine, currencyCode, earnedPremium, rowCount}>`. SQL: `SUM(earned_at_period_end) WHERE period_end >= :periodStart AND period_end < :periodEnd AND earned_at_period_end IS NOT NULL` grouped by `(currency_code, insurance_line[, scheme_id via policy-enrichment CTE from PremiumReportQueryRepository.java:211-249])`. **Freshness caveat**: the nightly `PremiumEarningExecutor` (`services/java/contributions-service/src/main/java/com/medfund/contributions/premium/scheduler/PremiumEarningExecutor.java:20-31`) closes periods; a KPI compute for a period that hasn't fully closed yet gets NULL rows omitted — KPI page displays a banner *"Earned premium reflects fully-closed periods only (nightly batch)."* Rejected: reuse UPR movement report (tight coupling to human report shape; bandwidth waste; mixes report/feed semantics); direct DB read from finance (violates service boundary; schema-change fragility; multi-tenant pool sizing pain).
+
+- **K9 — Incurred-claims source = `/aggregate/claims-incurred` + latest IBNR job JSON**: Two-part composition on the finance-service KPI composer side:
+  1. **New claims-service endpoint** `GET /api/v1/reports/aggregate/claims-incurred?periodStart&periodEnd&dimension` returns per-(currency, dimension) `{totalPaid, reserveBalanceStart, reserveBalanceEnd, reserveMovement, subtotalIncurredExIbnr}` where `reserveBalance(T) = SUM(latest reserved_amount per claim_id WHERE effective_at <= T)`. SQL uses a `DISTINCT ON (claim_id) ... ORDER BY claim_id, effective_at DESC` subquery per period boundary, summed. Native per-currency; no conversion. Reads `claim_reserve_history` (`services/java/tenancy-service/src/main/resources/db/migration/tenant/V139__claim_reserve_history.sql:7-20`).
+  2. **IBNR read** — finance-service KPI composer queries `report_job WHERE report_key='IBNR_TRIANGLE' AND status='COMPLETED' AND period_end <= :periodEnd AND period_end > :periodEnd - INTERVAL '90 days' ORDER BY completed_at DESC LIMIT 1`, parses `result_json.ibnr_total` (scalar) or `result_json.per_cohort_ultimate[]` (per-line breakdown) from `services/java/finance-service/src/main/java/com/medfund/finance/report/entity/ReportJob.java:59-60`. Handles both `result_json` and MinIO `payload_ref` per Phase 15 §14 fallback.
+  3. **Assembly** — `incurred = subtotalIncurredExIbnr + ibnrTotal`. If no completed IBNR job in the 90-day window, `ibnrTotal = null`, envelope `warnings` carries *"IBNR run pending or older than 90 days for (line=X, asOf=Y) — displaying paid + Δreserve only"*, and the `LOSS_RATIO_KPI` widget shows an "IBNR pending" info-icon per K2.
+
+  Rejected: synchronous sub-job trigger + poll (dashboards must render fast; couples display widget to a Kafka round-trip + Mack chain-ladder compute); case-reserve-only shortcut (contradicts K2's explicit full-incurred choice).
+
+- **K10 — Storage = on-demand compute + Redis cache (15-min TTL)**: KPI composer runs every widget refresh (fanning out to billing / earned / incurred / commission aggregates); results cached in Redis with key `kpi:{tenantId}:{reportKey}:{periodStart}:{periodEnd}:{reportingCurrency}:{insuranceLine}:{schemeId}:{producerId}` and 15-minute TTL. Matches Phase 8 forecast precedent (on-demand, no snapshot table). Trend chart with 12 monthly points = 12 cache lookups (11 warm after first render). Cache stampede on tenant switch mitigated by the standard `Cache-Control: no-store` on individual widget calls + a debounced batch endpoint (K14/K16). Rejected: month-close snapshot job + `kpi_snapshot` table (extra migration + job + backfill; can't answer as-of-Tuesday queries); lazy materialization (write-on-read concurrency semantics; sits awkwardly between the two options). A future materialized `kpi_snapshot` warm path for the ANNUAL trend view is a Phase 18.5 optimization.
+
+- **K11 — Cadence = flip 5 keys to `cadenced=true`; refresh on load only**: Enum change on `services/java/shared/src/main/java/com/medfund/shared/report/ReportKey.java`: `COMBINED_RATIO` (line 137), `LOSS_RATIO_KPI` (line 138), `EXPENSE_RATIO` (line 139), plus new `CLAIMS_FREQUENCY` + `AVERAGE_SEVERITY` all move to `cadenced=true, periodShape=PREVIOUS_COMPLETE_PERIOD`. Requires:
+  - Phase 18 §B adapter registration in `ScheduledReportOrchestrator` (`services/java/finance-service/src/main/java/com/medfund/finance/report/schedule/`) with 5 new `ScheduledReportShapeAdapter` implementations (finance-owned since composer lives there per K16).
+  - Phase 17 S1 whitelist extension: add the 5 KPI keys to the UI whitelist of cadenced report keys the tenant admin can schedule (see Owed back to plan authors below).
+  - No changes to the Phase 17 dispatcher / delivery topics — same `medfund.notification.report-delivery` pattern; XLSX rendering = Phase 18 §B's `KpiWorkbookService`.
+
+  Angular page fetches on load + on filter change; no auto-poll. Rejected: keep `cadenced=false` (retro-fit drag later; loses natural pair with Phase 17); 60s auto-poll (execs don't watch; polling burns Redis+CPU; laptops-left-open cost).
+
+- **K12 — Multi-currency = per-currency native ratios + reporting-currency composite scalar**: Response payload shape (extending the standard `ReportResponse<T>` envelope):
+  ```java
+  public record KpiValue(
+      BigDecimal ratio,               // dimensionless [0..N.NN]
+      BigDecimal numerator,           // native amount
+      BigDecimal denominator,         // native amount
+      String currencyCode
+  ) {}
+
+  public record KpiReportData(
+      BigDecimal compositeRatio,      // numerator/denominator both converted to reportingCurrency at asOf, then divided
+      BigDecimal compositeNumerator,  // in reportingCurrency
+      BigDecimal compositeDenominator,// in reportingCurrency
+      String basisNote                // "MIXED_LOSS_EARNED_EXPENSE_WRITTEN" for COMBINED_RATIO per K6
+  ) {}
+  ```
+  Standard envelope's `perCurrency: Map<String, KpiValue>` carries per-currency ratios. Composite uses `FxRateReader.convert(...)` per invariant #6: fail-loud if the *composite* denominator can't be built (any missing FX for a currency present in the data throws `ReportGenerationException` naming (base, quote, date)), best-effort for envelope perCurrency (missing currency omitted + warnings entry per G28). Angular widget layout: big composite number + info-icon → per-currency breakdown panel + reporting currency label. Rejected: reporting-only scalar (hides currency-blend masking; silently drops missing-FX rows); per-currency only + dropdown (contradicts single-headline exec KPI UX).
+
+- **K13 — Slicing = line + scheme + producer (three filter chips)**: Every KPI endpoint accepts three optional filters:
+  - `?insuranceLine=HEALTH|LIFE|FUNERAL|GROUP|TRAVEL|DISABILITY|VEHICLE|PROPERTY`
+  - `?schemeId=<uuid>`
+  - `?producerId=<uuid>`
+
+  Blank = tenant-wide. SQL `GROUP BY` drops each unused dimension. Angular filter chips: single-select per chip; searchable dropdown for scheme + producer per memory `feedback_no_raw_id_inputs`. **Small-denominator guard**: composer returns `warnings` entry when the denominator falls below a per-KPI threshold (e.g. `earned < 1000` for the reporting currency at asOf) — widget shows *"Ratio may be noisy at this slice"* info-icon. Small-denominator threshold configurable in future via a tenant setting (Phase 18.5). Rejected: line-only (execs will demand scheme + producer drills on day 2); line+scheme (leaves producer half-built for the acquisition-ratio drill). Downside acknowledged: three-chip UI complexity + small-slice noise — mitigated by chip behavior + guard rail.
+
+- **K14 — Trend = 12 monthly buckets default, dropdown to 24; MONTHLY only**: Default trend view = last 12 complete months (rolling, ending at previous month-end). Dropdown lets user switch to 24. Granularity fixed to MONTHLY (weekly ratios are noise). Batch endpoint on the KPI composer: `GET /api/v1/reports/kpi/{key}/trend?windowMonths=12|24&insuranceLine&schemeId&producerId&reportingCurrency` returns `List<{periodStart, periodEnd, composite: KpiValue, perCurrency: Map<String, KpiValue>}>`. Each element is a K10 cache lookup keyed by `(tenant, key, periodStart, periodEnd, reportingCurrency, insuranceLine, schemeId, producerId)`. Young-tenant gap: months predating tenant creation return empty rows (envelope `warnings` naming them); Angular chart draws blank buckets. Rejected: fixed 24 (doubles compute; noisy empty area on young tenants); weekly granularity (meaningless for ratios; two-granularity toggle complexity).
+
+- **K15 — Chart = KPI tile + sparkline + click-through to detail report**: Each KPI renders as a tile:
+  ```
+  ┌────────────────────────────────┐
+  │ Loss Ratio           ⓘ  ↗️     │  (basis note + trend arrow)
+  │                                │
+  │        71.4%                   │  (composite scalar, big font)
+  │  ▁▂▂▃▄▄▅▆▆▇▇█   ← sparkline    │  (12-month app-line-chart compact)
+  │                                │
+  │  USD 68%  |  ZWL 82%           │  (per-currency breakdown row)
+  │                                │
+  │  Period: Sep 2025 - Aug 2026   │  (footer)
+  └────────────────────────────────┘
+  ```
+  Entire tile clickable. Drill navigation:
+  - `LOSS_RATIO_KPI` → `/tenant/finance/reports/loss-ratio` (Phase 5)
+  - `EXPENSE_RATIO` → `/tenant/finance/reports/commission/statement` (Phase 11)
+  - `COMBINED_RATIO` → anchor scroll back to top of KPI page (no separate detail report; the sum is the summary)
+  - `CLAIMS_FREQUENCY` → `/tenant/finance/reports/claims/summary` (Phase 4)
+  - `AVERAGE_SEVERITY` → same as `CLAIMS_FREQUENCY`
+
+  Requires a new `app-line-chart` compact variant (height:60px, no axes, no legend, single-color line) — Phase 18 §A authors it as `app-sparkline` sitting alongside `app-line-chart` in `clients/angular/src/app/shared/components/charts/`. Rejected: full chart + accordion (scroll fatigue + duplicates detail reports); chart + drill both (double UI + fragile period-filter route hops).
+
+- **K16 — Angular route = `/tenant/finance/reports/kpi` under Reports Hub**: Single page component `KpiDashboardComponent` at `clients/angular/src/app/pages/tenant/finance/reports/kpi/kpi-dashboard.component.ts`. Sidebar entry: `KPI Dashboard` under Finance → Reports. Reports Hub gets a new `DASHBOARD` family group (matches `ReportFamily.DASHBOARD` already in `ReportKey`) with a single card linking to the page. Backend endpoints live under `/api/v1/reports/kpi/*` on finance-service (K17 permission gate). Each of the 5 KPIs has an individual endpoint (`/loss-ratio`, `/expense-ratio`, `/combined-ratio`, `/claims-frequency`, `/average-severity`) plus a batch endpoint `GET /api/v1/reports/kpi/dashboard?insuranceLine&schemeId&producerId&reportingCurrency` that returns all 5 in one round-trip for the tile-grid render. Trend endpoint per KPI: `GET /api/v1/reports/kpi/{key}/trend?windowMonths` (K14). Rejected: dedicated exec portal (adds a fifth portal + Keycloak role work + duplicates hub logic); dual-render on tenant-admin home (two paths + cache variants + admin-home already busy).
+
+- **K17 — Permissions = reuse `finance:reports:view` + `@RequiresReport(key)`**: Zero new permission strings. Each KPI endpoint carries the standard stack:
+  ```java
+  @RequiresPermission("finance:reports:view")
+  @RequiresReport(ReportKey.<KPI_KEY>)
+  ```
+  Matches every other report in the plan. Batch dashboard endpoint requires all 5 individual permissions/toggles at once (composer 403s the whole payload if any of the 5 is disabled; alternative: `warnings` entry per disabled key + partial payload — implementer chooses at code altitude, recommendation is fail-loud 403 because a dashboard with missing tiles is confusing). Toggle-off from `/tenant/admin/settings/reports` per Phase 0 §7. Rejected: dedicated `finance:reports:kpi:view` (role bloat for no security gain); `executive:dashboard:view` (contradicts invariant #2; "executive" role doesn't exist in `.claude/portals.md`).
+
+- **K18 — Sub-plan = single file, 3 tranches (§0 aggregates / §A composer+Angular / §B scheduled adapter)**: Single sub-plan `thoughts/shared/plans/2026-09-05-executive-kpi-dashboards.md` authored via `create-plan` at implement time. Tranches:
+  - **§0 — Enum + aggregates** (~2-3 phases): `ReportKey` add `CLAIMS_FREQUENCY` + `AVERAGE_SEVERITY` (K1); flip 5 KPI keys to `cadenced=true, periodShape=PREVIOUS_COMPLETE_PERIOD` (K11). New contributions-service `GET /api/v1/reports/aggregate/premium-earned` (K8). New claims-service `GET /api/v1/reports/aggregate/claims-incurred` (K9 — paid + Δreserve). New finance-service `GET /api/v1/reports/aggregate/commissions` (K7). Each: repository + controller + Swagger + IT via `ReportRetrofitAssertions`.
+  - **§A — KPI composer + Angular** (~3-4 phases): finance-service `KpiComposerService` fanning to the 4 aggregates via `CrossServiceCallHelper` (invariant #7); `ExecutiveKpiController` with 5 individual endpoints + 1 batch + 5 trend endpoints (K14); IBNR lookup from `report_job.result_json` (K9); K12 per-currency envelope + composite scalar assembly; Redis cache (K10). Angular `KpiDashboardComponent` at `/tenant/finance/reports/kpi` (K16); new `app-sparkline` component (K15); tile grid + drill-through navigation (K15); 3 filter chips (K13); reports-hub `DASHBOARD` family card.
+  - **§B — Scheduled adapter + e2e** (~2 phases): 5 `ScheduledReportShapeAdapter` implementations in finance-service for Phase 17 orchestrator (K11); Phase 17 UI whitelist extension adds the 5 KPI keys; `KpiWorkbookService` XLSX for scheduled + on-demand export (mirrors Phase 17 shape); Playwright goldens (open dashboard, filter by line, drill to loss-ratio detail, export XLSX, receive scheduled email via mailpit); docker-compose IT deferred to Phase-18-integration follow-up per Phase 15/16/17 precedent.
+
+  Est. 6-8 phases total. Rejected: 5-tranche matching Phase 17 shape (over-tranched; §0 would be a two-line phase); no sub-plan (contradicts scope-warning banner + parent plan file already 626KB).
+
+### Settled by fact (not asked)
+
+- **F18-1 — `ReportFamily = DASHBOARD`**. The three enum entries are already `ReportFamily.DASHBOARD` (`services/java/shared/src/main/java/com/medfund/shared/report/ReportKey.java:136-139`). The two new keys (`CLAIMS_FREQUENCY`, `AVERAGE_SEVERITY` per K1) land in the same family. Reports Hub renders a `Dashboard` group.
+
+- **F18-2 — Envelope shape unchanged**. Standard `ReportResponse<T>` per invariant #1 wraps every KPI response. `T` is `KpiReportData` (K12). `perCurrency: Map<String, KpiValue>` (K12); `fxRates + warnings` per G28; `period: ReportPeriod` populated (K1 KPIs are all `PREVIOUS_COMPLETE_PERIOD` per K11).
+
+- **F18-3 — Native currency in aggregate rows**. All 3 new aggregate endpoints (K7/K8/K9) return native-currency rows; conversion to reporting currency happens only in the KPI composer via `FxRateReader` (K12) per invariant #6. Per G25.
+
+- **F18-4 — Missing FX semantics**. Composite scalar fails loud on missing FX (throws `ReportGenerationException` naming (base, quote, date)); per-currency envelope is best-effort with warnings entry (G28).
+
+- **F18-5 — Audit on KPI export**. XLSX export path emits `SecurityEventPublisher.publishDataAccess(...)` with `reportKey=<KPI_KEY>` before returning bytes (invariant #3). JSON reads do NOT emit per G24.
+
+- **F18-6 — Rule 8 audit on tenant-toggle mutation**. Toggling any KPI key from `/tenant/admin/settings/reports` emits `AuditEvent` via the Phase 0 `TenantReportConfigService.updateEnabled` path; K11 cascade applies (Phase 17 S9) since KPIs will be cadenced — cascade-disable behavior means disabling a KPI key auto-pauses its scheduled deliveries.
+
+- **F18-7 — Reactor-Kafka ack pattern**. Any Kafka publish path in Phase 18 (e.g. the Phase 17 orchestrator emitting delivery event on behalf of scheduled KPI runs) uses `.doOnSuccess` per `bug_reactor_kafka_ack_swallow` memory.
+
+- **F18-8 — Migration numbering**. Phase 18 §0 has **no schema changes** — the 5 enum flips + 2 new enum entries are code-only, and the 3 new aggregate endpoints are SELECT-only over existing tables (Phase 11 `commission_transaction`, Phase 12 `earning_schedule`, Phase 14 `claim_reserve_history`, Phase 15 `report_job`). No Flyway migrations required. K18 sub-plan §0 spells this out to avoid a reviewer looking for an absent migration.
+
+- **F18-9 — `public.` prefix**. Not applicable — the three new aggregate endpoints all query tenant-schema tables. Unqualified names per `bug_public_prefix_silent_rollback` memory.
+
+- **F18-10 — Cross-service peer-failure**. Composer uses `CrossServiceCallHelper` with envelope `warnings` capture per invariant #7 (G37). A peer down (contributions or claims aggregate 500) → KPI page shows the widget with a warning banner, not a broken widget.
+
+- **F18-11 — Tenant scoping**. Every aggregate SQL is tenant-scoped via the standard `TenantContext` interceptor (Rule 2). No new tenant resolution logic needed.
+
+- **F18-12 — KPI keys already reachable in `tenant_report_config`**. Absent-row defaults to enabled per V130. First tenant toggle load seeds a row via Phase 0's bulk-upsert. No seeding migration needed.
+
+- **F18-13 — `AuditActor` for scheduled KPI runs**. Scheduled dispatches inherit the schedule creator's `updated_by_actor_*` via Phase 17 S10. Manual XLSX exports carry the requesting user via `AuditActor.of(jwt)` per `feedback_audit_actor_email` memory.
+
+- **F18-14 — Kafka topic naming**. No new topics. Phase 18 reuses the Phase 17 `medfund.notification.report-delivery` + `-failed` topics via the K11-added adapters.
+
+- **F18-15 — Retention**. `report_job` rows for scheduled KPI runs inherit `retention_class = OPERATIONAL_90D` (Phase 15 §14) per existing `ReportJobRetentionJob`. No new retention logic.
+
+### Success Criteria
+
+**Status: Grilled 2026-09-05 (K1..K18 + F18-1..F18-15 above). Ready for sub-plan via `create-plan`. Not yet implemented.**
+
+Single sub-plan will ship at `thoughts/shared/plans/2026-09-05-executive-kpi-dashboards.md` built via `create-plan` → `implement-plan`. Aggregate success criteria across all tranches:
+
+- **§0 enum + aggregates green**: `ReportKey` adds `CLAIMS_FREQUENCY` + `AVERAGE_SEVERITY` (K1) + flips 5 KPI keys to `cadenced=true, periodShape=PREVIOUS_COMPLETE_PERIOD` (K11); three new aggregate endpoints (`/aggregate/premium-earned` on contributions per K8, `/aggregate/claims-incurred` on claims per K9, `/aggregate/commissions` on finance per K7) return correct native-currency per-(currency, dimension) rows verified via unit + IT with seeded multi-currency multi-line fixtures; each endpoint carries full Swagger annotations (Rule 7); each endpoint carries `@RequiresReport` gate + emits `SecurityEvent` on XLSX export path where applicable (invariants #2, #3); shared `ReportRetrofitAssertions` helper consumed by IT classes.
+- **§A KPI composer + Angular green**: `KpiComposerService` correctly composes each of the 5 KPIs from the 4 aggregate feeds; composite scalar (K12) uses `FxRateReader.convert` with fail-loud on missing FX for composite, best-effort for envelope perCurrency; Redis cache (K10) hits/misses observable via `/actuator/metrics`; IBNR read from `report_job.result_json` correctly handles both scalar `ibnr_total` + `per_cohort_ultimate[]` shapes plus MinIO `payload_ref` fallback (K9); 5 individual + 1 batch + 5 trend endpoints (K14/K16) return correct envelopes; `KpiDashboardComponent` renders all 5 tiles with sparklines (K15) + 3 filter chips (K13) + click-through drill navigation (K15); Reports Hub `DASHBOARD` family card links to the page.
+- **§B scheduled adapter + e2e green**: 5 `ScheduledReportShapeAdapter` implementations in finance-service integrate with Phase 17's `ScheduledReportOrchestrator`; Phase 17 UI whitelist accepts the 5 new cadenced KPI keys (K11); `KpiWorkbookService` renders correct XLSX for scheduled dispatch + on-demand export path; Playwright specs cover golden path (open dashboard, filter by line, drill to loss-ratio detail, export XLSX, receive scheduled email via mailpit); manual `verify` walkthrough of the dashboard page + tenant-admin schedule creation deferred to Phase-18-integration follow-up per Phase 15/16/17 precedent.
+
+**Deferred to follow-up per Phase 11/12/13/14/15/16/17 precedent**:
+- **Cross-language docker-compose IT** — Phase-18-integration tranche.
+- **Manual `verify` walkthroughs** — end-to-end golden-path browser demos of the dashboard + filter interaction + drill navigation + scheduled email arrival; `verify` skill pass at end of sub-plan.
+- **Phase 18.5 — Adjacent KPIs + operating-expense integration** — solvency ratio + ROE (need accounting ledger + capital-model service that don't exist); full operating-expense ratio (needs general-ledger integration, `operating_expense_entry` table with kind-classification, or third-party accounting-system connector); acquisition-vs-servicing commission classifier on `commission_rate_card` or `commission_transaction`; `kpi_snapshot` materialized warm-path table for ANNUAL trend view; per-tenant configurable small-denominator noise threshold; per-tenant configurable IFRS-17-vs-NAIC combined-ratio basis toggle (K5/K6 follow-up).
+- **CLAIMS_FREQUENCY exposure feed decision** — sub-plan §0 has an open code-altitude decision between (a) adding new contributions-service `GET /api/v1/reports/aggregate/policy-exposure` computing `SUM(policy-months-in-force)` per (line, scheme, period) via Phase 13 lifecycle join, or (b) approximating with `active_policy_count × period_length_in_months` from Phase 13's active-policy count. Recommendation for the sub-plan author: option (a) with a Phase 13 join for a defensible frequency numerator.
+
+Per parent-plan Testcontainers policy each deferred IT lands with a purpose-built migration folder so the ITs don't force-widen every unrelated slice's baseline schema.
+
+### Owed back to plan authors
+
+Corrections + contradictions the grill surfaced that touch other sections of the parent plan:
+
+- **Parent-plan header `phases_status` stale**: header line `"18-19": outline depth; each needs its own grilling pass before implementation` superseded by this grill — `phases_status["18"]` now grilled, `["19"]` still outline; `last_grilled_phase: 18`, `last_grilled_date: 2026-09-05`. Frontmatter already updated as part of this apply step.
+
+- **Phase 17 S1 whitelist widens (K11 consequence)**: Phase 17 S1 (parent plan line 4344) listed 13 cadenced keys in scope for scheduled email delivery. K11 flips 5 KPI keys to `cadenced=true` — `COMBINED_RATIO`, `LOSS_RATIO_KPI`, `EXPENSE_RATIO`, plus the two new `CLAIMS_FREQUENCY`, `AVERAGE_SEVERITY` — that join the whitelist. Phase 17 sub-plan `thoughts/shared/plans/2026-08-31-scheduled-email-delivery.md` needs a Deviations note that Phase 18 sub-plan §B will add 5 more `ScheduledReportShapeAdapter` implementations to the orchestrator's finance-owned adapter set + extend the S1 whitelist enforcement in the Angular `/tenant/admin/settings/report-schedules` UI. F-S10 in Phase 17 says the 24 cadenced keys are already tagged and the UI whitelist enforces the 13 in-scope; when Phase 18 flips 5 more keys to cadenced=true, the whitelist must accept them. Not a bug in Phase 17; a foreseeable extension. Sub-plan §B owns the UI-whitelist widening.
+
+- **Phase 2 aggregate endpoints established the shape**: the three new aggregate endpoints (K7/K8/K9) mirror the Phase 2 `BillingAggregateController` and Phase 5 `ClaimsAggregateController` shape verbatim (per-native-currency rows, dimension filter, half-open period interval). Sub-plan §0 refers to these as the pattern, not re-invents shape.
+
+- **Phase 14 IBNR result shape assumed but not verified end-to-end**: K9 depends on `report_job.result_json.ibnr_total` being a scalar and `per_cohort_ultimate` being an array. Explore verification confirmed this from `services/python/ai-service/app/actuarial/chain_ladder.py:54-67`, but the sub-plan §A KPI composer needs a JSON parse test with a golden fixture to protect against a Phase 14 schema drift.
+
+- **No `CLAIMS_FREQUENCY` exposure feed exists** (K1 consequence): frequency requires a "policy-months in force" denominator. Phase 13 lifecycle data has `policy_status_history` but no direct policy-months rollup. Sub-plan §0 needs a code-altitude decision — see the deferred Success Criteria bullet above for the two options.
+
+- **No `.claude/*.md` architecture doc mentions ratio definitions**: sub-plan §0 could optionally add a short section to `.claude/adjudication.md` or a new `.claude/kpi.md` naming the formulas from K2-K6 for future reference. Not strictly required but avoids re-litigating the definitions at code-review time.
+
+- **`ReportKey.cadenced=false→true` migration is code-only, but changes the S1 UI whitelist rule** — see Phase 17 whitelist widening bullet above.
+
+### Cross-references
+
+- Grilling scratchpad: `thoughts/shared/notes/2026-09-05-phase18-executive-kpi-grill.md`
+- Sub-plan (to be authored via `create-plan`): `thoughts/shared/plans/2026-09-05-executive-kpi-dashboards.md`
 
 ---
 

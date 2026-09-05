@@ -113,6 +113,42 @@ class ReportKeyTest {
     }
 
     @Test
+    void dashboardKpiKeys_areCadencedPreviousCompletePeriod() {
+        // Phase 18 K11: all 5 KPI keys flip to cadenced=true, PREVIOUS_COMPLETE_PERIOD
+        // so Phase 17 scheduled-email delivery can push monthly board packs.
+        Set<ReportKey> kpiKeys = Set.of(
+                ReportKey.COMBINED_RATIO,
+                ReportKey.LOSS_RATIO_KPI,
+                ReportKey.EXPENSE_RATIO,
+                ReportKey.CLAIMS_FREQUENCY,
+                ReportKey.AVERAGE_SEVERITY);
+        for (ReportKey key : kpiKeys) {
+            assertThat(key.getFamily()).isEqualTo(ReportFamily.DASHBOARD);
+            assertThat(key.isCadenced()).isTrue();
+            assertThat(key.getPeriodShape()).isEqualTo(ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD);
+        }
+    }
+
+    @Test
+    void expenseRatioKey_labelReadsAsAcquisitionRatio() {
+        // K4: display label != enum name; execs should never read "expense ratio"
+        // when what we compute is commission-only.
+        assertThat(ReportKey.EXPENSE_RATIO.getLabel()).isEqualTo("Acquisition ratio");
+    }
+
+    @Test
+    void claimsFrequencyDetailReportKey_stillExistsSeparately() {
+        // K1: the two new DASHBOARD tiles (CLAIMS_FREQUENCY, AVERAGE_SEVERITY)
+        // do not replace or collide with the Phase 4 detail report
+        // CLAIMS_FREQUENCY_SEVERITY, which stays under CLAIMS_FINANCIAL and
+        // is the drill-through target for both new KPI tiles (K15).
+        assertThat(ReportKey.CLAIMS_FREQUENCY_SEVERITY.getFamily())
+                .isEqualTo(ReportFamily.CLAIMS_FINANCIAL);
+        assertThat(ReportKey.CLAIMS_FREQUENCY.getFamily()).isEqualTo(ReportFamily.DASHBOARD);
+        assertThat(ReportKey.AVERAGE_SEVERITY.getFamily()).isEqualTo(ReportFamily.DASHBOARD);
+    }
+
+    @Test
     void ifrs17KeysStayUnderRegulatoryAfterSplit() {
         // Phase 15 keys are the sole tenants of REGULATORY after Phase 7.
         assertThat(ReportKey.IFRS17_LRC_LIC_RECONCILIATION.getFamily())

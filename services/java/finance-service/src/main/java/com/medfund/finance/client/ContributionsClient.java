@@ -3,6 +3,7 @@ package com.medfund.finance.client;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.finance.dto.BillingAggregateRow;
+import com.medfund.finance.dto.PremiumEarnedAggregateRow;
 import com.medfund.shared.report.MonthlyAggregateRow;
 import com.medfund.shared.report.ReportResponse;
 import com.medfund.shared.tenant.TenantContext;
@@ -14,6 +15,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Thin WebClient wrapper around the contributions-service billing +
@@ -90,6 +92,54 @@ public class ContributionsClient {
             return envelope != null && envelope.data() != null ? envelope.data() : List.of();
         } catch (Exception e) {
             log.warn("[contributions-client] failed to decode billing envelope: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
+     * GET /api/v1/reports/aggregate/premium-earned?dimension=TENANT|LINE|SCHEME
+     * — returns per-(currency[, line][, scheme]) earned-premium totals sourced
+     * from Phase-12 {@code earning_schedule.earned_at_period_end} closed rows.
+     * Feeds the Phase 18 KPI composer's LOSS_RATIO denominator (K3) and the
+     * CLAIMS_FREQUENCY policy-months denominator (K1 via {@code rowCount}).
+     *
+     * <p>Peer returns a bare JSON array (no envelope wrapper) — Phase 2
+     * intentionally chose the leaner service-to-service shape.
+     */
+    public Mono<List<PremiumEarnedAggregateRow>> earnedPremium(LocalDate periodStart,
+                                                                LocalDate periodEnd,
+                                                                String dimension,
+                                                                String insuranceLine,
+                                                                UUID schemeId) {
+        return Mono.deferContextual(ctx -> {
+            String tenantId = TenantContext.get(ctx);
+            return http.get()
+                    .uri(uri -> {
+                        var b = uri.path("/api/v1/reports/aggregate/premium-earned")
+                                .queryParam("periodStart", periodStart.toString())
+                                .queryParam("periodEnd",   periodEnd.toString())
+                                .queryParam("dimension",   dimension);
+                        if (insuranceLine != null && !insuranceLine.isBlank()) {
+                            b = b.queryParam("insuranceLine", insuranceLine);
+                        }
+                        if (schemeId != null) {
+                            b = b.queryParam("schemeId", schemeId.toString());
+                        }
+                        return b.build();
+                    })
+                    .header("X-Tenant-ID", tenantId != null ? tenantId : "")
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .map(this::extractPremiumEarnedRows);
+        });
+    }
+
+    private List<PremiumEarnedAggregateRow> extractPremiumEarnedRows(String body) {
+        try {
+            List<PremiumEarnedAggregateRow> rows = objectMapper.readValue(body, new TypeReference<>() {});
+            return rows != null ? rows : List.of();
+        } catch (Exception e) {
+            log.warn("[contributions-client] failed to decode premium-earned array: {}", e.getMessage());
             return List.of();
         }
     }

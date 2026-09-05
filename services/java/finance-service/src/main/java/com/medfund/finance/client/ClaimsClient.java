@@ -3,6 +3,7 @@ package com.medfund.finance.client;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.finance.dto.ClaimsAggregateRow;
+import com.medfund.finance.dto.ClaimsIncurredAggregateRow;
 import com.medfund.finance.reinsurance.dto.FacultativeCandidateRow;
 import com.medfund.shared.report.MonthlyAggregateRow;
 import com.medfund.shared.report.ReportResponse;
@@ -86,6 +87,54 @@ public class ClaimsClient {
                     .bodyToMono(String.class)
                     .map(this::extractMonthlyRows);
         });
+    }
+
+    /**
+     * GET /api/v1/reports/aggregate/claims-incurred?dimension=TENANT|LINE|SCHEME
+     * — returns per-(currency[, line][, scheme]) paid + Δreserve totals plus
+     * claim count for the Phase 18 KPI composer's LOSS_RATIO numerator
+     * (K2/K9), CLAIMS_FREQUENCY numerator (K1) and AVERAGE_SEVERITY numerator
+     * (K1). IBNR is added downstream by {@code IbnrLookupService}.
+     *
+     * <p>Peer returns a bare JSON array (no envelope wrapper) — matches the
+     * Phase 3 wire shape.
+     */
+    public Mono<List<ClaimsIncurredAggregateRow>> claimsIncurred(LocalDate periodStart,
+                                                                  LocalDate periodEnd,
+                                                                  String dimension,
+                                                                  String insuranceLine,
+                                                                  UUID schemeId) {
+        return Mono.deferContextual(ctx -> {
+            String tenantId = TenantContext.get(ctx);
+            return http.get()
+                    .uri(uri -> {
+                        var b = uri.path("/api/v1/reports/aggregate/claims-incurred")
+                                .queryParam("periodStart", periodStart.toString())
+                                .queryParam("periodEnd",   periodEnd.toString())
+                                .queryParam("dimension",   dimension);
+                        if (insuranceLine != null && !insuranceLine.isBlank()) {
+                            b = b.queryParam("insuranceLine", insuranceLine);
+                        }
+                        if (schemeId != null) {
+                            b = b.queryParam("schemeId", schemeId.toString());
+                        }
+                        return b.build();
+                    })
+                    .header("X-Tenant-ID", tenantId != null ? tenantId : "")
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .map(this::extractClaimsIncurredRows);
+        });
+    }
+
+    private List<ClaimsIncurredAggregateRow> extractClaimsIncurredRows(String body) {
+        try {
+            List<ClaimsIncurredAggregateRow> rows = objectMapper.readValue(body, new TypeReference<>() {});
+            return rows != null ? rows : List.of();
+        } catch (Exception e) {
+            log.warn("[claims-client] failed to decode claims-incurred array: {}", e.getMessage());
+            return List.of();
+        }
     }
 
     /**

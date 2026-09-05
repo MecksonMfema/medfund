@@ -1,0 +1,136 @@
+<header class="page-header">
+  <div>
+    <h1>Executive KPIs</h1>
+    <p class="page-sub">
+      Loss, acquisition, combined, frequency and severity — composed from the
+      contributions, claims and commission ledgers in real time. Per-currency
+      ratios stay native; the composite is converted to the reporting currency.
+    </p>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="kpi-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Insurance line</span>
+    <app-select
+      [ngModel]="filters.insuranceLine ?? ''"
+      (selectionChange)="onLineChange($event)"
+      name="insuranceLine"
+      [options]="insuranceLineOptions"
+      placeholder="All insurance lines"
+      [searchable]="false"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-search">
+    <span class="cell-label">Scheme</span>
+    @if (schemeLabel) {
+      <div class="picked">
+        <span class="picked-label">{{ schemeLabel }}</span>
+        <button type="button" class="btn-clear" (click)="clearScheme()" aria-label="Clear scheme">
+          <app-icon name="x" [size]="12"></app-icon>
+        </button>
+      </div>
+    } @else {
+      <input
+        type="text"
+        [(ngModel)]="schemeSearchQuery"
+        (ngModelChange)="onSchemeSearchChange()"
+        name="schemeQuery"
+        placeholder="Search schemes…"
+        autocomplete="off"
+      />
+      @if (schemeSearching) {
+        <div class="search-hint">Searching…</div>
+      }
+      @if (schemeMatches.length) {
+        <ul class="search-menu">
+          @for (m of schemeMatches; track m.id) {
+            <li (click)="pickScheme(m)">{{ m.name }}</li>
+          }
+        </ul>
+      }
+    }
+  </div>
+
+  <div class="toolbar-cell cell-search">
+    <span class="cell-label">Producer</span>
+    @if (producerLabel) {
+      <div class="picked">
+        <span class="picked-label">{{ producerLabel }}</span>
+        <button type="button" class="btn-clear" (click)="clearProducer()" aria-label="Clear producer">
+          <app-icon name="x" [size]="12"></app-icon>
+        </button>
+      </div>
+    } @else {
+      <input
+        type="text"
+        [(ngModel)]="producerSearchQuery"
+        (ngModelChange)="onProducerSearchChange()"
+        name="producerQuery"
+        placeholder="Search producers…"
+        autocomplete="off"
+      />
+      @if (producerSearching) {
+        <div class="search-hint">Searching…</div>
+      }
+      @if (producerMatches.length) {
+        <ul class="search-menu">
+          @for (m of producerMatches; track m.id) {
+            <li (click)="pickProducer(m)">{{ m.producerCode }} — {{ m.name }}</li>
+          }
+        </ul>
+      }
+    }
+  </div>
+
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [ngModel]="filters.reportingCurrency ?? ''"
+      (selectionChange)="onCurrencyChange($event)"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (disabled) {
+  <div class="banner banner-info">
+    Executive KPIs are disabled for this tenant. Enable at least one KPI in
+    <a routerLink="/tenant/admin/settings/reports">Settings → Reports</a> to view the dashboard.
+  </div>
+} @else if (loading) {
+  <div class="tile-grid">
+    @for (k of KPI_KEYS; track k) {
+      <div class="kpi-tile-skeleton"></div>
+    }
+  </div>
+} @else {
+  <div class="tile-grid">
+    @for (k of KPI_KEYS; track k) {
+      @if (tileEnvelope(k)) {
+        <app-kpi-tile
+          [key]="k"
+          [label]="tileLabels[k]"
+          [composite]="compositeFor(k)"
+          [basisNote]="basisFor(k)"
+          [perCurrency]="perCurrencyFor(k)"
+          [sparklineData]="sparklineFor(k)"
+          [warnings]="warningsFor(k)"
+          [periodLabel]="periodLabel"
+          [trendDirection]="directionFor(k)"
+          [loading]="loading"
+          [exporting]="isExporting(k)"
+          (exportRequested)="exportKpi($event)"
+        ></app-kpi-tile>
+      }
+    }
+  </div>
+}

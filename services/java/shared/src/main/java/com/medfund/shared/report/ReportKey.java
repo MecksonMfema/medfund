@@ -134,9 +134,17 @@ public enum ReportKey {
     VAT_RETURN                  ("VAT return",                              ReportFamily.TAX,              true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
 
     // ── Executive KPI (Phase 18) ─────────────────────────────────────────────
-    COMBINED_RATIO              ("Combined ratio",                          ReportFamily.DASHBOARD,        false, null),
-    LOSS_RATIO_KPI              ("Loss ratio (KPI)",                        ReportFamily.DASHBOARD,        false, null),
-    EXPENSE_RATIO               ("Expense ratio",                           ReportFamily.DASHBOARD,        false, null),
+    // K11: all 5 keys are cadenced=true, PREVIOUS_COMPLETE_PERIOD so Phase 17
+    // scheduled-email delivery can send monthly board packs. K1: CLAIMS_FREQUENCY
+    // and AVERAGE_SEVERITY are the two additions; they are distinct from the
+    // Phase 4 CLAIMS_FREQUENCY_SEVERITY detail report (which stays in
+    // ReportFamily.CLAIMS_FINANCIAL and is the drill-through target per K15).
+    // K4: EXPENSE_RATIO label reads "Acquisition ratio" — v1 is commission-only.
+    COMBINED_RATIO              ("Combined ratio",                          ReportFamily.DASHBOARD,        true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
+    LOSS_RATIO_KPI              ("Loss ratio (KPI)",                        ReportFamily.DASHBOARD,        true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
+    EXPENSE_RATIO               ("Acquisition ratio",                       ReportFamily.DASHBOARD,        true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
+    CLAIMS_FREQUENCY            ("Claims frequency (KPI)",                  ReportFamily.DASHBOARD,        true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
+    AVERAGE_SEVERITY            ("Average severity (KPI)",                  ReportFamily.DASHBOARD,        true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
 
     // ── Fraud (Phase 19) ─────────────────────────────────────────────────────
     FRAUD_SIU_REPORT            ("Fraud / SIU report",                      ReportFamily.FRAUD,            true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD);

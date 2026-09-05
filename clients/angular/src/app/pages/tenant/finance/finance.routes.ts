@@ -579,6 +579,24 @@ export const FINANCE_ROUTES: Routes = [
       reportKey: 'LOSS_RATIO',
     },
   },
+  // Phase 7 (financial-reporting Phase 18) — Executive KPI dashboard.
+  // One route serves all five KPIs (LOSS_RATIO_KPI, EXPENSE_RATIO,
+  // COMBINED_RATIO, CLAIMS_FREQUENCY, AVERAGE_SEVERITY); individual KPI
+  // toggles hide tiles rather than the whole page. reportKey stamps
+  // COMBINED_RATIO as the representative catalogue key for sidebar
+  // gating — the batch endpoint returns 403 only when every KPI is off.
+  {
+    path: 'reports/kpi',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/kpi/kpi-dashboard.component').then(m => m.KpiDashboardComponent),
+    data: {
+      title: 'Executive KPIs',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'COMBINED_RATIO',
+    },
+  },
   { path: 'reports/group-billing-to-claims/:id', pathMatch: 'full', redirectTo: 'reports/billing-vs-claims' },
   cs('reports/group-notes',                  'Group Notes Report',               '/group-notes-report',                       'Employer-level notes.',                           ['finance.notes:read']),
   cs('reports/group-notes/:id',              'Group Note Detail',                '/group-note-detail',                        'Single note.',                                    ['finance.notes:read']),
