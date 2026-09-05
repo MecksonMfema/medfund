@@ -1,0 +1,37 @@
+<header class="page-header">
+  <div>
+    <h1>SIU cases</h1>
+    <p class="page-sub">
+      Fraud investigations opened by the AI triage engine or manually by an
+      officer. Click any row to review flags, add notes, and close the case.
+    </p>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="filter-strip">
+  <label class="field">
+    <span class="field-label">Status</span>
+    <app-select
+      [(ngModel)]="statusFilter"
+      (selectionChange)="onStatusChange()"
+      name="status"
+      [options]="statusFilterOptions"
+      size="sm"
+      placeholder="All"
+    ></app-select>
+  </label>
+</div>
+
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [actions]="actions"
+  [showActions]="true"
+  [loading]="loading"
+  emptyMessage="No SIU cases match these filters"
+  emptyDescription="AI-flagged claims that meet the tenant's FRAUD_TRIAGE policy will land here automatically.">
+</app-data-table>

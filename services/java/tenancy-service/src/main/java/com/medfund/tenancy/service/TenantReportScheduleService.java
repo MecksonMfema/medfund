@@ -1,5 +1,6 @@
 package com.medfund.tenancy.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.report.ReportCadence;
@@ -14,6 +15,7 @@ import com.medfund.tenancy.entity.TenantReportScheduleRecipient;
 import com.medfund.tenancy.repository.TenantRepository;
 import com.medfund.tenancy.repository.TenantReportScheduleRecipientRepository;
 import com.medfund.tenancy.repository.TenantReportScheduleRepository;
+import com.medfund.tenancy.util.JsonString;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
@@ -53,6 +55,7 @@ public class TenantReportScheduleService {
     private final TenantRepository tenantRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
+    private final ObjectMapper objectMapper;
 
     public Flux<TenantReportScheduleResponse> list(UUID tenantId) {
         return repository.findByTenantIdOrderByReportKeyAsc(tenantId)
@@ -98,6 +101,7 @@ public class TenantReportScheduleService {
                     "Report key " + key.name() + " is not eligible for scheduling in v1"));
         }
         validateCadenceShape(req.cadence(), req.dayOfWeek(), req.dayOfMonth());
+        validateParams(key, req.params());
 
         UUID actorUuid = parseUuid(actorId);
         TenantReportSchedule row = new TenantReportSchedule();
@@ -109,6 +113,7 @@ public class TenantReportScheduleService {
         row.setDayOfWeek(req.dayOfWeek());
         row.setDayOfMonth(req.dayOfMonth());
         row.setReportingCurrency(req.reportingCurrency());
+        row.setParams(serialiseParams(req.params()));
         row.setCreatedByActorId(actorUuid);
         row.setCreatedByActorEmail(actorEmail);
         row.setUpdatedByActorId(actorUuid);
@@ -140,6 +145,13 @@ public class TenantReportScheduleService {
                     if (req.dayOfWeek() != null) existing.setDayOfWeek(req.dayOfWeek());
                     if (req.dayOfMonth() != null) existing.setDayOfMonth(req.dayOfMonth());
                     if (req.reportingCurrency() != null) existing.setReportingCurrency(req.reportingCurrency());
+                    if (req.params() != null) {
+                        ReportKey mergedKey = ReportKey.parse(existing.getReportKey())
+                                .orElseThrow(() -> new IllegalArgumentException(
+                                        "Unknown report key on existing schedule: " + existing.getReportKey()));
+                        validateParams(mergedKey, req.params());
+                        existing.setParams(serialiseParams(req.params()));
+                    }
                     // Re-validate cadence shape against the merged view.
                     ReportCadence mergedCadence = ReportCadence.valueOf(existing.getCadence());
                     validateCadenceShape(mergedCadence, existing.getDayOfWeek(), existing.getDayOfMonth());
@@ -201,6 +213,42 @@ public class TenantReportScheduleService {
                 });
     }
 
+    /**
+     * Per-key {@code params} shape enforcement. Today only
+     * {@code FRAUD_SIU_REPORT} reads params ({@code includeSensitiveSheets}
+     * Boolean per FR12); other keys are permitted to carry an empty map
+     * but any unknown key inside {@code params} is rejected to keep the
+     * contract narrow. Null map is accepted (default {} at storage time).
+     */
+    static void validateParams(ReportKey key, Map<String, Object> params) {
+        if (params == null || params.isEmpty()) return;
+        if (key == ReportKey.FRAUD_SIU_REPORT) {
+            for (Map.Entry<String, Object> entry : params.entrySet()) {
+                if (!"includeSensitiveSheets".equals(entry.getKey())) {
+                    throw new IllegalArgumentException(
+                            "FRAUD_SIU_REPORT params only accept 'includeSensitiveSheets'; got "
+                                    + entry.getKey());
+                }
+                if (entry.getValue() != null && !(entry.getValue() instanceof Boolean)) {
+                    throw new IllegalArgumentException(
+                            "FRAUD_SIU_REPORT params.includeSensitiveSheets must be a Boolean");
+                }
+            }
+            return;
+        }
+        throw new IllegalArgumentException(
+                "Report key " + key.name() + " does not accept schedule params in v1");
+    }
+
+    private JsonString serialiseParams(Map<String, Object> params) {
+        if (params == null || params.isEmpty()) return JsonString.empty();
+        try {
+            return JsonString.of(objectMapper.writeValueAsString(params));
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to serialise schedule params: " + e.getMessage(), e);
+        }
+    }
+
     private static void validateCadenceShape(ReportCadence cadence,
                                              Integer dayOfWeek, Integer dayOfMonth) {
         if (cadence == ReportCadence.WEEKLY && dayOfWeek == null) {
@@ -226,6 +274,7 @@ public class TenantReportScheduleService {
         c.setDayOfWeek(src.getDayOfWeek());
         c.setDayOfMonth(src.getDayOfMonth());
         c.setReportingCurrency(src.getReportingCurrency());
+        c.setParams(src.getParams());
         c.setLastFiredAt(src.getLastFiredAt());
         c.setLastStatus(src.getLastStatus());
         c.setCreatedAt(src.getCreatedAt());
@@ -276,6 +325,7 @@ public class TenantReportScheduleService {
         m.put("dayOfWeek", row.getDayOfWeek());
         m.put("dayOfMonth", row.getDayOfMonth());
         m.put("reportingCurrency", row.getReportingCurrency());
+        m.put("params", row.getParams() != null ? row.getParams().value() : null);
         return m;
     }
 

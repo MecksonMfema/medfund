@@ -55,15 +55,32 @@ async def lifespan(app: FastAPI):
         logger.warning(f"chainladder pre-warm skipped: {e}")
 
     kafka_consumer = None
+    fraud_producer = None
     report_runner: ReportJobRunner | None = None
     if settings.kafka_bootstrap_servers:
+        try:
+            from app.core.kafka_producer import ClaimsEventProducer
+            fraud_producer = ClaimsEventProducer(
+                bootstrap_servers=settings.kafka_bootstrap_servers
+            )
+            await fraud_producer.start()
+            logger.info("Fraud event producer: STARTED")
+        except Exception as e:
+            logger.warning(f"Fraud event producer failed: {e}")
+            fraud_producer = None
+
         try:
             from app.core.kafka_consumer import ClaimsEventConsumer
             from app.services.adjudication_service import AdjudicationService
             from app.services.fraud_service import FraudService
             adj_svc = AdjudicationService(gemini_module.gemini_client)
             fraud_svc = FraudService()
-            kafka_consumer = ClaimsEventConsumer(settings.kafka_bootstrap_servers, adj_svc, fraud_svc)
+            kafka_consumer = ClaimsEventConsumer(
+                settings.kafka_bootstrap_servers,
+                adj_svc,
+                fraud_svc,
+                fraud_producer=fraud_producer,
+            )
             await kafka_consumer.start()
             logger.info("Kafka consumer: STARTED")
         except Exception as e:
@@ -82,6 +99,8 @@ async def lifespan(app: FastAPI):
         await report_runner.stop()
     if kafka_consumer:
         await kafka_consumer.stop()
+    if fraud_producer:
+        await fraud_producer.stop()
     await close_db()
     logger.info("AI Service shut down")
 

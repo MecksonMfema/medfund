@@ -35,6 +35,16 @@ public class ReportJob {
     public static final String RETENTION_OPERATIONAL_90D = "OPERATIONAL_90D";
     public static final String RETENTION_STATUTORY_7Y = "STATUTORY_7Y";
 
+    /** Raw AI fraud flags with no linked SIU case — auto-purge after 12 months (Phase 19 §A). */
+    public static final String RETENTION_FRAUD_FLAG_1Y = "FRAUD_FLAG_1Y";
+
+    /**
+     * SIU cases + linked flags/evidence/notes/referrals + {@code report_job} rows for
+     * {@code FRAUD_SIU_REPORT} — 7-year retention aligns with insurance-fraud statute
+     * (ZW Insurance Act 2019 §137; POPIA §5(e) equivalent). Phase 19 §A.
+     */
+    public static final String RETENTION_SIU_CASE_7Y = "SIU_CASE_7Y";
+
     @Id
     @Column("job_id")
     private UUID jobId;

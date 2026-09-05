@@ -12,6 +12,7 @@ import com.medfund.rules.template.providers.CommissionTemplates;
 import com.medfund.rules.template.providers.ContributionBillingTemplates;
 import com.medfund.rules.template.providers.ContributionPricingTemplates;
 import com.medfund.rules.template.providers.EligibilityTemplates;
+import com.medfund.rules.template.providers.FraudTriageTemplates;
 import com.medfund.rules.template.providers.Ifrs17ModelTemplates;
 import com.medfund.rules.template.providers.MemberLifecycleTemplates;
 import com.medfund.rules.template.providers.ModifierAdjustmentTemplates;
@@ -69,7 +70,8 @@ class RuleTemplateServiceTest {
                 new ActuarialTemplates(),
                 new Ifrs17ModelTemplates(),
                 new RegulatoryParameterTemplates(),
-                new PmbClassificationTemplates()
+                new PmbClassificationTemplates(),
+                new FraudTriageTemplates()
         );
         service = new RuleTemplateService(providers);
     }
@@ -89,6 +91,7 @@ class RuleTemplateServiceTest {
      * a {@code SET_APPROVED_AMOUNT} action verb — see
      * {@link com.medfund.rules.template.providers.ModifierAdjustmentTemplates}
      * for the raw-DRL escape hatch tenants use today.
+     *
      */
     private static final Set<String> INTENTIONALLY_EMPTY_CATEGORIES = Set.of(
             RuleCategory.MODIFIER_ADJUSTMENT.name()

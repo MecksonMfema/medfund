@@ -7,6 +7,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
+import java.util.Map;
+
 /**
  * Create body for {@code POST /api/v1/tenants/{tenantId}/report-schedules}.
  * {@code reportKey} must be a whitelisted Phase 17 key per
@@ -19,6 +21,10 @@ import jakarta.validation.constraints.Pattern;
  *
  * <p>{@code reportingCurrency} left null delegates to the tenant default at
  * fire time per multi-currency invariant #1 (F-S1).
+ *
+ * <p>{@code params} — Phase 19 §B Phase 12 per-key opt-ins. For
+ * {@code FRAUD_SIU_REPORT}: {@code {"includeSensitiveSheets": true|false}}.
+ * Other keys ignore the field; the service validates the shape.
  */
 public record CreateTenantReportScheduleRequest(
         @NotBlank String reportKey,
@@ -27,5 +33,6 @@ public record CreateTenantReportScheduleRequest(
         @NotNull @Min(0) @Max(23) Integer hourOfDay,
         @Min(1) @Max(7) Integer dayOfWeek,
         @Min(1) @Max(28) Integer dayOfMonth,
-        @Pattern(regexp = "^[A-Z]{3}$") String reportingCurrency
+        @Pattern(regexp = "^[A-Z]{3}$") String reportingCurrency,
+        Map<String, Object> params
 ) {}

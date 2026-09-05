@@ -51,6 +51,20 @@ public final class Permissions {
      *  Decoupled from {@link #CLAIMS_ADJUDICATE} so tenants can grant reserve-setting to a supervisor role only. */
     public static final String CLAIMS_SET_RESERVE                = "claims:set_reserve";
 
+    // ── Claims: SIU (Special Investigations Unit) ────────────────────────────
+    // Phase 19 §A + §B (Phase 7) — full 8-permission SIU (Special
+    // Investigations Unit) surface per parent-plan FR7.
+    public static final String CLAIMS_SIU_VIEW                   = "claims:siu:view";
+    public static final String CLAIMS_SIU_CREATE                 = "claims:siu:create";
+    public static final String CLAIMS_SIU_INVESTIGATE            = "claims:siu:investigate";
+    public static final String CLAIMS_SIU_ADMIN                  = "claims:siu:admin";
+    // §B Phase 7 additions — assign/reassign, four-eyes approve, reopen,
+    // and external referral (law enforcement / regulator / HR).
+    public static final String CLAIMS_SIU_ASSIGN                 = "claims:siu:assign";
+    public static final String CLAIMS_SIU_APPROVE                = "claims:siu:approve";
+    public static final String CLAIMS_SIU_REOPEN                 = "claims:siu:reopen";
+    public static final String CLAIMS_SIU_REFER                  = "claims:siu:refer";
+
     // ── Billing ──────────────────────────────────────────────────────────────
     public static final String BILLING_VIEW                      = "billing:view";
     public static final String BILLING_MANAGE_SCHEMES            = "billing:manage_schemes";
@@ -239,6 +253,8 @@ public final class Permissions {
             CLAIMS_VIEW_CTC_PAYMENTS, CLAIMS_COMMIT_CTC_PAYMENT,
             CLAIMS_REQUEST_QUOTE,
             CLAIMS_SET_RESERVE,
+            CLAIMS_SIU_VIEW, CLAIMS_SIU_CREATE, CLAIMS_SIU_INVESTIGATE, CLAIMS_SIU_ADMIN,
+            CLAIMS_SIU_ASSIGN, CLAIMS_SIU_APPROVE, CLAIMS_SIU_REOPEN, CLAIMS_SIU_REFER,
 
             BILLING_VIEW, BILLING_MANAGE_SCHEMES, BILLING_MANAGE_AGE_GROUPS,
             BILLING_MANAGE_WAITING_PERIODS, BILLING_MANAGE_GROUPS, BILLING_MANAGE_DEPENDANTS,

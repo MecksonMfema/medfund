@@ -64,6 +64,9 @@ interface CreateDraft {
   dayOfMonth: number | null;
   reportingCurrency: string | null;
   enabled: boolean;
+  // Phase 19 §B Phase 12 — per-key opt-ins. For FRAUD_SIU_REPORT:
+  //   { includeSensitiveSheets: boolean }.
+  includeSensitiveSheets: boolean;
 }
 
 const HOUR_OPTIONS: SelectOption[] = Array.from({ length: 24 }, (_, h) => ({
@@ -337,6 +340,9 @@ export class ReportSchedulesPageComponent implements OnInit, AfterViewInit {
       dayOfMonth: this.createDraft.cadence === 'MONTHLY' ? this.createDraft.dayOfMonth : null,
       reportingCurrency: this.createDraft.reportingCurrency,
     };
+    if (this.createDraft.reportKey === 'FRAUD_SIU_REPORT') {
+      body.params = { includeSensitiveSheets: this.createDraft.includeSensitiveSheets };
+    }
     this.creating = true;
     this.scheduleService.create(tenantId, body).subscribe({
       next: () => {
@@ -400,6 +406,7 @@ export class ReportSchedulesPageComponent implements OnInit, AfterViewInit {
       dayOfMonth: 1,
       reportingCurrency: null,
       enabled: true,
+      includeSensitiveSheets: false,
     };
   }
 }

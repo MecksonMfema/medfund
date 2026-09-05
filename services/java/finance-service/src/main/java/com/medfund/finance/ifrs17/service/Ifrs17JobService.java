@@ -232,11 +232,16 @@ public class Ifrs17JobService {
 
     /**
      * Classifies retention per I28: IFRS 17 + REGULATORY family → STATUTORY_7Y
-     * (7-year statutory retention); everything else → OPERATIONAL_90D. Applied
-     * at parent-insert time — once classified the row keeps its class for the
-     * whole 7-year window (no reclassification per plan §NOT DOING).
+     * (7-year statutory retention); {@code FRAUD_SIU_REPORT} → SIU_CASE_7Y
+     * (7-year insurance-fraud statute retention per Phase 19 §A); everything
+     * else → OPERATIONAL_90D. Applied at parent-insert time — once classified
+     * the row keeps its class for the whole retention window (no reclassification
+     * per plan §NOT DOING).
      */
     static String classifyRetention(ReportKey reportKey) {
+        if (reportKey == ReportKey.FRAUD_SIU_REPORT) {
+            return ReportJob.RETENTION_SIU_CASE_7Y;
+        }
         return reportKey.getFamily() == ReportFamily.REGULATORY
                 ? ReportJob.RETENTION_STATUTORY_7Y
                 : ReportJob.RETENTION_OPERATIONAL_90D;

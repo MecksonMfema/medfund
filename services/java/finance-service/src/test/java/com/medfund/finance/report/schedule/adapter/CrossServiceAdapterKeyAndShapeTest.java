@@ -155,9 +155,23 @@ class CrossServiceAdapterKeyAndShapeTest {
                 "user.group-census.render");
     }
 
-    /** Confirms the whitelist stays in sync — 13 keys total = 5 finance-local + 8 cross-service. */
     @Test
-    void allEightCrossServiceAdaptersAccountedFor() {
+    void fraudSiuReport_previousComplete_pointsAtClaims() {
+        var adapter = new FraudSiuReportAdapter(helper);
+        expectHelperCalledWith("/api/v1/reports/FRAUD_SIU_REPORT/scheduled-render",
+                "claims.fraud-siu.render");
+        assertThat(adapter.key()).isEqualTo(ReportKey.FRAUD_SIU_REPORT);
+        assertThat(adapter.periodShape()).isEqualTo(ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD);
+        injectBaseUrl(adapter);
+        adapter.render(mock(ScheduledFireContext.class)).block();
+        verifyRender("/api/v1/reports/FRAUD_SIU_REPORT/scheduled-render",
+                "claims.fraud-siu.render");
+    }
+
+    /** Confirms the whitelist stays in sync — 9 cross-service adapters after
+     *  Phase 19 §B Phase 12 added FraudSiuReportAdapter. */
+    @Test
+    void allNineCrossServiceAdaptersAccountedFor() {
         List<ReportKey> crossKeys = List.of(
                 ReportKey.AGED_DEBTORS,
                 ReportKey.UPR_MOVEMENT,
@@ -166,8 +180,9 @@ class CrossServiceAdapterKeyAndShapeTest {
                 ReportKey.PROVIDER_NETWORK_UTILIZATION,
                 ReportKey.POLICY_MOVEMENT,
                 ReportKey.PERSISTENCY_COHORT,
-                ReportKey.GROUP_CENSUS
+                ReportKey.GROUP_CENSUS,
+                ReportKey.FRAUD_SIU_REPORT
         );
-        assertThat(crossKeys).hasSize(8);
+        assertThat(crossKeys).hasSize(9);
     }
 }

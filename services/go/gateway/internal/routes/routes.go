@@ -117,6 +117,12 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/reports/claims/*", proxy.Handler(cfg.ClaimsServiceURL))
 	app.All("/api/v1/reports/aggregate/claims", proxy.Handler(cfg.ClaimsServiceURL))
 	app.All("/api/v1/reports/aggregate/claims/*", proxy.Handler(cfg.ClaimsServiceURL))
+	// Phase 19 §A Phase 6 — SIU workflow (case queue + case detail + state
+	// transitions) and the fraud / SIU report (4-tile summary + XLSX export).
+	// Both consumed by /tenant/claims/siu/ and /tenant/finance/reports/fraud/
+	// on the Angular tenant portal.
+	app.All("/api/v1/siu/*", proxy.Handler(cfg.ClaimsServiceURL))
+	app.All("/api/v1/reports/fraud/*", proxy.Handler(cfg.ClaimsServiceURL))
 
 	// ── Contributions Service ─────────────────────────────────────────────────
 	app.All("/api/v1/schemes", proxy.Handler(cfg.ContribServiceURL))

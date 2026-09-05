@@ -2,6 +2,9 @@ package com.medfund.claims.report.schedule;
 
 import com.medfund.claims.reports.provider.service.ProviderNetworkUtilizationWorkbookService;
 import com.medfund.claims.service.ClaimsExcelService;
+import com.medfund.claims.siu.service.FraudReportService;
+import com.medfund.claims.siu.service.FraudReportWorkbookService;
+import com.medfund.claims.siu.service.FraudReportWorkbookService.WorkbookOptions;
 import com.medfund.shared.report.ReportKey;
 import com.medfund.shared.report.ScheduledRenderRequest;
 import com.medfund.shared.security.RequiresPermission;
@@ -40,6 +43,8 @@ public class ScheduledRenderController {
 
     private final ClaimsExcelService claimsExcelService;
     private final ProviderNetworkUtilizationWorkbookService providerNetworkService;
+    private final FraudReportService fraudReportService;
+    private final FraudReportWorkbookService fraudReportWorkbookService;
     private final SecurityEventPublisher securityEventPublisher;
 
     @PostMapping(value = "/CLAIMS_SUMMARY/scheduled-render", produces = {
@@ -67,6 +72,38 @@ public class ScheduledRenderController {
                         req.periodStart(), req.periodEnd(), null, null, req.reportingCurrency())
                 .contextWrite(c -> TenantContext.put(c, req.tenantId().toString()))
                 .flatMap(bytes -> auditAndWrap(bytes, req, ReportKey.PROVIDER_NETWORK_UTILIZATION));
+    }
+
+    @PostMapping(value = "/FRAUD_SIU_REPORT/scheduled-render", produces = {
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"})
+    @Operation(summary = "Render FRAUD_SIU_REPORT workbook for a scheduled fire. "
+            + "Reads params.includeSensitiveSheets (default false per FR12) "
+            + "to gate the AI-calibration + Investigator productivity sheets.")
+    @RequiresPermission(PERM)
+    public Mono<ResponseEntity<byte[]>> renderFraudSiuReport(@RequestBody ScheduledRenderRequest req) {
+        boolean includeSensitive = readIncludeSensitiveSheets(req);
+        log.debug("[scheduled-render] FRAUD_SIU_REPORT tenant={} period={}..{} includeSensitiveSheets={}",
+                req.tenantId(), req.periodStart(), req.periodEnd(), includeSensitive);
+        WorkbookOptions options = new WorkbookOptions(includeSensitive);
+        return fraudReportService.summary(
+                        req.periodStart().toString(),
+                        req.periodEnd().toString(),
+                        req.reportingCurrency())
+                .flatMap(env -> fraudReportWorkbookService.render(env, options, null))
+                .contextWrite(c -> TenantContext.put(c, req.tenantId().toString()))
+                .flatMap(bytes -> auditAndWrap(bytes, req, ReportKey.FRAUD_SIU_REPORT));
+    }
+
+    /**
+     * Best-effort read of the per-schedule {@code includeSensitiveSheets}
+     * flag. Missing / non-Boolean / null → default false per FR12 — the
+     * shape validation lived at write time in tenancy-service.
+     */
+    static boolean readIncludeSensitiveSheets(ScheduledRenderRequest req) {
+        Map<String, Object> params = req.params();
+        if (params == null) return false;
+        Object v = params.get("includeSensitiveSheets");
+        return v instanceof Boolean b && b;
     }
 
     private Mono<ResponseEntity<byte[]>> auditAndWrap(byte[] bytes, ScheduledRenderRequest req,

@@ -99,7 +99,7 @@ class ScheduledReportOrchestratorTest {
                 SCHEDULE_ID, TENANT_ID, reportKey, "MONTHLY",
                 8, null, 1, "USD",
                 UUID.randomUUID(), "admin@acme",
-                "UTC", "acme", "Acme Corp");
+                "UTC", "acme", "Acme Corp", null);
     }
 
     @Test

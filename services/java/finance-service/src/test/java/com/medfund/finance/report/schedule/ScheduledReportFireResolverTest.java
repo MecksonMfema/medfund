@@ -33,7 +33,8 @@ class ScheduledReportFireResolverTest {
                 UUID.randomUUID(),
                 "admin@acme",
                 tz,
-                "acme", "Acme Corp");
+                "acme", "Acme Corp",
+                null /* paramsJson — resolver ignores per-schedule params */);
     }
 
     @Test
@@ -112,7 +113,7 @@ class ScheduledReportFireResolverTest {
         TenantScheduleFireCandidate c = new TenantScheduleFireCandidate(
                 UUID.randomUUID(), UUID.randomUUID(), "COMMISSION_STATEMENT",
                 "MONTHLY", null, null, 1, "USD",
-                null, null, "UTC", "acme", "Acme");
+                null, null, "UTC", "acme", "Acme", null);
         assertThat(resolver.matchesNow(c, OffsetDateTime.parse("2026-09-01T08:05:00Z"))).isFalse();
     }
 }

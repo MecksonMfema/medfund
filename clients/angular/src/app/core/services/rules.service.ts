@@ -66,7 +66,9 @@ export type RuleCategory =
   // Regulatory parameter override
   | 'REGULATORY_PARAMETER'
   // PMB (Prescribed Minimum Benefit) classification
-  | 'PMB_CLASSIFICATION';
+  | 'PMB_CLASSIFICATION'
+  // Fraud triage — auto-open SIU cases from fraud_flag rows (§B Phase 10)
+  | 'FRAUD_TRIAGE';
 
 /**
  * Categories grouped by lifecycle stage. The Rules Engine page renders this
@@ -107,6 +109,8 @@ export const RULE_CATEGORIES: { id: RuleCategory; label: string; icon: string }[
   { id: 'REGULATORY_PARAMETER', label: 'Regulatory Parameter', icon: 'sliders' },
   // PMB (Prescribed Minimum Benefit) classification (Phase 17 §B REG7)
   { id: 'PMB_CLASSIFICATION',   label: 'PMB Classification',   icon: 'stethoscope' },
+  // Fraud triage — auto-open SIU cases from fraud_flag (Phase 19 §B Phase 10)
+  { id: 'FRAUD_TRIAGE',         label: 'Fraud Triage',         icon: 'shield' },
 ];
 
 export interface RuleDefinition {

@@ -39,7 +39,12 @@ public final class ScheduledReportEligibility {
             ReportKey.EXPENSE_RATIO,
             ReportKey.COMBINED_RATIO,
             ReportKey.CLAIMS_FREQUENCY,
-            ReportKey.AVERAGE_SEVERITY
+            ReportKey.AVERAGE_SEVERITY,
+            // Phase 19 §B Phase 12 — Fraud/SIU report. The per-schedule
+            // {@code params.includeSensitiveSheets} flag (default false)
+            // controls whether the AI-calibration + investigator-productivity
+            // sheets are included per FR12.
+            ReportKey.FRAUD_SIU_REPORT
     );
 
     private ScheduledReportEligibility() {}

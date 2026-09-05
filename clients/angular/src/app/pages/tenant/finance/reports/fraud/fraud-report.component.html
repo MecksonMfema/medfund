@@ -1,0 +1,233 @@
+<header class="page-header">
+  <div>
+    <h1>Fraud / SIU report</h1>
+    <p class="page-sub">
+      Investigations opened + confirmed + total savings for the window.
+      Numbers key on {{ envelope?.reportingCurrency || '—' }}.
+    </p>
+  </div>
+  <div class="action-row">
+    <button class="btn btn-primary" [disabled]="exporting || loading" (click)="export()">
+      <app-icon name="download" [size]="14"></app-icon>
+      Export XLSX
+    </button>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="filter-strip">
+  <label class="field">
+    <span class="field-label">Period start</span>
+    <input type="date" [(ngModel)]="periodStart" (change)="fetch()" />
+  </label>
+  <label class="field">
+    <span class="field-label">Period end</span>
+    <input type="date" [(ngModel)]="periodEnd" (change)="fetch()" />
+  </label>
+  <label class="field">
+    <span class="field-label">Reporting currency</span>
+    <input type="text" maxlength="3" placeholder="tenant default"
+           [(ngModel)]="reportingCurrency" (change)="fetch()" />
+  </label>
+</div>
+
+@if (envelope?.warnings && envelope!.warnings.length > 0) {
+  <div class="banner banner-warning">
+    <strong>FX warnings:</strong>
+    <ul>
+      @for (w of envelope!.warnings; track w) { <li>{{ w }}</li> }
+    </ul>
+  </div>
+}
+
+@if (loading) {
+  <div class="banner">Loading…</div>
+} @else if (envelope) {
+  <section class="tiles">
+    <div class="tile">
+      <div class="tile-label">Cases opened</div>
+      <div class="tile-value">{{ envelope.data.casesOpened }}</div>
+      <div class="tile-sub">Total investigations opened in the window.</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">Confirmed</div>
+      <div class="tile-value">{{ envelope.data.confirmedCount }}</div>
+      <div class="tile-sub">Closed as CLOSED_CONFIRMED_FRAUD.</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">Savings ({{ envelope.reportingCurrency }})</div>
+      <div class="tile-value">{{ envelope.data.savingsComposite }}</div>
+      <div class="tile-sub">Composite of native-currency savings, FX-converted.</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">Confirmation rate</div>
+      <div class="tile-value">{{ envelope.data.confirmationRate }}</div>
+      <div class="tile-sub">Confirmed ÷ total opened (4dp).</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">Avg cycle time (days)</div>
+      <div class="tile-value">{{ envelope.data.avgCycleTimeDays }}</div>
+      <div class="tile-sub">Mean days between opened_at and closed_at for closures in period.</div>
+    </div>
+    <div class="tile">
+      <div class="tile-label">Reopened</div>
+      <div class="tile-value">{{ envelope.data.reopenedCount }}</div>
+      <div class="tile-sub">Cases that flipped from CLOSED_* back to UNDER_REVIEW.</div>
+    </div>
+  </section>
+
+  @if (perCurrencyEntries().length > 0) {
+    <section class="card">
+      <h3>Savings — per native currency</h3>
+      <table class="data-table">
+        <thead><tr><th>Currency</th><th>Saved amount</th></tr></thead>
+        <tbody>
+          @for (e of perCurrencyEntries(); track e.currency) {
+            <tr><td>{{ e.currency }}</td><td>{{ e.amount }}</td></tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+
+  <section class="card">
+    <h3>Monthly trend (last 12 months)</h3>
+    @if (trendPoints.length === 0) {
+      <p class="empty">No cases in the trailing 12-month window.</p>
+    } @else {
+      <div class="chart-wrap">
+        <app-line-chart [data]="trendChartData" [legend]="true"
+                        xAxisLabel="Month" yAxisLabel="Cases"></app-line-chart>
+      </div>
+    }
+  </section>
+
+  <section class="card">
+    <h3>Top-10 providers by composite savings</h3>
+    @if (providers.length === 0) {
+      <p class="empty">No confirmed provider-linked cases in this window.</p>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Provider id</th>
+            <th>Confirmed cases</th>
+            <th>Native savings</th>
+            <th>Composite ({{ envelope.reportingCurrency }})</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of providers; track p.providerId) {
+            <tr>
+              <td><code>{{ p.providerId }}</code></td>
+              <td>{{ p.confirmedCases }}</td>
+              <td>{{ nativeSummary(p.savingsNative) }}</td>
+              <td>{{ p.savingsComposite }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+
+  <section class="card">
+    <h3>Top-10 members by composite savings</h3>
+    @if (members.length === 0) {
+      <p class="empty">No confirmed member-linked cases in this window.</p>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Member id</th>
+            <th>Confirmed cases</th>
+            <th>Native savings</th>
+            <th>Composite ({{ envelope.reportingCurrency }})</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (m of members; track m.memberId) {
+            <tr>
+              <td><code>{{ m.memberId }}</code></td>
+              <td>{{ m.confirmedCases }}</td>
+              <td>{{ nativeSummary(m.savingsNative) }}</td>
+              <td>{{ m.savingsComposite }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+
+  <section class="card">
+    <h3>AI calibration — precision by risk_level</h3>
+    @if (calibration && calibration.warnings.length > 0) {
+      <div class="banner banner-warning">
+        <strong>Small-N fallback:</strong>
+        @for (w of calibration.warnings; track w) { <span>{{ w }}</span> }
+      </div>
+    }
+    @if (calibration && calibration.rows.length > 0) {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Risk level</th>
+            <th>True positives</th>
+            <th>False positives</th>
+            <th>Total flags</th>
+            <th>Precision (4dp)</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of calibration.rows; track r.riskLevel) {
+            <tr>
+              <td>{{ r.riskLevel }}</td>
+              <td>{{ r.truePositives }}</td>
+              <td>{{ r.falsePositives }}</td>
+              <td>{{ r.totalFlags }}</td>
+              <td>{{ r.precision4dp }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+
+  <section class="card">
+    <h3>Investigator productivity</h3>
+    <p class="page-sub">
+      Backend row-filters per Rule 4: officers see only their own row;
+      supervisors + tenant admins see all officers.
+    </p>
+    @if (productivity.length === 0) {
+      <p class="empty">No closures by any investigator in this window.</p>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Officer</th>
+            <th>Closed</th>
+            <th>Confirmed</th>
+            <th>Dismissed</th>
+            <th>Referred / action</th>
+            <th>Avg cycle days</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of productivity; track r.officerEmail) {
+            <tr>
+              <td>{{ r.officerEmail }}</td>
+              <td>{{ r.casesClosed }}</td>
+              <td>{{ r.confirmedCount }}</td>
+              <td>{{ r.dismissedCount }}</td>
+              <td>{{ r.referredCount }}</td>
+              <td>{{ r.avgCycleTimeDays }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+}

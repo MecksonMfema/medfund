@@ -260,7 +260,28 @@ public class ScheduledReportOrchestrator {
                 cadenceLabel(candidate.cadence()),
                 firedAt,
                 candidate.scheduleUpdatedByActorId(),
-                candidate.scheduleUpdatedByActorEmail());
+                candidate.scheduleUpdatedByActorEmail(),
+                deserialiseParams(candidate.paramsJson(), candidate.scheduleId()));
+    }
+
+    /**
+     * Best-effort deserialisation of the {@code tenant_report_schedule.params}
+     * JSONB payload. Malformed JSON is logged and treated as no params — the
+     * downstream adapter must tolerate a null / empty map (only
+     * {@code FRAUD_SIU_REPORT} reads params today per FR12).
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> deserialiseParams(Json paramsJson, UUID scheduleId) {
+        if (paramsJson == null) return null;
+        try {
+            byte[] bytes = paramsJson.asArray();
+            if (bytes.length == 0) return null;
+            return objectMapper.readValue(bytes, Map.class);
+        } catch (Exception e) {
+            log.warn("[scheduled-report] failed to deserialise params JSON for schedule {}: {}",
+                    scheduleId, e.getMessage());
+            return null;
+        }
     }
 
     private Json serializeParams(ScheduledFireContext ctx) {

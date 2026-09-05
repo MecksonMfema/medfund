@@ -78,9 +78,19 @@ class RuleCategoryTest {
     }
 
     @Test
+    void fraudTriageCategory_isDeclared() {
+        // Phase 19 §A addition — used by the FRAUD_TRIAGE template provider +
+        // rules dispatched from claims-service's FraudFlaggedConsumer. Agenda-gated
+        // ("FRAUD_RULES") so triage rules only fire when SiuCaseService.evaluateTriage
+        // focuses the group per fraud_flag event — never during the stage-7 tenant sweep.
+        assertThat(RuleCategory.valueOf("FRAUD_TRIAGE"))
+                .isEqualTo(RuleCategory.FRAUD_TRIAGE);
+    }
+
+    @Test
     void enumHasExpectedCatalogSize() {
         // Guardrail: if this fires, a new category was added — update the
         // Angular RULE_CATEGORIES + permissions catalog + tenant rules docs.
-        assertThat(RuleCategory.values()).hasSize(23);
+        assertThat(RuleCategory.values()).hasSize(24);
     }
 }

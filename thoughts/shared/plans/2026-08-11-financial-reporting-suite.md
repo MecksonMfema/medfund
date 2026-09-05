@@ -28,8 +28,8 @@ phases_status:
   "16": grilled 2026-08-30 (REG1..REG21 — regulatory-format-reports decisions numbered `REG*` for Regulatory to avoid collision with plan-wide `G*` numbering and with prior phase prefixes `R*`/`P*`/`U*`/`L*`/`A*`/`I*`; single sub-plan `thoughts/shared/plans/2026-08-30-regulatory-format-reports.md` with 25-30 phases across §0/§A/§B/§C/§D + closeout per REG21); landed 2026-08-30 (commit ba9e65c "Land Phase 16 regulatory-format reports (Phases 1-28)" via sub-plan)
   "17": grilled 2026-08-31 (S1..S13 — scheduled-email-delivery decisions numbered `S*` for Scheduled to avoid collision with plan-wide `G*` numbering and with prior phase prefixes `R*`/`P*`/`U*`/`L*`/`A*`/`I*`/`REG*`; scope narrowed from all 24 cadenced ReportKeys to 13 non-regulator operational keys per S1 — regulator + IFRS 17 + AML periodic + FRAUD_SIU_REPORT auto-run deferred to Phase 17.5 follow-up; single sub-plan `thoughts/shared/plans/2026-08-31-scheduled-email-delivery.md` with 5 tranches (§0 shared types + migrations, §A backend probe + orchestrator + adapters, §B notification dispatcher, §C Angular, §D e2e + rollout) totaling ~10-12 phases per S13)
   "18": grilled 2026-09-05 (K1..K18 — executive-KPI-dashboards decisions numbered `K*` for KPI to avoid collision with plan-wide `G*` numbering and with prior phase prefixes `R*` (reinsurance, Phase 10) / `P*` (producer, Phase 11) / `U*` (underwriting, Phase 12) / `L*` (lifecycle, Phase 13) / `A*` (actuarial, Phase 14) / `I*` (IFRS 17, Phase 15) / `REG*` (regulatory, Phase 16) / `S*` (scheduled email, Phase 17); scope escalated beyond outline — 5 KPI keys instead of 3 (K1 adds `CLAIMS_FREQUENCY` + `AVERAGE_SEVERITY`), 5 KPI keys flip to `cadenced=true` (K11) widening Phase 17 S1 whitelist, incurred-basis loss ratio requires new `/aggregate/claims-incurred` on claims-service (K9) + latest-IBNR read from `report_job.result_json` (K9), earned-basis denominator requires new `/aggregate/premium-earned` on contributions-service (K8), commission-only acquisition-ratio proxy for EXPENSE_RATIO with UI rename (K4) requires new `/aggregate/commissions` on finance-service (K7), mixed-basis COMBINED_RATIO with UI footnote (K6), on-demand compute + Redis 15-min TTL (K10), per-currency native rows + reporting-currency composite scalar with fail-loud composite / best-effort envelope (K12), line+scheme+producer 3-chip slicing (K13), 12-month default trend extendable to 24 monthly (K14), KPI tile + `app-sparkline` compact chart + click-through drill-down (K15), route at `/tenant/finance/reports/kpi` under Reports Hub Dashboard family (K16), reuse `finance:reports:view` + `@RequiresReport` (K17); single sub-plan `thoughts/shared/plans/2026-09-05-executive-kpi-dashboards.md` with 3 tranches (§0 enum + aggregates, §A composer + Angular, §B scheduled adapter + e2e) totaling ~6-8 phases per K18)
-  "19": outline depth; needs its own grilling pass before implementation
-last_grilled_phase: 18
+  "19": grilled 2026-09-05 (FR1..FR16 — fraud-SIU decisions numbered `FR*` for Fraud to avoid collision with plan-wide `G*` numbering and with prior phase prefixes `R*` (reinsurance, Phase 10) / `P*` (producer, Phase 11) / `U*` (underwriting, Phase 12) / `L*` (lifecycle, Phase 13) / `A*` (actuarial, Phase 14) / `I*` (IFRS 17, Phase 15) / `REG*` (regulatory, Phase 16) / `S*` (scheduled email, Phase 17) / `K*` (KPI, Phase 18); plus F19-1..F19-7 settled-by-fact; scope escalated substantially beyond the 4-line outline — full SIU case-management module (FR1) in claims-service (FR2) with split routing workflow-in-claims + report-in-finance (FR3), 5 entities via flag-as-evidence pattern (FR5), 5-state machine with four-eyes on non-dismissal closures (FR6), 8 fine-grained permissions + 2 Keycloak roles siu_officer/siu_supervisor (FR7), investigator-entered savings defaulting to claimed-paid (FR8), AI service Kafka producer publishing every prediction to `medfund.claims.fraud-flagged` (FR9) with top-N indicators for Rule 3 audit-of-record + full feature vector deferred to Phase 19.5 ML-ops (FR10), new `RuleCategory.FRAUD_TRIAGE` with `FraudFlagFact` + 6 templates (FR4/FR15), full-analytics report with 6 KPI tiles + trend + top-N drills + AI model calibration + investigator productivity (FR11), added to Phase 17 scheduled-delivery whitelist with per-schedule `includeSensitiveSheets` gate (FR12), 2 new `RetentionClass` values FRAUD_FLAG_1Y + SIU_CASE_7Y (FR13), one currency per case with reporting-currency composite scalar per invariant #6 (FR14); single sub-plan `thoughts/shared/plans/2026-09-05-fraud-siu-report.md` planned via `create-plan` at implement time with 2 tranches per FR16 (§A MVP ~5-6 phases: 3 entities, 3-state machine, 4 perms + 1 role, AI producer + consumer + 3 templates, 4-tile report; §B expansion ~5-6 phases: adds evidence/referrals, full 5-state + four-eyes, remaining perms + supervisor role, 3 additional templates, full-analytics report + Phase 17 scheduled dispatch), totaling ~10-12 phases)
+last_grilled_phase: 19
 last_grilled_date: 2026-09-05
 ---
 
@@ -4637,15 +4637,166 @@ Corrections + contradictions the grill surfaced that touch other sections of the
 
 ## Phase 19: Fraud / SIU Report
 
+> **Grilled 2026-09-05.** Decisions FR1..FR16 (numbered `FR*` — for FRaud — to avoid collision with plan-wide `G*` numbering, with the plan's own `F<n>` settled-by-fact markers used in earlier phases (F6-F11 in Phase 0, F12-F17 in Phase 1, F18-F29 in Phase 2, F52-F61 in Phase 4), and with prior phase decision prefixes `R*` (reinsurance, Phase 10) / `P*` (producer, Phase 11) / `U*` (underwriting, Phase 12) / `L*` (lifecycle, Phase 13) / `A*` (actuarial, Phase 14) / `I*` (IFRS 17, Phase 15) / `REG*` (regulatory, Phase 16) / `S*` (scheduled email, Phase 17) / `K*` (KPI, Phase 18)). Settled-by-fact prefix `F19-*` follows the plan's `F<phase>-<n>` convention (F14-1..F14-16, F15-1..F15-15, F17-1..F17-13, F18-1..F18-15 precedent).
+>
+> Original 4-line outline retained below as ~~strike-through~~ for provenance. Scope escalated substantially beyond the outline: full SIU case-management module (FR1) replaces the report-only framing; 5 entities via flag-as-evidence pattern (FR5) replace the implied 2; 5-state machine with four-eyes on non-dismissal closures (FR6) replaces the implied 2-state; 8 fine-grained permissions + 2 Keycloak roles (FR7) replace the implied single perm; AI service gains its first Kafka producer (FR9) publishing every prediction as Rule 3 audit-of-record instead of the outline's speculative topic verification; new rules-engine category FRAUD_TRIAGE with `FraudFlagFact` + 6 templates (FR4/FR15) replaces the implied hardcoded threshold; full-analytics report (FR11) with 6 tiles + trend + top-N + AI calibration + investigator productivity replaces the 4-metric summary; Phase 17 whitelist widens with per-schedule sensitive-sheet gate (FR12); 2 new `RetentionClass` values (FR13); one currency per case with reporting-currency composite scalar per invariant #6 (FR14).
+
+### Original outline (superseded 2026-09-05 by Decisions Log)
+
+~~Ties the existing fraud-detection AI outputs into a fraud referral + savings report. Report key `FRAUD_SIU_REPORT`.~~
+
+- ~~**claims-service** reads `medfund.claims.fraud-flagged` events (verify topic exists; otherwise add producer in fraud-detection AI consumer).~~
+- ~~New `FraudReportController.summary(period)` — returns referral count, confirmed fraud, savings, referral rate.~~
+- ~~**Angular** page under `reports/fraud/`.~~
+
 ### Overview
 
-Ties the existing fraud-detection AI outputs into a fraud referral + savings report. Report key `FRAUD_SIU_REPORT`.
+Full SIU (Special Investigations Unit) case-management module in **claims-service** paired with a full-analytics fraud report surfaced in the Reports Hub. Scope spans:
 
-### Changes Required (outline)
+- **shared** — 2 new `RetentionClass` values (FR13), 8 permission constants added in `Permissions.java` (FR7), second Keycloak realm-bootstrap adds `siu_officer` + `siu_supervisor` roles (FR7).
+- **claims-service** (FR2) — 5 new tenant-schema Flyway migrations for `fraud_flag` / `siu_case` / `siu_case_note` / `siu_evidence` / `siu_referral` (FR5); entities + repositories + `SiuCaseService` (5-state machine + four-eyes, FR6) + `FraudFlagService` + `FraudFlaggedConsumer` (FR9); controllers + Swagger; `FraudReportService` composing tiles + trend + top-N + calibration + productivity (FR11); `/api/v1/reports/fraud/summary` + `/aggregate/fraud`; new `FraudFlagRetentionJob` (FR13); `ScheduledReportShapeAdapter` for Phase 17 orchestrator (FR12).
+- **rules-engine** — new `RuleCategory.FRAUD_TRIAGE` with `FraudFlagFact` + 6 templates + DRL compiler mapping + `TemplateProvider` bean (FR4/FR15).
+- **ai-service** (`services/python/ai-service`) — first outbound Kafka producer wired into the existing `medfund.claims.submitted` consumer, publishing every classified claim (Rule 3 audit-of-record) to `medfund.claims.fraud-flagged` with `(model_version, risk_score, risk_level, top-N indicators, computed_at)` (FR9/FR10).
+- **Angular** — split routing (FR3): workflow at `/tenant/claims/siu/*` (queue, case-detail, evidence panel, note timeline, referral form, admin UI for FRAUD_TRIAGE rules); report at `/tenant/finance/reports/fraud/*` (6 KPI tiles + trend + top-N drills + AI calibration + investigator productivity, XLSX 6-sheet export); tenant-admin `/settings/report-schedules` UI gains `includeSensitiveSheets` toggle (FR12).
+- **Phase 17 dependency** — sub-plan `thoughts/shared/plans/2026-08-31-scheduled-email-delivery.md` gains a Deviations note that Phase 19 §B widens the scheduled-delivery whitelist to include `FRAUD_SIU_REPORT` + the `includeSensitiveSheets` per-schedule flag.
 
-- **claims-service** reads `medfund.claims.fraud-flagged` events (verify topic exists; otherwise add producer in fraud-detection AI consumer).
-- New `FraudReportController.summary(period)` — returns referral count, confirmed fraud, savings, referral rate.
-- **Angular** page under `reports/fraud/`.
+Single sub-plan `thoughts/shared/plans/2026-09-05-fraud-siu-report.md` (planned via `create-plan` at implement time) with 2 tranches per FR16 (§A MVP ~5-6 phases, §B expansion ~5-6 phases) totaling ~10-12 phases.
+
+### Decisions Log (FR1..FR16)
+
+- **FR1 — Scope: full SIU case-management module.** Cases (`siu_case`), investigators (siu_officer + siu_supervisor roles), evidence attachments via file-service, case notes / activity log, related-claims linking (one case → many claims), referrals to law enforcement, four-eyes case-closure, case-audit trail. Sub-plan expected to be ~10-12 phases split into 2 tranches (FR16). Rejected: report-only (dishonest "confirmed" number, weak Rule 3 auditability); report + minimal review workflow (real SIU teams outgrow it, incremental follow-up cost higher than up-front build).
+
+- **FR2 — Service ownership: claims-service.** SIU is a claims-domain workflow. `Claim` entity is already here, tenant schema is here, `TenantContext` is wired, AI publishes to `medfund.claims.*` namespace. Report aggregations compose from claims-service + optional finance-service call (recovery amounts) via `CrossServiceCallHelper`. Rejected: new siu-service microservice (breaks precedent of folding into existing services; speculative decomposition, no team asking); split claims/finance (cross-service chatter for every op, violates Rule 6, 'recovery' is only one closure outcome).
+
+- **FR3 — Angular routing: split.** Workflow (case queue, case detail, evidence panel, referrals, activity log) lives under `/tenant/claims/siu/*` (peer of `preauth`, `pending`, `tax-withheld`). Summary analytics + XLSX export lives under `/tenant/finance/reports/fraud/*` in the Reports Hub. Follows precedent (claims-status has a workflow page in Claims + a report page in Finance/Reports). Sidebar role-filter handles siu-only users. Rejected: all-in-claims (breaks Reports Hub 'one place for every report' promise + breaks parent-plan outline); all-in-finance (mismatches hub's read-only shape); new top-level `/tenant/siu/` (adds 7th portal section, breaks precedent, empty section for tenants without SIU staff).
+
+- **FR4 — Case creation: tenant-configurable via rules-engine.** New `RuleCategory.FRAUD_TRIAGE` with fact `FraudFlagFact(riskScore, riskLevel, insuranceLine, providerId, claimAmount, ...)` and action `emitCaseCreation`. Tenants configure policy ("auto-open if risk > 0.85 AND amount > 5000", "always manual triage", etc.); default (no rules configured) = auto-open HIGH-risk (matches Rule 5 precedent for platform defaults). `fraud_flag` and `siu_case` stay separate entities. Rejected: auto-open every HIGH (floods queue, no tenant control); officer triage of raw queue (defeats AI value); hardcoded threshold (not per-tenant tunable, no audit trail for dropped low-risk flags).
+
+- **FR5 — Entity model: 5 entities, many-to-many via flag-as-evidence.**
+  - `fraud_flag` — one per (claim, AI-run OR manual-open); cols include `claim_id`, `siu_case_id` (nullable), `flag_source ENUM('AI_MODEL','MANUAL_OFFICER')`, `model_version`, `risk_score`, `risk_level`, `indicators JSONB`, `flagged_at`. Officer-initiated cases get a synthetic MANUAL_OFFICER flag row so the case-to-claim link is always via a flag.
+  - `siu_case` — one per investigation; cols include `case_number` (VARCHAR, tenant-scoped unique), `status`, `assigned_to`, `saved_amount`, `saved_currency`, `priority`, `tags[]`, `opened_by`, `opened_at`, `closed_by`, `closed_at`, `closure_reason`, `outcome`.
+  - `siu_case_note` — append-only activity log; cols `case_id`, `author_id`, `note_type ENUM('COMMENT','STATUS_CHANGE','EVIDENCE_ADDED','ASSIGNED','REFERRAL_ADDED')`, `body`, `created_at`.
+  - `siu_evidence` — file-service refs; cols `case_id`, `file_service_ref`, `description`, `uploaded_by`, `uploaded_at`, `evidence_type`.
+  - `siu_referral` — external referrals; cols `case_id`, `referral_to ENUM('LAW_ENFORCEMENT','REGULATOR','INTERNAL_HR')`, `referral_reference`, `referred_by`, `referred_at`, `response_received_at`, `response_notes`.
+
+  Rejected: 4 entities with `siu_case_claim` join (breaks flag-as-evidence-audit for officer-initiated cases); 3 entities 1:1 (fraud rings force sibling cases); 2 entities JSONB (kills Rule 8 audit + concurrent-update race).
+
+- **FR6 — State machine: 5-state, four-eyes on non-dismissal closures, reopen supported.**
+  - States: `OPEN → ASSIGNED → UNDER_REVIEW → PENDING_APPROVAL → (CLOSED_CONFIRMED_FRAUD | CLOSED_REFERRED_LAW_ENFORCEMENT | CLOSED_ACTION_TAKEN)`.
+  - Fourth terminal state: `CLOSED_DISMISSED_FALSE_POSITIVE` reachable directly from `UNDER_REVIEW` (no four-eyes).
+  - `REOPENED` jumps any `CLOSED_*` back to `UNDER_REVIEW`; report metric `reopened count` becomes possible.
+  - Four-eyes enforced via `AuditActor` + `updated_by_actor_id != checker_id` service-layer constraint (Phase 11 `CommissionAdjustment` precedent).
+  - Rejected: 3-state (can't distinguish referral; loses audit thread on reopen); 2-state (governance gap); four-eyes on every closure (clogs supervisor queue with dismissal noise).
+
+- **FR7 — Permissions: fine-grained (8 perms) + 2 Keycloak roles.**
+  - New perms in `services/java/shared/src/main/java/com/medfund/shared/security/Permissions.java`: `claims:siu:view`, `claims:siu:create`, `claims:siu:assign`, `claims:siu:investigate`, `claims:siu:approve`, `claims:siu:reopen`, `claims:siu:refer`, `claims:siu:admin` (rules-engine FRAUD_TRIAGE config).
+  - New Keycloak roles: `siu_officer` (view+create+investigate+refer), `siu_supervisor` (officer set + approve+assign+reopen). `admin` scoped to `tenant_admin`.
+  - Report page gated by existing `finance:reports:view` + `@RequiresReport(FRAUD_SIU_REPORT)` (Phase 0 precedent).
+  - Rejected: mid-grained 4-perm (bundles refer+assign into write, risky); coarse 2-perm 1-role (four-eyes becomes honor system, breaks Rule 8); ultra-fine per-transition 12+ perms (permission bloat, no team asking).
+
+- **FR8 — Savings: per-case, investigator-entered on closure, defaults to `SUM(claimed - paid)`.** On `PENDING_APPROVAL`, investigator enters `saved_amount` — UI prefills with `SUM(claimed_amount - paid_amount)` across the case's flagged claims. Report sums `saved_amount` across `CLOSED_CONFIRMED_FRAUD` cases only. Supervisor can adjust during four-eyes; every edit hits `AuditEvent` per Rule 8. Mixed-currency cases capture per-claim currency (see FR14). Rejected: auto-computed no-override (doesn't capture post-close clawback / 'let X through to catch a bigger fish'); auto at flag-time (undercounts, no manual-case path); two-number avoided+recovered split (double surface for marginal UX gain).
+
+- **FR9 — Kafka publish: every AI prediction; topic `medfund.claims.fraud-flagged`.** AI-service Kafka consumer at `services/python/ai-service/app/core/kafka_consumer.py:68-96` publishes on every classified claim (LOW/MEDIUM/HIGH). Claims-service consumer writes a `fraud_flag` row per event. `FRAUD_TRIAGE` rules-engine (FR4) then decides case creation. Rule 3 satisfied by construction. Rules can be re-run over historical flags on policy change. Downside acknowledged: high row volume (~100K claims/mo/tenant → ~100K flag rows/mo); retention (FR13) manages it. Payload shape: `{eventType, eventId, occurredAt, tenantId, claimId, modelVersion, riskScore, riskLevel, indicators[], computedAt}`. Rejected: threshold-only (Rule 3 gap, no per-tenant tune); two-topic raw+action (marginal Rule 3 gain, doubles infra); HIGH-only (worst combined loss).
+
+- **FR10 — AI audit fidelity: top-N `indicators` on `fraud_flag`; full feature vector deferred to Phase 19.5 ML-ops tranche.** `fraud_flag` row carries `model_version` + `risk_score` + `risk_level` + `indicators JSONB` (top-N, ~5 entries) + `flagged_at`. Satisfies Rule 3 compliance read ("why did you flag this — these indicators, this model, this score"). Full feature vector + model weights + reproducibility deferred to a Phase 19.5 ML-ops tranche (registry, MLflow-lite, model-artefact store) — no team has asked and gap is documented in sub-plan explicitly. Rejected: full feature vector inline (~150MB/mo/tenant of blob without closing reproducibility gap); separate `ai_audit_log` table (ML-ops MVP inside this phase); Kafka-log-as-audit (not human-reviewable, retention risk).
+
+- **FR11 — Report metrics scope: full analytics.** Tile-grid (6 tiles: cases opened / confirmed fraud / savings realised / confirmation rate / avg cycle time / reopened) + monthly trend chart + top-N drill-tables (top-10 providers, top-10 members by confirmed-fraud amount) + AI model calibration (precision/recall by `risk_level`, false-positive rate curve; "Insufficient data" fallback for N<50 confirmed cases) + investigator productivity (cases-closed per officer; role-gated so `siu_officer` sees own stats only, `siu_supervisor` + `tenant_admin` see all). Filter chips: period, insurance line, closure outcome. XLSX has 6 sheets (Summary / Cases detail / Provider top-N / Member top-N / AI calibration / Investigator productivity). Sub-plan §D (in FR16 collapsed to §B expansion) covers the full analytics surface. Rejected: minimum-viable 4 metrics (undelivers vs full-SIU scope); tile-only (misses top-N execs demand day 2); split fraud-report + SIU-workload page (duplicates infra, splits catalogue).
+
+- **FR12 — Cadenced: added to Phase 17 whitelist with per-schedule sensitive-sheet gate.** `FRAUD_SIU_REPORT` joins the Phase 17 scheduled-delivery whitelist (currently 13-key baseline, →18 after Phase 18 flips 5 KPI keys, →19 with `FRAUD_SIU_REPORT` in §B). Default cadenced XLSX has 4 sheets (Summary + Cases + Provider top-N + Member top-N); investigator-productivity + AI-calibration sheets included **only** when schedule creator opts in via new per-schedule flag `includeSensitiveSheets` (defaults false). Cascade-on-disable per Phase 17 S9 applies. New `ScheduledReportShapeAdapter` in claims-service. Phase 17 sub-plan gets a Deviations note that whitelist widened to include `FRAUD_SIU_REPORT`. Note: FR16 defers this whole decision to §B (MVP §A has no scheduled dispatch). Rejected: no sensitive-sheet gate (GDPR/POPIA/labour-law risk); on-demand only (execs don't get monthly digest); tenant-admin-only creator (friction, wrong role knows the recipient list).
+
+- **FR13 — Retention: add 2 new `RetentionClass` values.** `FRAUD_FLAG_1Y` (raw AI flags with no linked case → auto-purge after 12 months) + `SIU_CASE_7Y` (any case + its linked flags + evidence + notes + referrals + `report_job` rows for `FRAUD_SIU_REPORT` → 7-year retention aligns with insurance-fraud statute). Classifier: `fraud_flag WHERE siu_case_id IS NULL AND flagged_at < NOW() - INTERVAL '1 year'` → purged; anything linked to a case retained 7y past case-closure. Extend existing `ReportJobRetentionJob` (or introduce peer `FraudFlagRetentionJob`). Per-tenant jurisdiction override ('ZW wants 10y, ZA wants 7y') deferred to Phase 19.5 via `tenants.jurisdiction_code` widening. Rejected: reuse 7Y for everything (100K/mo/tenant × 7y noise); split 90D flag / 7Y case (breaks flag-as-evidence chain-of-custody); single 10Y blanket (over-retains for shorter jurisdictions).
+
+- **FR14 — Multi-currency: one currency per case.** `siu_case.saved_amount NUMERIC + saved_currency VARCHAR(3)`. Investigator picks one currency at close (defaults to majority currency across the case's flagged claims). Report groups `SUM(saved_amount)` by `saved_currency` for envelope `perCurrency`; composite scalar converts via `FxRateReader.convert(...)` at asOf date, fails loud if any `perCurrency` currency lacks FX rate (invariant #6 + G28). Investigator UI shows soft warning when case has multi-currency flagged claims — investigator collapses to one number + adds a case note explaining the mix. Rejected: proportional per-claim auto-breakdown (arbitrary math investigator can't defend); full join table `siu_case_savings` (6th entity, real UX cost for rare case shape); reporting-currency-only (violates invariant #6, non-reproducible).
+
+- **FR15 — Rules-engine FRAUD_TRIAGE: 1 fact + 6 templates.**
+  - **`FraudFlagFact`**: `riskScore, riskLevel, insuranceLine, providerId, memberId, claimAmount, currencyCode, indicators[], flaggedAt, historicalMemberFlagCount, historicalProviderHighFlagCount`.
+  - **6 templates**: (1) 'Auto-open above risk threshold' — param `minScore`; (2) 'Auto-open large claim + high risk' — params `minScore + minAmount`; (3) 'Auto-open for watchlisted provider' — param `providerIds[]`; (4) 'Auto-open on member repeat-offender pattern' — params `windowDays + minCount`; (5) 'Auto-open on provider high-flag pattern' — params `windowDays + minCount`; (6) 'Never auto-open' — explicit off switch.
+  - Default policy (no tenant rules) = template (1) with `minScore=0.85`.
+  - Note: FR16 defers templates (4)+(5)+(6) to §B (MVP §A ships templates (1)+(2)+(3)).
+  - Rejected: 3-template minimum (loses pattern-rec seeds); 8 templates (extra depends on non-existent fact fields); 2-fact `ProviderRiskProfileFact` (materialized-view refresh infra cost).
+
+- **FR16 — Sub-plan structure: 2 tranches, MVP-first then expansion.** Single sub-plan at `thoughts/shared/plans/2026-09-05-fraud-siu-report.md` split into two tranches, both landed as part of Phase 19:
+
+  **§A MVP (~5-6 phases)** — early value ship:
+  - 3 entities: `fraud_flag`, `siu_case`, `siu_case_note`
+  - 3-state machine: `OPEN → UNDER_REVIEW → (CLOSED_CONFIRMED | CLOSED_DISMISSED)` — four-eyes deferred to §B
+  - Permissions subset: `claims:siu:view`, `claims:siu:create`, `claims:siu:investigate`, `claims:siu:admin` (4 of the 8 FR7 perms); one role `siu_officer`
+  - AI service Kafka producer + `medfund.claims.fraud-flagged` event + claims-service `FraudFlaggedConsumer` (FR9 shape, top-N indicators per FR10)
+  - `FRAUD_TRIAGE` rules-engine category + `FraudFlagFact` + 3 templates (threshold, threshold+amount, watchlist)
+  - Angular `/tenant/claims/siu/` — queue + case-detail (no evidence panel, no referrals)
+  - Angular `/tenant/finance/reports/fraud/` — 4 tiles (cases opened, confirmed, savings, confirmation rate) + XLSX with 2 sheets (Summary + Cases detail)
+  - Retention: add `FRAUD_FLAG_1Y` + `SIU_CASE_7Y` enum values; classifier + purge job
+
+  **§B Expansion (~5-6 phases)** — completes to full FR5/FR6/FR11/FR15:
+  - 2 additional entities: `siu_evidence` (file-service refs), `siu_referral`
+  - Full 5-state machine: adds `ASSIGNED`, `PENDING_APPROVAL`, `REOPENED`, `CLOSED_REFERRED_LAW_ENFORCEMENT`, `CLOSED_ACTION_TAKEN` + four-eyes gate on non-dismissal closures
+  - 4 remaining permissions: `claims:siu:assign`, `claims:siu:approve`, `claims:siu:reopen`, `claims:siu:refer`; second role `siu_supervisor`
+  - 3 additional templates: repeat-offender, provider high-flag pattern, never-auto-open
+  - Angular workflow additions: evidence upload panel, referral form, activity-timeline enhancement, admin UI for FRAUD_TRIAGE rules
+  - Angular report additions: trend chart, top-10 providers, top-10 members, AI calibration (precision/recall by `risk_level` with N<50 fallback), investigator productivity (role-gated so `siu_officer` sees own stats only)
+  - XLSX widens from 2 sheets to 6 sheets (adds Provider top-N, Member top-N, AI calibration, Investigator productivity)
+  - Phase 17 wiring: `ScheduledReportShapeAdapter`, whitelist add, per-schedule `includeSensitiveSheets` flag (FR12), Phase 17 sub-plan Deviations note
+
+  **Total ~10-12 phases across both tranches.** Rejected: 5-tranche 20-24-phase full-scope-up-front (implementer session cost); 3-tranche mega-§A (harder to reviewer-unbundle); 6-tranche with dedicated Playwright (thin last tranche, typically folded).
+
+### Settled by fact (not asked)
+
+- **F19-1 — Report enum + family already exist.** `FRAUD_SIU_REPORT` at `services/java/shared/src/main/java/com/medfund/shared/report/ReportKey.java:150` already carries `ReportFamily.FRAUD, cadenced=true, periodShape=PREVIOUS_COMPLETE_PERIOD`. `ReportFamily.FRAUD` at `services/java/shared/src/main/java/com/medfund/shared/report/ReportFamily.java:35` already defined. No shared-module enum additions needed.
+
+- **F19-2 — Kafka topic `medfund.claims.fraud-flagged` does not exist today.** Producer must be added inside the AI service's Kafka consumer at `services/python/ai-service/app/core/kafka_consumer.py:68-96`. Outline's "verify topic exists" alternative resolves to the fallback path; this is the AI service's first outbound Kafka path (currently consumer-only).
+
+- **F19-3 — Claims entity has zero fraud fields today.** `services/java/claims-service/src/main/java/com/medfund/claims/entity/Claim.java:1-284` has no `fraud_flag`, `fraud_score`, `siu_status`. Tenant-schema Flyway migration is unavoidable.
+
+- **F19-4 — No SIU adjudication controller / Angular page exists today.** No `FraudFlagController` / `SiuController` under `services/java/claims-service/src/main/java/com/medfund/claims/controller/`; no `/tenant/claims/siu/` or `/tenant/finance/reports/fraud/` folder under `clients/angular/src/app/pages/tenant/`.
+
+- **F19-5 — AI fraud detection is live.** `services/python/ai-service/app/services/fraud_service.py:12-41` runs `FraudService.detect_fraud(claim_data, tenant_id)` on every `CLAIM_SUBMITTED` Kafka event via `app/core/kafka_consumer.py:68-96`. Underlying model: `IsolationForest` at `services/python/ai-service/app/services/ml_models.py:11-96`; output shape `(risk_score ∈ [0,1], risk_level ∈ {LOW,MEDIUM,HIGH}, indicators[], model_version)`.
+
+- **F19-6 — Rejection code `R16 FRAUD` already exists.** `services/java/tenancy-service/src/main/resources/db/migration/tenant/V014__claims_schema.sql:116-135` seeds R16 as a categorical rejection code. Not a per-claim flag column — different concept from `fraud_flag` (`fraud_flag` is AI's assessment; R16 is adjudicator's manual rejection decision). Both coexist.
+
+- **F19-7 — Retention taxonomy today has 2 values.** `services/java/finance-service/src/main/java/com/medfund/finance/report/entity/ReportJob.java:35-36` defines `OPERATIONAL_90D` + `STATUTORY_7Y`; classifier at `services/java/finance-service/src/main/java/com/medfund/finance/report/service/Ifrs17JobService.java:239-242` routes IFRS 17 → 7Y, everything else → 90D. FR13 widens to 4 values (adds `FRAUD_FLAG_1Y`, `SIU_CASE_7Y`).
+
+### Success Criteria
+
+**Status: Grilled 2026-09-05 (FR1..FR16 + F19-1..F19-7 above). Ready for sub-plan via `create-plan`. Not yet implemented.**
+
+Single sub-plan will ship at `thoughts/shared/plans/2026-09-05-fraud-siu-report.md` built via `create-plan` → `implement-plan`. Aggregate success criteria across both tranches:
+
+- **§A MVP green** — 3 entities + 3-state machine + 4 perms + 1 role + AI producer + FRAUD_TRIAGE (3 templates) + 4-tile report all pass unit + IT + Playwright golden path. AI service publishes every classified claim to `medfund.claims.fraud-flagged`; claims-service consumer writes `fraud_flag` rows carrying `model_version` + `risk_score` + `risk_level` + top-N indicators + `flagged_at` (Rule 3 audit trail). `FRAUD_TRIAGE` rules-engine auto-opens `siu_case` rows per tenant policy (default template (1) `minScore=0.85` for tenants without rules). Officer can open a case, add notes, propose confirmed / dismissed closure; permissions gate correctly; report tiles compute correctly; XLSX 2-sheet export emits `SecurityEventMessage` with `reportKey=FRAUD_SIU_REPORT` before returning bytes. Retention job purges aged unlinked `fraud_flag` rows on schedule. `AuditEvent` on every mutation carries `actorEmail` + friendly `entityName` per `feedback_audit_actor_email` / `feedback_audit_entity_name` memories.
+
+- **§B Expansion green** — 2 additional entities (`siu_evidence`, `siu_referral`); full 5-state machine + four-eyes gate on non-dismissal closures + REOPENED transitions; `siu_supervisor` role + remaining 4 perms; 3 additional FRAUD_TRIAGE templates (pattern-recognition); Angular evidence upload via file-service, referral form, admin UI for FRAUD_TRIAGE rules; report widens to 6 tiles + trend chart + top-10 provider + top-10 member + AI calibration (with N<50 fallback) + investigator productivity (role-gated); XLSX widens to 6 sheets; Phase 17 whitelist widens to include `FRAUD_SIU_REPORT` + per-schedule `includeSensitiveSheets` flag lands; `ScheduledReportShapeAdapter` in claims-service integrates with Phase 17 orchestrator; four-eyes maker/checker enforced (Phase 11 `CommissionAdjustment` precedent — `updated_by_actor_id != checker_id`). Multi-currency composite scalar per invariant #6 (fail-loud on missing FX); per-currency envelope best-effort per G28.
+
+**Deferred to follow-up per Phase 11/12/13/14/15/16/17/18 precedent**:
+
+- **Cross-language docker-compose IT** — Phase-19-integration tranche.
+- **Manual `verify` walkthroughs** — end-to-end golden-path browser demos (open a case, upload evidence, refer to law enforcement, close with four-eyes, receive scheduled email via mailpit); `verify` skill pass at end of sub-plan.
+- **Phase 19.5 — ML-ops audit-of-record + jurisdiction-specific retention + provider dashboard + fraud typing.** Full feature-vector persistence + model-weights registry + MLflow-lite for AI decision reproducibility (FR10). Per-tenant jurisdiction retention override ('ZW wants 10y, ZA wants 7y') via `tenants.jurisdiction_code` widening on RetentionClass classifier (FR13). Dedicated `provider-detail-page` "SIU history" tab drilling into all cases for a provider (FR11 top-N implies drill-target; v1 links to `/tenant/claims/siu/?providerId=<id>` filter only). Fraud-typing classifier — internal-vs-external, provider-vs-member, hard-vs-soft fraud — plus `commission_type`-style categorical enum on `siu_case`. Configurable per-tenant small-N calibration threshold (currently hardcoded to 50 confirmed cases per FR11).
+
+Per parent-plan Testcontainers policy each deferred IT lands with a purpose-built migration folder so the ITs don't force-widen every unrelated slice's baseline schema.
+
+### Owed back to plan authors
+
+Corrections + contradictions the grill surfaced that touch other sections of the parent plan:
+
+- **Parent-plan header `phases_status` stale**: header line `"19": outline depth; needs its own grilling pass before implementation` superseded by this grill — `phases_status["19"]` now grilled; `last_grilled_phase: 19`, `last_grilled_date: 2026-09-05`. Frontmatter updated as part of this apply step.
+
+- **Phase 17 whitelist widens (FR12 consequence)**: Phase 17 sub-plan `thoughts/shared/plans/2026-08-31-scheduled-email-delivery.md` needs a Deviations note that Phase 19 §B adds `FRAUD_SIU_REPORT` to the scheduled-delivery whitelist plus a new per-schedule `includeSensitiveSheets` flag. `ScheduledReportEligibilityTest.java:38-49` currently *excludes* `FRAUD_SIU_REPORT` with comment "bespoke draft workflows" — that exclusion + comment need updating in §B to include the key and reference the sensitive-sheet gate. Similar to Phase 18's whitelist widening from 13→18 keys, Phase 19 §B widens further to include the fraud key.
+
+- **Phase 15 retention taxonomy extension (FR13 consequence)**: `RetentionClass` enum on `services/java/finance-service/src/main/java/com/medfund/finance/report/entity/ReportJob.java:35-36` currently has 2 values (`OPERATIONAL_90D`, `STATUTORY_7Y`). Phase 19 §A widens to 4 values (adds `FRAUD_FLAG_1Y`, `SIU_CASE_7Y`) and the classifier at `Ifrs17JobService.java:239-242` needs a new branch. Extend existing `ReportJobRetentionJob` (or add peer `FraudFlagRetentionJob`) to purge aged unlinked `fraud_flag` rows. Not a bug in Phase 15; a foreseeable extension.
+
+- **Claims-service tenant-schema migration numbering**: last claims-service migration in `services/java/tenancy-service/src/main/resources/db/migration/tenant/` is `V139__claim_reserve_history.sql`. Phase 19 §A migrations start at V140+ (3 tables: `fraud_flag`, `siu_case`, `siu_case_note`). Phase 19 §B lands 2 more (`siu_evidence`, `siu_referral`). Verify latest applied number at sub-plan write time — never edit an applied migration (per `feedback_never_edit_applied_migrations`).
+
+- **Phase 0 `TenantReportConfig` — `FRAUD_SIU_REPORT` default enabled**: `FRAUD_SIU_REPORT` is in the `ReportKey` enum but absent from `tenant_report_config` seed. Absent-row defaults to enabled per V130 semantics. No seed migration needed; first tenant toggle load will seed a row via Phase 0's bulk-upsert. Consistent with parent-plan G12.
+
+- **No `.claude/*.md` architecture doc mentions SIU workflow or fraud detection**: sub-plan §A could optionally add a short section to `.claude/adjudication.md` (references SIU as an adjacent post-adjudication concern) or a new `.claude/siu.md` naming the state machine + role model + AI producer + FRAUD_TRIAGE rules category. Not strictly required but avoids re-litigating the design at code-review time.
+
+- **AI service Kafka producer wiring (new outbound path)**: `services/python/ai-service` today has no Kafka producer at all (only a consumer at `app/core/kafka_consumer.py:68-96`). Phase 19 §A adds the first outbound Kafka path from the AI service — likely a new `app/core/kafka_producer.py` (aiokafka producer) + startup wiring in `app/main.py`. Docker compose + local dev startup should verify the producer is provisioned even when the consumer isn't yet active (avoid startup-order coupling).
+
+- **Live defect surfaced during grill (deferred to §B fix)**: `ScheduledReportEligibilityTest.java:38-49` groups `FRAUD_SIU_REPORT` with "regulator + IFRS 17 + AML periodic" for whitelist exclusion. The comment says "depend on MFA-gated human filing (REG12/REG13) or bespoke draft workflows" — but `FRAUD_SIU_REPORT` was never MFA-gated (it's an internal SIU report, not a regulator filing). The comment should be corrected in §B to name the actual reason: "excluded until Phase 19 authors the case-management module + per-schedule sensitive-sheet gate". Not blocking — just misleading to future readers.
+
+### Cross-references
+
+- Grilling scratchpad: `thoughts/shared/notes/2026-09-05-phase19-fraud-siu-grill.md`
+- Sub-plan (to be authored via `create-plan`): `thoughts/shared/plans/2026-09-05-fraud-siu-report.md`
 
 ---
 

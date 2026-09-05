@@ -2841,6 +2841,42 @@ Rollback per service:
 - **tenancy-service**: schema changes leave data behind if rolled back — no active harm since finance-service probe would fail closed if schema mismatches (no rows returned from JOIN).
 - **gateway / Angular**: pure-additive; revert to previous asset bundle.
 
+## Deviations
+
+**2026-09-05 (Phase 19 §B Phase 12 whitelist widening + per-schedule params)**
+
+- **FRAUD_SIU_REPORT added to `ScheduledReportEligibility.WHITELIST`.**
+  Phase 19 §B Phase 12 authored `FraudSiuReportAdapter` in
+  finance-service (delegating via `CrossServiceRenderHelper` to the new
+  `POST /api/v1/reports/FRAUD_SIU_REPORT/scheduled-render` handler on
+  claims-service's `ScheduledRenderController`). `WHITELIST` count
+  grows from 18 → 19; FRAUD_SIU_REPORT moves out of the excluded set
+  in `ScheduledReportEligibilityTest`. Comment on the excluded-set
+  test corrected — Phase 17 grouped FRAUD_SIU_REPORT with
+  regulator/IFRS/AML with a misleading "MFA-gated human filing"
+  rationale; the real reason was "pending Phase 19 grill".
+- **`tenant_report_schedule.params` JSONB column added via V178 (public).**
+  Generic per-schedule opt-in payload; today only FRAUD_SIU_REPORT
+  reads it (`{"includeSensitiveSheets": true|false}` per FR12).
+  Enforced by `TenantReportScheduleService.validateParams` — narrow
+  contract that rejects unknown keys, non-Boolean values, and any
+  non-fraud key attempting to set params.
+- **`ScheduledRenderRequest` + `ScheduledFireContext` grew nullable
+  `params` fields with legacy constructor overloads.** Java records
+  don't permit non-canonical constructors that skip components, so
+  the widening adds a canonical N+1 arg constructor + a legacy N-arg
+  constructor delegating with `params = null`. All 4 pre-Phase-12
+  callers (contributions + claims + user `ScheduledRenderControllerTest`
+  + finance `CrossServiceRenderHelper`) keep compiling unchanged.
+- **`TenantScheduleFireCandidate.paramsJson` deserialised in the
+  orchestrator, not the record.** Malformed JSON degrades to
+  `null` params + a WARN log; the probe stays alive.
+- **Angular schedule form widened.** `report-schedules-page.component.ts`
+  `CreateDraft` gained an `includeSensitiveSheets` boolean (assembled
+  into `body.params` at submit time only when `reportKey === 'FRAUD_SIU_REPORT'`).
+  Conditional checkbox in the create-schedule form; hint text warns
+  admins to restrict recipients to supervisors + tenant admins.
+
 ## References
 
 - Parent plan: `thoughts/shared/plans/2026-08-11-financial-reporting-suite.md § Phase 17`

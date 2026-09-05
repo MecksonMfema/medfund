@@ -51,6 +51,7 @@ public class DrlCompiler {
             "import com.medfund.rules.fact.IfrsPortfolioFact;\n",
             "import com.medfund.rules.fact.RegulatoryParameterFact;\n",
             "import com.medfund.rules.fact.PmbClassificationFact;\n",
+            "import com.medfund.rules.fact.FraudFlagFact;\n",
             "import java.math.BigDecimal;\n");
 
     /**
@@ -62,7 +63,7 @@ public class DrlCompiler {
      */
     private static final Set<String> AGENDA_GATED_CATEGORIES = Set.of(
             "BENEFIT_PRORATION", "REINSURANCE", "COMMISSION", "PREMIUM_EARNING", "ACTUARIAL",
-            "IFRS17_MODEL", "REGULATORY_PARAMETER", "PMB_CLASSIFICATION");
+            "IFRS17_MODEL", "REGULATORY_PARAMETER", "PMB_CLASSIFICATION", "FRAUD_TRIAGE");
 
     private static final Map<String, FactMapping> FACT_MAPPINGS;
     static {
@@ -86,6 +87,7 @@ public class DrlCompiler {
                               new FactMapping("$regulatoryParameter", "RegulatoryParameterFact"));
         m.put("pmbClassification",
                               new FactMapping("$pmbClassification", "PmbClassificationFact"));
+        m.put("fraudFlag",    new FactMapping("$fraudFlag",    "FraudFlagFact"));
         FACT_MAPPINGS = Map.copyOf(m);
     }
 
@@ -196,6 +198,7 @@ public class DrlCompiler {
             case "SELECT_IFRS17_MODEL"                                        -> "portfolio";
             case "SET_REGULATORY_PARAMETER"                                   -> "regulatoryParameter";
             case "SET_PMB_CLASSIFICATION"                                     -> "pmbClassification";
+            case "OPEN_SIU_CASE", "SUPPRESS_SIU_CASE"                         -> "fraudFlag";
             default                                                            -> null;
         };
     }

@@ -1,5 +1,6 @@
 package com.medfund.tenancy.entity;
 
+import com.medfund.tenancy.util.JsonString;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -45,6 +46,14 @@ public class TenantReportSchedule {
 
     @Column("reporting_currency")
     private String reportingCurrency;
+
+    /**
+     * Per-schedule per-key opt-in payload. For {@code FRAUD_SIU_REPORT}
+     * this holds {@code {"includeSensitiveSheets": true|false}} per Phase 19
+     * §B Phase 12 (FR12). JSONB column defaults to {@code '{}'} (see V178)
+     * so pre-Phase-12 rows and non-fraud keys carry an empty object.
+     */
+    private JsonString params;
 
     @Column("last_fired_at")
     private OffsetDateTime lastFiredAt;

@@ -22,6 +22,11 @@ export type PermissionKey =
   | 'claims:view_ctc_payments' | 'claims:commit_ctc_payment'
   | 'claims:request_quote'
   | 'claims:set_reserve'
+  // Phase 19 §A + §B (Phase 7) — SIU (Special Investigations Unit) case management
+  | 'claims:siu:view' | 'claims:siu:create'
+  | 'claims:siu:investigate' | 'claims:siu:admin'
+  | 'claims:siu:assign' | 'claims:siu:approve'
+  | 'claims:siu:reopen' | 'claims:siu:refer'
   // Billing
   | 'billing:view' | 'billing:manage_schemes' | 'billing:manage_age_groups'
   | 'billing:manage_waiting_periods' | 'billing:manage_groups'
@@ -127,6 +132,15 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'claims:commit_ctc_payment',        label: 'Commit CTC payments',              description: "Commit a Claims-to-Contributions transfer — the member's payable is applied against their contribution bill." },
       { key: 'claims:request_quote',             label: 'Request eligibility quote',        description: 'Request a pre-service cost-share quote for a member.' },
       { key: 'claims:set_reserve',               label: 'Set claim case reserve',           description: 'Set or update the case reserve on a claim (Phase 14 §A actuarial IBNR incurred-triangle input). Decoupled from adjudicate so tenants can grant reserve-setting to a supervisor role only.' },
+      // Phase 19 §A — SIU (Special Investigations Unit) case management.
+      { key: 'claims:siu:view',                  label: 'View SIU cases',                   description: 'Read access to the SIU case queue and case-detail pages under /tenant/claims/siu/.' },
+      { key: 'claims:siu:create',                label: 'Open SIU cases manually',          description: 'Open an SIU case against a specific claim without waiting for an AI fraud flag.' },
+      { key: 'claims:siu:investigate',           label: 'Investigate SIU cases',            description: 'Move cases through the workflow — start review, close CONFIRMED (with savings), close DISMISSED. Add case notes.' },
+      { key: 'claims:siu:admin',                 label: 'Administer SIU',                   description: 'Elevated SIU operations — delete evidence, override state, unlock investigator queues.' },
+      { key: 'claims:siu:assign',                label: 'Assign SIU cases',                 description: 'Assign / reassign SIU cases to specific investigators (Phase 19 §B Phase 7).' },
+      { key: 'claims:siu:approve',               label: 'Approve SIU case closure',         description: 'Four-eyes approval of investigator-proposed CONFIRMED closures — supervisor role (Phase 19 §B Phase 8).' },
+      { key: 'claims:siu:reopen',                label: 'Reopen SIU cases',                 description: 'Reopen a closed SIU case back to UNDER_REVIEW (Phase 19 §B Phase 8).' },
+      { key: 'claims:siu:refer',                 label: 'Refer SIU cases externally',       description: 'Record referrals to law enforcement, regulator, or internal HR (Phase 19 §B Phase 7).' },
     ],
   },
   {

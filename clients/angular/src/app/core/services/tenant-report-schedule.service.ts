@@ -38,6 +38,11 @@ export interface TenantReportScheduleRow {
   dayOfWeek: number | null;
   dayOfMonth: number | null;
   reportingCurrency: string | null;
+  /**
+   * Phase 19 §B Phase 12 — per-key opt-ins. For FRAUD_SIU_REPORT:
+   * `{ includeSensitiveSheets: boolean }` (default `{}`).
+   */
+  params: Record<string, unknown>;
   lastFiredAt: string | null;
   lastStatus: string | null;
   createdAt: string;
@@ -53,6 +58,7 @@ export interface CreateTenantReportScheduleRequest {
   dayOfWeek?: number | null;
   dayOfMonth?: number | null;
   reportingCurrency?: string | null;
+  params?: Record<string, unknown>;
 }
 
 export interface UpdateTenantReportScheduleRequest {
@@ -62,6 +68,7 @@ export interface UpdateTenantReportScheduleRequest {
   dayOfWeek?: number | null;
   dayOfMonth?: number | null;
   reportingCurrency?: string | null;
+  params?: Record<string, unknown>;
 }
 
 export interface AddRecipientRequest {

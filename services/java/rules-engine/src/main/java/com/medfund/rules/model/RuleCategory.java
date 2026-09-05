@@ -146,5 +146,16 @@ public enum RuleCategory {
      * condition code. When no rule matches the classifier records
      * {@code is_pmb = FALSE} on the claim row.
      */
-    PMB_CLASSIFICATION
+    PMB_CLASSIFICATION,
+
+    // ── Fraud triage (Phase 19 §A Phase 5) ───────────────────────────────────
+    /**
+     * Fraud triage — decides whether an AI-emitted {@code fraud_flag} auto-opens
+     * an {@code siu_case} for investigation. Facts: {@code FraudFlagFact}. Action:
+     * {@code emitCaseCreation}. Tenants configure policy ("auto-open above
+     * risk_score = 0.85", "watchlist providers", "member repeat-offender
+     * pattern"); default (no rules) auto-opens HIGH-risk. Fires on the
+     * "FRAUD_RULES" agenda group.
+     */
+    FRAUD_TRIAGE
 }

@@ -7,6 +7,10 @@ import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
 @Configuration
 @EnableR2dbcRepositories(basePackages = {
         "com.medfund.claims.repository",
+        // SIU (Special Investigations Unit) — fraud_flag / siu_case / siu_case_note
+        // repositories live in their own sub-package alongside the SIU service +
+        // consumer + scheduler surfaces (Phase 19 §A Phase 2).
+        "com.medfund.claims.siu.repository",
         "com.medfund.shared.scheduler",
         // NotificationRepository — required wherever JobEventPublisher loads.
         "com.medfund.shared.notification",

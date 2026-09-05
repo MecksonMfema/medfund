@@ -59,7 +59,8 @@ public class ScheduledReportRerunService {
                             actorUuid,
                             actorEmail,
                             ZoneId.systemDefault().getId(),
-                            null, null);
+                            null, null,
+                            null /* paramsJson — rerun does not carry per-schedule tunables */);
                     OffsetDateTime firedAt = OffsetDateTime.now(clock);
                     ScheduledFireContext ctx = new ScheduledFireContext(
                             source.getTenantId(),

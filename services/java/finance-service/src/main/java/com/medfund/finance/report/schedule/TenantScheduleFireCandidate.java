@@ -1,5 +1,6 @@
 package com.medfund.finance.report.schedule;
 
+import io.r2dbc.postgresql.codec.Json;
 import io.r2dbc.spi.Row;
 
 import java.util.UUID;
@@ -9,6 +10,12 @@ import java.util.UUID;
  * {@code public.tenant_report_schedule} + {@code public.tenants}, carrying
  * every column the fire resolver + orchestrator need to decide whether to
  * fire and to build a {@link ScheduledFireContext}.
+ *
+ * <p>Phase 19 §B Phase 12 added {@code paramsJson} — the raw JSONB payload
+ * from {@code public.tenant_report_schedule.params}. Deserialisation into a
+ * {@code Map<String, Object>} happens in the orchestrator's
+ * {@code buildContext} so this record stays free of an ObjectMapper
+ * dependency.
  */
 public record TenantScheduleFireCandidate(
         UUID scheduleId,
@@ -23,7 +30,8 @@ public record TenantScheduleFireCandidate(
         String scheduleUpdatedByActorEmail,
         String timezone,
         String tenantSlug,
-        String tenantName
+        String tenantName,
+        Json paramsJson
 ) {
     static TenantScheduleFireCandidate fromRow(Row row) {
         return new TenantScheduleFireCandidate(
@@ -39,7 +47,8 @@ public record TenantScheduleFireCandidate(
                 row.get("updated_by_actor_email", String.class),
                 row.get("timezone", String.class),
                 row.get("slug", String.class),
-                row.get("name", String.class)
+                row.get("name", String.class),
+                row.get("params", Json.class)
         );
     }
 }

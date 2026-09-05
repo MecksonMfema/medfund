@@ -9,8 +9,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ScheduledReportEligibilityTest {
 
     @Test
-    void whitelistContainsExactly13OperationalCadencedKeys() {
-        // Phase 17 §S1 — the 13 tenant-schedulable keys.
+    void whitelistContainsExactly19OperationalCadencedKeys() {
+        // Phase 17 §S1 baseline (13 keys) + Phase 18 §Phase 8 K11 executive
+        // KPI widening (5 keys) + Phase 19 §B Phase 12 FRAUD_SIU_REPORT
+        // widening (1 key) = 19 tenant-schedulable keys.
         Set<ReportKey> expected = Set.of(
                 ReportKey.COMMISSION_STATEMENT,
                 ReportKey.LOSS_RATIO,
@@ -24,17 +26,25 @@ class ScheduledReportEligibilityTest {
                 ReportKey.PROVIDER_NETWORK_UTILIZATION,
                 ReportKey.REINSURANCE_CESSION_BORDEREAU,
                 ReportKey.REINSURANCE_RECOVERIES,
-                ReportKey.UPR_MOVEMENT);
+                ReportKey.UPR_MOVEMENT,
+                ReportKey.LOSS_RATIO_KPI,
+                ReportKey.EXPENSE_RATIO,
+                ReportKey.COMBINED_RATIO,
+                ReportKey.CLAIMS_FREQUENCY,
+                ReportKey.AVERAGE_SEVERITY,
+                ReportKey.FRAUD_SIU_REPORT);
         assertThat(ScheduledReportEligibility.whitelist())
                 .containsExactlyInAnyOrderElementsOf(expected);
     }
 
     @Test
-    void regulatoryAndIfrsAndAmlAndFraudKeysAreExcluded() {
-        // Phase 17 §S1 — regulator + IFRS 17 + AML periodic + FRAUD keys stay
-        // out of the v1 whitelist even though cadenced=true, because they
-        // depend on MFA-gated human filing (REG12/REG13) or bespoke draft
-        // workflows.
+    void regulatoryAndIfrsAndAmlKeysAreExcluded() {
+        // Phase 17 §S1 — regulator + IFRS 17 + AML periodic keys stay out of
+        // the v1 whitelist even though cadenced=true, because they depend on
+        // MFA-gated human filing (REG12/REG13) or bespoke draft workflows.
+        // FRAUD_SIU_REPORT was here in Phase 17 as a placeholder pending
+        // Phase 19 grill — moved to WHITELIST by Phase 19 §B Phase 12 with
+        // per-schedule includeSensitiveSheets gate (FR12).
         Set<ReportKey> excluded = Set.of(
                 ReportKey.IFRS17_LRC_LIC_RECONCILIATION,
                 ReportKey.IFRS17_INSURANCE_REVENUE_SERVICE_RESULT,
@@ -45,8 +55,7 @@ class ScheduledReportEligibilityTest {
                 ReportKey.PMB_SPEND,
                 ReportKey.AML_STR,
                 ReportKey.TAX_WITHHELD_RETURN,
-                ReportKey.VAT_RETURN,
-                ReportKey.FRAUD_SIU_REPORT);
+                ReportKey.VAT_RETURN);
         excluded.forEach(k -> assertThat(ScheduledReportEligibility.isEligible(k))
                 .as("Non-whitelisted cadenced key %s must not be eligible", k.name())
                 .isFalse());

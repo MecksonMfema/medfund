@@ -132,6 +132,10 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
       { label: 'Pre-Authorizations', icon: 'check-circle',  route: '/tenant/claims/preauth', permissions: ['claims:manage_preauth'], featureFlag: 'preauthAvailable', exactMatch: true },
       { label: 'New Pre-Auth',       icon: 'plus',          route: '/tenant/claims/preauth/new', permissions: ['claims:manage_preauth'], featureFlag: 'preauthAvailable' },
       { label: 'Tariffs',            icon: 'banknote',      route: '/tenant/claims/tariffs', permissions: ['claims:manage_tariffs'] },
+      // Phase 19 §A Phase 6 — SIU (Special Investigations Unit) case
+      // workqueue. exactMatch on /tenant/claims/siu so the item stays
+      // highlighted only on the queue page, not the case-detail children.
+      { label: 'SIU Cases',          icon: 'shield',        route: '/tenant/claims/siu',     permissions: ['claims:siu:view'], exactMatch: true },
     ],
   },
   {

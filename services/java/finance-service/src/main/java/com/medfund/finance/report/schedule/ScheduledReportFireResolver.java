@@ -38,6 +38,7 @@ public class ScheduledReportFireResolver {
                                s.hour_of_day, s.day_of_week, s.day_of_month,
                                s.reporting_currency,
                                s.updated_by_actor_id, s.updated_by_actor_email,
+                               s.params,
                                t.timezone, t.slug, t.name
                           FROM public.tenant_report_schedule s
                           JOIN public.tenants t ON t.id = s.tenant_id

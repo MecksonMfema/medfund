@@ -156,6 +156,21 @@ export const CLAIMS_ROUTES: Routes = [
     loadComponent: () => import('./preauth/pre-auth-detail.component').then(m => m.PreAuthDetailComponent),
     data: { title: 'Pre-Auth Detail', sidebar: 'operational' },
   },
+  // ── SIU (Special Investigations Unit) ─────────────────────────────────────
+  // Phase 19 §A Phase 6 — case queue + case-detail. §B Phase 10 adds
+  // evidence + referral panels and a dedicated case-creation page.
+  {
+    path: 'siu',
+    canActivate: [permissionGuard(['claims:siu:view'])],
+    loadComponent: () => import('./siu/siu-list.component').then(m => m.SiuListComponent),
+    data: { title: 'SIU Cases', sidebar: 'operational', fullbleed: true },
+  },
+  {
+    path: 'siu/:caseId',
+    canActivate: [permissionGuard(['claims:siu:view'])],
+    loadComponent: () => import('./siu/siu-case-detail.component').then(m => m.SiuCaseDetailComponent),
+    data: { title: 'SIU Case Detail', sidebar: 'operational' },
+  },
   // ── Verification ───────────────────────────────────────────────────────────
   // Removed on 2026-07-11 — operator submissions land VERIFIED at capture
   // time, so the front-desk read-back-a-code page no longer has a job.

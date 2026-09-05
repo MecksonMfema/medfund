@@ -119,6 +119,25 @@ class ReportJobRetentionJobIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
+    void purge_removesSiuCase7yBeyondSevenYears() {
+        // Phase 19 §A: FRAUD_SIU_REPORT jobs land under SIU_CASE_7Y (a
+        // parallel 7-year bucket to STATUTORY_7Y — kept separate for the
+        // rollback story). Rows older than 7 years are purged; younger rows
+        // are kept regardless of run count.
+        UUID stale = insert("SIU_CASE_7Y", "FRAUD_SIU_REPORT",
+                Instant.now().minus(Duration.ofDays(365 * 8)));
+        UUID fresh = insert("SIU_CASE_7Y", "FRAUD_SIU_REPORT",
+                Instant.now().minus(Duration.ofDays(30)));
+
+        StepVerifier.create(job.runOnce())
+                .expectNext(1L)
+                .verifyComplete();
+
+        assertThat(exists(stale)).as("stale siu_case row past 7y purged").isFalse();
+        assertThat(exists(fresh)).as("fresh siu_case row kept").isTrue();
+    }
+
+    @Test
     void disabled_skipsAllPurge() {
         // Enabled flag is @Value-bound but purge() reads it directly — an in-test
         // simulation would need reflection; instead we assert runOnce() is exposed

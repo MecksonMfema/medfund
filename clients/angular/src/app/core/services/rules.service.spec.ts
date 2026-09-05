@@ -71,6 +71,17 @@ describe('RULE_CATEGORIES catalogue', () => {
     expect(ids).toContain('PMB_CLASSIFICATION');
   });
 
+  it('includes the Phase 19 §B Phase 10 FRAUD_TRIAGE category', () => {
+    // Phase 19 §B Phase 10 addition — exposes OPEN_SIU_CASE +
+    // SUPPRESS_SIU_CASE rules to the tenant-admin rule editor so
+    // tenants can configure the six FRAUD_TRIAGE templates (threshold,
+    // threshold+amount, watchlisted provider, repeat-offender, provider
+    // high-flag, never-auto-open). Agenda-gated so rules only fire when
+    // SiuCaseService.evaluateTriage focuses the group per fraud_flag.
+    const ids: RuleCategory[] = RULE_CATEGORIES.map(c => c.id);
+    expect(ids).toContain('FRAUD_TRIAGE');
+  });
+
   it('has no duplicate category ids', () => {
     const ids = RULE_CATEGORIES.map(c => c.id);
     const unique = new Set(ids);

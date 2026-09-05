@@ -61,7 +61,8 @@ public class CrossServiceRenderHelper {
                 ctx.cadenceLabel(),
                 ctx.scheduleId(),
                 ctx.scheduleUpdatedByActorId(),
-                ctx.scheduleUpdatedByActorEmail());
+                ctx.scheduleUpdatedByActorEmail(),
+                ctx.scheduleParams());
         List<String> warnings = new ArrayList<>();
         byte[] emptySentinel = new byte[0];
         return tokenProvider.get().getServiceToken(M2M_SCOPE)

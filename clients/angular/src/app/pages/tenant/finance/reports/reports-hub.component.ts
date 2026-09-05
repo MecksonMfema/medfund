@@ -45,6 +45,9 @@ const REPORT_ROUTES: Record<string, string> = {
   COMBINED_RATIO:   '/tenant/finance/reports/kpi',
   CLAIMS_FREQUENCY: '/tenant/finance/reports/kpi',
   AVERAGE_SEVERITY: '/tenant/finance/reports/kpi',
+  // Phase 19 §A Phase 6 — Fraud / SIU family MVP; §B Phase 11 widens
+  // the page but the route is stable.
+  FRAUD_SIU_REPORT: '/tenant/finance/reports/fraud',
 };
 
 /**

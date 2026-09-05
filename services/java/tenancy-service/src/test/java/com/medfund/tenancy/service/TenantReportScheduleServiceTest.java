@@ -1,5 +1,6 @@
 package com.medfund.tenancy.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.report.ReportCadence;
@@ -24,6 +25,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -46,13 +48,22 @@ class TenantReportScheduleServiceTest {
     @Mock private AuditPublisher auditPublisher;
     @Captor private ArgumentCaptor<AuditEvent> auditCaptor;
 
-    @InjectMocks private TenantReportScheduleService service;
+    // Real ObjectMapper — the service only uses it inside serialiseParams,
+    // which existing tests don't exercise (params argument is null → helper
+    // short-circuits). Phase 12 tests that do exercise params rely on real
+    // serialisation to verify the persisted JsonString shape.
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private TenantReportScheduleService service;
 
     private static final UUID TENANT_ID = UUID.randomUUID();
     private static final String ACTOR = UUID.randomUUID().toString();
 
     @BeforeEach
     void stubTenantAndAudit() {
+        service = new TenantReportScheduleService(
+                repository, recipientRepository, tenantRepository,
+                r2dbcTemplate, auditPublisher, objectMapper);
         Tenant t = new Tenant();
         t.setId(TENANT_ID);
         t.setSlug("acme");
@@ -64,7 +75,7 @@ class TenantReportScheduleServiceTest {
     void create_whitelistedKey_persistsRow_emitsAudit() {
         var req = new CreateTenantReportScheduleRequest(
                 "COMMISSION_STATEMENT", true, ReportCadence.MONTHLY,
-                8, null, 1, null);
+                8, null, 1, null, null);
         when(r2dbcTemplate.insert(any(TenantReportSchedule.class))).thenAnswer(inv -> {
             TenantReportSchedule saved = inv.getArgument(0);
             saved.setId(UUID.randomUUID());
@@ -94,7 +105,7 @@ class TenantReportScheduleServiceTest {
     void create_nonWhitelistedKey_isRejected() {
         var req = new CreateTenantReportScheduleRequest(
                 "IPEC_QUARTERLY_RETURN", true, ReportCadence.QUARTERLY,
-                8, null, 1, null);
+                8, null, 1, null, null);
 
         StepVerifier.create(service.create(TENANT_ID, req, ACTOR, "admin@acme"))
                 .expectErrorSatisfies(err -> assertThat(err)
@@ -109,7 +120,7 @@ class TenantReportScheduleServiceTest {
     void create_unknownKey_isRejected() {
         var req = new CreateTenantReportScheduleRequest(
                 "NONSENSE_KEY", true, ReportCadence.MONTHLY,
-                8, null, 1, null);
+                8, null, 1, null, null);
 
         assertThatThrownBy(() -> service.create(TENANT_ID, req, ACTOR, "admin@acme"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -120,7 +131,7 @@ class TenantReportScheduleServiceTest {
     void create_weeklyWithoutDayOfWeek_isRejected() {
         var req = new CreateTenantReportScheduleRequest(
                 "COMMISSION_STATEMENT", true, ReportCadence.WEEKLY,
-                8, null, null, null);
+                8, null, null, null, null);
 
         assertThatThrownBy(() -> service.create(TENANT_ID, req, ACTOR, "admin@acme"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -131,7 +142,7 @@ class TenantReportScheduleServiceTest {
     void create_monthlyWithoutDayOfMonth_isRejected() {
         var req = new CreateTenantReportScheduleRequest(
                 "COMMISSION_STATEMENT", true, ReportCadence.MONTHLY,
-                8, null, null, null);
+                8, null, null, null, null);
 
         assertThatThrownBy(() -> service.create(TENANT_ID, req, ACTOR, "admin@acme"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -142,7 +153,7 @@ class TenantReportScheduleServiceTest {
     void create_eventDrivenCadence_isRejected() {
         var req = new CreateTenantReportScheduleRequest(
                 "COMMISSION_STATEMENT", true, ReportCadence.EVENT_DRIVEN,
-                8, null, 1, null);
+                8, null, 1, null, null);
 
         assertThatThrownBy(() -> service.create(TENANT_ID, req, ACTOR, "admin@acme"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -153,7 +164,7 @@ class TenantReportScheduleServiceTest {
     void create_missingActor_rejected() {
         var req = new CreateTenantReportScheduleRequest(
                 "COMMISSION_STATEMENT", true, ReportCadence.MONTHLY,
-                8, null, 1, null);
+                8, null, 1, null, null);
 
         StepVerifier.create(service.create(TENANT_ID, req, "", "admin@acme"))
                 .expectErrorSatisfies(err -> assertThat(err)
@@ -172,7 +183,7 @@ class TenantReportScheduleServiceTest {
         when(recipientRepository.findByScheduleIdOrderByEmailAsc(scheduleId)).thenReturn(Flux.empty());
 
         var req = new UpdateTenantReportScheduleRequest(
-                null, null, 15, null, null, "USD");
+                null, null, 15, null, null, "USD", null);
 
         StepVerifier.create(service.update(TENANT_ID, scheduleId, req, ACTOR, "admin@acme"))
                 .assertNext(resp -> {
@@ -199,7 +210,7 @@ class TenantReportScheduleServiceTest {
         existing.setTenantId(otherTenant);
         when(repository.findById(scheduleId)).thenReturn(Mono.just(existing));
 
-        var req = new UpdateTenantReportScheduleRequest(false, null, null, null, null, null);
+        var req = new UpdateTenantReportScheduleRequest(false, null, null, null, null, null, null);
 
         StepVerifier.create(service.update(TENANT_ID, scheduleId, req, ACTOR, "admin@acme"))
                 .expectErrorSatisfies(err -> assertThat(err)
@@ -242,6 +253,70 @@ class TenantReportScheduleServiceTest {
 
         verify(auditPublisher, never()).publish(any(AuditEvent.class));
         verify(repository, never()).cascadeDisable(any(), anyString(), any(), anyString());
+    }
+
+    // ── Phase 19 §B Phase 12 — per-schedule params validation + round-trip ──
+
+    @Test
+    void create_fraudReportWithIncludeSensitiveSheets_persistsSerialisedJson() {
+        var req = new CreateTenantReportScheduleRequest(
+                "FRAUD_SIU_REPORT", true, ReportCadence.WEEKLY,
+                8, 1, null, null,
+                Map.of("includeSensitiveSheets", true));
+        when(r2dbcTemplate.insert(any(TenantReportSchedule.class))).thenAnswer(inv -> {
+            TenantReportSchedule saved = inv.getArgument(0);
+            saved.setId(UUID.randomUUID());
+            // Assert the entity's params field was set to the serialised JSON
+            // before the insert hits the DB.
+            assertThat(saved.getParams()).isNotNull();
+            assertThat(saved.getParams().value()).contains("includeSensitiveSheets").contains("true");
+            return Mono.just(saved);
+        });
+
+        StepVerifier.create(service.create(TENANT_ID, req, ACTOR, "admin@acme"))
+                .assertNext(response -> {
+                    assertThat(response.reportKey()).isEqualTo("FRAUD_SIU_REPORT");
+                    assertThat(response.params()).containsEntry("includeSensitiveSheets", true);
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void create_fraudReportWithUnknownParamKey_isRejected() {
+        var req = new CreateTenantReportScheduleRequest(
+                "FRAUD_SIU_REPORT", true, ReportCadence.WEEKLY,
+                8, 1, null, null,
+                Map.of("bogusFlag", true));
+
+        // Same shape as existing create_unknownKey_isRejected — validateParams
+        // throws synchronously before the reactor pipeline is constructed.
+        assertThatThrownBy(() -> service.create(TENANT_ID, req, ACTOR, "admin@acme"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("bogusFlag");
+    }
+
+    @Test
+    void create_fraudReportWithNonBooleanIncludeSensitiveSheets_isRejected() {
+        var req = new CreateTenantReportScheduleRequest(
+                "FRAUD_SIU_REPORT", true, ReportCadence.WEEKLY,
+                8, 1, null, null,
+                Map.of("includeSensitiveSheets", "yes"));
+
+        assertThatThrownBy(() -> service.create(TENANT_ID, req, ACTOR, "admin@acme"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must be a Boolean");
+    }
+
+    @Test
+    void create_nonFraudKeyWithParams_isRejected() {
+        var req = new CreateTenantReportScheduleRequest(
+                "COMMISSION_STATEMENT", true, ReportCadence.MONTHLY,
+                8, null, 1, null,
+                Map.of("includeSensitiveSheets", true));
+
+        assertThatThrownBy(() -> service.create(TENANT_ID, req, ACTOR, "admin@acme"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("does not accept schedule params");
     }
 
     private TenantReportSchedule existingSchedule(UUID id, String reportKey, String cadence,

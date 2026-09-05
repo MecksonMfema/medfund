@@ -178,6 +178,18 @@
                   Enabled on save
                 </label>
               </div>
+              <div class="field checkbox"
+                   *ngIf="createDraft.reportKey === 'FRAUD_SIU_REPORT'">
+                <label>
+                  <input type="checkbox"
+                         [(ngModel)]="createDraft.includeSensitiveSheets">
+                  Include sensitive sheets (AI calibration + Investigator productivity)
+                </label>
+                <small class="hint">
+                  Off by default. Contains per-officer productivity numbers —
+                  restrict recipients to SIU supervisors + tenant admins.
+                </small>
+              </div>
             </div>
             <div class="form-actions">
               <button type="button" class="btn" (click)="closeCreate()" [disabled]="creating">

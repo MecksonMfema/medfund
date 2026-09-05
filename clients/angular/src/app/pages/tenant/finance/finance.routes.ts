@@ -241,6 +241,20 @@ export const FINANCE_ROUTES: Routes = [
       reportKey: 'BILLING_REPORT',
     },
   },
+  // Phase 19 §A Phase 6 — Fraud / SIU report family (4-tile MVP; §B
+  // Phase 11 widens to full analytics).
+  {
+    path: 'reports/fraud',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/fraud/fraud-report.component').then(m => m.FraudReportComponent),
+    data: {
+      title: 'Fraud / SIU report',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'FRAUD_SIU_REPORT',
+    },
+  },
   cs('reports/scheme/:id',                   'Scheme Report Detail',             '/view-scheme-report',                       'Single scheme analytics.',                        ['finance:view_subledger']),
   {
     path: 'reports/group-billing',
