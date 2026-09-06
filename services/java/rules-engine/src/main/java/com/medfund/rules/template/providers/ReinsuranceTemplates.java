@@ -53,7 +53,7 @@ public class ReinsuranceTemplates implements TemplateProvider {
 
             rule("R62 - Excess of Loss cede (single layer)",
                  "Cede the portion of the claim that sits inside an XoL layer band. "
-                       + "Value encodes retention;limit;layerId — the emitter computes "
+                       + "Value encodes retention;limit;layerId - the emitter computes "
                        + "max(0, min(limit, amount - retention)) at rule-eval time.",
                  RuleCategory.REINSURANCE, 48,
                  all(cond("claim.amount",      "GREATER_THAN", "100000"),
@@ -63,7 +63,7 @@ public class ReinsuranceTemplates implements TemplateProvider {
 
             rule("R63 - Stop Loss cede (aggregate)",
                  "Stop-loss cede on aggregate claim tally above a fund retention. Same XOL shape "
-                       + "as R62 — the layer contains the aggregate band, not per-claim excess.",
+                       + "as R62 - the layer contains the aggregate band, not per-claim excess.",
                  RuleCategory.REINSURANCE, 47,
                  all(cond("claim.amount",      "GREATER_THAN", "0")),
                  cedeToTreaty("<treaty-id>", "XOL:0;1000000;<layer-id>",
@@ -78,7 +78,7 @@ public class ReinsuranceTemplates implements TemplateProvider {
                  "Cede a fixed percentage of every paid contribution to the named treaty. "
                        + "The premium-cession consumer projects the contribution into a "
                        + "ClaimFact whose amount = contribution amount, then focuses the "
-                       + "REINSURANCE agenda — so this rule shape mirrors R60 exactly. "
+                       + "REINSURANCE agenda - so this rule shape mirrors R60 exactly. "
                        + "Replace <treaty-id> with the target Treaty UUID and set the "
                        + "PCT rate to the treaty's cession ratio.",
                  RuleCategory.REINSURANCE, 46,

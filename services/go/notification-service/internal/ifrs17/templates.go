@@ -52,11 +52,11 @@ func subjectFor(eventType string) string {
 	case EventTypeOnerousTransition:
 		return "[IFRS 17] Cohort transitioned to onerous"
 	case EventTypeCsmNegative:
-		return "[IFRS 17] CSM went negative — loss recognised"
+		return "[IFRS 17] CSM went negative: loss recognised"
 	case EventTypeLockedInCurveFallback:
 		return "[IFRS 17] Locked-in yield curve fallback engaged"
 	case EventTypeIbnrSubJobStale:
-		return "[IFRS 17] IBNR triangle stale — sub-job triggered"
+		return "[IFRS 17] IBNR triangle stale: sub-job triggered"
 	case EventTypeOpeningBalanceAutoDerive:
 		return "[IFRS 17] Opening balance auto-derived"
 	default:

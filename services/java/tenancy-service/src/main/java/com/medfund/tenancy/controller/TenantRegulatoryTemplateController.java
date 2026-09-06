@@ -59,7 +59,7 @@ public class TenantRegulatoryTemplateController {
     @Operation(summary = "Upload a regulatory template override",
             description = "XLSX carried as base64 on the JSON body. Server validates the payload "
                         + "parses as a well-formed XSSFWorkbook and is ≤2MB. Uniqueness enforced on "
-                        + "(tenant_id, regulator, report_key, effective_from) — conflicts surface as HTTP 409.")
+                        + "(tenant_id, regulator, report_key, effective_from) - conflicts surface as HTTP 409.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Row added"),
             @ApiResponse(responseCode = "400", description = "Invalid XLSX or oversized payload"),

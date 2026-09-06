@@ -150,7 +150,7 @@ export class CommissionClawbackRegisterComponent implements OnInit {
 
   pickProducer(p: Producer): void {
     this.producerId    = p.id;
-    this.producerLabel = `${p.producerCode} — ${p.name}`;
+    this.producerLabel = `${p.producerCode} - ${p.name}`;
     this.producerSearchQuery = '';
     this.producerMatches = [];
     this.fetch();

@@ -16,11 +16,11 @@ public enum JobType {
     ARREARS_ESCALATION("Arrears Escalation",
         "Auto-suspend / deactivate members and groups based on dunning_config thresholds"),
     BENEFIT_ROLLOVER("Benefit Rollover",
-        "V061 — seed next-year beneficiary_benefits rows for RUNNING_BALANCE / ONE_TIME_PER_PERIOD / PER_EVENT_COUNTER benefits."),
+        "V061 - seed next-year beneficiary_benefits rows for RUNNING_BALANCE / ONE_TIME_PER_PERIOD / PER_EVENT_COUNTER benefits."),
     REINSURANCE_TREATY_PREMIUM("Reinsurance Treaty Premium",
-        "Phase 6 — write a flat PREMIUM cession per ACTIVE non-proportional (XoL / StopLoss) treaty at inception. Idempotent via ux_cession_source_event."),
+        "Phase 6 - write a flat PREMIUM cession per ACTIVE non-proportional (XoL / StopLoss) treaty at inception. Idempotent via ux_cession_source_event."),
     PREMIUM_EARNING("Premium Earning",
-        "Phase 12 §A U10 — close expired earning_schedule periods, refresh the member_first_contribution materialised view, and back-fill unclosed rows nightly.");
+        "Phase 12 §A U10 - close expired earning_schedule periods, refresh the member_first_contribution materialised view, and back-fill unclosed rows nightly.");
 
     private final String displayName;
     private final String description;

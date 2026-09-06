@@ -46,7 +46,7 @@ public class BillingReportExcelService {
                         if (rows.size() > ROW_CEILING) {
                             return Mono.error(new IllegalArgumentException(
                                     "Row count " + rows.size() + " exceeds " + ROW_CEILING
-                                            + " — narrow the period or filter."));
+                                            + " - narrow the period or filter."));
                         }
                         return loadFxRates(rows, SchemeBillingSummaryRow::currencyCode,
                                 reportingCurrency, tenantId, periodEnd)
@@ -66,7 +66,7 @@ public class BillingReportExcelService {
                         if (rows.size() > ROW_CEILING) {
                             return Mono.error(new IllegalArgumentException(
                                     "Row count " + rows.size() + " exceeds " + ROW_CEILING
-                                            + " — narrow the period or filter."));
+                                            + " - narrow the period or filter."));
                         }
                         return loadFxRates(rows, GroupBillingSummaryRow::currencyCode,
                                 reportingCurrency, tenantId, periodEnd)
@@ -88,7 +88,7 @@ public class BillingReportExcelService {
                         if (page.total() > ROW_CEILING) {
                             return Mono.error(new IllegalArgumentException(
                                     "Row count " + page.total() + " exceeds " + ROW_CEILING
-                                            + " — refine filters (search / insurance line / scheme)."));
+                                            + " - refine filters (search / insurance line / scheme)."));
                         }
                         return loadFxRates(page.content(), MemberBillingSummaryRow::currencyCode,
                                 reportingCurrency, tenantId, periodEnd)
@@ -106,9 +106,9 @@ public class BillingReportExcelService {
         boolean converted = reportingCurrency != null && !reportingCurrency.isBlank();
         ReportWorkbook.SheetWriter sheet = ReportWorkbook.newBook()
                 .sheet("Billing by scheme")
-                .titleMerged("Billing report — per scheme", converted ? 13 : 12)
-                .meta("Period start", periodStart != null ? periodStart.toString() : "—")
-                .meta("Period end",   periodEnd   != null ? periodEnd.toString()   : "—")
+                .titleMerged("Billing report - per scheme", converted ? 13 : 12)
+                .meta("Period start", periodStart != null ? periodStart.toString() : "-")
+                .meta("Period end",   periodEnd   != null ? periodEnd.toString()   : "-")
                 .meta("Reporting currency", converted ? reportingCurrency : "(native)")
                 .meta("Rows", String.valueOf(rows.size()))
                 .blankRow();
@@ -153,9 +153,9 @@ public class BillingReportExcelService {
         boolean converted = reportingCurrency != null && !reportingCurrency.isBlank();
         ReportWorkbook.SheetWriter sheet = ReportWorkbook.newBook()
                 .sheet("Billing by group")
-                .titleMerged("Billing report — per group", converted ? 8 : 7)
-                .meta("Period start", periodStart != null ? periodStart.toString() : "—")
-                .meta("Period end",   periodEnd   != null ? periodEnd.toString()   : "—")
+                .titleMerged("Billing report - per group", converted ? 8 : 7)
+                .meta("Period start", periodStart != null ? periodStart.toString() : "-")
+                .meta("Period end",   periodEnd   != null ? periodEnd.toString()   : "-")
                 .meta("Reporting currency", converted ? reportingCurrency : "(native)")
                 .meta("Rows", String.valueOf(rows.size()))
                 .blankRow();
@@ -194,9 +194,9 @@ public class BillingReportExcelService {
         int span = converted ? 9 : 8;
         ReportWorkbook.SheetWriter sheet = ReportWorkbook.newBook()
                 .sheet("Billing by member")
-                .titleMerged("Billing report — per member", span)
-                .meta("Period start", periodStart != null ? periodStart.toString() : "—")
-                .meta("Period end",   periodEnd   != null ? periodEnd.toString()   : "—")
+                .titleMerged("Billing report - per member", span)
+                .meta("Period start", periodStart != null ? periodStart.toString() : "-")
+                .meta("Period end",   periodEnd   != null ? periodEnd.toString()   : "-")
                 .meta("Reporting currency", converted ? reportingCurrency : "(native)")
                 .meta("Rows", String.valueOf(rows.size()))
                 .blankRow();

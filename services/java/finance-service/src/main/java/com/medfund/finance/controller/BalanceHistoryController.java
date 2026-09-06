@@ -60,7 +60,7 @@ public class BalanceHistoryController {
     @GetMapping("/provider/{providerId}")
     @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
     @RequiresReport(ReportKey.PROVIDER_BALANCE_HISTORY)
-    @Operation(summary = "Provider balance history — frozen per executed payment run",
+    @Operation(summary = "Provider balance history - frozen per executed payment run",
             description = "One row per (run, currency), newest first: opening = closing = the live "
                         + "outstanding balance at run execution, plus the run's net due. "
                         + "?asAtRun={runId} pins to exactly one run; ?currency= narrows to one native "
@@ -112,7 +112,7 @@ public class BalanceHistoryController {
     @GetMapping("/member/{memberId}")
     @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
     @RequiresReport(ReportKey.MEMBER_BALANCE_HISTORY)
-    @Operation(summary = "Member balance history — frozen per executed payment run",
+    @Operation(summary = "Member balance history - frozen per executed payment run",
             description = "One row per (run, currency), newest first: opening = closing = the live "
                         + "outstanding balance at run execution, plus the run's net due. "
                         + "?asAtRun={runId} pins to exactly one run; ?currency= narrows to one native "

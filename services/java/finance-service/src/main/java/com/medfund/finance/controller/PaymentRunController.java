@@ -57,7 +57,7 @@ public class PaymentRunController {
 
     @GetMapping
     @RequiresReport(ReportKey.PAYMENT_RUNS)
-    @Operation(summary = "List all payment runs (unpaginated — prefer /page)")
+    @Operation(summary = "List all payment runs (unpaginated - prefer /page)")
     public Flux<PaymentRunResponse> findAll() {
         return paymentRunService.findAll().map(PaymentRunResponse::from);
     }
@@ -143,7 +143,7 @@ public class PaymentRunController {
 
     @PostMapping("/{id}/approve")
     @Operation(summary = "Approve a draft payment run",
-        description = "Approval gate before execute. Optional — execute also accepts draft runs.")
+        description = "Approval gate before execute. Optional - execute also accepts draft runs.")
     public Mono<PaymentRunResponse> approve(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
         return paymentRunService.approve(id, AuditActor.id(jwt), AuditActor.email(jwt)).map(PaymentRunResponse::from);
     }

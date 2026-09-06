@@ -68,7 +68,7 @@ public class EndorsementRegisterWorkbookService {
                           BigDecimal convertedGrandTotal,
                           List<String> warnings) {
         ReportWorkbook book = ReportWorkbook.newBook();
-        String title = "Endorsement Register — " + periodStart + " to " + periodEnd;
+        String title = "Endorsement Register - " + periodStart + " to " + periodEnd;
 
         ReportWorkbook.SheetWriter detail = book.sheet("Endorsements");
         detail.titleMerged(title, 14)
@@ -109,7 +109,7 @@ public class EndorsementRegisterWorkbookService {
                                    String reportingCurrency,
                                    BigDecimal convertedGrandTotal, List<String> warnings) {
         ReportWorkbook.SheetWriter sheet = book.sheet("Summary");
-        sheet.titleMerged(title + " — Summary", 3)
+        sheet.titleMerged(title + " - Summary", 3)
                 .meta("Line",   insuranceLine != null ? insuranceLine : "All")
                 .meta("Status", status != null ? status : "All")
                 .meta("Period", periodStart + " to " + periodEnd)
@@ -131,7 +131,7 @@ public class EndorsementRegisterWorkbookService {
         } else {
             sheet.meta("Converted grand total (" + reportingCurrency + ")",
                     "FX unavailable for one or more currencies at " + periodEnd
-                            + " — converted total omitted");
+                            + " - converted total omitted");
         }
         if (warnings != null && !warnings.isEmpty()) {
             sheet.blankRow();
@@ -174,7 +174,7 @@ public class EndorsementRegisterWorkbookService {
         Map<String, List<T>> grouped = new LinkedHashMap<>();
         for (T row : rows) {
             String key = keyFn.apply(row);
-            if (key == null) key = "—";
+            if (key == null) key = "-";
             grouped.computeIfAbsent(key, k -> new ArrayList<>()).add(row);
         }
         return grouped;

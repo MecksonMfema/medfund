@@ -16,7 +16,7 @@ import { ActuarialTriangleComponent } from './actuarial-triangle.component';
     <app-actuarial-triangle
       reportKey="IBNR_TRIANGLE"
       pageTitle="IBNR triangle"
-      pageSubtitle="Chain-ladder projection of ultimate claims from the paid or incurred triangle. Every submit spawns an async compute job — the split-view lights up once ai-service returns the LDFs."
+      pageSubtitle="Chain-ladder projection of ultimate claims from the paid or incurred triangle. Every submit spawns an async compute job: the split-view lights up once ai-service returns the LDFs."
     ></app-actuarial-triangle>
   `,
 })

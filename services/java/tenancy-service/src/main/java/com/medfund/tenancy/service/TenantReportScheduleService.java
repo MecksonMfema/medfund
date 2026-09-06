@@ -92,7 +92,7 @@ public class TenantReportScheduleService {
                                                      String actorEmail) {
         if (actorId == null || actorId.isBlank() || actorEmail == null || actorEmail.isBlank()) {
             return Mono.error(new IllegalArgumentException(
-                    "actorId and actorEmail are required — every mutation must be traceable"));
+                    "actorId and actorEmail are required - every mutation must be traceable"));
         }
         ReportKey key = ReportKey.parse(req.reportKey())
                 .orElseThrow(() -> new IllegalArgumentException("Unknown report key: " + req.reportKey()));

@@ -229,7 +229,7 @@ public class KpiComposerService {
 
     private Mono<KpiReportData> computeExpenseRatio(List<String> warnings, KpiRequest req) {
         if (req.insuranceLine() != null && warnings != null) {
-            warnings.add("EXPENSE_RATIO denominator (written premium) ignores insuranceLine filter — "
+            warnings.add("EXPENSE_RATIO denominator (written premium) ignores insuranceLine filter - "
                     + "per-line billing aggregate deferred to Phase 18.5");
         }
         Mono<List<CommissionAggregateRow>> commission = commissionAggregateService.aggregatePaid(
@@ -461,7 +461,7 @@ public class KpiComposerService {
                 && data.compositeDenominator().signum() > 0) {
             finalWarnings.add("Denominator " + data.compositeDenominator() + " "
                     + Objects.toString(data.perCurrency().keySet().stream().findFirst().orElse(""), "")
-                    + " below noise threshold — ratio may be unreliable at this slice");
+                    + " below noise threshold - ratio may be unreliable at this slice");
         }
         return new ReportResponse<>(
                 key.name(),

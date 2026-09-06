@@ -66,7 +66,7 @@ public class RegulatoryReportShapingService {
             throw new ResponseStatusException(
                     HttpStatus.UNPROCESSABLE_ENTITY,
                     "reportingCurrency is not overridable for regulator report " + key.name()
-                            + " — the currency is dictated by the regulator (see "
+                            + " - the currency is dictated by the regulator (see "
                             + "RegulatoryReportCurrency for the resolution rules).");
         }
     }
@@ -85,7 +85,7 @@ public class RegulatoryReportShapingService {
             return Mono.error(new ResponseStatusException(
                     HttpStatus.NOT_IMPLEMENTED,
                     "No shaper registered for regulator report " + key.name()
-                            + " — Phase 16 sub-phase not yet shipped."));
+                            + " - Phase 16 sub-phase not yet shipped."));
         }
         return tenantMetadata.load(tenantId)
                 .flatMap(meta -> shaper.shape(tenantId, periodStart, periodEnd, meta.countryCode()));

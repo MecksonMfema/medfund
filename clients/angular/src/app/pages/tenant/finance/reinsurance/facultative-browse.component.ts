@@ -170,7 +170,7 @@ export class FacultativeBrowseComponent implements OnInit {
     this.cedeError = null;
     this.svc.createFacultativeCession(this.selected.insuranceLine, payload).subscribe({
       next: cession => {
-        this.cedeSuccess = `Draft cession #${cession.id.substring(0, 8)} created — awaiting approval.`;
+        this.cedeSuccess = `Draft cession #${cession.id.substring(0, 8)} created: awaiting approval.`;
         this.cedeSubmitting = false;
         this.selected = null;
         this.fetchCandidates();

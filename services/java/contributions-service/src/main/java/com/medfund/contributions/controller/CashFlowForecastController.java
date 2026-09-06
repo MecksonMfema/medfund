@@ -54,7 +54,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/reports/cash-flow-forecast")
 @RequiredArgsConstructor
 @Tag(name = "Cash-flow forecast",
-        description = "13-week rolling cash-flow forecast per currency — inflow from unpaid invoices "
+        description = "13-week rolling cash-flow forecast per currency - inflow from unpaid invoices "
                     + "(due-date bucketed), outflow from draft/approved payment runs. Never "
                     + "cross-currency conversion.")
 @SecurityRequirement(name = "bearer-jwt")

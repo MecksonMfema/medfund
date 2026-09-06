@@ -38,7 +38,7 @@ public class BalanceHistoryExcelService {
         ReportWorkbook.SheetWriter sheet = book.sheet(title)
                 .titleMerged(title, 8)
                 .meta("Payee", report.payeeName() != null && !report.payeeName().isBlank()
-                        ? report.payeeName() : "—")
+                        ? report.payeeName() : "-")
                 .meta("Rows", String.valueOf(report.rows() != null ? report.rows().size() : 0));
         sheet.blankRow();
 
@@ -48,8 +48,8 @@ public class BalanceHistoryExcelService {
 
         if (report.rows() != null) {
             sheet.forEach(report.rows(), (sw, row) ->
-                    sw.text(row.runNumber() != null ? row.runNumber() : "—")
-                            .text(row.executedAt() != null ? row.executedAt().toString() : "—")
+                    sw.text(row.runNumber() != null ? row.runNumber() : "-")
+                            .text(row.executedAt() != null ? row.executedAt().toString() : "-")
                             .text(row.currencyCode())
                             .moneyBold(row.openingBalance())
                             .moneyBold(row.closingBalance())

@@ -96,7 +96,7 @@ export class GroupFormComponent implements OnInit {
     const hasLiaison = !!(this.form.liaisonKind && this.form.liaisonKind !== 'CLEAR' && this.form.liaisonUserId);
     const hasEmail = !!this.form.email?.trim();
     if (!this.groupId && !hasLiaison && !hasEmail) {
-      this.errorMessage = 'Add either a liaison or a contact email — the group needs at least one route for contribution statements.';
+      this.errorMessage = 'Add either a liaison or a contact email: the group needs at least one route for contribution statements.';
       return;
     }
     const payload: UpsertGroupPayload = {

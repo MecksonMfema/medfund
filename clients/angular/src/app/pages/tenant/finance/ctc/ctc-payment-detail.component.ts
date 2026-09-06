@@ -106,7 +106,7 @@ export class CtcPaymentDetailComponent implements OnInit {
     this.finance.commitCtcPayment(this.payment.id).subscribe({
       next: (p) => {
         this.payment = p;
-        this.successMessage = 'CTC payment committed — CTC_OFFSET transaction posted';
+        this.successMessage = 'CTC payment committed: CTC_OFFSET transaction posted';
         this.busy = false;
       },
       error: (err) => {
@@ -135,7 +135,7 @@ export class CtcPaymentDetailComponent implements OnInit {
         // The endpoint returns the compensating row; re-fetch the original
         // (still at this route) so the page reflects the new `reversed`
         // status.
-        this.successMessage = `Reversal posted — compensating row ${compensating.id.substring(0, 8)}`;
+        this.successMessage = `Reversal posted: compensating row ${compensating.id.substring(0, 8)}`;
         if (this.payment) this.refresh(this.payment.id);
         this.busy = false;
       },

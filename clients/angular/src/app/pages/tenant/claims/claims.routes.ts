@@ -276,7 +276,7 @@ export const CLAIMS_ROUTES: Routes = [
         'Emit an audit event on every grant / revoke so compliance can review.',
       ],
       currentAlternative: {
-        text: 'Right now the rules-engine reads a hasWaiver boolean on MemberFact — surface exceptions via a tenant-scoped rule rather than a per-member override.',
+        text: 'Right now the rules-engine reads a hasWaiver boolean on MemberFact. Surface exceptions via a tenant-scoped rule rather than a per-member override.',
         links: [
           { label: 'Rules', path: '/tenant/admin/rules' },
           { label: 'Members', path: '/tenant/members' },

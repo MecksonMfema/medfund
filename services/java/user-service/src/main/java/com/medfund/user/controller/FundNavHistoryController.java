@@ -27,7 +27,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/v1/underwriting/funds/{fundId}/nav-history")
-@Tag(name = "Underwriting — Fund NAV History",
+@Tag(name = "Underwriting - Fund NAV History",
      description = "Daily NAV series per unit-linked fund")
 @SecurityRequirement(name = "bearer-jwt")
 @RequiredArgsConstructor

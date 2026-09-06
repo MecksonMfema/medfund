@@ -19,12 +19,12 @@ import java.util.stream.Collectors;
  * {@code tenant.country_code} via {@code @RequiresCountry} — not on this enum.
  */
 public enum TenantJurisdiction {
-    ZW_IPEC_SHORT_TERM("Zimbabwe — IPEC short-term insurance"),
-    ZW_IPEC_LIFE("Zimbabwe — IPEC life insurance"),
-    ZA_CMS_MEDICAL_SCHEME("South Africa — CMS medical scheme"),
-    ZA_FSCA_SHORT_TERM("South Africa — FSCA short-term insurance"),
-    ZA_FSCA_LONG_TERM("South Africa — FSCA long-term (life) insurance"),
-    US_NAIC("United States — NAIC");
+    ZW_IPEC_SHORT_TERM("Zimbabwe - IPEC short-term insurance"),
+    ZW_IPEC_LIFE("Zimbabwe - IPEC life insurance"),
+    ZA_CMS_MEDICAL_SCHEME("South Africa - CMS medical scheme"),
+    ZA_FSCA_SHORT_TERM("South Africa - FSCA short-term insurance"),
+    ZA_FSCA_LONG_TERM("South Africa - FSCA long-term (life) insurance"),
+    US_NAIC("United States - NAIC");
 
     private final String displayLabel;
 

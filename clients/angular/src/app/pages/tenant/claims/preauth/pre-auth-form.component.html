@@ -2,7 +2,7 @@
   <header class="page-header">
     <div>
       <h1>New pre-authorization request</h1>
-      <p class="page-sub">Prior approval for elective or high-cost services. Once approved, the pipeline will pass claims for the same beneficiary + tariff code automatically. Dependants request their own auth — a member's auth doesn't cover their dependants and vice versa.</p>
+      <p class="page-sub">Prior approval for elective or high-cost services. Once approved, the pipeline will pass claims for the same beneficiary + tariff code automatically. Dependants request their own auth: a member's auth doesn't cover their dependants and vice versa.</p>
     </div>
     <a class="btn btn-default" routerLink="/tenant/claims/preauth">
       <app-icon name="arrow-left" [size]="14"></app-icon>
@@ -38,7 +38,7 @@
               placeholder="Search member or dependant…"
             ></app-entity-picker>
             @if (beneficiaryKind === 'DEPENDANT') {
-              <small class="field-help">Dependant pre-auth — the sponsoring member is billed and drilled through, but the auth applies to this dependant only.</small>
+              <small class="field-help">Dependant pre-auth: the sponsoring member is billed and drilled through, but the auth applies to this dependant only.</small>
             }
           </label>
 
@@ -55,7 +55,7 @@
             <span class="field-label">Scheme</span>
             @switch (schemeStatus) {
               @case ('idle') {
-                <p class="field-help">Pick a beneficiary — their scheme fills in here automatically.</p>
+                <p class="field-help">Pick a beneficiary: their scheme fills in here automatically.</p>
               }
               @case ('loading') {
                 <p class="field-help">Loading scheme…</p>
@@ -73,7 +73,7 @@
               }
               @case ('error') {
                 <p class="field-help field-help--warn">
-                  Couldn't load the scheme — retry, or contact support if this persists.
+                  Couldn't load the scheme: retry, or contact support if this persists.
                 </p>
               }
             }
@@ -107,7 +107,7 @@
                     @for (t of tariffMatches; track t.id) {
                       <li class="suggestion" (mousedown)="pickTariff(t)">
                         <code>{{ t.code }}</code>
-                        <span class="muted">— {{ t.description }}</span>
+                        <span class="muted">- {{ t.description }}</span>
                         <span class="tariff-price">{{ t.unitPrice | currencyFormat:(t.currencyCode || 'USD') }}</span>
                       </li>
                     }

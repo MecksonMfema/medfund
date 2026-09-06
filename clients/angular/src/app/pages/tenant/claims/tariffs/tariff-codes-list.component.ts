@@ -177,7 +177,7 @@ export class TariffCodesListComponent implements OnInit {
         this.categoriesLoaded = true;
       },
       error: () => {
-        this.errorMessage = 'Categories catalogue is unavailable — code creation is disabled until it comes back.';
+        this.errorMessage = 'Categories catalogue is unavailable: code creation is disabled until it comes back.';
       },
     });
   }

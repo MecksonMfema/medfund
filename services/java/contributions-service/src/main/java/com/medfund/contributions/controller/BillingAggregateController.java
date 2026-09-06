@@ -49,7 +49,7 @@ public class BillingAggregateController {
 
     @GetMapping("/billing")
     @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
-    @Operation(summary = "Cross-service billing aggregate — (scheme, currency, total-billed)",
+    @Operation(summary = "Cross-service billing aggregate - (scheme, currency, total-billed)",
             description = "Consumed by Phase 3 collection-rate and Phase 5 loss-ratio reports. "
                         + "Same 'committed contribution' semantics as /reports/billing/schemes.")
     public Mono<ReportResponse<List<BillingAggregateRow>>> aggregate(

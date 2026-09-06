@@ -208,7 +208,7 @@ public class PremiumCessionService {
         return Mono.deferContextual(ctx -> {
             String tenantId = TenantContext.get(ctx);
             String entityName = "Premium cession on treaty " + treaty.getTreatyRef()
-                    + " — " + cession.getCededAmount().toPlainString()
+                    + " - " + cession.getCededAmount().toPlainString()
                     + " " + cession.getCurrencyCode();
             Map<String, Object> newValue = new LinkedHashMap<>();
             newValue.put("treatyId",         cession.getTreatyId().toString());

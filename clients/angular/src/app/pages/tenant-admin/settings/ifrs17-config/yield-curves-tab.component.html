@@ -14,7 +14,7 @@
           Per-currency spot rates keyed by tenor (months). GMM/VFA compute
           reads the row matching each cohort's locked-in effective_from
           and interpolates between tenors as needed. Auto-fetched rows
-          (RBZ/SARB) are read-only from this admin — use the Market Data
+          (RBZ/SARB) are read-only from this admin: use the Market Data
           settings tab to configure auto-fetch.
         </p>
       </div>
@@ -77,10 +77,10 @@
                            [ngModel]="row.draftEffectiveTo" (ngModelChange)="row.draftEffectiveTo = $event"
                            name="edit-to-{{row.id}}" />
                   } @else {
-                    {{ row.effectiveTo || '—' }}
+                    {{ row.effectiveTo || '-' }}
                   }
                 </td>
-                <td>{{ row.updatedByEmail || '—' }}</td>
+                <td>{{ row.updatedByEmail || '-' }}</td>
                 <td class="row-actions">
                   @if (row.editing) {
                     <button type="button" class="link-btn" (click)="saveEdit(row)" [disabled]="pendingId === row.id">

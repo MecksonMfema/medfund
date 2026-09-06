@@ -35,7 +35,7 @@ public class RejectionReasonController {
     }
 
     @GetMapping
-    @Operation(summary = "List all rejection reasons (unpaginated — prefer /page)")
+    @Operation(summary = "List all rejection reasons (unpaginated - prefer /page)")
     public Flux<RejectionReasonResponse> list(@RequestParam(required = false, defaultValue = "false") boolean activeOnly) {
         var stream = activeOnly ? service.findAllActive() : service.findAll();
         return stream.map(RejectionReasonResponse::from);

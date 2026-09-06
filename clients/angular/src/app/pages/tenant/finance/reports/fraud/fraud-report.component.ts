@@ -138,9 +138,9 @@ export class FraudReportComponent implements OnInit {
   }
 
   nativeSummary(perCurrency: Record<string, string>): string {
-    if (!perCurrency) return '—';
+    if (!perCurrency) return '-';
     const entries = Object.entries(perCurrency);
-    if (entries.length === 0) return '—';
+    if (entries.length === 0) return '-';
     return entries.map(([ccy, amt]) => `${ccy} ${amt}`).join(' · ');
   }
 

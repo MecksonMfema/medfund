@@ -80,7 +80,7 @@ public class TenantRegulatoryRecipientService {
                                                String actorEmail) {
         if (actorId == null || actorId.isBlank() || actorEmail == null || actorEmail.isBlank()) {
             return Mono.error(new IllegalArgumentException(
-                    "actorId and actorEmail are required — every mutation must be traceable"));
+                    "actorId and actorEmail are required - every mutation must be traceable"));
         }
         String email = normaliseEmail(req.email());
         String[] tiers = normaliseTiers(req.subscribedEventTiers());

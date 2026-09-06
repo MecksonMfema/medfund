@@ -34,7 +34,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/underwriting/cohorts")
-@Tag(name = "Underwriting — IFRS 17 Cohorts",
+@Tag(name = "Underwriting - IFRS 17 Cohorts",
      description = "Manage IFRS 17 cohort dimension (portfolio × year × type)")
 @SecurityRequirement(name = "bearer-jwt")
 @RequiredArgsConstructor
@@ -173,17 +173,17 @@ public class Ifrs17CohortController {
                description = "Service-to-service callback fired by the ai-service §15 onerous-test "
                              + "compute when a cohort flips ONEROUS or recovers back to NON_ONEROUS. "
                              + "Flips ifrs17_cohort.cohort_type, appends a status-history row "
-                             + "(source=AUTO), and — on AUTO_TEST_FAILED — writes an INITIAL_RECOGNITION "
+                             + "(source=AUTO), and - on AUTO_TEST_FAILED - writes an INITIAL_RECOGNITION "
                              + "loss-component movement for the positive gap. Emits AuditEvent + "
                              + "medfund.ifrs17.material-event via the existing publishers. Idempotent "
                              + "on (cohortId, sourceRunId): repeat calls return the original row "
-                             + "without duplicate writes or events. Not a tenant-admin surface — a "
+                             + "without duplicate writes or events. Not a tenant-admin surface - a "
                              + "service-scoped JWT (SCOPE_service_ifrs17) is expected.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Handled (may have been a no-op idempotency return)"),
         @ApiResponse(responseCode = "400", description = "Validation error (missing currency on failed-test amount)"),
         @ApiResponse(responseCode = "404", description = "Cohort not found"),
-        @ApiResponse(responseCode = "409", description = "Cohort.cohort_type does not match request.fromStatus — stale snapshot")
+        @ApiResponse(responseCode = "409", description = "Cohort.cohort_type does not match request.fromStatus - stale snapshot")
     })
     public Mono<CohortStatusHistoryResponse> recordAutoTransition(@PathVariable UUID id,
                                                                    @Valid @RequestBody AutoTransitionRequest request) {
@@ -195,7 +195,7 @@ public class Ifrs17CohortController {
     @Operation(summary = "Lock in the yield curve snapshot for a cohort",
                description = "IFRS 17.44: the discount curve at initial recognition of a group "
                              + "of contracts is locked in for CSM interest accretion. This endpoint "
-                             + "is idempotent — the write only happens when locked_in_at IS NULL, so "
+                             + "is idempotent - the write only happens when locked_in_at IS NULL, so "
                              + "contributions-service can call it on every policy-issued event without "
                              + "a pre-check. The response's `firstPolicy` flag says whether this call "
                              + "was the one that actually wrote.")
@@ -218,7 +218,7 @@ public class Ifrs17CohortController {
         @ApiResponse(responseCode = "204", description = "Cohort soft-deleted"),
         @ApiResponse(responseCode = "404", description = "Cohort not found"),
         @ApiResponse(responseCode = "403", description = "Missing underwriting.cohort:manage"),
-        @ApiResponse(responseCode = "409", description = "Cannot delete — policies still reference this cohort")
+        @ApiResponse(responseCode = "409", description = "Cannot delete - policies still reference this cohort")
     })
     public Mono<Void> delete(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
         return service.softDelete(id, AuditActor.id(jwt), AuditActor.email(jwt));

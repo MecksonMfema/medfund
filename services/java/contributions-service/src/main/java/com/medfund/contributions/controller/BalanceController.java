@@ -142,7 +142,7 @@ public class BalanceController {
     @Operation(summary = "List deactivated / terminated subjects with an outstanding balance",
             description = "Server-side paginated. Only subjects that are no longer billable "
                     + "(status IN deactivated/terminated) AND whose running balance is > 0 are returned "
-                    + "— i.e. money we're owed by someone we can no longer bill. Filters mirror /debtors: "
+                    + "- i.e. money we're owed by someone we can no longer bill. Filters mirror /debtors: "
                     + "currency (required), subjectType (MEMBER = ungrouped individuals only; GROUP = groups "
                     + "only; omit for both), q (substring match on name/email/code).")
     public Mono<PageResponse<DebtorRow>> listBadDebts(
@@ -194,7 +194,7 @@ public class BalanceController {
     @Operation(summary = "List aged balances (still-billable subjects)",
             description = "Returns balances older than minAgeDays (defaults to dunning_config.suspension_days). " +
                     "Each row carries an aging classification (GRACE / SUSPENDED / WRITE_OFF). " +
-                    "This is the collections-lifecycle view — for subjects that already fell off the billing " +
+                    "This is the collections-lifecycle view - for subjects that already fell off the billing " +
                     "roster with money still owing, see /bad-debts.")
     public Mono<PageResponse<BadDebtRow>> listAged(
             @RequestParam String currency,

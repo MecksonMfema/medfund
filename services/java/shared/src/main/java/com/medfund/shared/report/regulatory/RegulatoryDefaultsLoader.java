@@ -85,7 +85,7 @@ public class RegulatoryDefaultsLoader {
             if (!(rawParams instanceof Map<?, ?> params)) {
                 throw new RegulatoryReportGenerationException(
                         "Malformed regulatory defaults YAML " + resourcePath
-                                + " — top-level 'parameters:' map required.");
+                                + " - top-level 'parameters:' map required.");
             }
             java.util.LinkedHashMap<String, BigDecimal> out = new java.util.LinkedHashMap<>();
             for (Map.Entry<?, ?> entry : params.entrySet()) {

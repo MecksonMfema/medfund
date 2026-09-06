@@ -144,15 +144,15 @@
           <td>{{ row.currencyCode }}</td>
           <td class="num">{{ row.nativeExpected | number:'1.2-2' }}</td>
           <td class="num">
-            {{ row.nativeReceived !== null ? (row.nativeReceived | number:'1.2-2') : '—' }}
+            {{ row.nativeReceived !== null ? (row.nativeReceived | number:'1.2-2') : '-' }}
           </td>
           <td class="num">{{ row.participantExpected | number:'1.2-2' }}</td>
           <td class="num">
-            {{ row.participantReceived !== null ? (row.participantReceived | number:'1.2-2') : '—' }}
+            {{ row.participantReceived !== null ? (row.participantReceived | number:'1.2-2') : '-' }}
           </td>
-          <td>{{ row.invoicedAt ? (row.invoicedAt | date:'yyyy-MM-dd') : '—' }}</td>
-          <td>{{ row.receivedAt ? (row.receivedAt | date:'yyyy-MM-dd') : '—' }}</td>
-          <td>{{ row.writeOffReason || '—' }}</td>
+          <td>{{ row.invoicedAt ? (row.invoicedAt | date:'yyyy-MM-dd') : '-' }}</td>
+          <td>{{ row.receivedAt ? (row.receivedAt | date:'yyyy-MM-dd') : '-' }}</td>
+          <td>{{ row.writeOffReason || '-' }}</td>
           <td>
             @if (row.priorPeriodAdjustment) {
               <span class="badge badge-warning">Adjustment</span>
@@ -173,7 +173,7 @@
                 Write off
               </button>
             } @else {
-              <span class="muted">—</span>
+              <span class="muted">-</span>
             }
           </td>
         </tr>

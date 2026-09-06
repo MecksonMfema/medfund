@@ -279,7 +279,7 @@ export class TenantsComponent implements OnInit, OnDestroy {
           ...t,
           insuranceLinesDisplay: parseInsuranceLines(t.settings)
             .map(v => insuranceLineLabel(v))
-            .join(', ') || '—',
+            .join(', ') || '-',
         }));
         // Client-side insurance line filter (backend JSONB filter support pending)
         if (this.lineFilter) {

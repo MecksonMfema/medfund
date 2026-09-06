@@ -28,7 +28,7 @@
             {{ r.periodStart }}<ng-container *ngIf="r.periodEnd && r.periodEnd !== r.periodStart">
               → {{ r.periodEnd }}</ng-container>
           </ng-container>
-          <ng-container *ngIf="!r.periodStart">—</ng-container>
+          <ng-container *ngIf="!r.periodStart">-</ng-container>
         </td>
         <td>
           <span class="pill" [ngClass]="statusPillClass(r.status)"
@@ -40,7 +40,7 @@
           <ng-container *ngIf="durationSeconds(r) !== null">
             {{ durationSeconds(r) | number: '1.0-1' }}s
           </ng-container>
-          <ng-container *ngIf="durationSeconds(r) === null">—</ng-container>
+          <ng-container *ngIf="durationSeconds(r) === null">-</ng-container>
         </td>
         <td class="actions-col">
           <button type="button" class="btn-icon" (click)="download(r)"
@@ -57,6 +57,6 @@
   </table>
 
   <p class="empty" *ngIf="!loading && !errorMessage && runs.length === 0">
-    No fires yet — history will populate once the schedule runs.
+    No fires yet: history will populate once the schedule runs.
   </p>
 </div>

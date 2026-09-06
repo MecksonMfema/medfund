@@ -18,7 +18,7 @@
     <div class="selected-card">
       <div>
         <strong>{{ selected.firstName }} {{ selected.lastName }}</strong>
-        <span class="muted"> · #{{ selected.memberNumber }} · {{ selected.email || '—' }}</span>
+        <span class="muted"> · #{{ selected.memberNumber }} · {{ selected.email || '-' }}</span>
       </div>
       <button type="button" class="link-btn" (click)="clear()">Change</button>
     </div>
@@ -45,7 +45,7 @@
               <td>{{ c.serviceDate }}</td>
               <td class="right">{{ c.claimedAmount | currencyFormat:c.currencyCode }}</td>
               <td class="right">
-                {{ c.approvedAmount ? (c.approvedAmount | currencyFormat:c.currencyCode) : '—' }}
+                {{ c.approvedAmount ? (c.approvedAmount | currencyFormat:c.currencyCode) : '-' }}
               </td>
               <td><span class="status-badge status-{{ c.status.toLowerCase() }}">{{ c.status | humanize }}</span></td>
             </tr>

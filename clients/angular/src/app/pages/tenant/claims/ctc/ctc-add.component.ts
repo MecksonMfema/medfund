@@ -145,7 +145,7 @@ export class CtcAddComponent implements OnInit {
     this.finance.createCtcPayment(payload).subscribe({
       next: () => {
         this.saving = false;
-        this.toast.success('CTC payment recorded — it will show up under Pending until committed.');
+        this.toast.success('CTC payment recorded: it will show up under Pending until committed.');
         this.router.navigate(['/tenant/claims/ctc/pending']);
       },
       error: (err) => {

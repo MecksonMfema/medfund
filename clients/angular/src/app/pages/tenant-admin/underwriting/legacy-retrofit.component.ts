@@ -32,7 +32,7 @@ import { FormsModule } from '@angular/forms';
     <div class="banner banner-info">
       This surface is a Phase 3b deliverable. Use the per-line
       <em>Life / Funeral / Disability / Vehicle / Property policies</em> pages to
-      edit each row directly for now — the underwriting fields are wired end-to-end
+      edit each row directly for now. The underwriting fields are wired end-to-end
       into the update form.
     </div>
   `,

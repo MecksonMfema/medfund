@@ -6,7 +6,7 @@
         When enabled, finance-service auto-drafts a Claims-to-Contributions
         transfer whenever a MEMBER-payee claim adjudicates and the member's
         outstanding contribution balance clears the threshold.
-        <strong>Never auto-commits</strong> — operator review stays mandatory.
+        <strong>Never auto-commits</strong> - operator review stays mandatory.
       </p>
     </div>
     <a class="btn btn-default" routerLink="/tenant/claims/ctc/pending">
@@ -115,7 +115,7 @@
     </div>
 
     <p *ngIf="!canConfigure()" class="hint muted">
-      You have read-only access — the {{ 'finance:configure_auto_ctc' }} permission is required to save changes.
+      You have read-only access: the {{ 'finance:configure_auto_ctc' }} permission is required to save changes.
     </p>
   </section>
 

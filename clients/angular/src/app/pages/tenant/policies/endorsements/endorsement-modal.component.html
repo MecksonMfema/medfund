@@ -7,7 +7,7 @@
         Endorse <strong>{{ policyLabel || 'this policy' }}</strong>. When
         the tenant's four-eyes gate is armed and this endorsement's
         <code>|premiumDelta|</code> meets the threshold, the endorsement
-        enters DRAFT and requires a second actor to approve + commit —
+        enters DRAFT and requires a second actor to approve + commit:
         otherwise it auto-commits at draft time.
       </p>
 
@@ -48,7 +48,7 @@
           name="currencyCode"
           [options]="currencyOptions"
           [disabled]="premiumDelta == null"
-          placeholder="— Select currency —"
+          placeholder="(Select currency)"
           [searchable]="false"
         ></app-select>
       </div>
@@ -56,7 +56,7 @@
       <div class="field">
         <label>Reason (≥ 10 chars)</label>
         <textarea [(ngModel)]="reason" name="reason" rows="3" maxlength="500"
-                  placeholder="Broker request, cover uplift, retro fix — narrative required."></textarea>
+                  placeholder="Broker request, cover uplift, retro fix: narrative required."></textarea>
       </div>
 
       @if (error) { <div class="error">{{ error }}</div> }

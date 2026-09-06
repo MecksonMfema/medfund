@@ -26,7 +26,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/members")
-@Tag(name = "Members", description = "Member lifecycle management — enroll, activate, suspend, terminate")
+@Tag(name = "Members", description = "Member lifecycle management - enroll, activate, suspend, terminate")
 @SecurityRequirement(name = "bearer-jwt")
 public class MemberController {
 
@@ -172,7 +172,7 @@ public class MemberController {
             case "terminate" -> memberService.terminate(id, effectiveDate, reason, actorId, actorEmail);
             case "deactivate" -> memberService.deactivate(id, effectiveDate, reason, actorId, actorEmail);
             default -> Mono.error(new IllegalArgumentException(
-                "Unknown action '" + action + "' — expected activate / suspend / terminate / deactivate / reactivate"));
+                "Unknown action '" + action + "' - expected activate / suspend / terminate / deactivate / reactivate"));
         };
         return op.map(MemberResponse::from);
     }

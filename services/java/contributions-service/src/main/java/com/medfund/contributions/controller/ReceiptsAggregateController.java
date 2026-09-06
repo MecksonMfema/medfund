@@ -48,8 +48,8 @@ public class ReceiptsAggregateController {
 
     @GetMapping("/receipts")
     @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
-    @Operation(summary = "Cross-service receipts aggregate — (scheme, currency, net-received)",
-            description = "Same 'receipt' definition as the per-scheme report — completed money-flow "
+    @Operation(summary = "Cross-service receipts aggregate - (scheme, currency, net-received)",
+            description = "Same 'receipt' definition as the per-scheme report - completed money-flow "
                         + "transactions netted per transaction_types.sign.")
     public Mono<ReportResponse<List<ReceiptsAggregateRow>>> aggregate(
             @RequestParam String periodStart,

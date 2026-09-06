@@ -28,7 +28,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/v1/underwriting")
-@Tag(name = "Underwriting — VFA Variable Fee Schedule",
+@Tag(name = "Underwriting - VFA Variable Fee Schedule",
      description = "Effective-date-versioned fee % per unit-linked fund")
 @SecurityRequirement(name = "bearer-jwt")
 @RequiredArgsConstructor
@@ -67,7 +67,7 @@ public class VariableFeeScheduleController {
     @PutMapping("/variable-fees/{id}")
     @RequiresPermission("underwriting.fund:manage")
     @Operation(summary = "Update a variable fee schedule row",
-               description = "Only effective_to and fee_percentage are editable — retargeting "
+               description = "Only effective_to and fee_percentage are editable - retargeting "
                              + "effective_from means delete + re-add.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Row updated"),

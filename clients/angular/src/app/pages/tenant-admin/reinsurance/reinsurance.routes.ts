@@ -18,7 +18,9 @@ export const REINSURANCE_ROUTES: Routes = [
   {
     path: 'treaties',
     loadComponent: () => import('./treaties-list.component').then(m => m.TreatiesListComponent),
-    data: { title: 'Treaties' },
+    // fullbleed matches /tenant/billing/transactions so the page-header
+    // banner + filter strip sit flush with the sidebar.
+    data: { title: 'Treaties', fullbleed: true },
   },
   {
     path: 'treaties/new',

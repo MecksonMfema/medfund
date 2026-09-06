@@ -481,7 +481,7 @@ export class ClaimDetailComponent implements OnInit {
       next: (updated) => {
         this.claim = updated;
         this.busy = false;
-        this.toast.success(`Applied ${decisions.length} decision(s) — claim now ${updated.status}`);
+        this.toast.success(`Applied ${decisions.length} decision(s): claim now ${updated.status}`);
         // Refresh lines so the newly-persisted status pills render and
         // re-seed drafts from the fresh server state.
         this.claims.getLines(updated.id).subscribe({
@@ -626,7 +626,7 @@ export class ClaimDetailComponent implements OnInit {
       next: (updated) => {
         this.claim = updated;
         this.busy = false;
-        this.toast.success(`Pipeline complete — status now ${updated.status}`);
+        this.toast.success(`Pipeline complete: status now ${updated.status}`);
         this.claims.getLines(updated.id).subscribe({ next: (lines) => (this.lines = lines) });
       },
       error: (err) => {

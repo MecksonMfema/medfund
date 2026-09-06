@@ -1,6 +1,6 @@
 <header class="page-header">
   <div>
-    <h1>Commission adjustments — approver queue</h1>
+    <h1>Commission adjustments: approver queue</h1>
     <p class="page-sub">
       Draft adjustments awaiting approval and approved adjustments awaiting
       commit. Four-eyes invariant: an approver cannot commit their own draft.
@@ -53,7 +53,7 @@
           <td>{{ row.targetCommissionTransactionId.substring(0, 8) }}…</td>
           <td>{{ row.adjustmentType }}</td>
           <td class="num">{{ row.adjustmentAmount | number:'1.2-4' }} {{ row.nativeCurrency }}</td>
-          <td>{{ row.actorEmail || '—' }}</td>
+          <td>{{ row.actorEmail || '-' }}</td>
           <td>{{ row.createdAt | date:'yyyy-MM-dd HH:mm' }}</td>
           <td class="actions">
             @if (row.status === 'DRAFT') {
@@ -89,7 +89,7 @@
       <h3>Void commission adjustment</h3>
       <p class="modal-sub">
         Reason will be recorded on the audit trail. COMMITTED adjustments
-        cannot be voided — this is only available for DRAFT / APPROVED.
+        cannot be voided: this is only available for DRAFT / APPROVED.
       </p>
       <label>
         <span>Reason <em>(min 5 chars)</em></span>

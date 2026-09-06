@@ -188,7 +188,7 @@ public class ClaimsExcelService {
         if (rows.size() > ROW_CEILING) {
             return Mono.error(new IllegalArgumentException(
                     "Row count " + rows.size() + " exceeds " + ROW_CEILING
-                            + " — narrow the period or filter."));
+                            + " - narrow the period or filter."));
         }
         return loadFxRates(rows, ClaimsSummaryRow::currencyCode, reportingCurrency, tenantId, periodEnd)
                 .map(fx -> {
@@ -197,9 +197,9 @@ public class ClaimsExcelService {
 
                     ReportWorkbook.SheetWriter sheet = ReportWorkbook.newBook()
                             .sheet(sheetName)
-                            .titleMerged("Claims report — per " + dimensionLabel.toLowerCase(), span)
-                            .meta("Period start", periodStart != null ? periodStart.toString() : "—")
-                            .meta("Period end",   periodEnd   != null ? periodEnd.toString()   : "—")
+                            .titleMerged("Claims report - per " + dimensionLabel.toLowerCase(), span)
+                            .meta("Period start", periodStart != null ? periodStart.toString() : "-")
+                            .meta("Period end",   periodEnd   != null ? periodEnd.toString()   : "-")
                             .meta("Reporting currency", converted ? reportingCurrency : "(native)")
                             .meta("Rows", String.valueOf(rows.size()))
                             .blankRow();
@@ -241,7 +241,7 @@ public class ClaimsExcelService {
         if (rows.size() > ROW_CEILING) {
             return Mono.error(new IllegalArgumentException(
                     "Row count " + rows.size() + " exceeds " + ROW_CEILING
-                            + " — narrow the period."));
+                            + " - narrow the period."));
         }
         return loadFxRates(rows, HighCostClaimantRow::currencyCode, reportingCurrency, tenantId, periodEnd)
                 .map(fx -> {
@@ -251,8 +251,8 @@ public class ClaimsExcelService {
                     ReportWorkbook.SheetWriter sheet = ReportWorkbook.newBook()
                             .sheet("High-cost claimants")
                             .titleMerged("High-cost claimants", span)
-                            .meta("Period start", periodStart != null ? periodStart.toString() : "—")
-                            .meta("Period end",   periodEnd   != null ? periodEnd.toString()   : "—")
+                            .meta("Period start", periodStart != null ? periodStart.toString() : "-")
+                            .meta("Period end",   periodEnd   != null ? periodEnd.toString()   : "-")
                             .meta("Reporting currency", converted ? reportingCurrency : "(native)")
                             .meta("Rows", String.valueOf(rows.size()))
                             .blankRow();
@@ -284,7 +284,7 @@ public class ClaimsExcelService {
         if (ledger != null && ledger.total() > ROW_CEILING) {
             return Mono.error(new IllegalArgumentException(
                     "Ledger row count " + ledger.total() + " exceeds " + ROW_CEILING
-                            + " — refine filters (status / provider / currency)."));
+                            + " - refine filters (status / provider / currency)."));
         }
 
         List<ClaimsDetailResponse.MonthlyBucket> buckets =
@@ -300,10 +300,10 @@ public class ClaimsExcelService {
                     ReportWorkbook book = ReportWorkbook.newBook();
 
                     ReportWorkbook.SheetWriter monthlySheet = book.sheet("Monthly buckets")
-                            .titleMerged("Claims by month — " + safeName(detail.dimensionName()), 6)
+                            .titleMerged("Claims by month - " + safeName(detail.dimensionName()), 6)
                             .meta("Dimension", dimensionLabel)
-                            .meta("Period start", periodStart != null ? periodStart.toString() : "—")
-                            .meta("Period end",   periodEnd   != null ? periodEnd.toString()   : "—")
+                            .meta("Period start", periodStart != null ? periodStart.toString() : "-")
+                            .meta("Period end",   periodEnd   != null ? periodEnd.toString()   : "-")
                             .blankRow()
                             .header("Month", "Currency", "Claims",
                                     "Claimed", "Approved", "Paid");
@@ -318,7 +318,7 @@ public class ClaimsExcelService {
 
                     int span = converted ? 14 : 13;
                     ReportWorkbook.SheetWriter ledgerSheet = book.sheet("Claim ledger")
-                            .titleMerged("Claim ledger — " + safeName(detail.dimensionName()), span)
+                            .titleMerged("Claim ledger - " + safeName(detail.dimensionName()), span)
                             .meta("Rows", String.valueOf(rows.size()))
                             .meta("Reporting currency", converted ? reportingCurrency : "(native)")
                             .blankRow();
@@ -414,7 +414,7 @@ public class ClaimsExcelService {
         if (drill != null && drill.total() > ROW_CEILING) {
             return Mono.error(new IllegalArgumentException(
                     "Ledger row count " + drill.total() + " exceeds " + ROW_CEILING
-                            + " — narrow the submission window."));
+                            + " - narrow the submission window."));
         }
         List<ClaimStatusMatrixCell> cells = matrix.cells() != null ? matrix.cells() : List.of();
         List<ClaimsDetailResponse.ClaimLedgerRow> rows =
@@ -429,9 +429,9 @@ public class ClaimsExcelService {
 
                     ReportWorkbook.SheetWriter matrixSheet = book.sheet("Status matrix")
                             .titleMerged("Claim status matrix", 7)
-                            .meta("Submitted from", submittedFrom != null ? submittedFrom.toString() : "—")
-                            .meta("Submitted to",   submittedTo   != null ? submittedTo.toString()   : "—")
-                            .meta("As of", matrix.asOf() != null ? matrix.asOf().toString() : "—")
+                            .meta("Submitted from", submittedFrom != null ? submittedFrom.toString() : "-")
+                            .meta("Submitted to",   submittedTo   != null ? submittedTo.toString()   : "-")
+                            .meta("As of", matrix.asOf() != null ? matrix.asOf().toString() : "-")
                             .blankRow()
                             .header("Status", "Age bucket", "Currency",
                                     "Claims", "Claimed", "Approved", "Paid");
@@ -447,7 +447,7 @@ public class ClaimsExcelService {
 
                     int span = converted ? 14 : 13;
                     ReportWorkbook.SheetWriter ledgerSheet = book.sheet("Claim ledger")
-                            .titleMerged("Claim ledger — full submission window", span)
+                            .titleMerged("Claim ledger - full submission window", span)
                             .meta("Rows", String.valueOf(rows.size()))
                             .meta("Reporting currency", converted ? reportingCurrency : "(native)")
                             .blankRow();
@@ -495,7 +495,7 @@ public class ClaimsExcelService {
 
         ReportWorkbook book = ReportWorkbook.newBook();
         book.sheet("Categories")
-                .titleMerged("Denial analysis — by category", 3)
+                .titleMerged("Denial analysis - by category", 3)
                 .meta("Reporting currency", (reportingCurrency != null && !reportingCurrency.isBlank())
                         ? reportingCurrency : "(native)")
                 .blankRow()
@@ -507,7 +507,7 @@ public class ClaimsExcelService {
                 .freezeAtHeader().autoSize();
 
         book.sheet("Codes")
-                .titleMerged("Denial analysis — by rejection code", 5)
+                .titleMerged("Denial analysis - by rejection code", 5)
                 .blankRow()
                 .header("Code", "Category", "Description", "Claims", "Claimed")
                 .forEach(codes, (sw, r) -> sw
@@ -519,7 +519,7 @@ public class ClaimsExcelService {
                 .freezeAtHeader().autoSize();
 
         book.sheet("Providers")
-                .titleMerged("Denial analysis — by provider", 4)
+                .titleMerged("Denial analysis - by provider", 4)
                 .blankRow()
                 .header("Provider", "Claims denied", "Claimed (denied)", "Denial rate")
                 .forEach(providers, (sw, r) -> sw
@@ -538,13 +538,13 @@ public class ClaimsExcelService {
         if (rows.size() > ROW_CEILING) {
             return Mono.error(new IllegalArgumentException(
                     "Row count " + rows.size() + " exceeds " + ROW_CEILING
-                            + " — narrow the service-date window."));
+                            + " - narrow the service-date window."));
         }
         return Mono.just(ReportWorkbook.newBook()
                 .sheet("Frequency & severity")
                 .titleMerged("Claims frequency & severity", 10)
-                .meta("Service from", serviceFrom != null ? serviceFrom.toString() : "—")
-                .meta("Service to",   serviceTo   != null ? serviceTo.toString()   : "—")
+                .meta("Service from", serviceFrom != null ? serviceFrom.toString() : "-")
+                .meta("Service to",   serviceTo   != null ? serviceTo.toString()   : "-")
                 .meta("Reporting currency", (reportingCurrency != null && !reportingCurrency.isBlank())
                         ? reportingCurrency : "(native)")
                 .meta("Exposure", "Active members × days ÷ 30.4375 (G48 fallback)")
@@ -592,11 +592,11 @@ public class ClaimsExcelService {
     }
 
     private static String pct(BigDecimal value) {
-        return value != null ? value.toPlainString() + "%" : "—";
+        return value != null ? value.toPlainString() + "%" : "-";
     }
 
     private static String safeName(String name) {
-        return name != null && !name.isBlank() ? name : "—";
+        return name != null && !name.isBlank() ? name : "-";
     }
 
     private static UUID parseTenantId(String tenantIdStr) {

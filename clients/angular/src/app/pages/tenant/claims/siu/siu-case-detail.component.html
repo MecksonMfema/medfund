@@ -61,8 +61,8 @@
     <h3>Propose closure (four-eyes)</h3>
     <p>
       Investigator-entered savings feed the FRAUD_SIU_REPORT (FR8).
-      A supervisor with <code>claims:siu:approve</code> — and a different actor
-      identity per FR6 — must sign off via <em>Approve pending closure</em>.
+      A supervisor with <code>claims:siu:approve</code> - and a different actor
+      identity per FR6: must sign off via <em>Approve pending closure</em>.
     </p>
     <label class="field">
       <span class="field-label">Outcome</span>
@@ -86,7 +86,7 @@
     <label class="field">
       <span class="field-label">Closure reason</span>
       <textarea rows="3" [(ngModel)]="closureReason" name="closureReason"
-                placeholder="Investigator narrative — one paragraph"></textarea>
+                placeholder="Investigator narrative: one paragraph"></textarea>
     </label>
     <div class="action-row">
       <button class="btn btn-primary" [disabled]="busy" (click)="submitPropose()">Propose closure</button>
@@ -114,23 +114,23 @@
       <dl class="def-list">
         <dt>Case number</dt><dd>{{ case.caseNumber }}</dd>
         <dt>Status</dt><dd>{{ case.status }}</dd>
-        <dt>Outcome</dt><dd>{{ case.outcome || '—' }}</dd>
+        <dt>Outcome</dt><dd>{{ case.outcome || '-' }}</dd>
         <dt>Opened at</dt><dd>{{ case.openedAt | date:'medium' }}</dd>
         <dt>Opened by</dt><dd>{{ case.openedByEmail }}</dd>
-        <dt>Assigned to</dt><dd>{{ case.assignedTo || '—' }}</dd>
-        <dt>Closed at</dt><dd>{{ case.closedAt ? (case.closedAt | date:'medium') : '—' }}</dd>
-        <dt>Closed by</dt><dd>{{ case.closedByEmail || '—' }}</dd>
-        <dt>Saved amount</dt><dd>{{ case.savedAmount || '—' }} {{ case.savedCurrency || '' }}</dd>
-        <dt>Closure reason</dt><dd>{{ case.closureReason || '—' }}</dd>
+        <dt>Assigned to</dt><dd>{{ case.assignedTo || '-' }}</dd>
+        <dt>Closed at</dt><dd>{{ case.closedAt ? (case.closedAt | date:'medium') : '-' }}</dd>
+        <dt>Closed by</dt><dd>{{ case.closedByEmail || '-' }}</dd>
+        <dt>Saved amount</dt><dd>{{ case.savedAmount || '-' }} {{ case.savedCurrency || '' }}</dd>
+        <dt>Closure reason</dt><dd>{{ case.closureReason || '-' }}</dd>
       </dl>
       @if (case.status === 'PENDING_APPROVAL' && case.proposedByEmail) {
         <div class="banner banner-info">
           <strong>Pending supervisor approval.</strong>
           Proposed by <em>{{ case.proposedByEmail }}</em> on
-          {{ case.proposedAt | date:'medium' }} — outcome
+          {{ case.proposedAt | date:'medium' }}: outcome
           <strong>{{ case.proposedOutcome }}</strong>,
           saved {{ case.proposedSavedAmount }} {{ case.proposedSavedCurrency }}.
-          Reason: {{ case.proposedClosureReason || '—' }}
+          Reason: {{ case.proposedClosureReason || '-' }}
         </div>
       }
     </section>
@@ -152,9 +152,9 @@
             @for (f of case.flags; track f.id) {
               <tr>
                 <td>{{ f.flagSource }}</td>
-                <td>{{ f.modelVersion || '—' }}</td>
-                <td>{{ f.riskScore || '—' }}</td>
-                <td>{{ f.riskLevel || '—' }}</td>
+                <td>{{ f.modelVersion || '-' }}</td>
+                <td>{{ f.riskScore || '-' }}</td>
+                <td>{{ f.riskLevel || '-' }}</td>
                 <td>{{ f.flaggedAt | date:'medium' }}</td>
               </tr>
             }
@@ -254,7 +254,7 @@
       @if (showReferralForm) {
         <div class="card confirmed-form">
           <p>
-            Records the referral event on the case — no automated push to
+            Records the referral event on the case: no automated push to
             the external body (Phase 19.5). Add the external case number
             below once you have it, or leave blank and update via the
             response-notes column later.
@@ -270,7 +270,7 @@
           <label class="field">
             <span class="field-label">External reference (optional)</span>
             <input type="text" [(ngModel)]="referralReference" name="referralReference"
-                   placeholder="ZRP-2026-0042 / IPEC-… / HR-… — leave blank if not yet issued" />
+                   placeholder="ZRP-2026-0042 / IPEC-… / HR-…: leave blank if not yet issued" />
           </label>
           <div class="action-row">
             <button class="btn btn-primary" [disabled]="busy" (click)="submitReferral()">Record</button>
@@ -293,10 +293,10 @@
             @for (r of case.referrals; track r.id) {
               <tr>
                 <td>{{ r.referralTo }}</td>
-                <td>{{ r.referralReference || '—' }}</td>
+                <td>{{ r.referralReference || '-' }}</td>
                 <td>{{ r.referredByEmail }}</td>
                 <td>{{ r.referredAt | date:'medium' }}</td>
-                <td>{{ r.responseNotes || '—' }}</td>
+                <td>{{ r.responseNotes || '-' }}</td>
               </tr>
             }
           </tbody>

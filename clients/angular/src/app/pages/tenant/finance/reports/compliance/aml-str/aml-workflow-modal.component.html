@@ -4,7 +4,7 @@
          role="dialog" aria-modal="true" [attr.aria-label]="title">
       <h3 class="modal-title">{{ title }}</h3>
       <p class="modal-message">
-        <strong>Alert #{{ transactionRef }}</strong> — {{ description }}
+        <strong>Alert #{{ transactionRef }}</strong> - {{ description }}
       </p>
 
       @if (mode === 'review') {
@@ -36,7 +36,7 @@
           <label for="close-reason">Closed reason * (5-120 chars)</label>
           <input id="close-reason" name="closedReason" class="input"
                  [(ngModel)]="closedReason" maxlength="120"
-                 placeholder="e.g. Duplicate of #TXN-000000, or Not reportable — legitimate premium prepayment" />
+                 placeholder="e.g. Duplicate of #TXN-000000, or Not reportable: legitimate premium prepayment" />
         </div>
       }
 

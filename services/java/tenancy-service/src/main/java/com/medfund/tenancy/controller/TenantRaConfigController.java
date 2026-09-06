@@ -62,7 +62,7 @@ public class TenantRaConfigController {
     @Operation(summary = "Add an RA config row",
             description = "methodology must be COC or CI. When COC, cocRate is required and "
                         + "targetConfidenceLevel must be null; the reverse applies for CI. "
-                        + "Uniqueness enforced on (portfolio_id, effective_from) — a conflicting "
+                        + "Uniqueness enforced on (portfolio_id, effective_from) - a conflicting "
                         + "insert surfaces as HTTP 409.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Row added"),
@@ -81,7 +81,7 @@ public class TenantRaConfigController {
     @Operation(summary = "Update an RA config row",
             description = "Only the numeric parameter matching the row's methodology, "
                         + "sourceNote and effectiveTo are mutable. The (portfolio_id, methodology, "
-                        + "effective_from) tuple is immutable — a switch of methodology is a new row.")
+                        + "effective_from) tuple is immutable - a switch of methodology is a new row.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Row updated"),
             @ApiResponse(responseCode = "404", description = "Row not found for tenant")

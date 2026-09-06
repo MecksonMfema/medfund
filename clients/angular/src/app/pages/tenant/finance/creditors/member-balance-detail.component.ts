@@ -102,7 +102,7 @@ export class MemberBalanceDetailComponent implements OnInit {
     const withName = this.balances.find(b => b.memberName);
     if (withName?.memberName) return withName.memberName;
     const withCode = this.balances.find(b => b.memberCode);
-    return withCode?.memberCode ?? (this.memberId ?? '—');
+    return withCode?.memberCode ?? (this.memberId ?? '-');
   }
 
   /**

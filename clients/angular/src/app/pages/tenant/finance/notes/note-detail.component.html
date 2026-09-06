@@ -47,10 +47,10 @@
             </a>
           </dd>
         }
-        <dt>Reason</dt><dd>{{ note.reason || '—' }}</dd>
-        <dt>Posted</dt><dd>{{ note.postedAt ? (note.postedAt | date:'medium') : '—' }}</dd>
-        <dt>Approved</dt><dd>{{ note.approvedAt ? (note.approvedAt | date:'medium') : '—' }}</dd>
-        <dt>Approved by</dt><dd>{{ note.approvedBy || '—' }}</dd>
+        <dt>Reason</dt><dd>{{ note.reason || '-' }}</dd>
+        <dt>Posted</dt><dd>{{ note.postedAt ? (note.postedAt | date:'medium') : '-' }}</dd>
+        <dt>Approved</dt><dd>{{ note.approvedAt ? (note.approvedAt | date:'medium') : '-' }}</dd>
+        <dt>Approved by</dt><dd>{{ note.approvedBy || '-' }}</dd>
         <dt>Created</dt><dd>{{ note.createdAt | date:'medium' }}</dd>
       </dl>
     </section>
@@ -79,7 +79,7 @@
         </button>
       }
       @if (note.status === 'reversed') {
-        <span class="muted">No actions — note has been reversed.</span>
+        <span class="muted">No actions: note has been reversed.</span>
       }
       @if (note.type === 'REVERSAL') {
         <span class="muted">Compensating REVERSAL rows cannot be reversed further.</span>

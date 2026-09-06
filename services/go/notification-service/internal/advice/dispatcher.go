@@ -22,7 +22,7 @@ import (
 //go:embed body.html
 var defaultBodyTemplate string
 
-const DefaultSubject = "Payment advice {{.AdviceNumber}} — {{.CurrencyCode}} {{.NetDue}} net due"
+const DefaultSubject = "Payment advice {{.AdviceNumber}} - {{.CurrencyCode}} {{.NetDue}} net due"
 
 func DefaultHTMLBody() string { return defaultBodyTemplate }
 

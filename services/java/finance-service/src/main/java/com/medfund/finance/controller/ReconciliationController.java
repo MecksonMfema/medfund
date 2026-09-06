@@ -25,7 +25,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/reconciliations")
-@Tag(name = "Bank Reconciliation", description = "Bank statement reconciliation — matching and status tracking")
+@Tag(name = "Bank Reconciliation", description = "Bank statement reconciliation - matching and status tracking")
 @SecurityRequirement(name = "bearer-jwt")
 public class ReconciliationController {
 
@@ -37,7 +37,7 @@ public class ReconciliationController {
 
     @GetMapping
     @RequiresReport(ReportKey.RECONCILIATIONS)
-    @Operation(summary = "List all reconciliation records (unpaginated — prefer /page)")
+    @Operation(summary = "List all reconciliation records (unpaginated - prefer /page)")
     public Flux<BankReconciliationResponse> findAll() {
         return reconciliationService.findAll().map(BankReconciliationResponse::from);
     }

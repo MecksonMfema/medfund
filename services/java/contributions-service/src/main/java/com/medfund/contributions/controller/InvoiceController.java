@@ -176,7 +176,7 @@ public class InvoiceController {
     }
 
     @GetMapping("/status/{status}")
-    @Operation(summary = "List invoices by status (raw — prefer GET / for the operator-facing list)")
+    @Operation(summary = "List invoices by status (raw - prefer GET / for the operator-facing list)")
     public Flux<InvoiceResponse> findByStatus(@PathVariable String status) {
         return invoiceRepository.findByStatus(status).map(InvoiceResponse::from);
     }

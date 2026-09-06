@@ -84,7 +84,7 @@ func withFallbacks(p Payload) Payload {
 		}
 	}
 	if p.PaymentMethod == "" {
-		p.PaymentMethod = "—"
+		p.PaymentMethod = "-"
 	}
 	p.TransactionDate = HumaniseDate(p.TransactionDate)
 	return p
@@ -97,7 +97,7 @@ func withFallbacks(p Payload) Payload {
 // TransactionDate to the same shape shown on the PDF.
 func HumaniseDate(iso string) string {
 	if iso == "" {
-		return "—"
+		return "-"
 	}
 	for _, layout := range []string{
 		time.RFC3339Nano,

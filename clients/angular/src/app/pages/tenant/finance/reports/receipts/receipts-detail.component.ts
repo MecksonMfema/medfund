@@ -175,10 +175,10 @@ export class ReceiptsDetailComponent implements OnInit {
   }
 
   get title(): string {
-    if (this.unallocated) return 'Unallocated group payments — receipts';
+    if (this.unallocated) return 'Unallocated group payments - receipts';
     const name = this.envelope?.data?.dimensionName || '(unknown)';
     const label = this.dimension.charAt(0).toUpperCase() + this.dimension.slice(1);
-    return `${label} receipts — ${name}`;
+    return `${label} receipts - ${name}`;
   }
 }
 

@@ -2,7 +2,7 @@
   <header class="page-header">
     <div>
       <a routerLink="/tenant/admin/producers" class="btn-link"><app-icon name="arrow-left"></app-icon> Back to producers</a>
-      <h1 *ngIf="producer">Open assignments for {{ producer.producerCode }} — {{ producer.name }}</h1>
+      <h1 *ngIf="producer">Open assignments for {{ producer.producerCode }} - {{ producer.name }}</h1>
       <h1 *ngIf="!producer">Assignments</h1>
       <p class="sub" *ngIf="openCount != null">{{ openCount }} member(s) currently assigned.</p>
     </div>

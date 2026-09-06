@@ -22,7 +22,7 @@
       <app-stat-card label="Currency" [value]="form.currencyCode" icon="banknote" color="teal"></app-stat-card>
       <app-stat-card
         label="Line"
-        [value]="activeLine || '—'"
+        [value]="activeLine || '-'"
         icon="shield"
         color="purple"
       ></app-stat-card>
@@ -52,7 +52,7 @@
                 placeholder="Search member or dependant…"
               ></app-entity-picker>
               @if (dependantId) {
-                <small class="field-help">Dependant claim — the sponsoring member is billed.</small>
+                <small class="field-help">Dependant claim: the sponsoring member is billed.</small>
               }
             </label>
 
@@ -63,7 +63,7 @@
               </span>
               @if (providerMode === 'FORBIDDEN') {
                 <p class="field-help">
-                  {{ activeLine }} payouts go straight to the member — no service provider is captured on this claim.
+                  {{ activeLine }} payouts go straight to the member: no service provider is captured on this claim.
                 </p>
               } @else {
                 <app-entity-picker
@@ -74,7 +74,7 @@
                 ></app-entity-picker>
                 @if (providerMode === 'OPTIONAL' && !providerId) {
                   <small class="field-help">
-                    Optional — leave blank if the tenant is acting as the provider.
+                    Optional: leave blank if the tenant is acting as the provider.
                   </small>
                 }
                 @if (showPayeeChoice()) {
@@ -103,7 +103,7 @@
               <span class="field-label">Scheme</span>
               @switch (schemeStatus) {
                 @case ('idle') {
-                  <p class="field-help">Pick a beneficiary — their scheme fills in here automatically.</p>
+                  <p class="field-help">Pick a beneficiary: their scheme fills in here automatically.</p>
                 }
                 @case ('loading') {
                   <p class="field-help">Loading scheme…</p>
@@ -114,7 +114,7 @@
                     <span class="muted">{{ activeLine }} · {{ form.currencyCode }}</span>
                   </div>
                   @if (dependantId) {
-                    <small class="field-help">Dependant claim — the sponsoring member's scheme is used.</small>
+                    <small class="field-help">Dependant claim: the sponsoring member's scheme is used.</small>
                   }
                 }
                 @case ('missing') {
@@ -124,7 +124,7 @@
                 }
                 @case ('error') {
                   <p class="field-help field-help--warn">
-                    Couldn't load the scheme — retry, or contact support if this persists.
+                    Couldn't load the scheme: retry, or contact support if this persists.
                   </p>
                 }
               }
@@ -243,7 +243,7 @@
                         @for (t of tariffMatches; track t.id) {
                           <li class="suggestion" (mousedown)="pickTariff(lineIdx, t)">
                             <code>{{ t.code }}</code>
-                            <span class="muted">— {{ t.description }}</span>
+                            <span class="muted">- {{ t.description }}</span>
                             <span class="tariff-price">{{ t.unitPrice | currencyFormat:t.currencyCode }}</span>
                           </li>
                         }
@@ -269,7 +269,7 @@
                       </div>
                     }
                   } @else {
-                    <span class="muted">—</span>
+                    <span class="muted">-</span>
                   }
                 </div>
                 <input class="field-control right" type="number" step="0.01" min="0"
@@ -442,7 +442,7 @@
           <label class="field">
             <span class="field-label">Adjudicator notes <span class="optional">(optional)</span></span>
             <textarea class="field-control" [(ngModel)]="form.notes" name="notes" rows="3"
-                      placeholder="Anything the adjudicator should know — supporting circumstances, missing documentation, escalations…"></textarea>
+                      placeholder="Anything the adjudicator should know: supporting circumstances, missing documentation, escalations…"></textarea>
           </label>
         </section>
       </div>
@@ -460,7 +460,7 @@
         <h2 class="form-card__title">Claim {{ submittedClaim.claimNumber }} submitted</h2>
         <span class="form-card__hint">
           {{ submittedClaim.status }}
-          · Line: {{ submittedClaim.insuranceLine || '—' }}
+          · Line: {{ submittedClaim.insuranceLine || '-' }}
           @if (submittedBatchNumber) { · Batch: {{ submittedBatchNumber }} }
         </span>
       </div>

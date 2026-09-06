@@ -53,7 +53,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/reports/actuarial")
 @RequiredArgsConstructor
 @Tag(name = "Actuarial Reports",
-        description = "IBNR triangle + loss triangle + study jobs. Async — POST returns a jobId, "
+        description = "IBNR triangle + loss triangle + study jobs. Async - POST returns a jobId, "
                 + "poll /jobs/{jobId} for the terminal state, GET /jobs/{jobId}/export.xlsx for the workbook.")
 @SecurityRequirement(name = "bearer-jwt")
 public class ActuarialReportController {
@@ -93,7 +93,7 @@ public class ActuarialReportController {
     @Operation(summary = "Submit a persistency study job",
             description = "Shapes cohorts of newly-active members/policies against the tenant's "
                         + "expected retention curves and returns actual/expected + A/E ratios per "
-                        + "checkpoint. Async — POST returns jobId; poll /jobs/{jobId}.")
+                        + "checkpoint. Async - POST returns jobId; poll /jobs/{jobId}.")
     @ApiResponse(responseCode = "201", description = "Job submitted (or existing in-flight duplicate reused)")
     public Mono<ResponseEntity<JobSubmissionResponse>> submitPersistencyStudy(
             @Valid @RequestBody PersistencyStudyJobRequest body,
@@ -114,8 +114,8 @@ public class ActuarialReportController {
     @RequiresReport(ReportKey.LAPSE_STUDY)
     @Operation(summary = "Submit a lapse study job",
             description = "Reuses the persistency cohort feed and the tenant's expected retention "
-                        + "basis — but computes the complement (lapse = cohort_size − still_active) "
-                        + "and A/E against expected lapse (1 − expected retention). Async — POST "
+                        + "basis - but computes the complement (lapse = cohort_size − still_active) "
+                        + "and A/E against expected lapse (1 − expected retention). Async - POST "
                         + "returns jobId; poll /jobs/{jobId}.")
     @ApiResponse(responseCode = "201", description = "Job submitted (or existing in-flight duplicate reused)")
     public Mono<ResponseEntity<JobSubmissionResponse>> submitLapseStudy(
@@ -139,7 +139,7 @@ public class ActuarialReportController {
             description = "Aggregates member exposure (age_band × sex × exposure-years × deaths) "
                         + "over the requested window, resolves the tenant's mortality basis "
                         + "table + multiplier, and computes actual-vs-expected mortality per "
-                        + "age band. Async — POST returns jobId; poll /jobs/{jobId}.")
+                        + "age band. Async - POST returns jobId; poll /jobs/{jobId}.")
     @ApiResponse(responseCode = "201", description = "Job submitted (or existing in-flight duplicate reused)")
     public Mono<ResponseEntity<JobSubmissionResponse>> submitMortalityStudy(
             @Valid @RequestBody MortalityStudyJobRequest body,
@@ -162,7 +162,7 @@ public class ActuarialReportController {
             description = "Aggregates member exposure (age_band × sex × exposure-years × incidents) "
                         + "over the requested window, resolves the tenant's morbidity basis "
                         + "table + multiplier, and computes actual-vs-expected morbidity per "
-                        + "age band. Async — POST returns jobId; poll /jobs/{jobId}.")
+                        + "age band. Async - POST returns jobId; poll /jobs/{jobId}.")
     @ApiResponse(responseCode = "201", description = "Job submitted (or existing in-flight duplicate reused)")
     public Mono<ResponseEntity<JobSubmissionResponse>> submitMorbidityStudy(
             @Valid @RequestBody MorbidityStudyJobRequest body,
@@ -183,7 +183,7 @@ public class ActuarialReportController {
     @RequiresReport(ReportKey.IBNR_TRIANGLE)
     @Operation(summary = "Poll an actuarial job's status",
             description = "Returns the current terminal-or-processing state for jobId. Rule-2 "
-                        + "enforced — a jobId owned by another tenant returns 404, not the row.")
+                        + "enforced - a jobId owned by another tenant returns 404, not the row.")
     public Mono<JobStatusResponse> status(@PathVariable UUID jobId) {
         return Mono.deferContextual(ctx -> jobService.status(jobId, resolveTenant(ctx)));
     }

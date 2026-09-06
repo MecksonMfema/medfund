@@ -62,7 +62,7 @@ public class ScheduledReportHistoryController {
 
     @GetMapping("/schedules/{scheduleId}/runs")
     @Operation(summary = "Last N scheduled-fire history rows for a schedule",
-            description = "Ordered by requestedAt DESC. Slim projection — no params/result blobs.")
+            description = "Ordered by requestedAt DESC. Slim projection - no params/result blobs.")
     @RequiresPermission({"tenant.settings:manage_report_schedules",
             "admin:manage_settings", "finance:view"})
     public Flux<ScheduledRunResponse> history(@PathVariable UUID scheduleId,

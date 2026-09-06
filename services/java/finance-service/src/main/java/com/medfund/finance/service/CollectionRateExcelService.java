@@ -48,9 +48,9 @@ public class CollectionRateExcelService {
                                        List<DimensionRow> rows, List<String> warnings,
                                        CollectionRateReportResponse report) {
         ReportWorkbook.SheetWriter sheet = book.sheet(sheetName)
-                .titleMerged("Collection rate — " + sheetName.toLowerCase(), 8)
-                .meta("Period start", report.periodStart() != null ? report.periodStart().toString() : "—")
-                .meta("Period end",   report.periodEnd()   != null ? report.periodEnd().toString()   : "—")
+                .titleMerged("Collection rate - " + sheetName.toLowerCase(), 8)
+                .meta("Period start", report.periodStart() != null ? report.periodStart().toString() : "-")
+                .meta("Period end",   report.periodEnd()   != null ? report.periodEnd().toString()   : "-")
                 .meta("Rows", String.valueOf(rows != null ? rows.size() : 0));
 
         if (warnings != null && !warnings.isEmpty()) {

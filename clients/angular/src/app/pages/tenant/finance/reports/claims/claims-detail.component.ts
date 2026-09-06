@@ -170,7 +170,7 @@ export class ClaimsDetailComponent implements OnInit {
   get title(): string {
     const name = this.envelope?.data?.dimensionName || '(unknown)';
     const label = this.dimension.charAt(0).toUpperCase() + this.dimension.slice(1);
-    return `${label} claims — ${name}`;
+    return `${label} claims - ${name}`;
   }
 }
 

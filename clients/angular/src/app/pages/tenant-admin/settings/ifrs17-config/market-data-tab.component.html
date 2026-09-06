@@ -15,8 +15,8 @@
           jurisdictional source. The market-data-service polls this list
           on its cron cadence (default: daily 06:00 UTC) and writes the
           fetched curves back to the Yield Curves tab with a source badge
-          of RBZ_AUTO or SARB_AUTO. Manual (ADMIN) rows continue to win
-          — auto-fetched rows never overwrite an admin edit.
+          of RBZ_AUTO or SARB_AUTO. Manual (ADMIN) rows continue to win:
+          auto-fetched rows never overwrite an admin edit.
         </p>
       </div>
       <div class="section-actions">
@@ -63,7 +63,7 @@
                   <span>{{ row.autoFetchEnabled ? 'Enabled' : 'Paused' }}</span>
                 </label>
               </td>
-              <td>{{ row.updatedByEmail || '—' }}</td>
+              <td>{{ row.updatedByEmail || '-' }}</td>
               <td class="row-actions">
                 <button type="button" class="link-btn danger"
                         (click)="remove(row)" [disabled]="row.pending">

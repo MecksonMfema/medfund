@@ -79,7 +79,7 @@ public class MorbidityExposureShapingService {
             multiplier = 1.0;
             warnings.add(
                     "Tenant has no morbidity_basis row for line " + line
-                            + " — falling back to " + DEFAULT_BASIS + " with multiplier 1.0"
+                            + " - falling back to " + DEFAULT_BASIS + " with multiplier 1.0"
             );
         }
 
@@ -101,7 +101,7 @@ public class MorbidityExposureShapingService {
 
         if (bands.isEmpty()) {
             warnings.add("No member exposure in the requested window for line " + line
-                    + " — MORBIDITY_STUDY result will be empty");
+                    + " - MORBIDITY_STUDY result will be empty");
         }
 
         Map<String, Object> exposure = new LinkedHashMap<>();

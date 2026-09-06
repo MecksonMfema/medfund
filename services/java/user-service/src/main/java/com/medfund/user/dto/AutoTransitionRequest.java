@@ -23,14 +23,14 @@ import java.util.UUID;
  * publisher that fires the callback.
  */
 public record AutoTransitionRequest(
-        @Schema(description = "Cohort's cohort_type BEFORE the transition — used to build the "
+        @Schema(description = "Cohort's cohort_type BEFORE the transition - used to build the "
                               + "status-history row's fromStatus column",
                 example = "NON_ONEROUS")
         @NotBlank
         @Pattern(regexp = "ONEROUS|NON_ONEROUS|UNCERTAIN")
         String fromStatus,
 
-        @Schema(description = "Cohort's cohort_type AFTER the transition — written back onto "
+        @Schema(description = "Cohort's cohort_type AFTER the transition - written back onto "
                               + "ifrs17_cohort.cohort_type and into the status-history row's "
                               + "toStatus column",
                 example = "ONEROUS")
@@ -38,14 +38,14 @@ public record AutoTransitionRequest(
         @Pattern(regexp = "ONEROUS|NON_ONEROUS|UNCERTAIN")
         String toStatus,
 
-        @Schema(description = "Onerous-test outcome discriminator — AUTO_TEST_FAILED on fresh "
+        @Schema(description = "Onerous-test outcome discriminator - AUTO_TEST_FAILED on fresh "
                               + "onerous transitions, AUTO_TEST_RECOVERED on loss-component reversals",
                 example = "AUTO_TEST_FAILED")
         @NotBlank
         @Pattern(regexp = "AUTO_TEST_FAILED|AUTO_TEST_RECOVERED")
         String transitionReason,
 
-        @Schema(description = "report_job.id that triggered the transition — the idempotency key",
+        @Schema(description = "report_job.id that triggered the transition - the idempotency key",
                 example = "01930c26-b0a7-7c8e-b5ea-4a0e5f7bc123")
         @NotNull
         UUID sourceRunId,
@@ -57,7 +57,7 @@ public record AutoTransitionRequest(
         @DecimalMin(value = "0.01", message = "amount must be positive when supplied")
         BigDecimal lossComponentAmount,
 
-        @Schema(description = "ISO-4217 code — required when lossComponentAmount is supplied",
+        @Schema(description = "ISO-4217 code - required when lossComponentAmount is supplied",
                 example = "USD")
         @Pattern(regexp = "[A-Z]{3}", message = "currency must be a 3-letter ISO-4217 code")
         String currency,

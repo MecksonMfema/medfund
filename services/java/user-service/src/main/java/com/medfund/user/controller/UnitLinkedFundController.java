@@ -29,7 +29,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/v1/underwriting/funds")
-@Tag(name = "Underwriting — VFA Unit-Linked Funds",
+@Tag(name = "Underwriting - VFA Unit-Linked Funds",
      description = "Catalog of unit-linked funds used by VFA (Variable Fee Approach) measurement")
 @SecurityRequirement(name = "bearer-jwt")
 @RequiredArgsConstructor
@@ -80,7 +80,7 @@ public class UnitLinkedFundController {
     @PutMapping("/{id}")
     @RequiresPermission("underwriting.fund:manage")
     @Operation(summary = "Update a unit-linked fund",
-               description = "Currency is immutable — to change it, delete + re-add.")
+               description = "Currency is immutable - to change it, delete + re-add.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Fund updated"),
         @ApiResponse(responseCode = "404", description = "Fund not found"),
@@ -98,7 +98,7 @@ public class UnitLinkedFundController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @RequiresPermission("underwriting.fund:manage")
     @Operation(summary = "Delete a unit-linked fund",
-               description = "Hard delete — rejected with 409 if NAV history, ledger rows or fee "
+               description = "Hard delete - rejected with 409 if NAV history, ledger rows or fee "
                              + "schedules reference the fund. Prefer deactivating instead.")
     @ApiResponses({
         @ApiResponse(responseCode = "204", description = "Fund deleted"),

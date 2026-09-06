@@ -39,9 +39,9 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/reinsurance/treaties")
 @RequiredArgsConstructor
-@Tag(name = "Reinsurance — Treaties",
+@Tag(name = "Reinsurance - Treaties",
      description = "Treaty lifecycle (DRAFT → ACTIVE → terminal). DRAFT is the only editable state; ACTIVE edits "
-                 + "return 409 Conflict — correct via void + re-create for pre-inception mistakes, or renew "
+                 + "return 409 Conflict - correct via void + re-create for pre-inception mistakes, or renew "
                  + "for legitimate successors.")
 @SecurityRequirement(name = "bearer-jwt")
 public class TreatyController {
@@ -80,7 +80,7 @@ public class TreatyController {
     @ResponseStatus(HttpStatus.CREATED)
     @RequiresPermission(Permissions.REINSURANCE_MANAGE_TREATY)
     @Operation(summary = "Create a treaty in DRAFT state",
-            description = "Cannot activate at creation — treaty must be enriched with participants, layers, "
+            description = "Cannot activate at creation - treaty must be enriched with participants, layers, "
                         + "applicable lines, and cession rules first. Use POST /{id}/activate to transition.")
     public Mono<TreatyResponse> create(@Valid @RequestBody CreateTreatyRequest body,
                                        @AuthenticationPrincipal Jwt jwt) {
@@ -93,7 +93,7 @@ public class TreatyController {
             description = "Only DRAFT is editable. Any other status returns 409.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Updated"),
-            @ApiResponse(responseCode = "409", description = "Treaty is not DRAFT — void + re-create or renew instead")
+            @ApiResponse(responseCode = "409", description = "Treaty is not DRAFT - void + re-create or renew instead")
     })
     public Mono<TreatyResponse> update(@PathVariable UUID id,
                                        @Valid @RequestBody UpdateTreatyRequest body,
@@ -108,7 +108,7 @@ public class TreatyController {
                         + "line, and (for XoL/StopLoss) at least one layer. Emits AuditEvent action=ACTIVATE.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Activated"),
-            @ApiResponse(responseCode = "400", description = "Validation failed — see message"),
+            @ApiResponse(responseCode = "400", description = "Validation failed - see message"),
             @ApiResponse(responseCode = "409", description = "Treaty is not DRAFT")
     })
     public Mono<TreatyResponse> activate(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
@@ -118,7 +118,7 @@ public class TreatyController {
     @PostMapping("/{id}/void")
     @RequiresPermission(Permissions.REINSURANCE_MANAGE_TREATY)
     @Operation(summary = "Void a DRAFT treaty (transitions to LAPSED)",
-            description = "Only DRAFT treaties can be voided. ACTIVE treaties must be commuted instead — that "
+            description = "Only DRAFT treaties can be voided. ACTIVE treaties must be commuted instead - that "
                         + "surface lives on the reinsurance operator queue, not here.")
     public Mono<TreatyResponse> voidDraft(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
         return service.voidDraft(id, AuditActor.id(jwt), AuditActor.email(jwt));
@@ -146,7 +146,7 @@ public class TreatyController {
     @GetMapping("/{id}/backfill-progress")
     @RequiresPermission(Permissions.REINSURANCE_VIEW)
     @Operation(summary = "Poll retro-backfill progress for this treaty",
-            description = "In-memory only. A restart drops progress but the underlying writes are idempotent — "
+            description = "In-memory only. A restart drops progress but the underlying writes are idempotent - "
                         + "re-triggering activation writes zero duplicates.")
     public Mono<Map<String, Object>> backfillProgress(@PathVariable UUID id) {
         return Mono.justOrEmpty(backfillProgressService.get(id))

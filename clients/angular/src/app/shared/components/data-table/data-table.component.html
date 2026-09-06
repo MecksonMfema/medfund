@@ -48,7 +48,7 @@
                     [class.is-asc]="sortKey === col.key && sortDirection === 'asc'"
                     [class.is-desc]="sortKey === col.key && sortDirection === 'desc'"
                     [attr.aria-label]="sortKey === col.key
-                      ? 'Sorted ' + sortDirection + 'ending — click to ' + (sortDirection === 'asc' ? 'sort descending' : 'sort ascending')
+                      ? 'Sorted ' + sortDirection + 'ending: click to ' + (sortDirection === 'asc' ? 'sort descending' : 'sort ascending')
                       : 'Click to sort'"
                   >
                     <app-icon name="chevron-up"   [size]="14" class="sort-arrow sort-arrow--asc"></app-icon>
@@ -94,7 +94,7 @@
                         {{ toLineLabel(row[col.key]) }}
                       </span>
                     } @else {
-                      <span class="muted">—</span>
+                      <span class="muted">-</span>
                     }
                   }
                   @case ('lineList') {
@@ -105,7 +105,7 @@
                         </span>
                       }
                     } @else {
-                      <span class="muted">—</span>
+                      <span class="muted">-</span>
                     }
                   }
                   @case ('pdfFlag') {

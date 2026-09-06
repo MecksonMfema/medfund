@@ -37,7 +37,7 @@ public class ActuarialTemplates implements TemplateProvider {
             rule("A80 - Volume-weighted LDF (default IBNR)",
                  "Default loss-development-factor selection for chain-ladder IBNR and loss "
                        + "triangles. Each period's LDF is the ratio of cumulative losses summed "
-                       + "across cohorts — the chainladder-python default. Priority 100 so a more "
+                       + "across cohorts - the chainladder-python default. Priority 100 so a more "
                        + "specific rule (A81 / A82) can override for a targeted line or period.",
                  RuleCategory.ACTUARIAL, 100,
                  any(cond("triangle.insuranceLine", "EQUALS", "HEALTH"),

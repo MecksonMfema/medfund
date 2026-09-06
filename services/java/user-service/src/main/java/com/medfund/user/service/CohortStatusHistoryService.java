@@ -99,7 +99,7 @@ public class CohortStatusHistoryService {
         }
         return repository.findByCohortIdAndSourceRunId(cohortId, request.sourceRunId())
                 .doOnNext(existing -> log.debug(
-                        "auto-transition already recorded for cohortId={} sourceRunId={} — returning existing row {}",
+                        "auto-transition already recorded for cohortId={} sourceRunId={} - returning existing row {}",
                         cohortId, request.sourceRunId(), existing.getId()))
                 .switchIfEmpty(Mono.defer(() -> performAutoTransition(cohortId, request)));
     }
@@ -112,7 +112,7 @@ public class CohortStatusHistoryService {
                         return Mono.<Ifrs17Cohort>error(new ResponseStatusException(
                                 HttpStatus.CONFLICT,
                                 "cohort.cohort_type (" + cohort.getCohortType() + ") does not match "
-                                        + "request.fromStatus (" + request.fromStatus() + ") — "
+                                        + "request.fromStatus (" + request.fromStatus() + ") - "
                                         + "the ai-service onerous-test ran against a stale snapshot; "
                                         + "re-read and re-decide"));
                     }

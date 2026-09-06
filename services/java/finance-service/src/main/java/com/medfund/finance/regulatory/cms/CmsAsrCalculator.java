@@ -97,7 +97,7 @@ public class CmsAsrCalculator {
             if (!(rawParams instanceof Map<?, ?> params)) {
                 throw new RegulatoryReportGenerationException(
                         "Malformed CMS defaults YAML " + resourcePath
-                                + " — top-level 'parameters:' map required.");
+                                + " - top-level 'parameters:' map required.");
             }
             return new CmsSolvencyParameters(
                     requireDecimal(params, CmsSolvencyParameters.KEY_MIN_SOLVENCY_RATIO, resourcePath),

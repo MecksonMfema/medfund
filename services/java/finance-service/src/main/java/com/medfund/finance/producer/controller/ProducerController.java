@@ -115,7 +115,7 @@ public class ProducerController {
     @RequiresPermission(Permissions.PRODUCER_TERMINATE)
     @Operation(summary = "Terminate a producer + close all open member assignments",
             description = "Snaps effective_date to last-day-of-month, flips is_active=false, "
-                        + "and closes every open member_producer_assignment. No auto-successor — "
+                        + "and closes every open member_producer_assignment. No auto-successor - "
                         + "the tenant admin follows up via bulk-reassign. Idempotent.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Producer terminated, assignments closed"),

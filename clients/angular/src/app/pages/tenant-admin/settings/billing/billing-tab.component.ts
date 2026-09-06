@@ -105,15 +105,15 @@ export class TenantBillingTabComponent implements OnInit {
     { value: 'CUSTOM',    label: 'Custom (manual only)' },
   ];
   readonly pricingModeOptions: SelectOption[] = [
-    { value: 'STANDARD',   label: 'Standard — scheme/age-group default' },
-    { value: 'INDIVIDUAL', label: 'Individual — honour per-member overrides' },
-    { value: 'AI_DRIVEN',  label: 'AI-driven — scheme default × risk multiplier' },
+    { value: 'STANDARD',   label: 'Standard: scheme/age-group default' },
+    { value: 'INDIVIDUAL', label: 'Individual: honour per-member overrides' },
+    { value: 'AI_DRIVEN',  label: 'AI-driven: scheme default × risk multiplier' },
   ];
   pricingModeDraft: PricingMode = 'STANDARD';
 
   readonly memberNumberSchemeOptions: SelectOption[] = [
-    { value: 'INDEPENDENT',        label: 'Independent — members get MBR-XXXXXX, dependants get DEP-XXXXXX' },
-    { value: 'SHARED_WITH_SUFFIX', label: 'Shared base + suffix — MBR-XXXXXX-01 for member, -02 for first dependant, etc.' },
+    { value: 'INDEPENDENT',        label: 'Independent: members get MBR-XXXXXX, dependants get DEP-XXXXXX' },
+    { value: 'SHARED_WITH_SUFFIX', label: 'Shared base + suffix: MBR-XXXXXX-01 for member, -02 for first dependant, etc.' },
   ];
   memberNumberSchemeDraft: MemberNumberScheme = 'INDEPENDENT';
 
@@ -352,7 +352,7 @@ export class TenantBillingTabComponent implements OnInit {
   savePricingMode(): void {
     const t = this.tenantSvc.getTenant();
     if (!t?.id) {
-      this.errorMessage = 'No tenant in session — refresh and try again';
+      this.errorMessage = 'No tenant in session: refresh and try again';
       return;
     }
     this.saving = true;
@@ -372,7 +372,7 @@ export class TenantBillingTabComponent implements OnInit {
   saveMemberNumberScheme(): void {
     const t = this.tenantSvc.getTenant();
     if (!t?.id) {
-      this.errorMessage = 'No tenant in session — refresh and try again';
+      this.errorMessage = 'No tenant in session: refresh and try again';
       return;
     }
     this.saving = true;

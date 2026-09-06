@@ -75,7 +75,7 @@ public class FacultativeCessionService {
                     if (!"ACTIVE".equals(treaty.getStatus())) {
                         return Mono.error(new IllegalStateException(
                                 "Treaty is " + treaty.getStatus()
-                                        + " — facultative cessions require an ACTIVE treaty"));
+                                        + " - facultative cessions require an ACTIVE treaty"));
                     }
                     return assertLineCovered(treaty, insuranceLine)
                             .then(Mono.defer(() -> assertNoLiveLoss(req.claimId(), req.treatyId())))
@@ -151,7 +151,7 @@ public class FacultativeCessionService {
                             && !"APPROVED".equals(existing.getStatus())) {
                         return Mono.error(new IllegalStateException(
                                 "Cannot void a " + existing.getStatus()
-                                        + " facultative cession — only DRAFT/APPROVED are voidable"));
+                                        + " facultative cession - only DRAFT/APPROVED are voidable"));
                     }
                     Map<String, Object> before = snapshot(existing);
                     existing.setStatus("VOIDED");
@@ -231,7 +231,7 @@ public class FacultativeCessionService {
                     }
                     if (!expected.equals(existing.getStatus())) {
                         return Mono.error(new IllegalStateException(
-                                messagePrefix + " — was " + existing.getStatus()));
+                                messagePrefix + " - was " + existing.getStatus()));
                     }
                     return Mono.just(existing);
                 });
@@ -322,7 +322,7 @@ public class FacultativeCessionService {
         return Mono.deferContextual(ctx -> {
             String tenantId = TenantContext.get(ctx);
             String entityName = "Facultative cession on claim " + cession.getSourceEventId()
-                    + " — " + (cession.getCededAmount() != null
+                    + " - " + (cession.getCededAmount() != null
                                 ? cession.getCededAmount().toPlainString() : "0")
                     + " " + cession.getCurrencyCode()
                     + " (" + cession.getStatus() + ")";
@@ -349,7 +349,7 @@ public class FacultativeCessionService {
                     ? " on cession " + cession.getId()
                     : " on cession " + recovery.getCessionId();
             String entityName = "Recovery" + basis
-                    + " — " + (recovery.getExpectedAmount() != null
+                    + " - " + (recovery.getExpectedAmount() != null
                                 ? recovery.getExpectedAmount().toPlainString() : "0")
                     + " " + recovery.getCurrencyCode()
                     + " " + recovery.getStatus();

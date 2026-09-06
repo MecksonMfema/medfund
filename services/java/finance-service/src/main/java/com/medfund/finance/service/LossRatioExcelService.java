@@ -34,8 +34,8 @@ public class LossRatioExcelService {
         ReportWorkbook book = ReportWorkbook.newBook();
         ReportWorkbook.SheetWriter sheet = book.sheet("Loss ratio")
                 .titleMerged("Loss ratio (billing vs claims)", 8)
-                .meta("Period start", report.periodStart() != null ? report.periodStart().toString() : "—")
-                .meta("Period end",   report.periodEnd()   != null ? report.periodEnd().toString()   : "—")
+                .meta("Period start", report.periodStart() != null ? report.periodStart().toString() : "-")
+                .meta("Period end",   report.periodEnd()   != null ? report.periodEnd().toString()   : "-")
                 .meta("Rows", String.valueOf(report.rows() != null ? report.rows().size() : 0));
 
         if (warnings != null && !warnings.isEmpty()) {

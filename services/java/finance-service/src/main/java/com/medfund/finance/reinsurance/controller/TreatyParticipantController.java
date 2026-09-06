@@ -30,7 +30,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/reinsurance/treaties/{treatyId}/participants")
 @RequiredArgsConstructor
-@Tag(name = "Reinsurance — Treaty Participants",
+@Tag(name = "Reinsurance - Treaty Participants",
      description = "The (treaty, reinsurer) participation table. sharePct across all rows must sum to 100 "
                  + "for treaty activation.")
 @SecurityRequirement(name = "bearer-jwt")
@@ -48,7 +48,7 @@ public class TreatyParticipantController {
     @PutMapping
     @RequiresPermission(Permissions.REINSURANCE_MANAGE_TREATY)
     @Operation(summary = "Upsert a participant by (treatyId, reinsurerId)",
-            description = "Idempotent — existing (treatyId, reinsurerId) is updated; new is inserted. Treaty must be DRAFT.")
+            description = "Idempotent - existing (treatyId, reinsurerId) is updated; new is inserted. Treaty must be DRAFT.")
     public Mono<TreatyParticipantResponse> upsert(@PathVariable UUID treatyId,
                                                   @Valid @RequestBody UpsertTreatyParticipantRequest body,
                                                   @AuthenticationPrincipal Jwt jwt) {

@@ -145,7 +145,7 @@ export class SiuCaseDetailComponent implements OnInit {
         this.case = updated;
         this.busy = false;
         this.showProposeForm = false;
-        this.toast.success('Closure proposed — awaiting supervisor approval');
+        this.toast.success('Closure proposed: awaiting supervisor approval');
       },
       error: (err) => {
         this.busy = false;
@@ -169,7 +169,7 @@ export class SiuCaseDetailComponent implements OnInit {
       next: (updated) => {
         this.case = updated;
         this.busy = false;
-        this.toast.success('Closure approved — case closed');
+        this.toast.success('Closure approved: case closed');
       },
       error: (err) => {
         this.busy = false;
@@ -188,7 +188,7 @@ export class SiuCaseDetailComponent implements OnInit {
       next: (updated) => {
         this.case = updated;
         this.busy = false;
-        this.toast.success('Closure rejected — sent back to UNDER_REVIEW');
+        this.toast.success('Closure rejected: sent back to UNDER_REVIEW');
       },
       error: (err) => {
         this.busy = false;
@@ -207,7 +207,7 @@ export class SiuCaseDetailComponent implements OnInit {
       next: (updated) => {
         this.case = updated;
         this.busy = false;
-        this.toast.success('Case reopened — back to UNDER_REVIEW');
+        this.toast.success('Case reopened: back to UNDER_REVIEW');
       },
       error: (err) => {
         this.busy = false;
@@ -235,7 +235,7 @@ export class SiuCaseDetailComponent implements OnInit {
       next: (updated) => {
         this.case = updated;
         this.busy = false;
-        this.toast.success('Case closed — DISMISSED_FALSE_POSITIVE');
+        this.toast.success('Case closed: DISMISSED_FALSE_POSITIVE');
       },
       error: (err) => {
         this.busy = false;

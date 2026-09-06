@@ -86,7 +86,7 @@ public class NotesExcelService {
                 .meta("Note type",     params.noteType()     != null ? params.noteType()     : "All")
                 .meta("Status",        params.status()       != null ? params.status()       : "All")
                 .meta("Currency",      params.currencyCode() != null ? params.currencyCode() : "All")
-                .meta("Search",        params.q()            != null && !params.q().isBlank() ? params.q() : "—")
+                .meta("Search",        params.q()            != null && !params.q().isBlank() ? params.q() : "-")
                 .meta("Exported at",   LocalDate.now().toString())
                 .meta("Rows",          String.valueOf(rows.size()));
         if (includeReportingCurrency) sheet.meta("Reporting currency", reportingCurrency);
@@ -132,7 +132,7 @@ public class NotesExcelService {
         if (row.memberName() != null && !row.memberName().isBlank()) {
             return "Member: " + row.memberName();
         }
-        return "—";
+        return "-";
     }
 
     private static UUID parseTenantId(String tenantIdStr) {

@@ -35,7 +35,7 @@ public class CashFlowForecastExcelService {
 
         ReportWorkbook.SheetWriter summary = book.sheet("Summary")
                 .titleMerged("Cash-flow forecast", 4)
-                .meta("As of", forecast.asOf() != null ? forecast.asOf().toString() : "—")
+                .meta("As of", forecast.asOf() != null ? forecast.asOf().toString() : "-")
                 .meta("Rolling weeks", String.valueOf(forecast.rollingWeeks()))
                 .meta("Window", forecast.windowStart() + " → " + forecast.windowEnd())
                 .meta("Series", String.valueOf(forecast.series().size()));
@@ -66,7 +66,7 @@ public class CashFlowForecastExcelService {
 
     private void renderCurrencySheet(ReportWorkbook book, CurrencySeries s) {
         ReportWorkbook.SheetWriter sheet = book.sheet(s.currencyCode())
-                .titleMerged("Cash-flow forecast — " + s.currencyCode(), 4)
+                .titleMerged("Cash-flow forecast - " + s.currencyCode(), 4)
                 .meta("Total inflow",  s.totalInflow().toString())
                 .meta("Total outflow", s.totalOutflow().toString())
                 .meta("Net",           s.totalNet().toString())

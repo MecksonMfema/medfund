@@ -48,7 +48,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/reports/premium/endorsements")
 @RequiredArgsConstructor
 @Tag(name = "Endorsement Register",
-        description = "Phase 12 §C Phase 9 — per-endorsement register for a reporting window. "
+        description = "Phase 12 §C Phase 9 - per-endorsement register for a reporting window. "
                 + "Native-currency rows, best-effort FX to reporting currency, XLSX export with "
                 + "security-event trail. Data ownership: endorsements live in user-service.")
 @SecurityRequirement(name = "bearer-jwt")

@@ -34,7 +34,7 @@
     @if (loading) {
       <app-skeleton></app-skeleton>
     } @else if (rows.length === 0 && !addingOpen) {
-      <p class="empty-state">No opening balance seeds for this tenant yet — reports use the auto-derived values.</p>
+      <p class="empty-state">No opening balance seeds for this tenant yet: reports use the auto-derived values.</p>
     } @else {
       <table class="data-table">
         <thead>
@@ -74,7 +74,7 @@
                   {{ row.reasonNote }}
                 }
               </td>
-              <td>{{ row.actorEmail || '—' }}</td>
+              <td>{{ row.actorEmail || '-' }}</td>
               <td class="row-actions">
                 @if (row.editing) {
                   <button type="button" class="link-btn" (click)="saveEdit(row)" [disabled]="pendingId === row.id">

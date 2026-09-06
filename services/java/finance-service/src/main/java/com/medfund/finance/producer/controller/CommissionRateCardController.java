@@ -36,7 +36,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/commission/rate-cards")
 @RequiredArgsConstructor
-@Tag(name = "Commission — Rate Cards",
+@Tag(name = "Commission - Rate Cards",
      description = "Commission rate card CRUD. Lookup-driven base commission by line + tier.")
 @SecurityRequirement(name = "bearer-jwt")
 public class CommissionRateCardController {
@@ -68,7 +68,7 @@ public class CommissionRateCardController {
     @Operation(summary = "Create a rate card",
             description = "effectiveFrom snaps to 1st-of-month; effectiveTo snaps to last-day-of-month "
                         + "per feedback_effective_date_snap. Overlapping cards for the same (line, tier) "
-                        + "are permitted — resolution is most-recent-effective.")
+                        + "are permitted - resolution is most-recent-effective.")
     public Mono<RateCardResponse> create(@Valid @RequestBody CreateRateCardRequest body,
                                          @AuthenticationPrincipal Jwt jwt) {
         return service.create(body, AuditActor.id(jwt), AuditActor.email(jwt));

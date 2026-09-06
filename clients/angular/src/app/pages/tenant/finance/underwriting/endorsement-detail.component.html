@@ -45,7 +45,7 @@
       @if (row.premiumDelta != null) {
         {{ row.premiumDelta }} {{ row.currencyCode || '' }}
       } @else {
-        <span class="muted">— (non-financial change)</span>
+        <span class="muted">- (non-financial change)</span>
       }
     </dd>
 
@@ -105,7 +105,7 @@
       <h3>Void endorsement</h3>
       <p class="modal-sub">
         Reason is recorded on the audit trail. Once VOIDED the row is
-        terminal — no further transitions.
+        terminal: no further transitions.
       </p>
       <label>
         <span>Reason <em>(min 5 chars)</em></span>

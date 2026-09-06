@@ -95,7 +95,7 @@ public class NaicSchedulePCalculator {
             if (!(rawParams instanceof Map<?, ?> params)) {
                 throw new RegulatoryReportGenerationException(
                         "Malformed NAIC defaults YAML " + resourcePath
-                                + " — top-level 'parameters:' map required.");
+                                + " - top-level 'parameters:' map required.");
             }
             return new NaicSolvencyParameters(
                     requireDecimal(params, NaicSolvencyParameters.KEY_MIN_RBC_RATIO_COMPANY_ACTION_LEVEL, resourcePath),

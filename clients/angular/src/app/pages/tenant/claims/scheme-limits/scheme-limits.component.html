@@ -43,10 +43,10 @@
             <h2>{{ b.scheme.name }}</h2>
             <p class="muted">
               {{ b.scheme.schemeType || 'Scheme' | humanize }} ·
-              currency {{ b.scheme.currencyCode || '—' }} ·
+              currency {{ b.scheme.currencyCode || '-' }} ·
               {{ b.benefits.length }} benefit{{ b.benefits.length === 1 ? '' : 's' }}
               @if (b.scheme.minAge != null || b.scheme.maxAge != null) {
-                · age {{ b.scheme.minAge ?? '—' }}–{{ b.scheme.maxAge ?? '—' }}
+                · age {{ b.scheme.minAge ?? '-' }}–{{ b.scheme.maxAge ?? '-' }}
               }
             </p>
           </div>
@@ -76,23 +76,23 @@
                   <td>{{ be.benefitType | humanize }}</td>
                   <td class="right">
                     @if (be.annualLimit) { {{ be.annualLimit | currencyFormat:be.currencyCode }} }
-                    @else { <span class="muted">—</span> }
+                    @else { <span class="muted">-</span> }
                   </td>
                   <td class="right">
                     @if (be.eventLimit) { {{ be.eventLimit | currencyFormat:be.currencyCode }} }
-                    @else { <span class="muted">—</span> }
+                    @else { <span class="muted">-</span> }
                   </td>
                   <td class="right">
                     @if (be.dailyLimit) { {{ be.dailyLimit | currencyFormat:be.currencyCode }} }
-                    @else { <span class="muted">—</span> }
+                    @else { <span class="muted">-</span> }
                   </td>
                   <td class="right">
                     @if (be.waitingPeriodDays) { {{ be.waitingPeriodDays }} d }
-                    @else { <span class="muted">—</span> }
+                    @else { <span class="muted">-</span> }
                   </td>
                   <td>
                     @if (be.minAge != null || be.maxAge != null) {
-                      {{ be.minAge ?? '—' }}–{{ be.maxAge ?? '—' }}
+                      {{ be.minAge ?? '-' }}–{{ be.maxAge ?? '-' }}
                     } @else {
                       <span class="muted">any</span>
                     }

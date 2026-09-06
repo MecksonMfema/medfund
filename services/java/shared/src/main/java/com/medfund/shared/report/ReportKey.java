@@ -25,14 +25,14 @@ import java.util.Optional;
 public enum ReportKey {
 
     // ── Billing (Phase 2) ────────────────────────────────────────────────────
-    BILLING_REPORT              ("Billing — per scheme",                    ReportFamily.BILLING,          false, null),
-    GROUP_BILLING_REPORT        ("Billing — per group",                     ReportFamily.BILLING,          false, null),
+    BILLING_REPORT              ("Billing - per scheme",                    ReportFamily.BILLING,          false, null),
+    GROUP_BILLING_REPORT        ("Billing - per group",                     ReportFamily.BILLING,          false, null),
     SCHEME_BILLING_DETAIL       ("Scheme billing detail",                   ReportFamily.BILLING,          false, null),
     GROUP_BILLING_DETAIL        ("Group billing detail",                    ReportFamily.BILLING,          false, null),
 
     // ── Receipts (Phase 3) ───────────────────────────────────────────────────
-    RECEIPTS_REPORT             ("Receipts — per scheme / group / member",  ReportFamily.RECEIPTS,         false, null),
-    RECEIPTS_AGGREGATE          ("Receipts — drill-down",                   ReportFamily.RECEIPTS,         false, null),
+    RECEIPTS_REPORT             ("Receipts - per scheme / group / member",  ReportFamily.RECEIPTS,         false, null),
+    RECEIPTS_AGGREGATE          ("Receipts - drill-down",                   ReportFamily.RECEIPTS,         false, null),
     COLLECTION_RATE             ("Collection rate (receipts vs billing)",   ReportFamily.RECEIPTS,         true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
 
     // ── Debtors & member/group balances (Phase 1 retrofit) ───────────────────
@@ -50,18 +50,18 @@ public enum ReportKey {
 
     // ── Payables / creditors (Phase 1 retrofit) ──────────────────────────────
     CREDITORS                   ("Creditors",                               ReportFamily.PAYABLES,         false, null),
-    CREDITOR_PROVIDER_DETAIL    ("Creditor — provider detail",              ReportFamily.PAYABLES,         false, null),
-    CREDITOR_MEMBER_DETAIL      ("Creditor — member detail",                ReportFamily.PAYABLES,         false, null),
+    CREDITOR_PROVIDER_DETAIL    ("Creditor - provider detail",              ReportFamily.PAYABLES,         false, null),
+    CREDITOR_MEMBER_DETAIL      ("Creditor - member detail",                ReportFamily.PAYABLES,         false, null),
     PAYMENT_ADVICE              ("Payment advice",                          ReportFamily.PAYABLES,         false, null),
     PAYMENT_ADVICE_DETAIL       ("Payment advice detail",                   ReportFamily.PAYABLES,         false, null),
     PAYMENT_RUNS                ("Payment runs",                            ReportFamily.PAYABLES,         false, null),
     PAYMENT_RUN_ITEMS           ("Payment run items",                       ReportFamily.PAYABLES,         false, null),
     PAYMENT_RUN_WORKBOOK        ("Payment run workbook (multi-currency)",   ReportFamily.PAYABLES,         false, null),
     NOTES                       ("Notes",                                   ReportFamily.PAYABLES,         false, null),
-    NOTES_TAX_WITHHELD          ("Notes — tax withheld",                    ReportFamily.PAYABLES,         false, null),
-    NOTES_DEBIT                 ("Notes — debit",                           ReportFamily.PAYABLES,         false, null),
-    NOTES_CREDIT                ("Notes — credit",                          ReportFamily.PAYABLES,         false, null),
-    NOTES_MEMO                  ("Notes — memo",                            ReportFamily.PAYABLES,         false, null),
+    NOTES_TAX_WITHHELD          ("Notes - tax withheld",                    ReportFamily.PAYABLES,         false, null),
+    NOTES_DEBIT                 ("Notes - debit",                           ReportFamily.PAYABLES,         false, null),
+    NOTES_CREDIT                ("Notes - credit",                          ReportFamily.PAYABLES,         false, null),
+    NOTES_MEMO                  ("Notes - memo",                            ReportFamily.PAYABLES,         false, null),
     ADVANCE_PAYMENTS            ("Advance payments",                        ReportFamily.PAYABLES,         false, null),
     CTC_PAYMENTS                ("CTC payments",                            ReportFamily.PAYABLES,         false, null),
     RECONCILIATIONS             ("Bank reconciliations",                    ReportFamily.PAYABLES,         false, null),
@@ -76,7 +76,7 @@ public enum ReportKey {
 
     // ── Cross-service / reconciliation (Phase 5) ─────────────────────────────
     LOSS_RATIO                  ("Loss ratio (billing vs claims)",          ReportFamily.RECONCILIATION,   true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
-    MEMBER_PAYMENTS_UNIFIED     ("Member payments — unified",               ReportFamily.RECONCILIATION,   false, null),
+    MEMBER_PAYMENTS_UNIFIED     ("Member payments - unified",               ReportFamily.RECONCILIATION,   false, null),
     PROVIDER_BALANCE_HISTORY    ("Provider balance history",                ReportFamily.RECONCILIATION,   false, null),
     MEMBER_BALANCE_HISTORY      ("Member balance history",                  ReportFamily.RECONCILIATION,   false, null),
 
@@ -93,9 +93,9 @@ public enum ReportKey {
     PROVIDER_NETWORK_UTILIZATION("Provider network utilization",            ReportFamily.CLAIMS_FINANCIAL, true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
 
     // ── Reinsurance (Phase 10) ───────────────────────────────────────────────
-    REINSURANCE_CESSION_BORDEREAU ("Reinsurance — cession bordereau",       ReportFamily.REINSURANCE,      true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
-    REINSURANCE_RECOVERIES        ("Reinsurance — recoveries bordereau",    ReportFamily.REINSURANCE,      true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
-    REINSURANCE_TREATY_UTILIZATION("Reinsurance — treaty utilization",      ReportFamily.REINSURANCE,      false, null),
+    REINSURANCE_CESSION_BORDEREAU ("Reinsurance - cession bordereau",       ReportFamily.REINSURANCE,      true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
+    REINSURANCE_RECOVERIES        ("Reinsurance - recoveries bordereau",    ReportFamily.REINSURANCE,      true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
+    REINSURANCE_TREATY_UTILIZATION("Reinsurance - treaty utilization",      ReportFamily.REINSURANCE,      false, null),
 
     // ── Commission (Phase 11) ────────────────────────────────────────────────
     COMMISSION_STATEMENT        ("Commission statement",                    ReportFamily.COMMISSION,       true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
@@ -116,12 +116,12 @@ public enum ReportKey {
     LAPSE_STUDY                 ("Lapse study",                             ReportFamily.ACTUARIAL,        false, null),
 
     // ── IFRS 17 (Phase 15) ───────────────────────────────────────────────────
-    IFRS17_LRC_LIC_RECONCILIATION       ("IFRS 17 — LRC / LIC reconciliation",       ReportFamily.REGULATORY, true, ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
-    IFRS17_INSURANCE_REVENUE_SERVICE_RESULT ("IFRS 17 — insurance revenue & service result", ReportFamily.REGULATORY, true, ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
+    IFRS17_LRC_LIC_RECONCILIATION       ("IFRS 17 - LRC / LIC reconciliation",       ReportFamily.REGULATORY, true, ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
+    IFRS17_INSURANCE_REVENUE_SERVICE_RESULT ("IFRS 17 - insurance revenue & service result", ReportFamily.REGULATORY, true, ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
 
     // ── Prudential returns (Phase 16 §A) — jurisdiction-gated on top of the toggle ──
-    IPEC_QUARTERLY_RETURN       ("IPEC — quarterly return (ZW)",            ReportFamily.PRUDENTIAL,       true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
-    CMS_ASR                     ("CMS — annual statutory return (ZA)",      ReportFamily.PRUDENTIAL,       true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
+    IPEC_QUARTERLY_RETURN       ("IPEC - quarterly return (ZW)",            ReportFamily.PRUDENTIAL,       true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
+    CMS_ASR                     ("CMS - annual statutory return (ZA)",      ReportFamily.PRUDENTIAL,       true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
     NAIC_SCHEDULE_P             ("NAIC Schedule P (US)",                    ReportFamily.PRUDENTIAL,       true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
     NAIC_SCHEDULE_F             ("NAIC Schedule F (US)",                    ReportFamily.PRUDENTIAL,       true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
 

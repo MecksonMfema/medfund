@@ -182,7 +182,7 @@ public class PolicyEndorsementService {
                             && !"APPROVED".equals(existing.getStatus())) {
                         return Mono.error(new IllegalStateException(
                                 "Cannot void a " + existing.getStatus()
-                                        + " endorsement — only DRAFT/APPROVED are voidable"));
+                                        + " endorsement - only DRAFT/APPROVED are voidable"));
                     }
                     Map<String, Object> before = snapshot(existing);
                     existing.setStatus("VOIDED");
@@ -305,7 +305,7 @@ public class PolicyEndorsementService {
                 .flatMap(existing -> {
                     if (!expected.equals(existing.getStatus())) {
                         return Mono.error(new IllegalStateException(
-                                messagePrefix + " — was " + existing.getStatus()));
+                                messagePrefix + " - was " + existing.getStatus()));
                     }
                     return Mono.just(existing);
                 });

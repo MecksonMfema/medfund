@@ -115,7 +115,7 @@ public class InvoicePdfReadyConsumer {
                             .maxBackoff(Duration.ofSeconds(2))
                             .filter(InvoicePdfReadyConsumer::isTransient)
                             .doBeforeRetry(sig -> log.warn(
-                                    "[invoice-pdf-ready] retry {} for invoice={} tenant={} — {}",
+                                    "[invoice-pdf-ready] retry {} for invoice={} tenant={} - {}",
                                     sig.totalRetries() + 1, invoiceId, tenantId,
                                     sig.failure().getClass().getSimpleName())))
                     .contextWrite(ctx -> TenantContext.put(ctx, tenantId));

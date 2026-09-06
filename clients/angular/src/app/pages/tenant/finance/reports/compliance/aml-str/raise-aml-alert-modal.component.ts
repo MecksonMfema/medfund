@@ -40,13 +40,13 @@ export class RaiseAmlAlertModalComponent {
   clientError: string | null = null;
 
   readonly typeOptions: SelectOption[] = [
-    { value: 'PREMIUM', label: 'PREMIUM — contribution / member payment' },
-    { value: 'CLAIM_PAYOUT', label: 'CLAIM_PAYOUT — payment to provider or member' },
-    { value: 'ADVANCE_PAYMENT', label: 'ADVANCE_PAYMENT — provider prepayment' },
-    { value: 'REFUND', label: 'REFUND — money returned to a member' },
-    { value: 'COMMISSION', label: 'COMMISSION — producer payout' },
-    { value: 'ADJUSTMENT', label: 'ADJUSTMENT — journal / manual correction' },
-    { value: 'OTHER', label: 'OTHER — anything else worth flagging' },
+    { value: 'PREMIUM', label: 'PREMIUM: contribution / member payment' },
+    { value: 'CLAIM_PAYOUT', label: 'CLAIM_PAYOUT: payment to provider or member' },
+    { value: 'ADVANCE_PAYMENT', label: 'ADVANCE_PAYMENT: provider prepayment' },
+    { value: 'REFUND', label: 'REFUND: money returned to a member' },
+    { value: 'COMMISSION', label: 'COMMISSION: producer payout' },
+    { value: 'ADJUSTMENT', label: 'ADJUSTMENT: journal / manual correction' },
+    { value: 'OTHER', label: 'OTHER: anything else worth flagging' },
   ];
 
   onTypeChange(v: string): void {
@@ -97,7 +97,7 @@ export class RaiseAmlAlertModalComponent {
       return 'Currency must be a 3-letter ISO code (e.g. ZWL, ZAR, USD).';
     }
     if (this.description.trim().length < 20) {
-      return 'Description must be at least 20 characters — regulators expect a narrative.';
+      return 'Description must be at least 20 characters: regulators expect a narrative.';
     }
     return null;
   }

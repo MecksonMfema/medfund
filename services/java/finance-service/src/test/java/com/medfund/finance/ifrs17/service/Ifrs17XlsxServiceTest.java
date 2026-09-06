@@ -40,7 +40,7 @@ class Ifrs17XlsxServiceTest {
                         Sheet summary = wb.getSheet("Summary");
                         assertThat(summary).as("Summary sheet exists").isNotNull();
                         assertThat(cellText(summary, "Report"))
-                                .isEqualTo("IFRS 17 — LRC / LIC reconciliation");
+                                .isEqualTo("IFRS 17 - LRC / LIC reconciliation");
                         assertThat(cellText(summary, "Status")).isEqualTo("completed");
                         assertThat(cellText(summary, "Total chunks")).isEqualTo("2");
                         assertThat(cellText(summary, "Completed chunks")).isEqualTo("2");
@@ -95,7 +95,7 @@ class Ifrs17XlsxServiceTest {
                     try (Workbook wb = openWorkbook(bytes)) {
                         Sheet summary = wb.getSheet("Summary");
                         assertThat(cellText(summary, "Report"))
-                                .isEqualTo("IFRS 17 — insurance revenue & service result");
+                                .isEqualTo("IFRS 17 - insurance revenue & service result");
                         Sheet portfolio = wb.getSheetAt(1);
                         // "Insurance revenue & service result" section header.
                         assertThat(hasCellStartingWith(portfolio,

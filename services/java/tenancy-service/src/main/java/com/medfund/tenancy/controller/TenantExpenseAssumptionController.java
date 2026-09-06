@@ -79,7 +79,7 @@ public class TenantExpenseAssumptionController {
     @Operation(summary = "Update an expense assumption row",
             description = "Only amountPerPolicy, sourceNote and effectiveTo are mutable. The "
                         + "(insurance_line, expense_type, currency, effective_from) tuple is "
-                        + "immutable — a shift is a new row rather than an edit.")
+                        + "immutable - a shift is a new row rather than an edit.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Row updated"),
             @ApiResponse(responseCode = "404", description = "Row not found for tenant")

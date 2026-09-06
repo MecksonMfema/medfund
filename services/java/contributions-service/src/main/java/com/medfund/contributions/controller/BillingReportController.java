@@ -61,7 +61,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/reports/billing")
 @RequiredArgsConstructor
 @Tag(name = "Billing reports",
-        description = "Phase 2 billing-report family — per-scheme + per-group aggregates and details, "
+        description = "Phase 2 billing-report family - per-scheme + per-group aggregates and details, "
                     + "each returning a native-currency ledger breakdown alongside optional "
                     + "reporting-currency conversion.")
 @SecurityRequirement(name = "bearer-jwt")
@@ -86,9 +86,9 @@ public class BillingReportController {
                         + "query time from the beneficiary's date_of_birth versus the "
                         + "contribution's period_start.")
     public Mono<ReportResponse<List<SchemeBillingSummaryRow>>> schemesReport(
-            @Parameter(description = "ISO date — first day of the reporting window (inclusive)")
+            @Parameter(description = "ISO date - first day of the reporting window (inclusive)")
             @RequestParam String periodStart,
-            @Parameter(description = "ISO date — last day of the reporting window (inclusive)")
+            @Parameter(description = "ISO date - last day of the reporting window (inclusive)")
             @RequestParam String periodEnd,
             @Parameter(description = "Optional ISO-4217 override; defaults to the tenant's default currency")
             @RequestParam(required = false) String reportingCurrency) {
@@ -161,7 +161,7 @@ public class BillingReportController {
     @RequiresReport(ReportKey.GROUP_BILLING_REPORT)
     @Operation(summary = "Per-group billing aggregate for the window",
             description = "One row per (group, currency). Only rows with a group_id and "
-                        + "invoice_id IS NOT NULL are counted — a member paying individually "
+                        + "invoice_id IS NOT NULL are counted - a member paying individually "
                         + "does not create a group-billing row.")
     public Mono<ReportResponse<List<GroupBillingSummaryRow>>> groupsReport(
             @RequestParam String periodStart,
@@ -233,7 +233,7 @@ public class BillingReportController {
     @GetMapping("/members")
     @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
     @RequiresReport(ReportKey.BILLING_REPORT)
-    @Operation(summary = "Per-member billing aggregate — paginated + searchable",
+    @Operation(summary = "Per-member billing aggregate - paginated + searchable",
             description = "Covers individual-line policies (LIFE / TRAVEL / DISABILITY / VEHICLE / "
                         + "PROPERTY / individual HEALTH). Only contributions where member_id is set "
                         + "AND invoice_id IS NOT NULL are counted.")

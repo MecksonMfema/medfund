@@ -34,7 +34,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/reinsurance/reinsurers")
 @RequiredArgsConstructor
-@Tag(name = "Reinsurance — Reinsurers",
+@Tag(name = "Reinsurance - Reinsurers",
      description = "Reinsurance counterparty master. A reinsurer is an external counterparty on one or more treaties.")
 @SecurityRequirement(name = "bearer-jwt")
 public class ReinsurerController {
@@ -77,7 +77,7 @@ public class ReinsurerController {
     @PutMapping("/{id}")
     @RequiresPermission(Permissions.REINSURANCE_MANAGE_TREATY)
     @Operation(summary = "Update a reinsurer",
-            description = "Full replace. Flip active=false to deactivate — the partial unique index on name will "
+            description = "Full replace. Flip active=false to deactivate - the partial unique index on name will "
                         + "then allow a fresh row with the same display name.")
     public Mono<ReinsurerResponse> update(@PathVariable UUID id,
                                           @Valid @RequestBody UpdateReinsurerRequest body,

@@ -274,7 +274,7 @@ public class AdjudicationPipeline {
             if (claim.getMemberId() == null) missing.add("memberId");
             if (claim.getSchemeId() == null) missing.add("schemeId");
             return Mono.just(new StageResult("Eligibility", false,
-                "R01: Eligibility failed — missing " + String.join(", ", missing)));
+                "R01: Eligibility failed - missing " + String.join(", ", missing)));
         }
 
         // Check member is active
@@ -321,7 +321,7 @@ public class AdjudicationPipeline {
 
                 if (rules.isEmpty()) {
                     return new StageResult("WaitingPeriod", true,
-                        "No waiting period rules configured for scheme — passed");
+                        "No waiting period rules configured for scheme - passed");
                 }
 
                 long daysSinceEnrollment = ChronoUnit.DAYS.between(enrollmentDate, LocalDate.now());
@@ -344,7 +344,7 @@ public class AdjudicationPipeline {
                 return new StageResult("WaitingPeriod", false, String.join("; ", failures));
             })
             .defaultIfEmpty(new StageResult("WaitingPeriod", true,
-                "Member enrollment date not found — skipping waiting period check"));
+                "Member enrollment date not found - skipping waiting period check"));
     }
 
     // ---- Stage 3: Benefit Limits ----
@@ -402,7 +402,7 @@ public class AdjudicationPipeline {
         return Flux.fromIterable(lines)
                 .flatMap(line -> {
                     if (line.getTariffCode() == null || line.getTariffCode().isBlank()) {
-                        return Mono.just("(no tariff on line — skipped)");
+                        return Mono.just("(no tariff on line - skipped)");
                     }
                     return tariffCodeRepository.findByCode(line.getTariffCode())
                             .flatMap(tariff -> {
@@ -413,7 +413,7 @@ public class AdjudicationPipeline {
                                     // adjudication makes progress. An operator
                                     // can reclassify the tariff via the admin UI.
                                     return Mono.just("(" + line.getTariffCode()
-                                            + " has no category — treated as cap-only)");
+                                            + " has no category - treated as cap-only)");
                                 }
                                 return databaseClient.sql("""
                                         SELECT tc.is_cap_only,
@@ -448,9 +448,9 @@ public class AdjudicationPipeline {
                                                     + "scheme_benefit on scheme " + claim.getSchemeId();
                                         })
                                         .defaultIfEmpty("(" + line.getTariffCode()
-                                                + " category row missing — skipped)");
+                                                + " category row missing - skipped)");
                             })
-                            .defaultIfEmpty("(" + line.getTariffCode() + " not in tariff_codes — skipped)");
+                            .defaultIfEmpty("(" + line.getTariffCode() + " not in tariff_codes - skipped)");
                 })
                 .collectList()
                 .map(details -> {
@@ -468,7 +468,7 @@ public class AdjudicationPipeline {
      */
     private Mono<StageResult> checkAnnualMemberCap(Claim claim, List<ClaimLine> lines) {
         if (claim.getSchemeId() == null) {
-            return Mono.just(new StageResult("BenefitLimits", true, "No scheme — cap skipped"));
+            return Mono.just(new StageResult("BenefitLimits", true, "No scheme - cap skipped"));
         }
         int year = claim.getServiceDate() != null ? claim.getServiceDate().getYear() : LocalDate.now().getYear();
         BigDecimal claimTotal = (lines == null || lines.isEmpty())
@@ -511,7 +511,7 @@ public class AdjudicationPipeline {
                     return new StageResult("BenefitLimits", true,
                             "Annual cap check passed (projected=" + projected + ", cap=" + cap + ")");
                 })
-                .defaultIfEmpty(new StageResult("BenefitLimits", true, "Scheme row missing — cap skipped"));
+                .defaultIfEmpty(new StageResult("BenefitLimits", true, "Scheme row missing - cap skipped"));
     }
 
     private Mono<StageResult> benefitLimitCheck(Claim claim) {
@@ -552,7 +552,7 @@ public class AdjudicationPipeline {
                 // V061 branch 2: benefit-level opt-out.
                 if ("NO_TRACKING".equals(benefit.usageMode())) {
                     return Mono.just(new StageResult("BenefitLimits", true,
-                            "Benefit usage_mode=NO_TRACKING — passed"));
+                            "Benefit usage_mode=NO_TRACKING - passed"));
                 }
                 // V061 branch 3: one-time benefits (per-beneficiary or per-period).
                 // ONE_TIME_PER_BENEFICIARY uses policy_year=0 sentinel so it
@@ -580,7 +580,7 @@ public class AdjudicationPipeline {
     private Mono<StageResult> runningBalanceCheck(UUID tenantId, Claim claim, BenefitLookup benefit) {
         if (benefit.annualLimit().compareTo(BigDecimal.ZERO) == 0) {
             return Mono.just(new StageResult("BenefitLimits", true,
-                    "No annual limit set for this benefit — passed"));
+                    "No annual limit set for this benefit - passed"));
         }
         return prorationService.resolveEffectiveLimit(
                 tenantId, claim,
@@ -618,10 +618,10 @@ public class AdjudicationPipeline {
                                 + " (consumed_count=" + count + ")");
                     }
                     return new StageResult("BenefitLimits", true,
-                            "One-time benefit available — passed");
+                            "One-time benefit available - passed");
                 })
                 .defaultIfEmpty(new StageResult("BenefitLimits", true,
-                        "No beneficiary ledger row yet — treating as available"));
+                        "No beneficiary ledger row yet - treating as available"));
     }
 
     /**
@@ -632,7 +632,7 @@ public class AdjudicationPipeline {
     private Mono<StageResult> checkPerEventCounter(Claim claim, BenefitLookup benefit) {
         if (benefit.eventLimit() == null || benefit.eventLimit().signum() <= 0) {
             return Mono.just(new StageResult("BenefitLimits", true,
-                    "PER_EVENT_COUNTER benefit has no event_limit set — count skipped"));
+                    "PER_EVENT_COUNTER benefit has no event_limit set - count skipped"));
         }
         int cap = benefit.eventLimit().intValueExact();
         int year = java.time.LocalDate.now().getYear();
@@ -659,10 +659,10 @@ public class AdjudicationPipeline {
                                 + " of " + cap + " permitted events");
                     }
                     return new StageResult("BenefitLimits", true,
-                            "Event counter " + count + "/" + cap + " — passed");
+                            "Event counter " + count + "/" + cap + " - passed");
                 })
                 .defaultIfEmpty(new StageResult("BenefitLimits", true,
-                        "No beneficiary ledger row yet — event counter starts at 0"));
+                        "No beneficiary ledger row yet - event counter starts at 0"));
     }
 
     private StageResult evaluateWithDecision(Claim claim, BigDecimal rawLimit, ProrationDecision decision) {
@@ -709,11 +709,11 @@ public class AdjudicationPipeline {
             .map(row -> {
                 BigDecimal used = new BigDecimal(row.get("used").toString());
                 return new StageResult("BenefitLimits", true,
-                    "No specific benefit limit — total approved YTD: " + used
+                    "No specific benefit limit - total approved YTD: " + used
                     + " (overall limit check deferred to rules engine)");
             })
             .defaultIfEmpty(new StageResult("BenefitLimits", true,
-                "No benefit usage data found — passed"));
+                "No benefit usage data found - passed"));
     }
 
     /**
@@ -725,7 +725,7 @@ public class AdjudicationPipeline {
     private Mono<StageResult> checkBenefitAgeRange(Claim claim) {
         if (claim.getBenefitId() == null || claim.getMemberId() == null) {
             return Mono.just(new StageResult("BenefitLimits", true,
-                    "Age gate skipped — missing benefit or member reference"));
+                    "Age gate skipped - missing benefit or member reference"));
         }
         return databaseClient
                 .sql("""
@@ -766,7 +766,7 @@ public class AdjudicationPipeline {
                             "Benefit age gate passed (age " + age + ")");
                 })
                 .defaultIfEmpty(new StageResult("BenefitLimits", true,
-                        "Benefit or member row missing — age gate skipped"));
+                        "Benefit or member row missing - age gate skipped"));
     }
 
     // ---- Stage 4: Pre-Authorization ----
@@ -799,7 +799,7 @@ public class AdjudicationPipeline {
                     }
                     return Mono.just("No pre-auth required for " + tariff.getCode());
                 })
-                .defaultIfEmpty("Tariff code " + line.getTariffCode() + " not found — skipping pre-auth check"))
+                .defaultIfEmpty("Tariff code " + line.getTariffCode() + " not found - skipping pre-auth check"))
             .collectList()
             .map(details -> {
                 boolean passed = details.stream().noneMatch(d ->
@@ -847,7 +847,7 @@ public class AdjudicationPipeline {
                 .flatMap(line -> diagnosisProcedureMappingRepository
                     .findByIcdCodeAndTariffCode(diagCode, line.getTariffCode())
                     .map(mapping -> validateMapping(diagCode, line.getTariffCode(), mapping))
-                    .defaultIfEmpty("No mapping found for " + diagCode + " + " + line.getTariffCode() + " — allowed")))
+                    .defaultIfEmpty("No mapping found for " + diagCode + " + " + line.getTariffCode() + " - allowed")))
             .collectList()
             .map(details -> {
                 boolean hasInvalid = details.stream().anyMatch(d -> d.startsWith("R09:"));
@@ -903,7 +903,7 @@ public class AdjudicationPipeline {
             UUID tenantId = parseTenant(tenant);
             if (tenantId == null) {
                 return Mono.just(new TenantRuleBundle(new StageResult("TenantRules", true,
-                        "No tenant context — skipping tenant rules"), List.of()));
+                        "No tenant context - skipping tenant rules"), List.of()));
             }
             return tenantRuleLoader.ensureLoaded(tenantId)
                 .then(factBuilder.build(claim))
@@ -915,13 +915,13 @@ public class AdjudicationPipeline {
 
     private StageResult summariseRuleResults(List<RuleResult> results) {
         if (results == null || results.isEmpty()) {
-            return new StageResult("TenantRules", true, "No tenant rules fired — passed");
+            return new StageResult("TenantRules", true, "No tenant rules fired - passed");
         }
         boolean rejected = results.stream().anyMatch(r -> "REJECT".equalsIgnoreCase(r.getType()));
         String details = results.stream()
                 .map(r -> {
                     String code = r.getCode() != null ? r.getCode() + ": " : "";
-                    return r.getType() + " — " + code + (r.getMessage() != null ? r.getMessage() : "");
+                    return r.getType() + " - " + code + (r.getMessage() != null ? r.getMessage() : "");
                 })
                 .reduce((a, b) -> a + "; " + b)
                 .orElse("");

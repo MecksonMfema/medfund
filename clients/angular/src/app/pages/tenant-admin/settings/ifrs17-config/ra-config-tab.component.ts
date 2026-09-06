@@ -165,7 +165,7 @@ export class RaConfigTabComponent implements OnInit {
   }
 
   paramValueFor(row: TenantRaConfigRow): string {
-    return row.methodology === 'COC' ? (row.cocRate ?? '—') : (row.targetConfidenceLevel ?? '—');
+    return row.methodology === 'COC' ? (row.cocRate ?? '-') : (row.targetConfidenceLevel ?? '-');
   }
 
   startEdit(row: EditableRow): void {

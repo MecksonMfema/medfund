@@ -46,7 +46,7 @@ public class Ifrs17ModelTemplates implements TemplateProvider {
                  RuleCategory.IFRS17_MODEL, 100,
                  all(cond("portfolio.insuranceLine", "EQUALS", "HEALTH")),
                  selectIfrs17Model("IFRS17_MODEL:PAA:TIME:null:PL_ONLY",
-                                   "PAA selected — short-duration HEALTH")),
+                                   "PAA selected - short-duration HEALTH")),
 
             rule("I91 - GMM (General Measurement Model)",
                  "Route long-duration portfolios to the General Measurement Model per IFRS "
@@ -54,18 +54,18 @@ public class Ifrs17ModelTemplates implements TemplateProvider {
                        + "horizon rules out PAA eligibility. Coverage-unit pattern defaults to "
                        + "TIME; finance-expense presentation defaults to the OCI option so "
                        + "insurance-finance income/expense splits between P&L and OCI per IFRS "
-                       + "17.88(b) — flip to PL_ONLY if your tenant elects the single-line "
+                       + "17.88(b) - flip to PL_ONLY if your tenant elects the single-line "
                        + "presentation.",
                  RuleCategory.IFRS17_MODEL, 90,
                  all(cond("portfolio.insuranceLine", "EQUALS", "LIFE")),
                  selectIfrs17Model("IFRS17_MODEL:GMM:TIME:null:OCI_OPTION",
-                                   "GMM selected — long-duration LIFE")),
+                                   "GMM selected - long-duration LIFE")),
 
             rule("I92 - VFA (Variable Fee Approach)",
                  "Route direct-participation (unit-linked) portfolios to the Variable Fee "
                        + "Approach per IFRS 17.71 + B101-B118. Default target is any LIFE "
                        + "portfolio where the tenant admin subsequently opts in via the "
-                       + "underwriting funds admin (Phase 15 §8) — the shaping service filters "
+                       + "underwriting funds admin (Phase 15 §8) - the shaping service filters "
                        + "on VFA-tagged portfolios only. Variable-fee pattern defaults to "
                        + "FIXED_PCT (single fee % applied to NAV growth); switch to TIERED for "
                        + "AUM-band scaling, NAV_LINKED for pattern-based caps. "
@@ -73,7 +73,7 @@ public class Ifrs17ModelTemplates implements TemplateProvider {
                  RuleCategory.IFRS17_MODEL, 80,
                  all(cond("portfolio.insuranceLine", "EQUALS", "LIFE")),
                  selectIfrs17Model("IFRS17_MODEL:VFA:TIME:FIXED_PCT:OCI_OPTION",
-                                   "VFA selected — direct-participation LIFE"))
+                                   "VFA selected - direct-participation LIFE"))
         );
     }
 

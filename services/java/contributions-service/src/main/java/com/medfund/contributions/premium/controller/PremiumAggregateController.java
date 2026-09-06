@@ -49,7 +49,7 @@ public class PremiumAggregateController {
             description = "SUM(earning_schedule.earned_at_period_end) for fully-closed periods "
                         + "with period_end in [periodStart, periodEnd). Native per-currency; no "
                         + "conversion. Nightly PremiumEarningExecutor guarantees closed periods "
-                        + "are populated — unclosed periods contribute zero rows.")
+                        + "are populated - unclosed periods contribute zero rows.")
     public Mono<List<PremiumEarnedAggregateRow>> earnedPremium(
             @RequestParam String periodStart,
             @RequestParam String periodEnd,

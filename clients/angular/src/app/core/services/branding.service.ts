@@ -25,7 +25,7 @@ export const TENANT_TEMPLATES: TenantTemplate[] = [
   {
     id: 'platform',
     name: 'Default (Light)',
-    description: 'White sidebar matching the platform theme — minimal and familiar',
+    description: 'White sidebar matching the platform theme: minimal and familiar',
     previewColors: ['#FFFFFF', '#0077B6', '#F8FDFF'],
     vars: {
       '--ts-bg':               '#FFFFFF',
@@ -47,7 +47,7 @@ export const TENANT_TEMPLATES: TenantTemplate[] = [
   {
     id: 'ocean',
     name: 'Ocean',
-    description: 'Deep navy with teal accents — professional and calm',
+    description: 'Deep navy with teal accents: professional and calm',
     previewColors: ['#0f172a', '#14b8a6', '#f0fdfa'],
     vars: {
       '--ts-bg':               '#0f172a',
@@ -68,7 +68,7 @@ export const TENANT_TEMPLATES: TenantTemplate[] = [
   {
     id: 'forest',
     name: 'Forest',
-    description: 'Rich forest green — natural and trustworthy',
+    description: 'Rich forest green: natural and trustworthy',
     previewColors: ['#0f2318', '#22c55e', '#f0fdf4'],
     vars: {
       '--ts-bg':               '#0f2318',
@@ -89,7 +89,7 @@ export const TENANT_TEMPLATES: TenantTemplate[] = [
   {
     id: 'midnight',
     name: 'Midnight',
-    description: 'Deep purple with violet accents — bold and distinctive',
+    description: 'Deep purple with violet accents: bold and distinctive',
     previewColors: ['#1e1035', '#a855f7', '#faf5ff'],
     vars: {
       '--ts-bg':               '#1e1035',
@@ -110,7 +110,7 @@ export const TENANT_TEMPLATES: TenantTemplate[] = [
   {
     id: 'ember',
     name: 'Ember',
-    description: 'Dark charcoal with warm amber — energetic and modern',
+    description: 'Dark charcoal with warm amber: energetic and modern',
     previewColors: ['#1c1008', '#f59e0b', '#fffbeb'],
     vars: {
       '--ts-bg':               '#1c1008',
@@ -131,7 +131,7 @@ export const TENANT_TEMPLATES: TenantTemplate[] = [
   {
     id: 'slate',
     name: 'Slate',
-    description: 'Professional slate gray with sky blue — clean and corporate',
+    description: 'Professional slate gray with sky blue: clean and corporate',
     previewColors: ['#0f1623', '#38bdf8', '#f0f9ff'],
     vars: {
       '--ts-bg':               '#0f1623',
@@ -152,7 +152,7 @@ export const TENANT_TEMPLATES: TenantTemplate[] = [
   {
     id: 'rose',
     name: 'Rose',
-    description: 'Dark plum with rose accents — healthcare warmth',
+    description: 'Dark plum with rose accents: healthcare warmth',
     previewColors: ['#1f0a10', '#fb7185', '#fff1f2'],
     vars: {
       '--ts-bg':               '#1f0a10',

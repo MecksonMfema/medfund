@@ -147,7 +147,7 @@ public class ScheduledStatusExecutor implements JobExecutor {
         Flux<Void> swaps = memberDependantSwapRepository.findReadyToApply(today)
                 .flatMap(s -> memberSwapService.apply(s.getId(), actorId, actorEmail)
                         .doOnNext(saved -> log.info(
-                                "Applied swap {} — dependant {} promoted to member {}",
+                                "Applied swap {} - dependant {} promoted to member {}",
                                 saved.getId(), saved.getDependantId(), saved.getNewMemberId()))
                         .then(Mono.<Void>empty())
                         .onErrorResume(err -> {

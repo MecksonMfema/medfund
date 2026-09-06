@@ -52,7 +52,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/reports/collection-rate")
 @RequiredArgsConstructor
 @Tag(name = "Collection rate",
-        description = "Per-dimension, per-currency, monthly collection-rate report — receipts vs "
+        description = "Per-dimension, per-currency, monthly collection-rate report - receipts vs "
                     + "billing. Never cross-currency conversion in the rate itself.")
 @SecurityRequirement(name = "bearer-jwt")
 public class CollectionRateReportController {
@@ -68,7 +68,7 @@ public class CollectionRateReportController {
     @GetMapping
     @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
     @RequiresReport(ReportKey.COLLECTION_RATE)
-    @Operation(summary = "Collection rate — per dimension, per currency, monthly buckets",
+    @Operation(summary = "Collection rate - per dimension, per currency, monthly buckets",
             description = "Composes billing + receipts monthly aggregates from contributions-service. "
                         + "Peer downtime populates envelope warnings; the report still renders with "
                         + "partial data.")

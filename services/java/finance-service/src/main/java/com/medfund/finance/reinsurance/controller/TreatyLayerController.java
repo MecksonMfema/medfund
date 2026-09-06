@@ -31,8 +31,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/reinsurance/treaties/{treatyId}/layers")
 @RequiredArgsConstructor
-@Tag(name = "Reinsurance — Treaty Layers",
-     description = "Ordered layers of an XoL/StopLoss treaty. Proportional treaties (QS/SS) don't use layers — "
+@Tag(name = "Reinsurance - Treaty Layers",
+     description = "Ordered layers of an XoL/StopLoss treaty. Proportional treaties (QS/SS) don't use layers - "
                  + "attempts to add a layer to a QS treaty pass but are ignored by the cession rules.")
 @SecurityRequirement(name = "bearer-jwt")
 public class TreatyLayerController {

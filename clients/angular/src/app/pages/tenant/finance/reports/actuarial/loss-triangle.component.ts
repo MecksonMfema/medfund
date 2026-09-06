@@ -15,7 +15,7 @@ import { ActuarialTriangleComponent } from './actuarial-triangle.component';
     <app-actuarial-triangle
       reportKey="LOSS_TRIANGLE"
       pageTitle="Loss triangle"
-      pageSubtitle="Cumulative loss development by accident + development period. Same async compute pathway as IBNR — swap the shape between paid, incurred, and reported to compare development patterns."
+      pageSubtitle="Cumulative loss development by accident + development period. Same async compute pathway as IBNR: swap the shape between paid, incurred, and reported to compare development patterns."
     ></app-actuarial-triangle>
   `,
 })

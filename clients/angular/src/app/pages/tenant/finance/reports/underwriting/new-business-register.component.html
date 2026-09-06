@@ -115,12 +115,12 @@
     <tbody>
       @for (row of activeRows; track row.policyId) {
         <tr>
-          <td>{{ row.memberNumber || '—' }}</td>
-          <td>{{ row.memberName || '—' }}</td>
+          <td>{{ row.memberNumber || '-' }}</td>
+          <td>{{ row.memberName || '-' }}</td>
           <td>{{ insuranceLineLabel(row.insuranceLine) }}</td>
-          <td>{{ row.schemeName || '—' }}</td>
-          <td>{{ row.portfolioName || '—' }}</td>
-          <td>{{ row.cohortName || '—' }}</td>
+          <td>{{ row.schemeName || '-' }}</td>
+          <td>{{ row.portfolioName || '-' }}</td>
+          <td>{{ row.cohortName || '-' }}</td>
           <td>{{ row.boundAt | date:'yyyy-MM-dd' }}</td>
           <td class="num">{{ row.writtenPremium }}</td>
           <td>{{ row.currencyCode }}</td>

@@ -36,7 +36,7 @@ public class NotificationsController {
     @GetMapping
     @Operation(summary = "Recent notifications for the current user",
         description = "Returns up to `limit` notifications for the caller, most recent first. The bell polls " +
-                      "every 30s. Rows are permanent — mark-seen updates the seen_at column but does not delete.")
+                      "every 30s. Rows are permanent - mark-seen updates the seen_at column but does not delete.")
     public Flux<NotificationSummary> list(
             @RequestParam(name = "limit", required = false, defaultValue = "20") int limit,
             @AuthenticationPrincipal Jwt jwt) {
@@ -57,7 +57,7 @@ public class NotificationsController {
 
     @PostMapping("/mark-all-seen")
     @Operation(summary = "Mark every unseen notification as read",
-        description = "Idempotent — running with nothing unseen is a no-op that returns marked=0.")
+        description = "Idempotent - running with nothing unseen is a no-op that returns marked=0.")
     public Mono<MarkResult> markAllSeen(@AuthenticationPrincipal Jwt jwt) {
         UUID userId = parseUuid(jwt);
         if (userId == null) return Mono.just(new MarkResult(0));

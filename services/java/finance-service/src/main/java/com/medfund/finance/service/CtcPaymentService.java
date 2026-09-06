@@ -103,11 +103,11 @@ public class CtcPaymentService {
         // Member-only for MVP — see design decision #1 in the plan.
         if (request.memberId() == null) {
             return Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                "memberId is required — group-only CTC is out of scope for this release"));
+                "memberId is required - group-only CTC is out of scope for this release"));
         }
         if (request.groupId() != null) {
             return Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                "Group CTC is out of scope for this release — omit groupId"));
+                "Group CTC is out of scope for this release - omit groupId"));
         }
         return memberPayableRepository.findById(request.memberPayableId())
             .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
@@ -119,7 +119,7 @@ public class CtcPaymentService {
                 }
                 if (!"open".equals(payable.getStatus())) {
                     return Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                        "Member-payable status is " + payable.getStatus() + " — cannot offset"));
+                        "Member-payable status is " + payable.getStatus() + " - cannot offset"));
                 }
                 return Mono.deferContextual(ctx -> {
                     UUID tenantId = parseTenant(TenantContext.get(ctx));

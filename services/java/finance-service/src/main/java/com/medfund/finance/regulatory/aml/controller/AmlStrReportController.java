@@ -170,7 +170,7 @@ public class AmlStrReportController {
                                 && !AmlAlertService.STATUS_FILED.equals(status)) {
                             return Mono.error(new ResponseStatusException(HttpStatus.CONFLICT,
                                     "Cannot export per-STR XLSX for alert in status " + status
-                                            + " — must be REVIEWED or FILED."));
+                                            + " - must be REVIEWED or FILED."));
                         }
                         return strFilingService.render(tenantId, alert)
                                 .flatMap(rendered -> emitPerStrExportSecurityEvent(tenantStr, alertId, jwt)

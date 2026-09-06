@@ -22,7 +22,7 @@ import { IconComponent } from '../../../shared/components/icon/icon.component';
   standalone: true,
   imports: [CommonModule, IconComponent],
   templateUrl: './backfill-review.component.html',
-  styleUrl: './producers-list.component.scss',
+  styleUrl: './backfill-review.component.scss',
 })
 export class BackfillReviewComponent implements OnInit, OnDestroy {
   progress: BackfillProgress = {
@@ -79,7 +79,7 @@ export class BackfillReviewComponent implements OnInit, OnDestroy {
       next: () => {
         this.saving = false;
         this.running = true;
-        this.successMessage = 'Backfill started — progress will refresh below.';
+        this.successMessage = 'Backfill started: progress will refresh below.';
         setTimeout(() => this.fetchCandidates(), 3000);
       },
       error: (err) => {

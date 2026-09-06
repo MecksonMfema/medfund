@@ -1,0 +1,155 @@
+<div class="rate-card-form-page">
+  <header class="page-header">
+    <div>
+      <h1>{{ isEdit ? 'Edit rate card' : 'New rate card' }}</h1>
+      <p class="page-sub">
+        Lookup-driven base commission by insurance line + optional producer
+        tier. Overlapping active cards are permitted: resolution is
+        most-recent-effective.
+      </p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/admin/producers/rate-cards">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back to rate cards
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form (submit)="$event.preventDefault(); submit()" class="form-card">
+    <div class="form-card__heading">
+      <h2 class="form-card__title">Rate card details</h2>
+      <span class="form-card__hint">Fields marked with an asterisk are required.</span>
+    </div>
+
+    <div class="form-sections">
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="clipboard-list" [size]="18"></app-icon></span>
+          <h3 class="section-title">Identity</h3>
+        </header>
+
+        <label class="field">
+          <span class="field-label">Name <span class="req">*</span></span>
+          <input
+            class="field-control"
+            [(ngModel)]="form.name"
+            name="name"
+            maxlength="120"
+            placeholder="e.g. Health Direct 2026"
+            required
+          />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Insurance line <span class="req">*</span></span>
+          <app-select
+            [(ngModel)]="form.insuranceLine"
+            name="insuranceLine"
+            [options]="insuranceLineOptions"
+            placeholder="Pick a line"
+          ></app-select>
+          <small class="field-help">The line the base rate applies to.</small>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Producer tier <span class="optional">(optional)</span></span>
+          <input
+            class="field-control"
+            [(ngModel)]="form.producerTier"
+            name="producerTier"
+            maxlength="40"
+            placeholder="DIRECT | SUB | (empty = any)"
+          />
+          <small class="field-help">Restrict this card to a specific tier. Leave blank to apply to all producers.</small>
+        </label>
+      </section>
+
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="dollar-sign" [size]="18"></app-icon></span>
+          <h3 class="section-title">Commission</h3>
+        </header>
+
+        <label class="field">
+          <span class="field-label">Base rate % <span class="req">*</span></span>
+          <input
+            class="field-control"
+            type="number"
+            [(ngModel)]="form.baseRatePct"
+            name="baseRatePct"
+            min="0" max="100" step="0.0001"
+            placeholder="0.00"
+            required
+          />
+          <small class="field-help">Percentage of premium paid as commission (0-100).</small>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Clawback window (days) <span class="optional">(optional)</span></span>
+          <input
+            class="field-control"
+            type="number"
+            [(ngModel)]="form.clawbackWindowDays"
+            name="clawbackWindowDays"
+            min="0" max="3650"
+            placeholder="e.g. 90"
+          />
+          <small class="field-help">Days within which commission is reversible on cancellation. Leave blank for none.</small>
+        </label>
+      </section>
+
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="calendar" [size]="18"></app-icon></span>
+          <h3 class="section-title">Validity</h3>
+        </header>
+
+        <label class="field">
+          <span class="field-label">Effective from <span class="req">*</span></span>
+          <input
+            class="field-control"
+            type="date"
+            [(ngModel)]="form.effectiveFrom"
+            (blur)="onEffectiveFromBlur()"
+            name="effectiveFrom"
+            required
+          />
+          <small class="field-help">Snaps to the 1st of the chosen month.</small>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Effective to <span class="optional">(optional)</span></span>
+          <input
+            class="field-control"
+            type="date"
+            [(ngModel)]="form.effectiveTo"
+            (blur)="onEffectiveToBlur()"
+            name="effectiveTo"
+          />
+          <small class="field-help">Leave blank for open-ended. Snaps to the last day of the chosen month.</small>
+        </label>
+
+        @if (isEdit) {
+          <label class="field field--checkbox">
+            <span class="field-label">Status</span>
+            <label class="inline-check">
+              <input type="checkbox" [(ngModel)]="form.active" name="active" />
+              <span>Active</span>
+            </label>
+            <small class="field-help">Uncheck to deactivate this card. Deactivation snaps the effective-to date to end of month.</small>
+          </label>
+        }
+      </section>
+    </div>
+
+    <footer class="form-actions">
+      <a class="btn btn-default" routerLink="/tenant/admin/producers/rate-cards">Cancel</a>
+      <button type="submit" class="btn btn-primary" [disabled]="saving || loading || !isDirty">
+        {{ saving ? 'Saving...' : (isEdit ? 'Save changes' : 'Create rate card') }}
+      </button>
+    </footer>
+  </form>
+</div>

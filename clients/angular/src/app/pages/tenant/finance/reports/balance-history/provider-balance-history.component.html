@@ -2,7 +2,7 @@
   <div>
     <h1>Provider balance history</h1>
     <p class="page-sub">
-      Frozen provider balance at each executed payment run — newest first.
+      Frozen provider balance at each executed payment run: newest first.
       @if (payeeName) { <code>{{ envelope?.data?.payeeId }}</code> · {{ payeeName }} }
     </p>
   </div>
@@ -58,7 +58,7 @@
   <div class="kpi-strip">
     @for (pc of perCurrencyEntries; track pc.code) {
       <div class="kpi-card">
-        <span class="kpi-label">Latest outstanding — {{ pc.code }}</span>
+        <span class="kpi-label">Latest outstanding: {{ pc.code }}</span>
         <span class="kpi-value">{{ pc.totalAmount | number:'1.2-2' }}</span>
         <span class="kpi-meta">{{ pc.rowCount }} run(s)</span>
       </div>

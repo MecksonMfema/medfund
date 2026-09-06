@@ -25,9 +25,9 @@ public final class PermissionCatalogue {
             new Domain("claims", "Claims", List.of(
                     new Permission(Permissions.CLAIMS_VIEW,                       "View claims",                       "Read access to all claims and their statuses."),
                     new Permission(Permissions.CLAIMS_CREATE,                     "Submit claims",                     "Capture new medical claims on behalf of members."),
-                    new Permission(Permissions.CLAIMS_ASSESS,                     "Assess claims",                     "Review claim details and add notes — soft adjudication."),
+                    new Permission(Permissions.CLAIMS_ASSESS,                     "Assess claims",                     "Review claim details and add notes - soft adjudication."),
                     new Permission(Permissions.CLAIMS_ADJUDICATE,                 "Adjudicate claims",                 "Approve or reject submitted claims (final decision)."),
-                    new Permission(Permissions.CLAIMS_REJECT,                     "Reject claims",                     "Reject claims with a reason — subset of adjudicate."),
+                    new Permission(Permissions.CLAIMS_REJECT,                     "Reject claims",                     "Reject claims with a reason - subset of adjudicate."),
                     new Permission(Permissions.CLAIMS_VERIFY,                     "Verify claims",                     "Pre-verify claim details before adjudication."),
                     new Permission(Permissions.CLAIMS_VIEW_DRUG,                  "View drug claims",                  "Read access to pharmaceutical claims."),
                     new Permission(Permissions.CLAIMS_CREATE_DRUG,                "Submit drug claims",                "Capture pharmaceutical claims."),
@@ -40,7 +40,7 @@ public final class PermissionCatalogue {
                     new Permission(Permissions.CLAIMS_MANAGE_VERIFICATION_CODES,  "Manage verification codes",         "Issue and revoke claim verification OTPs."),
                     new Permission(Permissions.CLAIMS_ASSIGN,                     "Assign claims",                     "Allocate claims to staff for assessment."),
                     new Permission(Permissions.CLAIMS_VIEW_CTC_PAYMENTS,          "View CTC payments",                 "View Claims-to-Contributions transfers (member claim payouts credited against the member's own contribution bill)."),
-                    new Permission(Permissions.CLAIMS_COMMIT_CTC_PAYMENT,         "Commit CTC payments",               "Commit a Claims-to-Contributions transfer — the member's payable is applied against their contribution bill."),
+                    new Permission(Permissions.CLAIMS_COMMIT_CTC_PAYMENT,         "Commit CTC payments",               "Commit a Claims-to-Contributions transfer - the member's payable is applied against their contribution bill."),
                     new Permission(Permissions.CLAIMS_REQUEST_QUOTE,              "Request eligibility quote",         "Request a pre-service cost-share quote for a member.")
             )),
             new Domain("billing", "Billing", List.of(
@@ -60,11 +60,11 @@ public final class PermissionCatalogue {
             )),
             new Domain("finance", "Finance", List.of(
                     new Permission(Permissions.FINANCE_VIEW,                      "View finance",                      "Read access to payment runs, payments, receipts, and reports."),
-                    new Permission(Permissions.FINANCE_VIEW_CREDITORS,            "View creditors",                    "View the unified Creditors page — providers and members the fund owes for approved claims."),
+                    new Permission(Permissions.FINANCE_VIEW_CREDITORS,            "View creditors",                    "View the unified Creditors page - providers and members the fund owes for approved claims."),
                     new Permission(Permissions.FINANCE_CREATE_PAYMENT_RUN,        "Create payment run",                "Create a new draft batch payment run."),
-                    new Permission(Permissions.FINANCE_APPROVE_PAYMENT_RUN,       "Approve payment run",               "Execute a draft payment run — disburses funds."),
+                    new Permission(Permissions.FINANCE_APPROVE_PAYMENT_RUN,       "Approve payment run",               "Execute a draft payment run - disburses funds."),
                     new Permission(Permissions.FINANCE_MANAGE_PAYMENT_RUNS,       "Manage payment runs",               "Full lifecycle management of payment runs (create, approve, execute, cancel)."),
-                    new Permission(Permissions.FINANCE_MANAGE_PAYMENTS,           "Manage payments",                   "Row-level payment actions — revoke an item from a run, mark paid, cancel."),
+                    new Permission(Permissions.FINANCE_MANAGE_PAYMENTS,           "Manage payments",                   "Row-level payment actions - revoke an item from a run, mark paid, cancel."),
                     new Permission(Permissions.FINANCE_VIEW_ADVANCE_PAYMENTS,     "View advance payments",             "View provider prepayments."),
                     new Permission(Permissions.FINANCE_MANAGE_ADVANCE_PAYMENTS,   "Manage advance payments",           "Create, edit, or cancel provider prepayments."),
                     new Permission(Permissions.FINANCE_MANAGE_CTC_PAYMENTS,       "Manage CTC payments",               "Create or commit Claims-to-Contributions transfers from finance."),
@@ -81,7 +81,7 @@ public final class PermissionCatalogue {
                     new Permission(Permissions.FINANCE_MANAGE_BILLING_RECONCILE,  "Reconcile billing to claims",       "Match billing runs against claim payments."),
                     new Permission(Permissions.FINANCE_VIEW_PAYMENT_ADVICE,       "View payment advice",               "View payment-advice notifications sent to providers."),
                     new Permission(Permissions.FINANCE_MANAGE_COPAYMENTS,         "Manage cost-share receipts",        "Record or adjust member cost-share (copayment) receipts."),
-                    new Permission(Permissions.FINANCE_VIEW_MEMBER_LIABILITIES,   "View member liabilities",           "View the fund-issued 'the member owes' ledger — one row per adjudicated claim with a cost-share balance."),
+                    new Permission(Permissions.FINANCE_VIEW_MEMBER_LIABILITIES,   "View member liabilities",           "View the fund-issued 'the member owes' ledger - one row per adjudicated claim with a cost-share balance."),
                     new Permission(Permissions.FINANCE_VIEW_WITHHELD_TAX,         "View withheld tax",                 "View tax-withheld claims and payments.")
             )),
             new Domain("members", "Members", List.of(

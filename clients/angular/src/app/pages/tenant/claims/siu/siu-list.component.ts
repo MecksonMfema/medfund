@@ -28,8 +28,8 @@ export class SiuListComponent implements OnInit {
     { value: '', label: 'All' },
     { value: 'OPEN', label: 'Open' },
     { value: 'UNDER_REVIEW', label: 'Under review' },
-    { value: 'CLOSED_CONFIRMED_FRAUD', label: 'Closed — confirmed fraud' },
-    { value: 'CLOSED_DISMISSED_FALSE_POSITIVE', label: 'Closed — dismissed' },
+    { value: 'CLOSED_CONFIRMED_FRAUD', label: 'Closed: confirmed fraud' },
+    { value: 'CLOSED_DISMISSED_FALSE_POSITIVE', label: 'Closed: dismissed' },
   ];
 
   readonly columns: TableColumn[] = [

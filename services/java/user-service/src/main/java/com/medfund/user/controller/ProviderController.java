@@ -26,7 +26,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/providers")
 @RequiredArgsConstructor
-@Tag(name = "Providers", description = "Provider onboarding and management — platform-wide registry")
+@Tag(name = "Providers", description = "Provider onboarding and management - platform-wide registry")
 @SecurityRequirement(name = "bearer-jwt")
 public class ProviderController {
 

@@ -43,7 +43,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/tenants/{tenantId}/aml-threshold-config")
 @RequiredArgsConstructor
-@Tag(name = "Regulatory — AML thresholds",
+@Tag(name = "Regulatory - AML thresholds",
         description = "Per-tenant reporting-thresholds admin CRUD. Effective-dated rows so the "
                 + "audit trail can reconstruct 'what was our threshold on this date?'. "
                 + "Consumed by the AML/STR periodic summary calculator.")

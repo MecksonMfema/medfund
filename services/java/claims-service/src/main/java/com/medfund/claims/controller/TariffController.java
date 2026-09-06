@@ -68,7 +68,7 @@ public class TariffController {
     }
 
     @GetMapping("/codes/schedule/{scheduleId}")
-    @Operation(summary = "List tariff codes by schedule (unpaginated — prefer /codes/page for large schedules)")
+    @Operation(summary = "List tariff codes by schedule (unpaginated - prefer /codes/page for large schedules)")
     public Flux<TariffCodeResponse> findCodesBySchedule(@PathVariable UUID scheduleId) {
         return tariffService.findCodesByScheduleId(scheduleId).map(TariffCodeResponse::from);
     }
@@ -79,7 +79,7 @@ public class TariffController {
                 + "Sortable keys: code, description, categoryLabel, unitPrice, currencyCode, "
                 + "requiresPreAuth. Anything else falls back to code ASC. Joins the "
                 + "tariff_categories catalogue so the client renders each row without a "
-                + "second lookup — critical for the ~5k-row AHFOZ schedule.")
+                + "second lookup - critical for the ~5k-row AHFOZ schedule.")
     @ApiResponse(responseCode = "200", description = "Page of tariff codes")
     public Mono<PageResponse<TariffCodeRow>> searchCodesPaged(
             @RequestParam(required = false) UUID scheduleId,
@@ -122,7 +122,7 @@ public class TariffController {
     }
 
     @GetMapping("/modifiers")
-    @Operation(summary = "List all active tariff modifiers (unpaginated — prefer /modifiers/page)")
+    @Operation(summary = "List all active tariff modifiers (unpaginated - prefer /modifiers/page)")
     public Flux<TariffModifier> findAllModifiers() {
         return tariffService.findAllModifiers();
     }

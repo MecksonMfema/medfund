@@ -37,7 +37,7 @@ export class TenantBankAccountsTabComponent implements OnInit {
   constructor(private finance: FinanceService, private currencyService: CurrencyService) {}
 
   get currencyOptions(): SelectOption[] {
-    return this.currencies.map(c => ({ value: c.code, label: `${c.code} — ${c.name}` }));
+    return this.currencies.map(c => ({ value: c.code, label: `${c.code} - ${c.name}` }));
   }
 
   ngOnInit(): void {

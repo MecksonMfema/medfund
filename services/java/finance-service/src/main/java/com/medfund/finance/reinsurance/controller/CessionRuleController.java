@@ -32,7 +32,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/reinsurance/treaties/{treatyId}/cession-rules")
 @RequiredArgsConstructor
-@Tag(name = "Reinsurance — Cession Rules",
+@Tag(name = "Reinsurance - Cession Rules",
      description = "Links between a treaty and rules-engine RuleDefinitions. The rule authoring lives in the "
                  + "standard visual rule builder with category=REINSURANCE.")
 @SecurityRequirement(name = "bearer-jwt")
@@ -60,7 +60,7 @@ public class CessionRuleController {
     @PutMapping("/{linkId}")
     @RequiresPermission(Permissions.REINSURANCE_MANAGE_TREATY)
     @Operation(summary = "Toggle enabled on a cession rule link",
-            description = "Enabled can be flipped on ACTIVE treaties too — useful for pausing a rule without "
+            description = "Enabled can be flipped on ACTIVE treaties too - useful for pausing a rule without "
                         + "revoking the treaty. Only add/remove requires DRAFT.")
     public Mono<CessionRuleResponse> update(@PathVariable UUID treatyId,
                                             @PathVariable UUID linkId,

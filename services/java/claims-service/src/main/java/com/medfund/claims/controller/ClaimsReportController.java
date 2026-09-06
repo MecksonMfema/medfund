@@ -67,7 +67,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/reports/claims")
 @RequiredArgsConstructor
 @Tag(name = "Claims reports",
-        description = "Phase 4 claims-financial family — per-scheme / per-provider summaries plus "
+        description = "Phase 4 claims-financial family - per-scheme / per-provider summaries plus "
                     + "HIGH_COST_CLAIMANT and PRE_AUTH_ACTIVITY. Amounts are native-currency with "
                     + "envelope best-effort FX; every row carries the claimed/approved/paid funnel.")
 @SecurityRequirement(name = "bearer-jwt")
@@ -94,9 +94,9 @@ public class ClaimsReportController {
             description = "One row per (scheme, currency); claimed/approved/paid funnel (G42). "
                         + "Period clock is adjudicated_at (G41).")
     public Mono<ReportResponse<List<ClaimsSummaryRow>>> schemesReport(
-            @Parameter(description = "ISO date — first day of the reporting window (inclusive)")
+            @Parameter(description = "ISO date - first day of the reporting window (inclusive)")
             @RequestParam String periodStart,
-            @Parameter(description = "ISO date — last day of the reporting window (inclusive)")
+            @Parameter(description = "ISO date - last day of the reporting window (inclusive)")
             @RequestParam String periodEnd,
             @Parameter(description = "Optional ISO-4217 override; defaults to the tenant's default currency")
             @RequestParam(required = false) String reportingCurrency,
@@ -354,7 +354,7 @@ public class ClaimsReportController {
     @GetMapping("/members")
     @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
     @RequiresReport(ReportKey.CLAIMS_SUMMARY)
-    @Operation(summary = "Per-member claims aggregate — paginated + searchable",
+    @Operation(summary = "Per-member claims aggregate - paginated + searchable",
             description = "One row per (member, insurance line, currency). Search is plain ILIKE over "
                         + "member_number / first / last name (pg_trgm absent). Optional scheme / provider "
                         + "filters; the envelope's perCurrency totals carry the same filtered set (G18). "
@@ -477,7 +477,7 @@ public class ClaimsReportController {
     @RequiresReport(ReportKey.CLAIM_STATUS_LIST)
     @Operation(summary = "Paged claim ledger for one status-matrix cell",
             description = "Repeats the age-bucket CASE in the WHERE so the drill is exactly the ledger "
-                        + "that built the clicked cell. Status / ageBucket optional — null renders the "
+                        + "that built the clicked cell. Status / ageBucket optional - null renders the "
                         + "whole submission window.")
     public Mono<ReportResponse<PageResponse<ClaimsDetailResponse.ClaimLedgerRow>>> statusMatrixDrill(
             @RequestParam String submittedFrom,
@@ -524,7 +524,7 @@ public class ClaimsReportController {
     @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
     @RequiresReport(ReportKey.DENIAL_ANALYSIS)
     @Operation(summary = "Composite denial analysis over the REJECTED claim set",
-            description = "Four views — by rejection category, by rejection code, by provider (with "
+            description = "Four views - by rejection category, by rejection code, by provider (with "
                         + "denial rate = denied/total, always FX-safe), and a monthly trend that only "
                         + "populates for multi-month windows. Primary column is claimed_amount (G42/G47); "
                         + "amounts stay native-currency.")
@@ -579,7 +579,7 @@ public class ClaimsReportController {
             description = "Service-date clock. Severity = Postgres PERCENTILE_CONT mean / median / P95; "
                         + "frequency = claims ÷ exposure-member-months annualised. Exposure uses the G48 "
                         + "fallback (active members × days ÷ 30.4375) because member_status_history is "
-                        + "absent — the envelope carries the caveat in warnings.")
+                        + "absent - the envelope carries the caveat in warnings.")
     public Mono<ReportResponse<List<FrequencySeverityRow>>> frequencySeverity(
             @RequestParam String serviceFrom,
             @RequestParam String serviceTo,
@@ -619,7 +619,7 @@ public class ClaimsReportController {
     @Operation(summary = "Members whose cumulative paid claims clear the tenant threshold",
             description = "Threshold read from the tenant config table (V132); converted to the "
                         + "reporting currency at period end (fail-loud on missing FX per G28). A "
-                        + "missing threshold config renders an empty report with a warning — not an "
+                        + "missing threshold config renders an empty report with a warning - not an "
                         + "error. Period clock is adjudicated_at.")
     public Mono<ReportResponse<List<HighCostClaimantRow>>> highCostClaimants(
             @RequestParam String periodStart,

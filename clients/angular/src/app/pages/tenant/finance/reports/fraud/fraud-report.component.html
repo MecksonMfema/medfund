@@ -3,7 +3,7 @@
     <h1>Fraud / SIU report</h1>
     <p class="page-sub">
       Investigations opened + confirmed + total savings for the window.
-      Numbers key on {{ envelope?.reportingCurrency || '—' }}.
+      Numbers key on {{ envelope?.reportingCurrency || '-' }}.
     </p>
   </div>
   <div class="action-row">
@@ -81,7 +81,7 @@
 
   @if (perCurrencyEntries().length > 0) {
     <section class="card">
-      <h3>Savings — per native currency</h3>
+      <h3>Savings: per native currency</h3>
       <table class="data-table">
         <thead><tr><th>Currency</th><th>Saved amount</th></tr></thead>
         <tbody>
@@ -162,7 +162,7 @@
   </section>
 
   <section class="card">
-    <h3>AI calibration — precision by risk_level</h3>
+    <h3>AI calibration: precision by risk_level</h3>
     @if (calibration && calibration.warnings.length > 0) {
       <div class="banner banner-warning">
         <strong>Small-N fallback:</strong>

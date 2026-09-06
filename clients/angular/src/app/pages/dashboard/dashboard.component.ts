@@ -97,7 +97,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.recentAudit = (a.events || []).map((e: any) => ({
           ...e,
           _display: e.entityName || e.entityId,
-          _actor:   e.actorEmail || e.actorId || '—',
+          _actor:   e.actorEmail || e.actorId || '-',
         }));
       },
       error: () => { this.recentAudit = []; },
@@ -126,9 +126,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   /** Returns the display value, replacing bare UUIDs with '—'. */
   formatDisplay(value: string | undefined | null): string {
-    if (!value) return '—';
+    if (!value) return '-';
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (uuidPattern.test(value.trim())) return '—';
+    if (uuidPattern.test(value.trim())) return '-';
     return value;
   }
 

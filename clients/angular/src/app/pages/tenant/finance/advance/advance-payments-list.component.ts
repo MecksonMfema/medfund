@@ -119,7 +119,7 @@ export class AdvancePaymentsListComponent implements OnInit {
     if (!confirm(`Approve advance payment ${row.reference || row.id.substring(0, 8)}?`)) return;
     this.finance.approveAdvancePayment(row.id).subscribe({
       next: (saved) => {
-        this.banner = { kind: 'success', text: `Advance approved — status is now ${saved.status}` };
+        this.banner = { kind: 'success', text: `Advance approved: status is now ${saved.status}` };
         this.fetchPage();
       },
       error: (err) => {
@@ -135,7 +135,7 @@ export class AdvancePaymentsListComponent implements OnInit {
       next: (compensating) => {
         this.banner = {
           kind: 'success',
-          text: `Reversal posted — compensating entry ${compensating.reference || compensating.id.substring(0, 8)}`,
+          text: `Reversal posted: compensating entry ${compensating.reference || compensating.id.substring(0, 8)}`,
         };
         this.fetchPage();
       },

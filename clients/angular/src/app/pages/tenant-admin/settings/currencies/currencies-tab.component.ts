@@ -68,7 +68,7 @@ export class TenantCurrenciesTabComponent implements OnInit {
   get availableCurrencyOptions(): SelectOption[] {
     return this.available.map(c => ({
       value: c.code,
-      label: `${c.code} — ${c.name}`,
+      label: `${c.code} - ${c.name}`,
       description: c.symbol || undefined,
     }));
   }

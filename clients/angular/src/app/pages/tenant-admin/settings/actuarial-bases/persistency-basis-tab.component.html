@@ -14,7 +14,7 @@
           Per-line expected-retention checkpoints (e.g. 3m / 6m / 12m). The
           <code>PERSISTENCY_STUDY</code> report compares actual retention against these
           expected curves. New tenants are seeded with an industry-default curve
-          per line — edit or add rows below to override.
+          per line: edit or add rows below to override.
         </p>
       </div>
       <div class="section-actions">
@@ -65,7 +65,7 @@
                   <input type="text" class="inline-input" maxlength="200"
                          [(ngModel)]="row.draftSourceNote" name="edit-note-{{row.id}}" />
                 } @else {
-                  {{ row.sourceNote || '—' }}
+                  {{ row.sourceNote || '-' }}
                 }
               </td>
               <td>{{ row.effectiveFrom }}</td>
@@ -75,10 +75,10 @@
                          [ngModel]="row.draftEffectiveTo" (ngModelChange)="row.draftEffectiveTo = $event"
                          name="edit-to-{{row.id}}" />
                 } @else {
-                  {{ row.effectiveTo || '—' }}
+                  {{ row.effectiveTo || '-' }}
                 }
               </td>
-              <td>{{ row.updatedByEmail || '—' }}</td>
+              <td>{{ row.updatedByEmail || '-' }}</td>
               <td class="row-actions">
                 @if (row.editing) {
                   <button type="button" class="link-btn" (click)="saveEdit(row)" [disabled]="pendingId === row.id">

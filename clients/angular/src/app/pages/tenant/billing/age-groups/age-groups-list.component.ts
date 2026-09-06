@@ -192,7 +192,7 @@ export class AgeGroupsListComponent implements OnInit, OnDestroy {
       ...row,
       contributionDisplay: row.contributionAmount
         ? this.currencyFormatter.transform(row.contributionAmount, row.currencyCode)
-        : '—',
+        : '-',
     };
   }
 }

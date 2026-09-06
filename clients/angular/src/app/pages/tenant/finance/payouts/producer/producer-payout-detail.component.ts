@@ -31,7 +31,7 @@ import {
         <dt>Source bank</dt><dd>{{ run.sourceBankAccountLabel ?? run.sourceBankAccountId }}</dd>
         <dt>Producer count</dt><dd>{{ run.paymentCount }}</dd>
         <dt>Total</dt><dd>{{ run.totalAmount }}</dd>
-        <dt>Description</dt><dd>{{ run.description || '—' }}</dd>
+        <dt>Description</dt><dd>{{ run.description || '-' }}</dd>
       </dl>
 
       <div class="actions" *ngIf="run.status === 'draft' || run.status === 'approved'">
@@ -55,7 +55,7 @@ import {
           <tr *ngFor="let it of items">
             <td>{{ it.producerId }}</td>
             <td>{{ it.amount }}</td>
-            <td>{{ it.withholdingTaxPct ?? '—' }}</td>
+            <td>{{ it.withholdingTaxPct ?? '-' }}</td>
             <td>{{ it.currencyCode }}</td>
             <td>{{ it.status }}</td>
           </tr>

@@ -56,7 +56,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/reports/collection-rate-trend")
 @RequiredArgsConstructor
 @Tag(name = "Collection-rate trend",
-        description = "Portfolio-level monthly collection-rate trend per currency — receipts vs "
+        description = "Portfolio-level monthly collection-rate trend per currency - receipts vs "
                     + "billing summed across all dimensions. Never cross-currency conversion.")
 @SecurityRequirement(name = "bearer-jwt")
 public class CollectionRateTrendController {

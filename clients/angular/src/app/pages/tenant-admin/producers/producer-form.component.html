@@ -1,0 +1,254 @@
+<div class="producer-form-page">
+  <header class="page-header">
+    <div>
+      <h1>{{ isEdit ? 'Edit producer' : 'New producer' }}</h1>
+      <p class="page-sub">
+        Broker / producer counterparty details. Hierarchy is captured via
+        parent producer: no time-slice; reparenting rewrites the field,
+        audit trail preserved.
+      </p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/admin/producers/list">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back to producers
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+    <div class="loading">Loading...</div>
+  } @else {
+    <form (submit)="$event.preventDefault(); submit()" class="form-card">
+      <div class="form-card__heading">
+        <h2 class="form-card__title">Producer details</h2>
+        <span class="form-card__hint">Fields marked with an asterisk are required.</span>
+      </div>
+
+      <div class="form-sections">
+        <section class="form-section">
+          <header class="section-head">
+            <span class="section-icon"><app-icon name="clipboard-list" [size]="18"></app-icon></span>
+            <h3 class="section-title">Identity</h3>
+          </header>
+
+          <label class="field">
+            <span class="field-label">
+              Producer code
+              @if (!isEdit) { <span class="req">*</span> }
+            </span>
+            @if (isEdit) {
+              <input class="field-control" type="text" [value]="form.producerCode" disabled />
+            } @else {
+              <input
+                class="field-control"
+                [(ngModel)]="form.producerCode"
+                name="producerCode"
+                maxlength="40"
+                placeholder="e.g. BRK-001"
+                required
+              />
+            }
+            <small class="field-help">Unique human-facing identifier. Immutable after creation.</small>
+          </label>
+
+          <label class="field">
+            <span class="field-label">Name <span class="req">*</span></span>
+            <input
+              class="field-control"
+              [(ngModel)]="form.name"
+              name="name"
+              maxlength="200"
+              placeholder="e.g. Acme Brokers Ltd"
+              required
+            />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Jurisdiction <span class="optional">(optional)</span></span>
+            <input
+              class="field-control"
+              [(ngModel)]="form.jurisdictionCode"
+              name="jurisdictionCode"
+              maxlength="20"
+              placeholder="e.g. ZW, ZA"
+            />
+            <small class="field-help">Country / regulator code. Free text: coordinate with your compliance list.</small>
+          </label>
+        </section>
+
+        <section class="form-section">
+          <header class="section-head">
+            <span class="section-icon"><app-icon name="phone" [size]="18"></app-icon></span>
+            <h3 class="section-title">Contact</h3>
+          </header>
+
+          <label class="field">
+            <span class="field-label">Contact email <span class="optional">(optional)</span></span>
+            <input
+              class="field-control"
+              type="email"
+              [(ngModel)]="form.contactEmail"
+              name="contactEmail"
+              maxlength="255"
+              placeholder="ops@acme.example"
+            />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Contact phone <span class="optional">(optional)</span></span>
+            <input
+              class="field-control"
+              type="tel"
+              [(ngModel)]="form.contactPhone"
+              name="contactPhone"
+              maxlength="40"
+              placeholder="+263 77 000 0000"
+            />
+          </label>
+        </section>
+
+        <section class="form-section">
+          <header class="section-head">
+            <span class="section-icon"><app-icon name="dollar-sign" [size]="18"></app-icon></span>
+            <h3 class="section-title">Financial</h3>
+          </header>
+
+          <label class="field">
+            <span class="field-label">Home currency <span class="req">*</span></span>
+            @if (currencySelectOptions.length > 0) {
+              <app-select
+                [(ngModel)]="form.homeCurrency"
+                name="homeCurrency"
+                [options]="currencySelectOptions"
+                placeholder="Pick a currency"
+              ></app-select>
+              <small class="field-help">Only currencies enabled for this tenant are listed.</small>
+            } @else {
+              <input
+                class="field-control"
+                [(ngModel)]="form.homeCurrency"
+                name="homeCurrency"
+                maxlength="3"
+                minlength="3"
+                placeholder="ISO code, e.g. USD"
+                style="text-transform: uppercase"
+                required
+              />
+              <small class="field-help">3-letter ISO code (tenant currency list unavailable).</small>
+            }
+          </label>
+
+          <label class="field">
+            <span class="field-label">WHT % override <span class="optional">(optional)</span></span>
+            <input
+              class="field-control"
+              type="number"
+              [(ngModel)]="form.whtPctOverride"
+              name="whtPctOverride"
+              min="0" max="100" step="0.01"
+              placeholder="e.g. 5"
+            />
+            <small class="field-help">Withholding tax percentage. Leave blank to inherit the tenant default.</small>
+          </label>
+        </section>
+      </div>
+
+      <div class="form-sections form-sections--single">
+        <section class="form-section form-section--full">
+          <header class="section-head">
+            <span class="section-icon"><app-icon name="users" [size]="18"></app-icon></span>
+            <h3 class="section-title">Hierarchy</h3>
+          </header>
+
+          <label class="field">
+            <span class="field-label">Parent producer <span class="optional">(optional)</span></span>
+            @if (form.parentProducerId) {
+              <div class="selected-pill">
+                <div class="selected-info">
+                  <strong>{{ form.parentProducerLabel || form.parentProducerId }}</strong>
+                </div>
+                <button type="button" class="link-btn" (click)="clearParent()">Change</button>
+              </div>
+            } @else {
+              <div class="search-wrapper">
+                <input
+                  class="field-control"
+                  type="text"
+                  [(ngModel)]="parentSearchQuery"
+                  (input)="onParentSearchChange()"
+                  name="parentSearch"
+                  placeholder="Search by name or code..."
+                  autocomplete="off"
+                />
+                @if (parentMatches.length) {
+                  <ul class="suggestions">
+                    @for (p of parentMatches; track p.id) {
+                      <li class="suggestion" (mousedown)="pickParent(p)">
+                        <strong>{{ p.producerCode }}</strong> - {{ p.name }}
+                        <span class="muted">({{ p.homeCurrency }})</span>
+                      </li>
+                    }
+                  </ul>
+                }
+                @if (parentSearching) {
+                  <div class="search-hint">Searching...</div>
+                }
+              </div>
+            }
+            <small class="field-help">Sets this producer as a sub-broker of the parent. Reparenting is allowed; the audit trail records who changed it.</small>
+          </label>
+        </section>
+      </div>
+
+      <div class="form-sections form-sections--single">
+        <section class="form-section form-section--full">
+          <header class="section-head">
+            <span class="section-icon"><app-icon name="credit-card" [size]="18"></app-icon></span>
+            <h3 class="section-title">Banking</h3>
+          </header>
+
+          <label class="field">
+            <span class="field-label">Banking details <span class="optional">(JSON, optional)</span></span>
+            <textarea
+              class="field-control"
+              [(ngModel)]="form.bankingDetailsJson"
+              name="bankingDetailsJson"
+              rows="4"
+              placeholder='{"iban":"...","swift":"...","bankName":"..."}'
+            ></textarea>
+            <small class="field-help">Free-form JSON stored on the producer record. Used by the payout pipeline.</small>
+          </label>
+        </section>
+      </div>
+
+      @if (isEdit) {
+        <div class="form-sections form-sections--single">
+          <section class="form-section form-section--full">
+            <header class="section-head">
+              <span class="section-icon"><app-icon name="settings" [size]="18"></app-icon></span>
+              <h3 class="section-title">Status</h3>
+            </header>
+
+            <label class="field field--checkbox">
+              <label class="inline-check">
+                <input type="checkbox" [(ngModel)]="form.active" name="active" />
+                <span>Active</span>
+              </label>
+              <small class="field-help">Uncheck to deactivate this producer. Terminated producers stop receiving new assignments.</small>
+            </label>
+          </section>
+        </div>
+      }
+
+      <footer class="form-actions">
+        <a class="btn btn-default" routerLink="/tenant/admin/producers/list">Cancel</a>
+        <button type="submit" class="btn btn-primary" [disabled]="saving || loading || !isDirty">
+          {{ saving ? 'Saving...' : (isEdit ? 'Save changes' : 'Create producer') }}
+        </button>
+      </footer>
+    </form>
+  }
+</div>

@@ -150,7 +150,7 @@ public class CommissionAdjustmentService {
                             && !"APPROVED".equals(existing.getStatus())) {
                         return Mono.error(new IllegalStateException(
                                 "Cannot void a " + existing.getStatus()
-                                        + " adjustment — only DRAFT/APPROVED are voidable"));
+                                        + " adjustment - only DRAFT/APPROVED are voidable"));
                     }
                     Map<String, Object> before = snapshot(existing);
                     existing.setStatus("VOIDED");
@@ -226,7 +226,7 @@ public class CommissionAdjustmentService {
                     if (DbErrors.isUniqueViolation(err)) {
                         log.info("Adjustment reference UNIQUE race on {} — surfacing as 409", reference);
                         return Mono.error(new IllegalStateException(
-                                "Adjustment reference collision — retry"));
+                                "Adjustment reference collision - retry"));
                     }
                     return Mono.error(err);
                 })
@@ -242,7 +242,7 @@ public class CommissionAdjustmentService {
                 .flatMap(existing -> {
                     if (!expected.equals(existing.getStatus())) {
                         return Mono.error(new IllegalStateException(
-                                messagePrefix + " — was " + existing.getStatus()));
+                                messagePrefix + " - was " + existing.getStatus()));
                     }
                     return Mono.just(existing);
                 });

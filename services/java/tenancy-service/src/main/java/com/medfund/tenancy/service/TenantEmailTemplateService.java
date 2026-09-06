@@ -85,7 +85,7 @@ public class TenantEmailTemplateService {
                     "CLAIM_APPROVED", "Claim approved",
                     "Sent to the member when a claim has been approved.",
                     "Claim {{claim.number}} approved",
-                    "<p>Good news — claim {{claim.number}} has been approved for {{claim.approvedAmount}}.</p>",
+                    "<p>Good news - claim {{claim.number}} has been approved for {{claim.approvedAmount}}.</p>",
                     "Claim {{claim.number}} approved for {{claim.approvedAmount}}."),
             new EmailTemplateDescriptor(
                     "CLAIM_REJECTED", "Claim rejected",

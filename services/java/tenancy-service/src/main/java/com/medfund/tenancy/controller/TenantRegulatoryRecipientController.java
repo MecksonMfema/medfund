@@ -59,7 +59,7 @@ public class TenantRegulatoryRecipientController {
     @GetMapping("/active")
     @RequiresPermission({"tenant.settings:manage_regulatory_notifications",
                          "admin:manage_settings", "finance:view"})
-    @Operation(summary = "List active recipients — read path for the notification dispatcher",
+    @Operation(summary = "List active recipients - read path for the notification dispatcher",
             description = "The notification-service Go dispatcher pulls active rows and does "
                         + "the per-event-tier subscription filter Go-side so the filter logic "
                         + "stays close to the fan-out.")
@@ -72,7 +72,7 @@ public class TenantRegulatoryRecipientController {
     @RequiresPermission({"tenant.settings:manage_regulatory_notifications"})
     @Operation(summary = "Add a recipient",
             description = "Email is required; subscribedEventTiers defaults to all four tiers when null/empty. "
-                        + "Uniqueness is (tenant_id, email) — 409 on conflict.")
+                        + "Uniqueness is (tenant_id, email) - 409 on conflict.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Row added"),
             @ApiResponse(responseCode = "400", description = "Invalid payload"),
@@ -88,7 +88,7 @@ public class TenantRegulatoryRecipientController {
 
     @PutMapping("/{id}")
     @RequiresPermission({"tenant.settings:manage_regulatory_notifications"})
-    @Operation(summary = "Update recipient — email is immutable, delete + re-add to change it")
+    @Operation(summary = "Update recipient - email is immutable, delete + re-add to change it")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Row updated"),
             @ApiResponse(responseCode = "404", description = "Row not found for tenant")

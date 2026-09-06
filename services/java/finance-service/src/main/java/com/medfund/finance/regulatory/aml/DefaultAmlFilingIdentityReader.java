@@ -2,7 +2,6 @@ package com.medfund.finance.regulatory.aml;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -13,13 +12,13 @@ import java.util.UUID;
  * Default {@link AmlFilingIdentityReader}. Reads {@code tenants.name} from
  * {@code public.tenants} for the {@code reportingEntityName}, and returns
  * a placeholder {@code regulatorReference} until a curated per-tenant
- * regulator-id column ships. The bean is {@code @ConditionalOnMissingBean}
- * so per-tenant compliance overrides can supersede it without touching
- * this file.
+ * regulator-id column ships. A future per-tenant compliance override can
+ * supersede this by declaring itself {@code @Primary}.
+ * (@ConditionalOnMissingBean on a @Component self-excludes at scan time —
+ *  the guard has to live on a @Bean method in a @Configuration class.)
  */
 @Slf4j
 @Component
-@ConditionalOnMissingBean(AmlFilingIdentityReader.class)
 @RequiredArgsConstructor
 public class DefaultAmlFilingIdentityReader implements AmlFilingIdentityReader {
 

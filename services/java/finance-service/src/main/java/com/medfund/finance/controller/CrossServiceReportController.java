@@ -54,7 +54,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/reports")
 @RequiredArgsConstructor
 @Tag(name = "Cross-service reports",
-        description = "Loss-ratio (billing vs claims) and member-payments unified — composes "
+        description = "Loss-ratio (billing vs claims) and member-payments unified - composes "
                     + "billing + receipts + claims aggregates from contributions-service and "
                     + "claims-service. Peer downtime populates envelope warnings; the report "
                     + "still renders with partial data (G37).")
@@ -73,7 +73,7 @@ public class CrossServiceReportController {
     @GetMapping("/billing-vs-claims")
     @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
     @RequiresReport(ReportKey.LOSS_RATIO)
-    @Operation(summary = "Loss ratio — billed vs claimed/approved/paid per scheme and currency",
+    @Operation(summary = "Loss ratio - billed vs claimed/approved/paid per scheme and currency",
             description = "Composes the SCHEME-level billing aggregate from contributions-service with "
                         + "the claims funnel aggregate from claims-service. Peer downtime populates "
                         + "envelope warnings; the report still renders with partial data.")
@@ -139,7 +139,7 @@ public class CrossServiceReportController {
     @GetMapping("/member-payments")
     @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
     @RequiresReport(ReportKey.MEMBER_PAYMENTS_UNIFIED)
-    @Operation(summary = "Member payments — unified billed / received / claims-paid per member and currency",
+    @Operation(summary = "Member payments - unified billed / received / claims-paid per member and currency",
             description = "Composes the MEMBER-level monthly billing + receipts aggregates from "
                         + "contributions-service with the MEMBER-level monthly claims-paid aggregate from "
                         + "claims-service, summed across the reporting window. Peer downtime populates "

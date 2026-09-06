@@ -145,7 +145,7 @@ public final class ReportWorkbook implements AutoCloseable {
         public SheetWriter meta(String label, String value) {
             Row row = sheet.createRow(currentRow);
             cell(row, 0, label, styles.label);
-            cell(row, 1, value != null ? value : "—", styles.bold);
+            cell(row, 1, value != null ? value : "-", styles.bold);
             maxCol = Math.max(maxCol, 2);
             currentRow++;
             currentCol = 0;

@@ -22,7 +22,7 @@ public record UpdateUnitLinkedFundRequest(
         @Pattern(regexp = "EQUITY|FIXED_INCOME|MULTI_ASSET|MONEY_MARKET|REAL_ESTATE|OTHER")
         String baseAssetClass,
 
-        @Schema(description = "Active flag — inactive funds are hidden from new-policy pickers but retain history")
+        @Schema(description = "Active flag - inactive funds are hidden from new-policy pickers but retain history")
         @NotNull
         Boolean isActive
 ) {

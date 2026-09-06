@@ -26,7 +26,7 @@ import (
 //go:embed body.html
 var defaultBodyTemplate string
 
-const DefaultSubject = "Explanation of benefits — claim {{.ClaimNumber}}"
+const DefaultSubject = "Explanation of benefits - claim {{.ClaimNumber}}"
 
 func DefaultHTMLBody() string { return defaultBodyTemplate }
 

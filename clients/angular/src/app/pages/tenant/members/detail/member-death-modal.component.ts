@@ -45,7 +45,7 @@ export class MemberDeathModalComponent implements OnChanges {
 
   readonly causeOptions: SelectOption[] = [
     { value: '', label: 'Not specified' },
-    ...ICD10_CHAPTERS.map(c => ({ value: c.code, label: `${c.code} — ${c.label}` })),
+    ...ICD10_CHAPTERS.map(c => ({ value: c.code, label: `${c.code} - ${c.label}` })),
     { value: FREE_TEXT_SENTINEL, label: 'Free text (other)' },
   ];
 

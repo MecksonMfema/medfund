@@ -9,7 +9,7 @@
         <app-icon name="history" [size]="14"></app-icon>
         Balance history
       </button>
-      <h1>Member — {{ displayName }}</h1>
+      <h1>Member: {{ displayName }}</h1>
       @if (memberId) {
         <p class="page-sub"><code>{{ memberId }}</code></p>
       }
@@ -47,7 +47,7 @@
                 <td class="right">{{ b.totalApproved | currencyFormat:b.currencyCode }}</td>
                 <td class="right">{{ b.totalPaid | currencyFormat:b.currencyCode }}</td>
                 <td class="right strong">{{ b.outstandingBalance | currencyFormat:b.currencyCode }}</td>
-                <td class="muted">{{ b.lastUpdatedAt ? (b.lastUpdatedAt | date:'medium') : '—' }}</td>
+                <td class="muted">{{ b.lastUpdatedAt ? (b.lastUpdatedAt | date:'medium') : '-' }}</td>
               </tr>
             }
           </tbody>
@@ -154,7 +154,7 @@
                   <td><strong>{{ p.paymentNumber }}</strong></td>
                   <td><span class="status-badge status-{{ p.status }}">{{ p.status | humanize }}</span></td>
                   <td class="right">{{ p.amount | currencyFormat:p.currencyCode }}</td>
-                  <td class="muted">{{ p.paymentType ? (p.paymentType | humanize) : '—' }}</td>
+                  <td class="muted">{{ p.paymentType ? (p.paymentType | humanize) : '-' }}</td>
                   <td class="muted">{{ p.createdAt | date:'shortDate' }}</td>
                   <td class="right">
                     @if (p.status === 'pending') {
@@ -163,7 +163,7 @@
                         class="btn-inline-danger"
                         [disabled]="revokingId === p.id"
                         (click)="revoke(p)"
-                        title="Revoke — removes this payment from its run so the payee is picked up again on the next generation."
+                        title="Revoke: removes this payment from its run so the payee is picked up again on the next generation."
                       >
                         <app-icon name="x-circle" [size]="12"></app-icon>
                         {{ revokingId === p.id ? 'Revoking…' : 'Revoke' }}
@@ -203,7 +203,7 @@
                   <td class="muted">{{ n.direction | humanize }}</td>
                   <td class="muted">{{ n.noteType | humanize }}</td>
                   <td class="right">{{ n.amount | currencyFormat:n.currencyCode }}</td>
-                  <td class="muted">{{ n.reason || '—' }}</td>
+                  <td class="muted">{{ n.reason || '-' }}</td>
                   <td class="muted">{{ n.createdAt | date:'shortDate' }}</td>
                 </tr>
               }

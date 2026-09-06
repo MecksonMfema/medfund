@@ -73,7 +73,7 @@
                       @for (t of row.matches; track t.id) {
                         <li class="suggestion" (mousedown)="pickTariff(row, t)">
                           <code>{{ t.code }}</code>
-                          <span class="muted">— {{ t.description }}</span>
+                          <span class="muted">- {{ t.description }}</span>
                         </li>
                       }
                     }
@@ -148,7 +148,7 @@
       <header class="page-header">
         <div>
           <h2>Quote result</h2>
-          <p class="page-sub">Estimates only — a real claim adjudicates against live data at submission time.</p>
+          <p class="page-sub">Estimates only: a real claim adjudicates against live data at submission time.</p>
         </div>
         <span class="coverage-chip" [class.coverage-chip--active]="quote.coverage === 'ACTIVE'"
               [class.coverage-chip--warn]="quote.coverage === 'IN_ARREARS' || quote.coverage === 'SUSPENDED'"

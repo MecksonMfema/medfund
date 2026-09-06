@@ -63,7 +63,7 @@ interface PortfolioBucket {
 })
 export class InsuranceRevenueServiceResultComponent implements OnInit, OnDestroy {
   readonly reportKey = 'IFRS17_INSURANCE_REVENUE_SERVICE_RESULT';
-  readonly pageTitle = 'IFRS 17 — insurance revenue & service result';
+  readonly pageTitle = 'IFRS 17 - insurance revenue & service result';
   readonly pageSubtitle =
     'Revenue, service expenses, service result and finance expense ' +
     'by portfolio × cohort × currency.';

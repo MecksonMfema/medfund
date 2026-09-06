@@ -48,7 +48,7 @@ public class CrossServiceRenderHelper {
     public Mono<byte[]> render(ScheduledFireContext ctx, String baseUrl, String path, String callName) {
         if (tokenProvider.isEmpty()) {
             return Mono.error(new IllegalStateException(
-                    "M2MTokenProvider not configured — cannot call " + callName
+                    "M2MTokenProvider not configured - cannot call " + callName
                             + "; wire keycloak.m2m.client-id / client-secret"));
         }
         WebClient client = webClientBuilder.baseUrl(baseUrl).build();

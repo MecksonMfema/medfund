@@ -47,15 +47,15 @@ export class ReinsuranceReviewQueueComponent implements OnInit {
     { value: '', label: 'Open queue (OPEN + IN_PROGRESS)' },
     { value: 'OPEN', label: 'Open' },
     { value: 'IN_PROGRESS', label: 'In progress' },
-    { value: 'RESOLVED_VOID', label: 'Resolved — voided' },
-    { value: 'RESOLVED_KEEP', label: 'Resolved — kept' },
+    { value: 'RESOLVED_VOID', label: 'Resolved: voided' },
+    { value: 'RESOLVED_KEEP', label: 'Resolved: kept' },
     { value: 'DISMISSED', label: 'Dismissed' },
   ];
 
   readonly resolutionOptions: SelectOption[] = [
-    { value: 'RESOLVED_KEEP', label: 'Keep cession — the re-adjudication is acceptable' },
+    { value: 'RESOLVED_KEEP', label: 'Keep cession: the re-adjudication is acceptable' },
     { value: 'RESOLVED_VOID', label: 'Void cession + write off recovery' },
-    { value: 'DISMISSED', label: 'Dismiss — false positive' },
+    { value: 'DISMISSED', label: 'Dismiss: false positive' },
   ];
 
   constructor(private svc: ReinsuranceService) {}
@@ -134,8 +134,8 @@ export class ReinsuranceReviewQueueComponent implements OnInit {
     switch (status) {
       case 'OPEN':          return 'Open';
       case 'IN_PROGRESS':   return 'In progress';
-      case 'RESOLVED_VOID': return 'Resolved — voided';
-      case 'RESOLVED_KEEP': return 'Resolved — kept';
+      case 'RESOLVED_VOID': return 'Resolved: voided';
+      case 'RESOLVED_KEEP': return 'Resolved: kept';
       case 'DISMISSED':     return 'Dismissed';
       default:              return status;
     }

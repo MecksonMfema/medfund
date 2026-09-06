@@ -97,6 +97,6 @@ async def suggest_tariff(
             return TariffSuggestionResponse(suggestions=result["suggestions"], source="ai")
 
     return TariffSuggestionResponse(
-        suggestions=[{"note": "AI unavailable — manual tariff code lookup required"}],
+        suggestions=[{"note": "AI unavailable: manual tariff code lookup required"}],
         source="fallback",
     )

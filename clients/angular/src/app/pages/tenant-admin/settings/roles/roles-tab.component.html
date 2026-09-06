@@ -170,7 +170,7 @@
             [(ngModel)]="selectedCandidateId"
             name="selectedCandidateId"
             [options]="candidateUserOptions"
-            placeholder="— Select a staff user —"
+            placeholder="(Select a staff user)"
           ></app-select>
           <button class="btn btn-primary" (click)="addMember()"
             [disabled]="!selectedCandidateId || membersSaving">Add</button>

@@ -45,7 +45,7 @@ import java.util.concurrent.atomic.AtomicLong;
 @RestController
 @RequestMapping("/api/v1/platform")
 @RequiredArgsConstructor
-@Tag(name = "Platform Analytics", description = "Cross-tenant raw-row feeds for the super-admin analytics page — no tenant context")
+@Tag(name = "Platform Analytics", description = "Cross-tenant raw-row feeds for the super-admin analytics page - no tenant context")
 public class PlatformAnalyticsController {
 
     private static final String USD = "USD";

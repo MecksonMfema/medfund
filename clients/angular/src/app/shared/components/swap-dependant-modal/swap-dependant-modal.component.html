@@ -8,14 +8,14 @@
         <strong>{{ memberName || 'The current member' }}</strong>
         becomes a dependant under the new principal; sibling dependants re-parent
         automatically. Historical claims/contributions stay attached to the
-        original rows — reporting queries follow the redirect via
+        original rows: reporting queries follow the redirect via
         <code>swapped_to_id</code>.
       </p>
 
       <div class="field">
         <label>Dependant to promote</label>
         @if (eligible().length === 0) {
-          <div class="empty">No eligible dependants — swap requires an active or suspended dependant.</div>
+          <div class="empty">No eligible dependants: swap requires an active or suspended dependant.</div>
         } @else {
           <div class="dep-list" role="listbox">
             @for (d of eligible(); track d.id) {
@@ -45,7 +45,7 @@
         <input type="date" [(ngModel)]="effectiveDate" (blur)="onEffectiveDateChange()" />
         @if (isBackdated()) {
           <div class="hint hint--warn">
-            Back-dated — the swap applies immediately at submit time.
+            Back-dated: the swap applies immediately at submit time.
           </div>
         }
       </div>

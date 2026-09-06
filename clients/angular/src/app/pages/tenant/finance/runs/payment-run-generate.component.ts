@@ -44,7 +44,7 @@ export class PaymentRunGenerateComponent implements OnInit {
   ) {}
 
   get currencyOptions(): SelectOption[] {
-    return this.currencies.map(c => ({ value: c.code, label: `${c.code} — ${c.name}` }));
+    return this.currencies.map(c => ({ value: c.code, label: `${c.code} - ${c.name}` }));
   }
 
   get bankAccountOptions(): SelectOption[] {

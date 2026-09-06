@@ -1,6 +1,6 @@
 <header class="page-header">
   <div>
-    <h1>Endorsements — review queue</h1>
+    <h1>Endorsements: review queue</h1>
     <p class="page-sub">
       Draft endorsements awaiting approval and approved endorsements
       awaiting commit. Four-eyes invariant: an approver cannot approve
@@ -56,10 +56,10 @@
           <td>{{ row.effectiveFrom }}</td>
           <td class="num">
             @if (row.premiumDelta != null) { {{ row.premiumDelta }} }
-            @else { <span class="muted">—</span> }
+            @else { <span class="muted">-</span> }
           </td>
-          <td>{{ row.currencyCode || '—' }}</td>
-          <td>{{ row.draftActorEmail || '—' }}</td>
+          <td>{{ row.currencyCode || '-' }}</td>
+          <td>{{ row.draftActorEmail || '-' }}</td>
           <td>{{ row.draftAt | date:'yyyy-MM-dd HH:mm' }}</td>
           <td class="actions">
             @if (row.status === 'DRAFT') {
@@ -96,7 +96,7 @@
       <h3>Void endorsement</h3>
       <p class="modal-sub">
         Reason will be recorded on the audit trail. COMMITTED endorsements
-        cannot be voided — this is only available for DRAFT / APPROVED.
+        cannot be voided: this is only available for DRAFT / APPROVED.
       </p>
       <label>
         <span>Reason <em>(min 5 chars)</em></span>

@@ -245,7 +245,7 @@ public class ClaimAdjudicatedConsumer {
             String tenantId = TenantContext.get(ctx);
             String entityName = "Cost-share liability for member " + liability.getMemberId()
                     + " claim " + firstNonBlank(liability.getClaimNumber(), liability.getClaimId().toString())
-                    + " — " + liability.getTotalOwed().toPlainString() + " " + liability.getCurrencyCode();
+                    + " - " + liability.getTotalOwed().toPlainString() + " " + liability.getCurrencyCode();
             Map<String, Object> newValue = new LinkedHashMap<>();
             newValue.put("memberId", liability.getMemberId().toString());
             newValue.put("claimId", liability.getClaimId().toString());

@@ -31,7 +31,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/eligibility-quote")
 @Tag(name = "Eligibility Quote",
-        description = "Pre-service cost-share quote — POS eligibility inquiry.")
+        description = "Pre-service cost-share quote - POS eligibility inquiry.")
 @SecurityRequirement(name = "bearer-jwt")
 @RequiredArgsConstructor
 public class EligibilityQuoteController {

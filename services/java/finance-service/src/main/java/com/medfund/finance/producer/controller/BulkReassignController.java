@@ -33,7 +33,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/producers/{producerId}/reassign-bulk")
 @RequiredArgsConstructor
-@Tag(name = "Producers — Bulk reassign",
+@Tag(name = "Producers - Bulk reassign",
      description = "Move a batch of members from one producer to another in a single call.")
 @SecurityRequirement(name = "bearer-jwt")
 public class BulkReassignController {
@@ -43,11 +43,11 @@ public class BulkReassignController {
     @PostMapping
     @RequiresPermission(Permissions.PRODUCER_MANAGE)
     @Operation(summary = "Bulk-reassign members from the path producer to req.newProducerId",
-            description = "Each member row is its own transaction — a single row failing does not "
+            description = "Each member row is its own transaction - a single row failing does not "
                         + "fail the batch. Returns a per-row report of successes and failures.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Batch executed — see report.items for per-row outcome"),
-            @ApiResponse(responseCode = "400", description = "Validation error — missing newProducerId or empty memberIds")
+            @ApiResponse(responseCode = "200", description = "Batch executed - see report.items for per-row outcome"),
+            @ApiResponse(responseCode = "400", description = "Validation error - missing newProducerId or empty memberIds")
     })
     public Mono<BulkReassignReport> reassign(@PathVariable UUID producerId,
                                               @Valid @RequestBody BulkReassignRequest body,

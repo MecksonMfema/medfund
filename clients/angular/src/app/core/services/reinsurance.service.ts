@@ -60,6 +60,7 @@ export interface Treaty {
   aggregateLimit?: number | null;
   aggregateLimitCurrency?: string | null;
   expectedAnnualPremium?: number | null;
+  producerId?: string | null;
   producerRef?: string | null;
   activatedAt?: string | null;
   createdAt?: string;
@@ -75,6 +76,7 @@ export interface CreateTreatyPayload {
   aggregateLimit?: number | null;
   aggregateLimitCurrency?: string | null;
   expectedAnnualPremium?: number | null;
+  producerId?: string | null;
   producerRef?: string | null;
 }
 

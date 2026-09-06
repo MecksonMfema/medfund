@@ -30,7 +30,7 @@
           @for (t of filteredTenants(); track t.id) {
             <li class="suggestion" (mousedown)="pick(t)">
               <strong>{{ t.name }}</strong>
-              <span class="muted">— {{ t.slug }}</span>
+              <span class="muted">- {{ t.slug }}</span>
             </li>
           }
         }

@@ -73,7 +73,7 @@ public class IbnrLookupService {
                         String line = insuranceLineFilter != null ? insuranceLineFilter : "all lines";
                         warnings.add("IBNR run pending or older than " + WINDOW_DAYS
                                 + " days for (line=" + line + ", asOf=" + periodEnd
-                                + ") — displaying paid + Δreserve only");
+                                + ") - displaying paid + Δreserve only");
                     }
                 });
     }

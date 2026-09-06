@@ -50,8 +50,8 @@ export class NoteFormComponent implements OnInit {
   ) {}
 
   readonly directionOptions: SelectOption[] = [
-    { value: 'DEBIT', label: 'Debit — payee owes us' },
-    { value: 'CREDIT', label: 'Credit — we owe payee more' },
+    { value: 'DEBIT', label: 'Debit: payee owes us' },
+    { value: 'CREDIT', label: 'Credit: we owe payee more' },
   ];
 
   readonly noteTypeOptions: SelectOption[] = [
@@ -65,7 +65,7 @@ export class NoteFormComponent implements OnInit {
   ];
 
   get currencyOptions(): SelectOption[] {
-    return this.currencies.map(c => ({ value: c.code, label: `${c.code} — ${c.name}` }));
+    return this.currencies.map(c => ({ value: c.code, label: `${c.code} - ${c.name}` }));
   }
 
   get isMemo(): boolean {

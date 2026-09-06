@@ -101,7 +101,7 @@ public class RegulatoryParameterResolver {
                     }
                     return Mono.error(new RegulatoryParameterMissingException(
                             "No value for regulatory parameter '" + parameterKey
-                                    + "' — jurisdiction " + jurisdiction
+                                    + "' - jurisdiction " + jurisdiction
                                     + ", effective-date " + effectiveDate
                                     + ". Neither a tenant REGULATORY_PARAMETER rule fired nor a "
                                     + "bundled regulatory-defaults/" + jurisdiction + "/*.yaml key exists."));

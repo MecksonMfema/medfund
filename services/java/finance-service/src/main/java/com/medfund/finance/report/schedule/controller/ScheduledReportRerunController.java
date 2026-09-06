@@ -39,7 +39,7 @@ public class ScheduledReportRerunController {
     @PostMapping("/{jobId}/rerun")
     @Operation(summary = "Re-fire a previously scheduled run for the same period.",
             description = "Re-uses the source job's tenant/report/schedule/period; runs under the invoking human's actor. "
-                    + "Returns 200 with the source job row (the new fire is asynchronous — poll the schedule "
+                    + "Returns 200 with the source job row (the new fire is asynchronous - poll the schedule "
                     + "history endpoint for the fresh job).")
     @RequiresPermission({"tenant.settings:manage_report_schedules",
             "tenant.settings:tenant_admin"})

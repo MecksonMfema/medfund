@@ -71,7 +71,7 @@
 <div class="detail-sections">
   @for (currency of currencies; track currency) {
     <section class="detail-section">
-      <h2>Currency — {{ currency }}</h2>
+      <h2>Currency: {{ currency }}</h2>
       <table class="rate-table matrix-table">
         <thead>
           <tr>
@@ -116,7 +116,7 @@
 @if (drillOpen) {
   <section class="detail-section">
     <h2>
-      Ledger — {{ drillStatus }} · {{ drillBucket }}d · {{ drillCurrency }}
+      Ledger: {{ drillStatus }} · {{ drillBucket }}d · {{ drillCurrency }}
       <button type="button" class="btn btn-ghost" (click)="closeDrill()">Close</button>
     </h2>
     <app-data-table

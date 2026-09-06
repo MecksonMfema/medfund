@@ -3,10 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
-import { catchError, switchMap } from 'rxjs/operators';
+import { catchError } from 'rxjs/operators';
 import {
   CessionRuleLink,
-  CreateReinsurerPayload,
   CreateTreatyPayload,
   InsuranceLine,
   Reinsurer,
@@ -19,6 +18,9 @@ import {
   UpsertTreatyLayerPayload,
   UpsertTreatyParticipantPayload,
 } from '../../../core/services/reinsurance.service';
+import { Producer, ProducerService } from '../../../core/services/producer.service';
+import { IconComponent } from '../../../shared/components/icon/icon.component';
+import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
 
 const INSURANCE_LINES: InsuranceLine[] = [
   'HEALTH', 'LIFE', 'FUNERAL', 'GROUP', 'TRAVEL', 'DISABILITY', 'VEHICLE', 'PROPERTY',
@@ -26,10 +28,19 @@ const INSURANCE_LINES: InsuranceLine[] = [
 
 const TREATY_TYPES: TreatyType[] = ['QUOTA_SHARE', 'SURPLUS_SHARE', 'EXCESS_OF_LOSS', 'STOP_LOSS'];
 
+/**
+ * Treaty create + edit. Layout mirrors /tenant/billing/transactions/add:
+ * centered page container, page-header banner, form-card with section
+ * subgrid, .field / .field-control inputs, .form-actions footer.
+ *
+ * The /new route shows only the Details section (draft creation). The
+ * /:id route shows every section (participants, lines, layers, cession
+ * rules) plus the activation footer.
+ */
 @Component({
   selector: 'app-treaty-edit',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, IconComponent, SelectComponent],
   templateUrl: './treaty-edit.component.html',
   styleUrl: './treaty-edit.component.scss',
 })
@@ -37,6 +48,20 @@ export class TreatyEditComponent implements OnInit {
   readonly INSURANCE_LINES = INSURANCE_LINES;
   readonly TREATY_TYPES = TREATY_TYPES;
   readonly Math = Math;
+
+  readonly treatyTypeOptions: SelectOption[] = [
+    { value: 'QUOTA_SHARE',    label: 'Quota Share' },
+    { value: 'SURPLUS_SHARE',  label: 'Surplus Share' },
+    { value: 'EXCESS_OF_LOSS', label: 'Excess of Loss' },
+    { value: 'STOP_LOSS',      label: 'Stop Loss' },
+  ];
+
+  readonly shareRoleOptions: SelectOption[] = [
+    { value: 'LEADER',    label: 'Leader' },
+    { value: 'FOLLOWING', label: 'Following' },
+  ];
+
+  readonly insuranceLineOptions: SelectOption[] = INSURANCE_LINES.map(l => ({ value: l, label: l }));
 
   treatyId: string | null = null;
   treaty: Treaty | null = null;
@@ -59,15 +84,24 @@ export class TreatyEditComponent implements OnInit {
   cessionRules: CessionRuleLink[] = [];
   newRuleId = '';
 
-  // Reinsurer search-select — debounced typeahead per feedback_no_raw_id_inputs.
+  // Reinsurer search-select (debounced typeahead per feedback_no_raw_id_inputs).
   reinsurerSearchTerm = '';
   reinsurerMatches: Reinsurer[] = [];
   private reinsurerSearchTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Producer search-select — payload sends producer_id; producer_ref snapshots
+  // the display label so the free-text audit trail survives. Matches
+  // feedback_no_raw_id_inputs (no bare UUID typing).
+  producerSearchTerm = '';
+  producerMatches: Producer[] = [];
+  producerSearching = false;
+  private producerSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private svc: ReinsuranceService,
+    private producerSvc: ProducerService,
   ) {}
 
   get isNew(): boolean { return this.treatyId === null; }
@@ -81,9 +115,13 @@ export class TreatyEditComponent implements OnInit {
     return this.participants.reduce((sum, p) => sum + Number(p.sharePct), 0);
   }
 
+  get shareSumOk(): boolean {
+    return Math.abs(this.participantShareSum - 100) < 0.0001;
+  }
+
   get activationBlockers(): string[] {
     const blockers: string[] = [];
-    if (Math.abs(this.participantShareSum - 100) > 0.0001) {
+    if (!this.shareSumOk) {
       blockers.push(`Participants must sum to 100% (currently ${this.participantShareSum.toFixed(4)}%)`);
     }
     if (!this.applicableLines.length) blockers.push('At least one applicable insurance line');
@@ -116,8 +154,17 @@ export class TreatyEditComponent implements OnInit {
           aggregateLimit: result.treaty.aggregateLimit,
           aggregateLimitCurrency: result.treaty.aggregateLimitCurrency,
           expectedAnnualPremium: result.treaty.expectedAnnualPremium,
+          producerId: result.treaty.producerId ?? null,
           producerRef: result.treaty.producerRef,
         };
+        this.producerSearchTerm = result.treaty.producerRef ?? '';
+        // If the treaty carries a producerId, resolve its current name so
+        // the selected-pill shows the friendly label rather than the UUID.
+        if (result.treaty.producerId) {
+          this.producerSvc.getProducer(result.treaty.producerId).subscribe({
+            next: p => { this.producerSearchTerm = `${p.producerCode} - ${p.name}`; },
+          });
+        }
         this.layers = result.layers;
         this.participants = result.participants;
         this.applicableLines = result.applicableLines;
@@ -131,7 +178,6 @@ export class TreatyEditComponent implements OnInit {
     });
   }
 
-  // ── Header save ────────────────────────────────────────────────────────────
   saveHeader(): void {
     if (!this.header.treatyRef?.trim()) {
       this.errorMessage = 'Treaty reference is required';
@@ -163,7 +209,6 @@ export class TreatyEditComponent implements OnInit {
     });
   }
 
-  // ── Activate / void ────────────────────────────────────────────────────────
   activate(): void {
     if (!this.treatyId) return;
     if (this.activationBlockers.length) return;
@@ -195,7 +240,6 @@ export class TreatyEditComponent implements OnInit {
     });
   }
 
-  // ── Layers ─────────────────────────────────────────────────────────────────
   addLayer(): void {
     if (!this.treatyId) return;
     if (this.newLayer.layerLimit <= 0 || this.newLayer.rate < 0) {
@@ -217,14 +261,11 @@ export class TreatyEditComponent implements OnInit {
     });
   }
 
-  // ── Participants (with reinsurer search-select) ─────────────────────────────
   onReinsurerSearch(term: string): void {
     this.reinsurerSearchTerm = term;
     if (this.reinsurerSearchTimer) clearTimeout(this.reinsurerSearchTimer);
     if (!term || term.trim().length < 2) { this.reinsurerMatches = []; return; }
     this.reinsurerSearchTimer = setTimeout(() => {
-      // Backend list is name-sortable; simple client-side filter over the first page is enough
-      // for typical reinsurer counts (<200 per tenant). Search-select per feedback_no_raw_id_inputs.
       this.svc.listReinsurers(0, 200, true).subscribe({
         next: (page) => {
           const q = term.toLowerCase();
@@ -239,6 +280,45 @@ export class TreatyEditComponent implements OnInit {
     this.newParticipant.reinsurerId = r.id;
     this.reinsurerSearchTerm = r.name;
     this.reinsurerMatches = [];
+  }
+
+  clearReinsurer(): void {
+    this.newParticipant.reinsurerId = '';
+    this.reinsurerSearchTerm = '';
+    this.reinsurerMatches = [];
+  }
+
+  onProducerSearch(term: string): void {
+    this.producerSearchTerm = term;
+    // Typing invalidates any previously-picked id — the payload should
+    // only carry the id when the operator has confirmed a pick.
+    this.header.producerId = null;
+    this.header.producerRef = term.trim() || null;
+    if (this.producerSearchTimer) clearTimeout(this.producerSearchTimer);
+    if (!term || term.trim().length < 2) { this.producerMatches = []; return; }
+    this.producerSearching = true;
+    this.producerSearchTimer = setTimeout(() => {
+      this.producerSvc.searchProducers(term.trim(), 10).subscribe({
+        next: rows => { this.producerMatches = rows; this.producerSearching = false; },
+        error: () => { this.producerMatches = []; this.producerSearching = false; },
+      });
+    }, 250);
+  }
+
+  pickProducer(p: Producer): void {
+    this.header.producerId = p.id;
+    // Snapshot the friendly label into producer_ref so the audit trail
+    // still records the human-facing identifier at pick time.
+    this.header.producerRef = `${p.producerCode} - ${p.name}`;
+    this.producerSearchTerm = this.header.producerRef;
+    this.producerMatches = [];
+  }
+
+  clearProducer(): void {
+    this.header.producerId = null;
+    this.header.producerRef = null;
+    this.producerSearchTerm = '';
+    this.producerMatches = [];
   }
 
   addParticipant(): void {
@@ -272,7 +352,6 @@ export class TreatyEditComponent implements OnInit {
     });
   }
 
-  // ── Applicable lines ───────────────────────────────────────────────────────
   addLine(): void {
     if (!this.treatyId) return;
     if (this.applicableLines.some(l => l.insuranceLine === this.newLine)) return;
@@ -290,7 +369,6 @@ export class TreatyEditComponent implements OnInit {
     });
   }
 
-  // ── Cession rules ──────────────────────────────────────────────────────────
   addRule(): void {
     if (!this.treatyId || !this.newRuleId.trim()) return;
     this.svc.addCessionRule(this.treatyId, this.newRuleId.trim(), true).subscribe({
@@ -326,6 +404,7 @@ export class TreatyEditComponent implements OnInit {
       aggregateLimit: null,
       aggregateLimitCurrency: null,
       expectedAnnualPremium: null,
+      producerId: null,
       producerRef: null,
     };
   }

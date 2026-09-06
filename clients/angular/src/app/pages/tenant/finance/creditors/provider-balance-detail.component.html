@@ -34,7 +34,7 @@
           <dt>Total approved</dt><dd>{{ balance.totalApproved | currencyFormat:balance.currencyCode }}</dd>
           <dt>Total paid</dt><dd>{{ balance.totalPaid | currencyFormat:balance.currencyCode }}</dd>
           <dt>Outstanding</dt><dd class="strong">{{ balance.outstandingBalance | currencyFormat:balance.currencyCode }}</dd>
-          <dt>Last updated</dt><dd>{{ balance.lastUpdatedAt ? (balance.lastUpdatedAt | date:'medium') : '—' }}</dd>
+          <dt>Last updated</dt><dd>{{ balance.lastUpdatedAt ? (balance.lastUpdatedAt | date:'medium') : '-' }}</dd>
         </dl>
       } @else {
         <p class="empty-state">No balance row for this provider yet.</p>
@@ -71,7 +71,7 @@
                   <td><strong>{{ p.paymentNumber }}</strong></td>
                   <td><span class="status-badge status-{{ p.status }}">{{ p.status | humanize }}</span></td>
                   <td class="right">{{ p.amount | currencyFormat:p.currencyCode }}</td>
-                  <td class="muted">{{ p.paymentType ? (p.paymentType | humanize) : '—' }}</td>
+                  <td class="muted">{{ p.paymentType ? (p.paymentType | humanize) : '-' }}</td>
                   <td class="muted">{{ p.createdAt | date:'shortDate' }}</td>
                 </tr>
               }
@@ -106,7 +106,7 @@
                   <td class="muted">{{ n.direction | humanize }}</td>
                   <td class="muted">{{ n.noteType | humanize }}</td>
                   <td class="right">{{ n.amount | currencyFormat:n.currencyCode }}</td>
-                  <td class="muted">{{ n.reason || '—' }}</td>
+                  <td class="muted">{{ n.reason || '-' }}</td>
                   <td class="muted">{{ n.createdAt | date:'shortDate' }}</td>
                 </tr>
               }

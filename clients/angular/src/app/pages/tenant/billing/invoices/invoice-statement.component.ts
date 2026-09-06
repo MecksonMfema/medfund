@@ -155,9 +155,9 @@ export class InvoiceStatementComponent implements OnInit {
    *  row, dependant name (with parent context) on a dependant row. */
   personLabel(row: InvoiceContributionRow): string {
     if (row.personType === 'DEPENDANT') {
-      return row.dependantName || '—';
+      return row.dependantName || '-';
     }
-    return row.memberName || '—';
+    return row.memberName || '-';
   }
 
   /** Reference column — member_number on a member row, dependant rolls

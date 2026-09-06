@@ -35,7 +35,7 @@ router = APIRouter(prefix="/api/v1/actuarial", tags=["Actuarial"])
 async def list_tables(
     category: Literal["mortality", "morbidity"] | None = Query(
         None,
-        description="Optional category filter — mortality or morbidity.",
+        description="Optional category filter: mortality or morbidity.",
     ),
 ) -> list[BasisTableMetadata]:
     return list_basis_tables(category)

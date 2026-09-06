@@ -77,7 +77,7 @@ public class TenantMarketDataConfigController {
     @PutMapping("/{id}")
     @RequiresPermission({"tenant.settings:manage_ifrs17_config"})
     @Operation(summary = "Update a market-data enrolment",
-            description = "Only source and autoFetchEnabled are mutable — the (tenant, currency) "
+            description = "Only source and autoFetchEnabled are mutable - the (tenant, currency) "
                         + "tuple is immutable, a currency swap is add + delete.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Row updated"),

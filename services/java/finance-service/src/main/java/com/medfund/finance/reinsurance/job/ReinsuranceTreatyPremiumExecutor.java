@@ -122,7 +122,7 @@ public class ReinsuranceTreatyPremiumExecutor implements JobExecutor {
         return Mono.deferContextual(ctx -> {
             String tenantId = TenantContext.get(ctx);
             String entityName = "Inception premium cession on treaty " + treaty.getTreatyRef()
-                    + " — " + cession.getCededAmount().toPlainString()
+                    + " - " + cession.getCededAmount().toPlainString()
                     + " " + cession.getCurrencyCode();
             Map<String, Object> newValue = new LinkedHashMap<>();
             newValue.put("treatyId",         cession.getTreatyId().toString());

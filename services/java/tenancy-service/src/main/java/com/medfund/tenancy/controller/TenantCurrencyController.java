@@ -92,7 +92,7 @@ public class TenantCurrencyController {
 
     @DeleteMapping("/{configId}")
     @Operation(summary = "Remove a currency from a tenant",
-            description = "Cannot remove the default currency — promote another currency first.")
+            description = "Cannot remove the default currency - promote another currency first.")
     @ApiResponse(responseCode = "204", description = "Currency removed")
     public Mono<ResponseEntity<Void>> remove(@PathVariable UUID tenantId,
                                              @PathVariable UUID configId,

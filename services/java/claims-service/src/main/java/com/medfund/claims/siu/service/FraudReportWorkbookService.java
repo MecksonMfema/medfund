@@ -139,12 +139,12 @@ public class FraudReportWorkbookService {
                 .sheet("Summary")
                 .titleMerged("Fraud / SIU report", 4)
                 .meta("Period start", env.period() != null && env.period().periodStart() != null
-                        ? env.period().periodStart().toString() : "—")
+                        ? env.period().periodStart().toString() : "-")
                 .meta("Period end",   env.period() != null && env.period().periodEnd() != null
-                        ? env.period().periodEnd().toString() : "—")
+                        ? env.period().periodEnd().toString() : "-")
                 .meta("Reporting currency", currency)
                 .meta("Generated at", env.generatedAt() != null
-                        ? env.generatedAt().toString() : "—")
+                        ? env.generatedAt().toString() : "-")
                 .meta("Sensitive sheets", options.includeSensitiveSheets() ? "included" : "omitted")
                 .blankRow()
                 .header("Metric", "Value", "", "")

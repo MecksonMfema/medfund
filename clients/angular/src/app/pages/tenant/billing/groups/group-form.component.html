@@ -7,7 +7,7 @@
           <span class="reg-badge" title="Server-issued; can't be changed after creation.">{{ registrationNumber }}</span>
         }
       </h1>
-      <p class="page-sub">Employer or corporate group whose members participate in tenant schemes. Every group needs at least one statement route — a liaison user, a contact email, or both. Registration numbers are issued automatically per the tenant's configured shape.</p>
+      <p class="page-sub">Employer or corporate group whose members participate in tenant schemes. Every group needs at least one statement route: a liaison user, a contact email, or both. Registration numbers are issued automatically per the tenant's configured shape.</p>
     </div>
     <a class="btn btn-default" routerLink="/tenant/billing/groups">
       <app-icon name="arrow-left" [size]="14"></app-icon>
@@ -82,7 +82,7 @@
           <h3 class="section-title">Liaison</h3>
           <span class="section-hint">
             @if (!form.email?.trim()) {
-              <span class="req">*</span> Required — the group needs at least one statement route.
+              <span class="req">*</span> Required: the group needs at least one statement route.
             } @else {
               (optional if contact email is set)
             }
@@ -96,7 +96,7 @@
           [prefillSublabel]="liaisonSublabel"
           (selected)="onLiaisonSelected($event)">
         </app-liaison-picker>
-        <small class="field-help">A member, staff user, or standalone liaison contact who receives statements for this group. Members and staff are managed under Members / Staff Admin — this picker only searches. A brand-new standalone liaison can be created via the picker's add flow.</small>
+        <small class="field-help">A member, staff user, or standalone liaison contact who receives statements for this group. Members and staff are managed under Members / Staff Admin: this picker only searches. A brand-new standalone liaison can be created via the picker's add flow.</small>
       </section>
     </div>
 

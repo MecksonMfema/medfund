@@ -57,7 +57,7 @@
       ></app-stat-card>
       <app-stat-card
         label="Approved"
-        [value]="claim.approvedAmount ? (claim.approvedAmount | currencyFormat:claim.currencyCode) : '—'"
+        [value]="claim.approvedAmount ? (claim.approvedAmount | currencyFormat:claim.currencyCode) : '-'"
         icon="check-circle"
         color="green"
       ></app-stat-card>
@@ -106,7 +106,7 @@
                 {{ dependant.gender | humanize }}
               </span>
             } @else {
-              <span class="chip chip--warn">Gender unknown — verify</span>
+              <span class="chip chip--warn">Gender unknown: verify</span>
             }
             @if (dependant.dateOfBirth) {
               <span class="chip">
@@ -125,7 +125,7 @@
           }
           @if (schemeName) {
             <div class="identity-line muted">
-              {{ schemeName }} · {{ activeLine || '—' }} · {{ claim.currencyCode }}
+              {{ schemeName }} · {{ activeLine || '-' }} · {{ claim.currencyCode }}
             </div>
           }
         </div>
@@ -146,7 +146,7 @@
                 {{ member.gender | humanize }}
               </span>
             } @else {
-              <span class="chip chip--warn">Gender unknown — verify</span>
+              <span class="chip chip--warn">Gender unknown: verify</span>
             }
             @if (member.dateOfBirth) {
               <span class="chip">
@@ -175,7 +175,7 @@
           }
           @if (schemeName) {
             <div class="identity-line muted">
-              {{ schemeName }} · {{ activeLine || '—' }} · {{ claim.currencyCode }}
+              {{ schemeName }} · {{ activeLine || '-' }} · {{ claim.currencyCode }}
             </div>
           }
         </div>
@@ -332,7 +332,7 @@
               Reimburse to member
             </span>
           </div>
-          <p class="muted small">Payout goes to the sponsoring member — no provider is on the record.</p>
+          <p class="muted small">Payout goes to the sponsoring member: no provider is on the record.</p>
           @if (member) {
             <div class="identity-line">
               Reimbursement payee: <strong>{{ member.firstName }} {{ member.lastName }}</strong>
@@ -401,7 +401,7 @@
                   }
                 </td>
 
-                <td>{{ line.description || '—' }}</td>
+                <td>{{ line.description || '-' }}</td>
                 <td class="right">{{ line.quantity }}</td>
                 <td class="right">{{ line.unitPrice | currencyFormat:claim.currencyCode }}</td>
 
@@ -414,7 +414,7 @@
                            [name]="'mods-' + line.id"
                            placeholder="e.g. A1, M2" />
                   } @else {
-                    <span class="muted">{{ displayCodes(line.modifierCodes) || '—' }}</span>
+                    <span class="muted">{{ displayCodes(line.modifierCodes) || '-' }}</span>
                   }
                   @if (showOriginal(draftFor(line).modifierCodes, line.originalModifierCodes)) {
                     <span class="original-note">
@@ -436,7 +436,7 @@
                   } @else {
                     {{ draftFor(line).approvedAmount
                         ? (draftFor(line).approvedAmount | currencyFormat:claim.currencyCode)
-                        : '—' }}
+                        : '-' }}
                   }
                 </td>
 
@@ -462,7 +462,7 @@
                     @if (canEditLines && draftFor(line).status !== 'PENDING') {
                       <button type="button" class="chip-btn chip-btn--ghost"
                               (click)="clearLineDecision(line)"
-                              title="Clear decision — line stays pending">
+                              title="Clear decision: line stays pending">
                         Clear
                       </button>
                     }
@@ -496,7 +496,7 @@
           <div class="save-bar">
             <span class="muted">
               @if (hasPendingChanges()) {
-                Unsaved changes — click Save to apply.
+                Unsaved changes: click Save to apply.
               } @else {
                 No pending changes.
               }
@@ -521,7 +521,7 @@
             </div>
           }
         } @else {
-          <p class="hint muted">Read-only — you need the Adjudicate right to modify line decisions.</p>
+          <p class="hint muted">Read-only: you need the Adjudicate right to modify line decisions.</p>
         }
       </section>
     }
@@ -551,10 +551,10 @@
               <tr>
                 <td>{{ b.name }}</td>
                 <td>{{ b.benefitType | humanize }}</td>
-                <td class="right">{{ b.annualLimit ? (b.annualLimit | currencyFormat:b.currencyCode) : '—' }}</td>
-                <td class="right">{{ b.eventLimit ? (b.eventLimit | currencyFormat:b.currencyCode) : '—' }}</td>
-                <td class="right">{{ b.dailyLimit ? (b.dailyLimit | currencyFormat:b.currencyCode) : '—' }}</td>
-                <td class="right muted">{{ b.waitingPeriodDays ?? '—' }}</td>
+                <td class="right">{{ b.annualLimit ? (b.annualLimit | currencyFormat:b.currencyCode) : '-' }}</td>
+                <td class="right">{{ b.eventLimit ? (b.eventLimit | currencyFormat:b.currencyCode) : '-' }}</td>
+                <td class="right">{{ b.dailyLimit ? (b.dailyLimit | currencyFormat:b.currencyCode) : '-' }}</td>
+                <td class="right muted">{{ b.waitingPeriodDays ?? '-' }}</td>
                 <td class="muted">
                   @if (b.minAge !== null && b.minAge !== undefined) { age ≥ {{ b.minAge }} }
                   @if (b.maxAge !== null && b.maxAge !== undefined) { , ≤ {{ b.maxAge }} }
@@ -574,7 +574,7 @@
           <span class="section-icon section-icon--sm"><app-icon name="trending-up" [size]="16"></app-icon></span>
           <h3 class="section-title">{{ dependant ? 'Dependant' : 'Member' }} utilization</h3>
           <span class="muted">
-            policy year {{ (showAnnualCap ? annualCap!.policyYear : visibleUtilization[0]?.policyYear) || '—' }}
+            policy year {{ (showAnnualCap ? annualCap!.policyYear : visibleUtilization[0]?.policyYear) || '-' }}
           </span>
         </header>
         <!-- V062 scheme-level annual cap — sits above the per-benefit
@@ -709,7 +709,7 @@
           <h3 class="section-title">Balance tracking</h3>
         </header>
         <p class="muted small">
-          This scheme uses scheme-level limits only — no per-member benefit ledger. Adjudication runs
+          This scheme uses scheme-level limits only: no per-member benefit ledger. Adjudication runs
           against the scheme's aggregate rules; there is no running balance to display.
         </p>
       </section>
@@ -764,7 +764,7 @@
                 <td>{{ c.serviceDate }}</td>
                 <td><span class="status-badge status-{{ c.status.toLowerCase() }}">{{ c.status | humanize }}</span></td>
                 <td class="right">{{ c.claimedAmount | currencyFormat:c.currencyCode }}</td>
-                <td class="right">{{ c.approvedAmount ? (c.approvedAmount | currencyFormat:c.currencyCode) : '—' }}</td>
+                <td class="right">{{ c.approvedAmount ? (c.approvedAmount | currencyFormat:c.currencyCode) : '-' }}</td>
               </tr>
             }
           </tbody>

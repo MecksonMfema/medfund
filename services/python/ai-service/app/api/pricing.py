@@ -53,7 +53,7 @@ class ScoreRequest(BaseModel):
     tenant_id: str = Field(..., description="Tenant the policy belongs to")
     insurance_line: Optional[str] = Field(
         None,
-        description="HEALTH | MOTOR | PROPERTY | LIFE | FUNERAL | … — picks the line-specific scorer.",
+        description="HEALTH | MOTOR | PROPERTY | LIFE | FUNERAL | ... - picks the line-specific scorer.",
     )
     base_amount: float = Field(
         ..., gt=0, description="Scheme-default amount the multiplier will scale"
@@ -153,7 +153,7 @@ def score(req: ScoreRequest) -> ScoreResponse:
     return ScoreResponse(
         multiplier=1.0,
         adjusted_amount=round(req.base_amount, 4),
-        rationale=[f"No scorer registered for line {line!r} — baseline 1.0"],
+        rationale=[f"No scorer registered for line {line!r} - baseline 1.0"],
     )
 
 
@@ -247,7 +247,7 @@ def _score_health(req: ScoreRequest) -> ScoreResponse:
 
     multiplier = _clamp(multiplier, rationale)
     if not rationale:
-        rationale.append("No risk signals captured — baseline multiplier 1.0")
+        rationale.append("No risk signals captured: baseline multiplier 1.0")
 
     return ScoreResponse(
         multiplier=round(multiplier, 4),
@@ -298,7 +298,7 @@ def _score_motor(req: ScoreRequest) -> ScoreResponse:
 
     multiplier = _clamp(multiplier, rationale)
     if not rationale:
-        rationale.append("No motor risk signals captured — baseline multiplier 1.0")
+        rationale.append("No motor risk signals captured: baseline multiplier 1.0")
 
     return ScoreResponse(
         multiplier=round(multiplier, 4),
@@ -372,7 +372,7 @@ def _score_life(req: ScoreRequest) -> ScoreResponse:
 
     multiplier = _clamp(multiplier, rationale)
     if not rationale:
-        rationale.append("No life risk signals captured — baseline multiplier 1.0")
+        rationale.append("No life risk signals captured: baseline multiplier 1.0")
     return ScoreResponse(
         multiplier=round(multiplier, 4),
         adjusted_amount=round(req.base_amount * multiplier, 4),
@@ -444,7 +444,7 @@ def _score_property(req: ScoreRequest) -> ScoreResponse:
 
     multiplier = _clamp(multiplier, rationale)
     if not rationale:
-        rationale.append("No property risk signals captured — baseline multiplier 1.0")
+        rationale.append("No property risk signals captured: baseline multiplier 1.0")
     return ScoreResponse(
         multiplier=round(multiplier, 4),
         adjusted_amount=round(req.base_amount * multiplier, 4),
@@ -491,7 +491,7 @@ def _score_funeral(req: ScoreRequest) -> ScoreResponse:
 
     multiplier = _clamp(multiplier, rationale)
     if not rationale:
-        rationale.append("No funeral risk signals captured — baseline multiplier 1.0")
+        rationale.append("No funeral risk signals captured: baseline multiplier 1.0")
     return ScoreResponse(
         multiplier=round(multiplier, 4),
         adjusted_amount=round(req.base_amount * multiplier, 4),
@@ -561,7 +561,7 @@ def _score_travel(req: ScoreRequest) -> ScoreResponse:
 
     multiplier = _clamp(multiplier, rationale)
     if not rationale:
-        rationale.append("No travel risk signals captured — baseline multiplier 1.0")
+        rationale.append("No travel risk signals captured: baseline multiplier 1.0")
     return ScoreResponse(
         multiplier=round(multiplier, 4),
         adjusted_amount=round(req.base_amount * multiplier, 4),
@@ -616,7 +616,7 @@ def _score_disability(req: ScoreRequest) -> ScoreResponse:
             rationale.append(f"Waiting period {wait_days}d → ×0.85")
         elif wait_days <= 14:
             multiplier *= 1.30
-            rationale.append(f"Waiting period {wait_days}d → ×1.30 (short — more claims qualify)")
+            rationale.append(f"Waiting period {wait_days}d → ×1.30 (short: more claims qualify)")
 
     # Benefit period — longer expected payout window loads the price.
     benefit = (_attr(req, "benefit_period") or "").upper() or None
@@ -635,7 +635,7 @@ def _score_disability(req: ScoreRequest) -> ScoreResponse:
 
     multiplier = _clamp(multiplier, rationale)
     if not rationale:
-        rationale.append("No disability risk signals captured — baseline multiplier 1.0")
+        rationale.append("No disability risk signals captured: baseline multiplier 1.0")
     return ScoreResponse(
         multiplier=round(multiplier, 4),
         adjusted_amount=round(req.base_amount * multiplier, 4),

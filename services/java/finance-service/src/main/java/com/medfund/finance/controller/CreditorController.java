@@ -52,7 +52,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/creditors")
 @RequiredArgsConstructor
 @Tag(name = "Creditors",
-        description = "Unified list of parties the fund owes for approved claims — providers and members.")
+        description = "Unified list of parties the fund owes for approved claims - providers and members.")
 @SecurityRequirement(name = "bearer-jwt")
 public class CreditorController {
 
@@ -70,7 +70,7 @@ public class CreditorController {
             description = "Feeds /tenant/finance/creditors. subjectType=PROVIDER|MEMBER|BOTH; "
                     + "sortable keys: subjectName, subjectCode, totalClaimed, totalApproved, "
                     + "totalPaid, outstandingBalance, currencyCode, lastActivityAt. Wrapped "
-                    + "in ReportResponse<T> — envelope carries perCurrency ledger totals for "
+                    + "in ReportResponse<T> - envelope carries perCurrency ledger totals for "
                     + "the filtered set, plus best-effort FX rates to the reporting currency "
                     + "(reportingCurrency= override, or tenant default).")
     @ApiResponse(responseCode = "200", description = "Envelope wrapping the page of creditor rows")
@@ -97,7 +97,7 @@ public class CreditorController {
     @RequiresPermission(Permissions.FINANCE_VIEW_CREDITORS)
     @RequiresReport(ReportKey.CREDITOR_PROVIDER_DETAIL)
     @Operation(summary = "Provider creditor detail",
-            description = "Delegates to ProviderBalanceService.findByProviderId — same shape as the "
+            description = "Delegates to ProviderBalanceService.findByProviderId - same shape as the "
                     + "pre-Phase-4 GET /provider-balances/provider/{id}.")
     public Mono<ProviderBalanceResponse> providerDetail(@PathVariable UUID providerId) {
         return service.providerDetail(providerId);

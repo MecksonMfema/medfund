@@ -511,7 +511,7 @@ public class ReceiptsReportQueryRepository {
         String memberNumber = row.get("member_number", String.class);
         String name = nullSafe(row.get("dimension_name", String.class));
         String display = memberNumber != null && !memberNumber.isBlank()
-                ? memberNumber + " — " + name
+                ? memberNumber + " - " + name
                 : name;
         return new ReceiptsSummaryRow(
                 row.get("dimension_id", UUID.class),

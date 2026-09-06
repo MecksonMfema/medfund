@@ -139,7 +139,7 @@ export class ReinsurersListComponent implements OnInit {
   }
 
   deactivate(row: Reinsurer): void {
-    if (!confirm(`Deactivate ${row.name}? Treaties already referencing them keep working — no new placements.`)) return;
+    if (!confirm(`Deactivate ${row.name}? Treaties already referencing them keep working: no new placements.`)) return;
     const payload: UpdateReinsurerPayload = {
       name: row.name,
       contactEmail: row.contactEmail,

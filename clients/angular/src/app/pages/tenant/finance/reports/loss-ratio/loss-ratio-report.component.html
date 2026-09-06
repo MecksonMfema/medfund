@@ -2,7 +2,7 @@
   <div>
     <h1>Loss ratio</h1>
     <p class="page-sub">
-      Billing vs claims per scheme and currency — total claimed, approved and paid
+      Billing vs claims per scheme and currency: total claimed, approved and paid
       against what was billed. Never cross-currency conversion in the ratio itself.
     </p>
   </div>
@@ -76,7 +76,7 @@
           <td class="num">{{ row.totalClaimed | number:'1.2-2' }}</td>
           <td class="num">{{ row.totalApproved | number:'1.2-2' }}</td>
           <td class="num">{{ row.totalPaid | number:'1.2-2' }}</td>
-          <td class="num">{{ row.paidRatioPct !== null ? (row.paidRatioPct | number:'1.2-2') + '%' : '—' }}</td>
+          <td class="num">{{ row.paidRatioPct !== null ? (row.paidRatioPct | number:'1.2-2') + '%' : '-' }}</td>
           <td class="num">{{ row.billedMinusPaid | number:'1.2-2' }}</td>
         </tr>
       }

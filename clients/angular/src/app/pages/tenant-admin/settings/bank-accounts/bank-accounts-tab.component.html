@@ -10,7 +10,7 @@
     <header class="section-header">
       <div>
         <h3 class="section-title">Configured bank accounts</h3>
-        <p class="section-sub">Add or update the accounts this tenant uses for outbound payment runs and inbound receipt matching. One account per currency can be marked nominated — payment runs default to debiting the nominated account.</p>
+        <p class="section-sub">Add or update the accounts this tenant uses for outbound payment runs and inbound receipt matching. One account per currency can be marked nominated: payment runs default to debiting the nominated account.</p>
       </div>
       <div class="section-actions">
         <button type="button" class="btn btn-default" (click)="refresh()" [disabled]="loading">
@@ -31,7 +31,7 @@
         <div class="grid">
           <label class="field">
             <span class="field-label">Label *</span>
-            <input type="text" [(ngModel)]="form.label" name="label" required maxlength="120" placeholder="e.g. Standard Chartered — Ops USD" />
+            <input type="text" [(ngModel)]="form.label" name="label" required maxlength="120" placeholder="e.g. Standard Chartered: Ops USD" />
           </label>
           <label class="field">
             <span class="field-label">Currency *</span>
@@ -68,7 +68,7 @@
         <label class="field">
           <span class="field-label">Notes</span>
           <textarea [(ngModel)]="form.notes" name="notes" rows="3" maxlength="4000"
-                    placeholder="Optional internal notes — e.g. which office manages this account."></textarea>
+                    placeholder="Optional internal notes: e.g. which office manages this account."></textarea>
         </label>
 
         <div class="checkboxes">
@@ -121,7 +121,7 @@
                 @if (row.nominated) {
                   <span class="badge ok">Nominated</span>
                 } @else {
-                  <span class="muted">—</span>
+                  <span class="muted">-</span>
                 }
               </td>
               <td>

@@ -53,7 +53,7 @@ public class ClaimReserveController {
     @RequiresPermission(Permissions.CLAIMS_SET_RESERVE)
     @Operation(summary = "Set or update the case reserve for a claim",
             description = "Appends a fresh row to claim_reserve_history capturing the current "
-                    + "case-reserve estimate. Rows are append-only in intent — the incurred "
+                    + "case-reserve estimate. Rows are append-only in intent - the incurred "
                     + "triangle reconstructs the reserve as-of a past date by picking the "
                     + "latest row before that date. reasonNote is mandatory (≥5 chars) so the "
                     + "actuary can audit the estimate later.")

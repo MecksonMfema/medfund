@@ -49,7 +49,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/notes")
 @RequiredArgsConstructor
-@Tag(name = "Notes", description = "Finance-side debit / credit / memo notes — creation, approval, application, reversal")
+@Tag(name = "Notes", description = "Finance-side debit / credit / memo notes - creation, approval, application, reversal")
 @SecurityRequirement(name = "bearer-jwt")
 public class NoteController {
 
@@ -80,7 +80,7 @@ public class NoteController {
 
     @GetMapping("/status/{status}")
     @RequiresReport(ReportKey.NOTES)
-    @Operation(summary = "List notes by status (unpaginated — prefer /page)")
+    @Operation(summary = "List notes by status (unpaginated - prefer /page)")
     public Flux<NoteResponse> findByStatus(@PathVariable String status) {
         return noteService.findByStatus(status).map(NoteResponse::from);
     }
@@ -91,7 +91,7 @@ public class NoteController {
         description = "Feeds /tenant/finance/debit-notes, /credit-notes, /notes, "
                 + "and /claims/tax-withheld (which pins noteType=TAX_WITHHELD). "
                 + "Rows carry member + provider names joined server-side so the "
-                + "tables render inline. Wrapped in ReportResponse<T> — envelope "
+                + "tables render inline. Wrapped in ReportResponse<T> - envelope "
                 + "carries perCurrency ledger totals for the filtered set plus "
                 + "best-effort FX rates to reportingCurrency.")
     @ApiResponse(responseCode = "200", description = "Envelope wrapping the page of notes")
@@ -225,7 +225,7 @@ public class NoteController {
                 + "and flips the original to status=reversed. The REVERSAL row "
                 + "renders on the current-period advice as an opposite-direction "
                 + "line; the historic advice carrying the original stays unchanged. "
-                + "Only applied notes can be reversed — pending/approved go through DELETE.")
+                + "Only applied notes can be reversed - pending/approved go through DELETE.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Note reversed (returns the REVERSAL row)"),
         @ApiResponse(responseCode = "409", description = "Note is not in status=applied"),
@@ -242,7 +242,7 @@ public class NoteController {
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Delete a pending or approved note",
-        description = "Applied notes cannot be deleted — reverse them via /reverse instead.")
+        description = "Applied notes cannot be deleted - reverse them via /reverse instead.")
     @ApiResponses({
         @ApiResponse(responseCode = "204", description = "Note deleted"),
         @ApiResponse(responseCode = "409", description = "Note is applied or reversed"),

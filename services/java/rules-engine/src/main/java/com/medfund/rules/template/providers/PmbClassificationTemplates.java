@@ -46,7 +46,7 @@ public class PmbClassificationTemplates implements TemplateProvider {
                        + "given code. Change the diagnosis code + PMB condition code "
                        + "for your target CMS PMB entry. The condition filters on "
                        + "diagnosisCode alone so the rule fires regardless of the "
-                       + "procedure — right for most PMB conditions.",
+                       + "procedure - right for most PMB conditions.",
                  RuleCategory.PMB_CLASSIFICATION, 100,
                  all(cond("pmbClassification.diagnosisCode", "EQUALS", "A15.0")),
                  setPmbClassification("PMB_CONDITION_CODE:PMB-001",
@@ -54,12 +54,12 @@ public class PmbClassificationTemplates implements TemplateProvider {
 
             rule("PMB2 - Match by ICD and procedure code",
                  "Classify a claim as PMB only when BOTH the ICD-10 diagnosis and "
-                       + "the tariff / procedure code match — the CMS uses this shape "
+                       + "the tariff / procedure code match - the CMS uses this shape "
                        + "for the small set of PMBs that only qualify in a specific "
                        + "care setting (e.g. dialysis in-centre). Change both codes "
                        + "and the PMB condition code for your target entry. "
                        + "NOTE: procedure codes must be non-numeric-looking (e.g. "
-                       + "prefix with a letter) — the DRL compiler emits pure-numeric "
+                       + "prefix with a letter) - the DRL compiler emits pure-numeric "
                        + "strings as integer literals which won't match a String field.",
                  RuleCategory.PMB_CLASSIFICATION, 100,
                  all(cond("pmbClassification.diagnosisCode", "EQUALS", "N18.6"),

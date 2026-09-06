@@ -38,7 +38,7 @@ public class PaymentController {
 
     @GetMapping
     @RequiresPermission({Permissions.FINANCE_VIEW_CREDITORS, Permissions.FINANCE_MANAGE_PAYMENTS})
-    @Operation(summary = "List all payments (unpaginated — prefer /page)")
+    @Operation(summary = "List all payments (unpaginated - prefer /page)")
     public Flux<PaymentResponse> findAll() {
         return paymentService.findAll().map(PaymentResponse::from);
     }
@@ -127,7 +127,7 @@ public class PaymentController {
     @PostMapping("/{id}/cancel")
     @RequiresPermission(Permissions.FINANCE_MANAGE_PAYMENTS)
     @Operation(summary = "Cancel an unpaid payment",
-        description = "Paid payments cannot be cancelled — post a reversing adjustment instead.")
+        description = "Paid payments cannot be cancelled - post a reversing adjustment instead.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Payment cancelled"),
         @ApiResponse(responseCode = "400", description = "Cannot cancel a paid payment"),

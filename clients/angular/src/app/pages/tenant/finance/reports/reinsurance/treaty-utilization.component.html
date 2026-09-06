@@ -4,7 +4,7 @@
     <p class="page-sub">
       Since-inception ceded totals per layer and per ceded currency.
       Utilization % renders when the layer/aggregate limit is set and denominated
-      in the same currency as the ceded amount — otherwise "n/a" to avoid an
+      in the same currency as the ceded amount: otherwise "n/a" to avoid an
       implicit cross-currency compare.
     </p>
   </div>
@@ -108,13 +108,13 @@
         <tr>
           <td>{{ row.treatyRef }}</td>
           <td>{{ row.treatyType }}</td>
-          <td>{{ row.layerOrder !== null ? ('Layer ' + row.layerOrder) : '—' }}</td>
-          <td class="num">{{ row.retention !== null ? (row.retention | number:'1.2-2') : '—' }}</td>
-          <td class="num">{{ row.layerLimit !== null ? (row.layerLimit | number:'1.2-2') : '—' }}</td>
-          <td>{{ row.layerCurrency || '—' }}</td>
-          <td class="num">{{ row.aggregateLimit !== null ? (row.aggregateLimit | number:'1.2-2') : '—' }}</td>
-          <td>{{ row.aggregateLimitCurrency || '—' }}</td>
-          <td>{{ row.cededCurrency || '—' }}</td>
+          <td>{{ row.layerOrder !== null ? ('Layer ' + row.layerOrder) : '-' }}</td>
+          <td class="num">{{ row.retention !== null ? (row.retention | number:'1.2-2') : '-' }}</td>
+          <td class="num">{{ row.layerLimit !== null ? (row.layerLimit | number:'1.2-2') : '-' }}</td>
+          <td>{{ row.layerCurrency || '-' }}</td>
+          <td class="num">{{ row.aggregateLimit !== null ? (row.aggregateLimit | number:'1.2-2') : '-' }}</td>
+          <td>{{ row.aggregateLimitCurrency || '-' }}</td>
+          <td>{{ row.cededCurrency || '-' }}</td>
           <td class="num">{{ row.totalCededNative | number:'1.2-2' }}</td>
           <td class="num">{{ row.cessionCount }}</td>
           <td class="num">

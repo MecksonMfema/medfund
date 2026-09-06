@@ -44,7 +44,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/premium/earning-schedule")
 @RequiredArgsConstructor
 @Tag(name = "Earning schedule",
-        description = "Phase 12 §A projection: per-policy-per-period earning strip. Admin operations only — the strip itself is written by the PolicyIssuedConsumer + BillingContributionEarningHook + PremiumEarningExecutor pipeline.")
+        description = "Phase 12 §A projection: per-policy-per-period earning strip. Admin operations only - the strip itself is written by the PolicyIssuedConsumer + BillingContributionEarningHook + PremiumEarningExecutor pipeline.")
 @SecurityRequirement(name = "bearer-jwt")
 public class EarningScheduleController {
 
@@ -118,7 +118,7 @@ public class EarningScheduleController {
     @GetMapping
     @RequiresPermission(Permissions.PREMIUM_EARNING_VIEW_DEBUG)
     @Operation(summary = "List raw earning_schedule rows for a policy (dev-only)",
-            description = "Diagnostic endpoint — production tenant admin roles do not carry premium.earning:view_debug.")
+            description = "Diagnostic endpoint - production tenant admin roles do not carry premium.earning:view_debug.")
     public Flux<EarningSchedule> list(
             @RequestParam UUID policyId,
             @RequestParam String policySource) {

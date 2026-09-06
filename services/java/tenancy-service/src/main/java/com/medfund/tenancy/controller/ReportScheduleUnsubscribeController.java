@@ -30,7 +30,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/report-schedule-recipients/unsubscribe")
 @RequiredArgsConstructor
 @Tag(name = "Report Schedule Unsubscribe",
-     description = "Public unsubscribe path — no JWT required, token-gated.")
+     description = "Public unsubscribe path - no JWT required, token-gated.")
 public class ReportScheduleUnsubscribeController {
 
     private final TenantReportScheduleRecipientService service;

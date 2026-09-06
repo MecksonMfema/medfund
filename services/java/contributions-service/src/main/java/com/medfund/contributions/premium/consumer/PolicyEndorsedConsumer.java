@@ -72,7 +72,7 @@ public class PolicyEndorsedConsumer {
             if (payload.endorsementId() == null || payload.policyId() == null
                     || payload.policySource() == null || payload.effectiveFrom() == null) {
                 log.error("policy-endorsed payload missing required fields (endorsementId/policyId/"
-                                + "policySource/effectiveFrom) — dropping. reference={}",
+                                + "policySource/effectiveFrom) - dropping. reference={}",
                         payload.reference());
                 return Mono.empty();
             }

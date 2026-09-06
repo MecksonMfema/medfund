@@ -11,7 +11,7 @@
       <div>
         <h3 class="section-title">Notifications</h3>
         <p class="section-sub">
-          Recipient list for IFRS 17 material events — onerous transitions,
+          Recipient list for IFRS 17 material events: onerous transitions,
           CSM negatives, locked-in curve fallbacks, stale IBNR sub-jobs and
           auto-derived opening balances. Each row pairs one event type with
           one recipient (email address or webhook URL) and a per-tuple
@@ -82,7 +82,7 @@
                   {{ row.isActive ? 'Yes' : 'No' }}
                 }
               </td>
-              <td>{{ row.updatedByEmail || '—' }}</td>
+              <td>{{ row.updatedByEmail || '-' }}</td>
               <td class="row-actions">
                 @if (row.editing) {
                   <button type="button" class="link-btn" (click)="saveEdit(row)" [disabled]="pendingId === row.id">

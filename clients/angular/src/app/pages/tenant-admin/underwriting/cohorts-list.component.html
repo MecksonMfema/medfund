@@ -62,7 +62,7 @@
     <label class="field span-2">
       <span class="field-label">Name *</span>
       <input type="text" [(ngModel)]="draft.name" name="name" required maxlength="200"
-             placeholder="e.g. General Motor 2026 — Non-onerous" />
+             placeholder="e.g. General Motor 2026: Non-onerous" />
     </label>
     <div class="form-actions span-2">
       <button type="button" class="btn btn-default" (click)="cancel()">Cancel</button>
@@ -119,14 +119,14 @@
   <div class="modal-backdrop" (click)="closeLossComponent()">
     <div class="modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <header class="modal-header">
-        <h2>Loss component — {{ lossCohort?.name }}</h2>
+        <h2>Loss component: {{ lossCohort?.name }}</h2>
         <button class="btn btn-sm btn-default" (click)="closeLossComponent()">Close</button>
       </header>
       <div class="modal-body">
         <p class="page-sub">
           IFRS 17 loss-component journal. INITIAL_RECOGNITION adds; RELEASE / REVERSAL /
           RECLASSIFICATION_TO_NON_ONEROUS subtract. Balance below reads the
-          <code>cohort_loss_component_current</code> matview — refreshed at the end of each report run.
+          <code>cohort_loss_component_current</code> matview: refreshed at the end of each report run.
         </p>
 
         <div class="balance-strip" style="display: flex; gap: 12px; align-items: center; margin: 8px 0 16px;">
@@ -175,7 +175,7 @@
             <label class="field span-2">
               <span class="field-label">Note</span>
               <textarea [(ngModel)]="lossDraft.reasonNote" name="lossNote" maxlength="2000"
-                        rows="2" placeholder="Optional — captured on the audit event"></textarea>
+                        rows="2" placeholder="Optional: captured on the audit event"></textarea>
             </label>
             <div class="form-actions span-2">
               <button type="button" class="btn btn-default" (click)="cancelRecordMovement()">Cancel</button>
@@ -217,8 +217,8 @@
                       {{ m.sourceRunId ? 'AUTO' : 'MANUAL' }}
                     </span>
                   </td>
-                  <td>{{ m.actorEmail || '—' }}</td>
-                  <td>{{ m.reasonNote || '—' }}</td>
+                  <td>{{ m.actorEmail || '-' }}</td>
+                  <td>{{ m.reasonNote || '-' }}</td>
                 </tr>
               }
             </tbody>
@@ -233,7 +233,7 @@
   <div class="modal-backdrop" (click)="closeHistory()">
     <div class="modal" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
       <header class="modal-header">
-        <h2>Status history — {{ historyCohort?.name }}</h2>
+        <h2>Status history: {{ historyCohort?.name }}</h2>
         <button class="btn btn-sm btn-default" (click)="closeHistory()">Close</button>
       </header>
       <div class="modal-body">
@@ -243,7 +243,7 @@
         @if (historyLoading) {
           <p>Loading history…</p>
         } @else if (historyRows.length === 0) {
-          <p class="empty-state">No transitions recorded yet — this cohort's type has not been changed.</p>
+          <p class="empty-state">No transitions recorded yet: this cohort's type has not been changed.</p>
         } @else {
           <table class="data-table">
             <thead>
@@ -271,8 +271,8 @@
                     </span>
                   </td>
                   <td>{{ h.transitionReason }}</td>
-                  <td>{{ h.actorEmail || '—' }}</td>
-                  <td>{{ h.reasonNote || '—' }}</td>
+                  <td>{{ h.actorEmail || '-' }}</td>
+                  <td>{{ h.reasonNote || '-' }}</td>
                 </tr>
               }
             </tbody>

@@ -19,7 +19,7 @@ export const IFRS17_REPORT_ROUTES: Routes = [
     loadComponent: () =>
       import('./lrc-lic-reconciliation.component').then(m => m.LrcLicReconciliationComponent),
     data: {
-      title: 'IFRS 17 — LRC / LIC reconciliation',
+      title: 'IFRS 17 - LRC / LIC reconciliation',
       sidebar: 'operational',
       fullbleed: true,
       reportKey: 'IFRS17_LRC_LIC_RECONCILIATION',
@@ -32,7 +32,7 @@ export const IFRS17_REPORT_ROUTES: Routes = [
       import('./insurance-revenue-service-result.component')
         .then(m => m.InsuranceRevenueServiceResultComponent),
     data: {
-      title: 'IFRS 17 — insurance revenue & service result',
+      title: 'IFRS 17 - insurance revenue & service result',
       sidebar: 'operational',
       fullbleed: true,
       reportKey: 'IFRS17_INSURANCE_REVENUE_SERVICE_RESULT',

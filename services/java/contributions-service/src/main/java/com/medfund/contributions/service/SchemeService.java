@@ -339,7 +339,7 @@ public class SchemeService {
                     return Mono.<SchemeBenefit>error(new ResponseStatusException(
                         HttpStatus.UNPROCESSABLE_ENTITY,
                         "Scheme benefits do not apply to " + scheme.getInsuranceLine()
-                            + " schemes — they are asset-centric and have no member-level benefit limits."));
+                            + " schemes - they are asset-centric and have no member-level benefit limits."));
                 }
                 String resolvedCurrency = resolveChildCurrency(scheme, request.currencyCode());
 
@@ -486,7 +486,7 @@ public class SchemeService {
                     return Mono.<AgeGroup>error(new ResponseStatusException(
                         HttpStatus.UNPROCESSABLE_ENTITY,
                         "Age groups do not apply to " + scheme.getInsuranceLine()
-                            + " schemes — they are asset-centric and have no member-age dimension."));
+                            + " schemes - they are asset-centric and have no member-age dimension."));
                 }
                 String resolvedCurrency = resolveChildCurrency(scheme, request.currencyCode());
 

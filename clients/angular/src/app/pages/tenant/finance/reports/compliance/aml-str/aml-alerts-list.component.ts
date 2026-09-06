@@ -52,8 +52,8 @@ export class AmlAlertsListComponent implements OnInit {
     { value: '', label: 'Active work (RAISED + REVIEWED)' },
     { value: 'RAISED', label: 'RAISED only' },
     { value: 'REVIEWED', label: 'REVIEWED only' },
-    { value: 'FILED', label: 'FILED (terminal — regulator submitted)' },
-    { value: 'CLOSED', label: 'CLOSED (terminal — not reportable)' },
+    { value: 'FILED', label: 'FILED (terminal: regulator submitted)' },
+    { value: 'CLOSED', label: 'CLOSED (terminal: not reportable)' },
   ];
 
   statusFilter = '';

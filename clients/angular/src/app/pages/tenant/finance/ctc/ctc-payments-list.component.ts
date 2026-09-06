@@ -155,7 +155,7 @@ export class CtcPaymentsListComponent implements OnInit {
     this.finance.commitCtcPayment(row.id).subscribe({
       next: () => {
         this.busyId = null;
-        this.banner = { kind: 'success', text: 'CTC committed — CTC_OFFSET transaction posted' };
+        this.banner = { kind: 'success', text: 'CTC committed: CTC_OFFSET transaction posted' };
         this.fetchPage();
       },
       error: (err) => {
@@ -182,7 +182,7 @@ export class CtcPaymentsListComponent implements OnInit {
     this.finance.reverseCtcPayment(row.id, { reason: reason.trim() }).subscribe({
       next: () => {
         this.busyId = null;
-        this.banner = { kind: 'success', text: 'CTC reversed — compensating row posted' };
+        this.banner = { kind: 'success', text: 'CTC reversed: compensating row posted' };
         this.fetchPage();
       },
       error: (err) => {

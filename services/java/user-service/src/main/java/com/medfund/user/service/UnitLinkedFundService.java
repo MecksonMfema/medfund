@@ -106,7 +106,7 @@ public class UnitLinkedFundService {
             return repository.deleteById(id)
                     .onErrorMap(DataIntegrityViolationException.class, ex -> new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Fund " + id + " is referenced by NAV history, ledger rows, or fee schedules — deactivate instead"))
+                            "Fund " + id + " is referenced by NAV history, ledger rows, or fee schedules - deactivate instead"))
                     .then(publishAudit(existing, "DELETE", oldValue, actorId, actorEmail));
         });
     }

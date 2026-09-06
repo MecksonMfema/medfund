@@ -63,13 +63,13 @@ const MEMBERSHIP_MODELS = [
  * 422 on drift.
  */
 export const JURISDICTIONS = [
-  { value: '',                       label: '— None —' },
-  { value: 'ZW_IPEC_SHORT_TERM',     label: 'Zimbabwe — IPEC short-term insurance' },
-  { value: 'ZW_IPEC_LIFE',           label: 'Zimbabwe — IPEC life insurance' },
-  { value: 'ZA_CMS_MEDICAL_SCHEME',  label: 'South Africa — CMS medical scheme' },
-  { value: 'ZA_FSCA_SHORT_TERM',     label: 'South Africa — FSCA short-term insurance' },
-  { value: 'ZA_FSCA_LONG_TERM',      label: 'South Africa — FSCA long-term (life) insurance' },
-  { value: 'US_NAIC',                label: 'United States — NAIC' },
+  { value: '',                       label: '- None -' },
+  { value: 'ZW_IPEC_SHORT_TERM',     label: 'Zimbabwe - IPEC short-term insurance' },
+  { value: 'ZW_IPEC_LIFE',           label: 'Zimbabwe - IPEC life insurance' },
+  { value: 'ZA_CMS_MEDICAL_SCHEME',  label: 'South Africa - CMS medical scheme' },
+  { value: 'ZA_FSCA_SHORT_TERM',     label: 'South Africa - FSCA short-term insurance' },
+  { value: 'ZA_FSCA_LONG_TERM',      label: 'South Africa - FSCA long-term (life) insurance' },
+  { value: 'US_NAIC',                label: 'United States - NAIC' },
 ];
 
 type TabId = 'general' | 'branding' | 'insurance-lines' | 'currencies' | 'billing' | 'proration' | 'bank-accounts' | 'email-templates' | 'reports' | 'auto-lapse' | 'endorsement-config' | 'actuarial-bases' | 'ifrs17-config' | 'roles';

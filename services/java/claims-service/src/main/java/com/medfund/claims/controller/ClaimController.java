@@ -42,7 +42,7 @@ public class ClaimController {
     }
 
     @GetMapping
-    @Operation(summary = "List all claims (unpaginated — prefer /page for the operational list)")
+    @Operation(summary = "List all claims (unpaginated - prefer /page for the operational list)")
     public Flux<ClaimResponse> findAll() {
         return claimService.findAll().map(ClaimResponse::from);
     }

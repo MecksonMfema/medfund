@@ -1,105 +1,107 @@
-<div class="page">
-  <header class="page-header">
-    <div>
-      <h1>Producers</h1>
-      <p class="sub">Broker / producer counterparties. Hierarchy is captured via parent — no time-slice; reparenting rewrites the field, audit trail preserved.</p>
-    </div>
-    <div class="header-actions">
-      <a class="btn" routerLink="rate-cards">
-        <app-icon name="list"></app-icon>
-        Rate cards
-      </a>
-      <button class="btn btn-primary" (click)="startCreate()">
-        <app-icon name="plus"></app-icon>
-        New producer
-      </button>
-    </div>
-  </header>
+<header class="page-header">
+  <div>
+    <h1>Producers</h1>
+    <p class="page-sub">
+      Broker / producer counterparties. Hierarchy is captured via parent:
+      no time-slice; reparenting rewrites the field, audit trail preserved.
+    </p>
+  </div>
+  <div class="header-actions">
+    <a class="btn btn-default" routerLink="/tenant/admin/producers/rate-cards">
+      <app-icon name="list" [size]="14"></app-icon>
+      Rate cards
+    </a>
+    <a class="btn btn-primary" routerLink="/tenant/admin/producers/new">
+      <app-icon name="plus" [size]="14"></app-icon>
+      New producer
+    </a>
+  </div>
+</header>
 
-  <div *ngIf="errorMessage" class="alert alert-error">{{ errorMessage }}</div>
-  <div *ngIf="successMessage" class="alert alert-success">{{ successMessage }}</div>
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+@if (successMessage) {
+  <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+}
 
-  <div class="filters">
-    <label>
-      Status:
-      <select [(ngModel)]="filterActive" (change)="onFilterChange()">
-        <option value="">All</option>
-        <option value="true">Active only</option>
-        <option value="false">Inactive only</option>
-      </select>
-    </label>
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-search">
+    <app-icon name="search" [size]="16"></app-icon>
+    <input
+      type="search"
+      [ngModel]="searchTerm"
+      (ngModelChange)="onSearchInput($event)"
+      name="search"
+      placeholder="Search code, name or contact..."
+      aria-label="Search producers"
+    />
   </div>
 
-  <div *ngIf="showForm" class="form-panel">
-    <h3>{{ draft.id ? 'Edit' : 'New' }} producer</h3>
-    <div class="form-grid">
-      <label *ngIf="!draft.id">
-        Producer code *
-        <input type="text" [(ngModel)]="draft.producerCode" required maxlength="40"
-               placeholder="BRK-001" />
-      </label>
-      <label *ngIf="draft.id">
-        Producer code
-        <input type="text" [value]="draft.producerCode" disabled />
-      </label>
-      <label>Name *<input type="text" [(ngModel)]="draft.name" required maxlength="200" /></label>
-      <label>Home currency *
-        <input type="text" [(ngModel)]="draft.homeCurrency" required
-               maxlength="3" minlength="3" style="text-transform:uppercase" />
-      </label>
-      <label>Jurisdiction<input type="text" [(ngModel)]="draft.jurisdictionCode" maxlength="20" /></label>
-      <label>Contact email<input type="email" [(ngModel)]="draft.contactEmail" maxlength="255" /></label>
-      <label>Contact phone<input type="tel" [(ngModel)]="draft.contactPhone" maxlength="40" /></label>
-      <label>WHT % override
-        <input type="number" [(ngModel)]="draft.whtPctOverride" min="0" max="100" step="0.01" />
-      </label>
-      <label>Parent producer
-        <div *ngIf="draft.parentProducerId" class="picked-chip">
-          {{ draft.parentProducerLabel || draft.parentProducerId }}
-          <button type="button" class="btn-link" (click)="clearParent()">Clear</button>
-        </div>
-        <div *ngIf="!draft.parentProducerId" class="search-select">
-          <input type="text" [(ngModel)]="parentSearchQuery"
-                 (input)="onParentSearchChange()"
-                 placeholder="Search by name or code…" />
-          <ul *ngIf="parentMatches.length > 0" class="search-matches">
-            <li *ngFor="let p of parentMatches" (mousedown)="pickParent(p)">
-              <strong>{{ p.producerCode }}</strong> — {{ p.name }}
-              <span class="sub">{{ p.homeCurrency }}</span>
-            </li>
-          </ul>
-          <div *ngIf="parentSearching" class="hint">Searching…</div>
-        </div>
-      </label>
-      <label class="col-2">Banking details (JSON)
-        <textarea [(ngModel)]="draft.bankingDetailsJson" rows="3"
-                  placeholder='{"iban":"…","swift":"…"}'></textarea>
-      </label>
-      <label *ngIf="draft.id">
-        <input type="checkbox" [(ngModel)]="draft.active" /> Active
-      </label>
-    </div>
-    <div class="form-actions">
-      <button class="btn btn-primary" (click)="save()" [disabled]="saving">
-        {{ saving ? 'Saving…' : 'Save' }}
-      </button>
-      <button class="btn" (click)="cancel()" [disabled]="saving">Cancel</button>
-    </div>
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Status</span>
+    <app-select
+      [(ngModel)]="filterActive"
+      (selectionChange)="onServerFilterChange()"
+      name="status"
+      size="sm"
+      [options]="statusOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
   </div>
 
-  <app-data-table
-    [columns]="columns"
-    [data]="rows"
-    [actions]="actions"
-    [showActions]="true"
-    [serverSide]="true"
-    [loading]="loading"
-    [pageSize]="pageSize"
-    [totalCount]="totalCount"
-    [totalPages]="totalPages"
-    [serverPage]="page"
-    emptyMessage="No producers yet"
-    emptyDescription="Click New producer above to onboard the first broker."
-    (pageChange)="onPageChange($event)">
-  </app-data-table>
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Currency</span>
+    <app-select
+      [(ngModel)]="selectedCurrency"
+      (selectionChange)="onClientFilterChange()"
+      name="currency"
+      size="sm"
+      [options]="currencyOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Jurisdiction</span>
+    <app-select
+      [(ngModel)]="selectedJurisdiction"
+      (selectionChange)="onClientFilterChange()"
+      name="jurisdiction"
+      size="sm"
+      [options]="jurisdictionOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-clear">
+    <button type="button" class="clear-btn" (click)="clearFilters()">
+      <app-icon name="x-circle" [size]="14"></app-icon>
+      Clear
+    </button>
+  </div>
 </div>
+
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [actions]="actions"
+  [showActions]="true"
+  [searchable]="false"
+  [showToolbar]="false"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  emptyMessage="No producers yet"
+  emptyDescription="Click New producer above to onboard the first broker."
+  (pageChange)="onPageChange($event)">
+</app-data-table>

@@ -77,7 +77,7 @@ public class UsTenantNaicConfigController {
             description = "state_domicile must be a 2-letter US subdivision code; naic_company_code "
                         + "and naic_group_code must be 1-10 digits (group is optional); fein is 9 "
                         + "digits optionally hyphenated. Uniqueness enforced on (tenant_id, "
-                        + "effective_from) — conflicting inserts surface as HTTP 409.")
+                        + "effective_from) - conflicting inserts surface as HTTP 409.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Row added"),
             @ApiResponse(responseCode = "400", description = "Invalid payload"),
@@ -96,7 +96,7 @@ public class UsTenantNaicConfigController {
     @RequiresPermission({Permissions.TENANT_SETTINGS_MANAGE_NAIC_CONFIG})
     @Operation(summary = "Update a US NAIC config row",
             description = "Fields left null on the request are unchanged. effective_from is "
-                        + "immutable — a change to the effective date requires adding a new row.")
+                        + "immutable - a change to the effective date requires adding a new row.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Row updated"),
             @ApiResponse(responseCode = "403", description = "Tenant is not US"),

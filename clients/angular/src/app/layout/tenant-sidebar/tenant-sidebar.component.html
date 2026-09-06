@@ -38,8 +38,8 @@
         <li>
           <a
             [routerLink]="item.route"
-            routerLinkActive="active"
             class="ts-nav-item"
+            [class.active]="isActive(item)"
             [title]="collapsed ? item.label : ''"
           >
             <span class="ts-nav-icon">

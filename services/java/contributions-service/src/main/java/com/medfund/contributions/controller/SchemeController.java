@@ -146,7 +146,7 @@ public class SchemeController {
     }
 
     @GetMapping("/{schemeId}/product-profile")
-    @Operation(summary = "Scheme product profile — tracks_member_balances + per-benefit usage modes",
+    @Operation(summary = "Scheme product profile - tracks_member_balances + per-benefit usage modes",
         description = "Single call the claim-detail page uses to decide whether to render the utilization card " +
                 "and how each row should look. Returns tracksMemberBalances plus the usage_mode of every active " +
                 "benefit on the scheme. Skips inactive benefits so the payload matches what Stage 3 enforces.")
@@ -195,7 +195,7 @@ public class SchemeController {
 
     @GetMapping("/benefits/{id}")
     @Operation(summary = "Get a scheme benefit by id",
-        description = "V063 — response includes categoryIds so the benefit form can "
+        description = "V063 - response includes categoryIds so the benefit form can "
                     + "round-trip the tariff-category coverage on edit.")
     public Mono<SchemeBenefitResponse> findBenefitById(@PathVariable UUID id) {
         return schemeService.findBenefitById(id)
@@ -207,7 +207,7 @@ public class SchemeController {
 
     @PutMapping("/benefits/{id}")
     @Operation(summary = "Update an existing scheme benefit",
-        description = "Currency stays inherited from the parent scheme — pass it explicitly only as a defensive check.")
+        description = "Currency stays inherited from the parent scheme - pass it explicitly only as a defensive check.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Scheme benefit updated"),
         @ApiResponse(responseCode = "400", description = "Validation error or currency mismatch with parent scheme"),
@@ -271,7 +271,7 @@ public class SchemeController {
 
     @PutMapping("/age-groups/{id}")
     @Operation(summary = "Update an existing age group",
-        description = "Currency stays inherited from the parent scheme — pass it explicitly only as a defensive check.")
+        description = "Currency stays inherited from the parent scheme - pass it explicitly only as a defensive check.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Age group updated"),
         @ApiResponse(responseCode = "400", description = "Validation error or currency mismatch with parent scheme"),
@@ -344,7 +344,7 @@ public class SchemeController {
     @ResponseStatus(HttpStatus.CREATED)
     @RequiresPermission(Permissions.BILLING_MANAGE_SCHEMES)
     @Operation(summary = "Create a scheme-level cost-share row",
-        description = "Temporal insert — never in-place edit. Reads resolve the newest row "
+        description = "Temporal insert - never in-place edit. Reads resolve the newest row "
                     + "whose window covers the target date; superseding an existing row is "
                     + "done by inserting a new row with a later effective_from.")
     @ApiResponses({

@@ -77,10 +77,10 @@
                          [ngModel]="row.draftEffectiveTo" (ngModelChange)="row.draftEffectiveTo = $event"
                          name="edit-to-{{row.id}}" />
                 } @else {
-                  {{ row.effectiveTo || '—' }}
+                  {{ row.effectiveTo || '-' }}
                 }
               </td>
-              <td>{{ row.updatedByEmail || '—' }}</td>
+              <td>{{ row.updatedByEmail || '-' }}</td>
               <td class="row-actions">
                 @if (row.editing) {
                   <button type="button" class="link-btn" (click)="saveEdit(row)" [disabled]="pendingId === row.id">

@@ -305,7 +305,7 @@ export class EntityPickerComponent implements OnInit, OnChanges, ControlValueAcc
               // "DEP of MBR-000201 — Tapiwa Zulu").
               sublabel: b.kind === 'MEMBER'
                 ? `MEM · ${b.memberNumber ?? ''}`
-                : `DEP · ${b.memberNumber ?? ''}${b.sponsorMemberNumber ? ' — ' + b.sponsorMemberNumber : ''}`
+                : `DEP · ${b.memberNumber ?? ''}${b.sponsorMemberNumber ? ' - ' + b.sponsorMemberNumber : ''}`
                     + (b.sponsorName ? ` (${b.sponsorName})` : ''),
               beneficiary: {
                 kind: b.kind,

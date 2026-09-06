@@ -81,7 +81,7 @@ public class ProrationService {
                                 ProrationStrategy.NONE.name(),
                                 newAnnualLimit,
                                 total,
-                                "No scheme change on or before service date — using raw annual limit"))));
+                                "No scheme change on or before service date - using raw annual limit"))));
     }
 
     // ── Data loads ────────────────────────────────────────────────────────────
@@ -200,7 +200,7 @@ public class ProrationService {
                     ProrationStrategy.NONE.name(),
                     newAnnualLimit,
                     ctx.totalConsumed(),
-                    "Cross-currency scheme change — proration deferred, using raw new limit"));
+                    "Cross-currency scheme change - proration deferred, using raw new limit"));
         }
 
         return fireProrationRules(tenantId, claim, ctx)
@@ -211,7 +211,7 @@ public class ProrationService {
                                 "Tenant-config strategy " + cfgStrategy))
                         .switchIfEmpty(Mono.just(applyStrategy(
                                 ProrationStrategy.NONE, ctx, newAnnualLimit,
-                                "No config or rule — platform default NONE"))));
+                                "No config or rule - platform default NONE"))));
     }
 
     /**

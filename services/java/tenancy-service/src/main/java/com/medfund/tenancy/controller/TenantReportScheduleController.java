@@ -102,7 +102,7 @@ public class TenantReportScheduleController {
 
     @PutMapping("/{scheduleId}")
     @RequiresPermission({"tenant.settings:manage_report_schedules"})
-    @Operation(summary = "Update a schedule (PATCH-shaped — omit unchanged fields)")
+    @Operation(summary = "Update a schedule (PATCH-shaped - omit unchanged fields)")
     public Mono<TenantReportScheduleResponse> update(@PathVariable UUID tenantId,
                                                      @PathVariable UUID scheduleId,
                                                      @Valid @RequestBody UpdateTenantReportScheduleRequest body,

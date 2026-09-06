@@ -20,7 +20,7 @@ export const AML_ALERT_ROUTES: Routes = [
     data: {
       title: 'AML/STR alerts',
       description:
-        'Raise, review, file, or close Suspicious Transaction Alerts. FILED alerts are terminal — ' +
+        'Raise, review, file, or close Suspicious Transaction Alerts. FILED alerts are terminal. ' +
         'per-STR XLSX filing lands in Phase 26.',
       sidebar: 'operational',
       fullbleed: true,

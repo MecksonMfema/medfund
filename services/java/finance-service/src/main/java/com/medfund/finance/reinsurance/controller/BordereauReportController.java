@@ -140,7 +140,7 @@ public class BordereauReportController {
     @RequiresPermission(Permissions.REINSURANCE_VIEW)
     @RequiresReport(ReportKey.REINSURANCE_RECOVERIES)
     @Operation(summary = "Recoveries bordereau for a quarter",
-            description = "One row per (recovery, participant) — status ∈ EXPECTED/INVOICED/RECEIVED/"
+            description = "One row per (recovery, participant) - status ∈ EXPECTED/INVOICED/RECEIVED/"
                         + "WRITTEN_OFF. participantExpected = cession.cededAmount × sharePct / 100; "
                         + "participantReceived = recovery.receivedAmount × sharePct / 100.")
     public Mono<ReportResponse<List<RecoveriesBordereauRow>>> recoveriesBordereau(
@@ -157,7 +157,7 @@ public class BordereauReportController {
     @RequiresReport(ReportKey.REINSURANCE_RECOVERIES)
     @Operation(summary = "Export recoveries bordereau as XLSX",
             description = "EXPECTED recoveries in this quarter transition to INVOICED after the "
-                        + "response body is delivered (R8) — a failed render leaves rows in EXPECTED "
+                        + "response body is delivered (R8) - a failed render leaves rows in EXPECTED "
                         + "so the next export retries. Bytes-delivery failures are not observable "
                         + "server-side; reinsurers re-request if a bordereau was lost in flight.")
     public Mono<ResponseEntity<byte[]>> recoveriesExport(

@@ -235,7 +235,7 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () =>
       import('./reports/billing/scheme-billing-report.component').then(m => m.SchemeBillingReportComponent),
     data: {
-      title: 'Billing report — per scheme',
+      title: 'Billing report - per scheme',
       sidebar: 'operational',
       fullbleed: true,
       reportKey: 'BILLING_REPORT',
@@ -262,7 +262,7 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () =>
       import('./reports/billing/group-billing-report.component').then(m => m.GroupBillingReportComponent),
     data: {
-      title: 'Billing report — per group',
+      title: 'Billing report - per group',
       sidebar: 'operational',
       fullbleed: true,
       reportKey: 'GROUP_BILLING_REPORT',
@@ -275,7 +275,7 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () =>
       import('./reports/member-billing/member-billing-report.component').then(m => m.MemberBillingReportComponent),
     data: {
-      title: 'Billing report — per member',
+      title: 'Billing report - per member',
       sidebar: 'operational',
       fullbleed: true,
       reportKey: 'BILLING_REPORT',
@@ -291,7 +291,7 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () =>
       import('./reports/receipts/scheme-receipts-report.component').then(m => m.SchemeReceiptsReportComponent),
     data: {
-      title: 'Receipts — per scheme',
+      title: 'Receipts - per scheme',
       sidebar: 'operational',
       fullbleed: true,
       reportKey: 'RECEIPTS_REPORT',
@@ -303,7 +303,7 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () =>
       import('./reports/receipts/group-receipts-report.component').then(m => m.GroupReceiptsReportComponent),
     data: {
-      title: 'Receipts — per group',
+      title: 'Receipts - per group',
       sidebar: 'operational',
       fullbleed: true,
       reportKey: 'RECEIPTS_REPORT',
@@ -315,7 +315,7 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () =>
       import('./reports/receipts/member-receipts-report.component').then(m => m.MemberReceiptsReportComponent),
     data: {
-      title: 'Receipts — per member',
+      title: 'Receipts - per member',
       sidebar: 'operational',
       fullbleed: true,
       reportKey: 'RECEIPTS_REPORT',
@@ -419,7 +419,7 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () =>
       import('./reports/claims/scheme-claims-report.component').then(m => m.SchemeClaimsReportComponent),
     data: {
-      title: 'Claims — per scheme',
+      title: 'Claims - per scheme',
       sidebar: 'operational',
       fullbleed: true,
       reportKey: 'CLAIMS_SUMMARY',
@@ -431,7 +431,7 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () =>
       import('./reports/claims/provider-claims-report.component').then(m => m.ProviderClaimsReportComponent),
     data: {
-      title: 'Claims — per provider',
+      title: 'Claims - per provider',
       sidebar: 'operational',
       fullbleed: true,
       reportKey: 'CLAIMS_SUMMARY',
@@ -495,7 +495,7 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () =>
       import('./reports/claims/group-claims-report.component').then(m => m.GroupClaimsReportComponent),
     data: {
-      title: 'Claims — per group',
+      title: 'Claims - per group',
       sidebar: 'operational',
       fullbleed: true,
       reportKey: 'CLAIMS_SUMMARY',
@@ -507,7 +507,7 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () =>
       import('./reports/claims/member-claims-report.component').then(m => m.MemberClaimsReportComponent),
     data: {
-      title: 'Claims — per member',
+      title: 'Claims - per member',
       sidebar: 'operational',
       fullbleed: true,
       reportKey: 'CLAIMS_SUMMARY',
@@ -847,7 +847,7 @@ export const FINANCE_ROUTES: Routes = [
       import('./commission/adjustments/adjustments-drafter-queue.component')
         .then(m => m.AdjustmentsDrafterQueueComponent),
     data: {
-      title: 'Commission adjustments — drafts',
+      title: 'Commission adjustments - drafts',
       sidebar: 'operational',
       fullbleed: true,
     },
@@ -859,7 +859,7 @@ export const FINANCE_ROUTES: Routes = [
       import('./commission/adjustments/adjustments-approver-queue.component')
         .then(m => m.AdjustmentsApproverQueueComponent),
     data: {
-      title: 'Commission adjustments — approver queue',
+      title: 'Commission adjustments - approver queue',
       sidebar: 'operational',
       fullbleed: true,
     },
@@ -886,7 +886,7 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () =>
       import('./reinsurance/facultative-browse.component').then(m => m.FacultativeBrowseComponent),
     data: {
-      title: 'Facultative — browse candidates',
+      title: 'Facultative - browse candidates',
       sidebar: 'operational',
       fullbleed: true,
     },
@@ -897,7 +897,7 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () =>
       import('./reinsurance/facultative-approve-queue.component').then(m => m.FacultativeApproveQueueComponent),
     data: {
-      title: 'Facultative — approve queue',
+      title: 'Facultative - approve queue',
       sidebar: 'operational',
       fullbleed: true,
     },
@@ -917,7 +917,7 @@ export const FINANCE_ROUTES: Routes = [
       import('./underwriting/endorsement-review-queue.component')
         .then(m => m.EndorsementReviewQueueComponent),
     data: {
-      title: 'Endorsements — review queue',
+      title: 'Endorsements - review queue',
       sidebar: 'operational',
       fullbleed: true,
     },
@@ -943,7 +943,7 @@ export const FINANCE_ROUTES: Routes = [
     loadComponent: () =>
       import('./reinsurance/review-queue.component').then(m => m.ReinsuranceReviewQueueComponent),
     data: {
-      title: 'Reinsurance — review queue',
+      title: 'Reinsurance - review queue',
       sidebar: 'operational',
       fullbleed: true,
     },

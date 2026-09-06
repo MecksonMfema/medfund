@@ -49,7 +49,7 @@ public record CreateIfrs17OpeningBalanceSeedRequest(
         @NotNull
         LocalDate effectiveFrom,
 
-        @Schema(description = "Operator rationale for the manual override — captured on the audit event")
+        @Schema(description = "Operator rationale for the manual override - captured on the audit event")
         @NotBlank
         @Size(max = 2000)
         String reasonNote

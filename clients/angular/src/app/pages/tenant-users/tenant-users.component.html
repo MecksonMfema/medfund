@@ -2,7 +2,7 @@
 <h1>Users &amp; Members</h1>
 <p class="page-sub">
   Manage who has access to this portal (<strong>staff users</strong>) and who is covered by your insurance policies (<strong>members</strong>).
-  A staff user may also hold a member record — the two are tracked separately.
+  A staff user may also hold a member record: the two are tracked separately.
 </p>
 
 <!-- ── Stat cards ─────────────────────────────────────────────────────────── -->
@@ -44,7 +44,7 @@
           <h2 class="content-title">Staff Users</h2>
           <p class="content-sub">
             Employees and operators with portal access. Staff users authenticate via Keycloak and have role-based permissions.
-            A staff user may also be enrolled as a member/policyholder — if so, they will appear in both tabs.
+            A staff user may also be enrolled as a member/policyholder: if so, they will appear in both tabs.
           </p>
         </div>
         <button class="btn btn-primary" (click)="openAddStaffModal()">
@@ -76,7 +76,7 @@
         [hasNext]="staffHasNext"
         (prevPage)="staffPrevPage()"
         (nextPage)="staffNextPage()"
-        emptyMessage="No staff users yet — add the first one."
+        emptyMessage="No staff users yet: add the first one."
       ></app-data-table>
     </div>
   }
@@ -89,7 +89,7 @@
           <h2 class="content-title">Members (Policyholders)</h2>
           <p class="content-sub">
             Individuals covered by this organisation's insurance policies. Members are enrolled in schemes and may have dependants.
-            Note: a member is not automatically a staff user — they are separate records.
+            Note: a member is not automatically a staff user. They are separate records.
           </p>
         </div>
         <button class="btn btn-primary" (click)="openEnrollModal()">
@@ -361,7 +361,7 @@
   <div class="modal-overlay" (click)="showEditMemberModal = false">
     <div class="modal modal-wide" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h3>Edit member — {{ editingMember?.memberNumber }}</h3>
+        <h3>Edit member: {{ editingMember?.memberNumber }}</h3>
         <button class="modal-close" (click)="showEditMemberModal = false">
           <app-icon name="x" [size]="20"></app-icon>
         </button>

@@ -89,7 +89,7 @@ public class CommissionWorkbookService {
                                        String reportingCurrency,
                                        BigDecimal convertedGrandTotal) {
         ReportWorkbook book = ReportWorkbook.newBook();
-        String title = "Commission Statement — " + periodStart + " to " + periodEnd;
+        String title = "Commission Statement - " + periodStart + " to " + periodEnd;
 
         List<String> currencies = new ArrayList<>(byCurrency.keySet());
         Collections.sort(currencies);
@@ -187,7 +187,7 @@ public class CommissionWorkbookService {
                                       String reportingCurrency,
                                       BigDecimal convertedGrandTotal) {
         ReportWorkbook book = ReportWorkbook.newBook();
-        String title = "Clawback Register — " + periodStart + " to " + periodEnd;
+        String title = "Clawback Register - " + periodStart + " to " + periodEnd;
 
         List<String> sources = new ArrayList<>(bySource.keySet());
         Collections.sort(sources);
@@ -254,7 +254,7 @@ public class CommissionWorkbookService {
                                        BigDecimal convertedGrandTotal) {
         LocalDate asOf = periodEnd;
         ReportWorkbook.SheetWriter sheet = book.sheet("Summary")
-                .titleMerged(title + " — Summary", 3)
+                .titleMerged(title + " - Summary", 3)
                 .meta("Producer", producerLabel)
                 .meta("Period",   periodStart + " to " + periodEnd)
                 .meta("As of",    asOf.toString());
@@ -275,7 +275,7 @@ public class CommissionWorkbookService {
         } else {
             sheet.meta("Converted grand total (" + reportingCurrency + ")",
                     "FX unavailable for one or more currencies at " + asOf
-                            + " — converted total omitted");
+                            + " - converted total omitted");
         }
         sheet.freezeAtHeader().autoSize();
     }
@@ -315,7 +315,7 @@ public class CommissionWorkbookService {
         Map<String, List<T>> grouped = new LinkedHashMap<>();
         for (T row : rows) {
             String key = keyFn.apply(row);
-            if (key == null) key = "—";
+            if (key == null) key = "-";
             grouped.computeIfAbsent(key, k -> new ArrayList<>()).add(row);
         }
         return grouped;

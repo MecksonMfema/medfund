@@ -139,8 +139,8 @@
         </div>
 
         <dl class="header-grid">
-          <dt>Last execution</dt><dd>{{ selected.lastExecutedAt ? (selected.lastExecutedAt | date:'medium') : '—' }}</dd>
-          <dt>Next execution</dt><dd>{{ selected.nextExecutionAt ? (selected.nextExecutionAt | date:'medium') : '—' }}</dd>
+          <dt>Last execution</dt><dd>{{ selected.lastExecutedAt ? (selected.lastExecutedAt | date:'medium') : '-' }}</dd>
+          <dt>Next execution</dt><dd>{{ selected.nextExecutionAt ? (selected.nextExecutionAt | date:'medium') : '-' }}</dd>
           <dt>Recent failures (24h)</dt>
           <dd>
             @if (failureCount() > 0) {
@@ -155,7 +155,7 @@
         @if (loadingRuns) {
           <app-skeleton></app-skeleton>
         } @else if (runs.length === 0) {
-          <p class="empty-state">No runs recorded yet — wait for the next 5-minute dispatch tick or hit Run now.</p>
+          <p class="empty-state">No runs recorded yet: wait for the next 5-minute dispatch tick or hit Run now.</p>
         } @else {
           <table class="data-table">
             <thead>
@@ -180,7 +180,7 @@
                     <span class="status-badge status-{{ run.status.toLowerCase() }}">{{ run.status | humanize }}</span>
                   </td>
                   <td class="muted">{{ run.triggerKind }}</td>
-                  <td class="error-cell">{{ run.errorMessage || '—' }}</td>
+                  <td class="error-cell">{{ run.errorMessage || '-' }}</td>
                 </tr>
               }
             </tbody>

@@ -70,7 +70,7 @@ public class SiuCaseController {
         return queryService.findById(caseId);
     }
 
-    @Operation(summary = "Start review — transition OPEN → UNDER_REVIEW")
+    @Operation(summary = "Start review - transition OPEN → UNDER_REVIEW")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "case moved to UNDER_REVIEW"),
             @ApiResponse(responseCode = "400", description = "illegal state transition")
@@ -84,7 +84,7 @@ public class SiuCaseController {
                 .flatMap(kase -> queryService.findById(kase.getId()));
     }
 
-    @Operation(summary = "Assign case — OPEN → ASSIGNED (four-eyes precondition)")
+    @Operation(summary = "Assign case - OPEN → ASSIGNED (four-eyes precondition)")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "case assigned"),
             @ApiResponse(responseCode = "400", description = "illegal state transition"),
@@ -100,7 +100,7 @@ public class SiuCaseController {
                 .flatMap(kase -> queryService.findById(kase.getId()));
     }
 
-    @Operation(summary = "Start review from ASSIGNED — ASSIGNED → UNDER_REVIEW")
+    @Operation(summary = "Start review from ASSIGNED - ASSIGNED → UNDER_REVIEW")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "case moved to UNDER_REVIEW"),
             @ApiResponse(responseCode = "400", description = "illegal state transition")
@@ -114,8 +114,8 @@ public class SiuCaseController {
                 .flatMap(kase -> queryService.findById(kase.getId()));
     }
 
-    @Operation(summary = "Propose non-dismissal closure — UNDER_REVIEW → PENDING_APPROVAL "
-            + "(four-eyes gate — supervisor must approve via /approve-closure)")
+    @Operation(summary = "Propose non-dismissal closure - UNDER_REVIEW → PENDING_APPROVAL "
+            + "(four-eyes gate - supervisor must approve via /approve-closure)")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "case moved to PENDING_APPROVAL"),
             @ApiResponse(responseCode = "400", description = "missing fields, illegal state, or illegal outcome")
@@ -132,7 +132,7 @@ public class SiuCaseController {
                 .flatMap(kase -> queryService.findById(kase.getId()));
     }
 
-    @Operation(summary = "Approve pending closure — PENDING_APPROVAL → CLOSED_* "
+    @Operation(summary = "Approve pending closure - PENDING_APPROVAL → CLOSED_* "
             + "(four-eyes: approver must differ from proposer per FR6)")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "case closed with proposed outcome"),
@@ -148,7 +148,7 @@ public class SiuCaseController {
                 .flatMap(kase -> queryService.findById(kase.getId()));
     }
 
-    @Operation(summary = "Reject pending closure — PENDING_APPROVAL → UNDER_REVIEW "
+    @Operation(summary = "Reject pending closure - PENDING_APPROVAL → UNDER_REVIEW "
             + "(sends the proposal back to the investigator)")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "case sent back to UNDER_REVIEW"),
@@ -165,7 +165,7 @@ public class SiuCaseController {
                 .flatMap(kase -> queryService.findById(kase.getId()));
     }
 
-    @Operation(summary = "Reopen a closed case — CLOSED_* → UNDER_REVIEW via transient REOPENED note")
+    @Operation(summary = "Reopen a closed case - CLOSED_* → UNDER_REVIEW via transient REOPENED note")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "case reopened; landed on UNDER_REVIEW"),
             @ApiResponse(responseCode = "400", description = "case is not in a CLOSED_* status"),
@@ -181,7 +181,7 @@ public class SiuCaseController {
                 .flatMap(kase -> queryService.findById(kase.getId()));
     }
 
-    @Operation(summary = "Close DISMISSED — savings fields must be null")
+    @Operation(summary = "Close DISMISSED - savings fields must be null")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "case closed DISMISSED_FALSE_POSITIVE"),
             @ApiResponse(responseCode = "400", description = "illegal state transition")

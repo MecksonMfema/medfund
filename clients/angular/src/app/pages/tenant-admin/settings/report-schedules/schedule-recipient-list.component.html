@@ -11,7 +11,7 @@
     <tbody>
       <tr *ngFor="let r of recipients" [class.inactive]="!r.isActive">
         <td>{{ r.email }}</td>
-        <td>{{ r.displayName || '—' }}</td>
+        <td>{{ r.displayName || '-' }}</td>
         <td>
           <span class="pill" [class.pill-active]="r.isActive" [class.pill-inactive]="!r.isActive">
             {{ r.isActive ? 'Active' : 'Paused' }}
@@ -32,7 +32,7 @@
   </table>
 
   <p class="empty" *ngIf="recipients.length === 0">
-    No recipients yet — add one below to start receiving deliveries.
+    No recipients yet: add one below to start receiving deliveries.
   </p>
 
   <form #addForm="ngForm" class="add-row" (ngSubmit)="add(addForm)">

@@ -1,7 +1,6 @@
 package com.medfund.finance.regulatory.aml;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -13,12 +12,14 @@ import java.util.UUID;
 /**
  * Fallback {@link AmlSummaryRawDataProvider} — returns an all-zero raw
  * data set + WARN log. Same "obvious-empty over plausible-wrong" contract
- * as the other Phase-16 stub providers. Kicks in only when no concrete
- * provider bean is on the classpath.
+ * as the other Phase-16 stub providers. Registered unconditionally today
+ * because the concrete provider is deferred to Phase 25b; when that lands,
+ * mark the real impl {@code @Primary} to take precedence.
+ * (@ConditionalOnMissingBean on a @Component self-excludes at scan time —
+ *  the guard has to live on a @Bean method in a @Configuration class.)
  */
 @Slf4j
 @Component
-@ConditionalOnMissingBean(AmlSummaryRawDataProvider.class)
 public class StubAmlSummaryRawDataProvider implements AmlSummaryRawDataProvider {
 
     @Override

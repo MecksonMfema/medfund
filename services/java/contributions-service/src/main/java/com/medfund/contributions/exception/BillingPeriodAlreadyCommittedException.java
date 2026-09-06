@@ -32,7 +32,7 @@ public class BillingPeriodAlreadyCommittedException extends RuntimeException {
     private static String buildMessage(LocalDate start, LocalDate end, String line, long count) {
         String lineLabel = (line == null || line.isBlank()) ? "this line" : line;
         return String.format(
-                "Billing already committed for %s — %s to %s already has %d contribution row(s). "
+                "Billing already committed for %s - %s to %s already has %d contribution row(s). "
                         + "Delete or reverse the existing commit before generating again.",
                 lineLabel, start, end, count);
     }

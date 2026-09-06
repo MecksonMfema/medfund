@@ -69,7 +69,7 @@ public class RegulatoryParameterTemplates implements TemplateProvider {
             rule("R72 - NAIC certified_reinsurer_provision_percentage override",
                  "Override the NAIC Schedule F statutory provision percentage on liability "
                        + "ceded to certified reinsurers for US tenants. Bundled YAML default "
-                       + "is 0.20 (regulatory-defaults/US_NAIC/2024-06-01.yaml — mid-range "
+                       + "is 0.20 (regulatory-defaults/US_NAIC/2024-06-01.yaml - mid-range "
                        + "placeholder pending the graduated AM Best / S&P rating table). "
                        + "Adjust the value to your tenant's per-rating credit-for-reinsurance "
                        + "table. The condition filters on parameterKey + jurisdiction so "

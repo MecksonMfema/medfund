@@ -73,7 +73,7 @@ public class ReceiptsExcelService {
                         if (page.total() > ROW_CEILING) {
                             return Mono.error(new IllegalArgumentException(
                                     "Row count " + page.total() + " exceeds " + ROW_CEILING
-                                            + " — refine filters (search / insurance line / scheme)."));
+                                            + " - refine filters (search / insurance line / scheme)."));
                         }
                         return renderSummaryWorkbook(page.content(),
                                 "Receipts by member", "Member",
@@ -119,7 +119,7 @@ public class ReceiptsExcelService {
         if (rows.size() > ROW_CEILING) {
             return Mono.error(new IllegalArgumentException(
                     "Row count " + rows.size() + " exceeds " + ROW_CEILING
-                            + " — narrow the period or filter."));
+                            + " - narrow the period or filter."));
         }
         boolean hasInsuranceLine = rows.stream().anyMatch(r -> r.insuranceLine() != null && !r.insuranceLine().isBlank());
         return loadFxRates(rows, ReceiptsSummaryRow::currencyCode, reportingCurrency, tenantId, periodEnd)
@@ -130,9 +130,9 @@ public class ReceiptsExcelService {
 
                     ReportWorkbook.SheetWriter sheet = ReportWorkbook.newBook()
                             .sheet(sheetName)
-                            .titleMerged("Receipts report — per " + dimensionLabel.toLowerCase(), spanCols)
-                            .meta("Period start", periodStart != null ? periodStart.toString() : "—")
-                            .meta("Period end",   periodEnd   != null ? periodEnd.toString()   : "—")
+                            .titleMerged("Receipts report - per " + dimensionLabel.toLowerCase(), spanCols)
+                            .meta("Period start", periodStart != null ? periodStart.toString() : "-")
+                            .meta("Period end",   periodEnd   != null ? periodEnd.toString()   : "-")
                             .meta("Reporting currency", converted ? reportingCurrency : "(native)")
                             .meta("Rows", String.valueOf(rows.size()))
                             .blankRow();
@@ -181,7 +181,7 @@ public class ReceiptsExcelService {
         if (ledger != null && ledger.total() > ROW_CEILING) {
             return Mono.error(new IllegalArgumentException(
                     "Ledger row count " + ledger.total() + " exceeds " + ROW_CEILING
-                            + " — refine filters (month / type / currency)."));
+                            + " - refine filters (month / type / currency)."));
         }
 
         List<ReceiptsDetailResponse.MonthlyBucket> buckets =
@@ -198,10 +198,10 @@ public class ReceiptsExcelService {
 
                     // Sheet 1 — monthly summary
                     ReportWorkbook.SheetWriter monthlySheet = book.sheet("Monthly buckets")
-                            .titleMerged("Receipts by month — " + safeName(detail.dimensionName()), 4)
+                            .titleMerged("Receipts by month - " + safeName(detail.dimensionName()), 4)
                             .meta("Dimension", dimensionLabel)
-                            .meta("Period start", periodStart != null ? periodStart.toString() : "—")
-                            .meta("Period end",   periodEnd   != null ? periodEnd.toString()   : "—")
+                            .meta("Period start", periodStart != null ? periodStart.toString() : "-")
+                            .meta("Period end",   periodEnd   != null ? periodEnd.toString()   : "-")
                             .blankRow()
                             .header("Month", "Currency", "Net received", "Transactions");
                     monthlySheet.forEach(buckets, (sw, b) -> sw
@@ -214,7 +214,7 @@ public class ReceiptsExcelService {
                     // Sheet 2 — full transaction ledger
                     int span = converted ? 8 : 7;
                     ReportWorkbook.SheetWriter ledgerSheet = book.sheet("Transaction ledger")
-                            .titleMerged("Transaction ledger — " + safeName(detail.dimensionName()), span)
+                            .titleMerged("Transaction ledger - " + safeName(detail.dimensionName()), span)
                             .meta("Rows", String.valueOf(rows.size()))
                             .meta("Reporting currency", converted ? reportingCurrency : "(native)")
                             .blankRow();
@@ -269,7 +269,7 @@ public class ReceiptsExcelService {
     }
 
     private static String safeName(String name) {
-        return name != null && !name.isBlank() ? name : "—";
+        return name != null && !name.isBlank() ? name : "-";
     }
 
     private static UUID parseTenantId(String tenantIdStr) {

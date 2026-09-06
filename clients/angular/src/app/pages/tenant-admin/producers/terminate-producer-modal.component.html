@@ -5,7 +5,7 @@
       <h3 class="modal-title">Terminate producer</h3>
       <p class="modal-message">
         Terminate <strong>{{ producerCode }}</strong>
-        @if (producerName) { — <em>{{ producerName }}</em> }.
+        @if (producerName) { - <em>{{ producerName }}</em> }.
         The producer is flipped to <em>inactive</em> and every open
         member assignment is closed on the same run.
         @if (openAssignmentCount !== null) {
@@ -23,7 +23,7 @@
                (blur)="onEffectiveDateChange()"
                data-testid="terminate-producer-effective-date" />
         <div class="hint">
-          Snaps to the last day of the chosen month — assignments stay
+          Snaps to the last day of the chosen month: assignments stay
           active through that whole cycle.
         </div>
       </div>

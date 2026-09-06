@@ -77,7 +77,7 @@ export class EndorsementModalComponent implements OnInit {
 
   get currencyOptions(): SelectOption[] {
     return [
-      { value: '', label: '— Select currency —' },
+      { value: '', label: '- Select currency -' },
       ...this.currencies.map(c => ({
         value: c.currencyCode,
         label: `${c.currencyCode}${c.isDefault ? ' (default)' : ''}`,
@@ -103,7 +103,7 @@ export class EndorsementModalComponent implements OnInit {
   onSubmit(): void {
     this.error = null;
     if (!this.policyId || !this.policySource || !this.insuranceLine) {
-      this.error = 'Policy context missing — refresh and try again.';
+      this.error = 'Policy context missing: refresh and try again.';
       return;
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(this.effectiveFrom)) {

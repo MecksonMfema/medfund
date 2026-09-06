@@ -21,7 +21,7 @@ public record CreateVariableFeeScheduleRequest(
         @Schema(description = "Effective to (exclusive); null → open-ended", example = "2027-01-01")
         LocalDate effectiveTo,
 
-        @Schema(description = "Fee as decimal fraction — 0.0150 = 1.50% p.a.", example = "0.0150")
+        @Schema(description = "Fee as decimal fraction - 0.0150 = 1.50% p.a.", example = "0.0150")
         @NotNull
         @DecimalMin(value = "0.0000", message = "fee_percentage must be >= 0")
         @DecimalMax(value = "1.0000", message = "fee_percentage must be <= 1")

@@ -32,7 +32,7 @@ export class ReconciliationFormComponent implements OnInit {
   ) {}
 
   get currencyOptions(): SelectOption[] {
-    return this.currencies.map(c => ({ value: c.code, label: `${c.code} — ${c.name}` }));
+    return this.currencies.map(c => ({ value: c.code, label: `${c.code} - ${c.name}` }));
   }
 
   ngOnInit(): void {

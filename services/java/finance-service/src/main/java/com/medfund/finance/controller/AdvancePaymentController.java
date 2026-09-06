@@ -29,7 +29,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/advance-payments")
 @RequiredArgsConstructor
-@Tag(name = "Advance Payments", description = "Provider / member prepayments — full lifecycle (record, approve, reverse, offset).")
+@Tag(name = "Advance Payments", description = "Provider / member prepayments - full lifecycle (record, approve, reverse, offset).")
 @SecurityRequirement(name = "bearer-jwt")
 public class AdvancePaymentController {
 
@@ -37,7 +37,7 @@ public class AdvancePaymentController {
 
     @GetMapping
     @RequiresReport(ReportKey.ADVANCE_PAYMENTS)
-    @Operation(summary = "List advance payments (unpaginated — prefer /page)")
+    @Operation(summary = "List advance payments (unpaginated - prefer /page)")
     public Flux<AdvancePaymentResponse> list(@RequestParam(required = false) UUID providerId,
                                               @RequestParam(required = false) UUID memberId) {
         if (providerId != null) return service.findByProvider(providerId).map(AdvancePaymentResponse::from);

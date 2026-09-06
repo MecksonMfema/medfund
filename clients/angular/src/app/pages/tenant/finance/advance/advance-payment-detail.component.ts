@@ -98,7 +98,7 @@ export class AdvancePaymentDetailComponent implements OnInit {
       next: (compensating) => {
         this.banner = {
           kind: 'success',
-          text: `Reversal posted — compensating entry ${compensating.reference || compensating.id.substring(0, 8)}.`,
+          text: `Reversal posted: compensating entry ${compensating.reference || compensating.id.substring(0, 8)}.`,
         };
         this.load(this.payment!.id);
       },

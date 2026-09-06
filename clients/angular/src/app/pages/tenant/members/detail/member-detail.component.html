@@ -127,11 +127,11 @@
                 </div>
                 <div>
                   <span class="readonly-label">Date of birth</span>
-                  <span class="readonly-value">{{ member.dateOfBirth || '—' }}</span>
+                  <span class="readonly-value">{{ member.dateOfBirth || '-' }}</span>
                 </div>
                 <div>
                   <span class="readonly-label">Enrolled</span>
-                  <span class="readonly-value">{{ member.enrollmentDate || '—' }}</span>
+                  <span class="readonly-value">{{ member.enrollmentDate || '-' }}</span>
                 </div>
               </div>
             </div>
@@ -181,7 +181,7 @@
           <header class="section-head">
             <span class="section-icon"><app-icon name="briefcase" [size]="18"></app-icon></span>
             <h3 class="section-title">Enrolment</h3>
-            <span class="section-hint">Change the scheme or group here — enrolment date is fixed at creation.</span>
+            <span class="section-hint">Change the scheme or group here: enrolment date is fixed at creation.</span>
           </header>
 
           <div class="field-grid field-grid--2">
@@ -408,7 +408,7 @@
                       <div class="dependant-summary__lead">
                         <div class="dependant-name">{{ d.firstName }} {{ d.lastName }}</div>
                         <div class="dependant-meta">
-                          <span class="chip muted">{{ d.relationship || '—' }}</span>
+                          <span class="chip muted">{{ d.relationship || '-' }}</span>
                           @if (d.dateOfBirth) { <span class="chip muted">DOB {{ d.dateOfBirth }}</span> }
                           @if (d.gender)      { <span class="chip muted">{{ d.gender }}</span> }
                           <span class="chip status" [attr.data-status]="d.status">{{ d.status | titlecase }}</span>

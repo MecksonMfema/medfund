@@ -5,7 +5,7 @@
       @if (sourceProducer) {
         <p class="sub">
           Move members away from
-          <strong>{{ sourceProducer.producerCode }}</strong> — {{ sourceProducer.name }}
+          <strong>{{ sourceProducer.producerCode }}</strong> - {{ sourceProducer.name }}
           @if (!sourceProducer.active) { <em>(terminated)</em> }.
           @if (openCount !== null) {
             <br /><strong>{{ openCount }}</strong> open assignment(s) remaining.
@@ -26,7 +26,7 @@
     <h3>Successor</h3>
     @if (newProducer) {
       <div class="picker-selection">
-        <strong>{{ newProducer.producerCode }}</strong> — {{ newProducer.name }}
+        <strong>{{ newProducer.producerCode }}</strong> - {{ newProducer.name }}
         <span class="hint">({{ newProducer.homeCurrency }})</span>
         <button type="button" class="btn btn-default btn-small" (click)="clearSuccessor()">
           <app-icon name="x"></app-icon> Clear
@@ -45,7 +45,7 @@
           <ul class="picker-menu">
             @for (p of successorMatches; track p.id) {
               <li (click)="pickSuccessor(p)" data-testid="successor-match-row">
-                <strong>{{ p.producerCode }}</strong> — {{ p.name }}
+                <strong>{{ p.producerCode }}</strong> - {{ p.name }}
                 <span class="hint">• {{ p.homeCurrency }}</span>
               </li>
             }
@@ -114,7 +114,7 @@
             </td>
             <td>{{ row.memberId }}</td>
             <td>{{ row.effectiveFrom }}</td>
-            <td>{{ row.changeReason || '—' }}</td>
+            <td>{{ row.changeReason || '-' }}</td>
             <td>{{ row.createdAt | date:'yyyy-MM-dd' }}</td>
           </tr>
         }
@@ -150,7 +150,7 @@
          role="dialog" aria-modal="true" aria-label="Reassignment report">
       <h3 class="modal-title">Reassignment complete</h3>
       <p class="modal-message">
-        Processed <strong>{{ report.total }}</strong> —
+        Processed <strong>{{ report.total }}</strong>:
         <span class="success-count">{{ report.succeeded }} succeeded</span>,
         <span class="failure-count">{{ report.failed }} failed</span>.
       </p>
@@ -163,7 +163,7 @@
               <tr>
                 <td>{{ i.memberId }}</td>
                 <td>{{ i.success ? '✓' : '✗' }}</td>
-                <td>{{ i.reason || '—' }}</td>
+                <td>{{ i.reason || '-' }}</td>
               </tr>
             }
           </tbody>

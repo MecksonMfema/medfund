@@ -90,7 +90,7 @@
   @for (line of resultLines; track line) {
     <section class="triangle-split lapse-line">
       <div class="triangle-matrix" data-testid="lapse-matrix">
-        <h3 class="pane-title">{{ line }} — A/E by cohort × checkpoint</h3>
+        <h3 class="pane-title">{{ line }}: A/E by cohort × checkpoint</h3>
         <div class="matrix-scroll">
           <table class="matrix-table">
             <thead>
@@ -116,14 +116,14 @@
                     @if (row.expected_lapse_pct != null) {
                       {{ row.expected_lapse_pct * 100 | number:'1.1-1' }}
                     } @else {
-                      —
+                     -
                     }
                   </td>
                   <td class="num" [ngStyle]="aeCellStyle(row)">
                     @if (row.ae_ratio != null) {
                       {{ row.ae_ratio | number:'1.3-3' }}
                     } @else {
-                      —
+                     -
                     }
                   </td>
                 </tr>

@@ -18,7 +18,7 @@
     <div class="selected-card">
       <div>
         <strong>{{ selected.name }}</strong>
-        <span class="muted"> · {{ selected.registrationNumber || '—' }} · {{ selected.specialty || '—' }} · {{ selected.status | humanize }}</span>
+        <span class="muted"> · {{ selected.registrationNumber || '-' }} · {{ selected.specialty || '-' }} · {{ selected.status | humanize }}</span>
       </div>
       <button type="button" class="link-btn" (click)="clear()">Change</button>
     </div>
@@ -45,7 +45,7 @@
               <td>{{ c.serviceDate }}</td>
               <td class="right">{{ c.claimedAmount | currencyFormat:c.currencyCode }}</td>
               <td class="right">
-                {{ c.approvedAmount ? (c.approvedAmount | currencyFormat:c.currencyCode) : '—' }}
+                {{ c.approvedAmount ? (c.approvedAmount | currencyFormat:c.currencyCode) : '-' }}
               </td>
               <td><span class="status-badge status-{{ c.status.toLowerCase() }}">{{ c.status | humanize }}</span></td>
             </tr>
@@ -68,7 +68,7 @@
         @for (p of matches; track p.id) {
           <li (click)="pick(p)">
             <strong>{{ p.name }}</strong>
-            <span class="muted"> · {{ p.registrationNumber || '—' }} · {{ p.specialty || '—' }}</span>
+            <span class="muted"> · {{ p.registrationNumber || '-' }} · {{ p.specialty || '-' }}</span>
           </li>
         }
       </ul>

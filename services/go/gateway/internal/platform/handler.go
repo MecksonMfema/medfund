@@ -277,7 +277,7 @@ func (h *Handler) getActivity(c *fiber.Ctx) error {
 		items = append(items, activityItem{
 			ID:          e.ID,
 			Type:        e.Action,
-			Description: fmt.Sprintf("%s %s — %s", actionLabel(e.Action), entityTypeLabel(e.EntityType), entity),
+			Description: fmt.Sprintf("%s %s - %s", actionLabel(e.Action), entityTypeLabel(e.EntityType), entity),
 			Actor:       actor,
 			Timestamp:   e.Timestamp,
 			Severity:    severityFor(e.Action),

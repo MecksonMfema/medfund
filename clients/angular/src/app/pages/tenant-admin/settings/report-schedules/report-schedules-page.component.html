@@ -4,7 +4,7 @@
       <h1>Report schedules</h1>
       <p class="hint">
         Automatically deliver cadenced reports to a list of recipients. Only reports
-        marked as cadenceable appear here — regulator and IFRS 17 keys are not
+        marked as cadenceable appear here: regulator and IFRS 17 keys are not
         schedulable in v1.
       </p>
     </div>
@@ -125,13 +125,13 @@
 
     <!-- No schedules yet -->
     <div *ngIf="groups.length === 0" class="empty-state">
-      <p>No schedules configured yet — add one below to start receiving delivered reports.</p>
+      <p>No schedules configured yet: add one below to start receiving delivered reports.</p>
     </div>
 
     <!-- Add a schedule -->
     <section *ngIf="eligibleCandidates.length > 0" class="add-section">
       <h2>Add a schedule</h2>
-      <p class="hint">Pick a report and set the cadence — the first fire happens on the next matching tick.</p>
+      <p class="hint">Pick a report and set the cadence: the first fire happens on the next matching tick.</p>
 
       <div class="candidate-grid">
         <div *ngFor="let cand of eligibleCandidates"
@@ -186,7 +186,7 @@
                   Include sensitive sheets (AI calibration + Investigator productivity)
                 </label>
                 <small class="hint">
-                  Off by default. Contains per-officer productivity numbers —
+                  Off by default. Contains per-officer productivity numbers:
                   restrict recipients to SIU supervisors + tenant admins.
                 </small>
               </div>

@@ -29,7 +29,7 @@ public class GroupCensusWorkbookService {
 
     private byte[] render(LocalDate asOf, GroupCensusResult result) {
         ReportWorkbook book = ReportWorkbook.newBook();
-        String title = "Group Census — as of " + asOf;
+        String title = "Group Census - as of " + asOf;
 
         ReportWorkbook.SheetWriter detail = book.sheet("Groups");
         detail.titleMerged(title, 9)

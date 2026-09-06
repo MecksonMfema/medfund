@@ -37,10 +37,10 @@ public class ProviderNetworkUtilizationWorkbookService {
                           String insuranceLine, String networkTier,
                           ProviderUtilizationResult result, List<String> warnings) {
         ReportWorkbook book = ReportWorkbook.newBook();
-        String title = "Provider Network Utilization — " + periodStart + " to " + periodEnd;
+        String title = "Provider Network Utilization - " + periodStart + " to " + periodEnd;
 
         ReportWorkbook.SheetWriter summary = book.sheet("Summary");
-        summary.titleMerged(title + " — Summary", 7)
+        summary.titleMerged(title + " - Summary", 7)
                 .meta("Line",   insuranceLine != null ? insuranceLine : "All")
                 .meta("Tier",   networkTier != null ? networkTier : "All")
                 .meta("Period", periodStart + " to " + periodEnd)
@@ -64,7 +64,7 @@ public class ProviderNetworkUtilizationWorkbookService {
         summary.freezeAtHeader().autoSize();
 
         ReportWorkbook.SheetWriter detail = book.sheet("Providers");
-        detail.titleMerged(title + " — Per-provider detail", 8)
+        detail.titleMerged(title + " - Per-provider detail", 8)
                 .meta("Rows", String.valueOf(result.detail().size()))
                 .blankRow();
         detail.header("Provider", "Network tier", "Line", "Currency",

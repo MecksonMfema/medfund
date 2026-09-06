@@ -3,7 +3,7 @@
     <h1>VFA Unit-Linked Funds</h1>
     <p class="page-sub">
       Fund catalog for VFA (Variable Fee Approach) measurement. Each fund carries NAV history,
-      variable fee schedule and policy allocations — all consumed by IFRS 17 §16 VFA compute.
+      variable fee schedule and policy allocations: all consumed by IFRS 17 §16 VFA compute.
       Fund currency is immutable; deactivate rather than delete to preserve history.
     </p>
   </div>
@@ -34,7 +34,7 @@
              pattern="[A-Za-z]{3}" [readonly]="!!draft.id"
              placeholder="ISO-4217 e.g. USD" />
       @if (draft.id) {
-        <small class="field-hint">Currency is immutable — delete + re-add to change.</small>
+        <small class="field-hint">Currency is immutable: delete + re-add to change.</small>
       }
     </label>
     <label class="field">
@@ -48,7 +48,7 @@
     @if (draft.id) {
       <label class="field span-2 checkbox-field">
         <input type="checkbox" [(ngModel)]="draft.isActive" name="isActive" />
-        <span>Active — inactive funds are hidden from new-policy pickers but retain history</span>
+        <span>Active: inactive funds are hidden from new-policy pickers but retain history</span>
       </label>
     }
     <div class="form-actions span-2">
@@ -153,7 +153,7 @@
                             <td>{{ n.valuationDate }}</td>
                             <td>{{ n.navPerUnit }}</td>
                             <td>{{ n.source }}</td>
-                            <td>{{ n.actorEmail ?? '—' }}</td>
+                            <td>{{ n.actorEmail ?? '-' }}</td>
                           </tr>
                         }
                       </tbody>
@@ -213,7 +213,7 @@
                             <td>{{ f.effectiveFrom }}</td>
                             <td>{{ f.effectiveTo ?? '∞' }}</td>
                             <td>{{ f.feePercentage }}</td>
-                            <td>{{ f.actorEmail ?? '—' }}</td>
+                            <td>{{ f.actorEmail ?? '-' }}</td>
                             <td>
                               <button class="btn btn-sm btn-default" (click)="startEditFee(f)">Edit</button>
                               <button class="btn btn-sm btn-danger" (click)="deleteFee(f)">Delete</button>
@@ -293,7 +293,7 @@
                             <td>{{ l.transactionType }}</td>
                             <td>{{ l.units }}</td>
                             <td>{{ l.price }}</td>
-                            <td>{{ l.actorEmail ?? '—' }}</td>
+                            <td>{{ l.actorEmail ?? '-' }}</td>
                           </tr>
                         }
                       </tbody>

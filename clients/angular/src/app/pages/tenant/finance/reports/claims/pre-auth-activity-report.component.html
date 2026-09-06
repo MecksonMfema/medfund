@@ -87,12 +87,12 @@
     @if (signal) {
       <div class="signal-grid">
         <div class="signal-card">
-          <span class="signal-label">R04 — pre-auth required, not provided</span>
+          <span class="signal-label">R04: pre-auth required, not provided</span>
           <span class="signal-value">{{ signal.r04Count }}</span>
           <span class="signal-meta">claims rejected on this code in the window</span>
         </div>
         <div class="signal-card">
-          <span class="signal-label">R05 — pre-auth expired</span>
+          <span class="signal-label">R05: pre-auth expired</span>
           <span class="signal-value">{{ signal.r05Count }}</span>
           <span class="signal-meta">claims rejected on this code in the window</span>
         </div>
@@ -103,7 +103,7 @@
         </div>
       </div>
       <p class="page-sub" style="margin-top: 12px">
-        Indicative companion metric — a proxy for pre-auth utilisation, not
+        Indicative companion metric: a proxy for pre-auth utilisation, not
         an authoritative measure (no claim back-link exists in the stored
         pre-auth data).
       </p>

@@ -24,7 +24,7 @@
     }
   </nav>
   <p class="muted line-hint">
-    Each line bills separately — switching tabs starts a fresh preview/commit for the chosen line. Schemes outside the active line are ignored by the run.
+    Each line bills separately: switching tabs starts a fresh preview/commit for the chosen line. Schemes outside the active line are ignored by the run.
   </p>
 }
 
@@ -96,7 +96,7 @@
     @if (isRetrospect) {
       <div class="banner banner-warning">
         <strong>Retrospective run for {{ billingMonthLabel }}.</strong>
-        Only clients and groups who were already members during that month will be billed —
+        Only clients and groups who were already members during that month will be billed:
         anyone enrolled after {{ billingMonthLabel }} is skipped automatically.
       </div>
     }
@@ -144,7 +144,7 @@
   @if (step === 'preview' && preview) {
     @if (preview.cooldownActive) {
       <div class="banner banner-warning">
-        Billing cooldown is active — commit will be rejected for another {{ preview.cooldownRemainingMinutes }} minute(s).
+        Billing cooldown is active: commit will be rejected for another {{ preview.cooldownRemainingMinutes }} minute(s).
       </div>
     }
 
@@ -188,7 +188,7 @@
             <h3 class="card-sub-title">Sample invoices ({{ sampleInvoices.length }})</h3>
             <span class="sample-invoices__note">
               Showing how the {{ preview.sample.length }} preview line items roll up into actual invoices.
-              Every insured person — member or dependant — gets their own line, priced from the scheme's age band.
+              Every insured person (member or dependant) gets their own line, priced from the scheme's age band.
             </span>
           </div>
 
@@ -218,7 +218,7 @@
                     @for (line of inv.lines; track $index) {
                       <tr [class.is-dependant]="line.personType === 'DEPENDANT'">
                         <td>
-                          <strong>{{ line.personName || '—' }}</strong>
+                          <strong>{{ line.personName || '-' }}</strong>
                           <span class="invoice-lines__sub">{{ line.memberNumber }}</span>
                         </td>
                         <td>
@@ -228,7 +228,7 @@
                         </td>
                         <td>
                           <span>{{ line.schemeName }}</span>
-                          <span class="invoice-lines__sub">{{ line.ageBand || '— no band matched' }}</span>
+                          <span class="invoice-lines__sub">{{ line.ageBand || '- no band matched' }}</span>
                         </td>
                         <td class="right">{{ line.amount | currencyFormat:line.currencyCode }}</td>
                       </tr>

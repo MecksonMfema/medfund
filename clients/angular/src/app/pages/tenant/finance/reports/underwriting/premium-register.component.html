@@ -119,16 +119,16 @@
         <tr>
           <td>{{ row.memberName }}</td>
           <td>{{ insuranceLineLabel(row.insuranceLine) }}</td>
-          <td>{{ row.schemeName || '—' }}</td>
-          <td>{{ row.portfolioName || '—' }}</td>
-          <td>{{ row.cohortName || '—' }}</td>
-          <td>{{ row.periodStart }} — {{ row.periodEnd }}</td>
+          <td>{{ row.schemeName || '-' }}</td>
+          <td>{{ row.portfolioName || '-' }}</td>
+          <td>{{ row.cohortName || '-' }}</td>
+          <td>{{ row.periodStart }} - {{ row.periodEnd }}</td>
           <td class="num">{{ row.writtenPremium }}</td>
           <td class="num">{{ row.earnedInPeriod }}</td>
           <td class="num">{{ row.unearnedAtPeriodEnd }}</td>
           <td>{{ row.currencyCode }}</td>
           <td>
-            @if (row.isNewBusiness) { <span class="badge badge-info">NB</span> } @else { — }
+            @if (row.isNewBusiness) { <span class="badge badge-info">NB</span> } @else { - }
           </td>
         </tr>
       }

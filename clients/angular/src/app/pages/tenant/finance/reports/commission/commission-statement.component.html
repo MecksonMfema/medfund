@@ -69,7 +69,7 @@
           @for (p of producerMatches; track p.id) {
             <li>
               <button type="button" class="picker-item" (click)="pickProducer(p)">
-                <strong>{{ p.producerCode }}</strong> — {{ p.name }}
+                <strong>{{ p.producerCode }}</strong> - {{ p.name }}
                 <span class="picker-meta">{{ p.homeCurrency }}</span>
               </button>
             </li>
@@ -146,7 +146,7 @@
             <div class="row-meta">{{ row.producerName }}</div>
           </td>
           <td>{{ row.insuranceLine }}</td>
-          <td>{{ row.rateCardName || '—' }}</td>
+          <td>{{ row.rateCardName || '-' }}</td>
           <td class="num">{{ row.appliedRatePct }}</td>
           <td class="num">{{ row.contributionAmount }}</td>
           <td class="num">{{ row.nativeAmount }}</td>

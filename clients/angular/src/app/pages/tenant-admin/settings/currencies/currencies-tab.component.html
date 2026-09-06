@@ -42,7 +42,7 @@
           @for (row of rows; track row.id) {
             <tr [class.pending]="pendingId === row.id">
               <td><strong>{{ row.currencyCode }}</strong></td>
-              <td>{{ row.name || '—' }}</td>
+              <td>{{ row.name || '-' }}</td>
               <td>{{ row.symbol || '' }}</td>
               <td>
                 <button type="button" class="link-btn" (click)="setDefault(row)" [disabled]="row.isDefault">

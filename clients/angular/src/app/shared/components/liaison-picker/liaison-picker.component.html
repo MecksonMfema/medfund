@@ -54,7 +54,7 @@
             @for (m of matches; track m.id) {
               <li class="suggestion" (mousedown)="pick(m)">
                 <strong>{{ m.label }}</strong>
-                @if (m.sublabel) { <span class="muted">— {{ m.sublabel }}</span> }
+                @if (m.sublabel) { <span class="muted">- {{ m.sublabel }}</span> }
               </li>
             }
           }
@@ -100,7 +100,7 @@
         <p class="add-form-hint">
           Creates a Keycloak account with the <code>group_liaison</code> role and
           sends an invite email so the person can set their password. Your group
-          draft above is preserved — the new liaison will be pre-selected on save.
+          draft above is preserved: the new liaison will be pre-selected on save.
         </p>
       </header>
 

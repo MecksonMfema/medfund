@@ -31,7 +31,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Tag(name = "Tenant Report Config",
      description = "Per-tenant on/off toggle catalogue for every report the platform ships. " +
-                   "Reports default to enabled — an entry with enabled=false hides the report from " +
+                   "Reports default to enabled - an entry with enabled=false hides the report from " +
                    "the operational hub, sidebar, and returns 403 from every @RequiresReport endpoint.")
 @SecurityRequirement(name = "bearer-jwt")
 public class TenantReportConfigController {
@@ -55,7 +55,7 @@ public class TenantReportConfigController {
     @RequiresPermission({"admin:manage_settings"})
     @Operation(summary = "Bulk-upsert on/off toggles for one or more reports",
             description = "Entries the payload doesn't mention are left untouched. Unknown report keys " +
-                          "are rejected with 400 — the shared ReportKey enum is the source of truth.")
+                          "are rejected with 400 - the shared ReportKey enum is the source of truth.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Upsert applied, updated rows returned"),
             @ApiResponse(responseCode = "400", description = "Payload contains an unknown report key"),

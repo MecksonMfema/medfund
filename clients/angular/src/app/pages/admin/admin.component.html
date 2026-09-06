@@ -14,7 +14,7 @@
       <p class="section-sub">
         Employees and operators with access to this portal. These are <strong>system users</strong>, distinct from policyholders managed under
         <a routerLink="/tenant/members" class="inline-link">Members</a>.
-        A staff user may also hold a member/policyholder record — the two roles are tracked separately.
+        A staff user may also hold a member/policyholder record: the two roles are tracked separately.
       </p>
     </div>
     <button class="btn btn-primary" (click)="openCreateModal()">
@@ -30,7 +30,7 @@
     [loading]="usersLoading"
     [searchable]="true"
     searchPlaceholder="Search by name or email…"
-    emptyMessage="No users yet — add the first one."
+    emptyMessage="No users yet: add the first one."
   ></app-data-table>
 </div>
 
@@ -39,7 +39,7 @@
   <div class="section-header">
     <div>
       <h2 class="section-title">Audit Log</h2>
-      <p class="section-sub">All actions performed within {{ tenantName }}'s system — who did what and when.</p>
+      <p class="section-sub">All actions performed within {{ tenantName }}'s system: who did what and when.</p>
     </div>
     <div class="audit-search">
       <app-icon name="search" [size]="16"></app-icon>
@@ -71,7 +71,7 @@
   <div class="section-header">
     <div>
       <h2 class="section-title">Branding &amp; Appearance</h2>
-      <p class="section-sub">Personalise how your portal looks. Changes preview immediately — save to persist.</p>
+      <p class="section-sub">Personalise how your portal looks. Changes preview immediately: save to persist.</p>
     </div>
     <div class="section-actions">
       @if (brandingSaved) {

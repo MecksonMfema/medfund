@@ -67,7 +67,7 @@ public class RecoveryService {
                     if (!"EXPECTED".equals(existing.getStatus())
                             && !"INVOICED".equals(existing.getStatus())) {
                         return Mono.error(new IllegalStateException(
-                                "Cannot mark received a " + existing.getStatus() + " recovery — "
+                                "Cannot mark received a " + existing.getStatus() + " recovery - "
                                         + "must be EXPECTED or INVOICED"));
                     }
                     Map<String, Object> before = snapshot(existing);
@@ -102,7 +102,7 @@ public class RecoveryService {
                     if (!"EXPECTED".equals(existing.getStatus())
                             && !"INVOICED".equals(existing.getStatus())) {
                         return Mono.error(new IllegalStateException(
-                                "Cannot write off a " + existing.getStatus() + " recovery — "
+                                "Cannot write off a " + existing.getStatus() + " recovery - "
                                         + "must be EXPECTED or INVOICED"));
                     }
                     Map<String, Object> before = snapshot(existing);
@@ -141,7 +141,7 @@ public class RecoveryService {
             String entityName = "Recovery on cession "
                     + (recovery.getCessionId() != null
                             ? recovery.getCessionId().toString().substring(0, 8) : "n/a")
-                    + " — " + (recovery.getStatus() != null ? recovery.getStatus() : "?")
+                    + " - " + (recovery.getStatus() != null ? recovery.getStatus() : "?")
                     + " " + (recovery.getReceivedAmount() != null
                             ? recovery.getReceivedAmount().toPlainString()
                             : recovery.getExpectedAmount() != null

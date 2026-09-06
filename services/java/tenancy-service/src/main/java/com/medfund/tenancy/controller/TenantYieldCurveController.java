@@ -105,7 +105,7 @@ public class TenantYieldCurveController {
     @RequiresPermission({"tenant.settings:manage_ifrs17_config"})
     @Operation(summary = "Update a yield curve row",
             description = "Only spotRate and effectiveTo are mutable; the (currency, tenor_months, "
-                        + "effective_from) tuple is immutable — a change to any of those is a new row.")
+                        + "effective_from) tuple is immutable - a change to any of those is a new row.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Row updated"),
             @ApiResponse(responseCode = "404", description = "Row not found for tenant")

@@ -64,7 +64,7 @@ public class ScheduledReportDownloadController {
 
     @GetMapping("/{jobId}/download")
     @Operation(summary = "Signed-link download for scheduled report XLSX (from email)",
-            description = "Public route — auth via the HMAC token minted at delivery time. "
+            description = "Public route - auth via the HMAC token minted at delivery time. "
                     + "Rejects on bad/expired token, jobId mismatch, non-completed job, "
                     + "or missing MinIO object. Emits a DATA_ACCESS security event on 200.")
     public Mono<ResponseEntity<byte[]>> download(@PathVariable UUID jobId,

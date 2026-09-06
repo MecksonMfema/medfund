@@ -19,6 +19,7 @@ public record TreatyResponse(
         BigDecimal aggregateLimit,
         String aggregateLimitCurrency,
         BigDecimal expectedAnnualPremium,
+        UUID producerId,
         String producerRef,
         OffsetDateTime activatedAt,
         OffsetDateTime createdAt,
@@ -29,7 +30,7 @@ public record TreatyResponse(
                 t.getId(), t.getTreatyRef(), t.getTreatyType(), t.getDeclaredCurrency(),
                 t.getInceptionDate(), t.getExpiryDate(), t.getStatus(),
                 t.getRenewedFromTreatyId(), t.getAggregateLimit(), t.getAggregateLimitCurrency(),
-                t.getExpectedAnnualPremium(), t.getProducerRef(), t.getActivatedAt(),
-                t.getCreatedAt(), t.getUpdatedAt());
+                t.getExpectedAnnualPremium(), t.getProducerId(), t.getProducerRef(),
+                t.getActivatedAt(), t.getCreatedAt(), t.getUpdatedAt());
     }
 }

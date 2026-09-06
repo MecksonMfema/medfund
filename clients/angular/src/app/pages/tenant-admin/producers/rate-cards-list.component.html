@@ -1,78 +1,108 @@
-<div class="page">
-  <header class="page-header">
-    <div>
-      <h1>Commission rate cards</h1>
-      <p class="sub">Lookup-driven base commission by insurance line + optional producer tier. Overlapping active cards are permitted — resolution is most-recent-effective.</p>
-    </div>
-    <button class="btn btn-primary" (click)="startCreate()">
-      <app-icon name="plus"></app-icon>
+<header class="page-header">
+  <div>
+    <h1>Commission rate cards</h1>
+    <p class="page-sub">
+      Lookup-driven base commission by insurance line + optional producer
+      tier. Overlapping active cards are permitted: resolution is
+      most-recent-effective.
+    </p>
+  </div>
+  <div class="header-actions">
+    <a class="btn btn-default" routerLink="/tenant/admin/producers/list">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back to producers
+    </a>
+    <a class="btn btn-primary" routerLink="/tenant/admin/producers/rate-cards/new">
+      <app-icon name="plus" [size]="14"></app-icon>
       New rate card
+    </a>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+@if (successMessage) {
+  <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-search">
+    <app-icon name="search" [size]="16"></app-icon>
+    <input
+      type="search"
+      [ngModel]="searchTerm"
+      (ngModelChange)="onSearchInput($event)"
+      name="search"
+      placeholder="Search name or tier..."
+      aria-label="Search rate cards"
+    />
+  </div>
+
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Status</span>
+    <app-select
+      [(ngModel)]="filterActive"
+      (selectionChange)="onServerFilterChange()"
+      name="status"
+      size="sm"
+      [options]="statusOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Line</span>
+    <app-select
+      [(ngModel)]="selectedLine"
+      (selectionChange)="onClientFilterChange()"
+      name="line"
+      size="sm"
+      [options]="lineOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Tier</span>
+    <app-select
+      [(ngModel)]="selectedTier"
+      (selectionChange)="onClientFilterChange()"
+      name="tier"
+      size="sm"
+      [options]="tierOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-clear">
+    <button type="button" class="clear-btn" (click)="clearFilters()">
+      <app-icon name="x-circle" [size]="14"></app-icon>
+      Clear
     </button>
-  </header>
-
-  <div *ngIf="errorMessage" class="alert alert-error">{{ errorMessage }}</div>
-  <div *ngIf="successMessage" class="alert alert-success">{{ successMessage }}</div>
-
-  <div class="filters">
-    <label>
-      Status:
-      <select [(ngModel)]="filterActive" (change)="onFilterChange()">
-        <option value="">All</option>
-        <option value="true">Active only</option>
-        <option value="false">Inactive only</option>
-      </select>
-    </label>
   </div>
-
-  <div *ngIf="showForm" class="form-panel">
-    <h3>{{ draft.id ? 'Edit' : 'New' }} rate card</h3>
-    <div class="form-grid">
-      <label>Name *<input type="text" [(ngModel)]="draft.name" required maxlength="120" /></label>
-      <label>Insurance line *
-        <select [(ngModel)]="draft.insuranceLine" required>
-          <option *ngFor="let line of insuranceLines" [value]="line">{{ line }}</option>
-        </select>
-      </label>
-      <label>Producer tier<input type="text" [(ngModel)]="draft.producerTier" maxlength="40"
-                                 placeholder="DIRECT | SUB | (empty = any)" /></label>
-      <label>Base rate % *
-        <input type="number" [(ngModel)]="draft.baseRatePct" required
-               min="0" max="100" step="0.0001" />
-      </label>
-      <label>Clawback window (days)
-        <input type="number" [(ngModel)]="draft.clawbackWindowDays" min="0" max="3650" />
-      </label>
-      <label>Effective from *
-        <input type="date" [(ngModel)]="draft.effectiveFrom" required />
-      </label>
-      <label>Effective to
-        <input type="date" [(ngModel)]="draft.effectiveTo" />
-      </label>
-      <label *ngIf="draft.id">
-        <input type="checkbox" [(ngModel)]="draft.active" /> Active
-      </label>
-    </div>
-    <div class="form-actions">
-      <button class="btn btn-primary" (click)="save()" [disabled]="saving">
-        {{ saving ? 'Saving…' : 'Save' }}
-      </button>
-      <button class="btn" (click)="cancel()" [disabled]="saving">Cancel</button>
-    </div>
-  </div>
-
-  <app-data-table
-    [columns]="columns"
-    [data]="rows"
-    [actions]="actions"
-    [showActions]="true"
-    [serverSide]="true"
-    [loading]="loading"
-    [pageSize]="pageSize"
-    [totalCount]="totalCount"
-    [totalPages]="totalPages"
-    [serverPage]="page"
-    emptyMessage="No rate cards yet"
-    emptyDescription="Click New rate card above to define your first commission schedule."
-    (pageChange)="onPageChange($event)">
-  </app-data-table>
 </div>
+
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [actions]="actions"
+  [showActions]="true"
+  [searchable]="false"
+  [showToolbar]="false"
+  [serverSide]="true"
+  [loading]="loading"
+  [pageSize]="pageSize"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="page"
+  emptyMessage="No rate cards yet"
+  emptyDescription="Click New rate card above to define your first commission schedule."
+  (pageChange)="onPageChange($event)">
+</app-data-table>

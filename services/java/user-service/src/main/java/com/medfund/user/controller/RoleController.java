@@ -126,7 +126,7 @@ public class RoleController {
     @PutMapping("/{id}/permissions")
     @Operation(summary = "Replace a role's permission set",
             description = "Atomically wipes existing permissions and inserts the supplied list. " +
-                    "Every key is validated against the canonical catalogue — unknown keys reject with 400.")
+                    "Every key is validated against the canonical catalogue - unknown keys reject with 400.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Permissions replaced"),
         @ApiResponse(responseCode = "400", description = "Unknown permission key"),

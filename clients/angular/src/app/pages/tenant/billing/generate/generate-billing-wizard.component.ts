@@ -354,7 +354,7 @@ export class GenerateBillingWizardComponent implements OnInit, OnDestroy {
     if (this.billingMonth > this.maxBillingMonth) {
       // Belt-and-braces — the month input's max attribute already blocks
       // this in compliant browsers, but a hand-edited value could slip past.
-      this.errorMessage = `Cannot bill beyond ${this.maxBillingMonthLabel} — next month is the latest allowed.`;
+      this.errorMessage = `Cannot bill beyond ${this.maxBillingMonthLabel}: next month is the latest allowed.`;
       return;
     }
     this.recomputePeriodBounds();
@@ -466,7 +466,7 @@ export class GenerateBillingWizardComponent implements OnInit, OnDestroy {
         this.stopPolling();
         this.loading = false;
         this.saving = false;
-        this.errorMessage = 'Lost track of the billing job — refresh and check the job runs page.';
+        this.errorMessage = 'Lost track of the billing job: refresh and check the job runs page.';
       },
     });
   }
@@ -480,7 +480,7 @@ export class GenerateBillingWizardComponent implements OnInit, OnDestroy {
     if (!run.resultPayload) {
       this.loading = false;
       this.saving = false;
-      this.errorMessage = 'Job finished but returned no result — check the runs log.';
+      this.errorMessage = 'Job finished but returned no result: check the runs log.';
       return;
     }
     try {

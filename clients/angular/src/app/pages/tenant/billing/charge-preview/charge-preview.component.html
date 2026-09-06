@@ -1,7 +1,7 @@
 <header class="page-header">
   <div>
     <h1>Charge preview</h1>
-    <p class="page-sub">Live projection of what a group or individual would owe in the next billing cycle — itemised by member and dependant. Reuses the same pricing rules a real commit would; excludes members whose termination lands before the projected cycle starts.</p>
+    <p class="page-sub">Live projection of what a group or individual would owe in the next billing cycle: itemised by member and dependant. Reuses the same pricing rules a real commit would; excludes members whose termination lands before the projected cycle starts.</p>
   </div>
   @if (preview) {
     <span class="as-of">as of {{ asOfLabel(preview.asOf) }}</span>
@@ -67,7 +67,7 @@
                 (mousedown)="pickTarget(opt)">
               <strong>{{ opt.label }}</strong>
               @if (opt.sublabel) {
-                <span class="muted">— {{ opt.sublabel }}</span>
+                <span class="muted">- {{ opt.sublabel }}</span>
               }
             </li>
           }
@@ -101,10 +101,10 @@
     <header class="result-header">
       <div>
         <h2 class="result-title">{{ preview.subjectName }}</h2>
-        <span class="muted">Projected cycle {{ preview.periodStart | date:'MMM d' }} — {{ preview.periodEnd | date:'MMM d, y' }}</span>
+        <span class="muted">Projected cycle {{ preview.periodStart | date:'MMM d' }} - {{ preview.periodEnd | date:'MMM d, y' }}</span>
       </div>
       @if (preview.excludedTerminating > 0) {
-        <span class="excluded-pill" title="Members whose termination_date lands before the projected cycle starts — they're on their last serviced cycle.">
+        <span class="excluded-pill" title="Members whose termination_date lands before the projected cycle starts: they're on their last serviced cycle.">
           {{ preview.excludedTerminating }} excluded (terminating)
         </span>
       }
@@ -141,7 +141,7 @@
                 </span>
               </td>
               <td>{{ line.schemeName }}</td>
-              <td>{{ line.ageBandName || '—' }}</td>
+              <td>{{ line.ageBandName || '-' }}</td>
               <td>
                 @if (line.isCustomPriced) {
                   <span class="note-pill note-custom">Custom price</span>

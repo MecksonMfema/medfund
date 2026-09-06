@@ -70,7 +70,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/reports/regulatory/naic/schedule-f")
 @RequiredArgsConstructor
 @Tag(name = "NAIC Schedule F",
-        description = "United States NAIC Schedule F (Annual Statement, Phase 16 §A) — assumed and "
+        description = "United States NAIC Schedule F (Annual Statement, Phase 16 §A) - assumed and "
                 + "ceded reinsurance activity + statutory Provision for Reinsurance. Async submit "
                 + "→ poll → XLSX. Reporting currency is fixed at USD; a non-blank override is "
                 + "rejected with 422 upstream by the shape service. Bundled template is "

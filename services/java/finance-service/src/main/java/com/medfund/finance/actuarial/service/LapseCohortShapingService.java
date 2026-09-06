@@ -102,7 +102,7 @@ public class LapseCohortShapingService {
             warnings.add("No cohorts landed in the requested period; LAPSE_STUDY result will be empty");
         }
         if (basisPayload.isEmpty()) {
-            warnings.add("Tenant has no persistency_basis rows for the selected line — A/E ratios will be null");
+            warnings.add("Tenant has no persistency_basis rows for the selected line - A/E ratios will be null");
         }
 
         Map<String, Object> cohort = new LinkedHashMap<>();

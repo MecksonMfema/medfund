@@ -257,7 +257,7 @@ export class AuditComponent implements OnInit {
   }
 
   formatValue(val: any): string {
-    if (val === null || val === undefined) return '—';
+    if (val === null || val === undefined) return '-';
     if (typeof val === 'object') return JSON.stringify(val, null, 2);
     return String(val);
   }
@@ -296,8 +296,8 @@ export class AuditComponent implements OnInit {
 
   /** Replaces bare UUIDs with '—' in UI display. Raw UUID values are preserved in _entityDisplay / _actorDisplay for CSV. */
   formatDisplay(value: string | null | undefined): string {
-    if (!value) return '—';
+    if (!value) return '-';
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    return uuidPattern.test(value.trim()) ? '—' : value;
+    return uuidPattern.test(value.trim()) ? '-' : value;
   }
 }

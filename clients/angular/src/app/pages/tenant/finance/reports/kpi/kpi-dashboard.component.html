@@ -2,7 +2,7 @@
   <div>
     <h1>Executive KPIs</h1>
     <p class="page-sub">
-      Loss, acquisition, combined, frequency and severity — composed from the
+      Loss, acquisition, combined, frequency and severity: composed from the
       contributions, claims and commission ledgers in real time. Per-currency
       ratios stay native; the composite is converted to the reporting currency.
     </p>
@@ -81,7 +81,7 @@
       @if (producerMatches.length) {
         <ul class="search-menu">
           @for (m of producerMatches; track m.id) {
-            <li (click)="pickProducer(m)">{{ m.producerCode }} — {{ m.name }}</li>
+            <li (click)="pickProducer(m)">{{ m.producerCode }} - {{ m.name }}</li>
           }
         </ul>
       }

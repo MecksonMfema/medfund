@@ -289,7 +289,7 @@ export class MemberDetailComponent implements OnInit {
    *  wired when tenant.pricingModel === 'AI_DRIVEN'. */
   suggestMemberPremium(): void {
     if (!this.member || !this.form.schemeId || !this.member.dateOfBirth) {
-      this.toast.error('Missing scheme or date of birth — the AI needs both to compute a baseline.');
+      this.toast.error('Missing scheme or date of birth: the AI needs both to compute a baseline.');
       return;
     }
     this.memberAiRequesting = true;
@@ -687,7 +687,7 @@ export class MemberDetailComponent implements OnInit {
         this.changeGroupModalOpen = false;
         const label = saved.status === 'APPLIED' || saved.backdated
           ? `Group change applied immediately (back-dated); arrears/rebate posting…`
-          : `Group change booked ${saved.status} — effective ${payload.effectiveDate}`;
+          : `Group change booked ${saved.status}, effective ${payload.effectiveDate}`;
         this.toast.success(label);
       },
       error: (err) => this.toast.error(err?.error?.detail || 'Group change failed'),
@@ -718,7 +718,7 @@ export class MemberDetailComponent implements OnInit {
         const kind = saved.changeKind ? ` (${saved.changeKind})` : '';
         const label = saved.status === 'EFFECTIVE'
           ? `Scheme change applied immediately${kind}; arrears/rebate posting…`
-          : `Scheme change booked ${saved.status}${kind} — effective ${saved.effectiveDate}`;
+          : `Scheme change booked ${saved.status}${kind}, effective ${saved.effectiveDate}`;
         this.toast.success(label);
       },
       error: (err) => this.toast.error(err?.error?.detail || 'Scheme change failed'),
@@ -744,8 +744,8 @@ export class MemberDetailComponent implements OnInit {
       next: (saved) => {
         this.swapModalOpen = false;
         const label = saved.status === 'APPLIED'
-          ? `Swap applied — promoted dependant is now the principal.`
-          : `Swap booked ${saved.status} — effective ${payload.effectiveDate}`;
+          ? `Swap applied: promoted dependant is now the principal.`
+          : `Swap booked ${saved.status}, effective ${payload.effectiveDate}`;
         this.toast.success(label);
       },
       error: (err) => this.toast.error(err?.error?.detail || 'Swap failed'),

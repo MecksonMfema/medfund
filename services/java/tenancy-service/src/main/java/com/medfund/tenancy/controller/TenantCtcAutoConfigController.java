@@ -31,7 +31,7 @@ import java.util.UUID;
      description = "Per-tenant Claims-to-Contributions auto-draft configuration. " +
                    "When enabled, finance-service auto-drafts a CTC row whenever a MEMBER-payee " +
                    "claim adjudicates and the member's outstanding contribution balance clears the " +
-                   "threshold. Never auto-commits — operator review stays mandatory.")
+                   "threshold. Never auto-commits - operator review stays mandatory.")
 @SecurityRequirement(name = "bearer-jwt")
 public class TenantCtcAutoConfigController {
 

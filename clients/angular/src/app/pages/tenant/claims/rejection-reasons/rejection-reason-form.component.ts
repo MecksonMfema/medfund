@@ -40,7 +40,7 @@ export class RejectionReasonFormComponent implements OnInit {
 
   get categoryOptions(): SelectOption[] {
     return [
-      { value: '', label: '— None —' },
+      { value: '', label: '- None -' },
       ...this.categories.map(c => ({ value: c, label: c })),
     ];
   }

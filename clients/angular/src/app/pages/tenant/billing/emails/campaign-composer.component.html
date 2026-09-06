@@ -2,7 +2,7 @@
   <header class="page-header">
     <div>
       <h1>{{ campaignId ? (readOnly ? 'View campaign' : 'Edit campaign') : 'Compose campaign' }}</h1>
-      <p class="page-sub">Drafts can be edited until they're sent. The audience filter is a JSON object — leave it as <code>{{ '{}' }}</code> to target every member.</p>
+      <p class="page-sub">Drafts can be edited until they're sent. The audience filter is a JSON object: leave it as <code>{{ '{}' }}</code> to target every member.</p>
     </div>
     <a class="btn btn-default" routerLink="/tenant/billing/emails">
       <app-icon name="arrow-left" [size]="14"></app-icon>
@@ -28,11 +28,11 @@
           name="senderId"
           [disabled]="readOnly"
           [options]="senderOptions"
-          placeholder="— Pick a verified sender —"
+          placeholder="(Pick a verified sender)"
         ></app-select>
         @if (senders.length === 0) {
           <small class="muted">
-            No verified senders yet — <a routerLink="/tenant/billing/emails/senders/add">add one</a>.
+            No verified senders yet: <a routerLink="/tenant/billing/emails/senders/add">add one</a>.
           </small>
         }
       </label>
@@ -88,7 +88,7 @@
                 <tr>
                   <td><code>{{ s.memberNumber }}</code></td>
                   <td>{{ s.firstName }} {{ s.lastName }}</td>
-                  <td class="muted">{{ s.email || '—' }}</td>
+                  <td class="muted">{{ s.email || '-' }}</td>
                 </tr>
               }
             </tbody>

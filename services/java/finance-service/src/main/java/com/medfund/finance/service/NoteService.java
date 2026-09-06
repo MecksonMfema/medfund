@@ -266,7 +266,7 @@ public class NoteService {
             .flatMap(note -> {
                 if ("applied".equals(note.getStatus())) {
                     return Mono.error(new IllegalStateException(
-                        "Cannot delete an applied note — post a reversal via /reverse instead"));
+                        "Cannot delete an applied note - post a reversal via /reverse instead"));
                 }
                 if ("reversed".equals(note.getStatus())) {
                     return Mono.error(new IllegalStateException(

@@ -126,7 +126,7 @@ export class EndorsementConfigComponent implements OnInit {
 
   get currencyOptions(): SelectOption[] {
     return [
-      { value: '', label: '— Select currency —' },
+      { value: '', label: '- Select currency -' },
       ...this.currencies.map(c => ({
         value: c.currencyCode,
         label: `${c.currencyCode}${c.isDefault ? ' (default)' : ''}`,

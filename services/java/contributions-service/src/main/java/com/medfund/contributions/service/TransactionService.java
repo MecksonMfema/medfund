@@ -95,11 +95,11 @@ public class TransactionService {
         // useful 422 that names the alternatives.
         if (request.groupId() == null && request.memberId() == null) {
             return Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                "Provide either a groupId or a memberId — the transaction must anchor to an owner"));
+                "Provide either a groupId or a memberId - the transaction must anchor to an owner"));
         }
         if (request.groupId() != null && request.memberId() != null) {
             return Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                "Only one of groupId or memberId may be set — the DB CHECK enforces exclusivity"));
+                "Only one of groupId or memberId may be set - the DB CHECK enforces exclusivity"));
         }
         // Adjustments must justify themselves — CREDIT/DEBIT bypass the
         // usual payment/refund proof (a bank reference, a receipt) so we
@@ -109,7 +109,7 @@ public class TransactionService {
                 (request.reason() == null || request.reason().isBlank())) {
             return Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                 "A reason is required for " + request.transactionType().toUpperCase() +
-                " adjustments — record why the ledger is being moved"));
+                " adjustments - record why the ledger is being moved"));
         }
 
         // Grouped members can't be payers on the individual leg — their
@@ -144,7 +144,7 @@ public class TransactionService {
                                                   String actorId, String actorEmail) {
         if (request.memberId() == null) {
             return Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                "CTC offset requires memberId — group-only CTC is out of scope"));
+                "CTC offset requires memberId - group-only CTC is out of scope"));
         }
         String type = request.transactionType();
         if (!"CTC_OFFSET".equals(type) && !"CTC_OFFSET_REVERSAL".equals(type)) {
@@ -166,10 +166,10 @@ public class TransactionService {
                 .map(row -> java.util.Optional.ofNullable(row.get("group_id", UUID.class)))
                 .one()
                 .switchIfEmpty(Mono.error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                        "Member " + memberId + " not found — cannot record a payment against them")))
+                        "Member " + memberId + " not found - cannot record a payment against them")))
                 .flatMap(groupIdOpt -> groupIdOpt.isPresent()
                         ? Mono.<Void>error(new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
-                                "Member " + memberId + " is affiliated to a group — record the payment against " +
+                                "Member " + memberId + " is affiliated to a group - record the payment against " +
                                 "the group instead"))
                         : Mono.empty());
     }

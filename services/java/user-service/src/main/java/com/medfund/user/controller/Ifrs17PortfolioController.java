@@ -24,7 +24,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/underwriting/portfolios")
-@Tag(name = "Underwriting — IFRS 17 Portfolios",
+@Tag(name = "Underwriting - IFRS 17 Portfolios",
      description = "Manage IFRS 17 portfolio dimension used by Phase 12 underwriting reports")
 @SecurityRequirement(name = "bearer-jwt")
 @RequiredArgsConstructor
@@ -97,7 +97,7 @@ public class Ifrs17PortfolioController {
         @ApiResponse(responseCode = "204", description = "Portfolio soft-deleted"),
         @ApiResponse(responseCode = "404", description = "Portfolio not found"),
         @ApiResponse(responseCode = "403", description = "Missing underwriting.portfolio:manage"),
-        @ApiResponse(responseCode = "409", description = "Cannot delete — policies still reference this portfolio")
+        @ApiResponse(responseCode = "409", description = "Cannot delete - policies still reference this portfolio")
     })
     public Mono<Void> delete(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
         return service.softDelete(id, AuditActor.id(jwt), AuditActor.email(jwt));

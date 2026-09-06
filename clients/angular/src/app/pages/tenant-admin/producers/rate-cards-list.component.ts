@@ -1,12 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
 import {
-  CreateRateCardPayload,
   InsuranceLine,
   ProducerService,
   RateCard,
-  UpdateRateCardPayload,
 } from '../../../core/services/producer.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import {
@@ -14,27 +13,23 @@ import {
   TableAction,
   TableColumn,
 } from '../../../shared/components/data-table/data-table.component';
-
-interface RateCardDraft extends UpdateRateCardPayload {
-  id?: string;
-}
+import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
 
 @Component({
   selector: 'app-rate-cards-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, DataTableComponent],
+  imports: [
+    CommonModule, FormsModule, RouterLink,
+    IconComponent, DataTableComponent, SelectComponent,
+  ],
   templateUrl: './rate-cards-list.component.html',
   styleUrl: './producers-list.component.scss',
 })
 export class RateCardsListComponent implements OnInit {
   rows: RateCard[] = [];
   loading = false;
-  saving = false;
   errorMessage: string | null = null;
   successMessage: string | null = null;
-
-  showForm = false;
-  draft: RateCardDraft = this.empty();
 
   readonly insuranceLines: InsuranceLine[] = [
     'HEALTH','LIFE','FUNERAL','GROUP','TRAVEL','DISABILITY','VEHICLE','PROPERTY',
@@ -44,7 +39,16 @@ export class RateCardsListComponent implements OnInit {
   pageSize = 50;
   totalCount = 0;
   totalPages = 1;
+
+  // Filters. Status ("active") is server-side because listRateCards
+  // only accepts an `active` boolean; the rest filter client-side over
+  // the loaded page (same shape as producers + treaties lists).
   filterActive: '' | 'true' | 'false' = 'true';
+  selectedLine = '';
+  selectedTier = '';
+  searchTerm = '';
+
+  private allRows: RateCard[] = [];
 
   readonly columns: TableColumn[] = [
     { key: 'name',               label: 'Name' },
@@ -59,13 +63,33 @@ export class RateCardsListComponent implements OnInit {
 
   readonly actions: TableAction[] = [
     { label: 'Edit', icon: 'edit', color: 'default',
-      handler: (row: RateCard) => this.startEdit(row) },
+      handler: (row: RateCard) => this.editRow(row) },
     { label: 'Deactivate', icon: 'trash', color: 'danger',
       visible: (row: RateCard) => row.active,
       handler: (row: RateCard) => this.deactivate(row) },
   ];
 
-  constructor(private svc: ProducerService) {}
+  readonly statusOptions: SelectOption[] = [
+    { value: '',      label: 'Any status' },
+    { value: 'true',  label: 'Active only' },
+    { value: 'false', label: 'Inactive only' },
+  ];
+
+  get lineOptions(): SelectOption[] {
+    return [
+      { value: '', label: 'Any line' },
+      ...this.insuranceLines.map(l => ({ value: l, label: l })),
+    ];
+  }
+
+  get tierOptions(): SelectOption[] {
+    const tiers = Array.from(new Set(
+      this.allRows.map(r => r.producerTier).filter((t): t is string => !!t)
+    )).sort();
+    return [{ value: '', label: 'Any tier' }, ...tiers.map(t => ({ value: t, label: t }))];
+  }
+
+  constructor(private svc: ProducerService, private router: Router) {}
 
   ngOnInit(): void { this.fetchPage(); }
 
@@ -74,13 +98,15 @@ export class RateCardsListComponent implements OnInit {
     const active = this.filterActive === '' ? undefined : this.filterActive === 'true';
     this.svc.listRateCards(this.page - 1, this.pageSize, active).subscribe({
       next: (resp) => {
-        this.rows = resp.content;
+        this.allRows = resp.content;
         this.totalCount = resp.total;
         this.totalPages = resp.totalPages;
+        this.applyClientFilters();
         this.loading = false;
       },
       error: (err) => {
         this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load rate cards';
+        this.allRows = [];
         this.rows = [];
         this.loading = false;
       },
@@ -88,61 +114,40 @@ export class RateCardsListComponent implements OnInit {
   }
 
   onPageChange(page: number): void { this.page = page; this.fetchPage(); }
-  onFilterChange(): void { this.page = 1; this.fetchPage(); }
 
-  startCreate(): void { this.draft = this.empty(); this.showForm = true; this.clearMessages(); }
+  onServerFilterChange(): void { this.page = 1; this.fetchPage(); }
 
-  startEdit(row: RateCard): void {
-    this.draft = {
-      id: row.id,
-      name: row.name,
-      insuranceLine: row.insuranceLine,
-      producerTier: row.producerTier,
-      baseRatePct: row.baseRatePct,
-      clawbackWindowDays: row.clawbackWindowDays,
-      effectiveFrom: row.effectiveFrom,
-      effectiveTo: row.effectiveTo,
-      active: row.active,
-    };
-    this.showForm = true;
-    this.clearMessages();
+  onClientFilterChange(): void { this.applyClientFilters(); }
+
+  onSearchInput(value: string): void {
+    this.searchTerm = value ?? '';
+    this.applyClientFilters();
   }
 
-  cancel(): void { this.showForm = false; this.draft = this.empty(); }
+  clearFilters(): void {
+    this.filterActive = 'true';
+    this.selectedLine = '';
+    this.selectedTier = '';
+    this.searchTerm = '';
+    this.page = 1;
+    this.fetchPage();
+  }
 
-  save(): void {
-    if (!this.draft.name?.trim()) { this.errorMessage = 'Name is required'; return; }
-    if (this.draft.baseRatePct == null || this.draft.baseRatePct < 0 || this.draft.baseRatePct > 100) {
-      this.errorMessage = 'Base rate must be between 0 and 100'; return;
-    }
-    if (!this.draft.effectiveFrom) { this.errorMessage = 'Effective-from date is required'; return; }
-    this.saving = true;
-    this.clearMessages();
-
-    const base: CreateRateCardPayload = {
-      name: this.draft.name.trim(),
-      insuranceLine: this.draft.insuranceLine,
-      producerTier: this.draft.producerTier?.trim() || null,
-      baseRatePct: this.draft.baseRatePct,
-      clawbackWindowDays: this.draft.clawbackWindowDays ?? null,
-      effectiveFrom: this.draft.effectiveFrom,
-      effectiveTo: this.draft.effectiveTo || null,
-    };
-    const stream = this.draft.id
-      ? this.svc.updateRateCard(this.draft.id, { ...base, active: this.draft.active ?? true })
-      : this.svc.createRateCard(base);
-    stream.subscribe({
-      next: () => {
-        this.saving = false;
-        this.successMessage = 'Rate card saved';
-        this.showForm = false;
-        this.fetchPage();
-      },
-      error: (err) => {
-        this.saving = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Save failed';
-      },
+  private applyClientFilters(): void {
+    const q = this.searchTerm.trim().toLowerCase();
+    this.rows = this.allRows.filter(r => {
+      if (this.selectedLine && r.insuranceLine !== this.selectedLine) return false;
+      if (this.selectedTier && r.producerTier !== this.selectedTier) return false;
+      if (q) {
+        const hay = `${r.name} ${r.producerTier ?? ''}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
     });
+  }
+
+  editRow(row: RateCard): void {
+    this.router.navigate(['/tenant/admin/producers/rate-cards', row.id, 'edit']);
   }
 
   deactivate(row: RateCard): void {
@@ -151,20 +156,5 @@ export class RateCardsListComponent implements OnInit {
       next: () => { this.successMessage = 'Rate card deactivated'; this.fetchPage(); },
       error: (err) => { this.errorMessage = err?.error?.detail || 'Deactivate failed'; },
     });
-  }
-
-  private empty(): RateCardDraft {
-    return {
-      name: '',
-      insuranceLine: 'HEALTH',
-      baseRatePct: 0,
-      effectiveFrom: new Date().toISOString().slice(0, 10),
-      active: true,
-    };
-  }
-
-  private clearMessages(): void {
-    this.errorMessage = null;
-    this.successMessage = null;
   }
 }

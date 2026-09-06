@@ -35,7 +35,7 @@
         <dl class="meta">
           <dt>Payee</dt>
           <dd>
-            {{ payeeName() || '—' }}
+            {{ payeeName() || '-' }}
             <span class="pill pill-{{ advice.payeeType | lowercase }}">{{ advice.payeeType }}</span>
           </dd>
           <dt>Run</dt>
@@ -45,7 +45,7 @@
                 {{ advice.runNumber || advice.paymentRunId.substring(0, 8) }}
               </a>
             } @else {
-              —
+             -
             }
           </dd>
           <dt>Currency</dt>
@@ -121,7 +121,7 @@
                       } @else if (line.referenceType && line.referenceId) {
                         <code>{{ line.referenceType }}:{{ line.referenceId.substring(0, 8) }}</code>
                       } @else {
-                        —
+                       -
                       }
                     </td>
                     <td class="muted">{{ line.postedAt | date:'short' }}</td>
@@ -129,14 +129,14 @@
                       @if (+line.debitAmount > 0) {
                         {{ line.debitAmount | currencyFormat:line.currencyCode }}
                       } @else {
-                        —
+                       -
                       }
                     </td>
                     <td class="right">
                       @if (+line.creditAmount > 0) {
                         {{ line.creditAmount | currencyFormat:line.currencyCode }}
                       } @else {
-                        —
+                       -
                       }
                     </td>
                   </tr>

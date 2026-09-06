@@ -57,7 +57,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/reports/receipts")
 @RequiredArgsConstructor
 @Tag(name = "Receipts reports",
-        description = "Phase 3 receipts-report family — per-scheme / per-group / per-member summaries "
+        description = "Phase 3 receipts-report family - per-scheme / per-group / per-member summaries "
                     + "plus per-dimension drill-down. Amounts are net-received (payments in, minus "
                     + "refunds/reversals) per the transaction_types.sign catalogue.")
 @SecurityRequirement(name = "bearer-jwt")
@@ -81,9 +81,9 @@ public class ReceiptsReportController {
                         + "contribution_id back-link land in a synthetic 'Unallocated group payments' "
                         + "scheme row (dimensionId=null).")
     public Mono<ReportResponse<List<ReceiptsSummaryRow>>> schemesReport(
-            @Parameter(description = "ISO date — first day of the reporting window (inclusive)")
+            @Parameter(description = "ISO date - first day of the reporting window (inclusive)")
             @RequestParam String periodStart,
-            @Parameter(description = "ISO date — last day of the reporting window (inclusive)")
+            @Parameter(description = "ISO date - last day of the reporting window (inclusive)")
             @RequestParam String periodEnd,
             @Parameter(description = "Optional ISO-4217 override; defaults to the tenant's default currency")
             @RequestParam(required = false) String reportingCurrency) {
@@ -263,7 +263,7 @@ public class ReceiptsReportController {
     @GetMapping("/members")
     @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
     @RequiresReport(ReportKey.RECEIPTS_REPORT)
-    @Operation(summary = "Per-member receipts aggregate — paginated + searchable",
+    @Operation(summary = "Per-member receipts aggregate - paginated + searchable",
             description = "Individual-line insurance (LIFE / TRAVEL / DISABILITY / VEHICLE / PROPERTY / "
                         + "individual HEALTH) plus direct top-up payments from grouped-line members.")
     public Mono<ReportResponse<PageResponse<ReceiptsSummaryRow>>> membersReport(

@@ -366,10 +366,10 @@ public class ClaimService {
         ProviderMode mode = providerMode(line);
         boolean hasProvider = req.providerId() != null;
         if (mode == ProviderMode.FORBIDDEN && hasProvider) {
-            throw new IllegalArgumentException(line + " claims are paid to the member — remove the provider");
+            throw new IllegalArgumentException(line + " claims are paid to the member - remove the provider");
         }
         if (mode == ProviderMode.REQUIRED && !hasProvider) {
-            throw new IllegalArgumentException(line + " claims require a service provider — capture the provider on submit (payeeType controls where the payout goes)");
+            throw new IllegalArgumentException(line + " claims require a service provider - capture the provider on submit (payeeType controls where the payout goes)");
         }
         // Cross-check payeeType against the shape:
         //  - explicit PROVIDER with no provider on file makes no sense
@@ -392,7 +392,7 @@ public class ClaimService {
         }
         String normalised = requested.trim().toUpperCase();
         if (!"PROVIDER".equals(normalised) && !"MEMBER".equals(normalised)) {
-            throw new IllegalArgumentException("Unknown payeeType '" + requested + "' — expected PROVIDER or MEMBER");
+            throw new IllegalArgumentException("Unknown payeeType '" + requested + "' - expected PROVIDER or MEMBER");
         }
         return normalised;
     }

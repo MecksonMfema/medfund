@@ -2,7 +2,7 @@
   <div>
     <h1>Collection rate</h1>
     <p class="page-sub">
-      Per-dimension, per-currency rate — net receipts divided by committed billing
+      Per-dimension, per-currency rate: net receipts divided by committed billing
       for the reporting window. Never cross-currency conversion in the rate itself.
       Monthly trend appears in the table below.
     </p>
@@ -82,7 +82,7 @@
           <td>{{ row.currencyCode }}</td>
           <td class="num">{{ row.totalBilled | number:'1.2-2' }}</td>
           <td class="num">{{ row.totalReceived | number:'1.2-2' }}</td>
-          <td class="num">{{ row.totalRatePct !== null ? (row.totalRatePct | number:'1.2-2') + '%' : '—' }}</td>
+          <td class="num">{{ row.totalRatePct !== null ? (row.totalRatePct | number:'1.2-2') + '%' : '-' }}</td>
           <td class="num">{{ row.monthlyBuckets.length }}</td>
         </tr>
       }

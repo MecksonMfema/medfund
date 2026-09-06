@@ -57,7 +57,7 @@ public class ProducerBackfillController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     @RequiresPermission(Permissions.PRODUCER_BACKFILL_REVIEW)
     @Operation(summary = "Kick off the treaty.producer_ref → producer_id backfill (fire-and-forget)",
-            description = "Idempotent — reruns write zero duplicate candidate rows thanks to "
+            description = "Idempotent - reruns write zero duplicate candidate rows thanks to "
                         + "ux_pbc_treaty_candidate. Returns 202 immediately; poll /progress for status.")
     public Mono<Void> run(@AuthenticationPrincipal Jwt jwt) {
         return Mono.deferContextual(ctx -> {
@@ -109,7 +109,7 @@ public class ProducerBackfillController {
 
     @PutMapping("/candidates/{id}/accept")
     @RequiresPermission(Permissions.PRODUCER_BACKFILL_REVIEW)
-    @Operation(summary = "Accept a candidate — sets treaty.producer_id + rejects sibling candidates")
+    @Operation(summary = "Accept a candidate - sets treaty.producer_id + rejects sibling candidates")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Accepted; treaty.producer_id updated"),
             @ApiResponse(responseCode = "400", description = "Candidate not found"),
@@ -121,7 +121,7 @@ public class ProducerBackfillController {
 
     @PutMapping("/candidates/{id}/reject")
     @RequiresPermission(Permissions.PRODUCER_BACKFILL_REVIEW)
-    @Operation(summary = "Reject a candidate — leaves the treaty untouched")
+    @Operation(summary = "Reject a candidate - leaves the treaty untouched")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Rejected"),
             @ApiResponse(responseCode = "400", description = "Candidate not found"),

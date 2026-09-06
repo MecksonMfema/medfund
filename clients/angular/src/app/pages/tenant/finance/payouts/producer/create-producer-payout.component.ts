@@ -24,7 +24,7 @@ import { ProducerPayoutService } from '../../../../../core/services/producer-pay
           <select [(ngModel)]="sourceBankAccountId" name="sourceBankAccountId" required>
             <option [ngValue]="null" disabled>Pick a bank account</option>
             <option *ngFor="let b of banks" [ngValue]="b.id">
-              {{ b.label }} — {{ b.currencyCode }}
+              {{ b.label }} - {{ b.currencyCode }}
             </option>
           </select>
         </label>

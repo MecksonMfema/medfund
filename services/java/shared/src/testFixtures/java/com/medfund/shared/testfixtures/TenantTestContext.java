@@ -39,7 +39,7 @@ public final class TenantTestContext {
         String value = CURRENT.get();
         if (value == null) {
             throw new IllegalStateException(
-                "No active tenant — annotate the test (or its class) with @WithTenant(\"<id>\")");
+                "No active tenant - annotate the test (or its class) with @WithTenant(\"<id>\")");
         }
         return value;
     }

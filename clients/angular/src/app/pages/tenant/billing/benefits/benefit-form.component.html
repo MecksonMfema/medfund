@@ -4,7 +4,7 @@
       <h1>{{ benefitId ? 'Edit benefit' : 'Add benefit' }}</h1>
       @if (scheme) {
         <p class="page-sub">
-          Scheme <strong>{{ scheme.name }}</strong> · currency {{ scheme.currencyCode || '—' }}. Limits are recorded in the scheme's currency.
+          Scheme <strong>{{ scheme.name }}</strong> · currency {{ scheme.currencyCode || '-' }}. Limits are recorded in the scheme's currency.
         </p>
       } @else {
         <p class="page-sub">Loading scheme…</p>
@@ -103,7 +103,7 @@
         </header>
 
         <label class="field">
-          <span class="field-label">Annual limit <span class="optional">({{ scheme?.currencyCode || '—' }})</span></span>
+          <span class="field-label">Annual limit <span class="optional">({{ scheme?.currencyCode || '-' }})</span></span>
           <input
             class="field-control"
             type="number"
@@ -116,7 +116,7 @@
         </label>
 
         <label class="field">
-          <span class="field-label">Daily limit <span class="optional">({{ scheme?.currencyCode || '—' }})</span></span>
+          <span class="field-label">Daily limit <span class="optional">({{ scheme?.currencyCode || '-' }})</span></span>
           <input
             class="field-control"
             type="number"
@@ -129,7 +129,7 @@
         </label>
 
         <label class="field">
-          <span class="field-label">Per-event limit <span class="optional">({{ scheme?.currencyCode || '—' }})</span></span>
+          <span class="field-label">Per-event limit <span class="optional">({{ scheme?.currencyCode || '-' }})</span></span>
           <input
             class="field-control"
             type="number"

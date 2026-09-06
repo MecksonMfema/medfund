@@ -57,7 +57,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/reports/commission")
 @RequiredArgsConstructor
 @Tag(name = "Commission Reports",
-     description = "Producer commission statement + clawback register — native-currency rows, "
+     description = "Producer commission statement + clawback register - native-currency rows, "
                  + "best-effort FX rates to reporting currency, XLSX exports with security-event trail.")
 @SecurityRequirement(name = "bearer-jwt")
 public class CommissionReportController {

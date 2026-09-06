@@ -86,7 +86,7 @@ public class CtcReversedConsumer {
                 /* paymentMethod */   "CTC",
                 /* reference */       ref,
                 /* reason */          reason != null && !reason.isBlank()
-                                        ? "Claims-to-Contributions reversal — " + reason
+                                        ? "Claims-to-Contributions reversal - " + reason
                                         : "Claims-to-Contributions reversal"
             );
             Mono<Void> work = transactionService.recordFromCtcOffset(

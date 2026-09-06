@@ -33,9 +33,9 @@ public class MemberPaymentsExcelService {
     private byte[] render(MemberPaymentsReportResponse report, List<String> warnings) {
         ReportWorkbook book = ReportWorkbook.newBook();
         ReportWorkbook.SheetWriter sheet = book.sheet("Member payments")
-                .titleMerged("Member payments — unified", 6)
-                .meta("Period start", report.periodStart() != null ? report.periodStart().toString() : "—")
-                .meta("Period end",   report.periodEnd()   != null ? report.periodEnd().toString()   : "—")
+                .titleMerged("Member payments - unified", 6)
+                .meta("Period start", report.periodStart() != null ? report.periodStart().toString() : "-")
+                .meta("Period end",   report.periodEnd()   != null ? report.periodEnd().toString()   : "-")
                 .meta("Rows", String.valueOf(report.rows() != null ? report.rows().size() : 0));
 
         if (warnings != null && !warnings.isEmpty()) {

@@ -1,7 +1,6 @@
 package com.medfund.finance.regulatory.aml;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -10,15 +9,15 @@ import java.util.UUID;
 
 /**
  * Fallback {@link AmlThresholdReader} that returns {@link AmlThresholds#empty()}
- * with a WARN log. Kicks in only when no concrete reader bean is on the
- * classpath — the R2DBC implementation
- * ({@code R2dbcAmlThresholdReader}) is deferred until the AML admin CRUD
- * surface has real seed data. Same pattern as {@code StubVatRateReader}
- * (Phase 20) + {@code StubTaxWithheldRateReader} (Phase 21).
+ * with a WARN log. Registered unconditionally today because the R2DBC
+ * implementation ({@code R2dbcAmlThresholdReader}) is deferred until the AML
+ * admin CRUD surface has real seed data; when it lands, mark it {@code @Primary}
+ * to take precedence.
+ * (@ConditionalOnMissingBean on a @Component self-excludes at scan time —
+ *  the guard has to live on a @Bean method in a @Configuration class.)
  */
 @Slf4j
 @Component
-@ConditionalOnMissingBean(AmlThresholdReader.class)
 public class StubAmlThresholdReader implements AmlThresholdReader {
 
     @Override

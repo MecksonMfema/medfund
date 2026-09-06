@@ -23,7 +23,7 @@ var defaultBodyTemplate string
 
 // DefaultSubject and DefaultHTMLBody expose the platform-wide fallback
 // so the cmd/main wiring can hand them to the per-tenant resolver.
-const DefaultSubject = "Payment received — {{.CurrencyCode}} {{.Amount}} ({{.TransactionNumber}})"
+const DefaultSubject = "Payment received: {{.CurrencyCode}} {{.Amount}} ({{.TransactionNumber}})"
 
 func DefaultHTMLBody() string { return defaultBodyTemplate }
 
@@ -170,7 +170,7 @@ type renderData struct {
 func dataFor(e Event, r recipient.Recipient) renderData {
 	pm := e.PaymentMethod
 	if pm == "" {
-		pm = "—"
+		pm = "-"
 	}
 	// Prefer the friendly name resolved upstream — matches what's on
 	// the PDF header. Falls back to the resolver's DisplayName when the

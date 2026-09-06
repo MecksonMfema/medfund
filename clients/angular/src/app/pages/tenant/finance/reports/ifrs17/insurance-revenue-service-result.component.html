@@ -59,8 +59,8 @@
     @if (summary.failedChunks > 0) {
       <div><span>Failed:</span><strong>{{ summary.failedChunks }}</strong></div>
     }
-    <div><span>Models:</span><strong>{{ summary.measurementModelsSeen.join(', ') || '—' }}</strong></div>
-    <div><span>Currencies:</span><strong>{{ summary.currenciesSeen.join(', ') || '—' }}</strong></div>
+    <div><span>Models:</span><strong>{{ summary.measurementModelsSeen.join(', ') || '-' }}</strong></div>
+    <div><span>Currencies:</span><strong>{{ summary.currenciesSeen.join(', ') || '-' }}</strong></div>
   </div>
 }
 

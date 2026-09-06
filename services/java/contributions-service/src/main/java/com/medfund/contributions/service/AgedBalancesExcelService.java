@@ -72,7 +72,7 @@ public class AgedBalancesExcelService {
             r = writeLabelValue(sheet, r, label, bold, "Min age (days)",
                     minAgeDays != null ? String.valueOf(minAgeDays) : "Dunning suspension threshold");
             r = writeLabelValue(sheet, r, label, bold, "Search",
-                    q != null && !q.isBlank() ? q : "—");
+                    q != null && !q.isBlank() ? q : "-");
             r = writeLabelValue(sheet, r, label, bold, "Exported at",
                     LocalDate.now().toString());
             r = writeLabelValue(sheet, r, label, bold, "Rows",
@@ -113,7 +113,7 @@ public class AgedBalancesExcelService {
     }
 
     private static String humanizeSubjectType(String v) {
-        if (v == null) return "—";
+        if (v == null) return "-";
         return switch (v.toUpperCase()) {
             case "MEMBER" -> "Individual";
             case "GROUP"  -> "Group";

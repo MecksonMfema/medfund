@@ -55,7 +55,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/reports/ifrs17")
 @RequiredArgsConstructor
 @Tag(name = "IFRS 17 Reports",
-        description = "Async submit endpoints for IFRS 17 measurement reports — LRC/LIC "
+        description = "Async submit endpoints for IFRS 17 measurement reports - LRC/LIC "
                 + "reconciliation and insurance revenue + service result. POST returns the parent "
                 + "jobId; chunks fan out per (portfolio × cohort × currency) and Kafka events fire "
                 + "to the ai-service compute path. Poll via /api/v1/reports/jobs/{jobId} for the "

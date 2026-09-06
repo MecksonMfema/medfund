@@ -59,7 +59,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/regulatory/aml/alerts")
 @RequiredArgsConstructor
-@Tag(name = "Regulatory — AML/STR alerts",
+@Tag(name = "Regulatory - AML/STR alerts",
         description = "Suspicious Transaction Alert workflow. Compliance staff raise → review → "
                 + "file (regulator submission) or close (not reportable). Filing XLSX generation "
                 + "is Phase 26; this surface only covers the DB workflow + audit trail.")
@@ -142,7 +142,7 @@ public class AmlAlertController {
     @PostMapping("/{id}/close")
     @RequiresPermission(Permissions.COMPLIANCE_AML_CLOSE)
     @Operation(summary = "Close a RAISED|REVIEWED alert (not reportable)",
-            description = "Closed reason is mandatory. FILED alerts cannot be re-closed — the "
+            description = "Closed reason is mandatory. FILED alerts cannot be re-closed - the "
                     + "workflow assumes a filed alert stays filed. Emits AuditEvent action=CLOSE.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Closed"),

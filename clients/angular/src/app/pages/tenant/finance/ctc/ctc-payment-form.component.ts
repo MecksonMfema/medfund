@@ -144,7 +144,7 @@ export class CtcPaymentFormComponent implements OnInit {
       next: () => {
         this.busy = false;
         this.router.navigate(['/tenant/finance/payments/ctc'], {
-          state: { ctcBanner: { kind: 'success', text: 'CTC drafted — awaiting commit' } },
+          state: { ctcBanner: { kind: 'success', text: 'CTC drafted: awaiting commit' } },
         });
       },
       error: (err) => {

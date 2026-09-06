@@ -28,7 +28,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/reports/regulatory/due-dates")
 @RequiredArgsConstructor
 @Tag(name = "Regulatory Due Dates",
-     description = "Reports-hub banner rows — one per applicable Phase-16 regulator report.")
+     description = "Reports-hub banner rows - one per applicable Phase-16 regulator report.")
 @SecurityRequirement(name = "bearer-jwt")
 public class RegulatoryDueDateController {
 

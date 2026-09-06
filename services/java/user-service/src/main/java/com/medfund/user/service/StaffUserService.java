@@ -167,7 +167,7 @@ public class StaffUserService {
                 .flatMap(user -> {
                     if (user.getKeycloakUserId() == null) {
                         return Mono.error(new IllegalStateException(
-                                "User has no Keycloak account — create the user first"));
+                                "User has no Keycloak account - create the user first"));
                     }
                     if ("active".equalsIgnoreCase(user.getStatus())) {
                         return Mono.error(new IllegalStateException(

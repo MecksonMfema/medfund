@@ -36,7 +36,7 @@ public class PolicyMovementWorkbookService {
     private byte[] render(LocalDate periodStart, LocalDate periodEnd,
                           List<PolicyMovementRow> rows, String reportingCurrency) {
         ReportWorkbook book = ReportWorkbook.newBook();
-        String title = "Policy Movement — " + periodStart + " to " + periodEnd;
+        String title = "Policy Movement - " + periodStart + " to " + periodEnd;
 
         ReportWorkbook.SheetWriter detail = book.sheet("Movement");
         detail.titleMerged(title, 14)
@@ -62,7 +62,7 @@ public class PolicyMovementWorkbookService {
         detail.freezeAtHeader().autoSize();
 
         ReportWorkbook.SheetWriter summary = book.sheet("Summary");
-        summary.titleMerged(title + " — Summary", 4)
+        summary.titleMerged(title + " - Summary", 4)
                 .meta("Reporting currency", reportingCurrency != null ? reportingCurrency : "-")
                 .meta("Period", periodStart + " to " + periodEnd)
                 .blankRow();

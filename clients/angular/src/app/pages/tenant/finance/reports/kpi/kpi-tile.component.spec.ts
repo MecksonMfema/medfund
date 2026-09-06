@@ -27,14 +27,14 @@ describe('KpiTileComponent', () => {
     expect(composite.textContent?.trim()).toBe('64.2%');
   });
 
-  it('shows an em-dash when composite is null', () => {
+  it('shows a placeholder dash when composite is null', () => {
     const fixture = TestBed.createComponent(KpiTileComponent);
     fixture.componentInstance.key = 'LOSS_RATIO_KPI';
     fixture.componentInstance.label = 'Loss ratio';
     fixture.componentInstance.composite = null;
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.composite').textContent?.trim()).toBe('—');
+    expect(fixture.nativeElement.querySelector('.composite').textContent?.trim()).toBe('-');
   });
 
   it('renders the mixed-basis tooltip only when basisNote is the mixed marker', () => {
@@ -47,7 +47,7 @@ describe('KpiTileComponent', () => {
     const note: HTMLElement = fixture.nativeElement.querySelector('.basis-note');
     expect(note).toBeTruthy();
     expect(note.getAttribute('title'))
-      .toBe('Mixed basis — loss ratio on earned premium, expense ratio on written premium (NAIC convention).');
+      .toBe('Mixed basis: loss ratio on earned premium, expense ratio on written premium (NAIC convention).');
   });
 
   it('renders per-currency chips sorted alphabetically', () => {

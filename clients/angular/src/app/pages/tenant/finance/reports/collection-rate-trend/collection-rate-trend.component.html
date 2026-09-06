@@ -2,7 +2,7 @@
   <div>
     <h1>Collection-rate trend</h1>
     <p class="page-sub">
-      Portfolio-level monthly collection rate per currency — receipts divided by committed billing,
+      Portfolio-level monthly collection rate per currency: receipts divided by committed billing,
       summed across all schemes, groups and members. Never cross-currency conversion in the rate
       itself.
     </p>
@@ -87,7 +87,7 @@
           <td>{{ m.currencyCode }}</td>
           <td class="num">{{ m.billed | number:'1.2-2' }}</td>
           <td class="num">{{ m.received | number:'1.2-2' }}</td>
-          <td class="num">{{ m.ratePct !== null && m.ratePct !== undefined ? (m.ratePct | number:'1.2-2') + '%' : '—' }}</td>
+          <td class="num">{{ m.ratePct !== null && m.ratePct !== undefined ? (m.ratePct | number:'1.2-2') + '%' : '-' }}</td>
         </tr>
       }
     </tbody>

@@ -64,7 +64,7 @@ public class UprMovementWorkbookService {
                           BigDecimal convertedGrandTotal,
                           List<String> warnings) {
         ReportWorkbook book = ReportWorkbook.newBook();
-        String title = "UPR Movement — " + periodStart + " to " + periodEnd;
+        String title = "UPR Movement - " + periodStart + " to " + periodEnd;
 
         List<String> lines = new ArrayList<>(byLine.keySet());
         Collections.sort(lines);
@@ -78,7 +78,7 @@ public class UprMovementWorkbookService {
         }
         for (String line : lines) {
             ReportWorkbook.SheetWriter sheet = book.sheet(line);
-            sheet.titleMerged(title + " — " + line, 7)
+            sheet.titleMerged(title + " - " + line, 7)
                     .meta("Line",   line)
                     .meta("Period", periodStart + " to " + periodEnd)
                     .blankRow();
@@ -108,7 +108,7 @@ public class UprMovementWorkbookService {
                                    BigDecimal convertedGrandTotal,
                                    List<String> warnings) {
         ReportWorkbook.SheetWriter sheet = book.sheet("Summary");
-        sheet.titleMerged(title + " — Summary", 3)
+        sheet.titleMerged(title + " - Summary", 3)
                 .meta("Line",   insuranceLine != null ? insuranceLine : "All")
                 .meta("Period", periodStart + " to " + periodEnd)
                 .meta("As of",  periodEnd.toString())
@@ -127,7 +127,7 @@ public class UprMovementWorkbookService {
         } else {
             sheet.meta("Converted grand total (" + reportingCurrency + ")",
                     "FX unavailable for one or more currencies at " + periodEnd
-                            + " — converted total omitted");
+                            + " - converted total omitted");
         }
         if (warnings != null && !warnings.isEmpty()) {
             sheet.blankRow();
@@ -181,7 +181,7 @@ public class UprMovementWorkbookService {
         Map<String, List<T>> grouped = new LinkedHashMap<>();
         for (T row : rows) {
             String key = keyFn.apply(row);
-            if (key == null) key = "—";
+            if (key == null) key = "-";
             grouped.computeIfAbsent(key, k -> new ArrayList<>()).add(row);
         }
         return grouped;

@@ -91,7 +91,7 @@ public class TreatyService {
                 .flatMap(existing -> {
                     if (!"DRAFT".equals(existing.getStatus())) {
                         return Mono.error(new IllegalStateException(
-                                "Treaty is " + existing.getStatus() + " — only DRAFT treaties are editable. "
+                                "Treaty is " + existing.getStatus() + " - only DRAFT treaties are editable. "
                                         + "Void this treaty and create a new one instead."));
                     }
                     Map<String, Object> before = snapshot(existing);
@@ -112,7 +112,7 @@ public class TreatyService {
                 .flatMap(existing -> {
                     if (!"DRAFT".equals(existing.getStatus())) {
                         return Mono.error(new IllegalStateException(
-                                "Treaty must be DRAFT to activate — was " + existing.getStatus()));
+                                "Treaty must be DRAFT to activate - was " + existing.getStatus()));
                     }
                     return validationService.validateForActivation(existing)
                             .then(Mono.defer(() -> {
@@ -226,7 +226,7 @@ public class TreatyService {
                 .flatMap(t -> "DRAFT".equals(t.getStatus())
                         ? Mono.just(t)
                         : Mono.error(new IllegalStateException(
-                                "Treaty is " + t.getStatus() + " — nested resources are editable only while DRAFT.")));
+                                "Treaty is " + t.getStatus() + " - nested resources are editable only while DRAFT.")));
     }
 
     public Flux<Treaty> allByStatus(String status) {
@@ -242,6 +242,7 @@ public class TreatyService {
         t.setAggregateLimit(req.aggregateLimit());
         t.setAggregateLimitCurrency(req.aggregateLimitCurrency());
         t.setExpectedAnnualPremium(req.expectedAnnualPremium());
+        t.setProducerId(req.producerId());
         t.setProducerRef(req.producerRef());
     }
 
@@ -254,6 +255,7 @@ public class TreatyService {
         t.setAggregateLimit(req.aggregateLimit());
         t.setAggregateLimitCurrency(req.aggregateLimitCurrency());
         t.setExpectedAnnualPremium(req.expectedAnnualPremium());
+        t.setProducerId(req.producerId());
         t.setProducerRef(req.producerRef());
     }
 
@@ -269,6 +271,7 @@ public class TreatyService {
         m.put("aggregateLimit",        t.getAggregateLimit());
         m.put("aggregateLimitCurrency", t.getAggregateLimitCurrency());
         m.put("expectedAnnualPremium", t.getExpectedAnnualPremium());
+        m.put("producerId",            t.getProducerId());
         m.put("producerRef",           t.getProducerRef());
         return m;
     }

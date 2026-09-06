@@ -42,8 +42,8 @@
           <tr [class.inactive]="row.isActive === false">
             <td><code>{{ row.code }}</code></td>
             <td>{{ row.description }}</td>
-            <td class="muted">{{ row.chapter || '—' }}</td>
-            <td class="muted">{{ row.category || '—' }}</td>
+            <td class="muted">{{ row.chapter || '-' }}</td>
+            <td class="muted">{{ row.category || '-' }}</td>
           </tr>
         }
       </tbody>

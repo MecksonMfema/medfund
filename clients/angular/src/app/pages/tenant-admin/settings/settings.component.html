@@ -76,7 +76,7 @@
 
           <div class="form-field">
             <label class="form-label">Contact email</label>
-            <p class="color-hint">Primary contact for this tenant — billing, escalations.</p>
+            <p class="color-hint">Primary contact for this tenant: billing, escalations.</p>
             <input type="email" class="form-input" [(ngModel)]="general.contactEmail"
               placeholder="ops@acme.com" />
           </div>
@@ -100,7 +100,7 @@
               [(ngModel)]="general.membershipModel"
               name="membershipModel"
               [options]="membershipModelSelectOptions"
-              placeholder="— Select —"
+              placeholder="(Select)"
             ></app-select>
           </div>
 
@@ -116,7 +116,7 @@
               [(ngModel)]="general.jurisdictionCode"
               name="jurisdictionCode"
               [options]="jurisdictionSelectOptions"
-              placeholder="— None —"
+              placeholder="(None)"
             ></app-select>
           </div>
 
@@ -133,7 +133,7 @@
       <div class="section-header">
         <div>
           <h3 class="section-title">Branding &amp; Appearance</h3>
-          <p class="section-sub">Personalise how your portal looks. Changes preview immediately — save to persist.</p>
+          <p class="section-sub">Personalise how your portal looks. Changes preview immediately: save to persist.</p>
         </div>
         <div class="section-actions">
           @if (brandingSaved) {
@@ -244,7 +244,7 @@
       <!-- Logo -->
       <div class="branding-section">
         <h4 class="branding-label">Logo</h4>
-        <p class="color-hint">Shown in the sidebar and dashboard. PNG, JPEG, SVG, or WEBP — up to 256 KB. Leave empty to use the organisation initial.</p>
+        <p class="color-hint">Shown in the sidebar and dashboard. PNG, JPEG, SVG, or WEBP: up to 256 KB. Leave empty to use the organisation initial.</p>
 
         <div class="logo-upload">
           @if (branding.logoUrl) {
@@ -342,7 +342,7 @@
 
         <div class="branding-section">
           <h4 class="branding-label">Drug claims</h4>
-          <p class="color-hint">Health insurers usually manage pharmaceutical claims as a separate domain — distinct queues, drug pre-auth, drug inventory. Car, property, funeral and other non-health lines can leave this off and the related sidebar items disappear.</p>
+          <p class="color-hint">Health insurers usually manage pharmaceutical claims as a separate domain: distinct queues, drug pre-auth, drug inventory. Car, property, funeral and other non-health lines can leave this off and the related sidebar items disappear.</p>
           <label class="switch-row">
             <input type="checkbox" [(ngModel)]="drugClaimsEnabled" />
             <span>Manage drug claims separately</span>

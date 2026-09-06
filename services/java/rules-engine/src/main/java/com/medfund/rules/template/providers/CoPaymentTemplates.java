@@ -21,14 +21,14 @@ public class CoPaymentTemplates implements TemplateProvider {
                  RuleCategory.CO_PAYMENT, 70,
                  all(cond("provider.inNetwork", "EQUALS", "false")),
                  action("APPLY_COPAY", "20",
-                        "20% co-pay — out-of-network provider")),
+                        "20% co-pay - out-of-network provider")),
 
             rule("CP02 - Fixed co-pay on optical claims",
                  "Members pay a fixed 25.00 on every optical claim.",
                  RuleCategory.CO_PAYMENT, 60,
                  all(cond("claim.benefitCategory", "EQUALS", "OPTICAL")),
                  action("APPLY_COPAY", "FIXED:25",
-                        "Fixed 25.00 co-pay — optical claim")),
+                        "Fixed 25.00 co-pay - optical claim")),
 
             // V077 waiver templates (G14). All three fire APPLY_COPAY with a zero
             // value; CostShareCalculator interprets that as "member owes no copay
@@ -41,15 +41,15 @@ public class CoPaymentTemplates implements TemplateProvider {
                  RuleCategory.CO_PAYMENT, 90,
                  all(cond("claim.benefitCategory", "EQUALS", "PREVENTIVE")),
                  action("APPLY_COPAY", "FIXED:0",
-                        "Preventive care — copay waived")),
+                        "Preventive care - copay waived")),
 
             rule("WAIVE_EMERGENCY_ADMISSION - Waive copay on emergency admissions",
                  "Emergency-admission claims incur no member copay. A member cannot "
-                    + "be asked to co-pay at the door of an ER — the fund absorbs the copay.",
+                    + "be asked to co-pay at the door of an ER - the fund absorbs the copay.",
                  RuleCategory.CO_PAYMENT, 85,
                  all(cond("claim.isEmergency", "EQUALS", "true")),
                  action("APPLY_COPAY", "FIXED:0",
-                        "Emergency admission — copay waived")),
+                        "Emergency admission - copay waived")),
 
             rule("WAIVE_IN_NETWORK_TIER_1 - Waive copay for tier-1 in-network providers",
                  "Tier-1 in-network providers (the fund's preferred partners) incur no "
@@ -59,7 +59,7 @@ public class CoPaymentTemplates implements TemplateProvider {
                  all(cond("provider.inNetwork",   "EQUALS", "true"),
                      cond("provider.networkTier", "EQUALS", "TIER_1")),
                  action("APPLY_COPAY", "FIXED:0",
-                        "Tier-1 in-network provider — copay waived"))
+                        "Tier-1 in-network provider - copay waived"))
         );
     }
 }

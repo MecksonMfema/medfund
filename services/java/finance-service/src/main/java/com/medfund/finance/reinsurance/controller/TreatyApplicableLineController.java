@@ -30,7 +30,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/reinsurance/treaties/{treatyId}/applicable-lines")
 @RequiredArgsConstructor
-@Tag(name = "Reinsurance — Treaty Applicable Lines",
+@Tag(name = "Reinsurance - Treaty Applicable Lines",
      description = "The insurance lines a treaty covers. Auto-cession consumers filter treaties on this table.")
 @SecurityRequirement(name = "bearer-jwt")
 public class TreatyApplicableLineController {

@@ -67,7 +67,7 @@ public class FraudTriageTemplates implements TemplateProvider {
             rule("FRAUD1 - Auto-open above risk threshold",
                  "Auto-open an SIU case when the AI risk_score exceeds the "
                        + "configured minimum. Change the threshold to raise or "
-                       + "lower the sensitivity — mirrors the SiuCaseService "
+                       + "lower the sensitivity - mirrors the SiuCaseService "
                        + "default policy (0.85) so authoring this rule is optional.",
                  RuleCategory.FRAUD_TRIAGE, 100,
                  all(cond("fraudFlag.riskScore", "GREATER_THAN", 0.85)),
@@ -86,7 +86,7 @@ public class FraudTriageTemplates implements TemplateProvider {
             rule("FRAUD3 - Auto-open for watchlisted provider",
                  "Auto-open an SIU case whenever any flag lands against a "
                        + "provider the tenant has watchlisted. Change the providerId "
-                       + "UUID to the target provider — clone this rule once per "
+                       + "UUID to the target provider - clone this rule once per "
                        + "watchlisted provider (the DSL has no IN operator today, "
                        + "so per-provider EQUALS rules are the current shape).",
                  RuleCategory.FRAUD_TRIAGE, 80,
@@ -128,7 +128,7 @@ public class FraudTriageTemplates implements TemplateProvider {
                        + "at the lowest priority (salience 1) so it overrides any "
                        + "preceding OPEN_SIU_CASE rule in the same evaluation. "
                        + "Tenants who prefer a fully-manual SIU workflow load this "
-                       + "template alongside — or instead of — the OPEN templates.",
+                       + "template alongside - or instead of - the OPEN templates.",
                  RuleCategory.FRAUD_TRIAGE, 1,
                  all(cond("fraudFlag.riskScore", "GREATER_THAN", 0)),
                  suppressCase("Manual-triage-only tenant policy"))

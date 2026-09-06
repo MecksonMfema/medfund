@@ -543,11 +543,11 @@ export class SubmitClaimComponent implements OnInit {
     this.formError = null;
     if (!this.memberId)   { this.formError = 'Pick a beneficiary'; return; }
     if (this.providerMode === 'FORBIDDEN' && this.providerId) {
-      this.formError = `${this.activeLine} claims are paid to the member — remove the provider`;
+      this.formError = `${this.activeLine} claims are paid to the member: remove the provider`;
       return;
     }
     if (this.providerMode === 'REQUIRED' && !this.providerId) {
-      this.formError = `${this.activeLine} claims require a service provider — pick one (use "Reimburse to member" if the member paid out-of-pocket)`;
+      this.formError = `${this.activeLine} claims require a service provider: pick one (use "Reimburse to member" if the member paid out-of-pocket)`;
       return;
     }
     if (this.payeeType === 'PROVIDER' && !this.providerId) {
@@ -558,7 +558,7 @@ export class SubmitClaimComponent implements OnInit {
       return;
     }
     if (!this.schemeId)   { this.formError = 'Pick a scheme'; return; }
-    if (!this.activeLine) { this.formError = 'Scheme has no insurance line — pick a different scheme'; return; }
+    if (!this.activeLine) { this.formError = 'Scheme has no insurance line: pick a different scheme'; return; }
     if (!this.form.serviceDate) { this.formError = 'Service date is required'; return; }
 
     const total = this.totalAmount();

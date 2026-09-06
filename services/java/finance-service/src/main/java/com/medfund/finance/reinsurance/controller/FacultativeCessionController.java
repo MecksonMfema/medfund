@@ -57,7 +57,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/reinsurance/facultative")
 @RequiredArgsConstructor
-@Tag(name = "Reinsurance — Facultative",
+@Tag(name = "Reinsurance - Facultative",
      description = "Facultative-cession lifecycle: underwriter drops a DRAFT against an ACTIVE treaty, "
                  + "supervisor approves + commits. Committed rows show on the cession bordereau. Voiding "
                  + "a DRAFT/APPROVED cascade-writes-off any linked recovery.")
@@ -80,10 +80,10 @@ public class FacultativeCessionController {
     @Operation(summary = "Browse adjudicated claim candidates for facultative cession",
             description = "Server-side filter on status=ADJUDICATED + insuranceLine + minAmount. "
                         + "Returns up to `size` rows (default 50) per call. Rows do not carry a "
-                        + "'already ceded' flag today — a race between browse and cede is caught "
+                        + "'already ceded' flag today - a race between browse and cede is caught "
                         + "at write-time and surfaces as 409 Conflict.")
     public Mono<List<FacultativeCandidateRow>> candidates(
-            @Parameter(description = "Minimum approvedAmount — rows below this are dropped")
+            @Parameter(description = "Minimum approvedAmount - rows below this are dropped")
             @RequestParam(required = false) BigDecimal minAmount,
             @Parameter(description = "Optional insurance-line filter (HEALTH, LIFE, …)")
             @RequestParam(required = false) String insuranceLine,
@@ -101,7 +101,7 @@ public class FacultativeCessionController {
     @RequiresPermission(Permissions.REINSURANCE_VIEW)
     @Operation(summary = "List facultative cessions in a working state",
             description = "Returns DRAFT + APPROVED by default; pass ?status=DRAFT or ?status=APPROVED "
-                        + "to narrow. Sorted oldest-first — the supervisor should clear the top of the "
+                        + "to narrow. Sorted oldest-first - the supervisor should clear the top of the "
                         + "queue first.")
     public Mono<PageResponse<CessionResponse>> queue(
             @RequestParam(required = false) String status,
@@ -177,7 +177,7 @@ public class FacultativeCessionController {
     @PostMapping("/{id}/void")
     @RequiresPermission(Permissions.REINSURANCE_APPROVE_FACULTATIVE)
     @Operation(summary = "Void a DRAFT/APPROVED facultative cession",
-            description = "Reason is mandatory — recorded on cession.voided_reason. Cascade-writes-off "
+            description = "Reason is mandatory - recorded on cession.voided_reason. Cascade-writes-off "
                         + "any EXPECTED / INVOICED Recovery with the reason prefixed 'Cession voided: '. "
                         + "CEDED facultative cessions must be commuted, not voided.")
     @ApiResponses({

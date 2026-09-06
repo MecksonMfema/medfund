@@ -31,7 +31,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/ctc-payments")
 @RequiredArgsConstructor
 @Tag(name = "CTC Payments",
-     description = "Claims-to-Contributions transfers — the fund offsets a member's own contribution debt with an approved claim payout that would otherwise be paid to the member.")
+     description = "Claims-to-Contributions transfers - the fund offsets a member's own contribution debt with an approved claim payout that would otherwise be paid to the member.")
 @SecurityRequirement(name = "bearer-jwt")
 public class CtcPaymentController {
 
@@ -40,7 +40,7 @@ public class CtcPaymentController {
     @GetMapping
     @RequiresPermission({Permissions.CLAIMS_VIEW_CTC_PAYMENTS, Permissions.FINANCE_MANAGE_CTC_PAYMENTS})
     @RequiresReport(ReportKey.CTC_PAYMENTS)
-    @Operation(summary = "List CTC payments (unpaginated — prefer /page)")
+    @Operation(summary = "List CTC payments (unpaginated - prefer /page)")
     public Flux<CtcPaymentResponse> list(@RequestParam(required = false) Boolean committed) {
         return (committed != null ? service.findByCommitted(committed) : service.findAll())
             .map(CtcPaymentResponse::from);

@@ -30,7 +30,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/v1/underwriting/opening-balances")
-@Tag(name = "Underwriting — IFRS 17 Opening Balance Seeds",
+@Tag(name = "Underwriting - IFRS 17 Opening Balance Seeds",
      description = "Tenant-admin overrides on auto-derived IFRS 17 LRC / LIC opening balances")
 @SecurityRequirement(name = "bearer-jwt")
 @RequiredArgsConstructor
@@ -97,7 +97,7 @@ public class Ifrs17OpeningBalanceSeedController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @RequiresPermission("underwriting.opening_balance:manage")
     @Operation(summary = "Delete an IFRS 17 opening balance seed",
-               description = "Hard delete — reverts the affected tuple back to auto-derived on the "
+               description = "Hard delete - reverts the affected tuple back to auto-derived on the "
                              + "next report run. Emits an audit DELETE event capturing the removed row.")
     @ApiResponses({
         @ApiResponse(responseCode = "204", description = "Seed deleted"),

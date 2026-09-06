@@ -200,7 +200,7 @@ public class AmlAlertService {
                             && !STATUS_REVIEWED.equals(existing.getStatus())) {
                         return Mono.error(new IllegalStateException(
                                 "Cannot close a " + existing.getStatus()
-                                        + " alert — only RAISED/REVIEWED are closeable"));
+                                        + " alert - only RAISED/REVIEWED are closeable"));
                     }
                     String priorStatus = existing.getStatus();
                     Map<String, Object> before = snapshot(existing);
@@ -265,7 +265,7 @@ public class AmlAlertService {
                 .flatMap(existing -> {
                     if (!expected.equals(existing.getStatus())) {
                         return Mono.error(new IllegalStateException(
-                                messagePrefix + " — was " + existing.getStatus()));
+                                messagePrefix + " - was " + existing.getStatus()));
                     }
                     return Mono.just(existing);
                 });

@@ -112,7 +112,7 @@ public class BordereauReportWorkbookService {
         List<String> currencies = new ArrayList<>(byCurrency.keySet());
         Collections.sort(currencies);
         if (currencies.isEmpty()) {
-            emptyPlaceholderSheet(book, "Cession Bordereau — Q" + quarter + " " + year,
+            emptyPlaceholderSheet(book, "Cession Bordereau - Q" + quarter + " " + year,
                     reinsurerName, treatyRef, period);
         }
         for (String currency : currencies) {
@@ -120,7 +120,7 @@ public class BordereauReportWorkbookService {
             BigDecimal sheetTotal = sumParticipantCeded(sheetRows);
 
             ReportWorkbook.SheetWriter sheet = book.sheet("Cessions " + currency)
-                    .titleMerged("Cession Bordereau — Q" + quarter + " " + year, 13)
+                    .titleMerged("Cession Bordereau - Q" + quarter + " " + year, 13)
                     .meta("Reinsurer", reinsurerName)
                     .meta("Treaty",    treatyRef)
                     .meta("Period",    period.periodStart() + " to " + period.periodEnd())
@@ -148,7 +148,7 @@ public class BordereauReportWorkbookService {
             sheet.metaMoney("Total (" + currency + ")", sheetTotal);
             sheet.freezeAtHeader().autoSize();
         }
-        buildSummarySheet(book, "Cession Bordereau — Q" + quarter + " " + year,
+        buildSummarySheet(book, "Cession Bordereau - Q" + quarter + " " + year,
                 reinsurerName, treatyRef, period, byCurrency,
                 CessionBordereauRow::participantCeded,
                 reportingCurrency, asOf, convertedGrandTotal);
@@ -217,7 +217,7 @@ public class BordereauReportWorkbookService {
         List<String> currencies = new ArrayList<>(byCurrency.keySet());
         Collections.sort(currencies);
         if (currencies.isEmpty()) {
-            emptyPlaceholderSheet(book, "Recoveries Bordereau — Q" + quarter + " " + year,
+            emptyPlaceholderSheet(book, "Recoveries Bordereau - Q" + quarter + " " + year,
                     reinsurerName, treatyRef, period);
         }
         for (String currency : currencies) {
@@ -226,7 +226,7 @@ public class BordereauReportWorkbookService {
             BigDecimal sheetReceivedTotal = sumBigDecimal(sheetRows, RecoveriesBordereauRow::participantReceived);
 
             ReportWorkbook.SheetWriter sheet = book.sheet("Recoveries " + currency)
-                    .titleMerged("Recoveries Bordereau — Q" + quarter + " " + year, 13)
+                    .titleMerged("Recoveries Bordereau - Q" + quarter + " " + year, 13)
                     .meta("Reinsurer", reinsurerName)
                     .meta("Treaty",    treatyRef)
                     .meta("Period",    period.periodStart() + " to " + period.periodEnd())
@@ -256,7 +256,7 @@ public class BordereauReportWorkbookService {
             sheet.metaMoney("Received total (" + currency + ")", sheetReceivedTotal);
             sheet.freezeAtHeader().autoSize();
         }
-        buildSummarySheet(book, "Recoveries Bordereau — Q" + quarter + " " + year,
+        buildSummarySheet(book, "Recoveries Bordereau - Q" + quarter + " " + year,
                 reinsurerName, treatyRef, period, byCurrency,
                 RecoveriesBordereauRow::participantExpected,
                 reportingCurrency, asOf, convertedGrandTotal);
@@ -283,7 +283,7 @@ public class BordereauReportWorkbookService {
                     Map<String, List<TreatyUtilizationRow>> byCurrency =
                             groupBy(rows, r -> r.cededCurrency() != null
                                     ? r.cededCurrency()
-                                    : (r.layerCurrency() != null ? r.layerCurrency() : "—"));
+                                    : (r.layerCurrency() != null ? r.layerCurrency() : "-"));
                     return convertGrandTotalMulti(byCurrency, TreatyUtilizationRow::totalCededNative,
                                     reportingCurrency, resolvedAsOf, tenantId)
                             .map(converted -> renderUtilizationBook(treatyId, tRef, resolvedAsOf,
@@ -303,7 +303,7 @@ public class BordereauReportWorkbookService {
         Collections.sort(currencies);
         if (currencies.isEmpty()) {
             ReportWorkbook.SheetWriter empty = book.sheet("Utilization")
-                    .titleMerged("Treaty Utilization — " + treatyRef, 8)
+                    .titleMerged("Treaty Utilization - " + treatyRef, 8)
                     .meta("Treaty",   treatyRef)
                     .meta("As of",    asOf.toString())
                     .meta("Note",     "No cessions written against this treaty yet.");
@@ -314,7 +314,7 @@ public class BordereauReportWorkbookService {
             BigDecimal sheetTotal = sumBigDecimal(sheetRows, TreatyUtilizationRow::totalCededNative);
 
             ReportWorkbook.SheetWriter sheet = book.sheet("Utilization " + currency)
-                    .titleMerged("Treaty Utilization — " + treatyRef, 8)
+                    .titleMerged("Treaty Utilization - " + treatyRef, 8)
                     .meta("Treaty",   treatyRef)
                     .meta("As of",    asOf.toString())
                     .meta("Currency", currency);
@@ -323,7 +323,7 @@ public class BordereauReportWorkbookService {
                     "Ceded currency", "Total ceded (native)", "Cession count", "Utilization %");
             sheet.forEach(sheetRows, (sw, r) -> {
                 BigDecimal utilPct = utilizationPercent(r);
-                sw.text(r.layerOrder() != null ? "L" + r.layerOrder() : "—")
+                sw.text(r.layerOrder() != null ? "L" + r.layerOrder() : "-")
                   .money(r.retention())
                   .money(r.layerLimit())
                   .text(safe(r.layerCurrency()))
@@ -381,7 +381,7 @@ public class BordereauReportWorkbookService {
                                        String reportingCurrency, LocalDate asOf,
                                        BigDecimal convertedGrandTotal) {
         ReportWorkbook.SheetWriter sheet = book.sheet("Summary")
-                .titleMerged(title + " — Summary", 3)
+                .titleMerged(title + " - Summary", 3)
                 .meta("Reinsurer", reinsurerName)
                 .meta("Treaty",    treatyRef)
                 .meta("Period",    period.periodStart() + " to " + period.periodEnd())
@@ -403,7 +403,7 @@ public class BordereauReportWorkbookService {
         } else {
             sheet.meta("Converted grand total (" + reportingCurrency + ")",
                     "FX unavailable for one or more currencies at " + asOf
-                            + " — converted total omitted");
+                            + " - converted total omitted");
         }
         sheet.freezeAtHeader().autoSize();
     }
@@ -414,7 +414,7 @@ public class BordereauReportWorkbookService {
                                               String reportingCurrency,
                                               BigDecimal convertedGrandTotal) {
         ReportWorkbook.SheetWriter sheet = book.sheet("Summary")
-                .titleMerged("Treaty Utilization — " + treatyRef + " — Summary", 3)
+                .titleMerged("Treaty Utilization - " + treatyRef + " - Summary", 3)
                 .meta("Treaty", treatyRef)
                 .meta("As of",  asOf.toString());
         sheet.blankRow();
@@ -437,7 +437,7 @@ public class BordereauReportWorkbookService {
                     convertedGrandTotal);
         } else {
             sheet.meta("Converted grand total (" + reportingCurrency + ")",
-                    "FX unavailable at " + asOf + " — converted total omitted");
+                    "FX unavailable at " + asOf + " - converted total omitted");
         }
         sheet.freezeAtHeader().autoSize();
     }
@@ -475,7 +475,7 @@ public class BordereauReportWorkbookService {
         Map<String, List<T>> byCurrency = new LinkedHashMap<>();
         for (T row : rows) {
             String key = keyFn.apply(row);
-            if (key == null) key = "—";
+            if (key == null) key = "-";
             byCurrency.computeIfAbsent(key, k -> new ArrayList<>()).add(row);
         }
         return byCurrency;

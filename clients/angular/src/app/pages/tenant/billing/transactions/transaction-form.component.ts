@@ -223,7 +223,7 @@ export class TransactionFormComponent implements OnInit {
       return;
     }
     if (this.needsReason && !this.form.reason.trim()) {
-      this.errorMessage = 'A reason is required for CREDIT / DEBIT adjustments — explain why the ledger is being moved.';
+      this.errorMessage = 'A reason is required for CREDIT / DEBIT adjustments: explain why the ledger is being moved.';
       return;
     }
 

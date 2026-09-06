@@ -93,7 +93,7 @@ export class TreatyUtilizationComponent implements OnInit {
   get treatyOptions(): SelectOption[] {
     return this.treaties.map(t => ({
       value: t.id,
-      label: `${t.treatyRef} — ${t.treatyType} (${t.status})`,
+      label: `${t.treatyRef} - ${t.treatyType} (${t.status})`,
     }));
   }
 

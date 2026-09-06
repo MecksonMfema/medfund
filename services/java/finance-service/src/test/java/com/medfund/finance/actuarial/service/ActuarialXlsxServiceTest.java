@@ -76,8 +76,8 @@ class ActuarialXlsxServiceTest {
                     try (Workbook wb = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
                         // Sentinel dash when no rule mutated the fact — matches the
                         // "no rule fired" outcome from ActuarialRulesEvaluator.
-                        assertThat(cellText(wb.getSheet("Triangle"), "Rule applied")).isEqualTo("—");
-                        assertThat(cellText(wb.getSheet("Summary"), "Rule applied")).isEqualTo("—");
+                        assertThat(cellText(wb.getSheet("Triangle"), "Rule applied")).isEqualTo("-");
+                        assertThat(cellText(wb.getSheet("Summary"), "Rule applied")).isEqualTo("-");
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }

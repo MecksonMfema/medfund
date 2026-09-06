@@ -54,7 +54,7 @@ public class CommissionTemplates implements TemplateProvider {
 
             rule("R71 - Promo kicker (basis points on top of base)",
                  "Additive kicker on top of the rate-card base. Value encodes basis "
-                       + "points — 100 bp = 1%. Replace <producer-id> with the target "
+                       + "points - 100 bp = 1%. Replace <producer-id> with the target "
                        + "producer UUID (or leave empty to apply to whoever is assigned). "
                        + "Use a negative bp value to discount, positive to bump.",
                  RuleCategory.COMMISSION, 55,
@@ -64,7 +64,7 @@ public class CommissionTemplates implements TemplateProvider {
 
             rule("R72 - Sub-producer split for hierarchy rollup",
                  "Kicker awarded to a sub-producer whose parent producer is the assigned "
-                       + "one — the hierarchy walk happens on the consumer side. Combine "
+                       + "one - the hierarchy walk happens on the consumer side. Combine "
                        + "with R70 or a rate card that pays the master to model an "
                        + "override commission structure.",
                  RuleCategory.COMMISSION, 50,

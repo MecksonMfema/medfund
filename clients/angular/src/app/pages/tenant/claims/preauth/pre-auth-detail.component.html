@@ -77,7 +77,7 @@
                    [(ngModel)]="expiryDate"
                    (blur)="onExpiryDateBlur()"
                    name="expiryDate" />
-            <small class="muted">Snaps to the last day of the chosen month — the auth stays valid through that whole cycle.</small>
+            <small class="muted">Snaps to the last day of the chosen month: the auth stays valid through that whole cycle.</small>
           </label>
         </div>
         <div class="decision-actions">
@@ -91,7 +91,7 @@
         <label class="field">
           <span class="field-label">Rejection reason</span>
           <input type="text" [(ngModel)]="rejectReason" name="rejectReason"
-                 placeholder="Reason — surfaced on the printable letter" />
+                 placeholder="Reason: surfaced on the printable letter" />
         </label>
         <div class="decision-actions">
           <button type="button" class="btn btn-default reject" [disabled]="busy" (click)="reject()">

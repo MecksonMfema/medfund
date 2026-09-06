@@ -25,7 +25,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/travel-policies")
-@Tag(name = "Travel Policies", description = "Travel insurance policy management — lifecycle + billing overrides")
+@Tag(name = "Travel Policies", description = "Travel insurance policy management - lifecycle + billing overrides")
 @SecurityRequirement(name = "bearer-jwt")
 public class TravelPolicyController {
 
@@ -36,7 +36,7 @@ public class TravelPolicyController {
     }
 
     @GetMapping
-    @Operation(summary = "List travel policies (unpaginated — prefer /page)")
+    @Operation(summary = "List travel policies (unpaginated - prefer /page)")
     public Flux<TravelPolicyResponse> findAll() {
         return travelPolicyService.findAll().map(TravelPolicyResponse::from);
     }

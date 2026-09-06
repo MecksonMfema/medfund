@@ -87,7 +87,7 @@ public class PolicyStatusChangedConsumer {
             if (payload.policyId() == null || payload.policySource() == null
                     || payload.toStatus() == null || payload.effectiveAt() == null) {
                 log.error("policy-status-changed payload missing required fields "
-                                + "(policyId/policySource/toStatus/effectiveAt) — dropping.");
+                                + "(policyId/policySource/toStatus/effectiveAt) - dropping.");
                 return Mono.empty();
             }
             return dispatch(payload)

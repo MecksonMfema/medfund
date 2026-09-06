@@ -78,7 +78,7 @@ interface PortfolioBucket {
 })
 export class LrcLicReconciliationComponent implements OnInit, OnDestroy {
   readonly reportKey = 'IFRS17_LRC_LIC_RECONCILIATION';
-  readonly pageTitle = 'IFRS 17 — LRC / LIC reconciliation';
+  readonly pageTitle = 'IFRS 17 - LRC / LIC reconciliation';
   readonly pageSubtitle =
     'Roll-forward of the liability for remaining coverage and the ' +
     'liability for incurred claims by portfolio × cohort × currency.';

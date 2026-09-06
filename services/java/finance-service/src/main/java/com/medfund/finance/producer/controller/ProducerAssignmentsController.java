@@ -26,7 +26,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/producers/{producerId}/assignments")
 @RequiredArgsConstructor
-@Tag(name = "Producers — Assignments",
+@Tag(name = "Producers - Assignments",
      description = "Open member assignments per producer.")
 @SecurityRequirement(name = "bearer-jwt")
 public class ProducerAssignmentsController {

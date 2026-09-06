@@ -192,7 +192,7 @@ public class ClaimsReportService {
 
     /** Exposure-proxy caveat (G48) — member_status_history absent. */
     static final String FREQUENCY_SEVERITY_EXPOSURE_WARNING =
-            "Exposure is a static proxy (active members × days ÷ 30.4375) — "
+            "Exposure is a static proxy (active members × days ÷ 30.4375) - "
                     + "member_status_history is absent so member-months cannot be computed.";
 
     /** Maps public dimension enum to the SQL column the repository queries against. */

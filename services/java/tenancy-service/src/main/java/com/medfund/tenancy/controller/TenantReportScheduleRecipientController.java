@@ -60,7 +60,7 @@ public class TenantReportScheduleRecipientController {
     @ResponseStatus(HttpStatus.CREATED)
     @RequiresPermission({"tenant.settings:manage_report_schedules"})
     @Operation(summary = "Add a recipient",
-            description = "Uniqueness is (schedule_id, LOWER(email)) — 409 on conflict.")
+            description = "Uniqueness is (schedule_id, LOWER(email)) - 409 on conflict.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Row added"),
             @ApiResponse(responseCode = "409", description = "Duplicate (schedule, email)")
@@ -76,7 +76,7 @@ public class TenantReportScheduleRecipientController {
 
     @PutMapping("/{recipientId}")
     @RequiresPermission({"tenant.settings:manage_report_schedules"})
-    @Operation(summary = "Update recipient — email is immutable, delete + re-add to change it")
+    @Operation(summary = "Update recipient - email is immutable, delete + re-add to change it")
     public Mono<TenantReportScheduleRecipientResponse> update(
             @PathVariable UUID tenantId,
             @PathVariable UUID scheduleId,

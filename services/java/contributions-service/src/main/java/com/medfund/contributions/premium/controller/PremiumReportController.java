@@ -61,7 +61,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/reports/premium")
 @RequiredArgsConstructor
 @Tag(name = "Underwriting reports",
-        description = "Phase 12 §B — UPR movement, premium register, new business register. "
+        description = "Phase 12 §B - UPR movement, premium register, new business register. "
                 + "Native-currency rows, best-effort FX to reporting currency, XLSX exports "
                 + "with security-event trail.")
 @SecurityRequirement(name = "bearer-jwt")
@@ -85,7 +85,7 @@ public class PremiumReportController {
     @RequiresReport(ReportKey.UPR_MOVEMENT)
     @Operation(summary = "UPR movement for a period",
             description = "One row per (insurance_line, currency) with opening UPR, written premium, "
-                    + "earned premium, endorsement delta, and closing UPR — reconciled by the SQL. "
+                    + "earned premium, endorsement delta, and closing UPR - reconciled by the SQL. "
                     + "Optional insuranceLine filter narrows to a single line; optional "
                     + "reportingCurrency overrides the tenant default. Envelope carries per-currency "
                     + "native subtotals + best-effort FX to reportingCurrency.")

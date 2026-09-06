@@ -52,7 +52,7 @@ public class StatementController {
     @Operation(summary = "Generate a contribution statement",
             description = "Builds a statement for a member or group across the supplied date range. " +
                     "If currency is omitted, picks the first currency seen on the target's contributions. " +
-                    "Gate uses MEMBER_STATEMENT for both target types — the sub-key is a display catalogue " +
+                    "Gate uses MEMBER_STATEMENT for both target types - the sub-key is a display catalogue " +
                     "toggle in Angular (G21), not a backend split.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Statement generated"),

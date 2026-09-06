@@ -1,7 +1,7 @@
 <header class="page-header">
   <div>
     <h1>Ledger</h1>
-    <p class="page-sub">Financial ledger for a member or group — opening balance, every charge and payment in the window, closing balance. Export as Excel for downstream analysis or PDF for print.</p>
+    <p class="page-sub">Financial ledger for a member or group: opening balance, every charge and payment in the window, closing balance. Export as Excel for downstream analysis or PDF for print.</p>
   </div>
   @if (ledger) {
     <div class="header-actions">
@@ -71,7 +71,7 @@
           @for (m of targetMatches; track m.id) {
             <li class="suggestion" (mousedown)="pickTarget(m)">
               <strong>{{ m.label }}</strong>
-              @if (m.sublabel) { <span class="muted">— {{ m.sublabel }}</span> }
+              @if (m.sublabel) { <span class="muted">- {{ m.sublabel }}</span> }
             </li>
           }
         }
@@ -174,7 +174,7 @@
             <tr>
               <td>{{ l.date | date:'mediumDate' }}</td>
               <td>{{ l.description }}</td>
-              <td class="muted">{{ l.reference || '—' }}</td>
+              <td class="muted">{{ l.reference || '-' }}</td>
               <td class="right">{{ l.debit ? (l.debit | currencyFormat:ledger.header.currencyCode) : '' }}</td>
               <td class="right credit">{{ l.credit ? (l.credit | currencyFormat:ledger.header.currencyCode) : '' }}</td>
               <td class="right"><strong>{{ l.runningBalance | currencyFormat:ledger.header.currencyCode }}</strong></td>

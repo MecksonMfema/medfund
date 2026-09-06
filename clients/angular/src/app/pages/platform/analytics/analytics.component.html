@@ -169,7 +169,7 @@
               }
             </td>
             <td><span class="category-badge">{{ row.category }}</span></td>
-            <td>{{ row.latency != null ? (row.latency + ' ms') : '—' }}</td>
+            <td>{{ row.latency != null ? (row.latency + ' ms') : '-' }}</td>
             <td>
               <span class="status-badge" [ngClass]="statusClass(row.status)">{{ row.status }}</span>
             </td>

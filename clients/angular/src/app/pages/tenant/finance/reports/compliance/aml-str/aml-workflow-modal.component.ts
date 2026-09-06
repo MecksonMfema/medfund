@@ -63,7 +63,7 @@ export class AmlWorkflowModalComponent {
       case 'file':
         return 'Move this alert to FILED after submitting to the regulator (FIU / FIC / FinCEN). ' +
                'Capture the regulator\'s filing reference so it appears on the audit trail. ' +
-               'FILED is terminal — this alert can\'t be closed after filing.';
+               'FILED is terminal: this alert can\'t be closed after filing.';
       case 'close':
         return 'Close this alert as not reportable. Reason is required and appears on the audit ' +
                'trail so the compliance officer can defend the call.';

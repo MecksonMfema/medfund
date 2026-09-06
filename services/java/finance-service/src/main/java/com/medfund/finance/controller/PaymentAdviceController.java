@@ -49,7 +49,7 @@ public class PaymentAdviceController {
         description = "Feeds /tenant/finance/advice. Sortable keys: adviceNumber, payeeType, "
                 + "status, netDueAmount, totalAmount, claimCount, currencyCode, issuedAt, "
                 + "periodEndAt, createdAt, runNumber. Free-text `q` searches advice number, "
-                + "run number, provider name, and member name. Wrapped in ReportResponse<T> — "
+                + "run number, provider name, and member name. Wrapped in ReportResponse<T> - "
                 + "envelope perCurrency reflects the filtered-set net-due totals; supports "
                 + "reportingCurrency= override.")
     @ApiResponse(responseCode = "200", description = "Envelope wrapping the page of payment advices")
@@ -114,7 +114,7 @@ public class PaymentAdviceController {
 
     @PostMapping("/payment-runs/{runId}/advices/regenerate")
     @Operation(summary = "Delete and re-generate every advice for the run",
-        description = "Idempotent from the caller's perspective — replaces any existing advices for the run.")
+        description = "Idempotent from the caller's perspective - replaces any existing advices for the run.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Advices regenerated"),
         @ApiResponse(responseCode = "404", description = "Payment run not found")

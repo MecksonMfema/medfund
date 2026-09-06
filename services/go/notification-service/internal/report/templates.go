@@ -14,7 +14,7 @@ import (
 // public.tenant_email_templates, the resolver can supply the source
 // strings and the render functions stay the same.
 
-const deliverySubjectSource = `[{{.TenantName}}] {{.ReportLabel}} — {{.CadenceLabel}} — {{.PeriodLabel}}`
+const deliverySubjectSource = `[{{.TenantName}}] {{.ReportLabel}} - {{.CadenceLabel}} - {{.PeriodLabel}}`
 
 const deliveryBodySource = `<!DOCTYPE html>
 <html>
@@ -44,7 +44,7 @@ const failureBodySource = `<!DOCTYPE html>
   <p>The scheduled run for <strong>{{.ReportLabel}}</strong> covering <strong>{{.PeriodLabel}}</strong> did not complete.</p>
   <p><strong>Stage:</strong> {{.FailureStage}}</p>
   <p><strong>Error:</strong> <code>{{.ErrorSummary}}</code></p>
-  <p>The schedule is still active — the next scheduled fire will run normally. You can manually re-run this fire from the schedule history page.</p>
+  <p>The schedule is still active. The next scheduled fire will run normally, and you can manually re-run this fire from the schedule history page.</p>
 </body>
 </html>`
 

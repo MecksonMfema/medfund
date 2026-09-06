@@ -514,7 +514,7 @@ public class StatementService {
     }
 
     private static String nz(String s) {
-        return (s == null || s.isBlank()) ? "—" : s;
+        return (s == null || s.isBlank()) ? "-" : s;
     }
 
     /**

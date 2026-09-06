@@ -104,7 +104,7 @@ public class TriangleShapingService {
                                 : serviceDate,
                         convertedAmount))
                 .onErrorResume(e -> {
-                    warnings.add("Skipping claim " + row.claimId() + " — FX rate missing for "
+                    warnings.add("Skipping claim " + row.claimId() + " - FX rate missing for "
                             + fromCurrency + "->" + request.reportingCurrency() + " on " + serviceDate);
                     return Mono.empty();
                 });

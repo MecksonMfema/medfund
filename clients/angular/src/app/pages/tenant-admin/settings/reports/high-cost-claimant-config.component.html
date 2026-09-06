@@ -50,7 +50,7 @@
           @if (config && config.thresholdAmount != null) {
             Currently {{ config.thresholdAmount | number:'1.2-2' }} {{ config.currencyCode }}
           } @else {
-            Not configured yet — the report renders empty until a threshold is set.
+            Not configured yet: the report renders empty until a threshold is set.
           }
         </p>
       </div>
@@ -75,7 +75,7 @@
     </div>
 
     <p *ngIf="!canConfigure()" class="hint muted">
-      You have read-only access — the <code>admin:manage_settings</code> permission is required to save changes.
+      You have read-only access: the <code>admin:manage_settings</code> permission is required to save changes.
     </p>
   }
 </section>

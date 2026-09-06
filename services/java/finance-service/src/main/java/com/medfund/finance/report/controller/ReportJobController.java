@@ -61,7 +61,7 @@ public class ReportJobController {
 
     @GetMapping("/{jobId}")
     @Operation(summary = "Poll an async report job's status",
-            description = "Canonical status endpoint for any report family. Rule-2 enforced — a "
+            description = "Canonical status endpoint for any report family. Rule-2 enforced - a "
                         + "jobId owned by another tenant returns 404, not the row.")
     public Mono<JobStatusResponse> status(@PathVariable UUID jobId) {
         return Mono.deferContextual(ctx -> jobService.status(jobId, resolveTenant(ctx)));

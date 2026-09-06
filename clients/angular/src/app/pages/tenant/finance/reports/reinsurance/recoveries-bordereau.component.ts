@@ -125,7 +125,7 @@ export class RecoveriesBordereauComponent implements OnInit {
       { value: '', label: 'All treaties' },
       ...this.treaties.map(t => ({
         value: t.id,
-        label: `${t.treatyRef} — ${t.treatyType} (${t.status})`,
+        label: `${t.treatyRef} - ${t.treatyType} (${t.status})`,
       })),
     ];
   }
@@ -210,7 +210,7 @@ export class RecoveriesBordereauComponent implements OnInit {
 
   openMarkReceived(row: RecoveriesBordereauRow): void {
     this.markReceivedTargetId = row.recoveryId;
-    this.markReceivedTargetLabel = `${row.reinsurerName} — ${row.nativeExpected} ${row.currencyCode}`;
+    this.markReceivedTargetLabel = `${row.reinsurerName} - ${row.nativeExpected} ${row.currencyCode}`;
     this.markReceivedAmount = row.nativeExpected;
     this.markReceivedAt = new Date().toISOString().substring(0, 10);
     this.markReceivedError = null;
@@ -257,7 +257,7 @@ export class RecoveriesBordereauComponent implements OnInit {
 
   openWriteOff(row: RecoveriesBordereauRow): void {
     this.writeOffTargetId = row.recoveryId;
-    this.writeOffTargetLabel = `${row.reinsurerName} — ${row.nativeExpected} ${row.currencyCode}`;
+    this.writeOffTargetLabel = `${row.reinsurerName} - ${row.nativeExpected} ${row.currencyCode}`;
     this.writeOffReason = '';
     this.writeOffError = null;
   }

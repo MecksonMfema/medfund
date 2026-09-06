@@ -50,7 +50,7 @@ import java.util.Map;
  * {@code reportKey=FRAUD_SIU_REPORT} per Rule 9.
  */
 @Tag(name = "Fraud / SIU Report",
-        description = "Phase 19 §A MVP — 4-tile summary + XLSX export.")
+        description = "Phase 19 §A MVP - 4-tile summary + XLSX export.")
 @SecurityRequirement(name = "bearer-jwt")
 @RestController
 @RequestMapping("/api/v1/reports/fraud")
@@ -65,7 +65,7 @@ public class FraudReportController {
     private final FraudReportWorkbookService workbookService;
     private final SecurityEventPublisher securityEventPublisher;
 
-    @Operation(summary = "Fraud / SIU summary — 6 KPI tiles (opened, confirmed, savings, rate, "
+    @Operation(summary = "Fraud / SIU summary - 6 KPI tiles (opened, confirmed, savings, rate, "
             + "avg cycle days, reopened count)")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "envelope with FraudReportData"),
@@ -123,7 +123,7 @@ public class FraudReportController {
 
     // ── §B Phase 11 — trend + top-N + AI calibration + productivity ────
 
-    @Operation(summary = "Monthly trend — cases opened / confirmed / dismissed per month")
+    @Operation(summary = "Monthly trend - cases opened / confirmed / dismissed per month")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "trend points, one per month")})
     @GetMapping("/trend")
     @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
@@ -159,7 +159,7 @@ public class FraudReportController {
         return reportService.topMembers(n, periodStart, periodEnd, reportingCurrency);
     }
 
-    @Operation(summary = "AI calibration — precision per risk_level (empty + warnings under N=50)")
+    @Operation(summary = "AI calibration - precision per risk_level (empty + warnings under N=50)")
     @ApiResponses({@ApiResponse(responseCode = "200",
             description = "calibration rows or insufficient-data warning")})
     @GetMapping("/ai-calibration")
@@ -171,7 +171,7 @@ public class FraudReportController {
         return reportService.aiCalibration(periodStart, periodEnd);
     }
 
-    @Operation(summary = "Investigator productivity — role-gated: officer sees own; supervisor sees all")
+    @Operation(summary = "Investigator productivity - role-gated: officer sees own; supervisor sees all")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "productivity rows (row-filtered per Rule 4)")})
     @GetMapping("/investigator-productivity")
     @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)

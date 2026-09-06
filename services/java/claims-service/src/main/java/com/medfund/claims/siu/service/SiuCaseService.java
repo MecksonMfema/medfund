@@ -158,7 +158,7 @@ public class SiuCaseService {
         Mono<Claim> claimMono = flag.getClaimId() != null
                 ? claimRepository.findById(flag.getClaimId())
                         .switchIfEmpty(Mono.fromRunnable(() -> log.warn(
-                                "fraud_flag {} references missing claim {} — pattern templates degrade",
+                                "fraud_flag {} references missing claim {} - pattern templates degrade",
                                 flag.getId(), flag.getClaimId())))
                 : Mono.empty();
         return claimMono

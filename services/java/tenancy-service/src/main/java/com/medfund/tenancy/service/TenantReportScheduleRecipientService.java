@@ -66,7 +66,7 @@ public class TenantReportScheduleRecipientService {
                                                    String actorId, String actorEmail) {
         if (actorId == null || actorId.isBlank() || actorEmail == null || actorEmail.isBlank()) {
             return Mono.error(new IllegalArgumentException(
-                    "actorId and actorEmail are required — every mutation must be traceable"));
+                    "actorId and actorEmail are required - every mutation must be traceable"));
         }
         return requireSchedule(tenantId, scheduleId)
                 .flatMap(schedule -> {
@@ -204,7 +204,7 @@ public class TenantReportScheduleRecipientService {
                         schedule.getTenantId().toString(),
                         ENTITY_TYPE,
                         current.getId().toString(),
-                        String.format("Scheduled report recipient %s for %s (%s) — tenant %s",
+                        String.format("Scheduled report recipient %s for %s (%s) - tenant %s",
                                 current.getEmail(), schedule.getReportKey(),
                                 schedule.getCadence(), slug),
                         action,
@@ -233,7 +233,7 @@ public class TenantReportScheduleRecipientService {
                         schedule.getTenantId().toString(),
                         ENTITY_TYPE,
                         current.getId().toString(),
-                        String.format("Scheduled report recipient %s unsubscribed from %s (%s) — tenant %s",
+                        String.format("Scheduled report recipient %s unsubscribed from %s (%s) - tenant %s",
                                 current.getEmail(), schedule.getReportKey(),
                                 schedule.getCadence(), slug),
                         "UNSUBSCRIBE",

@@ -77,7 +77,7 @@ public class TenantIfrs17NotificationConfigController {
             description = "eventType must be one of ONEROUS_TRANSITION | CSM_NEGATIVE | "
                         + "LOCKED_IN_CURVE_FALLBACK | IBNR_SUB_JOB_STALE | "
                         + "OPENING_BALANCE_AUTO_DERIVED | ALL. deliveryMethod is EMAIL | WEBHOOK | BOTH. "
-                        + "Uniqueness enforced on (event_type, recipient) per tenant — conflict surfaces as 409.")
+                        + "Uniqueness enforced on (event_type, recipient) per tenant - conflict surfaces as 409.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Row added"),
             @ApiResponse(responseCode = "400", description = "Invalid payload"),
@@ -95,7 +95,7 @@ public class TenantIfrs17NotificationConfigController {
     @RequiresPermission({"tenant.settings:manage_ifrs17_config"})
     @Operation(summary = "Update a notification config row",
             description = "Only deliveryMethod, throttleMinutes and isActive are mutable. "
-                        + "The (event_type, recipient) tuple is immutable — swapping either "
+                        + "The (event_type, recipient) tuple is immutable - swapping either "
                         + "field is a new row (add) at a fresh recipient, not an in-place edit.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Row updated"),

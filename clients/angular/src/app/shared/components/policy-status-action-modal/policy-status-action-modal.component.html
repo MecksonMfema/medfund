@@ -22,7 +22,7 @@
       <div class="field">
         <label>Note (optional, max 500 chars)</label>
         <textarea [(ngModel)]="reasonNote" name="reasonNote" rows="3" maxlength="500"
-                  placeholder="Free-text detail — audit trail only."></textarea>
+                  placeholder="Free-text detail: audit trail only."></textarea>
       </div>
 
       @if (clientError) { <div class="error">{{ clientError }}</div> }

@@ -149,7 +149,7 @@ export class FundsListComponent implements OnInit {
   }
 
   hardDelete(row: UnitLinkedFundRow): void {
-    if (!confirm(`Delete fund "${row.name}"? Rejected if NAV history, ledger rows or fee schedules reference it — deactivate instead in that case.`)) return;
+    if (!confirm(`Delete fund "${row.name}"? Rejected if NAV history, ledger rows or fee schedules reference it: deactivate instead in that case.`)) return;
     this.svc.deleteFund(row.id).subscribe({
       next: () => { this.successMessage = 'Fund deleted'; this.load(); },
       error: (err) => {

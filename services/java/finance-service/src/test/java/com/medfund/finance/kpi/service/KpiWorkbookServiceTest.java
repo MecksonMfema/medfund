@@ -206,8 +206,8 @@ class KpiWorkbookServiceTest {
     }
 
     @Test
-    void formatRatio_null_rendersEmDash() {
-        assertThat(KpiWorkbookService.formatRatio(ReportKey.LOSS_RATIO_KPI, null)).isEqualTo("—");
+    void formatRatio_null_rendersDashPlaceholder() {
+        assertThat(KpiWorkbookService.formatRatio(ReportKey.LOSS_RATIO_KPI, null)).isEqualTo("-");
     }
 
     @Test

@@ -118,7 +118,7 @@ func subjectFor(e Event) string {
 	case TierDueDateOverdue:
 		return fmt.Sprintf("[Regulator due date] %s OVERDUE", e.ReportKey)
 	default:
-		return fmt.Sprintf("[Regulator due date] %s — %s", e.ReportKey, e.EventTier)
+		return fmt.Sprintf("[Regulator due date] %s - %s", e.ReportKey, e.EventTier)
 	}
 }
 

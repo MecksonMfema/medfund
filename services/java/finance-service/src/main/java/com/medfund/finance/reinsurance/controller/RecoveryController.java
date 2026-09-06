@@ -36,7 +36,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/reinsurance/recoveries")
 @RequiredArgsConstructor
-@Tag(name = "Reinsurance — Recoveries",
+@Tag(name = "Reinsurance - Recoveries",
      description = "Recovery lifecycle for cessions previously invoiced to a reinsurer. "
                  + "Mark received when funds land; write off with a reason when the recovery "
                  + "will not be paid.")
@@ -57,7 +57,7 @@ public class RecoveryController {
     @Operation(summary = "Record that the reinsurer's payment has landed",
             description = "Transitions the recovery to RECEIVED with the given receivedAmount + "
                         + "receivedAt (defaults to now when omitted). Valid from EXPECTED or "
-                        + "INVOICED — any terminal state returns 409.")
+                        + "INVOICED - any terminal state returns 409.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Recorded"),
             @ApiResponse(responseCode = "400", description = "Missing or negative receivedAmount"),
@@ -75,7 +75,7 @@ public class RecoveryController {
     @RequiresPermission(Permissions.REINSURANCE_WRITEOFF_RECOVERY)
     @Operation(summary = "Write off an outstanding recovery with a mandatory reason",
             description = "Transitions the recovery to WRITTEN_OFF with the given reason. Valid "
-                        + "from EXPECTED or INVOICED — RECEIVED or already-WRITTEN_OFF returns 409.")
+                        + "from EXPECTED or INVOICED - RECEIVED or already-WRITTEN_OFF returns 409.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Written off"),
             @ApiResponse(responseCode = "400", description = "Missing reason"),

@@ -1,70 +1,99 @@
-<div class="page">
-  <header class="page-header">
-    <div>
-      <h1>Treaties</h1>
-      <p class="sub">Grouped by renewal chain — earliest inception first.</p>
-    </div>
-    <a class="btn btn-primary" routerLink="/tenant/admin/reinsurance/treaties/new">
-      <app-icon name="plus"></app-icon>
-      New treaty
-    </a>
-  </header>
+<header class="page-header">
+  <div>
+    <h1>Treaties</h1>
+    <p class="page-sub">
+      Reinsurance treaties across all renewal chains. Filter by status,
+      type, currency, or search the ref / producer ref.
+    </p>
+  </div>
+  <a class="btn btn-primary" routerLink="/tenant/admin/reinsurance/treaties/new">
+    <app-icon name="plus" [size]="14"></app-icon>
+    New treaty
+  </a>
+</header>
 
-  <div *ngIf="errorMessage" class="alert alert-error">{{ errorMessage }}</div>
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
 
-  <div class="filters">
-    <label>
-      Status:
-      <select [(ngModel)]="filterStatus" (change)="fetchAll()">
-        <option value="">All</option>
-        <option value="DRAFT">Draft</option>
-        <option value="ACTIVE">Active</option>
-        <option value="EXPIRED">Expired</option>
-        <option value="RENEWED">Renewed</option>
-        <option value="LAPSED">Lapsed</option>
-        <option value="COMMUTED">Commuted</option>
-      </select>
-    </label>
+<!--
+  Filter strip mirrors /tenant/billing/transactions: flush toolbar with
+  column-like cells separated by 1px dividers. Search sits first as the
+  wide cell, followed by Status / Type / Currency selects; Clear lives
+  at the far right. Data-table's built-in search is disabled so we do
+  not render two search inputs on two rows.
+-->
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-search">
+    <app-icon name="search" [size]="16"></app-icon>
+    <input
+      type="search"
+      [ngModel]="searchTerm"
+      (ngModelChange)="onSearchInput($event)"
+      name="search"
+      placeholder="Search ref or producer ref..."
+      aria-label="Search treaties"
+    />
   </div>
 
-  <div *ngIf="loading" class="loading">Loading…</div>
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Status</span>
+    <app-select
+      [(ngModel)]="selectedStatus"
+      (selectionChange)="onServerFilterChange()"
+      name="status"
+      size="sm"
+      [options]="statusOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
 
-  <ng-container *ngIf="!loading">
-    <div *ngIf="!chains.length" class="empty">No treaties yet — create your first one.</div>
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Type</span>
+    <app-select
+      [(ngModel)]="selectedType"
+      (selectionChange)="onClientFilterChange()"
+      name="type"
+      size="sm"
+      [options]="typeOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
 
-    <div *ngFor="let chain of chains" class="chain-card">
-      <h3 class="chain-title">Renewal chain: {{ chain.rootRef }}</h3>
-      <table class="chain-table">
-        <thead>
-          <tr>
-            <th>Ref</th>
-            <th>Type</th>
-            <th>Currency</th>
-            <th>Period</th>
-            <th>Status</th>
-            <th>Aggregate limit</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let t of chain.treaties" [class.is-successor]="t.renewedFromTreatyId">
-            <td>
-              <a [routerLink]="['/tenant/admin/reinsurance/treaties', t.id]">{{ t.treatyRef }}</a>
-              <span *ngIf="t.renewedFromTreatyId" class="chain-arrow" title="Renewal of parent">↳</span>
-            </td>
-            <td>{{ t.treatyType }}</td>
-            <td>{{ t.declaredCurrency }}</td>
-            <td>{{ t.inceptionDate }} → {{ t.expiryDate }}</td>
-            <td><span [ngClass]="statusBadgeClass(t.status)">{{ t.status }}</span></td>
-            <td>
-              {{ t.aggregateLimit ? (t.aggregateLimit | number) + ' ' + (t.aggregateLimitCurrency || '') : '—' }}
-            </td>
-            <td class="actions">
-              <a class="btn btn-sm" [routerLink]="['/tenant/admin/reinsurance/treaties', t.id]">Edit</a>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </ng-container>
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Currency</span>
+    <app-select
+      [(ngModel)]="selectedCurrency"
+      (selectionChange)="onClientFilterChange()"
+      name="currency"
+      size="sm"
+      [options]="currencyOptions"
+      placeholder="Any"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-clear">
+    <button type="button" class="clear-btn" (click)="clearFilters()">
+      <app-icon name="x-circle" [size]="14"></app-icon>
+      Clear
+    </button>
+  </div>
 </div>
+
+<app-data-table
+  [columns]="columns"
+  [data]="rows"
+  [showActions]="false"
+  [searchable]="false"
+  [showToolbar]="false"
+  [loading]="loading"
+  [pageSize]="20"
+  emptyMessage="No treaties yet."
+  (rowClick)="onRowClick($event)">
+</app-data-table>

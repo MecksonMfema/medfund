@@ -174,7 +174,7 @@ export class BenefitsListComponent implements OnInit, OnDestroy {
    *  the shared default cell renderer — keeps the dash-for-empty convention. */
   private decorate(b: SchemeBenefit): BenefitRow {
     const fmt = (amount?: string): string =>
-      amount ? this.currencyFormatter.transform(amount, b.currencyCode) : '—';
+      amount ? this.currencyFormatter.transform(amount, b.currencyCode) : '-';
     return {
       ...b,
       annualLimitDisplay: fmt(b.annualLimit),

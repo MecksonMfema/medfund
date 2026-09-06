@@ -57,7 +57,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/reports/kpi")
 @RequiredArgsConstructor
 @Tag(name = "Executive KPI dashboard",
-        description = "Phase 18 — LOSS_RATIO_KPI, EXPENSE_RATIO (Acquisition Ratio), COMBINED_RATIO, "
+        description = "Phase 18 - LOSS_RATIO_KPI, EXPENSE_RATIO (Acquisition Ratio), COMBINED_RATIO, "
                     + "CLAIMS_FREQUENCY, AVERAGE_SEVERITY. Cross-service composer with 15-minute Redis "
                     + "cache; peer downtime populates envelope warnings (invariant #7).")
 @SecurityRequirement(name = "bearer-jwt")
@@ -114,7 +114,7 @@ public class ExecutiveKpiController {
     @RequiresReport(ReportKey.COMBINED_RATIO)
     @Operation(summary = "Combined ratio KPI",
             description = "K6: additive mixed-basis sum of LOSS_RATIO_KPI + EXPENSE_RATIO. "
-                        + "basisNote=MIXED_LOSS_EARNED_EXPENSE_WRITTEN — NAIC convention.")
+                        + "basisNote=MIXED_LOSS_EARNED_EXPENSE_WRITTEN - NAIC convention.")
     public Mono<ReportResponse<KpiReportData>> combinedRatio(
             @RequestParam String periodStart,
             @RequestParam String periodEnd,
@@ -131,7 +131,7 @@ public class ExecutiveKpiController {
     @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
     @RequiresReport(ReportKey.CLAIMS_FREQUENCY)
     @Operation(summary = "Claims frequency KPI",
-            description = "K1: count of claims / policy-months-in-force. Dimensionless — a single "
+            description = "K1: count of claims / policy-months-in-force. Dimensionless - a single "
                         + "reporting-currency-labelled entry keeps the tile UI shape uniform.")
     public Mono<ReportResponse<KpiReportData>> claimsFrequency(
             @RequestParam String periodStart,
@@ -172,7 +172,7 @@ public class ExecutiveKpiController {
                         + "against ReportEnablementReader because @RequiresReport cannot accept a "
                         + "runtime path variable.")
     public Mono<List<KpiTrendPoint>> trend(
-            @Parameter(description = "Dashboard KPI key — LOSS_RATIO_KPI, EXPENSE_RATIO, COMBINED_RATIO, "
+            @Parameter(description = "Dashboard KPI key - LOSS_RATIO_KPI, EXPENSE_RATIO, COMBINED_RATIO, "
                     + "CLAIMS_FREQUENCY, AVERAGE_SEVERITY")
             @PathVariable String key,
             @RequestParam(defaultValue = "12") int windowMonths,
@@ -281,7 +281,7 @@ public class ExecutiveKpiController {
 
     @GetMapping("/dashboard")
     @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
-    @Operation(summary = "Batch — five KPI envelopes in one round-trip",
+    @Operation(summary = "Batch - five KPI envelopes in one round-trip",
             description = "K16: individual @RequiresReport gates re-check inside the composer; "
                         + "any disabled key surfaces as 403 for the whole payload.")
     public Mono<KpiDashboardResponse> dashboard(

@@ -56,7 +56,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/commission/adjustments")
 @RequiredArgsConstructor
-@Tag(name = "Commission — Adjustments",
+@Tag(name = "Commission - Adjustments",
      description = "Four-eyes commission-adjustment lifecycle. Drafter creates a DRAFT with a "
                  + "justification; supervisor approves and commits (writes a compensating "
                  + "commission_transaction). Void available on DRAFT/APPROVED only.")

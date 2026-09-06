@@ -318,7 +318,7 @@ export class ChargePreviewComponent implements OnInit, OnDestroy {
     try {
       const d = new Date(iso);
       return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    } catch { return '—'; }
+    } catch { return '-'; }
   }
 
   trackLine(_i: number, line: ChargePreviewLine): string {

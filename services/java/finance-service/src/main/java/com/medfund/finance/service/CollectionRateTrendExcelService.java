@@ -33,8 +33,8 @@ public class CollectionRateTrendExcelService {
         ReportWorkbook book = ReportWorkbook.newBook();
         ReportWorkbook.SheetWriter sheet = book.sheet("Trend")
                 .titleMerged("Collection-rate trend", 5)
-                .meta("Period start", report.periodStart() != null ? report.periodStart().toString() : "—")
-                .meta("Period end",   report.periodEnd()   != null ? report.periodEnd().toString()   : "—")
+                .meta("Period start", report.periodStart() != null ? report.periodStart().toString() : "-")
+                .meta("Period end",   report.periodEnd()   != null ? report.periodEnd().toString()   : "-")
                 .meta("Rows", String.valueOf(report.months().size()));
 
         if (warnings != null && !warnings.isEmpty()) {

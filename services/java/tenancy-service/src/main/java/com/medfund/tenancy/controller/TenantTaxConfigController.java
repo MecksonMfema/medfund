@@ -78,7 +78,7 @@ public class TenantTaxConfigController {
                         + "WITHHOLDING; transaction_category is one of PREMIUM | CLAIM_PAID | "
                         + "ADMIN_FEE | COMMISSION | OTHER; currency is 3-letter ISO 4217; rate is "
                         + "a decimal in [0, 1). Uniqueness enforced on (tenant_id, tax_type, "
-                        + "transaction_category, currency, effective_from) — conflicting inserts "
+                        + "transaction_category, currency, effective_from) - conflicting inserts "
                         + "surface as HTTP 409.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Row added"),
@@ -96,7 +96,7 @@ public class TenantTaxConfigController {
     @RequiresPermission({Permissions.TENANT_SETTINGS_MANAGE_TAX_CONFIG})
     @Operation(summary = "Update a tax config row",
             description = "Fields left null on the request are unchanged. country_code, tax_type, "
-                        + "transaction_category, currency and effective_from are immutable — a "
+                        + "transaction_category, currency and effective_from are immutable - a "
                         + "change to any of those requires adding a new row.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Row updated"),

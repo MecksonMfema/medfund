@@ -168,7 +168,7 @@ describe('KpiDashboardComponent', () => {
     } as any);
 
     expect(fixture.componentInstance.producerId).toBe('prod-1');
-    expect(fixture.componentInstance.producerLabel).toBe('AGT001 — Alpha Brokers');
+    expect(fixture.componentInstance.producerLabel).toBe('AGT001 - Alpha Brokers');
     expect(fixture.componentInstance.filters.producerId).toBe('prod-1');
     expect(kpi.dashboard).toHaveBeenCalledTimes(1);
   });

@@ -1,7 +1,7 @@
 <div class="op-dashboard">
   <header class="dash-header">
     <h1>Welcome back</h1>
-    <p class="subtitle">{{ tenantName ? tenantName + ' — ' : '' }}operational overview</p>
+    <p class="subtitle">{{ tenantName ? tenantName + ' - ' : '' }}operational overview</p>
   </header>
 
   @if (loadError) {
@@ -47,19 +47,19 @@
       <div class="stat-row">
         <div class="stat-card">
           <span class="stat-label">Pending Review</span>
-          <span class="stat-value">{{ loading ? '—' : stats.claimsNewTasks }}</span>
+          <span class="stat-value">{{ loading ? '-' : stats.claimsNewTasks }}</span>
         </div>
         <div class="stat-card">
           <span class="stat-label">This Month Claims</span>
-          <span class="stat-value">{{ loading ? '—' : stats.claimsThisMonth }}</span>
+          <span class="stat-value">{{ loading ? '-' : stats.claimsThisMonth }}</span>
         </div>
         <div class="stat-card">
           <span class="stat-label">Claims Accepted</span>
-          <span class="stat-value">{{ loading ? '—' : stats.claimsAcceptedThisMonth }}</span>
+          <span class="stat-value">{{ loading ? '-' : stats.claimsAcceptedThisMonth }}</span>
         </div>
         <div class="stat-card">
           <span class="stat-label">Claims Rejected</span>
-          <span class="stat-value">{{ loading ? '—' : stats.claimsRejectedThisMonth }}</span>
+          <span class="stat-value">{{ loading ? '-' : stats.claimsRejectedThisMonth }}</span>
         </div>
       </div>
       <!-- Top row: claims volume (7) + pipeline status (3) side-by-side on
@@ -258,7 +258,7 @@
 
           <app-stat-card
             label="Payments Requested"
-            [value]="loading ? '—' : stats.invoicesOutstanding"
+            [value]="loading ? '-' : stats.invoicesOutstanding"
             subtitle="Outstanding invoices"
             color="orange"
             icon="clock">
@@ -288,7 +288,7 @@
 
           <app-stat-card
             label="Active {{ schemeLabelPlural }}"
-            [value]="loading ? '—' : stats.schemesActive"
+            [value]="loading ? '-' : stats.schemesActive"
             subtitle="Schemes currently active"
             color="dark"
             icon="briefcase">
@@ -435,7 +435,7 @@
 
           <app-stat-card
             label="Pending Payments"
-            [value]="loading ? '—' : stats.paymentsPending"
+            [value]="loading ? '-' : stats.paymentsPending"
             subtitle="Awaiting processing"
             color="orange"
             icon="clock">
@@ -444,7 +444,7 @@
           <!-- Advance Payments — count + amount. Money paid before claims. -->
           <app-stat-card
             label="Advance Payments"
-            [value]="loading ? '—' : stats.paymentsAdvanceCount"
+            [value]="loading ? '-' : stats.paymentsAdvanceCount"
             [subtitle]="(stats.paymentsAdvanceAmount | currency: tenantCurrency : 'symbol' : '1.0-0') + ' disbursed'"
             color="dark"
             icon="zap">
@@ -453,7 +453,7 @@
           <!-- Outstanding shortfall — adjudicated but not yet fully paid. -->
           <app-stat-card
             label="Shortfall"
-            [value]="loading ? '—' : ((stats.claimsShortfallAmount | currency: tenantCurrency : 'symbol' : '1.0-0') ?? '—')"
+            [value]="loading ? '-' : ((stats.claimsShortfallAmount | currency: tenantCurrency : 'symbol' : '1.0-0') ?? '-')"
             subtitle="Unpaid liability across adjudicated claims"
             color="red"
             icon="alert-triangle">

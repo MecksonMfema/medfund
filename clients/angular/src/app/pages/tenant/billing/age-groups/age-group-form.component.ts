@@ -56,7 +56,7 @@ export class AgeGroupFormComponent implements OnInit {
   get schemeOptions(): SelectOption[] {
     return this.schemes.map(s => ({
       value: s.id,
-      label: `${s.name} (${s.currencyCode || '—'})`,
+      label: `${s.name} (${s.currencyCode || '-'})`,
     }));
   }
 

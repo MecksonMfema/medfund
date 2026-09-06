@@ -40,9 +40,9 @@
           <tr>
             <td><code>{{ row.code }}</code></td>
             <td>{{ row.description }}</td>
-            <td class="muted">{{ row.category || '—' }}</td>
+            <td class="muted">{{ row.category || '-' }}</td>
             <td class="right">{{ row.unitPrice | currencyFormat:(row.currencyCode || 'USD') }}</td>
-            <td>{{ row.requiresPreAuth ? 'Required' : '—' }}</td>
+            <td>{{ row.requiresPreAuth ? 'Required' : '-' }}</td>
           </tr>
         }
       </tbody>

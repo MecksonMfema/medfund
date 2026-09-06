@@ -76,7 +76,7 @@ export class ScheduleRunHistoryComponent implements OnInit {
     this.service.rerun(row.jobId).subscribe({
       next: () => {
         this.rerunning[row.jobId] = false;
-        this.toast.success('Rerun queued — refreshing history…');
+        this.toast.success('Rerun queued: refreshing history…');
         // The rerun is asynchronous; give the orchestrator a couple of seconds
         // to insert the fresh report_job row before we re-fetch.
         setTimeout(() => this.load(), 2000);

@@ -40,7 +40,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/members/{memberId}/producer-assignment")
 @RequiredArgsConstructor
-@Tag(name = "Producers — Member Assignment",
+@Tag(name = "Producers - Member Assignment",
      description = "Time-slice assignment of a member to a producer. At most one open row per member.")
 @SecurityRequirement(name = "bearer-jwt")
 public class MemberProducerAssignmentController {

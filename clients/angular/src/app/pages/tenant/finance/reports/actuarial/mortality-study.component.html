@@ -102,7 +102,7 @@
     <section class="triangle-split mortality-line">
       <div class="triangle-matrix" data-testid="mortality-matrix">
         <h3 class="pane-title">
-          {{ line }} — A/E by age band × sex
+          {{ line }}: A/E by age band × sex
           <small class="pane-sub">
             basis: {{ lineResult(line)?.basis_name }} × {{ lineResult(line)?.multiplier | number:'1.3-3' }}
           </small>
@@ -135,7 +135,7 @@
                     @if (row.ae_ratio != null) {
                       {{ row.ae_ratio | number:'1.3-3' }}
                     } @else {
-                      —
+                     -
                     }
                   </td>
                 </tr>

@@ -74,7 +74,7 @@ public class PaymentRunWorkbookService {
                               LocalDate asOf,
                               BigDecimal converted) {
         ReportWorkbook book = ReportWorkbook.newBook();
-        String runNumber = run.getRunNumber() != null ? run.getRunNumber() : "—";
+        String runNumber = run.getRunNumber() != null ? run.getRunNumber() : "-";
 
         List<String> currencies = new ArrayList<>(byCurrency.keySet());
         java.util.Collections.sort(currencies);
@@ -85,29 +85,29 @@ public class PaymentRunWorkbookService {
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             ReportWorkbook.SheetWriter sheet = book.sheet("Payment " + currency)
-                    .titleMerged(runNumber + " — " + currency, 9)
+                    .titleMerged(runNumber + " - " + currency, 9)
                     .meta("Run number", runNumber)
                     .meta("Status", run.getStatus())
-                    .meta("Payee type", run.getPayeeType() != null ? run.getPayeeType() : "—")
+                    .meta("Payee type", run.getPayeeType() != null ? run.getPayeeType() : "-")
                     .meta("Payment count", String.valueOf(run.getPaymentCount() != null
                             ? run.getPaymentCount() : sheetRows.size()))
                     .meta("Executed at", run.getExecutedAt() != null
-                            ? run.getExecutedAt().toString() : "—")
+                            ? run.getExecutedAt().toString() : "-")
                     .meta("Currency", currency);
             sheet.blankRow();
 
             sheet.header("Payment #", "Payee", "Payee type", "Amount",
                     "Currency", "Status", "Payment method", "Reference", "Paid at");
             sheet.forEach(sheetRows, (sw, r) ->
-                    sw.text(r.paymentNumber() != null ? r.paymentNumber() : "—")
+                    sw.text(r.paymentNumber() != null ? r.paymentNumber() : "-")
                             .text(r.payeeName() != null && !r.payeeName().isBlank()
-                                    ? r.payeeName() : "—")
-                            .text(r.payeeType() != null ? r.payeeType() : "—")
+                                    ? r.payeeName() : "-")
+                            .text(r.payeeType() != null ? r.payeeType() : "-")
                             .money(r.amount())
                             .text(r.currencyCode())
-                            .text(r.status() != null ? r.status() : "—")
-                            .text(r.paymentMethod() != null ? r.paymentMethod() : "—")
-                            .text(r.reference() != null ? r.reference() : "—")
+                            .text(r.status() != null ? r.status() : "-")
+                            .text(r.paymentMethod() != null ? r.paymentMethod() : "-")
+                            .text(r.reference() != null ? r.reference() : "-")
                             .date(r.paidAt()));
             sheet.blankRow();
             sheet.metaMoney("Total (" + currency + ")", sheetTotal);
@@ -126,17 +126,17 @@ public class PaymentRunWorkbookService {
                                    String reportingCurrency,
                                    LocalDate asOf,
                                    BigDecimal converted) {
-        String summaryTitle = (run.getRunNumber() != null ? run.getRunNumber() : "—") + " — Summary";
+        String summaryTitle = (run.getRunNumber() != null ? run.getRunNumber() : "-") + " - Summary";
         ReportWorkbook.SheetWriter sheet = book.sheet("Summary")
                 .titleMerged(summaryTitle, 3)
-                .meta("Run number", run.getRunNumber() != null ? run.getRunNumber() : "—")
+                .meta("Run number", run.getRunNumber() != null ? run.getRunNumber() : "-")
                 .meta("Status", run.getStatus())
-                .meta("Payee type", run.getPayeeType() != null ? run.getPayeeType() : "—")
+                .meta("Payee type", run.getPayeeType() != null ? run.getPayeeType() : "-")
                 .meta("Payment count", String.valueOf(run.getPaymentCount() != null
                         ? run.getPaymentCount() : 0))
                 .meta("Executed at", run.getExecutedAt() != null
-                        ? run.getExecutedAt().toString() : "—")
-                .meta("Source currency", runCurrency != null ? runCurrency : "—");
+                        ? run.getExecutedAt().toString() : "-")
+                .meta("Source currency", runCurrency != null ? runCurrency : "-");
         sheet.blankRow();
 
         List<String> currencies = new ArrayList<>(byCurrency.keySet());
@@ -150,7 +150,7 @@ public class PaymentRunWorkbookService {
             sheet.nextRow();
         }
         sheet.blankRow();
-        sheet.metaMoney("Grand total (" + (runCurrency != null ? runCurrency : "—") + ")",
+        sheet.metaMoney("Grand total (" + (runCurrency != null ? runCurrency : "-") + ")",
                 grandTotal);
 
         if (converted != null) {
@@ -159,7 +159,7 @@ public class PaymentRunWorkbookService {
         } else {
             sheet.meta("Converted to " + reportingCurrency,
                     "FX " + runCurrency + "→" + reportingCurrency
-                            + " unavailable at " + asOf + " — converted total omitted");
+                            + " unavailable at " + asOf + " - converted total omitted");
         }
         sheet.freezeAtHeader().autoSize();
     }
@@ -167,7 +167,7 @@ public class PaymentRunWorkbookService {
     private Map<String, List<PaymentRunWorkbookRow>> groupByCurrency(List<PaymentRunWorkbookRow> rows) {
         Map<String, List<PaymentRunWorkbookRow>> byCurrency = new LinkedHashMap<>();
         for (PaymentRunWorkbookRow row : rows) {
-            String currency = row.currencyCode() != null ? row.currencyCode() : "—";
+            String currency = row.currencyCode() != null ? row.currencyCode() : "-";
             byCurrency.computeIfAbsent(currency, c -> new ArrayList<>()).add(row);
         }
         return byCurrency;

@@ -350,7 +350,7 @@ public class PaymentRunService {
         Instant takenAt = run.getExecutedAt();
         if (takenAt == null) {
             return Mono.error(new IllegalStateException(
-                    "Payment run " + run.getRunNumber() + " has no executedAt — cannot take balance snapshot"));
+                    "Payment run " + run.getRunNumber() + " has no executedAt - cannot take balance snapshot"));
         }
         return paymentRunItemRepository.findByPaymentRunId(run.getId())
             .collectList()
@@ -481,7 +481,7 @@ public class PaymentRunService {
                 .flatMap(producerId -> commissionTransactionRepository
                         .markPaidByProducerAndPeriod(producerId, run.getId(), from, to)
                         .doOnNext(count -> log.info(
-                                "[commission-payout] run {} producer {} — {} commission rows flipped to PAID",
+                                "[commission-payout] run {} producer {} - {} commission rows flipped to PAID",
                                 run.getRunNumber(), producerId, count)))
                 .then();
     }

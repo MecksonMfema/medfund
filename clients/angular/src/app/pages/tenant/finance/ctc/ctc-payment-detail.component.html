@@ -83,7 +83,7 @@
         <dt>Amount</dt><dd>{{ payment.amount | currencyFormat:payment.currencyCode }}</dd>
         <dt>Currency</dt><dd>{{ payment.currencyCode }}</dd>
         <dt>Linked contribution</dt>
-        <dd>{{ payment.contributionId ? '#' + payment.contributionId.substring(0, 8) : '—' }}</dd>
+        <dd>{{ payment.contributionId ? '#' + payment.contributionId.substring(0, 8) : '-' }}</dd>
         <dt>Created</dt><dd>{{ payment.createdAt | date:'medium' }}</dd>
         @if (payment.committedAt) {
           <dt>Committed at</dt><dd>{{ payment.committedAt | date:'medium' }}</dd>

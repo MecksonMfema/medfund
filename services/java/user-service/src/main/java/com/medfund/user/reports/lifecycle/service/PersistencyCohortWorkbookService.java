@@ -35,7 +35,7 @@ public class PersistencyCohortWorkbookService {
     private byte[] render(LocalDate periodStart, LocalDate periodEnd, String insuranceLine,
                           PersistencyCohortResult result) {
         ReportWorkbook book = ReportWorkbook.newBook();
-        String title = "Persistency Cohort — " + periodStart + " to " + periodEnd;
+        String title = "Persistency Cohort - " + periodStart + " to " + periodEnd;
 
         ReportWorkbook.SheetWriter detail = book.sheet("Persistency");
         detail.titleMerged(title, 6)

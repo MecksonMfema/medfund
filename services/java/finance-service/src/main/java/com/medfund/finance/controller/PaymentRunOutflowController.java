@@ -42,7 +42,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/reports/aggregate/outflows")
 @RequiredArgsConstructor
 @Tag(name = "Cash-flow outflows",
-        description = "Planned payouts from draft/approved payment runs, item level — the Phase 8 "
+        description = "Planned payouts from draft/approved payment runs, item level - the Phase 8 "
                     + "cash-flow forecast's outflow side.")
 @SecurityRequirement(name = "bearer-jwt")
 public class PaymentRunOutflowController {
@@ -54,7 +54,7 @@ public class PaymentRunOutflowController {
     @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
     @Operation(summary = "Planned outflows for a window",
             description = "Item-level rows for draft/approved runs whose created_at falls in "
-                        + "[periodStart, periodEnd]. No aggregation here — the consuming forecast "
+                        + "[periodStart, periodEnd]. No aggregation here - the consuming forecast "
                         + "buckets by ISO week.")
     public Mono<ReportResponse<List<PlannedOutflowRow>>> plannedOutflows(
             @RequestParam String periodStart,

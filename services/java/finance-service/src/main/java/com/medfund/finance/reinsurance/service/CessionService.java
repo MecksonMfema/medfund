@@ -235,7 +235,7 @@ public class CessionService {
         return Mono.deferContextual(ctx -> {
             String tenantId = TenantContext.get(ctx);
             String entityName = "Cession on treaty " + treaty.getTreatyRef()
-                    + " — " + cession.getCededAmount().toPlainString()
+                    + " - " + cession.getCededAmount().toPlainString()
                     + " " + cession.getCurrencyCode();
             Map<String, Object> newValue = new LinkedHashMap<>();
             newValue.put("treatyId",         cession.getTreatyId().toString());
@@ -269,7 +269,7 @@ public class CessionService {
         return Mono.deferContextual(ctx -> {
             String tenantId = TenantContext.get(ctx);
             String entityName = "Recovery on cession " + cession.getId()
-                    + " — " + recovery.getExpectedAmount().toPlainString()
+                    + " - " + recovery.getExpectedAmount().toPlainString()
                     + " " + recovery.getCurrencyCode() + " EXPECTED";
             Map<String, Object> newValue = new LinkedHashMap<>();
             newValue.put("cessionId",       recovery.getCessionId().toString());

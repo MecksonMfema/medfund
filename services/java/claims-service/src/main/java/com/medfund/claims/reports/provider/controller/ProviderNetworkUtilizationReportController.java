@@ -41,7 +41,7 @@ import java.util.Map;
 @RequestMapping("/api/v1/reports/claims")
 @RequiredArgsConstructor
 @Tag(name = "Provider network utilization",
-        description = "Phase 13 §C Phase 9 — per-provider claim aggregates enriched with "
+        description = "Phase 13 §C Phase 9 - per-provider claim aggregates enriched with "
                 + "network_tier via a batched user-service lookup. Peer-down: placeholder "
                 + "names + envelope warnings.")
 @SecurityRequirement(name = "bearer-jwt")

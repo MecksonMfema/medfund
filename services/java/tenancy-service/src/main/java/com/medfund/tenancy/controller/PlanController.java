@@ -22,7 +22,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/plans")
-@Tag(name = "Plans", description = "Subscription plan management — super admin only")
+@Tag(name = "Plans", description = "Subscription plan management - super admin only")
 @SecurityRequirement(name = "bearer-jwt")
 public class PlanController {
 

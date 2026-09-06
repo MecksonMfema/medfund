@@ -20,7 +20,7 @@ public record UpdateIfrs17OpeningBalanceSeedRequest(
         @DecimalMin(value = "0.00", message = "amount must be non-negative")
         BigDecimal amount,
 
-        @Schema(description = "Operator rationale for the edit — captured on the audit event")
+        @Schema(description = "Operator rationale for the edit - captured on the audit event")
         @NotBlank
         @Size(max = 2000)
         String reasonNote

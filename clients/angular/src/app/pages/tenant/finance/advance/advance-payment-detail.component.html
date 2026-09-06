@@ -123,14 +123,14 @@
         @if (payment.memberId) { <dt>Member</dt><dd><code>{{ payment.memberId }}</code></dd> }
         <dt>Amount</dt><dd>{{ payment.amount | currencyFormat:payment.currencyCode }}</dd>
         <dt>Currency</dt><dd>{{ payment.currencyCode }}</dd>
-        <dt>Method</dt><dd>{{ payment.paymentMethod || '—' }}</dd>
-        <dt>Reference</dt><dd>{{ payment.reference || '—' }}</dd>
+        <dt>Method</dt><dd>{{ payment.paymentMethod || '-' }}</dd>
+        <dt>Reference</dt><dd>{{ payment.reference || '-' }}</dd>
         <dt>Type</dt><dd>{{ payment.type || 'ADVANCE' }}</dd>
         <dt>Recorded</dt><dd>{{ payment.recordedAt | date:'medium' }}</dd>
-        <dt>Recorded by</dt><dd>{{ payment.recordedBy || '—' }}</dd>
+        <dt>Recorded by</dt><dd>{{ payment.recordedBy || '-' }}</dd>
         @if (payment.approvedAt) {
           <dt>Approved</dt><dd>{{ payment.approvedAt | date:'medium' }}</dd>
-          <dt>Approved by</dt><dd>{{ payment.approvedBy || '—' }}</dd>
+          <dt>Approved by</dt><dd>{{ payment.approvedBy || '-' }}</dd>
         }
       </dl>
       @if (payment.comment) {
@@ -160,8 +160,8 @@
             @for (app of applications; track app.id) {
               <tr>
                 <td>{{ app.appliedAt | date:'medium' }}</td>
-                <td><code>{{ (app.paymentRunItemId || app.paymentRunId || '—').substring(0, 8) }}</code></td>
-                <td>{{ app.paymentId ? '#' + app.paymentId.substring(0, 8) : '—' }}</td>
+                <td><code>{{ (app.paymentRunItemId || app.paymentRunId || '-').substring(0, 8) }}</code></td>
+                <td>{{ app.paymentId ? '#' + app.paymentId.substring(0, 8) : '-' }}</td>
                 <td class="numeric">{{ app.amountApplied | currencyFormat:app.currencyCode }}</td>
               </tr>
             }

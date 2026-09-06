@@ -28,7 +28,7 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/v1/underwriting")
-@Tag(name = "Underwriting — Policy Unit Ledger",
+@Tag(name = "Underwriting - Policy Unit Ledger",
      description = "Append-only unit transactions per policy on unit-linked funds")
 @SecurityRequirement(name = "bearer-jwt")
 @RequiredArgsConstructor
@@ -38,7 +38,7 @@ public class PolicyUnitLedgerController {
 
     @GetMapping("/funds/{fundId}/ledger")
     @Operation(summary = "List ledger rows for a fund",
-               description = "Read-only view — used by tenant admin for policy allocations across "
+               description = "Read-only view - used by tenant admin for policy allocations across "
                              + "the fund. Descending by transaction_date.")
     public Flux<PolicyUnitLedgerResponse> findByFundId(@PathVariable UUID fundId) {
         return service.findByFundId(fundId).map(PolicyUnitLedgerResponse::from);

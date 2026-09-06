@@ -100,7 +100,7 @@ public class IpecSolvencyCalculator {
             if (!(rawParams instanceof Map<?, ?> params)) {
                 throw new RegulatoryReportGenerationException(
                         "Malformed IPEC defaults YAML " + resourcePath
-                                + " — top-level 'parameters:' map required.");
+                                + " - top-level 'parameters:' map required.");
             }
             return new IpecSolvencyParameters(
                     requireDecimal(params, IpecSolvencyParameters.KEY_MIN_SOLVENCY_RATIO, resourcePath),

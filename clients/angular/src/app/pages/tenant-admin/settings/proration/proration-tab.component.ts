@@ -50,7 +50,7 @@ export class TenantProrationTabComponent implements OnInit {
   incrementWaitDays: number | null = null;
 
   readonly strategyOptions: StrategyOption[] = [
-    { value: 'NONE',                        label: 'NONE',                        description: 'No proration — use the new scheme’s raw annual limit. Preserves pre-feature behaviour.' },
+    { value: 'NONE',                        label: 'NONE',                        description: 'No proration. Uses the new scheme’s raw annual limit. Preserves pre-feature behaviour.' },
     { value: 'DELTA_CREDIT',                label: 'DELTA_CREDIT',                description: 'newLimit − consumedAcrossAnyScheme, floored at 0. Simplest safe correction.' },
     { value: 'RATIO_CARRY',                 label: 'RATIO_CARRY',                 description: '(oldRemaining / oldLimit) × newLimit. MASCA-style transfer of the spending ratio.' },
     { value: 'CALENDAR',                    label: 'CALENDAR',                    description: 'newLimit × (daysRemainingInYear / daysInYear) − consumedUnderNewScheme.' },

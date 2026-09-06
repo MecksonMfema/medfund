@@ -55,8 +55,8 @@ public class ClaimsAggregateController {
 
     @GetMapping("/claims")
     @RequiresPermission(Permissions.FINANCE_VIEW_SUBLEDGER)
-    @Operation(summary = "Cross-service claims aggregate — narrow funnel rows per (dimension, currency)",
-            description = "Period clock is adjudicated_at (G41). Dimension defaults to SCHEME — the "
+    @Operation(summary = "Cross-service claims aggregate - narrow funnel rows per (dimension, currency)",
+            description = "Period clock is adjudicated_at (G41). Dimension defaults to SCHEME - the "
                         + "Phase 5 loss-ratio consumer pairs it with the billing-vs-receipts per-scheme "
                         + "shape. Each row carries the full claimed / approved / paid funnel so loss-ratio "
                         + "can pick paid-ratio or approved-liability-ratio without a second round trip "
@@ -96,13 +96,13 @@ public class ClaimsAggregateController {
 
     @GetMapping("/claims-incurred")
     @RequiresPermission(Permissions.CLAIMS_READ_AGGREGATE)
-    @Operation(summary = "Incurred claims per (currency[, line][, scheme]) — paid + Δreserve for the period",
+    @Operation(summary = "Incurred claims per (currency[, line][, scheme]) - paid + Δreserve for the period",
             description = "K9: totalPaid + (reserveBalanceEnd - reserveBalanceStart). IBNR is NOT "
                         + "included; the KPI composer adds it from the latest report_job IBNR run. "
                         + "reserveBalance(T) uses DISTINCT ON (claim_id) with effective_at <= T on "
                         + "claim_reserve_history. Period clock is claims.adjudicated_at (K9 originally "
                         + "named paid_at + claim_details.paid_amount but neither exists on the tenant "
-                        + "schema — claims.paid_amount is a direct column set by finance-service).")
+                        + "schema - claims.paid_amount is a direct column set by finance-service).")
     public Mono<List<ClaimsIncurredAggregateRow>> claimsIncurred(
             @RequestParam String periodStart,
             @RequestParam String periodEnd,

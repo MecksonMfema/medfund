@@ -78,25 +78,25 @@ public class ActuarialXlsxService {
         Sheet sheet = wb.createSheet("Triangle");
         int r = 0;
         Row t = sheet.createRow(r++);
-        cell(t, 0, job.getReportKey() + " — triangle", title);
+        cell(t, 0, job.getReportKey() + " - triangle", title);
 
         String ldfMethod = params != null && params.hasNonNull("ldfMethod")
                 ? params.get("ldfMethod").asText() : "volume";
         String periodStart = params != null && params.hasNonNull("periodStart")
-                ? params.get("periodStart").asText() : "—";
+                ? params.get("periodStart").asText() : "-";
         String periodEnd = params != null && params.hasNonNull("periodEnd")
-                ? params.get("periodEnd").asText() : "—";
+                ? params.get("periodEnd").asText() : "-";
         String line = params != null && params.hasNonNull("insuranceLine")
                 ? params.get("insuranceLine").asText() : "ALL";
         String currency = params != null && params.hasNonNull("reportingCurrency")
                 ? params.get("reportingCurrency").asText() : "USD";
 
-        r = writeLabelValue(sheet, r, label, bold, "Period", periodStart + " — " + periodEnd);
+        r = writeLabelValue(sheet, r, label, bold, "Period", periodStart + " - " + periodEnd);
         r = writeLabelValue(sheet, r, label, bold, "Insurance line", line);
         r = writeLabelValue(sheet, r, label, bold, "Reporting currency", currency);
         r = writeLabelValue(sheet, r, label, bold, "LDF method", ldfMethod);
         String ldfRuleApplied = params != null && params.hasNonNull("ldfRuleApplied")
-                ? params.get("ldfRuleApplied").asText() : "—";
+                ? params.get("ldfRuleApplied").asText() : "-";
         r = writeLabelValue(sheet, r, label, bold, "Rule applied", ldfRuleApplied);
         r = writeLabelValue(sheet, r, label, bold, "Job ID", job.getJobId().toString());
         r++;
@@ -107,7 +107,7 @@ public class ActuarialXlsxService {
         JsonNode cells = triangle != null ? triangle.path("cells") : null;
         if (accidentPeriods == null || !accidentPeriods.isArray() || accidentPeriods.isEmpty()) {
             Row empty = sheet.createRow(r);
-            cell(empty, 0, "Triangle input not preserved in params_json — see result sheet for LDFs.", label);
+            cell(empty, 0, "Triangle input not preserved in params_json - see result sheet for LDFs.", label);
             return;
         }
 
@@ -171,12 +171,12 @@ public class ActuarialXlsxService {
         r++;
         r = writeLabelValue(sheet, r, label, bold, "Status", job.getStatus());
         r = writeLabelValue(sheet, r, label, bold, "Completed at",
-                job.getCompletedAt() != null ? job.getCompletedAt().toString() : "—");
+                job.getCompletedAt() != null ? job.getCompletedAt().toString() : "-");
         String ldfMethod = params != null && params.hasNonNull("ldfMethod")
                 ? params.get("ldfMethod").asText() : "volume";
         r = writeLabelValue(sheet, r, label, bold, "LDF method", ldfMethod);
         String ldfRuleApplied = params != null && params.hasNonNull("ldfRuleApplied")
-                ? params.get("ldfRuleApplied").asText() : "—";
+                ? params.get("ldfRuleApplied").asText() : "-";
         r = writeLabelValue(sheet, r, label, bold, "Rule applied", ldfRuleApplied);
         if (params != null && params.hasNonNull("shape_warnings")) {
             r = writeLabelValue(sheet, r, label, bold, "Warnings", params.get("shape_warnings").toString());
@@ -205,7 +205,7 @@ public class ActuarialXlsxService {
         r = writeLabelValue(sheet, r, label, bold, "Report key", job.getReportKey());
         r = writeLabelValue(sheet, r, label, bold, "Status", job.getStatus());
         writeLabelValue(sheet, r, label, bold, "Error",
-                job.getErrorMessage() != null ? job.getErrorMessage() : "—");
+                job.getErrorMessage() != null ? job.getErrorMessage() : "-");
     }
 
     private JsonNode readJsonOrNull(String value) {

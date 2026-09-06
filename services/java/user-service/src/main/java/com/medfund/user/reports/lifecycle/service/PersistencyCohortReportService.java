@@ -59,7 +59,7 @@ public class PersistencyCohortReportService {
     private Mono<String> freshnessWarning() {
         return queryRepository.latestContribPresenceRefreshAt()
                 .map(this::warningFor)
-                .defaultIfEmpty("HEALTH persistency data may be stale — "
+                .defaultIfEmpty("HEALTH persistency data may be stale - "
                         + "member_contribution_presence has not yet been refreshed");
     }
 

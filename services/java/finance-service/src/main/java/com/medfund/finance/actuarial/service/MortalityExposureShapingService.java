@@ -78,7 +78,7 @@ public class MortalityExposureShapingService {
             multiplier = 1.0;
             warnings.add(
                     "Tenant has no mortality_basis row for line " + line
-                            + " — falling back to " + DEFAULT_BASIS + " with multiplier 1.0"
+                            + " - falling back to " + DEFAULT_BASIS + " with multiplier 1.0"
             );
         }
 
@@ -100,7 +100,7 @@ public class MortalityExposureShapingService {
 
         if (bands.isEmpty()) {
             warnings.add("No member exposure in the requested window for line " + line
-                    + " — MORTALITY_STUDY result will be empty");
+                    + " - MORTALITY_STUDY result will be empty");
         }
 
         Map<String, Object> exposure = new LinkedHashMap<>();

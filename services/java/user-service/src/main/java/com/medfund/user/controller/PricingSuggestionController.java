@@ -39,7 +39,7 @@ public class PricingSuggestionController {
     @PostMapping
     @Operation(summary = "Get an AI pricing suggestion for a new member or dependant",
         description = "Suggests a monthly premium based on the applicant's DoB + risk signals. " +
-                "Operator retains final say — this number pre-fills the Custom-premium " +
+                "Operator retains final say - this number pre-fills the Custom-premium " +
                 "amount field but they can edit before saving.")
     @ApiResponse(responseCode = "200", description = "Suggestion computed")
     public Mono<PricingSuggestionResponse> suggest(@Valid @RequestBody PricingSuggestionRequest request) {

@@ -105,7 +105,7 @@ public class KpiWorkbookService {
 
         // ── Trend sheet ──────────────────────────────────────────────────
         ReportWorkbook.SheetWriter trendSheet = book.sheet("Trend (12 months)")
-                .titleMerged(key.getLabel() + " — 12-month trend", SUMMARY_TITLE_SPAN)
+                .titleMerged(key.getLabel() + " - 12-month trend", SUMMARY_TITLE_SPAN)
                 .header("Period start", "Period end", "Composite ratio", "Warnings");
 
         if (trend != null && !trend.isEmpty()) {
@@ -127,13 +127,13 @@ public class KpiWorkbookService {
     private static String periodStart(ReportResponse<KpiReportData> env) {
         return env.period() != null && env.period().periodStart() != null
                 ? env.period().periodStart().toString()
-                : "—";
+                : "-";
     }
 
     private static String periodEnd(ReportResponse<KpiReportData> env) {
         return env.period() != null && env.period().periodEnd() != null
                 ? env.period().periodEnd().toString()
-                : "—";
+                : "-";
     }
 
     /**
@@ -143,7 +143,7 @@ public class KpiWorkbookService {
      * amount (paid / claim count) rendered as a plain number to 2 decimals.
      */
     static String formatRatio(ReportKey key, BigDecimal ratio) {
-        if (ratio == null) return "—";
+        if (ratio == null) return "-";
         if (key == ReportKey.AVERAGE_SEVERITY) {
             return ratio.setScale(2, RoundingMode.HALF_UP).toPlainString();
         }

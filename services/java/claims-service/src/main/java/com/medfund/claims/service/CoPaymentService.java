@@ -31,7 +31,7 @@ public class CoPaymentService {
                 .map(tariff -> calculateLineCoPay(line, tariff))
                 .defaultIfEmpty(new LineCoPayment(
                     line.getTariffCode(), line.getClaimedAmount(), BigDecimal.ZERO, line.getClaimedAmount(),
-                    "Tariff not found — full amount is co-payment"
+                    "Tariff not found - full amount is co-payment"
                 )))
             .collectList()
             .map(lineResults -> {

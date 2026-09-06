@@ -76,7 +76,7 @@ public class TenantPersistencyBasisController {
     @PutMapping("/{id}")
     @RequiresPermission({"tenant.settings:manage_actuarial_bases"})
     @Operation(summary = "Update a persistency basis row",
-            description = "Only expectedRetentionPct, sourceNote and effectiveTo are mutable — "
+            description = "Only expectedRetentionPct, sourceNote and effectiveTo are mutable - "
                         + "the (line, cohort, effectiveFrom) key is immutable.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Row updated"),

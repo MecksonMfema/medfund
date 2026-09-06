@@ -3,7 +3,7 @@
     <h1>Benefits</h1>
     @if (scheme) {
       <p class="page-sub">
-        Benefit lines for scheme <strong>{{ scheme.name }}</strong> ({{ scheme.currencyCode || '—' }}). Limits inherit the scheme's currency.
+        Benefit lines for scheme <strong>{{ scheme.name }}</strong> ({{ scheme.currencyCode || '-' }}). Limits inherit the scheme's currency.
       </p>
     } @else {
       <p class="page-sub">Loading scheme…</p>

@@ -37,7 +37,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/member-cost-share-liabilities")
 @RequiredArgsConstructor
 @Tag(name = "Member Cost-Share Liabilities",
-        description = "The fund-issued 'the member owes' ledger — one row per adjudicated claim with a cost-share balance.")
+        description = "The fund-issued 'the member owes' ledger - one row per adjudicated claim with a cost-share balance.")
 @SecurityRequirement(name = "bearer-jwt")
 public class MemberCostShareLiabilityController {
 

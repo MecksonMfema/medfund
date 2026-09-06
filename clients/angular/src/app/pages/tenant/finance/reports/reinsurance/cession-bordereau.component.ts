@@ -107,7 +107,7 @@ export class CessionBordereauComponent implements OnInit {
       { value: '', label: 'All treaties' },
       ...this.treaties.map(t => ({
         value: t.id,
-        label: `${t.treatyRef} — ${t.treatyType} (${t.status})`,
+        label: `${t.treatyRef} - ${t.treatyType} (${t.status})`,
       })),
     ];
   }

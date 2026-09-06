@@ -41,8 +41,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/reinsurance/review-tasks")
 @RequiredArgsConstructor
-@Tag(name = "Reinsurance — Review Queue",
-     description = "Manual-review tasks — claim regression, recovery disputes, manual void requests.")
+@Tag(name = "Reinsurance - Review Queue",
+     description = "Manual-review tasks - claim regression, recovery disputes, manual void requests.")
 @SecurityRequirement(name = "bearer-jwt")
 public class ReinsuranceReviewTaskController {
 
@@ -76,7 +76,7 @@ public class ReinsuranceReviewTaskController {
     @PutMapping("/{id}/assign")
     @RequiresPermission(Permissions.REINSURANCE_RESOLVE_REVIEW)
     @Operation(summary = "Assign a task to a user (also transitions OPEN → IN_PROGRESS)",
-            description = "Idempotent per assignee — re-assigning to the same user re-emits the "
+            description = "Idempotent per assignee - re-assigning to the same user re-emits the "
                         + "audit event but doesn't error. Already-resolved tasks return 409.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Assigned"),
@@ -94,7 +94,7 @@ public class ReinsuranceReviewTaskController {
     @Operation(summary = "Resolve a review task",
             description = "Valid resolutions: RESOLVED_VOID (cascade-voids the linked cession + writes "
                         + "off any non-terminal recovery), RESOLVED_KEEP (closes task, leaves cession "
-                        + "untouched — the operator judged the re-adjudication acceptable), DISMISSED "
+                        + "untouched - the operator judged the re-adjudication acceptable), DISMISSED "
                         + "(false positive). Notes are optional but strongly encouraged.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Resolved"),

@@ -22,7 +22,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/platform")
 @RequiredArgsConstructor
-@Tag(name = "Platform Stats", description = "Aggregate platform-wide claims statistics — no tenant context required")
+@Tag(name = "Platform Stats", description = "Aggregate platform-wide claims statistics - no tenant context required")
 public class PlatformStatsController {
 
     private final DatabaseClient db;

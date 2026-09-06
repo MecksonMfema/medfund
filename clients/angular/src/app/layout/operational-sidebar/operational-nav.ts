@@ -158,9 +158,9 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
       // Phase 10 §B — facultative-cession operational surface. Browse is
       // gated on cede_facultative (underwriter); queue is gated on view so
       // any finance user can see progress even if they can't act on it.
-      { label: 'Facultative — Browse', icon: 'shield',     route: '/tenant/finance/reinsurance/facultative/browse', permissions: ['finance.reinsurance:cede_facultative'] },
-      { label: 'Facultative — Queue',  icon: 'shield',     route: '/tenant/finance/reinsurance/facultative/queue',  permissions: ['finance.reinsurance:view'] },
-      { label: 'Reinsurance — Review Queue', icon: 'alert-triangle', route: '/tenant/finance/reinsurance/review-queue', permissions: ['finance.reinsurance:view'] },
+      { label: 'Facultative - Browse', icon: 'shield',     route: '/tenant/finance/reinsurance/facultative/browse', permissions: ['finance.reinsurance:cede_facultative'] },
+      { label: 'Facultative - Queue',  icon: 'shield',     route: '/tenant/finance/reinsurance/facultative/queue',  permissions: ['finance.reinsurance:view'] },
+      { label: 'Reinsurance - Review Queue', icon: 'alert-triangle', route: '/tenant/finance/reinsurance/review-queue', permissions: ['finance.reinsurance:view'] },
       // Phase 11 §A Phase 6 — PRODUCER-typed payment runs (commission
       // payouts). Separate landing page from PROVIDER/MEMBER payment runs
       // because commission payouts carry a period + different permission

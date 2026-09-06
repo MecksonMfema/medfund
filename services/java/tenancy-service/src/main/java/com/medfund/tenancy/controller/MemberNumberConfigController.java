@@ -17,7 +17,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/tenants/{tenantId}/member-number-config")
 @RequiredArgsConstructor
 @Tag(name = "Tenant member-number config",
-     description = "V126 shape knobs for member/dependant number issuance — prefix, random length, suffix separator/padding/start.")
+     description = "V126 shape knobs for member/dependant number issuance - prefix, random length, suffix separator/padding/start.")
 @SecurityRequirement(name = "bearer-jwt")
 public class MemberNumberConfigController {
 
@@ -31,7 +31,7 @@ public class MemberNumberConfigController {
 
     @PutMapping
     @Operation(summary = "Update the tenant's member-number config",
-            description = "All fields required — validation mirrors the V126 CHECK constraints (random_length ∈ [3,12], padding ∈ [1,4]).")
+            description = "All fields required - validation mirrors the V126 CHECK constraints (random_length ∈ [3,12], padding ∈ [1,4]).")
     public Mono<MemberNumberConfigResponse> update(@PathVariable UUID tenantId,
                                                     @Valid @RequestBody UpdateMemberNumberConfigRequest body) {
         return service.update(tenantId, body);

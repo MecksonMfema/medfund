@@ -23,7 +23,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/staff-users")
-@Tag(name = "Staff Users", description = "Platform staff user management — creates users in DB and syncs to Keycloak")
+@Tag(name = "Staff Users", description = "Platform staff user management - creates users in DB and syncs to Keycloak")
 @SecurityRequirement(name = "bearer-jwt")
 public class StaffUserController {
 
@@ -145,7 +145,7 @@ public class StaffUserController {
 
     @GetMapping("/invitations")
     @Operation(summary = "List pending invitations",
-               description = "All staff users with status='invited' — both platform and tenant-scoped. " +
+               description = "All staff users with status='invited' - both platform and tenant-scoped. " +
                              "Pass tenantId to filter to a single tenant.")
     public reactor.core.publisher.Flux<StaffUserResponse> invitations(
             @RequestParam(required = false) UUID tenantId) {

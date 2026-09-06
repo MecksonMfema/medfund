@@ -72,7 +72,7 @@ export class PolicyStatusActionModalComponent implements OnChanges {
 
   get reasonOptions(): SelectOption[] {
     const opts = this.registry.reasonsFor(this.policySource).map(r => ({ value: r.code, label: r.label }));
-    return [{ value: '', label: '— Select a reason —' }, ...opts];
+    return [{ value: '', label: '- Select a reason -' }, ...opts];
   }
 
   onSubmit(): void {

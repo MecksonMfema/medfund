@@ -92,8 +92,8 @@ class ReportWorkbookTest {
 
         try (Workbook wb = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
             Sheet sheet = wb.getSheet("NullCheck");
-            // meta with null value renders an em-dash
-            assertThat(sheet.getRow(0).getCell(1).getStringCellValue()).isEqualTo("—");
+            // meta with null value renders a dash placeholder
+            assertThat(sheet.getRow(0).getCell(1).getStringCellValue()).isEqualTo("-");
             // Every null-typed cell rendered as blank string
             Row dataRow = sheet.getRow(2);
             for (int i = 0; i < 5; i++) {

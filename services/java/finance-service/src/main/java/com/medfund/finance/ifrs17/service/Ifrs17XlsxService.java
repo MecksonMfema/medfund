@@ -94,21 +94,21 @@ public class Ifrs17XlsxService {
         Sheet sheet = wb.createSheet("Summary");
         int r = 0;
         Row t = sheet.createRow(r++);
-        cell(t, 0, humanReportName(job.getReportKey()) + " — summary", title);
+        cell(t, 0, humanReportName(job.getReportKey()) + " - summary", title);
         sheet.addMergedRegion(new CellRangeAddress(0, 0, 0, 4));
         r++;
 
-        String periodStart = textField(params, "periodStart", "—");
-        String periodEnd = textField(params, "periodEnd", "—");
-        String reportingCurrency = textField(params, "reportingCurrency", "—");
+        String periodStart = textField(params, "periodStart", "-");
+        String periodEnd = textField(params, "periodEnd", "-");
+        String reportingCurrency = textField(params, "reportingCurrency", "-");
 
         r = writeLabelValue(sheet, r, label, bold, "Report", humanReportName(job.getReportKey()));
         r = writeLabelValue(sheet, r, label, bold, "Job ID", job.getJobId().toString());
         r = writeLabelValue(sheet, r, label, bold, "Status", job.getStatus());
-        r = writeLabelValue(sheet, r, label, bold, "Period", periodStart + " — " + periodEnd);
+        r = writeLabelValue(sheet, r, label, bold, "Period", periodStart + " - " + periodEnd);
         r = writeLabelValue(sheet, r, label, bold, "Reporting currency", reportingCurrency);
         r = writeLabelValue(sheet, r, label, bold, "Completed at",
-                job.getCompletedAt() != null ? job.getCompletedAt().toString() : "—");
+                job.getCompletedAt() != null ? job.getCompletedAt().toString() : "-");
         r++;
 
         JsonNode summary = envelope.path(KEY_SUMMARY);
@@ -161,7 +161,7 @@ public class Ifrs17XlsxService {
             String portfolioId = entry.getKey();
             JsonNode portfolioNode = entry.getValue();
             String sheetName = WorkbookUtil.createSafeSheetName(
-                    "Portfolio " + idx + " — " + shortId(portfolioId));
+                    "Portfolio " + idx + " - " + shortId(portfolioId));
             Sheet sheet = wb.createSheet(sheetName);
             writePortfolioSheet(sheet, portfolioId, portfolioNode, isRevenueReport,
                     sectionTitle, th, label, bold, money, moneyBold);
@@ -363,7 +363,7 @@ public class Ifrs17XlsxService {
         r = writeLabelValue(sheet, r, label, bold, "Report key", job.getReportKey());
         r = writeLabelValue(sheet, r, label, bold, "Status", job.getStatus());
         writeLabelValue(sheet, r, label, bold, "Error",
-                job.getErrorMessage() != null ? job.getErrorMessage() : "—");
+                job.getErrorMessage() != null ? job.getErrorMessage() : "-");
     }
 
     // ── JSON + string helpers ───────────────────────────────────────────
@@ -391,7 +391,7 @@ public class Ifrs17XlsxService {
     }
 
     private static String joinArrayNode(JsonNode node) {
-        if (node == null || !node.isArray() || node.isEmpty()) return "—";
+        if (node == null || !node.isArray() || node.isEmpty()) return "-";
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < node.size(); i++) {
             if (i > 0) sb.append(", ");
@@ -403,9 +403,9 @@ public class Ifrs17XlsxService {
     private static String humanReportName(String reportKey) {
         if (reportKey == null) return "IFRS 17";
         return switch (reportKey) {
-            case "IFRS17_LRC_LIC_RECONCILIATION" -> "IFRS 17 — LRC / LIC reconciliation";
+            case "IFRS17_LRC_LIC_RECONCILIATION" -> "IFRS 17 - LRC / LIC reconciliation";
             case "IFRS17_INSURANCE_REVENUE_SERVICE_RESULT" ->
-                    "IFRS 17 — insurance revenue & service result";
+                    "IFRS 17 - insurance revenue & service result";
             default -> reportKey;
         };
     }
@@ -417,7 +417,7 @@ public class Ifrs17XlsxService {
     /** UUIDs are 36 chars — we show only the first 8 in cells to keep sheets
      *  readable, mirroring the actuarial XLSX convention. */
     private static String shortId(String uuid) {
-        if (uuid == null) return "—";
+        if (uuid == null) return "-";
         return uuid.length() > 8 ? uuid.substring(0, 8) : uuid;
     }
 

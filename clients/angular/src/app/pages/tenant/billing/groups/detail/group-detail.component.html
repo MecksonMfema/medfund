@@ -119,7 +119,7 @@
             <h3 class="section-title">Liaison</h3>
             <span class="section-hint">
               @if (!form.email?.trim()) {
-                <span class="req">*</span> Required — the group needs at least one statement route.
+                <span class="req">*</span> Required: the group needs at least one statement route.
               } @else {
                 (optional if contact email is set)
               }
@@ -133,7 +133,7 @@
             [prefillSublabel]="liaisonSublabel"
             (selected)="onLiaisonSelected($event)">
           </app-liaison-picker>
-          <small class="field-help">A member, staff user, or standalone liaison contact who receives statements for this group. Members and staff are managed under Members / Staff Admin — this picker only searches. A brand-new standalone liaison can be created via the picker's add flow.</small>
+          <small class="field-help">A member, staff user, or standalone liaison contact who receives statements for this group. Members and staff are managed under Members / Staff Admin: this picker only searches. A brand-new standalone liaison can be created via the picker's add flow.</small>
         </section>
       </div>
 
@@ -171,7 +171,7 @@
               <tr class="clickable" (click)="openMember(m)">
                 <td><strong>{{ m.firstName }} {{ m.lastName }}</strong></td>
                 <td>{{ m.memberNumber }}</td>
-                <td class="muted">{{ m.email || '—' }}</td>
+                <td class="muted">{{ m.email || '-' }}</td>
                 <td><span class="chip status" [attr.data-status]="m.status">{{ m.status }}</span></td>
               </tr>
             }
