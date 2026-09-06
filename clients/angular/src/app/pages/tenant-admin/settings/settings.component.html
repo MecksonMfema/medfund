@@ -1,22 +1,39 @@
-<div class="page-header">
-  <div>
-    <h1>Settings</h1>
-    <p class="page-subtitle">Customise how this tenant's portals look and behave</p>
+<!-- Sticky header stack: title, group tabs, pill sub-tabs all pin together as
+     one block so there is never a gap between them for page content to show
+     through, regardless of how tall the title / group tabs actually render. -->
+<div class="page-header-stack">
+  <div class="page-header">
+    <div>
+      <h1>Settings</h1>
+      <p class="page-subtitle">Customise how this tenant's portals look and behave</p>
+    </div>
   </div>
-</div>
 
-<!-- Tab Navigation -->
-<div class="tabs">
-  @for (tab of tabs; track tab.id) {
-    <button
-      class="tab"
-      [class.active]="activeTab === tab.id"
-      (click)="activeTab = tab.id"
-    >
-      <app-icon [name]="tab.icon" [size]="18"></app-icon>
-      {{ tab.label }}
-    </button>
-  }
+  <div class="tab-groups">
+    @for (group of tabGroups; track group.id) {
+      <button
+        class="tab-group"
+        [class.active]="activeGroup === group.id"
+        (click)="selectGroup(group.id)"
+      >
+        <app-icon [name]="group.icon" [size]="18"></app-icon>
+        {{ group.label }}
+      </button>
+    }
+  </div>
+
+  <div class="tabs">
+    @for (tab of activeGroupTabs; track tab.id) {
+      <button
+        class="tab"
+        [class.active]="activeTab === tab.id"
+        (click)="activeTab = tab.id"
+      >
+        <app-icon [name]="tab.icon" [size]="16"></app-icon>
+        {{ tab.label }}
+      </button>
+    }
+  </div>
 </div>
 
 <!-- General -->

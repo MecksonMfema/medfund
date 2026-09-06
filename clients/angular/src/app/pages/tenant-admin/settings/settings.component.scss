@@ -1,33 +1,36 @@
-/* The page-header + tabs stick to the top of the scrolling content area so
-   the user always sees which page they're on and which tab is active —
-   independent of how far they've scrolled inside a tab's content. */
-.page-header {
+/* One sticky wrapper for the whole header stack (title, group tabs, pill
+   sub-tabs). Doing this as a single sticky block instead of three sibling
+   stickies means there is no possibility of a gap between them for scrolled
+   page content to leak through, regardless of how tall the title or group
+   tabs actually render. */
+.page-header-stack {
   position: sticky;
   top: calc(-1 * var(--spacing-xl));   /* offset by the .tenant-content padding */
   z-index: 5;
   background: var(--color-bg);
-  margin: calc(-1 * var(--spacing-xl)) calc(-1 * var(--spacing-xl)) 0;
-  padding: var(--spacing-xl) var(--spacing-xl) var(--spacing-base);
+  margin: calc(-1 * var(--spacing-xl)) calc(-1 * var(--spacing-xl)) var(--spacing-xl);
+  padding-top: var(--spacing-xl);      /* replace the padding we broke out of */
+}
+
+.page-header {
+  padding: 0 var(--spacing-xl) var(--spacing-base);
 }
 .page-header h1 { font-size: var(--font-size-2xl); margin-bottom: 4px; }
 .page-subtitle { color: var(--color-text-secondary); font-size: var(--font-size-base); }
 
-/* ── Tabs (mirrors platform settings) ───────────────────────────────────── */
+/* ── Tab groups (primary category row) ──────────────────────────────────── */
 
-.tabs {
-  position: sticky;
-  /* Sticks below the page-header (subtitle line is ~24px → header reserves ~96px) */
-  top: 80px;
-  z-index: 5;
-  background: var(--color-bg);
+/* Two-row nav: category groups on top, active group's sub-tabs below. Both
+   rows sit inside the sticky .page-header-stack, so they always stay pinned
+   together with the title, flush against each other and against the header. */
+.tab-groups {
   display: flex;
   gap: 4px;
-  margin: 0 calc(-1 * var(--spacing-xl)) var(--spacing-xl);
   padding: 0 var(--spacing-xl);
   border-bottom: 1px solid var(--color-border-light);
 }
 
-.tab {
+.tab-group {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
@@ -43,8 +46,45 @@
   margin-bottom: -1px;
   transition: all var(--transition-fast);
 }
-.tab:hover  { color: var(--color-primary); }
-.tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+.tab-group:hover  { color: var(--color-primary); }
+.tab-group.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+/* ── Sub-tabs (secondary row) ───────────────────────────────────────────── */
+
+.tabs {
+  display: flex;
+  gap: var(--spacing-xs, 2px);
+  padding: var(--spacing-md) var(--spacing-xl) var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--color-text-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  border-radius: 999px;
+  transition: all var(--transition-fast);
+}
+.tab:hover {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+.tab.active {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+}
 
 .settings-section {
   display: flex;
@@ -376,6 +416,15 @@
   margin-top: auto;
   &:focus    { border-color: var(--color-primary); }
   &:disabled { background: var(--color-bg); color: var(--color-text-muted); cursor: not-allowed; }
+}
+
+/* app-select needs the same bottom-pinned behavior as .form-input so cells
+   that render a dropdown line up with cells that render a text input on
+   the same grid row. Its internal trigger inherits the shared select
+   styling; only the outer host needs the margin-top: auto shim. */
+.form-field app-select {
+  margin-top: auto;
+  display: block;
 }
 
 .general-error {

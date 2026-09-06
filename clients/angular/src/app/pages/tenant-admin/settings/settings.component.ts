@@ -74,10 +74,19 @@ export const JURISDICTIONS = [
 
 type TabId = 'general' | 'branding' | 'insurance-lines' | 'currencies' | 'billing' | 'proration' | 'bank-accounts' | 'email-templates' | 'reports' | 'auto-lapse' | 'endorsement-config' | 'actuarial-bases' | 'ifrs17-config' | 'roles';
 
+type GroupId = 'profile' | 'finance' | 'communications' | 'operations' | 'actuarial';
+
 interface Tab {
   id: TabId;
   label: string;
   icon: string;
+}
+
+interface TabGroup {
+  id: GroupId;
+  label: string;
+  icon: string;
+  tabs: Tab[];
 }
 
 /**
@@ -96,23 +105,68 @@ interface Tab {
 })
 export class TenantSettingsComponent implements OnInit {
   activeTab: TabId = 'general';
+  activeGroup: GroupId = 'profile';
 
-  tabs: Tab[] = [
-    { id: 'general',         label: 'General',                icon: 'settings' },
-    { id: 'branding',        label: 'Branding',               icon: 'globe' },
-    { id: 'insurance-lines', label: 'Insurance Lines',        icon: 'briefcase' },
-    { id: 'currencies',      label: 'Currencies',             icon: 'dollar-sign' },
-    { id: 'billing',         label: 'Billing',                icon: 'banknote' },
-    { id: 'proration',       label: 'Proration',              icon: 'divide' },
-    { id: 'bank-accounts',   label: 'Bank Accounts',          icon: 'building' },
-    { id: 'email-templates', label: 'Email Templates',        icon: 'file-text' },
-    { id: 'reports',         label: 'Reports',                icon: 'chart' },
-    { id: 'auto-lapse',      label: 'Auto-Lapse',             icon: 'alert-triangle' },
-    { id: 'endorsement-config', label: 'Endorsement Config',  icon: 'shield' },
-    { id: 'actuarial-bases', label: 'Actuarial Bases',        icon: 'trending-up' },
-    { id: 'ifrs17-config',   label: 'IFRS 17 Config',         icon: 'shield' },
-    { id: 'roles',           label: 'Roles & Permissions',    icon: 'shield' },
+  /**
+   * Tabs bucketed into 5 semantic groups so the primary nav stays legible.
+   * The template renders group tabs on the top row and the active group's
+   * sub-tabs on a secondary row underneath. Order matters — first tab in
+   * each group is the default landing tab when the group is picked.
+   */
+  tabGroups: TabGroup[] = [
+    {
+      id: 'profile', label: 'Profile', icon: 'settings',
+      tabs: [
+        { id: 'general',         label: 'General',             icon: 'settings' },
+        { id: 'branding',        label: 'Branding',            icon: 'globe' },
+        { id: 'insurance-lines', label: 'Insurance Lines',     icon: 'briefcase' },
+        { id: 'roles',           label: 'Roles & Permissions', icon: 'shield' },
+      ],
+    },
+    {
+      id: 'finance', label: 'Finance', icon: 'dollar-sign',
+      tabs: [
+        { id: 'currencies',    label: 'Currencies',    icon: 'dollar-sign' },
+        { id: 'billing',       label: 'Billing',       icon: 'banknote' },
+        { id: 'proration',     label: 'Proration',     icon: 'divide' },
+        { id: 'bank-accounts', label: 'Bank Accounts', icon: 'building' },
+      ],
+    },
+    {
+      id: 'communications', label: 'Communications', icon: 'mail',
+      tabs: [
+        { id: 'email-templates', label: 'Email Templates', icon: 'file-text' },
+        { id: 'reports',         label: 'Reports',         icon: 'chart' },
+      ],
+    },
+    {
+      id: 'operations', label: 'Operations', icon: 'activity',
+      tabs: [
+        { id: 'auto-lapse',         label: 'Auto-Lapse',         icon: 'alert-triangle' },
+        { id: 'endorsement-config', label: 'Endorsement Config', icon: 'shield' },
+      ],
+    },
+    {
+      id: 'actuarial', label: 'Actuarial', icon: 'trending-up',
+      tabs: [
+        { id: 'actuarial-bases', label: 'Actuarial Bases', icon: 'trending-up' },
+        { id: 'ifrs17-config',   label: 'IFRS 17 Config',  icon: 'shield' },
+      ],
+    },
   ];
+
+  /** Sub-tabs of the currently selected group — driven by activeGroup. */
+  get activeGroupTabs(): Tab[] {
+    return this.tabGroups.find(g => g.id === this.activeGroup)?.tabs ?? [];
+  }
+
+  /** Switch groups from the primary tab row; auto-lands on the group's first sub-tab. */
+  selectGroup(id: GroupId): void {
+    if (this.activeGroup === id) return;
+    this.activeGroup = id;
+    const first = this.tabGroups.find(g => g.id === id)?.tabs[0];
+    if (first) this.activeTab = first.id;
+  }
 
   /** Jurisdiction dropdown options for the general tab. */
   jurisdictions = JURISDICTIONS;
