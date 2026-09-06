@@ -12,37 +12,29 @@ import { IconComponent } from '../../../../shared/components/icon/icon.component
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 /**
- * Phase 7 facultative-cession browse — underwriter surface. Left half of
- * the page is the candidate list (adjudicated claims above the caller-
- * supplied minAmount); right half is an inline cede form the underwriter
- * fills when a candidate is picked. Approve/commit lives on the queue
- * page ({@code facultative-approve-queue.component}).
- *
- * <p>All money inputs are BigDecimal-safe (server rejects zero/negative)
- * so the client just guards for {@code > 0} before enabling submit.
+ * Cedable-claims tab of the merged Facultative page. Adjudicated claims
+ * above the caller-supplied minAmount on the left; inline cede form on
+ * the right when a candidate is picked. Approve / commit lives on the
+ * sibling Cession queue tab.
  */
 @Component({
-  selector: 'app-facultative-browse',
+  selector: 'app-facultative-candidates-tab',
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
-  templateUrl: './facultative-browse.component.html',
-  styleUrl: './facultative-browse.component.scss',
+  templateUrl: './facultative-candidates-tab.component.html',
+  styleUrl: './facultative-candidates-tab.component.scss',
 })
-export class FacultativeBrowseComponent implements OnInit {
-  // ── candidates state ───────────────────────────────────────────────────
+export class FacultativeCandidatesTabComponent implements OnInit {
   candidates: FacultativeCandidateRow[] = [];
   loading = false;
   errorMessage: string | null = null;
 
-  // filters
   minAmount = 10000;
   lineFilter: '' | InsuranceLine = '';
 
-  // treaty picker cache
   activeTreaties: Treaty[] = [];
   treatiesLoading = false;
 
-  // ── inline cede form ──────────────────────────────────────────────────
   selected: FacultativeCandidateRow | null = null;
   cedePayload: {
     treatyId: string;
@@ -131,12 +123,9 @@ export class FacultativeBrowseComponent implements OnInit {
     this.cedeSuccess = null;
   }
 
-  /** Treaty picker option list — friendly label, UUID as value. */
   get treatyOptions(): SelectOption[] {
     const opts: SelectOption[] = [{ value: '', label: this.treatiesLoading ? 'Loading…' : 'Select a treaty' }];
     if (!this.selected) return opts;
-    // Only surface treaties covering the candidate's line — the server
-    // will also enforce this, but pre-filtering saves a round-trip.
     const eligible = this.activeTreaties;
     for (const t of eligible) {
       opts.push({ value: t.id, label: `${t.treatyRef} (${t.treatyType}, ${t.declaredCurrency})` });

@@ -1,0 +1,84 @@
+<header class="page-header">
+  <div>
+    <h1>Commission correction</h1>
+    <p class="page-sub">Detail and lifecycle timeline for a single correction.</p>
+  </div>
+  <div class="page-header-actions">
+    <a class="btn btn-sm" routerLink="/tenant/finance/commission/corrections">
+      Back to queue
+    </a>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error">{{ errorMessage }}</div>
+}
+
+@if (loading) {
+  <div class="loading">Loading…</div>
+}
+
+@if (correction) {
+  <section>
+    <h2>{{ correction.reference }}
+      <span class="status-pill" [attr.data-status]="correction.status">
+        {{ correction.status }}
+      </span>
+    </h2>
+
+    <dl class="detail-grid">
+      <dt>Target commission_transaction</dt>
+      <dd><code>{{ correction.targetCommissionTransactionId }}</code></dd>
+
+      <dt>Type</dt>
+      <dd>{{ correction.adjustmentType }}</dd>
+
+      <dt>Amount</dt>
+      <dd>{{ correction.adjustmentAmount | number:'1.2-4' }} {{ correction.nativeCurrency }}</dd>
+
+      <dt>Justification</dt>
+      <dd>{{ correction.justification }}</dd>
+
+      <dt>Drafter</dt>
+      <dd>{{ correction.actorEmail || '-' }}</dd>
+
+      @if (correction.approverActorEmail) {
+        <dt>Approver</dt>
+        <dd>{{ correction.approverActorEmail }}</dd>
+      }
+
+      @if (correction.committedTxnId) {
+        <dt>Compensating transaction</dt>
+        <dd><code>{{ correction.committedTxnId }}</code></dd>
+      }
+
+      @if (correction.voidedReason) {
+        <dt>Voided reason</dt>
+        <dd>{{ correction.voidedReason }}</dd>
+      }
+    </dl>
+
+    <h3>Lifecycle</h3>
+    <ol class="timeline">
+      <li class="done">
+        <strong>Drafted</strong>
+        <small>{{ correction.createdAt | date:'yyyy-MM-dd HH:mm' }}</small>
+      </li>
+      <li [class.done]="!!correction.approvedAt">
+        <strong>Approved</strong>
+        <small>{{ correction.approvedAt ? (correction.approvedAt | date:'yyyy-MM-dd HH:mm') : 'awaiting' }}</small>
+      </li>
+      @if (correction.status === 'VOIDED') {
+        <li class="done">
+          <strong>Voided</strong>
+          <small>{{ correction.voidedAt | date:'yyyy-MM-dd HH:mm' }}</small>
+        </li>
+      } @else {
+        <li [class.done]="!!correction.committedAt">
+          <strong>Committed</strong>
+          <small>{{ correction.committedAt ? (correction.committedAt | date:'yyyy-MM-dd HH:mm') : 'awaiting' }}</small>
+        </li>
+      }
+    </ol>
+  </section>
+}

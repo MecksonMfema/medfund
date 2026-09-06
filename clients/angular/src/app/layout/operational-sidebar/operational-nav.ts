@@ -177,22 +177,23 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
     // the sidebar grouping moved.
     title: 'Reporting',
     items: [
-      // Phase 10 §B - facultative-cession operational surface. Browse is
-      // gated on cede_facultative (underwriter); queue is gated on view so
-      // any finance user can see progress even if they can't act on it.
-      { label: 'Facultative - Browse', icon: 'shield',     route: '/tenant/finance/reinsurance/facultative/browse', permissions: ['finance.reinsurance:cede_facultative'], sectionKey: 'REPORTING_FACULTATIVE_BROWSE' },
-      { label: 'Facultative - Queue',  icon: 'shield',     route: '/tenant/finance/reinsurance/facultative/queue',  permissions: ['finance.reinsurance:view'], sectionKey: 'REPORTING_FACULTATIVE_QUEUE' },
+      // Phase 10 §B - facultative-cession operational surface. Merged
+      // Cedable-claims + Cession-queue tabs on one page; internal tabs
+      // and row actions are permission-gated so a viewer sees the queue
+      // read-only while an approver sees Approve/Commit/Void row buttons.
+      { label: 'Facultative reinsurance', icon: 'shield', route: '/tenant/finance/reinsurance/facultative', permissions: ['finance.reinsurance:view', 'finance.reinsurance:cede_facultative', 'finance.reinsurance:approve_facultative'], sectionKey: 'REPORTING_FACULTATIVE' },
       { label: 'Reinsurance - Review Queue', icon: 'alert-triangle', route: '/tenant/finance/reinsurance/review-queue', permissions: ['finance.reinsurance:view'], sectionKey: 'REPORTING_REINSURANCE_REVIEW_QUEUE' },
       // Phase 11 §A Phase 6 - PRODUCER-typed payment runs (commission
       // payouts). Separate landing page from PROVIDER/MEMBER payment runs
       // because commission payouts carry a period + different permission
       // gates (finance.commission:*).
       { label: 'Producer Payouts',   icon: 'briefcase',    route: '/tenant/finance/payouts/producer',      permissions: ['finance.commission:view'], sectionKey: 'REPORTING_PRODUCER_PAYOUTS' },
-      // Phase 11 §B Phase 8 - four-eyes commission adjustment queues.
-      // Two peers rather than a nested "Commission" group (matches the
-      // Facultative Browse/Queue peer-shape above).
-      { label: 'Adjustments (draft)',   icon: 'edit',        route: '/tenant/finance/commission/adjustments/draft',   permissions: ['finance.commission:draft_adjustment'], sectionKey: 'REPORTING_ADJUSTMENTS_DRAFT' },
-      { label: 'Adjustments (approve)', icon: 'check-circle', route: '/tenant/finance/commission/adjustments/approve', permissions: ['finance.commission:approve_adjustment'], sectionKey: 'REPORTING_ADJUSTMENTS_APPROVE' },
+      // Phase 11 §B Phase 8 - four-eyes commission-correction queue.
+      // Merged drafter + approver views on one page with a status filter;
+      // the "New correction" button and row actions are permission-gated.
+      // Renamed from Adjustments so it no longer collides with billing
+      // notes and other adjustment concepts in the system.
+      { label: 'Commission corrections', icon: 'edit', route: '/tenant/finance/commission/corrections', permissions: ['finance.commission:view', 'finance.commission:draft_adjustment', 'finance.commission:approve_adjustment'], sectionKey: 'REPORTING_COMMISSION_CORRECTIONS' },
       // Phase 12 §C Phase 10 - endorsement four-eyes review queue.
       // Single "Endorsement Review" peer entry per plan; drafting stays
       // on the per-policy endorsement page under /tenant/policies.

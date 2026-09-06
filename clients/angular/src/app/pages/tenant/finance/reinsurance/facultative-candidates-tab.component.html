@@ -1,13 +1,3 @@
-<header class="page-header">
-  <div>
-    <h1>Facultative: browse candidates</h1>
-    <p class="page-sub">
-      Adjudicated claims above the threshold that have not been ceded yet. Pick a claim
-      and drop a draft cession against an active treaty: a supervisor approves + commits.
-    </p>
-  </div>
-</header>
-
 @if (errorMessage) {
   <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
 }
@@ -48,7 +38,6 @@
 </div>
 
 <div class="fac-layout">
-  <!-- Candidates table -->
   <div class="candidates-pane">
     @if (loading) {
       <div class="loading">Loading candidates…</div>
@@ -91,7 +80,6 @@
     }
   </div>
 
-  <!-- Inline cede form -->
   <aside class="cede-pane" data-testid="cede-pane">
     @if (!selected) {
       <div class="cede-empty">

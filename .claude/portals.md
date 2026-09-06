@@ -157,11 +157,9 @@ InsureFlow has five distinct portal experiences, each serving a different audien
 | `/tenant/finance/member-liabilities` | Member Liabilities | Member liability positions |
 | `/tenant/finance/reports` | Financial Reports | Exportable reports (P&L, balance sheet, provider aging, payment summary) |
 | `/tenant/finance/reports/kpi` | Executive KPIs | Combined ratio, loss ratio, acquisition ratio, claims frequency, average severity |
-| `/tenant/finance/reinsurance/facultative/browse` | Facultative Browse | Cede-side facultative reinsurance browsing |
-| `/tenant/finance/reinsurance/facultative/queue` | Facultative Queue | Facultative reinsurance workqueue |
+| `/tenant/finance/reinsurance/facultative` | Facultative reinsurance | Cedable-claims + cession-queue tabs; row actions and cede form permission-gated |
 | `/tenant/finance/reinsurance/review-queue` | Reinsurance Review Queue | Cedent review workqueue |
-| `/tenant/finance/commission/adjustments/draft` | Adjustments (draft) | Commission adjustment drafting (four-eyes) |
-| `/tenant/finance/commission/adjustments/approve` | Adjustments (approve) | Commission adjustment approval (four-eyes) |
+| `/tenant/finance/commission/corrections` | Commission corrections | Four-eyes commission-correction queue; renamed from Adjustments so it no longer collides with billing notes / tariff modifiers / policy endorsements |
 | `/tenant/finance/underwriting/endorsements/review-queue` | Endorsement Review | Endorsement four-eyes review queue |
 
 ### Billing Operations (`/tenant/billing/*` — was `/contributions/*` before consolidation)

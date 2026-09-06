@@ -9,12 +9,22 @@
 .page-sub {
   color: var(--text-muted, #6b7280);
   margin: 0.25rem 0 0;
-  max-width: 60ch;
+  max-width: 65ch;
 }
 
 .page-header-actions {
   display: flex;
   gap: 0.5rem;
+}
+
+.hint-banner {
+  background: #eff6ff;
+  border-left: 3px solid #3b82f6;
+  color: #1e3a8a;
+  padding: 0.55rem 0.85rem;
+  margin: 0 0 0.75rem;
+  border-radius: 4px;
+  font-size: 0.9em;
 }
 
 .banner {
@@ -46,13 +56,6 @@
   }
   th.num, td.num { text-align: right; }
   th.actions, td.actions { text-align: right; white-space: nowrap; }
-
-  .justification-cell {
-    max-width: 32ch;
-    white-space: normal;
-    color: var(--text-muted, #6b7280);
-    font-size: 0.9em;
-  }
 
   .status-pill {
     display: inline-block;
@@ -127,42 +130,5 @@
     justify-content: flex-end;
     gap: 0.5rem;
     margin-top: 1rem;
-  }
-}
-
-.detail-grid {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.6rem 1.2rem;
-  margin: 1rem 0;
-
-  dt { color: var(--text-muted, #6b7280); font-weight: 600; }
-  dd { margin: 0; }
-}
-
-.timeline {
-  list-style: none;
-  padding: 0;
-  margin: 1rem 0;
-  border-left: 2px solid var(--border-subtle, #e5e7eb);
-
-  li {
-    padding: 0.4rem 0.75rem;
-    position: relative;
-
-    &::before {
-      content: '';
-      position: absolute;
-      left: -6px;
-      top: 0.85rem;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--border-subtle, #d1d5db);
-    }
-
-    &.done::before { background: #059669; }
-    strong { display: inline-block; margin-right: 0.5rem; }
-    small { color: var(--text-muted, #6b7280); }
   }
 }

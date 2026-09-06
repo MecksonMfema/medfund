@@ -836,68 +836,59 @@ export const FINANCE_ROUTES: Routes = [
     },
   },
 
-  // ── Commission adjustments (Phase 11 §B Phase 8) ────────────────────────
-  // Four-eyes lifecycle: drafter creates DRAFT, supervisor approves +
-  // commits. Detail route sits after the two named queue routes so
-  // /draft and /approve are matched literally (not as an :id).
+  // ── Commission corrections (Phase 11 §B Phase 8) ────────────────────────
+  // Merged four-eyes lifecycle: one page with a status filter, permission-
+  // gated "New correction" button and permission-gated row actions.
+  // Renamed from Adjustments so it no longer collides with billing notes,
+  // tariff modifiers, or policy endorsements. Internal class names + API
+  // URLs stay CommissionAdjustment; only user-facing strings change.
   {
-    path: 'commission/adjustments/draft',
-    canActivate: [permissionGuard(['finance.commission:draft_adjustment'])],
+    path: 'commission/corrections',
+    canActivate: [permissionGuard([
+      'finance.commission:view',
+      'finance.commission:draft_adjustment',
+      'finance.commission:approve_adjustment',
+    ])],
     loadComponent: () =>
-      import('./commission/adjustments/adjustments-drafter-queue.component')
-        .then(m => m.AdjustmentsDrafterQueueComponent),
+      import('./commission/corrections/corrections-page.component')
+        .then(m => m.CorrectionsPageComponent),
     data: {
-      title: 'Commission adjustments - drafts',
+      title: 'Commission corrections',
       sidebar: 'operational',
       fullbleed: true,
     },
   },
   {
-    path: 'commission/adjustments/approve',
-    canActivate: [permissionGuard(['finance.commission:approve_adjustment'])],
+    path: 'commission/corrections/:id',
+    canActivate: [permissionGuard([
+      'finance.commission:view',
+      'finance.commission:draft_adjustment',
+      'finance.commission:approve_adjustment',
+    ])],
     loadComponent: () =>
-      import('./commission/adjustments/adjustments-approver-queue.component')
-        .then(m => m.AdjustmentsApproverQueueComponent),
+      import('./commission/corrections/correction-detail.component')
+        .then(m => m.CorrectionDetailComponent),
     data: {
-      title: 'Commission adjustments - approver queue',
-      sidebar: 'operational',
-      fullbleed: true,
-    },
-  },
-  {
-    path: 'commission/adjustments/:id',
-    canActivate: [permissionGuard(['finance.commission:view'])],
-    loadComponent: () =>
-      import('./commission/adjustments/adjustment-detail.component')
-        .then(m => m.AdjustmentDetailComponent),
-    data: {
-      title: 'Commission adjustment detail',
+      title: 'Commission correction',
       sidebar: 'operational',
     },
   },
 
   // ── Reinsurance operational — facultative (Phase 7 §B) ──────────────────
-  // Two pages: underwriter browse+cede, supervisor approve+commit queue.
-  // Kept alongside reinsurance reports so the operator finds them on the
-  // same finance nav rather than under tenant-admin (which is treaty CRUD).
+  // Merged page: Cedable claims + Cession queue as permission-gated tabs.
+  // Route guard OR-set: view (read-only), cede_facultative (drafter), or
+  // approve_facultative (supervisor).
   {
-    path: 'reinsurance/facultative/browse',
-    canActivate: [permissionGuard(['finance.reinsurance:cede_facultative'])],
+    path: 'reinsurance/facultative',
+    canActivate: [permissionGuard([
+      'finance.reinsurance:view',
+      'finance.reinsurance:cede_facultative',
+      'finance.reinsurance:approve_facultative',
+    ])],
     loadComponent: () =>
-      import('./reinsurance/facultative-browse.component').then(m => m.FacultativeBrowseComponent),
+      import('./reinsurance/facultative-page.component').then(m => m.FacultativePageComponent),
     data: {
-      title: 'Facultative - browse candidates',
-      sidebar: 'operational',
-      fullbleed: true,
-    },
-  },
-  {
-    path: 'reinsurance/facultative/queue',
-    canActivate: [permissionGuard(['finance.reinsurance:view'])],
-    loadComponent: () =>
-      import('./reinsurance/facultative-approve-queue.component').then(m => m.FacultativeApproveQueueComponent),
-    data: {
-      title: 'Facultative - approve queue',
+      title: 'Facultative reinsurance',
       sidebar: 'operational',
       fullbleed: true,
     },

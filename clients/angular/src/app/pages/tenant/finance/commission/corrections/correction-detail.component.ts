@@ -7,19 +7,19 @@ import {
 } from '../../../../../core/services/commission-adjustment.service';
 
 /**
- * Phase 8 §B — read-only detail page. Shows the adjustment lifecycle
- * (create → approve → commit / void) as a timeline plus the linked
- * compensating commission_transaction after commit.
+ * Read-only detail view for a single commission correction. Shows the
+ * lifecycle (create → approve → commit / void) as a timeline plus the
+ * linked compensating commission_transaction after commit.
  */
 @Component({
-  selector: 'app-adjustment-detail',
+  selector: 'app-correction-detail',
   standalone: true,
   imports: [CommonModule, RouterLink],
-  templateUrl: './adjustment-detail.component.html',
-  styleUrl: './adjustments.component.scss',
+  templateUrl: './correction-detail.component.html',
+  styleUrl: './correction-detail.component.scss',
 })
-export class AdjustmentDetailComponent implements OnInit {
-  adjustment: Adjustment | null = null;
+export class CorrectionDetailComponent implements OnInit {
+  correction: Adjustment | null = null;
   loading = false;
   errorMessage: string | null = null;
 
@@ -31,14 +31,14 @@ export class AdjustmentDetailComponent implements OnInit {
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
-      this.errorMessage = 'Missing adjustment id';
+      this.errorMessage = 'Missing correction id';
       return;
     }
     this.loading = true;
     this.svc.get(id).subscribe({
-      next: adj => { this.adjustment = adj; this.loading = false; },
+      next: adj => { this.correction = adj; this.loading = false; },
       error: err => {
-        this.errorMessage = err?.error?.detail || 'Failed to load adjustment.';
+        this.errorMessage = err?.error?.detail || 'Failed to load correction.';
         this.loading = false;
       },
     });

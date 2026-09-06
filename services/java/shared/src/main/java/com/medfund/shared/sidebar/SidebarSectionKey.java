@@ -71,16 +71,18 @@ public enum SidebarSectionKey {
     FINANCE_COST_SHARE_RECEIPTS    ("Cost-share receipts",    SidebarGroup.FINANCE),
     FINANCE_MEMBER_LIABILITIES     ("Member Liabilities",     SidebarGroup.FINANCE),
 
-    // Reporting (9)
-    REPORTING_FACULTATIVE_BROWSE   ("Facultative - Browse",           SidebarGroup.REPORTING),
-    REPORTING_FACULTATIVE_QUEUE    ("Facultative - Queue",            SidebarGroup.REPORTING),
-    REPORTING_REINSURANCE_REVIEW_QUEUE("Reinsurance - Review Queue",  SidebarGroup.REPORTING),
-    REPORTING_PRODUCER_PAYOUTS     ("Producer Payouts",               SidebarGroup.REPORTING),
-    REPORTING_ADJUSTMENTS_DRAFT    ("Adjustments (draft)",            SidebarGroup.REPORTING),
-    REPORTING_ADJUSTMENTS_APPROVE  ("Adjustments (approve)",          SidebarGroup.REPORTING),
-    REPORTING_ENDORSEMENT_REVIEW   ("Endorsement Review",             SidebarGroup.REPORTING),
-    REPORTING_EXECUTIVE_KPIS       ("Executive KPIs",                 SidebarGroup.REPORTING),
-    REPORTING_REPORTS              ("Reports",                        SidebarGroup.REPORTING);
+    // Reporting (7)
+    // Facultative Browse + Queue were merged into a single Facultative
+    // page (V180 drops the deprecated section_key rows).
+    // Adjustments (draft) + (approve) were merged and renamed to
+    // Commission corrections (V180 drops those rows too).
+    REPORTING_FACULTATIVE              ("Facultative reinsurance",    SidebarGroup.REPORTING),
+    REPORTING_REINSURANCE_REVIEW_QUEUE ("Reinsurance - Review Queue", SidebarGroup.REPORTING),
+    REPORTING_PRODUCER_PAYOUTS         ("Producer Payouts",           SidebarGroup.REPORTING),
+    REPORTING_COMMISSION_CORRECTIONS   ("Commission corrections",     SidebarGroup.REPORTING),
+    REPORTING_ENDORSEMENT_REVIEW       ("Endorsement Review",         SidebarGroup.REPORTING),
+    REPORTING_EXECUTIVE_KPIS           ("Executive KPIs",             SidebarGroup.REPORTING),
+    REPORTING_REPORTS                  ("Reports",                    SidebarGroup.REPORTING);
 
     /** Human-readable label — displayed in the tenant-admin visibility grid. */
     private final String label;

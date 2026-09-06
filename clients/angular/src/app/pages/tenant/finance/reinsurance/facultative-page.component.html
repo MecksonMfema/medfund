@@ -1,0 +1,45 @@
+<header class="page-header">
+  <div>
+    <h1>Facultative reinsurance</h1>
+    <p class="page-sub">
+      Underwriters cede adjudicated claims to an active treaty; supervisors
+      approve, commit, and void draft cessions.
+    </p>
+  </div>
+</header>
+
+@if (showCandidatesTab && showQueueTab) {
+  <div class="tabs" role="tablist">
+    <button
+      type="button"
+      class="tab"
+      role="tab"
+      [class.active]="activeTab === 'candidates'"
+      [attr.aria-selected]="activeTab === 'candidates'"
+      (click)="setTab('candidates')"
+      data-testid="tab-candidates">
+      <app-icon name="plus-circle" [size]="16"></app-icon>
+      Cedable claims
+    </button>
+    <button
+      type="button"
+      class="tab"
+      role="tab"
+      [class.active]="activeTab === 'queue'"
+      [attr.aria-selected]="activeTab === 'queue'"
+      (click)="setTab('queue')"
+      data-testid="tab-queue">
+      <app-icon name="check-circle" [size]="16"></app-icon>
+      Cession queue
+    </button>
+  </div>
+}
+
+<div class="tab-body">
+  @if (activeTab === 'candidates' && showCandidatesTab) {
+    <app-facultative-candidates-tab></app-facultative-candidates-tab>
+  }
+  @if (activeTab === 'queue' && showQueueTab) {
+    <app-facultative-queue-tab></app-facultative-queue-tab>
+  }
+</div>

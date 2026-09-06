@@ -80,8 +80,9 @@ test.describe('Reinsurance facultative (§B)', () => {
       } as CessionRow;
     });
 
-    await page.goto('/tenant/finance/reinsurance/facultative/browse');
-    await expect(page.getByRole('heading', { name: 'Facultative — browse candidates' })).toBeVisible();
+    await page.goto('/tenant/finance/reinsurance/facultative');
+    await expect(page.getByRole('heading', { name: 'Facultative reinsurance' })).toBeVisible();
+    // Cedable-claims tab is the default for cede_facultative-only users.
 
     // Candidate row surfaces
     await expect(page.getByRole('cell', { name: 'CLM-1001' })).toBeVisible();
@@ -144,8 +145,9 @@ test.describe('Reinsurance facultative (§B)', () => {
       return { id: 'ce-1', status: 'CEDED' };
     });
 
-    await page.goto('/tenant/finance/reinsurance/facultative/queue');
-    await expect(page.getByRole('heading', { name: 'Facultative — approve queue' })).toBeVisible();
+    await page.goto('/tenant/finance/reinsurance/facultative');
+    await expect(page.getByRole('heading', { name: 'Facultative reinsurance' })).toBeVisible();
+    // approve_facultative + view lands on the Cession queue tab by default.
 
     // DRAFT row present, Approve visible
     await expect(page.getByText('DRAFT', { exact: true })).toBeVisible();

@@ -1,13 +1,3 @@
-<header class="page-header">
-  <div>
-    <h1>Facultative: approve queue</h1>
-    <p class="page-sub">
-      Draft cessions awaiting supervisor approval and approved cessions awaiting commit.
-      Commit lands the cession on the next bordereau + writes an expected recovery.
-    </p>
-  </div>
-</header>
-
 @if (errorMessage) {
   <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
 }
@@ -49,7 +39,7 @@
         <th class="num">Ceded</th>
         <th class="num">Basis</th>
         <th>Created</th>
-        <th class="actions">Actions</th>
+        @if (canAct) { <th class="actions">Actions</th> }
       </tr>
     </thead>
     <tbody>
@@ -61,31 +51,32 @@
           <td class="num">{{ row.cededAmount | number:'1.2-2' }} {{ row.currencyCode }}</td>
           <td class="num">{{ row.basisAmount | number:'1.2-2' }} {{ row.currencyCode }}</td>
           <td>{{ row.createdAt | date:'yyyy-MM-dd HH:mm' }}</td>
-          <td class="actions">
-            @if (row.status === 'DRAFT') {
-              <button type="button" class="btn btn-sm btn-primary"
+          @if (canAct) {
+            <td class="actions">
+              @if (row.status === 'DRAFT') {
+                <button type="button" class="btn btn-sm btn-primary"
+                        [disabled]="actionInProgress[row.id]"
+                        (click)="approve(row)"
+                        data-testid="approve-btn">Approve</button>
+              }
+              @if (row.status === 'APPROVED') {
+                <button type="button" class="btn btn-sm btn-primary"
+                        [disabled]="actionInProgress[row.id]"
+                        (click)="commit(row)"
+                        data-testid="commit-btn">Commit</button>
+              }
+              <button type="button" class="btn btn-sm btn-danger"
                       [disabled]="actionInProgress[row.id]"
-                      (click)="approve(row)"
-                      data-testid="approve-btn">Approve</button>
-            }
-            @if (row.status === 'APPROVED') {
-              <button type="button" class="btn btn-sm btn-primary"
-                      [disabled]="actionInProgress[row.id]"
-                      (click)="commit(row)"
-                      data-testid="commit-btn">Commit</button>
-            }
-            <button type="button" class="btn btn-sm btn-danger"
-                    [disabled]="actionInProgress[row.id]"
-                    (click)="openVoid(row)"
-                    data-testid="void-btn">Void</button>
-          </td>
+                      (click)="openVoid(row)"
+                      data-testid="void-btn">Void</button>
+            </td>
+          }
         </tr>
       }
     </tbody>
   </table>
 }
 
-<!-- Void modal (inline) -->
 @if (voidTargetId) {
   <div class="modal-backdrop" (click)="cancelVoid()">
     <div class="modal-card" (click)="$event.stopPropagation()" data-testid="void-modal">

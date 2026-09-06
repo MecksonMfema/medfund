@@ -6,26 +6,24 @@ import {
   FacultativeQueueStatus,
   ReinsuranceService,
 } from '../../../../core/services/reinsurance.service';
+import { PermissionService } from '../../../../core/security/permission.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 /**
- * Phase 7 supervisor queue: DRAFT / APPROVED facultative cessions the
- * supervisor works through. Per-row actions:
- * <ul>
- *   <li>DRAFT → <b>Approve</b> or <b>Void</b> (reason prompt)</li>
- *   <li>APPROVED → <b>Commit</b> or <b>Void</b> (reason prompt)</li>
- * </ul>
- * Committed cessions leave the queue and land on the cession bordereau.
+ * Cession-queue tab of the merged Facultative page. DRAFT / APPROVED
+ * cessions the supervisor works through. Row actions gated on
+ * {@code finance.reinsurance:approve_facultative}; view-only users see
+ * the queue in read-only mode.
  */
 @Component({
-  selector: 'app-facultative-approve-queue',
+  selector: 'app-facultative-queue-tab',
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
-  templateUrl: './facultative-approve-queue.component.html',
-  styleUrl: './facultative-approve-queue.component.scss',
+  templateUrl: './facultative-queue-tab.component.html',
+  styleUrl: './facultative-queue-tab.component.scss',
 })
-export class FacultativeApproveQueueComponent implements OnInit {
+export class FacultativeQueueTabComponent implements OnInit {
   rows: CessionRow[] = [];
   loading = false;
   errorMessage: string | null = null;
@@ -36,7 +34,6 @@ export class FacultativeApproveQueueComponent implements OnInit {
   totalCount = 0;
   totalPages = 1;
 
-  // Void modal state — reason capture. Keeps the queue page clean.
   voidTargetId: string | null = null;
   voidReason = '';
   voidSubmitting = false;
@@ -44,13 +41,20 @@ export class FacultativeApproveQueueComponent implements OnInit {
 
   actionInProgress: Record<string, boolean> = {};
 
+  readonly canAct: boolean;
+
   readonly statusOptions: SelectOption[] = [
     { value: '', label: 'All (DRAFT + APPROVED)' },
     { value: 'DRAFT', label: 'Draft' },
     { value: 'APPROVED', label: 'Approved' },
   ];
 
-  constructor(private svc: ReinsuranceService) {}
+  constructor(
+    private svc: ReinsuranceService,
+    perms: PermissionService,
+  ) {
+    this.canAct = perms.hasAny(['finance.reinsurance:approve_facultative']);
+  }
 
   ngOnInit(): void { this.fetchPage(); }
 

@@ -207,10 +207,10 @@ export const PERMISSION_CATALOGUE: PermissionDomain[] = [
       { key: 'finance.producer:terminate',                   label: 'Terminate producers',                 description: 'Terminate a producer and bulk-reassign their open member assignments.' },
       { key: 'finance.producer:backfill_review',             label: 'Review producer backfill',            description: 'Kick off the treaty.producer_ref → producer_id backfill job and accept/reject fuzzy-match candidates.' },
       // ── Commission sub-namespace (Phase 11) ───────────────────────────
-      { key: 'finance.commission:view',                      label: 'View commission',                     description: 'Read access to commission transactions, clawback register, and adjustment queues.' },
+      { key: 'finance.commission:view',                      label: 'View commission',                     description: 'Read access to commission transactions, clawback register, and correction queues.' },
       { key: 'finance.commission:manage_rate_card',          label: 'Manage rate cards',                   description: 'Create, update, and deactivate commission rate cards.' },
-      { key: 'finance.commission:draft_adjustment',          label: 'Draft commission adjustment',         description: 'Create DRAFT commission adjustments (four-eyes drafter half).' },
-      { key: 'finance.commission:approve_adjustment',        label: 'Approve commission adjustment',       description: 'Move commission adjustments DRAFT → APPROVED → COMMITTED and void pre-terminal adjustments.' },
+      { key: 'finance.commission:draft_adjustment',          label: 'Draft commission correction',         description: 'Create DRAFT commission corrections (four-eyes drafter half). Permission key stays draft_adjustment to preserve existing tenant role bindings.' },
+      { key: 'finance.commission:approve_adjustment',        label: 'Approve commission correction',       description: 'Move commission corrections DRAFT → APPROVED → COMMITTED and void pre-terminal corrections. Permission key stays approve_adjustment to preserve existing tenant role bindings.' },
       { key: 'finance.commission:create_payout_run',         label: 'Create commission payout run',        description: 'Create producer-payee PaymentRuns aggregating ACCRUED commissions in the period.' },
       { key: 'finance.commission:approve_payout_run',        label: 'Approve commission payout run',       description: 'Approve and execute producer payout runs (disburses commission funds).' },
     ],
