@@ -1,0 +1,89 @@
+<div class="portfolio-form-page">
+  <header class="page-header">
+    <div>
+      <h1>{{ isEdit ? 'Edit portfolio' : 'New portfolio' }}</h1>
+      <p class="page-sub">
+        Portfolios group policies for IFRS 17 reporting. The MISC portfolio
+        is auto-provisioned at tenant creation and catches any policy
+        without an explicit assignment.
+      </p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/admin/underwriting/portfolios">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back to portfolios
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  @if (loading) {
+    <div class="loading">Loading...</div>
+  } @else {
+    <form (submit)="$event.preventDefault(); submit()" class="form-card">
+      <div class="form-card__heading">
+        <h2 class="form-card__title">Portfolio details</h2>
+        <span class="form-card__hint">Fields marked with an asterisk are required.</span>
+      </div>
+
+      <div class="form-sections">
+        <section class="form-section">
+          <header class="section-head">
+            <span class="section-icon"><app-icon name="clipboard-list" [size]="18"></app-icon></span>
+            <h3 class="section-title">Identity</h3>
+          </header>
+
+          <label class="field">
+            <span class="field-label">Name <span class="req">*</span></span>
+            <input
+              class="field-control"
+              [(ngModel)]="form.name"
+              name="name"
+              maxlength="200"
+              placeholder="e.g. General Motor 2026"
+              required
+            />
+          </label>
+
+          <label class="field">
+            <span class="field-label">Description <span class="optional">(optional)</span></span>
+            <input
+              class="field-control"
+              [(ngModel)]="form.description"
+              name="description"
+              maxlength="2000"
+              placeholder="Optional context for reviewers"
+            />
+            <small class="field-help">A short note explaining the portfolio's scope. Shown on the review page.</small>
+          </label>
+        </section>
+
+        <section class="form-section">
+          <header class="section-head">
+            <span class="section-icon"><app-icon name="shield" [size]="18"></app-icon></span>
+            <h3 class="section-title">Classification</h3>
+          </header>
+
+          <label class="field">
+            <span class="field-label">Insurance line <span class="optional">(optional)</span></span>
+            <app-select
+              [(ngModel)]="form.insuranceLine"
+              name="insuranceLine"
+              [options]="insuranceLineOptions"
+              placeholder="Pick a line"
+            ></app-select>
+            <small class="field-help">Leave blank for the MISC catch-all. Once a policy is bound to a specific line, use that line here so IFRS 17 measurement segregates correctly.</small>
+          </label>
+        </section>
+      </div>
+
+      <footer class="form-actions">
+        <a class="btn btn-default" routerLink="/tenant/admin/underwriting/portfolios">Cancel</a>
+        <button type="submit" class="btn btn-primary" [disabled]="saving || loading || !isDirty">
+          {{ saving ? 'Saving...' : (isEdit ? 'Save changes' : 'Create portfolio') }}
+        </button>
+      </footer>
+    </form>
+  }
+</div>

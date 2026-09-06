@@ -12,7 +12,21 @@ export const UNDERWRITING_ROUTES: Routes = [
     path: 'portfolios',
     loadComponent: () =>
       import('./portfolios-list.component').then(m => m.PortfoliosListComponent),
-    data: { title: 'IFRS 17 Portfolios', permission: 'underwriting.portfolio:manage' },
+    // fullbleed matches sibling admin list pages so the flush toolbar
+    // sits edge-to-edge with the sidebar.
+    data: { title: 'IFRS 17 Portfolios', permission: 'underwriting.portfolio:manage', fullbleed: true },
+  },
+  {
+    path: 'portfolios/new',
+    loadComponent: () =>
+      import('./portfolio-form.component').then(m => m.PortfolioFormComponent),
+    data: { title: 'New portfolio', permission: 'underwriting.portfolio:manage' },
+  },
+  {
+    path: 'portfolios/:id/edit',
+    loadComponent: () =>
+      import('./portfolio-form.component').then(m => m.PortfolioFormComponent),
+    data: { title: 'Edit portfolio', permission: 'underwriting.portfolio:manage' },
   },
   {
     path: 'cohorts',

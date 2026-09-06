@@ -1,0 +1,169 @@
+// Portfolios list uses the flush /tenant/admin/producers/list grammar:
+// page-header banner + single tx-toolbar filter strip + full-bleed
+// data-table. Route sets fullbleed: true so the parent shell does not
+// wrap the toolbar in its own padding.
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+
+  h1 {
+    margin: 0 0 0.25rem;
+    font-size: 1.5rem;
+  }
+
+  .page-sub {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    max-width: 65ch;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+
+    &.btn-primary {
+      background: var(--color-primary);
+      color: #fff;
+      &:hover { filter: brightness(1.05); }
+    }
+    &.btn-default {
+      background: var(--color-surface);
+      color: var(--color-text-primary);
+      border-color: var(--color-border);
+      &:hover { background: var(--color-bg); }
+    }
+  }
+}
+
+.banner {
+  margin: 12px 24px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid transparent;
+
+  &.banner-error   { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+  &.banner-success { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+}
+
+.tx-toolbar {
+  display: flex;
+  align-items: stretch;
+  min-height: 48px;
+  padding: 0 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+  gap: 0;
+  flex-wrap: nowrap;
+}
+
+.toolbar-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-right: 1px solid var(--color-border-light);
+  min-height: 48px;
+  background: transparent;
+
+  &:last-of-type { border-right: none; }
+
+  .cell-label {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+    font-weight: var(--font-weight-medium);
+  }
+
+  app-icon { color: var(--color-text-muted); flex-shrink: 0; }
+}
+
+.toolbar-cell.cell-search {
+  flex: 1 1 260px;
+  min-width: 220px;
+  max-width: 380px;
+
+  input[type="search"] {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: none;
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    height: 32px;
+    padding: 0;
+    min-width: 0;
+    -webkit-appearance: none;
+    &::placeholder { color: var(--color-text-muted); }
+    &::-webkit-search-cancel-button { display: none; }
+  }
+}
+
+.toolbar-cell.cell-select {
+  flex: 0 0 auto;
+  min-width: 200px;
+
+  app-select { min-width: 150px; flex: 1; }
+
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.toolbar-cell.cell-clear {
+  margin-left: auto;
+  padding: 0 8px;
+  border-right: none;
+}
+
+.clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  color: var(--color-text-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+  }
+}
