@@ -89,8 +89,8 @@ export class TenantBillingTabComponent implements OnInit {
     { id: 'transaction-types', label: 'Transaction Types', icon: 'activity' },
     { id: 'dunning',           label: 'Dunning Rules',     icon: 'alert-triangle' },
     { id: 'cycle',             label: 'Billing Cycle',     icon: 'calendar' },
-    { id: 'pricing-mode',      label: 'Pricing Mode',      icon: 'sliders' },
-    { id: 'member-number-scheme', label: 'Member-number Scheme', icon: 'hash' },
+    { id: 'pricing-mode',      label: 'Pricing Mode',      icon: 'settings' },
+    { id: 'member-number-scheme', label: 'Member-number Scheme', icon: 'user-plus' },
   ];
 
   // ── SelectComponent options ─────────────────────────────────────────────

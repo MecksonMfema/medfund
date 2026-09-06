@@ -34,10 +34,11 @@
     }
 
     <div class="form-grid">
-      <div class="form-field">
-        <label for="hccThreshold">Threshold amount</label>
+      <div class="field">
+        <label class="field-label" for="hccThreshold">Threshold amount</label>
         <input
           id="hccThreshold"
+          class="form-input"
           type="number"
           min="0"
           step="0.01"
@@ -55,21 +56,15 @@
         </p>
       </div>
 
-      <div class="form-field">
-        <label for="hccCurrency">Threshold currency</label>
-        <select
-          id="hccCurrency"
+      <div class="field">
+        <label class="field-label" for="hccCurrency">Threshold currency</label>
+        <app-select
           [(ngModel)]="currencyCode"
-          [disabled]="saving || !canConfigure()"
           name="currencyCode"
-        >
-          <option value="USD" *ngIf="tenantCurrencies.length === 0">USD</option>
-          @for (currency of tenantCurrencies; track currency.currencyCode) {
-            <option [value]="currency.currencyCode">
-              {{ currency.currencyCode }}{{ currency.isDefault ? ' (default)' : '' }}
-            </option>
-          }
-        </select>
+          [options]="currencyOptions"
+          [disabled]="saving || !canConfigure()"
+          placeholder="Select currency"
+        ></app-select>
         <p class="hint">Converted to the reporting currency at period end when they differ.</p>
       </div>
     </div>

@@ -34,7 +34,7 @@ interface EditableRow extends TenantRaConfigRow {
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, SelectComponent],
   templateUrl: './ra-config-tab.component.html',
-  styleUrl: '../actuarial-bases/actuarial-bases.component.scss',
+  styleUrl: './ifrs17-tab-shared.scss',
 })
 export class RaConfigTabComponent implements OnInit {
   rows: EditableRow[] = [];

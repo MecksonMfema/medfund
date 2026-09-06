@@ -18,11 +18,11 @@
         </p>
       </div>
       <div class="section-actions">
-        <button type="button" class="btn btn-default" (click)="refresh()" [disabled]="loading">
-          <app-icon name="refresh-cw" [size]="16"></app-icon>
+        <button type="button" class="btn btn-default btn-sm" (click)="refresh()" [disabled]="loading">
+          <app-icon name="refresh" [size]="16"></app-icon>
           Refresh
         </button>
-        <button type="button" class="btn btn-primary" (click)="openAdd()" [disabled]="addingOpen">
+        <button type="button" class="btn btn-primary btn-sm" (click)="openAdd()" [disabled]="addingOpen">
           <app-icon name="plus" [size]="16"></app-icon>
           Add row
         </button>
@@ -45,7 +45,7 @@
             <th>Effective from</th>
             <th>Effective to</th>
             <th>Updated by</th>
-            <th></th>
+            <th class="col-actions"></th>
           </tr>
         </thead>
         <tbody>
@@ -55,7 +55,7 @@
               <td>{{ row.expenseType }}</td>
               <td>
                 @if (row.editing) {
-                  <input type="number" step="0.01" min="0" class="inline-input"
+                  <input type="number" step="0.01" min="0" class="form-input"
                          [(ngModel)]="row.draftAmount" name="edit-amount-{{row.id}}" />
                 } @else {
                   {{ row.amountPerPolicy }}
@@ -64,7 +64,7 @@
               <td>{{ row.currency }}</td>
               <td>
                 @if (row.editing) {
-                  <input type="text" class="inline-input" maxlength="200"
+                  <input type="text" class="form-input" maxlength="200"
                          [(ngModel)]="row.draftSourceNote" name="edit-note-{{row.id}}" />
                 } @else {
                   {{ row.sourceNote || '-' }}
@@ -73,7 +73,7 @@
               <td>{{ row.effectiveFrom }}</td>
               <td>
                 @if (row.editing) {
-                  <input type="date" class="inline-input"
+                  <input type="date" class="form-input"
                          [ngModel]="row.draftEffectiveTo" (ngModelChange)="row.draftEffectiveTo = $event"
                          name="edit-to-{{row.id}}" />
                 } @else {
@@ -81,22 +81,27 @@
                 }
               </td>
               <td>{{ row.updatedByEmail || '-' }}</td>
-              <td class="row-actions">
-                @if (row.editing) {
-                  <button type="button" class="link-btn" (click)="saveEdit(row)" [disabled]="pendingId === row.id">
-                    <app-icon name="check" [size]="14"></app-icon> Save
-                  </button>
-                  <button type="button" class="link-btn" (click)="cancelEdit(row)">
-                    <app-icon name="x" [size]="14"></app-icon> Cancel
-                  </button>
-                } @else {
-                  <button type="button" class="link-btn" (click)="startEdit(row)">
-                    <app-icon name="pencil" [size]="14"></app-icon>
-                  </button>
-                  <button type="button" class="link-btn danger" (click)="remove(row)" [disabled]="pendingId === row.id">
-                    <app-icon name="trash-2" [size]="14"></app-icon>
-                  </button>
-                }
+              <td class="col-actions">
+                <div class="row-actions">
+                  @if (row.editing) {
+                    <button type="button" class="btn btn-primary btn-sm"
+                            (click)="saveEdit(row)" [disabled]="pendingId === row.id">
+                      Save
+                    </button>
+                    <button type="button" class="btn btn-default btn-sm" (click)="cancelEdit(row)">
+                      Cancel
+                    </button>
+                  } @else {
+                    <button type="button" class="btn btn-default btn-sm" (click)="startEdit(row)">
+                      <app-icon name="edit" [size]="14"></app-icon>
+                      Edit
+                    </button>
+                    <button type="button" class="btn btn-danger btn-sm"
+                            (click)="remove(row)" [disabled]="pendingId === row.id">
+                      Delete
+                    </button>
+                  }
+                </div>
               </td>
             </tr>
           }
@@ -128,32 +133,32 @@
           </label>
           <label class="field">
             <span class="field-label">Amount per policy</span>
-            <input type="number" step="0.01" min="0" [(ngModel)]="newRow.amountPerPolicy"
+            <input type="number" step="0.01" min="0" class="form-input" [(ngModel)]="newRow.amountPerPolicy"
                    name="newAmount" required />
           </label>
           <label class="field">
             <span class="field-label">Currency (ISO 4217)</span>
-            <input type="text" minlength="3" maxlength="3" [(ngModel)]="newRow.currency"
+            <input type="text" class="form-input" minlength="3" maxlength="3" [(ngModel)]="newRow.currency"
                    name="newCurrency" required placeholder="USD" />
           </label>
           <label class="field">
             <span class="field-label">Effective from</span>
-            <input type="date" [ngModel]="newRow.effectiveFrom"
+            <input type="date" class="form-input" [ngModel]="newRow.effectiveFrom"
                    (ngModelChange)="newRow.effectiveFrom = $event"
                    name="newFrom" />
           </label>
           <label class="field field-wide">
             <span class="field-label">Source note</span>
-            <input type="text" maxlength="200"
+            <input type="text" class="form-input" maxlength="200"
                    [ngModel]="newRow.sourceNote" (ngModelChange)="newRow.sourceNote = $event"
                    name="newSourceNote"
                    placeholder="e.g. 2025 experience study, external actuarial report" />
           </label>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-ghost" (click)="cancelAdd()" [disabled]="adding">Cancel</button>
+          <button type="button" class="btn btn-default" (click)="cancelAdd()" [disabled]="adding">Cancel</button>
           <button type="submit" class="btn btn-primary" [disabled]="adding">
-            {{ adding ? 'Adding…' : 'Add row' }}
+            {{ adding ? 'Adding...' : 'Add row' }}
           </button>
         </div>
       </form>

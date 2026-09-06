@@ -45,7 +45,7 @@ const BALANCE_TYPES: SelectOption[] = [
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, SelectComponent],
   templateUrl: './opening-balances-tab.component.html',
-  styleUrl: '../actuarial-bases/actuarial-bases.component.scss',
+  styleUrl: './ifrs17-tab-shared.scss',
 })
 export class OpeningBalancesTabComponent implements OnInit {
   rows: EditableRow[] = [];

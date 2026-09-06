@@ -13,10 +13,6 @@
         <p class="section-sub">Add or update the accounts this tenant uses for outbound payment runs and inbound receipt matching. One account per currency can be marked nominated: payment runs default to debiting the nominated account.</p>
       </div>
       <div class="section-actions">
-        <button type="button" class="btn btn-default" (click)="refresh()" [disabled]="loading">
-          <app-icon name="refresh-cw" [size]="16"></app-icon>
-          Refresh
-        </button>
         <button type="button" class="btn btn-primary" (click)="newAccount()" [disabled]="showForm">
           <app-icon name="plus" [size]="14"></app-icon>
           Add account
@@ -106,7 +102,7 @@
             <th>Currency</th>
             <th>Nominated</th>
             <th>Active</th>
-            <th></th>
+            <th class="col-actions"></th>
           </tr>
         </thead>
         <tbody>
@@ -119,20 +115,20 @@
               <td>{{ row.currencyCode }}</td>
               <td>
                 @if (row.nominated) {
-                  <span class="badge ok">Nominated</span>
+                  <span class="badge badge-active">Nominated</span>
                 } @else {
                   <span class="muted">-</span>
                 }
               </td>
               <td>
                 @if (row.active) {
-                  <span class="badge ok">Active</span>
+                  <span class="badge badge-active">Active</span>
                 } @else {
-                  <span class="badge muted">Inactive</span>
+                  <span class="badge badge-muted">Inactive</span>
                 }
               </td>
               <td class="row-actions">
-                <button type="button" class="btn btn-sm" (click)="edit(row)" [disabled]="busy">Edit</button>
+                <button type="button" class="btn btn-sm btn-default" (click)="edit(row)" [disabled]="busy">Edit</button>
                 <button type="button" class="btn btn-sm btn-danger" (click)="remove(row)" [disabled]="busy">Delete</button>
               </td>
             </tr>

@@ -49,7 +49,7 @@ const DELIVERY_METHOD_OPTIONS: SelectOption[] = [
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, SelectComponent],
   templateUrl: './notifications-tab.component.html',
-  styleUrl: '../actuarial-bases/actuarial-bases.component.scss',
+  styleUrl: './ifrs17-tab-shared.scss',
 })
 export class NotificationsTabComponent implements OnInit {
   rows: EditableRow[] = [];

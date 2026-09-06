@@ -1,5 +1,5 @@
 <section class="endorsement-config">
-  <div class="section-header">
+  <header class="section-header">
     <div>
       <h3 class="section-title">Endorsement four-eyes gate</h3>
       <p class="section-sub">
@@ -23,21 +23,21 @@
         (click)="save()"
         [disabled]="saving || loading || !canConfigure()"
       >
-        {{ saving ? 'Saving…' : 'Save' }}
+        {{ saving ? 'Saving...' : 'Save' }}
       </button>
     </div>
-  </div>
+  </header>
 
   @if (loading) {
     <app-skeleton></app-skeleton>
   } @else {
     @if (errorMessage) {
-      <div class="general-error">{{ errorMessage }}</div>
+      <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
     }
 
     <div class="form-grid">
-      <div class="form-field toggle-field">
-        <label>
+      <div class="field toggle-field">
+        <label class="check">
           <input
             type="checkbox"
             [(ngModel)]="enabled"
@@ -46,16 +46,17 @@
           />
           <span>Require second-actor approval above threshold</span>
         </label>
-        <p class="hint">
+        <p class="field-hint">
           When off, all endorsements auto-commit at draft: the four-eyes
           drafter/approver split does not fire.
         </p>
       </div>
 
-      <div class="form-field">
-        <label for="endThreshold">Threshold amount</label>
+      <div class="field">
+        <label class="field-label" for="endThreshold">Threshold amount</label>
         <input
           id="endThreshold"
+          class="form-input"
           type="number"
           min="0"
           step="0.01"
@@ -63,15 +64,15 @@
           [disabled]="saving || !canConfigure() || !enabled"
           name="fourEyesThresholdAmount"
         />
-        <p class="hint">
+        <p class="field-hint">
           Endorsements whose <code>|premiumDelta|</code> is at least this
           value enter DRAFT. Value stored in native <em>threshold currency</em>:
           no FX applied at gate time.
         </p>
       </div>
 
-      <div class="form-field">
-        <label for="endCurrency">Threshold currency</label>
+      <div class="field">
+        <label class="field-label" for="endCurrency">Threshold currency</label>
         <app-select
           id="endCurrency"
           name="thresholdCurrency"
@@ -81,7 +82,7 @@
           placeholder="(Select currency)"
           [searchable]="false"
         ></app-select>
-        <p class="hint">
+        <p class="field-hint">
           ISO-4217 code (e.g. USD, ZAR). The gate compares
           <code>|premiumDelta|</code> only when the endorsement's currency
           matches this code: mismatched-currency endorsements gate by
@@ -90,7 +91,7 @@
       </div>
     </div>
 
-    <p *ngIf="!canConfigure()" class="hint muted">
+    <p *ngIf="!canConfigure()" class="field-hint muted">
       You have read-only access: the
       <code>tenant.settings:manage_endorsement_config</code> permission is
       required to save changes.

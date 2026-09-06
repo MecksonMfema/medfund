@@ -1,0 +1,70 @@
+/* Parent shell for the IFRS 17 config tenant-admin surface. Sub-tabs are
+   rendered as a pill row (mirrors billing-tab.component.scss `.sub-nav`)
+   so nested IFRS 17 config sits visually alongside the other multi-tab
+   settings surfaces (billing, dunning, etc.). */
+
+.actuarial-bases {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-base);
+}
+
+.sub-tabs-header {
+  --section-header-gap: var(--spacing-base);
+  --section-header-margin-bottom: var(--spacing-sm);
+}
+
+.section-title {
+  margin: 0 0 4px;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.section-sub {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  max-width: 80ch;
+  line-height: 1.55;
+}
+
+/* ── Sub-nav (pill row for the six IFRS 17 sub-tabs) ────────────────────── */
+
+.sub-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.sub-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--color-text-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.sub-tab:hover {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.sub-tab.active {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+}
+
+.sub-tab-body {
+  padding-top: var(--spacing-sm);
+}

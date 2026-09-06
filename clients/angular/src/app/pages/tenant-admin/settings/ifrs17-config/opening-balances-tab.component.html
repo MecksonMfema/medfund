@@ -12,7 +12,7 @@
         <h3 class="section-title">Opening balance seeds</h3>
         <p class="section-sub">
           Tenant-admin overrides on the auto-derived IFRS 17 LRC / LIC
-          opening balances. §17 shaping consults this table first per
+          opening balances. Section 17 shaping consults this table first per
           (portfolio, cohort, currency, balance type, effective from);
           falls back to the auto-derived value when nothing matches.
           Every write requires an operator reason note that lands on the
@@ -20,11 +20,11 @@
         </p>
       </div>
       <div class="section-actions">
-        <button type="button" class="btn btn-default" (click)="refresh()" [disabled]="loading">
-          <app-icon name="refresh-cw" [size]="16"></app-icon>
+        <button type="button" class="btn btn-default btn-sm" (click)="refresh()" [disabled]="loading">
+          <app-icon name="refresh" [size]="16"></app-icon>
           Refresh
         </button>
-        <button type="button" class="btn btn-primary" (click)="openAdd()" [disabled]="addingOpen">
+        <button type="button" class="btn btn-primary btn-sm" (click)="openAdd()" [disabled]="addingOpen">
           <app-icon name="plus" [size]="16"></app-icon>
           Add seed
         </button>
@@ -47,7 +47,7 @@
             <th>Effective from</th>
             <th>Reason note</th>
             <th>Set by</th>
-            <th></th>
+            <th class="col-actions"></th>
           </tr>
         </thead>
         <tbody>
@@ -58,7 +58,7 @@
               <td>{{ row.balanceType }}</td>
               <td>
                 @if (row.editing) {
-                  <input type="number" step="0.01" min="0" class="inline-input"
+                  <input type="number" step="0.01" min="0" class="form-input"
                          [(ngModel)]="row.draftAmount" name="edit-amount-{{row.id}}" />
                 } @else {
                   {{ row.amount }}
@@ -68,29 +68,34 @@
               <td>{{ row.effectiveFrom }}</td>
               <td>
                 @if (row.editing) {
-                  <input type="text" class="inline-input" maxlength="2000"
+                  <input type="text" class="form-input" maxlength="2000"
                          [(ngModel)]="row.draftReasonNote" name="edit-reason-{{row.id}}" />
                 } @else {
                   {{ row.reasonNote }}
                 }
               </td>
               <td>{{ row.actorEmail || '-' }}</td>
-              <td class="row-actions">
-                @if (row.editing) {
-                  <button type="button" class="link-btn" (click)="saveEdit(row)" [disabled]="pendingId === row.id">
-                    <app-icon name="check" [size]="14"></app-icon> Save
-                  </button>
-                  <button type="button" class="link-btn" (click)="cancelEdit(row)">
-                    <app-icon name="x" [size]="14"></app-icon> Cancel
-                  </button>
-                } @else {
-                  <button type="button" class="link-btn" (click)="startEdit(row)">
-                    <app-icon name="pencil" [size]="14"></app-icon>
-                  </button>
-                  <button type="button" class="link-btn danger" (click)="remove(row)" [disabled]="pendingId === row.id">
-                    <app-icon name="trash-2" [size]="14"></app-icon>
-                  </button>
-                }
+              <td class="col-actions">
+                <div class="row-actions">
+                  @if (row.editing) {
+                    <button type="button" class="btn btn-primary btn-sm"
+                            (click)="saveEdit(row)" [disabled]="pendingId === row.id">
+                      Save
+                    </button>
+                    <button type="button" class="btn btn-default btn-sm" (click)="cancelEdit(row)">
+                      Cancel
+                    </button>
+                  } @else {
+                    <button type="button" class="btn btn-default btn-sm" (click)="startEdit(row)">
+                      <app-icon name="edit" [size]="14"></app-icon>
+                      Edit
+                    </button>
+                    <button type="button" class="btn btn-danger btn-sm"
+                            (click)="remove(row)" [disabled]="pendingId === row.id">
+                      Delete
+                    </button>
+                  }
+                </div>
               </td>
             </tr>
           }
@@ -134,22 +139,22 @@
           </label>
           <label class="field">
             <span class="field-label">Amount</span>
-            <input type="number" step="0.01" min="0" [(ngModel)]="newRow.amount"
+            <input type="number" step="0.01" min="0" class="form-input" [(ngModel)]="newRow.amount"
                    name="newAmount" required />
           </label>
           <label class="field">
             <span class="field-label">Currency (ISO 4217)</span>
-            <input type="text" minlength="3" maxlength="3" [(ngModel)]="newRow.currency"
+            <input type="text" class="form-input" minlength="3" maxlength="3" [(ngModel)]="newRow.currency"
                    name="newCurrency" required placeholder="USD" />
           </label>
           <label class="field">
             <span class="field-label">Effective from</span>
-            <input type="date" [(ngModel)]="newRow.effectiveFrom"
+            <input type="date" class="form-input" [(ngModel)]="newRow.effectiveFrom"
                    name="newFrom" required />
           </label>
           <label class="field field-wide">
             <span class="field-label">Reason note (required)</span>
-            <input type="text" maxlength="2000"
+            <input type="text" class="form-input" maxlength="2000"
                    [(ngModel)]="newRow.reasonNote"
                    name="newReasonNote"
                    placeholder="e.g. Restated after 2025 external audit"
@@ -157,9 +162,9 @@
           </label>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-ghost" (click)="cancelAdd()" [disabled]="adding">Cancel</button>
+          <button type="button" class="btn btn-default" (click)="cancelAdd()" [disabled]="adding">Cancel</button>
           <button type="submit" class="btn btn-primary" [disabled]="adding">
-            {{ adding ? 'Adding…' : 'Add seed' }}
+            {{ adding ? 'Adding...' : 'Add seed' }}
           </button>
         </div>
       </form>

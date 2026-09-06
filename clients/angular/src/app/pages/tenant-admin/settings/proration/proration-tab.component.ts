@@ -50,13 +50,13 @@ export class TenantProrationTabComponent implements OnInit {
   incrementWaitDays: number | null = null;
 
   readonly strategyOptions: StrategyOption[] = [
-    { value: 'NONE',                        label: 'NONE',                        description: 'No proration. Uses the new scheme’s raw annual limit. Preserves pre-feature behaviour.' },
-    { value: 'DELTA_CREDIT',                label: 'DELTA_CREDIT',                description: 'newLimit − consumedAcrossAnyScheme, floored at 0. Simplest safe correction.' },
-    { value: 'RATIO_CARRY',                 label: 'RATIO_CARRY',                 description: '(oldRemaining / oldLimit) × newLimit. MASCA-style transfer of the spending ratio.' },
-    { value: 'CALENDAR',                    label: 'CALENDAR',                    description: 'newLimit × (daysRemainingInYear / daysInYear) − consumedUnderNewScheme.' },
-    { value: 'SPLIT_YEAR',                  label: 'SPLIT_YEAR',                  description: 'Two budgets on either side of the effective date. Same math as CALENDAR for the new-scheme bucket.' },
-    { value: 'WAITING_PERIOD_ON_INCREMENT', label: 'WAITING_PERIOD_ON_INCREMENT', description: 'The increment unlocks only after N days from the change (see wait-days field).' },
-    { value: 'HYBRID_BY_DIRECTION',         label: 'HYBRID_BY_DIRECTION',         description: 'Use different strategies for upgrade / downgrade / currency-change. Configure below.' },
+    { value: 'NONE',                        label: 'None',                        description: 'No proration. Uses the new scheme’s raw annual limit. Preserves pre-feature behaviour.' },
+    { value: 'DELTA_CREDIT',                label: 'Delta credit',                description: 'newLimit - consumedAcrossAnyScheme, floored at 0. Simplest safe correction.' },
+    { value: 'RATIO_CARRY',                 label: 'Ratio carry',                 description: '(oldRemaining / oldLimit) x newLimit. MASCA-style transfer of the spending ratio.' },
+    { value: 'CALENDAR',                    label: 'Calendar',                    description: 'newLimit x (daysRemainingInYear / daysInYear) - consumedUnderNewScheme.' },
+    { value: 'SPLIT_YEAR',                  label: 'Split year',                  description: 'Two budgets on either side of the effective date. Same math as Calendar for the new-scheme bucket.' },
+    { value: 'WAITING_PERIOD_ON_INCREMENT', label: 'Waiting period on increment', description: 'The increment unlocks only after N days from the change (see wait-days field).' },
+    { value: 'HYBRID_BY_DIRECTION',         label: 'Hybrid by direction',         description: 'Use different strategies for upgrade / downgrade / currency-change. Configure below.' },
   ];
 
   constructor(

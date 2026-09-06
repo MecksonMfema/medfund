@@ -30,7 +30,7 @@ interface EditableRow extends TenantYieldCurveRow {
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent],
   templateUrl: './yield-curves-tab.component.html',
-  styleUrl: '../actuarial-bases/actuarial-bases.component.scss',
+  styleUrl: './ifrs17-tab-shared.scss',
 })
 export class YieldCurvesTabComponent implements OnInit {
   rows: EditableRow[] = [];

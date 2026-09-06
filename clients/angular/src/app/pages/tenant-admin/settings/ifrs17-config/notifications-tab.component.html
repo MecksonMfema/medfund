@@ -20,11 +20,11 @@
         </p>
       </div>
       <div class="section-actions">
-        <button type="button" class="btn btn-default" (click)="refresh()" [disabled]="loading">
-          <app-icon name="refresh-cw" [size]="16"></app-icon>
+        <button type="button" class="btn btn-default btn-sm" (click)="refresh()" [disabled]="loading">
+          <app-icon name="refresh" [size]="16"></app-icon>
           Refresh
         </button>
-        <button type="button" class="btn btn-primary" (click)="openAdd()" [disabled]="addingOpen">
+        <button type="button" class="btn btn-primary btn-sm" (click)="openAdd()" [disabled]="addingOpen">
           <app-icon name="plus" [size]="16"></app-icon>
           Add recipient
         </button>
@@ -45,7 +45,7 @@
             <th>Throttle (min)</th>
             <th>Active</th>
             <th>Updated by</th>
-            <th></th>
+            <th class="col-actions"></th>
           </tr>
         </thead>
         <tbody>
@@ -66,7 +66,7 @@
               <td class="mono">{{ row.recipient }}</td>
               <td>
                 @if (row.editing) {
-                  <input type="number" min="0" max="1440" class="inline-input"
+                  <input type="number" min="0" max="1440" class="form-input"
                          [(ngModel)]="row.draftThrottleMinutes"
                          [name]="'edit-throttle-' + row.id" />
                 } @else {
@@ -79,26 +79,33 @@
                          [(ngModel)]="row.draftIsActive"
                          [name]="'edit-active-' + row.id" />
                 } @else {
-                  {{ row.isActive ? 'Yes' : 'No' }}
+                  <span class="badge" [class.badge-active]="row.isActive" [class.badge-muted]="!row.isActive">
+                    {{ row.isActive ? 'Yes' : 'No' }}
+                  </span>
                 }
               </td>
               <td>{{ row.updatedByEmail || '-' }}</td>
-              <td class="row-actions">
-                @if (row.editing) {
-                  <button type="button" class="link-btn" (click)="saveEdit(row)" [disabled]="pendingId === row.id">
-                    <app-icon name="check" [size]="14"></app-icon> Save
-                  </button>
-                  <button type="button" class="link-btn" (click)="cancelEdit(row)">
-                    <app-icon name="x" [size]="14"></app-icon> Cancel
-                  </button>
-                } @else {
-                  <button type="button" class="link-btn" (click)="startEdit(row)">
-                    <app-icon name="pencil" [size]="14"></app-icon>
-                  </button>
-                  <button type="button" class="link-btn danger" (click)="remove(row)" [disabled]="pendingId === row.id">
-                    <app-icon name="trash-2" [size]="14"></app-icon>
-                  </button>
-                }
+              <td class="col-actions">
+                <div class="row-actions">
+                  @if (row.editing) {
+                    <button type="button" class="btn btn-primary btn-sm"
+                            (click)="saveEdit(row)" [disabled]="pendingId === row.id">
+                      Save
+                    </button>
+                    <button type="button" class="btn btn-default btn-sm" (click)="cancelEdit(row)">
+                      Cancel
+                    </button>
+                  } @else {
+                    <button type="button" class="btn btn-default btn-sm" (click)="startEdit(row)">
+                      <app-icon name="edit" [size]="14"></app-icon>
+                      Edit
+                    </button>
+                    <button type="button" class="btn btn-danger btn-sm"
+                            (click)="remove(row)" [disabled]="pendingId === row.id">
+                      Delete
+                    </button>
+                  }
+                </div>
               </td>
             </tr>
           }
@@ -129,24 +136,24 @@
           </label>
           <label class="field field-wide">
             <span class="field-label">Recipient (email or webhook URL)</span>
-            <input type="text" maxlength="500" [(ngModel)]="newRow.recipient"
+            <input type="text" class="form-input" maxlength="500" [(ngModel)]="newRow.recipient"
                    name="newRecipient" required
                    placeholder="risk-team@medfund.example or https://ops.example.com/hooks/ifrs17" />
           </label>
           <label class="field">
             <span class="field-label">Throttle (minutes)</span>
-            <input type="number" min="0" max="1440" [(ngModel)]="newRow.throttleMinutes"
+            <input type="number" class="form-input" min="0" max="1440" [(ngModel)]="newRow.throttleMinutes"
                    name="newThrottle" />
           </label>
-          <label class="field">
-            <span class="field-label">Active</span>
+          <label class="field field-inline">
             <input type="checkbox" [(ngModel)]="newRow.isActive" name="newIsActive" />
+            <span>Active</span>
           </label>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-ghost" (click)="cancelAdd()" [disabled]="adding">Cancel</button>
+          <button type="button" class="btn btn-default" (click)="cancelAdd()" [disabled]="adding">Cancel</button>
           <button type="submit" class="btn btn-primary" [disabled]="adding">
-            {{ adding ? 'Adding…' : 'Add recipient' }}
+            {{ adding ? 'Adding...' : 'Add recipient' }}
           </button>
         </div>
       </form>

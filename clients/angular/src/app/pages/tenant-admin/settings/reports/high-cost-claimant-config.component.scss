@@ -1,85 +1,123 @@
 .hcc-config {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--spacing-base);
+  margin-top: var(--spacing-xl);
+  padding-top: var(--spacing-xl);
+  border-top: 1px solid var(--color-border-light);
 }
 
 .section-header {
+  --section-header-gap: var(--spacing-base);
+  --section-header-margin-bottom: var(--spacing-base);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
+  gap: var(--spacing-base);
 }
 
 .section-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
+  margin: 0 0 4px;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
 }
 
 .section-sub {
-  margin: 4px 0 0;
-  color: var(--muted, #6b7280);
-  font-size: 13px;
-  max-width: 640px;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  max-width: 70ch;
 }
 
 .section-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .saved-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  color: var(--success, #16a34a);
-  font-size: 13px;
-  font-weight: 500;
+  gap: var(--spacing-xs, 4px);
+  color: var(--color-success);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
 }
 
+/* ── Error banner ────────────────────────────────────────────────────────── */
+
 .general-error {
-  padding: 10px 14px;
-  background: rgba(220, 38, 38, 0.1);
-  color: #b91c1c;
-  border-radius: 6px;
-  margin-bottom: 12px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--color-error-light, #fee2e2);
+  color: var(--color-error, #b91c1c);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--spacing-sm);
 }
+
+/* ── Form grid ───────────────────────────────────────────────────────────── */
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--spacing-base);
+  max-width: 720px;
 }
 
-.form-field label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 500;
-  margin-bottom: 0.25rem;
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-size-sm);
 }
 
-.form-field input,
-.form-field select {
+.field-label {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+/* Matches the app-select trigger exactly so a raw <input> reads as a
+   sibling of the currency picker: same padding, radius, hover/focus ring,
+   font size, and disabled treatment. Do not swap padding-based sizing for
+   a fixed height here or the two fields will render at different heights
+   on the same row. */
+.form-input {
   width: 100%;
-  padding: 6px 8px;
-  border: 1px solid var(--border, #d1d5db);
-  border-radius: 4px;
-  font-size: 14px;
-  background: var(--color-bg, #fff);
-}
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font-family: var(--font-family);
+  font-size: 0.875rem;
+  outline: none;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background var(--transition-fast);
 
-.form-field input:disabled,
-.form-field select:disabled {
-  background: var(--color-bg, #f8fdff);
-  color: var(--color-text-muted, #6b7280);
+  &:hover:not(:disabled) { border-color: var(--color-secondary); }
+
+  &:focus,
+  &:focus-visible {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-light);
+  }
+
+  &:disabled {
+    background: var(--color-bg);
+    color: var(--color-text-muted);
+    cursor: not-allowed;
+  }
 }
 
 .hint {
-  font-size: 0.8rem;
-  color: var(--color-text-muted, #6b7280);
-  margin: 0.25rem 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin: 4px 0 0;
 }
 
 .hint.muted {

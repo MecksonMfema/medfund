@@ -1,0 +1,241 @@
+/* Shared styles for every IFRS 17 config sub-tab (Risk Adjustment, Yield
+   Curves, Market Data, Expense Assumptions, Opening Balances, Notifications).
+   Mirrors the pattern used by billing/currencies/bank-accounts settings
+   tabs so nested IFRS 17 config panels pick up the same design-token look
+   without per-tab duplication. */
+
+.actuarial-basis-tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xl);
+}
+
+/* ── Section card ────────────────────────────────────────────────────────── */
+
+.section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+}
+
+// .section-header layout is global (styles.scss); tighten the two vars this
+// tab wants smaller than the settings/admin default.
+.section-header {
+  --section-header-gap: var(--spacing-base);
+  --section-header-margin-bottom: var(--spacing-base);
+}
+
+.section-title {
+  margin: 0 0 4px;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.section-sub {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  max-width: 70ch;
+}
+
+.section-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+/* ── Banners ─────────────────────────────────────────────────────────────── */
+
+.banner {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.banner-error {
+  background: var(--color-error-light, #fee2e2);
+  color: var(--color-error, #b91c1c);
+}
+
+.banner-success {
+  background: var(--color-success-light, #d1fae5);
+  color: var(--color-success, #065f46);
+}
+
+.empty-state {
+  color: var(--color-text-secondary);
+  font-style: italic;
+  margin: var(--spacing-sm) 0;
+}
+
+/* ── Data table ──────────────────────────────────────────────────────────── */
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-light);
+  vertical-align: middle;
+  font-size: var(--font-size-sm);
+}
+
+.data-table th {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.data-table .col-actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.data-table tr.pending { opacity: 0.5; }
+.data-table tr.editing { background: var(--color-bg); }
+
+.row-actions {
+  display: flex;
+  gap: var(--spacing-xs);
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.mono {
+  font-family: monospace;
+  color: var(--color-text-secondary);
+}
+
+.hint {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  margin-left: 4px;
+}
+
+/* Currency-header per-section subheading (yield curves groups rows by currency). */
+.currency-header {
+  margin: var(--spacing-base) 0 var(--spacing-sm);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+/* ── Badges ─────────────────────────────────────────────────────────────── */
+
+.badge-source {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+/* ── Form inputs (shared) ────────────────────────────────────────────────── */
+
+/* Match settings' top-level .form-input so nested tabs share the look:
+   38px, spacing-md padding, radius-md, brand-primary focus border.
+   Applied via `.form-input` explicit class AND to the raw inputs inside
+   the shared `.field` wrapper so callers do not have to sprinkle the
+   class on every field. */
+.form-input,
+.field input[type="text"],
+.field input[type="number"],
+.field input[type="date"],
+.field input[type="email"],
+.field input[type="url"] {
+  width: 100%;
+  height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--spacing-md);
+  font-size: var(--font-size-base);
+  font-family: var(--font-family);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.form-input:focus,
+.field input[type="text"]:focus,
+.field input[type="number"]:focus,
+.field input[type="date"]:focus,
+.field input[type="email"]:focus,
+.field input[type="url"]:focus { border-color: var(--color-primary); }
+
+.form-input:disabled,
+.field input:disabled {
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+/* Inline inputs inside the data table shrink to a tighter row-friendly height. */
+.data-table .form-input,
+.data-table .field input {
+  height: 32px;
+  padding: 0 var(--spacing-sm);
+  font-size: var(--font-size-sm);
+}
+
+/* ── Add form / grid ─────────────────────────────────────────────────────── */
+
+.add-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-base);
+  margin-top: var(--spacing-base);
+  padding: var(--spacing-base);
+  background: var(--color-bg);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--font-size-sm);
+}
+
+.field.field-wide { grid-column: 1 / -1; }
+
+.field.field-inline {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.field-label {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-base);
+}
+
+.form-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  justify-content: flex-end;
+}
+
+/* ── Toggle switch (Market Data auto-fetch enable/pause) ─────────────────── */
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}

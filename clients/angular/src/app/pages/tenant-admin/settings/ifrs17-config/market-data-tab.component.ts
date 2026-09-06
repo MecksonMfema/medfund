@@ -10,6 +10,7 @@ import {
 import { TenantService } from '../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 interface EditableRow extends TenantMarketDataConfigRow {
   pending?: boolean;
@@ -26,9 +27,9 @@ interface EditableRow extends TenantMarketDataConfigRow {
 @Component({
   selector: 'app-ifrs17-market-data-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, SelectComponent],
   templateUrl: './market-data-tab.component.html',
-  styleUrl: '../actuarial-bases/actuarial-bases.component.scss',
+  styleUrl: './ifrs17-tab-shared.scss',
 })
 export class MarketDataTabComponent implements OnInit {
   rows: EditableRow[] = [];
@@ -44,6 +45,11 @@ export class MarketDataTabComponent implements OnInit {
     { id: 'RBZ_AUTO',  label: 'RBZ (Zimbabwe)',      jurisdiction: 'Reserve Bank of Zimbabwe' },
     { id: 'SARB_AUTO', label: 'SARB (South Africa)', jurisdiction: 'South African Reserve Bank' },
   ];
+
+  /** Options getter feeding the app-select in the enrol form. */
+  get sourceOptions(): SelectOption[] {
+    return this.sources.map(s => ({ value: s.id, label: s.label }));
+  }
 
   constructor(
     private service: TenantMarketDataConfigService,

@@ -1,5 +1,5 @@
 <div class="reports-tab">
-  <div class="section-header">
+  <header class="section-header">
     <div>
       <h3 class="section-title">Reports catalogue</h3>
       <p class="section-sub">
@@ -21,7 +21,7 @@
         {{ saving ? 'Saving…' : 'Save changes' }}
       </button>
     </div>
-  </div>
+  </header>
 
   @if (loading) {
     <div class="reports-grid">
@@ -37,7 +37,7 @@
     </div>
   } @else {
     @if (errorMessage) {
-      <div class="general-error">{{ errorMessage }}</div>
+      <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
     }
 
     <div class="reports-grid">
@@ -46,8 +46,8 @@
           <div class="reports-family-header">
             <h4 class="reports-family-name">{{ group.familyLabel }}</h4>
             <div class="reports-family-actions">
-              <button class="btn btn-ghost btn-sm" (click)="toggleFamily(group, true)">Enable all</button>
-              <button class="btn btn-ghost btn-sm" (click)="toggleFamily(group, false)">Disable all</button>
+              <button class="btn btn-default btn-sm" (click)="toggleFamily(group, true)">Enable all</button>
+              <button class="btn btn-default btn-sm" (click)="toggleFamily(group, false)">Disable all</button>
             </div>
           </div>
 

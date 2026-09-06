@@ -1,5 +1,5 @@
 <section class="alc-config">
-  <div class="section-header">
+  <header class="section-header">
     <div>
       <h3 class="section-title">Automatic member lapse</h3>
       <p class="section-sub">
@@ -22,21 +22,21 @@
         (click)="save()"
         [disabled]="saving || loading || !canConfigure()"
       >
-        {{ saving ? 'Saving…' : 'Save' }}
+        {{ saving ? 'Saving...' : 'Save' }}
       </button>
     </div>
-  </div>
+  </header>
 
   @if (loading) {
     <app-skeleton></app-skeleton>
   } @else {
     @if (errorMessage) {
-      <div class="general-error">{{ errorMessage }}</div>
+      <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
     }
 
     <div class="form-grid">
-      <div class="form-field toggle-field">
-        <label>
+      <div class="field toggle-field">
+        <label class="check">
           <input
             type="checkbox"
             [(ngModel)]="enabled"
@@ -45,16 +45,17 @@
           />
           <span>Enable auto-lapse for this tenant</span>
         </label>
-        <p class="hint">
+        <p class="field-hint">
           When off, the arrears sweep and the user-service consumers stay silent,
-          regardless of the threshold + grace values below.
+          regardless of the threshold and grace values below.
         </p>
       </div>
 
-      <div class="form-field">
-        <label for="alcThresholdMonths">Arrears threshold (months)</label>
+      <div class="field">
+        <label class="field-label" for="alcThresholdMonths">Arrears threshold (months)</label>
         <input
           id="alcThresholdMonths"
+          class="form-input"
           type="number"
           min="1"
           max="60"
@@ -63,16 +64,17 @@
           [disabled]="saving || !canConfigure() || !enabled"
           name="arrearsThresholdMonths"
         />
-        <p class="hint">
+        <p class="field-hint">
           A member must stay in the SUSPENDED / WRITE_OFF aged bucket at least this
-          long before the pipeline arms. Range: 1–60 months.
+          long before the pipeline arms. Range: 1 to 60 months.
         </p>
       </div>
 
-      <div class="form-field">
-        <label for="alcGraceDays">Grace window (days)</label>
+      <div class="field">
+        <label class="field-label" for="alcGraceDays">Grace window (days)</label>
         <input
           id="alcGraceDays"
+          class="form-input"
           type="number"
           min="0"
           max="180"
@@ -81,15 +83,15 @@
           [disabled]="saving || !canConfigure() || !enabled"
           name="graceWindowDays"
         />
-        <p class="hint">
+        <p class="field-hint">
           Days between the arrears-threshold-breached signal and the actual LAPSED
           transition. A payment that clears the arrears within this window cancels
-          the lapse. Range: 0–180 days.
+          the lapse. Range: 0 to 180 days.
         </p>
       </div>
     </div>
 
-    <p *ngIf="!canConfigure()" class="hint muted">
+    <p *ngIf="!canConfigure()" class="field-hint muted">
       You have read-only access: the <code>tenant.settings:manage_auto_lapse</code>
       permission is required to save changes.
     </p>

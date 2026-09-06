@@ -128,7 +128,7 @@ export class TenantSettingsComponent implements OnInit {
       tabs: [
         { id: 'currencies',    label: 'Currencies',    icon: 'dollar-sign' },
         { id: 'billing',       label: 'Billing',       icon: 'banknote' },
-        { id: 'proration',     label: 'Proration',     icon: 'divide' },
+        { id: 'proration',     label: 'Proration',     icon: 'layers' },
         { id: 'bank-accounts', label: 'Bank Accounts', icon: 'building' },
       ],
     },

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { TenantService } from '../../../../core/services/tenant.service';
 import {
   HighCostClaimantConfigService,
@@ -23,7 +24,7 @@ import { PermissionService } from '../../../../core/security/permission.service'
 @Component({
   selector: 'app-high-cost-claimant-config',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, SelectComponent],
   templateUrl: './high-cost-claimant-config.component.html',
   styleUrl: './high-cost-claimant-config.component.scss',
 })
@@ -53,6 +54,18 @@ export class HighCostClaimantConfigComponent implements OnInit {
 
   canConfigure(): boolean {
     return this.permissionService.has('admin:manage_settings');
+  }
+
+  /** Options getter feeding the app-select currency picker. Falls back to a
+      single USD option when the tenant hasn't configured any currencies. */
+  get currencyOptions(): SelectOption[] {
+    if (this.tenantCurrencies.length === 0) {
+      return [{ value: 'USD', label: 'USD' }];
+    }
+    return this.tenantCurrencies.map(c => ({
+      value: c.currencyCode,
+      label: c.isDefault ? `${c.currencyCode} (default)` : c.currencyCode,
+    }));
   }
 
   refresh(): void {

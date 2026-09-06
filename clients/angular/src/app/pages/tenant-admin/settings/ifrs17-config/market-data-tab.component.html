@@ -20,11 +20,11 @@
         </p>
       </div>
       <div class="section-actions">
-        <button type="button" class="btn btn-default" (click)="refresh()" [disabled]="loading">
-          <app-icon name="refresh-cw" [size]="16"></app-icon>
+        <button type="button" class="btn btn-default btn-sm" (click)="refresh()" [disabled]="loading">
+          <app-icon name="refresh" [size]="16"></app-icon>
           Refresh
         </button>
-        <button type="button" class="btn btn-primary" (click)="openAdd()" [disabled]="addingOpen">
+        <button type="button" class="btn btn-primary btn-sm" (click)="openAdd()" [disabled]="addingOpen">
           <app-icon name="plus" [size]="16"></app-icon>
           Enrol currency
         </button>
@@ -46,7 +46,7 @@
             <th>Source</th>
             <th>Auto-fetch</th>
             <th>Updated by</th>
-            <th></th>
+            <th class="col-actions"></th>
           </tr>
         </thead>
         <tbody>
@@ -60,15 +60,19 @@
                          [checked]="row.autoFetchEnabled"
                          [disabled]="row.pending"
                          (change)="toggleEnabled(row)" />
-                  <span>{{ row.autoFetchEnabled ? 'Enabled' : 'Paused' }}</span>
+                  <span class="badge" [class.badge-active]="row.autoFetchEnabled" [class.badge-muted]="!row.autoFetchEnabled">
+                    {{ row.autoFetchEnabled ? 'Enabled' : 'Paused' }}
+                  </span>
                 </label>
               </td>
               <td>{{ row.updatedByEmail || '-' }}</td>
-              <td class="row-actions">
-                <button type="button" class="link-btn danger"
-                        (click)="remove(row)" [disabled]="row.pending">
-                  <app-icon name="trash-2" [size]="14"></app-icon>
-                </button>
+              <td class="col-actions">
+                <div class="row-actions">
+                  <button type="button" class="btn btn-danger btn-sm"
+                          (click)="remove(row)" [disabled]="row.pending">
+                    Delete
+                  </button>
+                </div>
               </td>
             </tr>
           }
@@ -81,17 +85,18 @@
         <div class="grid">
           <label class="field">
             <span class="field-label">Currency (ISO 4217)</span>
-            <input type="text" minlength="3" maxlength="3"
+            <input type="text" class="form-input" minlength="3" maxlength="3"
                    [(ngModel)]="newRow.currency"
                    name="mdNewCurrency" required placeholder="USD" />
           </label>
           <label class="field">
             <span class="field-label">Source</span>
-            <select [(ngModel)]="newRow.source" name="mdNewSource" required>
-              @for (s of sources; track s.id) {
-                <option [value]="s.id">{{ s.label }}</option>
-              }
-            </select>
+            <app-select
+              [(ngModel)]="newRow.source"
+              name="mdNewSource"
+              [options]="sourceOptions"
+              required
+            ></app-select>
           </label>
           <label class="field field-inline">
             <input type="checkbox"
@@ -101,11 +106,11 @@
           </label>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-ghost" (click)="cancelAdd()" [disabled]="adding">
+          <button type="button" class="btn btn-default" (click)="cancelAdd()" [disabled]="adding">
             Cancel
           </button>
           <button type="submit" class="btn btn-primary" [disabled]="adding">
-            {{ adding ? 'Enrolling…' : 'Enrol currency' }}
+            {{ adding ? 'Enrolling...' : 'Enrol currency' }}
           </button>
         </div>
       </form>

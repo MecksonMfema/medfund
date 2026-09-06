@@ -1,43 +1,103 @@
 .reports-tab {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--spacing-base);
 }
 
+/* Section-header layout is global (styles.scss); reports tightens the
+   spacing to match the other settings sub-tabs. */
+.section-header {
+  --section-header-gap: var(--spacing-base);
+  --section-header-margin-bottom: var(--spacing-base);
+}
+
+.section-title {
+  margin: 0 0 4px;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.section-sub {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  max-width: 70ch;
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.saved-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs, 4px);
+  color: var(--color-success);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+/* ── Banners ─────────────────────────────────────────────────────────────── */
+
+.banner {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--spacing-base);
+}
+
+.banner-error {
+  background: var(--color-error-light, #fee2e2);
+  color: var(--color-error, #b91c1c);
+}
+
+/* ── Reports grid (one card per family) ──────────────────────────────── */
+
+/* Fixed three-column layout across the section width so report families
+   line up in tidy rows regardless of card content length. Collapses to
+   two then one column on narrower viewports. */
 .reports-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--spacing-base);
+}
+
+@media (max-width: 1100px) {
+  .reports-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 720px) {
+  .reports-grid { grid-template-columns: 1fr; }
 }
 
 .reports-family-card {
-  background: var(--surface, #fff);
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 8px;
-  padding: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-base);
 }
 
 .reports-family-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: var(--spacing-md);
 }
 
 .reports-family-name {
   margin: 0;
-  font-size: 15px;
-  font-weight: 600;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
 }
 
 .reports-family-actions {
   display: flex;
-  gap: 4px;
-
-  .btn-sm {
-    padding: 2px 8px;
-    font-size: 12px;
-  }
+  gap: var(--spacing-xs, 4px);
 }
 
 .reports-list {
@@ -50,7 +110,7 @@
 }
 
 .reports-list-item {
-  border-top: 1px dashed var(--border, #e5e7eb);
+  border-top: 1px dashed var(--color-border-light);
   padding-top: 6px;
 
   &:first-child {
@@ -63,55 +123,60 @@
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 10px;
+  gap: var(--spacing-sm);
   cursor: pointer;
-  padding: 4px 0;
+  padding: var(--spacing-xs, 4px) 0;
 }
 
 .report-label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
   min-width: 0;
 }
 
 .report-name {
-  font-size: 14px;
-  color: var(--text, #1f2937);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .report-key {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
-  color: var(--muted, #9ca3af);
+  font-family: monospace;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
   white-space: nowrap;
 }
 
-.badge {
-  display: inline-block;
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1.4;
+/* Report-scoped badges: the global .badge (styles.scss) covers status
+   colours; these are the two report-catalogue-only variants. */
+.badge-cadenced {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  display: inline-flex;
+  align-items: center;
+}
 
-  &.badge-cadenced {
-    background: rgba(0, 119, 182, 0.1);
-    color: #0369a1;
-  }
-
-  &.badge-count {
-    background: var(--primary, #0369a1);
-    color: #fff;
-    margin-left: 6px;
-  }
+.badge-count {
+  background: var(--color-primary);
+  color: #fff;
+  margin-left: var(--spacing-xs, 4px);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  display: inline-flex;
+  align-items: center;
 }
 
 .row-actions {
-  padding-left: 32px;
+  padding-left: var(--spacing-xl);
   margin-top: 2px;
 }
 
@@ -119,57 +184,12 @@
   background: none;
   border: none;
   padding: 0;
-  color: var(--primary, #0369a1);
-  font-size: 12px;
-  font-weight: 500;
+  color: var(--color-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
 
-  &:hover {
-    text-decoration: underline;
-  }
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-}
-
-.section-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.section-sub {
-  margin: 4px 0 0;
-  color: var(--muted, #6b7280);
-  font-size: 13px;
-  max-width: 640px;
-}
-
-.section-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.saved-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--success, #16a34a);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.general-error {
-  padding: 10px 14px;
-  background: rgba(220, 38, 38, 0.1);
-  color: #b91c1c;
-  border-radius: 6px;
-  margin-bottom: 12px;
+  &:hover { text-decoration: underline; }
 }

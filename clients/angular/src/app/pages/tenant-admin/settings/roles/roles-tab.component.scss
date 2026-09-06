@@ -4,8 +4,8 @@
   gap: var(--spacing-base);
 }
 
-// .section-header layout is global (styles.scss); roles wants a
-// slightly tighter gap + margin than the default.
+/* .section-header layout is global (styles.scss); roles wants a
+   slightly tighter gap + margin than the default. */
 .section-header {
   --section-header-gap: var(--spacing-md);
   --section-header-margin-bottom: var(--spacing-base);
@@ -22,16 +22,27 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   margin: 0;
+  max-width: 70ch;
 }
 
-.error-banner {
-  background: var(--color-error-light, #fee2e2);
-  color: var(--color-error, #b91c1c);
-  border: 1px solid var(--color-error, #b91c1c);
-  border-radius: var(--radius-md);
+/* ── Banners ─────────────────────────────────────────────────────────────── */
+
+.banner {
   padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  cursor: pointer;
   font-size: var(--font-size-sm);
   margin-bottom: var(--spacing-base);
+}
+
+.banner-error {
+  background: var(--color-error-light, #fee2e2);
+  color: var(--color-error, #b91c1c);
+}
+
+.banner-success {
+  background: var(--color-success-light, #d1fae5);
+  color: var(--color-success, #065f46);
 }
 
 /* ── Role list ───────────────────────────────────────────────────────── */
@@ -61,20 +72,26 @@
 .role-stats { margin-top: 6px; }
 .role-actions { display: flex; gap: var(--spacing-sm); flex-shrink: 0; }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
+/* Role-scoped badge: the global .badge and status colours live in
+   styles.scss; this is the muted "System" variant. */
+.badge-system {
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border-light);
   padding: 2px 8px;
   border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  display: inline-flex;
+  align-items: center;
 }
-.badge-system { background: var(--color-bg); color: var(--color-text-muted); border: 1px solid var(--color-border-light); }
 
-.empty {
+.empty-state {
+  color: var(--color-text-secondary);
+  font-style: italic;
   text-align: center;
   padding: var(--spacing-xl);
-  color: var(--color-text-secondary);
+  margin: var(--spacing-sm) 0;
 }
 
 .link-btn {
@@ -89,28 +106,6 @@
   cursor: pointer;
   &:hover { color: var(--color-primary); }
 }
-
-/* ── Buttons (mirror settings.scss) ───────────────────────────────────── */
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: 7px 16px;
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  border: none;
-  transition: background var(--transition-fast), opacity var(--transition-fast);
-  &:disabled { opacity: 0.6; cursor: default; }
-}
-.btn-primary { background: var(--color-primary); color: #fff;
-  &:hover:not(:disabled) { background: var(--color-primary-hover); } }
-.btn-ghost { background: none; border: 1px solid var(--color-border); color: var(--color-text-primary);
-  &:hover:not(:disabled) { background: var(--color-bg); } }
-.btn-danger { color: var(--color-error, #b91c1c); border-color: var(--color-error, #b91c1c);
-  &:hover:not(:disabled) { background: var(--color-error-light, #fee2e2); } }
 
 /* ── Drawer ──────────────────────────────────────────────────────────── */
 
@@ -141,7 +136,7 @@
 .drawer-header h3 { margin: 0; font-size: var(--font-size-lg); }
 
 .icon-btn {
-  background: none; border: none; padding: 4px; cursor: pointer; display: flex;
+  background: none; border: none; padding: var(--spacing-xs, 4px); cursor: pointer; display: flex;
   color: var(--color-text-muted);
   &:hover { color: var(--color-text-primary); }
 }
@@ -158,7 +153,7 @@
   display: flex; justify-content: flex-end; gap: var(--spacing-sm);
 }
 
-/* ── Editor ───────────────────────────────────────────────────────────── */
+/* ── Editor form ───────────────────────────────────────────────────────── */
 
 .form-grid {
   display: grid;
@@ -173,7 +168,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
-  margin-bottom: 4px;
+  margin-bottom: var(--spacing-xs, 4px);
 }
 
 .label-hint {
@@ -182,24 +177,50 @@
   color: var(--color-text-muted);
 }
 
-.form-input, .form-textarea {
+/* Match settings' top-level .form-input so nested tabs share the look:
+   38px, spacing-md padding, radius-md, brand-primary focus border. */
+.form-input {
+  width: 100%;
+  height: 38px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 8px var(--spacing-md);
+  padding: 0 var(--spacing-md);
   font-size: var(--font-size-base);
   font-family: var(--font-family);
   color: var(--color-text-primary);
   background: var(--color-surface);
   outline: none;
+  transition: border-color var(--transition-fast);
+
   &:focus    { border-color: var(--color-primary); }
   &:disabled { background: var(--color-bg); color: var(--color-text-muted); cursor: not-allowed; }
 }
-.form-textarea { resize: vertical; }
+
+/* Textarea variant: same look as .form-input but auto-height. */
+.form-textarea {
+  width: 100%;
+  min-height: 80px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-base);
+  font-family: var(--font-family);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  outline: none;
+  resize: vertical;
+  line-height: 1.5;
+  transition: border-color var(--transition-fast);
+
+  &:focus    { border-color: var(--color-primary); }
+  &:disabled { background: var(--color-bg); color: var(--color-text-muted); cursor: not-allowed; }
+}
 
 .section-subtitle {
-  margin: var(--spacing-md) 0 4px;
+  margin: var(--spacing-md) 0 var(--spacing-xs, 4px);
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
 }
 
 .hint {
@@ -280,7 +301,7 @@
   display: flex;
   gap: var(--spacing-sm);
   align-items: stretch;
-  & > .form-input { flex: 1; }
+  & > app-select { flex: 1; }
 }
 
 .member-list {

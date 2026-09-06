@@ -37,7 +37,7 @@ type Ifrs17SubTab =
     MarketDataTabComponent,
   ],
   templateUrl: './ifrs17-config.component.html',
-  styleUrl: '../actuarial-bases/actuarial-bases.component.scss',
+  styleUrl: './ifrs17-config.component.scss',
 })
 export class Ifrs17ConfigComponent {
   activeSubTab: Ifrs17SubTab = 'ra';

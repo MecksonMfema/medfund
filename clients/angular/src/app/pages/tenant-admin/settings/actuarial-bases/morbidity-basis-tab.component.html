@@ -19,7 +19,7 @@
       </div>
       <div class="section-actions">
         <button type="button" class="btn btn-default" (click)="refresh()" [disabled]="loading">
-          <app-icon name="refresh-cw" [size]="16"></app-icon>
+          <app-icon name="refresh" [size]="16"></app-icon>
           Refresh
         </button>
         <button type="button" class="btn btn-primary" (click)="openAdd()" [disabled]="addingOpen">
@@ -43,7 +43,7 @@
             <th>Effective from</th>
             <th>Effective to</th>
             <th>Updated by</th>
-            <th></th>
+            <th class="col-actions"></th>
           </tr>
         </thead>
         <tbody>
@@ -64,7 +64,7 @@
               </td>
               <td>
                 @if (row.editing) {
-                  <input type="number" step="0.0001" min="0.0001" class="inline-input"
+                  <input type="number" step="0.0001" min="0.0001" class="form-input"
                          [(ngModel)]="row.draftMorbidityMultiplier" name="edit-mult-{{row.id}}" />
                 } @else {
                   {{ row.morbidityMultiplier }}
@@ -73,7 +73,7 @@
               <td>{{ row.effectiveFrom }}</td>
               <td>
                 @if (row.editing) {
-                  <input type="date" class="inline-input"
+                  <input type="date" class="form-input"
                          [ngModel]="row.draftEffectiveTo" (ngModelChange)="row.draftEffectiveTo = $event"
                          name="edit-to-{{row.id}}" />
                 } @else {
@@ -83,18 +83,18 @@
               <td>{{ row.updatedByEmail || '-' }}</td>
               <td class="row-actions">
                 @if (row.editing) {
-                  <button type="button" class="link-btn" (click)="saveEdit(row)" [disabled]="pendingId === row.id">
-                    <app-icon name="check" [size]="14"></app-icon> Save
+                  <button type="button" class="btn btn-primary btn-sm" (click)="saveEdit(row)" [disabled]="pendingId === row.id">
+                    Save
                   </button>
-                  <button type="button" class="link-btn" (click)="cancelEdit(row)">
-                    <app-icon name="x" [size]="14"></app-icon> Cancel
+                  <button type="button" class="btn btn-default btn-sm" (click)="cancelEdit(row)">
+                    Cancel
                   </button>
                 } @else {
-                  <button type="button" class="link-btn" (click)="startEdit(row)">
-                    <app-icon name="pencil" [size]="14"></app-icon>
+                  <button type="button" class="btn btn-default btn-sm" (click)="startEdit(row)">
+                    Edit
                   </button>
-                  <button type="button" class="link-btn danger" (click)="remove(row)" [disabled]="pendingId === row.id">
-                    <app-icon name="trash-2" [size]="14"></app-icon>
+                  <button type="button" class="btn btn-danger btn-sm" (click)="remove(row)" [disabled]="pendingId === row.id">
+                    Delete
                   </button>
                 }
               </td>
@@ -129,19 +129,20 @@
           </label>
           <label class="field">
             <span class="field-label">Multiplier</span>
-            <input type="number" step="0.0001" min="0.0001"
+            <input type="number" step="0.0001" min="0.0001" class="form-input"
                    [(ngModel)]="newRow.morbidityMultiplier" name="newMult" required />
           </label>
           <label class="field">
             <span class="field-label">Effective from</span>
-            <input type="date" [ngModel]="newRow.effectiveFrom" (ngModelChange)="newRow.effectiveFrom = $event"
+            <input type="date" class="form-input"
+                   [ngModel]="newRow.effectiveFrom" (ngModelChange)="newRow.effectiveFrom = $event"
                    name="newFrom" />
           </label>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-ghost" (click)="cancelAdd()" [disabled]="adding">Cancel</button>
+          <button type="button" class="btn btn-default" (click)="cancelAdd()" [disabled]="adding">Cancel</button>
           <button type="submit" class="btn btn-primary" [disabled]="adding">
-            {{ adding ? 'Adding…' : 'Add row' }}
+            {{ adding ? 'Adding...' : 'Add row' }}
           </button>
         </div>
       </form>
