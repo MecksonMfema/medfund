@@ -38,6 +38,16 @@ export interface OperationalNavItem {
    * before an operator clicks through to a 403.
    */
   reportKey?: string;
+  /**
+   * Tenant sidebar-visibility catalogue key. When present, the sidebar
+   * hides the item if the tenant admin has toggled that section off in
+   * {@code /tenant/admin/settings/sidebar-visibility}. Must match a value
+   * of the Java {@code SidebarSectionKey} enum — the tenancy-service PUT
+   * handler rejects unknown keys with 400 so the two catalogues stay in
+   * lockstep. Overview / Dashboard is intentionally not gated so the
+   * admin can never lock themselves out of the portal.
+   */
+  sectionKey?: string;
   featureFlag?:
       | 'drugClaims'
       | 'ageGroupsAvailable'
@@ -79,16 +89,16 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
   {
     title: 'Billing',
     items: [
-      { label: 'Transactions',       icon: 'activity',    route: '/tenant/billing/transactions',     permissions: ['billing:post_transactions', 'billing:view'], exactMatch: true },
-      { label: 'Record Transaction', icon: 'credit-card', route: '/tenant/billing/transactions/add', permissions: ['billing:post_transactions'] },
-      { label: 'Schemes',        icon: 'briefcase',      route: '/tenant/billing/schemes',      permissions: ['billing:view', 'billing:manage_schemes'], exactMatch: true },
-      { label: 'Age Groups',     icon: 'users',          route: '/tenant/billing/age-groups',   permissions: ['billing:view', 'billing:manage_age_groups'], featureFlag: 'ageGroupsAvailable' },
-      { label: 'Generate',       icon: 'play-circle',    route: '/tenant/billing/generate',     permissions: ['billing:generate_billing'] },
-      { label: 'Contribution Statements', icon: 'list',           route: '/tenant/billing/view',         permissions: ['billing:view'] },
-      { label: 'Ledger',         icon: 'file-text',      route: '/tenant/billing/ledger',       permissions: ['billing:view_statements'] },
-      { label: 'Debtors',        icon: 'trending-down',  route: '/tenant/billing/debtors',      permissions: ['billing:view_debtors'] },
-      { label: 'Bad Debts',      icon: 'alert-triangle', route: '/tenant/billing/bad-debts',    permissions: ['billing:manage_bad_debts'] },
-      { label: 'Charge Preview', icon: 'building',       route: '/tenant/billing/charge-preview', permissions: ['billing:view_debtors'] },
+      { label: 'Transactions',       icon: 'activity',    route: '/tenant/billing/transactions',     permissions: ['billing:post_transactions', 'billing:view'], exactMatch: true, sectionKey: 'BILLING_TRANSACTIONS' },
+      { label: 'Record Transaction', icon: 'credit-card', route: '/tenant/billing/transactions/add', permissions: ['billing:post_transactions'], sectionKey: 'BILLING_RECORD_TRANSACTION' },
+      { label: 'Schemes',        icon: 'briefcase',      route: '/tenant/billing/schemes',      permissions: ['billing:view', 'billing:manage_schemes'], exactMatch: true, sectionKey: 'BILLING_SCHEMES' },
+      { label: 'Age Groups',     icon: 'users',          route: '/tenant/billing/age-groups',   permissions: ['billing:view', 'billing:manage_age_groups'], featureFlag: 'ageGroupsAvailable', sectionKey: 'BILLING_AGE_GROUPS' },
+      { label: 'Generate',       icon: 'play-circle',    route: '/tenant/billing/generate',     permissions: ['billing:generate_billing'], sectionKey: 'BILLING_GENERATE' },
+      { label: 'Contribution Statements', icon: 'list',           route: '/tenant/billing/view',         permissions: ['billing:view'], sectionKey: 'BILLING_CONTRIBUTION_STATEMENTS' },
+      { label: 'Ledger',         icon: 'file-text',      route: '/tenant/billing/ledger',       permissions: ['billing:view_statements'], sectionKey: 'BILLING_LEDGER' },
+      { label: 'Debtors',        icon: 'trending-down',  route: '/tenant/billing/debtors',      permissions: ['billing:view_debtors'], sectionKey: 'BILLING_DEBTORS' },
+      { label: 'Bad Debts',      icon: 'alert-triangle', route: '/tenant/billing/bad-debts',    permissions: ['billing:manage_bad_debts'], sectionKey: 'BILLING_BAD_DEBTS' },
+      { label: 'Charge Preview', icon: 'building',       route: '/tenant/billing/charge-preview', permissions: ['billing:view_debtors'], sectionKey: 'BILLING_CHARGE_PREVIEW' },
     ],
   },
   {
@@ -98,12 +108,12 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
       // is gated by the tenant having the corresponding insurance line
       // enabled in their settings.insuranceLines — a tenant who only
       // sells HEALTH never sees the Motor / Property / Life rows.
-      { label: 'Vehicles',    icon: 'shield',  route: '/tenant/policies/vehicles',    featureFlag: 'vehiclesAvailable' },
-      { label: 'Properties',  icon: 'shield',  route: '/tenant/policies/properties',  featureFlag: 'propertiesAvailable' },
-      { label: 'Life',        icon: 'shield',  route: '/tenant/policies/life',        featureFlag: 'lifeAvailable' },
-      { label: 'Funeral',     icon: 'shield',  route: '/tenant/policies/funeral',     featureFlag: 'funeralAvailable' },
-      { label: 'Travel',      icon: 'shield',  route: '/tenant/policies/travel',      featureFlag: 'travelAvailable' },
-      { label: 'Disability',  icon: 'shield',  route: '/tenant/policies/disability',  featureFlag: 'disabilityAvailable' },
+      { label: 'Vehicles',    icon: 'shield',  route: '/tenant/policies/vehicles',    featureFlag: 'vehiclesAvailable',   sectionKey: 'POLICIES_VEHICLES' },
+      { label: 'Properties',  icon: 'shield',  route: '/tenant/policies/properties',  featureFlag: 'propertiesAvailable', sectionKey: 'POLICIES_PROPERTIES' },
+      { label: 'Life',        icon: 'shield',  route: '/tenant/policies/life',        featureFlag: 'lifeAvailable',       sectionKey: 'POLICIES_LIFE' },
+      { label: 'Funeral',     icon: 'shield',  route: '/tenant/policies/funeral',     featureFlag: 'funeralAvailable',    sectionKey: 'POLICIES_FUNERAL' },
+      { label: 'Travel',      icon: 'shield',  route: '/tenant/policies/travel',      featureFlag: 'travelAvailable',     sectionKey: 'POLICIES_TRAVEL' },
+      { label: 'Disability',  icon: 'shield',  route: '/tenant/policies/disability',  featureFlag: 'disabilityAvailable', sectionKey: 'POLICIES_DISABILITY' },
     ],
   },
   {
@@ -113,12 +123,12 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
       // (/tenant/members/:id) doesn't keep this row highlighted alongside
       // the detail page. Dependants are edited inside Member Detail —
       // no separate sidebar entry.
-      { label: 'Members',     icon: 'users',     route: '/tenant/members',          permissions: ['members:view'], exactMatch: true },
+      { label: 'Members',     icon: 'users',     route: '/tenant/members',          permissions: ['members:view'], exactMatch: true, sectionKey: 'MEMBERS_MEMBERS' },
       // Real Groups CRUD lives under the billing tree (GroupsListComponent +
       // GroupDetailComponent). Surface it under Members for navigation, and
       // gate it on membershipModel — INDIVIDUAL_ONLY tenants have no group
       // entities.
-      { label: 'Groups',      icon: 'building',  route: '/tenant/billing/groups',   permissions: ['billing:manage_groups'], featureFlag: 'groupsAvailable' },
+      { label: 'Groups',      icon: 'building',  route: '/tenant/billing/groups',   permissions: ['billing:manage_groups'], featureFlag: 'groupsAvailable', sectionKey: 'MEMBERS_GROUPS' },
     ],
   },
   {
@@ -126,16 +136,16 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
     items: [
       // exactMatch on the parent route — Drug Claims, Pre-Auth, and
       // Tariffs are all children that would otherwise keep this item highlighted.
-      { label: 'All Claims',         icon: 'file-medical',  route: '/tenant/claims',         permissions: ['claims:view', 'claims:view_drug'], exactMatch: true },
-      { label: 'Submit Claim',       icon: 'file-text',     route: '/tenant/claims/submit',  permissions: ['claims:create'] },
-      { label: 'Eligibility Quote',  icon: 'calculator',    route: '/tenant/claims/eligibility-quote', permissions: ['claims:request_quote'] },
-      { label: 'Pre-Authorizations', icon: 'check-circle',  route: '/tenant/claims/preauth', permissions: ['claims:manage_preauth'], featureFlag: 'preauthAvailable', exactMatch: true },
-      { label: 'New Pre-Auth',       icon: 'plus',          route: '/tenant/claims/preauth/new', permissions: ['claims:manage_preauth'], featureFlag: 'preauthAvailable' },
-      { label: 'Tariffs',            icon: 'banknote',      route: '/tenant/claims/tariffs', permissions: ['claims:manage_tariffs'] },
+      { label: 'All Claims',         icon: 'file-medical',  route: '/tenant/claims',         permissions: ['claims:view', 'claims:view_drug'], exactMatch: true, sectionKey: 'CLAIMS_ALL' },
+      { label: 'Submit Claim',       icon: 'file-text',     route: '/tenant/claims/submit',  permissions: ['claims:create'], sectionKey: 'CLAIMS_SUBMIT' },
+      { label: 'Eligibility Quote',  icon: 'calculator',    route: '/tenant/claims/eligibility-quote', permissions: ['claims:request_quote'], sectionKey: 'CLAIMS_ELIGIBILITY_QUOTE' },
+      { label: 'Pre-Authorizations', icon: 'check-circle',  route: '/tenant/claims/preauth', permissions: ['claims:manage_preauth'], featureFlag: 'preauthAvailable', exactMatch: true, sectionKey: 'CLAIMS_PREAUTH' },
+      { label: 'New Pre-Auth',       icon: 'plus',          route: '/tenant/claims/preauth/new', permissions: ['claims:manage_preauth'], featureFlag: 'preauthAvailable', sectionKey: 'CLAIMS_NEW_PREAUTH' },
+      { label: 'Tariffs',            icon: 'banknote',      route: '/tenant/claims/tariffs', permissions: ['claims:manage_tariffs'], sectionKey: 'CLAIMS_TARIFFS' },
       // Phase 19 §A Phase 6 — SIU (Special Investigations Unit) case
       // workqueue. exactMatch on /tenant/claims/siu so the item stays
       // highlighted only on the queue page, not the case-detail children.
-      { label: 'SIU Cases',          icon: 'shield',        route: '/tenant/claims/siu',     permissions: ['claims:siu:view'], exactMatch: true },
+      { label: 'SIU Cases',          icon: 'shield',        route: '/tenant/claims/siu',     permissions: ['claims:siu:view'], exactMatch: true, sectionKey: 'CLAIMS_SIU_CASES' },
     ],
   },
   {
@@ -146,41 +156,52 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
       // (/tenant/finance/runs/:id), which shows the payments-in-run table
       // inline with the run summary. The /tenant/finance/payments route
       // still resolves for direct URLs / legacy bookmarks.
-      { label: 'Payment Runs',       icon: 'play-circle',  route: '/tenant/finance/runs',                  permissions: ['finance:view', 'finance:create_payment_run'], reportKey: 'PAYMENT_RUNS' },
-      { label: 'Advance Payments',   icon: 'credit-card',  route: '/tenant/finance/payments/advance',      permissions: ['finance:view_advance_payments'], reportKey: 'ADVANCE_PAYMENTS' },
-      { label: 'CTC Payments',       icon: 'credit-card',  route: '/tenant/finance/payments/ctc',          permissions: ['finance:manage_ctc_payments'], reportKey: 'CTC_PAYMENTS' },
-      { label: 'Creditors',          icon: 'building',     route: '/tenant/finance/creditors',             permissions: ['finance:view_creditors'], reportKey: 'CREDITORS' },
-      { label: 'Reconciliation',     icon: 'wallet',       route: '/tenant/finance/reconciliations',       permissions: ['finance:view'], reportKey: 'RECONCILIATIONS' },
-      { label: 'Notes',              icon: 'edit',         route: '/tenant/finance/notes',                 permissions: ['finance.notes:read'], reportKey: 'NOTES' },
-      { label: 'Payment Advice',     icon: 'wallet',       route: '/tenant/finance/advice',                permissions: ['finance:view_payment_advice'], reportKey: 'PAYMENT_ADVICE' },
-      { label: 'Cost-share receipts', icon: 'wallet',      route: '/tenant/finance/copayments',            permissions: ['finance:manage_copayments'] },
-      { label: 'Member Liabilities', icon: 'wallet',       route: '/tenant/finance/member-liabilities',    permissions: ['finance:view_member_liabilities'] },
-      // Phase 10 §B — facultative-cession operational surface. Browse is
+      { label: 'Payment Runs',       icon: 'play-circle',  route: '/tenant/finance/runs',                  permissions: ['finance:view', 'finance:create_payment_run'], reportKey: 'PAYMENT_RUNS', sectionKey: 'FINANCE_PAYMENT_RUNS' },
+      { label: 'Advance Payments',   icon: 'credit-card',  route: '/tenant/finance/payments/advance',      permissions: ['finance:view_advance_payments'], reportKey: 'ADVANCE_PAYMENTS', sectionKey: 'FINANCE_ADVANCE_PAYMENTS' },
+      { label: 'CTC Payments',       icon: 'credit-card',  route: '/tenant/finance/payments/ctc',          permissions: ['finance:manage_ctc_payments'], reportKey: 'CTC_PAYMENTS', sectionKey: 'FINANCE_CTC_PAYMENTS' },
+      { label: 'Creditors',          icon: 'building',     route: '/tenant/finance/creditors',             permissions: ['finance:view_creditors'], reportKey: 'CREDITORS', sectionKey: 'FINANCE_CREDITORS' },
+      { label: 'Reconciliation',     icon: 'wallet',       route: '/tenant/finance/reconciliations',       permissions: ['finance:view'], reportKey: 'RECONCILIATIONS', sectionKey: 'FINANCE_RECONCILIATION' },
+      { label: 'Notes',              icon: 'edit',         route: '/tenant/finance/notes',                 permissions: ['finance.notes:read'], reportKey: 'NOTES', sectionKey: 'FINANCE_NOTES' },
+      { label: 'Payment Advice',     icon: 'wallet',       route: '/tenant/finance/advice',                permissions: ['finance:view_payment_advice'], reportKey: 'PAYMENT_ADVICE', sectionKey: 'FINANCE_PAYMENT_ADVICE' },
+      { label: 'Cost-share receipts', icon: 'wallet',      route: '/tenant/finance/copayments',            permissions: ['finance:manage_copayments'], sectionKey: 'FINANCE_COST_SHARE_RECEIPTS' },
+      { label: 'Member Liabilities', icon: 'wallet',       route: '/tenant/finance/member-liabilities',    permissions: ['finance:view_member_liabilities'], sectionKey: 'FINANCE_MEMBER_LIABILITIES' },
+    ],
+  },
+  {
+    // Everything from facultative browsing downwards lives in its own
+    // sidebar group: these are review/oversight/analytics surfaces
+    // (reinsurance queues, commission adjustments, endorsement review,
+    // executive KPIs, the report catalogue) that read more like a
+    // reporting/oversight destination than the operational Finance rows
+    // above (payment runs, notes, payments). Routes are unchanged; only
+    // the sidebar grouping moved.
+    title: 'Reporting',
+    items: [
+      // Phase 10 §B - facultative-cession operational surface. Browse is
       // gated on cede_facultative (underwriter); queue is gated on view so
       // any finance user can see progress even if they can't act on it.
-      { label: 'Facultative - Browse', icon: 'shield',     route: '/tenant/finance/reinsurance/facultative/browse', permissions: ['finance.reinsurance:cede_facultative'] },
-      { label: 'Facultative - Queue',  icon: 'shield',     route: '/tenant/finance/reinsurance/facultative/queue',  permissions: ['finance.reinsurance:view'] },
-      { label: 'Reinsurance - Review Queue', icon: 'alert-triangle', route: '/tenant/finance/reinsurance/review-queue', permissions: ['finance.reinsurance:view'] },
-      // Phase 11 §A Phase 6 — PRODUCER-typed payment runs (commission
+      { label: 'Facultative - Browse', icon: 'shield',     route: '/tenant/finance/reinsurance/facultative/browse', permissions: ['finance.reinsurance:cede_facultative'], sectionKey: 'REPORTING_FACULTATIVE_BROWSE' },
+      { label: 'Facultative - Queue',  icon: 'shield',     route: '/tenant/finance/reinsurance/facultative/queue',  permissions: ['finance.reinsurance:view'], sectionKey: 'REPORTING_FACULTATIVE_QUEUE' },
+      { label: 'Reinsurance - Review Queue', icon: 'alert-triangle', route: '/tenant/finance/reinsurance/review-queue', permissions: ['finance.reinsurance:view'], sectionKey: 'REPORTING_REINSURANCE_REVIEW_QUEUE' },
+      // Phase 11 §A Phase 6 - PRODUCER-typed payment runs (commission
       // payouts). Separate landing page from PROVIDER/MEMBER payment runs
       // because commission payouts carry a period + different permission
       // gates (finance.commission:*).
-      { label: 'Producer Payouts',   icon: 'briefcase',    route: '/tenant/finance/payouts/producer',      permissions: ['finance.commission:view'] },
-      // Phase 11 §B Phase 8 — four-eyes commission adjustment queues.
+      { label: 'Producer Payouts',   icon: 'briefcase',    route: '/tenant/finance/payouts/producer',      permissions: ['finance.commission:view'], sectionKey: 'REPORTING_PRODUCER_PAYOUTS' },
+      // Phase 11 §B Phase 8 - four-eyes commission adjustment queues.
       // Two peers rather than a nested "Commission" group (matches the
-      // Facultative — Browse/Queue peer-shape above).
-      { label: 'Adjustments (draft)',   icon: 'edit',        route: '/tenant/finance/commission/adjustments/draft',   permissions: ['finance.commission:draft_adjustment'] },
-      { label: 'Adjustments (approve)', icon: 'check-circle', route: '/tenant/finance/commission/adjustments/approve', permissions: ['finance.commission:approve_adjustment'] },
-      // Phase 12 §C Phase 10 — endorsement four-eyes review queue.
+      // Facultative Browse/Queue peer-shape above).
+      { label: 'Adjustments (draft)',   icon: 'edit',        route: '/tenant/finance/commission/adjustments/draft',   permissions: ['finance.commission:draft_adjustment'], sectionKey: 'REPORTING_ADJUSTMENTS_DRAFT' },
+      { label: 'Adjustments (approve)', icon: 'check-circle', route: '/tenant/finance/commission/adjustments/approve', permissions: ['finance.commission:approve_adjustment'], sectionKey: 'REPORTING_ADJUSTMENTS_APPROVE' },
+      // Phase 12 §C Phase 10 - endorsement four-eyes review queue.
       // Single "Endorsement Review" peer entry per plan; drafting stays
       // on the per-policy endorsement page under /tenant/policies.
-      { label: 'Endorsement Review',    icon: 'shield',      route: '/tenant/finance/underwriting/endorsements/review-queue', permissions: ['policy:approve_endorsement'] },
-      // Phase 7 (financial-reporting Phase 18) — executive KPI batch page.
-      // reportKey stamps COMBINED_RATIO so the sidebar hides the entry only
-      // when the tenant has disabled every KPI (matches the batch endpoint
-      // gate).
-      { label: 'Executive KPIs',     icon: 'chart',        route: '/tenant/finance/reports/kpi',           permissions: ['finance:view_subledger'], reportKey: 'COMBINED_RATIO' },
-      { label: 'Reports',            icon: 'chart',        route: '/tenant/finance/reports',               permissions: ['finance:view_debtors', 'finance:view_subledger'] },
+      { label: 'Endorsement Review',    icon: 'shield',      route: '/tenant/finance/underwriting/endorsements/review-queue', permissions: ['policy:approve_endorsement'], sectionKey: 'REPORTING_ENDORSEMENT_REVIEW' },
+      // Financial-reporting suite (Phases 7 + 18). reportKey stamps
+      // COMBINED_RATIO so Executive KPIs hides only when the tenant has
+      // disabled every KPI (matches the batch endpoint gate).
+      { label: 'Executive KPIs',     icon: 'chart',        route: '/tenant/finance/reports/kpi',           permissions: ['finance:view_subledger'], reportKey: 'COMBINED_RATIO', sectionKey: 'REPORTING_EXECUTIVE_KPIS' },
+      { label: 'Reports',            icon: 'chart',        route: '/tenant/finance/reports',               permissions: ['finance:view_debtors', 'finance:view_subledger'], sectionKey: 'REPORTING_REPORTS' },
     ],
   },
 ];

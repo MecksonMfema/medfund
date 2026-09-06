@@ -1,0 +1,75 @@
+<div class="sidebar-sections-tab">
+  <header class="section-header">
+    <div>
+      <h3 class="section-title">Sidebar Visibility</h3>
+      <p class="section-sub">
+        Choose which operations-portal sidebar items your team sees. New sections are
+        enabled by default. Users still need the appropriate permission to see an item:
+        disabling a section here hides it for everyone in your tenant, even users who
+        would otherwise be permitted to open it.
+      </p>
+    </div>
+    <div class="section-actions">
+      @if (saved) {
+        <span class="saved-badge">
+          <app-icon name="check-circle" [size]="16"></app-icon> Saved
+        </span>
+      }
+      <button
+        class="btn btn-primary"
+        (click)="save()"
+        [disabled]="saving || loading || !dirty()"
+      >
+        {{ saving ? 'Saving...' : 'Save changes' }}
+      </button>
+    </div>
+  </header>
+
+  @if (loading) {
+    <div class="sections-grid">
+      @for (_ of [0, 1, 2, 3]; track $index) {
+        <div class="section-card">
+          <app-skeleton variant="line" width="180px" height="18px"></app-skeleton>
+          <div style="height: 8px"></div>
+          @for (_ of [0, 1, 2, 3]; track $index) {
+            <app-skeleton variant="line" width="100%" height="32px"></app-skeleton>
+          }
+        </div>
+      }
+    </div>
+  } @else {
+    @if (errorMessage) {
+      <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+    }
+
+    <div class="sections-grid">
+      @for (bucket of buckets; track bucket.group) {
+        <div class="section-card">
+          <div class="section-card-header">
+            <h4 class="section-card-title">{{ bucket.groupLabel }}</h4>
+            <div class="section-card-actions">
+              <button class="btn btn-default btn-sm" (click)="toggleGroup(bucket, true)">Enable all</button>
+              <button class="btn btn-default btn-sm" (click)="toggleGroup(bucket, false)">Disable all</button>
+            </div>
+          </div>
+
+          <ul class="section-list">
+            @for (row of bucket.rows; track row.sectionKey) {
+              <li class="section-list-item">
+                <label class="switch-row">
+                  <input
+                    type="checkbox"
+                    [checked]="isEnabled(row)"
+                    (change)="toggle(row)"
+                  />
+                  <span class="section-label">{{ row.label }}</span>
+                  <span class="section-key">{{ row.sectionKey }}</span>
+                </label>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+  }
+</div>

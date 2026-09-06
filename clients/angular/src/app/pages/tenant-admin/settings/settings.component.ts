@@ -20,6 +20,7 @@ import { AutoLapseConfigComponent } from './auto-lapse/auto-lapse-config.compone
 import { EndorsementConfigComponent } from './endorsement/endorsement-config.component';
 import { ActuarialBasesComponent } from './actuarial-bases/actuarial-bases.component';
 import { Ifrs17ConfigComponent } from './ifrs17-config/ifrs17-config.component';
+import { SidebarSectionsTabComponent } from './sidebar-sections/sidebar-sections-tab.component';
 import { TenantService } from '../../../core/services/tenant.service';
 import {
   BrandingService,
@@ -72,7 +73,7 @@ export const JURISDICTIONS = [
   { value: 'US_NAIC',                label: 'United States - NAIC' },
 ];
 
-type TabId = 'general' | 'branding' | 'insurance-lines' | 'currencies' | 'billing' | 'proration' | 'bank-accounts' | 'email-templates' | 'reports' | 'auto-lapse' | 'endorsement-config' | 'actuarial-bases' | 'ifrs17-config' | 'roles';
+type TabId = 'general' | 'branding' | 'sidebar-sections' | 'insurance-lines' | 'currencies' | 'billing' | 'proration' | 'bank-accounts' | 'email-templates' | 'reports' | 'auto-lapse' | 'endorsement-config' | 'actuarial-bases' | 'ifrs17-config' | 'roles';
 
 type GroupId = 'profile' | 'finance' | 'communications' | 'operations' | 'actuarial';
 
@@ -99,7 +100,7 @@ interface TabGroup {
 @Component({
   selector: 'app-tenant-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, EditorComponent, TenantRolesTabComponent, TenantCurrenciesTabComponent, TenantBillingTabComponent, TenantProrationTabComponent, TenantBankAccountsTabComponent, TenantReportsTabComponent, AutoLapseConfigComponent, EndorsementConfigComponent, ActuarialBasesComponent, Ifrs17ConfigComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, EditorComponent, TenantRolesTabComponent, TenantCurrenciesTabComponent, TenantBillingTabComponent, TenantProrationTabComponent, TenantBankAccountsTabComponent, TenantReportsTabComponent, AutoLapseConfigComponent, EndorsementConfigComponent, ActuarialBasesComponent, Ifrs17ConfigComponent, SidebarSectionsTabComponent, SelectComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss',
 })
@@ -117,10 +118,11 @@ export class TenantSettingsComponent implements OnInit {
     {
       id: 'profile', label: 'Profile', icon: 'settings',
       tabs: [
-        { id: 'general',         label: 'General',             icon: 'settings' },
-        { id: 'branding',        label: 'Branding',            icon: 'globe' },
-        { id: 'insurance-lines', label: 'Insurance Lines',     icon: 'briefcase' },
-        { id: 'roles',           label: 'Roles & Permissions', icon: 'shield' },
+        { id: 'general',          label: 'General',              icon: 'settings' },
+        { id: 'branding',         label: 'Branding',             icon: 'globe' },
+        { id: 'sidebar-sections', label: 'Sidebar Visibility',   icon: 'layers' },
+        { id: 'insurance-lines',  label: 'Insurance Lines',      icon: 'briefcase' },
+        { id: 'roles',            label: 'Roles & Permissions',  icon: 'shield' },
       ],
     },
     {

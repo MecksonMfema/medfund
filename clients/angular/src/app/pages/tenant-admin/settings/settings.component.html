@@ -299,6 +299,15 @@
   </div>
 }
 
+<!-- Sidebar Visibility -->
+@if (activeTab === 'sidebar-sections') {
+  <div class="settings-section">
+    <div class="branding-card">
+      <app-sidebar-sections-tab></app-sidebar-sections-tab>
+    </div>
+  </div>
+}
+
 <!-- Insurance Lines -->
 @if (activeTab === 'insurance-lines') {
   <div class="settings-section">

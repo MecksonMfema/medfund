@@ -6,6 +6,7 @@ import { KeycloakService } from 'keycloak-angular';
 import { NavigationService } from '../../core/services/navigation.service';
 import { TenantService } from '../../core/services/tenant.service';
 import { TenantReportConfigService } from '../../core/services/tenant-report-config.service';
+import { TenantSidebarConfigService } from '../../core/services/tenant-sidebar-config.service';
 import { PermissionService } from '../../core/security/permission.service';
 import { OPERATIONAL_NAV, OperationalNavGroup, OperationalNavItem } from './operational-nav';
 import { IconComponent } from '../../shared/components/icon/icon.component';
@@ -49,12 +50,22 @@ export class OperationalSidebarComponent implements OnInit, OnDestroy {
    */
   private disabledReportKeys = new Set<string>();
 
+  /**
+   * Sidebar section keys the tenant admin has explicitly disabled — nav
+   * items whose {@code sectionKey} is in this set are hidden. Populated
+   * from {@link TenantSidebarConfigService.list} on tenant switch; empty
+   * when every catalogue entry is enabled (the default). Fails open on
+   * error so a broken endpoint never blanks the sidebar.
+   */
+  private disabledSectionKeys = new Set<string>();
+
   private subs: Subscription[] = [];
 
   constructor(
     private navService: NavigationService,
     private tenantService: TenantService,
     private reportConfig: TenantReportConfigService,
+    private sidebarConfig: TenantSidebarConfigService,
     private permissions: PermissionService,
     private keycloak: KeycloakService,
     private router: Router,
@@ -91,6 +102,18 @@ export class OperationalSidebarComponent implements OnInit, OnDestroy {
             this.rebuildNav();
           },
         }));
+        this.subs.push(this.sidebarConfig.list(tenant.id).subscribe({
+          next: rows => {
+            this.disabledSectionKeys = new Set(
+              rows.filter(r => !r.enabled).map(r => r.sectionKey),
+            );
+            this.rebuildNav();
+          },
+          error: () => {
+            this.disabledSectionKeys = new Set();
+            this.rebuildNav();
+          },
+        }));
       }
     }));
   }
@@ -112,6 +135,7 @@ export class OperationalSidebarComponent implements OnInit, OnDestroy {
           .filter(item => this.allowed(item, set))
           .filter(item => this.featureFlagPasses(item, tenant))
           .filter(item => this.reportEnabled(item))
+          .filter(item => this.sectionEnabled(item))
           // Substitute the tenant's plural for "Schemes" wherever the label
           // appears verbatim. Keeps the canonical nav config tenant-agnostic.
           .map(item => item.label === 'Schemes' ? { ...item, label: schemePlural } : item),
@@ -128,6 +152,18 @@ export class OperationalSidebarComponent implements OnInit, OnDestroy {
   private reportEnabled(item: OperationalNavItem): boolean {
     if (!item.reportKey) return true;
     return !this.disabledReportKeys.has(item.reportKey);
+  }
+
+  /**
+   * True when the tenant admin has NOT disabled the item's sidebar
+   * section catalogue key (or the item declares no {@code sectionKey}).
+   * Absent-row default is enabled per the Java-side
+   * {@code TenantSidebarSectionConfigService.isEnabled} contract, so an
+   * empty {@link disabledSectionKeys} keeps every item visible.
+   */
+  private sectionEnabled(item: OperationalNavItem): boolean {
+    if (!item.sectionKey) return true;
+    return !this.disabledSectionKeys.has(item.sectionKey);
   }
 
   /**
