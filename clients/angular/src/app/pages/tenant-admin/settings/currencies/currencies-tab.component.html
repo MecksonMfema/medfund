@@ -14,7 +14,7 @@
         <p class="section-sub">Currencies this tenant operates in. Toggle scope flags to control where each currency is allowed.</p>
       </div>
       <button type="button" class="btn btn-default" (click)="refresh()" [disabled]="loading">
-        <app-icon name="refresh-cw" [size]="16"></app-icon>
+        <app-icon name="refresh" [size]="16"></app-icon>
         Refresh
       </button>
     </header>
@@ -45,18 +45,24 @@
               <td>{{ row.name || '-' }}</td>
               <td>{{ row.symbol || '' }}</td>
               <td>
-                <button type="button" class="link-btn" (click)="setDefault(row)" [disabled]="row.isDefault">
-                  <app-icon [name]="row.isDefault ? 'check-circle' : 'circle'" [size]="14"></app-icon>
-                  {{ row.isDefault ? 'Default' : 'Set default' }}
-                </button>
+                @if (row.isDefault) {
+                  <span class="badge badge-default-currency">
+                    <app-icon name="check-circle" [size]="14"></app-icon>
+                    Default
+                  </span>
+                } @else {
+                  <button type="button" class="link-btn" (click)="setDefault(row)">
+                    Set default
+                  </button>
+                }
               </td>
               <td><input type="checkbox" [checked]="row.isBillingCurrency" (change)="toggleFlag(row, 'isBillingCurrency')" /></td>
               <td><input type="checkbox" [checked]="row.isClaimsCurrency"  (change)="toggleFlag(row, 'isClaimsCurrency')" /></td>
               <td><input type="checkbox" [checked]="row.isPaymentCurrency" (change)="toggleFlag(row, 'isPaymentCurrency')" /></td>
               <td><code>{{ row.exchangeRateSource }}</code></td>
               <td>
-                <button type="button" class="link-btn danger" (click)="remove(row)" [disabled]="row.isDefault">
-                  <app-icon name="trash-2" [size]="14"></app-icon>
+                <button type="button" class="btn btn-sm btn-danger" (click)="remove(row)" [disabled]="row.isDefault">
+                  Remove
                 </button>
               </td>
             </tr>
@@ -69,12 +75,14 @@
   <!-- ── Add currency ─────────────────────────────────────────────────────── -->
   <section class="section">
     <header class="section-header">
-      <h3 class="section-title">Add a currency</h3>
-      <p class="section-sub">Pick from the platform's master ISO 4217 catalogue.</p>
+      <div>
+        <h3 class="section-title">Add a currency</h3>
+        <p class="section-sub">Pick from the platform's master ISO 4217 catalogue.</p>
+      </div>
     </header>
 
-    <form class="add-form" (submit)="$event.preventDefault(); add()">
-      <label class="field">
+    <form class="add-form-row" (submit)="$event.preventDefault(); add()">
+      <label class="field field-currency">
         <span class="field-label">Currency</span>
         <app-select
           [(ngModel)]="selectedCode"
@@ -85,27 +93,29 @@
         ></app-select>
       </label>
 
-      <fieldset class="scope-flags">
-        <legend>Scope</legend>
-        <label><input type="checkbox" [(ngModel)]="newIsBilling" name="newBilling" /> Billing</label>
-        <label><input type="checkbox" [(ngModel)]="newIsClaims" name="newClaims" /> Claims</label>
-        <label><input type="checkbox" [(ngModel)]="newIsPayment" name="newPayment" /> Payments</label>
-        <label><input type="checkbox" [(ngModel)]="newIsDefault" name="newDefault" /> Set as default</label>
-      </fieldset>
-
-      <div class="form-actions">
-        <button type="submit" class="btn btn-primary" [disabled]="adding || !selectedCode">
-          {{ adding ? 'Adding…' : 'Add currency' }}
-        </button>
+      <div class="field field-scope">
+        <span class="field-label">Scope</span>
+        <div class="scope-checkboxes">
+          <label class="check"><input type="checkbox" [(ngModel)]="newIsBilling" name="newBilling" /> Billing</label>
+          <label class="check"><input type="checkbox" [(ngModel)]="newIsClaims" name="newClaims" /> Claims</label>
+          <label class="check"><input type="checkbox" [(ngModel)]="newIsPayment" name="newPayment" /> Payments</label>
+          <label class="check"><input type="checkbox" [(ngModel)]="newIsDefault" name="newDefault" /> Default</label>
+        </div>
       </div>
+
+      <button type="submit" class="btn btn-primary add-btn" [disabled]="adding || !selectedCode">
+        {{ adding ? 'Adding…' : 'Add currency' }}
+      </button>
     </form>
   </section>
 
   <!-- ── Exchange rates ──────────────────────────────────────────────────── -->
   <section class="section">
     <header class="section-header">
-      <h3 class="section-title">Exchange rates</h3>
-      <p class="section-sub">Manual rate entry and history. Each rate is an immutable, date-stamped snapshot.</p>
+      <div>
+        <h3 class="section-title">Exchange rates</h3>
+        <p class="section-sub">Manual rate entry and history. Each rate is an immutable, date-stamped snapshot.</p>
+      </div>
     </header>
 
     <form class="rate-form" (submit)="$event.preventDefault(); recordRate()">
@@ -132,11 +142,11 @@
         </label>
         <label class="field">
           <span class="field-label">Rate</span>
-          <input type="number" step="any" min="0.0000000001" [(ngModel)]="rateValue" name="rateValue" required />
+          <input type="number" class="form-input" step="any" min="0.0000000001" [(ngModel)]="rateValue" name="rateValue" required />
         </label>
         <label class="field">
           <span class="field-label">Effective date</span>
-          <input type="date" [(ngModel)]="rateDate" name="rateDateInput" required />
+          <input type="date" class="form-input" [(ngModel)]="rateDate" name="rateDateInput" required />
         </label>
       </div>
       <div class="form-actions">
@@ -149,9 +159,10 @@
     <header class="history-header">
       <h4 class="section-subtitle">History</h4>
       <form class="history-filters" (submit)="$event.preventDefault(); loadRateHistory()">
-        <input type="date" [(ngModel)]="rateFrom" name="rateFrom" />
-        <input type="date" [(ngModel)]="rateTo" name="rateTo" />
+        <input type="date" class="form-input form-input-sm" [(ngModel)]="rateFrom" name="rateFrom" />
+        <input type="date" class="form-input form-input-sm" [(ngModel)]="rateTo" name="rateTo" />
         <button type="submit" class="btn btn-default" [disabled]="ratesLoading">
+          <app-icon name="refresh" [size]="14"></app-icon>
           {{ ratesLoading ? 'Loading…' : 'Refresh' }}
         </button>
       </form>
@@ -173,7 +184,7 @@
           @for (r of rateHistory; track r.id) {
             <tr>
               <td>{{ r.rateDate }}</td>
-              <td>{{ r.baseCurrency }} → {{ r.quoteCurrency }}</td>
+              <td>{{ r.baseCurrency }} to {{ r.quoteCurrency }}</td>
               <td><strong>{{ r.rate }}</strong></td>
               <td><code>{{ r.source }}</code></td>
               <td>{{ r.tenantId ? 'Yes' : 'No' }}</td>

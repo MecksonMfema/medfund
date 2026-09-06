@@ -1,64 +1,66 @@
 .currencies-tab {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--spacing-xl);
 }
 
 .section {
-  background: var(--card-bg, white);
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 6px;
-  padding: 1.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
 }
 
 // .section-header layout is global (styles.scss); this tab tightens
 // the two vars it wants smaller than the settings/admin default.
 .section-header {
-  --section-header-gap: 1rem;
-  --section-header-margin-bottom: 1rem;
+  --section-header-gap: var(--spacing-base);
+  --section-header-margin-bottom: var(--spacing-base);
 }
 
 .section-title {
-  margin: 0 0 0.25rem;
-  font-size: 1rem;
-  font-weight: 600;
+  margin: 0 0 4px;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
 }
 
 .section-subtitle {
   margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
 }
 
 .section-sub {
   margin: 0;
-  color: var(--text-muted, #6b7280);
-  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
   max-width: 60ch;
 }
 
 .banner {
-  padding: 0.5rem 0.75rem;
-  border-radius: 4px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
 }
 
 .banner-error {
-  background: var(--danger-bg, #fee2e2);
-  color: var(--danger-fg, #991b1b);
+  background: var(--color-error-light, #fee2e2);
+  color: var(--color-error, #b91c1c);
 }
 
 .banner-success {
-  background: var(--success-bg, #d1fae5);
-  color: var(--success-fg, #065f46);
+  background: var(--color-success-light, #d1fae5);
+  color: var(--color-success, #065f46);
 }
 
 .empty-state {
-  color: var(--text-muted, #6b7280);
+  color: var(--color-text-secondary);
   font-style: italic;
-  margin: 0.5rem 0;
+  margin: var(--spacing-sm) 0;
 }
+
+/* ── Data table ───────────────────────────────────────────────────────────── */
 
 .data-table {
   width: 100%;
@@ -67,92 +69,152 @@
 
 .data-table th,
 .data-table td {
-  padding: 0.6rem 0.75rem;
+  padding: 10px 12px;
   text-align: left;
-  border-bottom: 1px solid var(--border, #e5e7eb);
+  border-bottom: 1px solid var(--color-border-light);
+  font-size: var(--font-size-sm);
+}
+
+.data-table th {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .data-table tr.pending {
   opacity: 0.5;
 }
 
+/* ── Inline action buttons in table cells ──────────────────────────────── */
+
 .link-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 4px;
   background: none;
   border: none;
-  color: var(--text, #374151);
+  color: var(--color-primary);
   cursor: pointer;
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
+  padding: 0;
+
+  &:hover { text-decoration: underline; }
+  &:disabled { cursor: default; color: var(--color-text-muted); }
 }
 
-.link-btn:disabled {
-  cursor: default;
-  color: var(--success-fg, #047857);
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
 }
 
-.link-btn.danger {
-  color: var(--danger-fg, #b91c1c);
+.badge-default-currency {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
 }
 
-.link-btn.danger:disabled {
-  color: var(--text-muted, #9ca3af);
-  cursor: not-allowed;
-}
-
-.add-form,
-.rate-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
+/* ── Form fields (shared across all forms in this tab) ─────────────────── */
 
 .field {
   display: flex;
   flex-direction: column;
-  font-size: 0.875rem;
+  gap: 4px;
+  font-size: var(--font-size-sm);
 }
 
 .field-label {
-  font-weight: 500;
-  margin-bottom: 0.25rem;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
 }
 
-.field select,
-.field input {
-  padding: 0.5rem;
-  border: 1px solid var(--border, #d1d5db);
-  border-radius: 4px;
-  font-size: 0.95rem;
+/* Match .form-input from settings.component.scss so nested tabs share the
+   same input look as the top-level General tab: 38px tall, spacing-md
+   horizontal padding, radius-md, brand-primary focus border. */
+.form-input {
+  height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--spacing-md);
+  font-size: var(--font-size-base);
+  font-family: var(--font-family);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  outline: none;
+  transition: border-color var(--transition-fast);
+
+  &:focus    { border-color: var(--color-primary); }
+  &:disabled { background: var(--color-bg); color: var(--color-text-muted); cursor: not-allowed; }
 }
 
-.scope-flags {
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 4px;
-  padding: 0.75rem 1rem;
+.form-input-sm {
+  height: 34px;
+  padding: 0 var(--spacing-sm);
+  font-size: var(--font-size-sm);
+}
+
+/* ── Add-currency: single row layout ───────────────────────────────────── */
+
+/* Currency select + scope checkboxes + submit button all on one line for a
+   compact form footprint. The select is capped narrow so the row does not
+   stretch beyond what the content needs. */
+.add-form-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--spacing-lg);
+  flex-wrap: wrap;
+}
+
+.field-currency {
+  flex: 0 0 260px;
+  max-width: 260px;
+}
+
+.field-scope {
+  flex: 1 1 auto;
+  min-width: 300px;
+}
+
+.scope-checkboxes {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: var(--spacing-base);
+  padding: 9px var(--spacing-sm);
+  min-height: 38px;
+  align-items: center;
 }
 
-.scope-flags legend {
-  padding: 0 0.5rem;
-  font-weight: 500;
-  font-size: 0.875rem;
-}
-
-.scope-flags label {
+.scope-checkboxes .check {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.875rem;
+  gap: 6px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.add-btn {
+  flex: 0 0 auto;
+}
+
+/* ── Exchange rates form ───────────────────────────────────────────────── */
+
+.rate-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-base);
 }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--spacing-base);
 }
 
 .form-actions {
@@ -164,19 +226,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin: 1.5rem 0 0.75rem;
+  margin: var(--spacing-xl) 0 var(--spacing-sm);
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: var(--spacing-sm);
 }
 
 .history-filters {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--spacing-sm);
   align-items: center;
-}
-
-.history-filters input {
-  padding: 0.4rem;
-  border: 1px solid var(--border, #d1d5db);
-  border-radius: 4px;
 }
