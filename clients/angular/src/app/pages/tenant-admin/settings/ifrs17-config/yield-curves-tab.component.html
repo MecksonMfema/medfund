@@ -19,10 +19,6 @@
         </p>
       </div>
       <div class="section-actions">
-        <button type="button" class="btn btn-default btn-sm" (click)="refresh()" [disabled]="loading">
-          <app-icon name="refresh" [size]="16"></app-icon>
-          Refresh
-        </button>
         <label class="btn btn-default btn-sm">
           <app-icon name="download" [size]="16"></app-icon>
           {{ uploading ? 'Uploading...' : 'CSV upload' }}
@@ -111,7 +107,7 @@
     }
 
     @if (addingOpen) {
-      <form class="add-form" (submit)="$event.preventDefault(); add()">
+      <form #addFormRef class="add-form" (submit)="$event.preventDefault(); add()">
         <div class="grid">
           <label class="field">
             <span class="field-label">Currency (ISO 4217)</span>

@@ -217,10 +217,22 @@
   font-size: var(--font-size-sm);
 }
 
+/* Fixed-column grid so IFRS 17 add-form fields land in tidy rows filling
+   the whole section width. .field-wide (grid-column: 1 / -1) wraps a
+   field to its own full-width row (e.g. notes). Collapses to fewer
+   columns on narrower viewports so nothing gets squeezed. */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--spacing-base);
+}
+
+@media (max-width: 900px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 520px) {
+  .grid { grid-template-columns: 1fr; }
 }
 
 .form-actions {

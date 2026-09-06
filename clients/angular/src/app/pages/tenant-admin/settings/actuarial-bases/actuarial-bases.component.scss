@@ -213,10 +213,24 @@
   font-size: var(--font-size-sm);
 }
 
+/* Four-column grid so the four basic fields in every basis form (line,
+   cohort/attained age/gender, retention/mortality/morbidity, effective
+   from) land on a single row filling the section width, with the wider
+   source-note field wrapping to a full-width row beneath via
+   .field-wide (grid-column: 1 / -1). Collapses to fewer columns on
+   narrower viewports so the row never crushes below usable width. */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: var(--spacing-base);
+}
+
+@media (max-width: 900px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 520px) {
+  .grid { grid-template-columns: 1fr; }
 }
 
 .form-actions {

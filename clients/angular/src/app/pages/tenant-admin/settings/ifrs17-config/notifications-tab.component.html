@@ -20,10 +20,6 @@
         </p>
       </div>
       <div class="section-actions">
-        <button type="button" class="btn btn-default btn-sm" (click)="refresh()" [disabled]="loading">
-          <app-icon name="refresh" [size]="16"></app-icon>
-          Refresh
-        </button>
         <button type="button" class="btn btn-primary btn-sm" (click)="openAdd()" [disabled]="addingOpen">
           <app-icon name="plus" [size]="16"></app-icon>
           Add recipient
@@ -114,7 +110,7 @@
     }
 
     @if (addingOpen) {
-      <form class="add-form" (submit)="$event.preventDefault(); add()">
+      <form #addFormRef class="add-form" (submit)="$event.preventDefault(); add()">
         <div class="grid">
           <label class="field">
             <span class="field-label">Event type</span>
@@ -134,12 +130,6 @@
               required
             ></app-select>
           </label>
-          <label class="field field-wide">
-            <span class="field-label">Recipient (email or webhook URL)</span>
-            <input type="text" class="form-input" maxlength="500" [(ngModel)]="newRow.recipient"
-                   name="newRecipient" required
-                   placeholder="risk-team@medfund.example or https://ops.example.com/hooks/ifrs17" />
-          </label>
           <label class="field">
             <span class="field-label">Throttle (minutes)</span>
             <input type="number" class="form-input" min="0" max="1440" [(ngModel)]="newRow.throttleMinutes"
@@ -148,6 +138,12 @@
           <label class="field field-inline">
             <input type="checkbox" [(ngModel)]="newRow.isActive" name="newIsActive" />
             <span>Active</span>
+          </label>
+          <label class="field field-wide">
+            <span class="field-label">Recipient (email or webhook URL)</span>
+            <input type="text" class="form-input" maxlength="500" [(ngModel)]="newRow.recipient"
+                   name="newRecipient" required
+                   placeholder="risk-team@medfund.example or https://ops.example.com/hooks/ifrs17" />
           </label>
         </div>
         <div class="form-actions">

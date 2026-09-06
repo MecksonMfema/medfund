@@ -32,7 +32,7 @@ export class ActuarialBasesComponent {
 
   readonly subTabs: Array<{ id: ActuarialSubTab; label: string; icon: string }> = [
     { id: 'persistency', label: 'Persistency', icon: 'trending-up' },
-    { id: 'mortality',   label: 'Mortality',   icon: 'heart' },
-    { id: 'morbidity',   label: 'Morbidity',   icon: 'activity' },
+    { id: 'mortality',   label: 'Mortality',   icon: 'trending-down' },
+    { id: 'morbidity',   label: 'Morbidity',   icon: 'hospital' },
   ];
 }

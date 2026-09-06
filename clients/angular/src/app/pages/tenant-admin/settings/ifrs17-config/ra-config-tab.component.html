@@ -18,10 +18,6 @@
         </p>
       </div>
       <div class="section-actions">
-        <button type="button" class="btn btn-default btn-sm" (click)="refresh()" [disabled]="loading">
-          <app-icon name="refresh" [size]="16"></app-icon>
-          Refresh
-        </button>
         <button type="button" class="btn btn-primary btn-sm" (click)="openAdd()"
                 [disabled]="addingOpen || loadingPortfolios || portfolios.length === 0">
           <app-icon name="plus" [size]="16"></app-icon>
@@ -110,7 +106,7 @@
     }
 
     @if (addingOpen) {
-      <form class="add-form" (submit)="$event.preventDefault(); add()">
+      <form #addFormRef class="add-form" (submit)="$event.preventDefault(); add()">
         <div class="grid">
           <label class="field">
             <span class="field-label">Portfolio</span>

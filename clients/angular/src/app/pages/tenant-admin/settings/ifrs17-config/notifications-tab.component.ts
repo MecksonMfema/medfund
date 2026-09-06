@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -62,6 +62,8 @@ export class NotificationsTabComponent implements OnInit {
   adding = false;
   newRow: AddTenantIfrs17NotificationConfig = this.blankNewRow();
 
+  @ViewChild('addFormRef') addFormRef?: ElementRef<HTMLElement>;
+
   readonly eventTypeOptions = EVENT_TYPE_OPTIONS;
   readonly deliveryMethodOptions = DELIVERY_METHOD_OPTIONS;
 
@@ -97,6 +99,16 @@ export class NotificationsTabComponent implements OnInit {
   openAdd(): void {
     this.addingOpen = true;
     this.newRow = this.blankNewRow();
+    // Scroll the newly rendered form into view on the next tick so the admin
+    // never has to hunt for the Add Row inputs on tenants with a long
+    // table above.
+    setTimeout(() => {
+      const el = this.addFormRef?.nativeElement;
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const firstFocusable = el.querySelector<HTMLElement>('button, [role="button"], input, select, textarea');
+      firstFocusable?.focus();
+    }, 0);
   }
 
   cancelAdd(): void {

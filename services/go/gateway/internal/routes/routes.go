@@ -89,11 +89,19 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// (the person-insuring four are covered by the wildcards above).
 	app.All("/api/v1/vehicle-policies/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/property-policies/*", proxy.Handler(cfg.UserServiceURL))
-	// Phase 12 §A — IFRS 17 portfolio + cohort CRUD (line-agnostic).
+	// Phase 12 §A - IFRS 17 portfolio + cohort CRUD (line-agnostic).
 	app.All("/api/v1/underwriting/portfolios", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/underwriting/portfolios/*", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/underwriting/cohorts", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/underwriting/cohorts/*", proxy.Handler(cfg.UserServiceURL))
+	// Catch-all for the rest of the underwriting surface (opening-balances
+	// seeds, unit-linked funds + NAV history, variable-fee schedules,
+	// policy unit ledger). Every controller under /api/v1/underwriting/**
+	// lives in user-service today, so this catch-all keeps the gateway
+	// from 404-ing new underwriting endpoints the moment they land in
+	// user-service without needing a matching gateway change.
+	app.All("/api/v1/underwriting", proxy.Handler(cfg.UserServiceURL))
+	app.All("/api/v1/underwriting/*", proxy.Handler(cfg.UserServiceURL))
 	// Phase 12 §C — endorsement CRUD (draft/approve/commit/void/markComputed).
 	app.All("/api/v1/endorsements", proxy.Handler(cfg.UserServiceURL))
 	app.All("/api/v1/endorsements/*", proxy.Handler(cfg.UserServiceURL))
