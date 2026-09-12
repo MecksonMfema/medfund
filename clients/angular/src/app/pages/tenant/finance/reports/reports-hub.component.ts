@@ -38,11 +38,6 @@ const REPORT_ROUTES: Record<string, string> = {
   // ── Billing (Phase 2) ─────────────────────────────────────────────────────
   BILLING_REPORT:                  '/tenant/finance/reports/schemes',
   GROUP_BILLING_REPORT:            '/tenant/finance/reports/group-billing',
-  // Detail-only keys — the hub card lands on the parent summary because
-  // the per-scheme / per-holder detail pages need an id. From the summary
-  // the operator clicks a row to drill.
-  SCHEME_BILLING_DETAIL:           '/tenant/finance/reports/schemes',
-  GROUP_BILLING_DETAIL:            '/tenant/finance/reports/group-billing',
 
   // ── Receipts (Phase 3) ────────────────────────────────────────────────────
   RECEIPTS_REPORT:                 '/tenant/finance/reports/receipts-schemes',
@@ -51,22 +46,6 @@ const REPORT_ROUTES: Record<string, string> = {
   // ── Debtors ───────────────────────────────────────────────────────────────
   AGED_DEBTORS:                    '/tenant/finance/reports/aged-debtors',
   AGED_BALANCES:                   '/tenant/finance/reports/aged-debtors',
-  BAD_DEBTS:                       '/tenant/billing/bad-debts',
-  DEBTORS_LIST:                    '/tenant/billing/debtors',
-  INVOICE_LIST:                    '/tenant/billing/view',
-
-  // ── Payables / creditors ──────────────────────────────────────────────────
-  CREDITORS:                       '/tenant/finance/creditors',
-  PAYMENT_ADVICE:                  '/tenant/finance/advice',
-  PAYMENT_RUNS:                    '/tenant/finance/runs',
-  NOTES:                           '/tenant/finance/notes',
-  NOTES_TAX_WITHHELD:              '/tenant/finance/notes/tax-withheld',
-  NOTES_DEBIT:                     '/tenant/finance/notes',
-  NOTES_CREDIT:                    '/tenant/finance/notes',
-  NOTES_MEMO:                      '/tenant/finance/notes',
-  ADVANCE_PAYMENTS:                '/tenant/finance/payments/advance',
-  CTC_PAYMENTS:                    '/tenant/finance/payments/ctc',
-  RECONCILIATIONS:                 '/tenant/finance/reconciliations',
 
   // ── Claims financial (Phase 4) ────────────────────────────────────────────
   CLAIMS_SUMMARY:                  '/tenant/finance/reports/claims-schemes',
@@ -134,6 +113,57 @@ const REPORT_ROUTES: Record<string, string> = {
 };
 
 /**
+ * Report keys we hide from the hub grid because the same content is
+ * already reachable elsewhere in the portal — either as a dedicated
+ * sidebar entry, a row action on a list page, or a drill-down from a
+ * parent summary that needs an id the hub can't supply. Surfacing them
+ * here just adds noise. The tenant report catalogue still owns the
+ * keys (so the settings grid and scheduled-email rules stay intact);
+ * this only affects hub rendering.
+ */
+const HIDDEN_HUB_KEYS = new Set<string>([
+  // Reachable from the sidebar.
+  'BAD_DEBTS',           // Billing → Bad Debts
+  'DEBTORS_LIST',        // Billing → Debtors
+  'INVOICE_LIST',        // Billing → Contribution Statements
+  'CREDITORS',           // Finance → Creditors
+  'PAYMENT_ADVICE',      // Finance → Payment Advice
+  'PAYMENT_RUNS',        // Finance → Payment Runs
+  'NOTES',               // Finance → Notes
+  'NOTES_DEBIT',         // Finance → Notes
+  'NOTES_CREDIT',        // Finance → Notes
+  'NOTES_MEMO',          // Finance → Notes
+  'NOTES_TAX_WITHHELD',  // Finance → Notes (tax-withheld tab)
+  'ADVANCE_PAYMENTS',    // Finance → Advance Payments
+  'CTC_PAYMENTS',        // Finance → CTC Payments
+  'RECONCILIATIONS',     // Finance → Reconciliation
+
+  // Per-record exports — row action on a list page.
+  'INVOICE_DETAIL_PDF',  // Invoices list → row PDF export
+
+  // Per-payee statements / balances — accessed from the member or
+  // group detail page (or the corresponding creditor drill).
+  'MEMBER_STATEMENT',
+  'GROUP_STATEMENT',
+  'MEMBER_BALANCE',
+  'GROUP_BALANCE',
+  'MEMBER_BALANCE_HISTORY',
+  'PROVIDER_BALANCE_HISTORY',
+  'ANNUAL_CAP_UTILIZATION',
+
+  // Drill-down-only reports — reachable by clicking a row on a parent
+  // summary or run detail. No standalone landing surface.
+  'SCHEME_BILLING_DETAIL',
+  'GROUP_BILLING_DETAIL',
+  'RECEIPTS_AGGREGATE',
+  'CREDITOR_PROVIDER_DETAIL',
+  'CREDITOR_MEMBER_DETAIL',
+  'PAYMENT_ADVICE_DETAIL',
+  'PAYMENT_RUN_ITEMS',
+  'PAYMENT_RUN_WORKBOOK',
+]);
+
+/**
  * Landing hub at /tenant/finance/reports. Shows every report the tenant
  * has *enabled*, grouped by family. Per-report detail pages are wired
  * as later phases build them; until then each card is informational.
@@ -181,7 +211,7 @@ export class ReportsHubComponent implements OnInit {
       banners: this.dueDates.list().pipe(catchError(() => of([] as DueDateBannerRow[]))),
     }).subscribe({
       next: ({ rows, banners }) => {
-        const enabled = rows.filter(r => r.enabled);
+        const enabled = rows.filter(r => r.enabled && !HIDDEN_HUB_KEYS.has(r.reportKey));
         this.totalEnabled = enabled.length;
         this.groups = this.groupByFamily(enabled);
         this.banners = new Map(banners.map(b => [b.reportKey, b]));
