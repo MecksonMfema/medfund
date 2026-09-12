@@ -255,17 +255,43 @@ export const FINANCE_ROUTES: Routes = [
       reportKey: 'FRAUD_SIU_REPORT',
     },
   },
-  cs('reports/scheme/:id',                   'Scheme Report Detail',             '/view-scheme-report',                       'Single scheme analytics.',                        ['finance:view_subledger']),
+  {
+    path: 'reports/scheme/:id',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/billing/scheme-billing-detail.component').then(m => m.SchemeBillingDetailComponent),
+    data: {
+      title: 'Scheme billing detail',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'SCHEME_BILLING_DETAIL',
+    },
+  },
   {
     path: 'reports/group-billing',
     canActivate: [permissionGuard(['finance:view_subledger'])],
     loadComponent: () =>
       import('./reports/billing/group-billing-report.component').then(m => m.GroupBillingReportComponent),
     data: {
-      title: 'Billing report - per group',
+      title: 'Billing report - per holder',
       sidebar: 'operational',
       fullbleed: true,
       reportKey: 'GROUP_BILLING_REPORT',
+    },
+  },
+  // Corporate-group detail drill. Wired ahead of the (retired) member-billing
+  // /:id stub so the two holder types have symmetric detail routes.
+  {
+    path: 'reports/group-billing/:id',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/billing/holder-billing-detail.component').then(m => m.HolderBillingDetailComponent),
+    data: {
+      title: 'Group billing detail',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'GROUP_BILLING_DETAIL',
+      holderType: 'GROUP',
     },
   },
   // Phase 3 §8 — per-member billing (owed-back to Phase 2).
@@ -281,8 +307,22 @@ export const FINANCE_ROUTES: Routes = [
       reportKey: 'BILLING_REPORT',
     },
   },
-  cs('reports/member-billing/:id', 'Member Billing Detail', '/view-member-billing',
-    'Per-member billing detail.', ['finance:view_subledger']),
+  // Individual-policyholder detail — same component as the corporate-group
+  // detail route above, but data.holderType=INDIVIDUAL flips the fetch to
+  // the per-member endpoint (member-billing DTO).
+  {
+    path: 'reports/member-billing/:id',
+    canActivate: [permissionGuard(['finance:view_subledger'])],
+    loadComponent: () =>
+      import('./reports/billing/holder-billing-detail.component').then(m => m.HolderBillingDetailComponent),
+    data: {
+      title: 'Member billing detail',
+      sidebar: 'operational',
+      fullbleed: true,
+      reportKey: 'BILLING_REPORT',
+      holderType: 'INDIVIDUAL',
+    },
+  },
   // Phase 3 receipts family — replaces the receipts/report + receipts-to-billing
   // ComingSoon stubs. Detail route is a single component with a dimension input.
   {

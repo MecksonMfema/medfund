@@ -18,6 +18,7 @@ import {
   ProviderTopNRow,
   TrendPoint,
 } from './fraud-report.service';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Fraud / SIU report. §B Phase 11 widens the MVP 4-tile page to a full
@@ -28,7 +29,7 @@ import {
 @Component({
   selector: 'app-fraud-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, LineChartComponent, StatCardComponent],
+  imports: [CommonModule, FormsModule, IconComponent, LineChartComponent, StatCardComponent, ReportBackButtonComponent],
   templateUrl: './fraud-report.component.html',
 })
 export class FraudReportComponent implements OnInit {

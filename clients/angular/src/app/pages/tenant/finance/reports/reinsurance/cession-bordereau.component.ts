@@ -13,6 +13,7 @@ import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/servi
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Cession bordereau — one row per (cession, participant) for the selected
@@ -24,7 +25,7 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 @Component({
   selector: 'app-cession-bordereau',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, ReportBackButtonComponent],
   templateUrl: './cession-bordereau.component.html',
   styleUrl: '../receipts/receipts-report.component.scss',
 })

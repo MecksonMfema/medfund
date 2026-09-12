@@ -23,6 +23,7 @@ import {
   WaterfallChartComponent,
   WaterfallMovement,
 } from '../../../../../shared/components/charts/waterfall-chart/waterfall-chart.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 interface RevenueRow {
   cohortId: string;
@@ -57,6 +58,7 @@ interface PortfolioBucket {
     SelectComponent,
     ActuarialJobProgressComponent,
     WaterfallChartComponent,
+    ReportBackButtonComponent,
   ],
   templateUrl: './insurance-revenue-service-result.component.html',
   styleUrls: ['./ifrs17-reports.scss'],

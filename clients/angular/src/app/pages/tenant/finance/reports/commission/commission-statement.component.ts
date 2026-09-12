@@ -15,6 +15,7 @@ import {
   EntityPickerComponent,
   EntityPickerSelection,
 } from '../../../../../shared/components/entity-picker/entity-picker.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Commission statement — one row per commission_transaction in the selected
@@ -27,7 +28,7 @@ import {
 @Component({
   selector: 'app-commission-statement',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, EntityPickerComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, EntityPickerComponent, ReportBackButtonComponent],
   templateUrl: './commission-statement.component.html',
   styleUrl: '../receipts/receipts-report.component.scss',
 })

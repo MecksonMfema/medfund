@@ -12,6 +12,7 @@ import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/servi
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Treaty utilization — since-inception aggregate by (treaty, layer,
@@ -23,7 +24,7 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 @Component({
   selector: 'app-treaty-utilization',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, ReportBackButtonComponent],
   templateUrl: './treaty-utilization.component.html',
   styleUrl: '../receipts/receipts-report.component.scss',
 })

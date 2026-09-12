@@ -11,6 +11,7 @@ import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/servi
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Denial analysis (G47) — four views over the REJECTED claim set of the
@@ -22,7 +23,7 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 @Component({
   selector: 'app-denial-analysis-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, ReportBackButtonComponent],
   templateUrl: './denial-analysis-report.component.html',
   styleUrl: './claims-report.component.scss',
 })

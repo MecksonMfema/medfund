@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import {
   BillingReportParams,
   FinanceService,
@@ -12,6 +13,7 @@ import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Per-holder billing aggregate — one row per (holder, currency). Corporate
@@ -23,7 +25,7 @@ import { DataTableComponent, TableColumn } from '../../../../../shared/component
 @Component({
   selector: 'app-group-billing-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent, ReportBackButtonComponent],
   templateUrl: './group-billing-report.component.html',
   styleUrl: './billing-report.component.scss',
 })
@@ -55,7 +57,24 @@ export class GroupBillingReportComponent implements OnInit {
     private finance: FinanceService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private router: Router,
   ) {}
+
+  onRowClick(row: GroupBillingSummaryRow): void {
+    if (!row?.groupId) return;
+    // GROUP rows carry a groups.id; INDIVIDUAL rows carry a members.id in
+    // the same field. Route to the matching detail surface — one shared
+    // component behind two routes serves both.
+    const path = row.holderType === 'INDIVIDUAL'
+      ? '/tenant/finance/reports/member-billing'
+      : '/tenant/finance/reports/group-billing';
+    this.router.navigate([path, row.groupId],
+      { queryParams: {
+          periodStart: this.periodStart,
+          periodEnd:   this.periodEnd,
+          ...(this.reportingCurrency ? { reportingCurrency: this.reportingCurrency } : {}),
+        } });
+  }
 
   ngOnInit(): void {
     this.loadCurrencies();

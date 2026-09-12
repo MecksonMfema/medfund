@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import {
   BillingReportParams,
   FinanceService,
@@ -12,6 +13,7 @@ import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Per-scheme billing aggregate — one row per (scheme, currency). Rows stay
@@ -22,7 +24,7 @@ import { DataTableComponent, TableColumn } from '../../../../../shared/component
 @Component({
   selector: 'app-scheme-billing-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent, ReportBackButtonComponent],
   templateUrl: './scheme-billing-report.component.html',
   styleUrl: './billing-report.component.scss',
 })
@@ -60,7 +62,18 @@ export class SchemeBillingReportComponent implements OnInit {
     private finance: FinanceService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private router: Router,
   ) {}
+
+  onRowClick(row: SchemeBillingSummaryRow): void {
+    if (!row?.schemeId) return;
+    this.router.navigate(['/tenant/finance/reports/scheme', row.schemeId],
+      { queryParams: {
+          periodStart: this.periodStart,
+          periodEnd:   this.periodEnd,
+          ...(this.reportingCurrency ? { reportingCurrency: this.reportingCurrency } : {}),
+        } });
+  }
 
   ngOnInit(): void {
     this.loadCurrencies();

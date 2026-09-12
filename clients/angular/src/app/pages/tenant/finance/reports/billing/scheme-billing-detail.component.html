@@ -1,23 +1,16 @@
 <header class="page-header">
   <div>
-    <h1>High-cost claimants</h1>
+    <h1>{{ detail?.schemeName || 'Scheme billing detail' }}</h1>
     <p class="page-sub">
-      Members whose cumulative paid claims in the window clear the tenant's
-      configured threshold. The threshold is set in
-      <strong>Settings → Reports → High-cost claimant threshold</strong> and
-      converted to the reporting currency at period end.
+      Committed contributions rolled up across the window plus a monthly
+      breakdown. Rows stay in the ledger's native currency; per-currency
+      totals in the summary card feed the report envelope.
     </p>
   </div>
   <div class="header-actions">
-    <app-report-back-button></app-report-back-button>
-    <button
-      type="button"
-      class="btn btn-primary"
-      [disabled]="exporting || loading || !rows.length"
-      (click)="exportExcel()"
-    >
-      <app-icon name="download" [size]="14"></app-icon>
-      {{ exporting ? 'Exporting…' : 'Export Excel' }}
+    <button type="button" class="btn btn-default" (click)="back()">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back to per-scheme billing
     </button>
   </div>
 </header>
@@ -56,12 +49,26 @@
   </div>
 }
 
-<app-data-table
-  [data]="rows"
-  [columns]="columns"
-  [loading]="loading"
-  [searchable]="true"
-  [showToolbar]="true"
-  emptyMessage="No member cleared the threshold in this window."
-  emptyDescription="Either no member crossed the threshold, or the threshold is not configured yet: check the warning banner above."
-></app-data-table>
+<section class="detail-section">
+  <h2>Per-currency summary</h2>
+  <app-data-table
+    [data]="detail?.perCurrencySummary || []"
+    [columns]="summaryColumns"
+    [loading]="loading"
+    [searchable]="false"
+    [showToolbar]="false"
+    emptyMessage="No committed contributions for this window."
+  ></app-data-table>
+</section>
+
+<section class="detail-section">
+  <h2>Monthly breakdown</h2>
+  <app-data-table
+    [data]="detail?.monthlyBreakdown || []"
+    [columns]="monthlyColumns"
+    [loading]="loading"
+    [searchable]="false"
+    [showToolbar]="false"
+    emptyMessage="No monthly buckets for this window."
+  ></app-data-table>
+</section>

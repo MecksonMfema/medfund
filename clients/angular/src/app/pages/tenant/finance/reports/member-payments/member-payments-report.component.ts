@@ -12,6 +12,7 @@ import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/servi
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Member payments — unified billing, receipts and claims-paid per member,
@@ -22,7 +23,7 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 @Component({
   selector: 'app-member-payments-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, ReportBackButtonComponent],
   templateUrl: './member-payments-report.component.html',
   styleUrl: '../receipts/receipts-report.component.scss',
 })

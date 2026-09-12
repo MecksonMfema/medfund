@@ -12,6 +12,7 @@ import { ReportResponse } from '../../../../../core/services/report-envelope';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 type Dimension = ReportDimension;
 
@@ -25,7 +26,7 @@ type Dimension = ReportDimension;
 @Component({
   selector: 'app-claims-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent, ReportBackButtonComponent],
   templateUrl: './claims-detail.component.html',
   styleUrl: './claims-report.component.scss',
 })

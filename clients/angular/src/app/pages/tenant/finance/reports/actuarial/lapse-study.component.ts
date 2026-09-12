@@ -19,6 +19,7 @@ import { LineChartComponent } from '../../../../../shared/components/charts/line
 import {
   ActuarialJobProgressComponent,
 } from '../../../../../shared/components/actuarial-job-progress/actuarial-job-progress.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Phase 14 §Actuarial Phase 12 — LAPSE_STUDY report page. Same shape as
@@ -38,6 +39,7 @@ import {
     SelectComponent,
     LineChartComponent,
     ActuarialJobProgressComponent,
+    ReportBackButtonComponent,
   ],
   templateUrl: './lapse-study.component.html',
   styleUrls: ['./actuarial-triangle.component.scss'],

@@ -19,6 +19,7 @@ import { LineChartComponent } from '../../../../../shared/components/charts/line
 import {
   ActuarialJobProgressComponent,
 } from '../../../../../shared/components/actuarial-job-progress/actuarial-job-progress.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Phase 14 §Actuarial Phase 11 — PERSISTENCY_STUDY report page. Submits
@@ -42,6 +43,7 @@ import {
     SelectComponent,
     LineChartComponent,
     ActuarialJobProgressComponent,
+    ReportBackButtonComponent,
   ],
   templateUrl: './persistency-study.component.html',
   styleUrls: ['./actuarial-triangle.component.scss'],

@@ -16,6 +16,7 @@ import { INSURANCE_LINES } from '../../../../../core/models/insurance-lines';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Per-member claims aggregate (§B G45) — paginated + searchable, mirrors the
@@ -27,7 +28,7 @@ import { DataTableComponent, TableColumn } from '../../../../../shared/component
 @Component({
   selector: 'app-member-claims-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent, ReportBackButtonComponent],
   templateUrl: './member-claims-report.component.html',
   styleUrl: './claims-report.component.scss',
 })

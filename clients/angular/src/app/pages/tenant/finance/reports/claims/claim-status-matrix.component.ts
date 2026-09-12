@@ -17,6 +17,7 @@ import { INSURANCE_LINES } from '../../../../../core/models/insurance-lines';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /** Fixed age buckets per G49 — the CASE order the server emits. */
 const AGE_BUCKETS = ['0-3', '4-7', '8-14', '15-30', '>30'];
@@ -31,7 +32,7 @@ const AGE_BUCKETS = ['0-3', '4-7', '8-14', '15-30', '>30'];
 @Component({
   selector: 'app-claim-status-matrix',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent, ReportBackButtonComponent],
   templateUrl: './claim-status-matrix.component.html',
   styleUrl: './claims-report.component.scss',
 })

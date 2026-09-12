@@ -12,6 +12,7 @@ import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * High-cost claimants (G46). Members whose cumulative paid claims across
@@ -24,7 +25,7 @@ import { DataTableComponent, TableColumn } from '../../../../../shared/component
 @Component({
   selector: 'app-high-cost-claimants-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent, ReportBackButtonComponent],
   templateUrl: './high-cost-claimants-report.component.html',
   styleUrl: './claims-report.component.scss',
 })

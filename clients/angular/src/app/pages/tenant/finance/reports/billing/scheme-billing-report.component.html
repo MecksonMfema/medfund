@@ -7,15 +7,18 @@
       raw ledger, and per-currency totals appear in the strip above.
     </p>
   </div>
-  <button
-    type="button"
-    class="btn btn-primary"
-    [disabled]="exporting || loading || !rows.length"
-    (click)="exportExcel()"
-  >
-    <app-icon name="download" [size]="14"></app-icon>
-    {{ exporting ? 'Exporting…' : 'Export Excel' }}
-  </button>
+  <div class="header-actions">
+    <app-report-back-button></app-report-back-button>
+    <button
+      type="button"
+      class="btn btn-primary"
+      [disabled]="exporting || loading || !rows.length"
+      (click)="exportExcel()"
+    >
+      <app-icon name="download" [size]="14"></app-icon>
+      {{ exporting ? 'Exporting…' : 'Export Excel' }}
+    </button>
+  </div>
 </header>
 
 @if (errorMessage) {
@@ -78,4 +81,5 @@
   [searchable]="false"
   [showToolbar]="false"
   emptyMessage="No committed contributions for this window."
+  (rowClick)="onRowClick($event)"
 ></app-data-table>

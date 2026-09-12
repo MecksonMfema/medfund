@@ -13,6 +13,7 @@ import { INSURANCE_LINES } from '../../../../../core/models/insurance-lines';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Frequency + severity (G48) — per (scheme × insurance line × currency) over
@@ -24,7 +25,7 @@ import { DataTableComponent, TableColumn } from '../../../../../shared/component
 @Component({
   selector: 'app-frequency-severity-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent, ReportBackButtonComponent],
   templateUrl: './frequency-severity-report.component.html',
   styleUrl: './claims-report.component.scss',
 })

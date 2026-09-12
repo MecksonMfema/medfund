@@ -12,6 +12,7 @@ import {
 } from '../../../../../core/services/finance.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Member balance history — freeze-frame of the member's balance at each
@@ -22,7 +23,7 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 @Component({
   selector: 'app-member-balance-history',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, ReportBackButtonComponent],
   templateUrl: './member-balance-history.component.html',
   styleUrl: '../receipts/receipts-report.component.scss',
 })

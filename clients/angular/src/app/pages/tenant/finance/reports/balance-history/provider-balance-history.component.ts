@@ -12,6 +12,7 @@ import {
 } from '../../../../../core/services/finance.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Provider balance history — freeze-frame of the provider's balance at
@@ -22,7 +23,7 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 @Component({
   selector: 'app-provider-balance-history',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, ReportBackButtonComponent],
   templateUrl: './provider-balance-history.component.html',
   styleUrl: '../receipts/receipts-report.component.scss',
 })

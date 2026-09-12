@@ -7,15 +7,18 @@
       For money owed by subjects who already fell off the roster, see Bad debts.
     </p>
   </div>
-  <button
-    type="button"
-    class="btn btn-primary"
-    [disabled]="!selectedCurrency || exporting"
-    (click)="exportExcel()"
-  >
-    <app-icon name="download" [size]="14"></app-icon>
-    {{ exporting ? 'Exporting…' : 'Export Excel' }}
-  </button>
+  <div class="header-actions">
+    <app-report-back-button></app-report-back-button>
+    <button
+      type="button"
+      class="btn btn-primary"
+      [disabled]="!selectedCurrency || exporting"
+      (click)="exportExcel()"
+    >
+      <app-icon name="download" [size]="14"></app-icon>
+      {{ exporting ? 'Exporting…' : 'Export Excel' }}
+    </button>
+  </div>
 </header>
 
 @if (errorMessage) {

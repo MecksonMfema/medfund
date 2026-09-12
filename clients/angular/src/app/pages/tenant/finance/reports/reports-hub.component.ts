@@ -38,6 +38,11 @@ const REPORT_ROUTES: Record<string, string> = {
   // ── Billing (Phase 2) ─────────────────────────────────────────────────────
   BILLING_REPORT:                  '/tenant/finance/reports/schemes',
   GROUP_BILLING_REPORT:            '/tenant/finance/reports/group-billing',
+  // Detail-only keys — the hub card lands on the parent summary because
+  // the per-scheme / per-holder detail pages need an id. From the summary
+  // the operator clicks a row to drill.
+  SCHEME_BILLING_DETAIL:           '/tenant/finance/reports/schemes',
+  GROUP_BILLING_DETAIL:            '/tenant/finance/reports/group-billing',
 
   // ── Receipts (Phase 3) ────────────────────────────────────────────────────
   RECEIPTS_REPORT:                 '/tenant/finance/reports/receipts-schemes',

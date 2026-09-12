@@ -25,6 +25,7 @@ import { LineChartComponent } from '../../../../../shared/components/charts/line
 import {
   ActuarialJobProgressComponent,
 } from '../../../../../shared/components/actuarial-job-progress/actuarial-job-progress.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Phase 14 §Actuarial Phase 14 — MORBIDITY_STUDY report page. Same
@@ -45,6 +46,7 @@ import {
     SelectComponent,
     LineChartComponent,
     ActuarialJobProgressComponent,
+    ReportBackButtonComponent,
   ],
   templateUrl: './morbidity-study.component.html',
   styleUrls: ['./actuarial-triangle.component.scss'],

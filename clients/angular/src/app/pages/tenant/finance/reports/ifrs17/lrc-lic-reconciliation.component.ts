@@ -23,6 +23,7 @@ import {
   WaterfallChartComponent,
   WaterfallMovement,
 } from '../../../../../shared/components/charts/waterfall-chart/waterfall-chart.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 type ViewMode = 'LRC' | 'LIC' | 'COMBINED';
 
@@ -72,6 +73,7 @@ interface PortfolioBucket {
     SelectComponent,
     ActuarialJobProgressComponent,
     WaterfallChartComponent,
+    ReportBackButtonComponent,
   ],
   templateUrl: './lrc-lic-reconciliation.component.html',
   styleUrls: ['./ifrs17-reports.scss'],

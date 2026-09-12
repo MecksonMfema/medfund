@@ -1,0 +1,81 @@
+<header class="page-header">
+  <div>
+    <h1>
+      {{ holderName || 'Holder billing detail' }}
+      @if (holderType) {
+        <span class="badge holder-chip"
+              [class.holder-chip--group]="holderType === 'GROUP'"
+              [class.holder-chip--individual]="holderType === 'INDIVIDUAL'">
+          {{ holderType === 'INDIVIDUAL' ? 'Individual' : 'Group' }}
+        </span>
+      }
+    </h1>
+    <p class="page-sub">
+      {{ holderSubtitle }}@if (insuranceLine) { · <strong>{{ insuranceLine }}</strong> }
+    </p>
+  </div>
+  <div class="header-actions">
+    <button type="button" class="btn btn-default" (click)="back()">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back to per-holder billing
+    </button>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input type="date" [(ngModel)]="periodStart" (change)="onFilterChange()" name="periodStart" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input type="date" [(ngModel)]="periodEnd" (change)="onFilterChange()" name="periodEnd" />
+  </div>
+  <div class="toolbar-cell cell-currency">
+    <span class="cell-label">Reporting currency</span>
+    <app-select
+      [(ngModel)]="reportingCurrency"
+      (selectionChange)="onFilterChange()"
+      name="reportingCurrency"
+      [options]="currencyOptions"
+      placeholder="Tenant default"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (envelope?.warnings?.length) {
+  <div class="banner banner-warning">
+    @for (w of envelope!.warnings; track w) {
+      <div>{{ w }}</div>
+    }
+  </div>
+}
+
+<section class="detail-section">
+  <h2>Per-currency summary</h2>
+  <app-data-table
+    [data]="summary"
+    [columns]="summaryColumns"
+    [loading]="loading"
+    [searchable]="false"
+    [showToolbar]="false"
+    emptyMessage="No committed contributions for this window."
+  ></app-data-table>
+</section>
+
+<section class="detail-section">
+  <h2>Monthly breakdown</h2>
+  <app-data-table
+    [data]="monthly"
+    [columns]="monthlyColumns"
+    [loading]="loading"
+    [searchable]="false"
+    [showToolbar]="false"
+    emptyMessage="No monthly buckets for this window."
+  ></app-data-table>
+</section>

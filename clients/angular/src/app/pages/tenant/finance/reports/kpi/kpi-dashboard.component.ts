@@ -26,6 +26,7 @@ import {
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SparklinePoint } from '../../../../../shared/components/charts/sparkline/sparkline.component';
 import { KpiTileComponent } from './kpi-tile.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Executive KPI dashboard (Phase 7) — the visible surface for the five
@@ -44,7 +45,7 @@ import { KpiTileComponent } from './kpi-tile.component';
 @Component({
   selector: 'app-kpi-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule, SelectComponent, EntityPickerComponent, IconComponent, KpiTileComponent],
+  imports: [CommonModule, FormsModule, RouterModule, SelectComponent, EntityPickerComponent, IconComponent, KpiTileComponent, ReportBackButtonComponent],
   templateUrl: './kpi-dashboard.component.html',
   styleUrl: './kpi-dashboard.component.scss',
 })

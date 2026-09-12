@@ -3,14 +3,17 @@
     <h1>{{ pageTitle }}</h1>
     <p class="page-sub">{{ pageSubtitle }}</p>
   </div>
-  <button
-    type="button"
-    class="btn btn-primary"
-    [disabled]="!currentJob || currentJob.status !== 'completed'"
-    (click)="exportXlsx()">
-    <app-icon name="download" [size]="14"></app-icon>
-    Export XLSX
-  </button>
+  <div class="header-actions">
+    <app-report-back-button></app-report-back-button>
+    <button
+      type="button"
+      class="btn btn-primary"
+      [disabled]="!currentJob || currentJob.status !== 'completed'"
+      (click)="exportXlsx()">
+      <app-icon name="download" [size]="14"></app-icon>
+      Export XLSX
+    </button>
+  </div>
 </header>
 
 @if (errorMessage) {

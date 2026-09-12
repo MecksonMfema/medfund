@@ -11,6 +11,7 @@ import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { LineChartComponent } from '../../../../../shared/components/charts/line-chart/line-chart.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 function isoDate(d: Date): string {
   const y = d.getFullYear();
@@ -38,7 +39,7 @@ function downloadBlob(blob: Blob, filename: string): void {
 @Component({
   selector: 'app-cash-flow-forecast',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, LineChartComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, LineChartComponent, ReportBackButtonComponent],
   templateUrl: './cash-flow-forecast.component.html',
   styleUrls: ['../receipts/receipts-report.component.scss', './cash-flow-forecast.component.scss'],
 })

@@ -1,39 +1,139 @@
+// Shared shell for every receipts-family report page. Follows the
+// flush grammar used across /tenant/billing/* and /tenant/admin/*
+// (reference: /tenant/billing/schemes/:id/benefits). Routes are
+// fullbleed: true so tenant-layout drops its own padding and each
+// element below owns the horizontal 24px gutter.
+
+:host { display: block; }
+
+// ── Page header banner ──────────────────────────────────────────────────
 .page-header {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
-  gap: var(--spacing-base);
-  margin-bottom: var(--spacing-base);
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
 
-  h1 { margin: 0 0 var(--spacing-xs); font-size: var(--font-size-2xl); }
-  .page-sub { margin: 0; color: var(--color-text-muted); max-width: 640px; }
+  h1 {
+    margin: 0 0 0.25rem;
+    font-size: 1.5rem;
+    color: var(--color-text-primary);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+  .page-sub {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    max-width: 65ch;
+  }
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+
+  &.btn-primary {
+    background: var(--color-primary);
+    color: #fff;
+    &:hover:not(:disabled) { filter: brightness(1.05); }
+    &:disabled { opacity: 0.55; cursor: not-allowed; }
+  }
+  &.btn-default {
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    border-color: var(--color-border);
+    &:hover:not(:disabled) { background: var(--color-bg); }
+  }
 }
 
 .banner {
   padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  margin-bottom: var(--spacing-md);
-  font-size: var(--font-size-base);
+  margin: 12px 24px 0;
+  border-radius: 8px;
+  font-size: 13px;
   cursor: pointer;
-  &.banner-error   { background: var(--color-error-light); color: #c4162d; }
+  border: 1px solid transparent;
+  &.banner-error   { background: var(--color-error-light); color: #c4162d; border-color: rgba(196, 22, 45, 0.20); }
   &.banner-warning { background: var(--color-warning-light); color: #c47800; cursor: default; }
 }
+
+.tx-toolbar {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  min-height: 48px;
+  padding: 0 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+  gap: 0;
+}
+
+.toolbar-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-right: 1px solid var(--color-border-light);
+  min-height: 48px;
+  background: transparent;
+
+  &:last-of-type { border-right: none; }
+
+  .cell-label {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+    font-weight: var(--font-weight-medium);
+  }
+
+  input[type="date"] {
+    border: none;
+    outline: none;
+    background: none;
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    height: 32px;
+    padding: 0;
+    min-width: 0;
+  }
+}
+
+.cell-currency, .cell-line { min-width: 200px; }
 
 .chart-wrap {
   background: var(--color-surface);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
   padding: var(--spacing-md);
-  margin-bottom: var(--spacing-base);
+  margin: var(--spacing-md) 24px 0;
 }
-
-.cell-currency, .cell-line { min-width: 200px; }
 
 .kpi-strip {
   display: flex;
   flex-wrap: wrap;
   gap: var(--spacing-md);
-  margin-bottom: var(--spacing-base);
+  padding: var(--spacing-md) 24px 0;
 }
 
 .kpi-card {
@@ -69,5 +169,19 @@
   }
 }
 
-.detail-sections { display: flex; flex-direction: column; gap: var(--spacing-xl); }
-.detail-section h2 { margin: 0 0 var(--spacing-md); font-size: var(--font-size-md); }
+app-data-table {
+  display: block;
+  padding-top: var(--spacing-md);
+}
+
+.detail-sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xl);
+  padding: 0 24px;
+}
+
+.detail-section h2 {
+  margin: 0 0 var(--spacing-md);
+  font-size: var(--font-size-md);
+}

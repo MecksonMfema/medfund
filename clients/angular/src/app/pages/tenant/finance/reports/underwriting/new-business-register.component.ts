@@ -12,6 +12,7 @@ import { TenantService } from '../../../../../core/services/tenant.service';
 import { INSURANCE_LINES, insuranceLineLabel } from '../../../../../core/models/insurance-lines';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Phase 12 §B New business register — one row per policy that first bound
@@ -23,7 +24,7 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 @Component({
   selector: 'app-new-business-register-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, ReportBackButtonComponent],
   templateUrl: './new-business-register.component.html',
   styleUrl: '../receipts/receipts-report.component.scss',
 })

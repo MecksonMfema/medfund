@@ -1,15 +1,129 @@
+// Page shell matches the reference /tenant/billing/schemes/:id/benefits:
+// flush page-header banner + 24px side gutter on subsequent sections.
+:host { display: block; }
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+
+  h1 {
+    margin: 0 0 0.25rem;
+    font-size: 1.5rem;
+    color: var(--color-text-primary);
+  }
+  .page-sub {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    max-width: 65ch;
+  }
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+
+  &.btn-primary {
+    background: var(--color-primary);
+    color: #fff;
+    &:hover:not(:disabled) { filter: brightness(1.05); }
+    &:disabled { opacity: 0.55; cursor: not-allowed; }
+  }
+  &.btn-default {
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    border-color: var(--color-border);
+    &:hover:not(:disabled) { background: var(--color-bg); }
+  }
+}
+
+.banner {
+  padding: 10px 14px;
+  margin: 12px 24px 0;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  &.banner-error   { background: var(--color-error-light); color: #c4162d; border-color: rgba(196, 22, 45, 0.20); }
+  &.banner-warning { background: var(--color-warning-light); color: #c47800; cursor: default; }
+}
+
+.tx-toolbar {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+  min-height: 48px;
+  padding: 0 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+  gap: 0;
+}
+
+.toolbar-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border-right: 1px solid var(--color-border-light);
+  min-height: 48px;
+  background: transparent;
+
+  &:last-of-type { border-right: none; }
+
+  .cell-label {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+    font-weight: var(--font-weight-medium);
+  }
+
+  input[type="date"], input.input {
+    border: none;
+    outline: none;
+    background: none;
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    height: 32px;
+    padding: 0;
+    min-width: 0;
+  }
+}
+
 .toolbar-cell-cta {
   align-self: flex-end;
 }
 
 .ajp-slot {
-  margin: var(--spacing-sm) 0 var(--spacing-base);
+  margin: var(--spacing-sm) 24px var(--spacing-base);
 }
 
 .triangle-split {
   display: grid;
   grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   gap: var(--spacing-base);
+  padding: var(--spacing-md) 24px 24px;
 }
 
 @media (max-width: 1024px) {

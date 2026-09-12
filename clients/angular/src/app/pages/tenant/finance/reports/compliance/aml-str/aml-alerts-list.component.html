@@ -3,12 +3,15 @@
     <h1>{{ pageTitle }}</h1>
     <p class="page-sub">{{ pageSubtitle }}</p>
   </div>
-  @if (canRaise) {
-    <button type="button" class="btn btn-primary" (click)="openRaise()">
-      <app-icon name="plus" [size]="14"></app-icon>
-      Raise alert
-    </button>
-  }
+  <div class="header-actions">
+    <app-report-back-button></app-report-back-button>
+    @if (canRaise) {
+      <button type="button" class="btn btn-primary" (click)="openRaise()">
+        <app-icon name="plus" [size]="14"></app-icon>
+        Raise alert
+      </button>
+    }
+  </div>
 </header>
 
 <div class="tx-toolbar">

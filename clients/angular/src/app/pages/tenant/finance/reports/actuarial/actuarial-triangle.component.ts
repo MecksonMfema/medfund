@@ -18,6 +18,7 @@ import { LineChartComponent } from '../../../../../shared/components/charts/line
 import {
   ActuarialJobProgressComponent,
 } from '../../../../../shared/components/actuarial-job-progress/actuarial-job-progress.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Phase 14 §Actuarial Phase 10 shared shell for the two triangle reports
@@ -49,6 +50,7 @@ import {
     SelectComponent,
     LineChartComponent,
     ActuarialJobProgressComponent,
+    ReportBackButtonComponent,
   ],
   templateUrl: './actuarial-triangle.component.html',
   styleUrl: './actuarial-triangle.component.scss',

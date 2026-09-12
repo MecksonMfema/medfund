@@ -9,6 +9,7 @@ import { BadDebtRow, BalanceService, PageResponse } from '../../../../../core/se
 import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/services/currency.service';
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 
 /**
  * Aged-debtors report page (Phase 8, D8-2 + D8-8) — a catalogue-registered
@@ -20,7 +21,7 @@ import { ToastService } from '../../../../../shared/components/toast/toast.servi
 @Component({
   selector: 'app-aged-debtors',
   standalone: true,
-  imports: [CommonModule, FormsModule, DataTableComponent, IconComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, DataTableComponent, IconComponent, SelectComponent, ReportBackButtonComponent],
   templateUrl: './aged-debtors.component.html',
   styleUrl: './aged-debtors.component.scss',
 })

@@ -16,6 +16,7 @@ import {
   AmlWorkflowSubmit,
 } from './aml-workflow-modal.component';
 import { RaiseAmlAlertRequest } from '../../../../../../core/services/aml-alert.service';
+import { ReportBackButtonComponent } from '../../shared/report-back-button.component';
 
 /**
  * Phase 23 REG8 host page for the AML/STR alert workflow. Renders the queue
@@ -38,6 +39,7 @@ import { RaiseAmlAlertRequest } from '../../../../../../core/services/aml-alert.
     SelectComponent,
     RaiseAmlAlertModalComponent,
     AmlWorkflowModalComponent,
+    ReportBackButtonComponent,
   ],
   templateUrl: './aml-alerts-list.component.html',
   styleUrl: './aml-alerts-list.component.scss',
