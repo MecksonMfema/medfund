@@ -28,7 +28,10 @@ import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/repo
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent, SelectComponent, ReportBackButtonComponent],
   templateUrl: './commission-clawback-register.component.html',
-  styleUrl: '../receipts/receipts-report.component.scss',
+  styleUrls: [
+    '../receipts/receipts-report.component.scss',
+    './commission-clawback-register.component.scss',
+  ],
 })
 export class CommissionClawbackRegisterComponent implements OnInit {
   loading = false;

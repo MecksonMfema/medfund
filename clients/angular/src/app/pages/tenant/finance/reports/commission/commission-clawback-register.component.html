@@ -46,7 +46,7 @@
       class="input"
     />
   </div>
-  <div class="toolbar-cell">
+  <div class="toolbar-cell cell-source">
     <span class="cell-label">Source</span>
     <app-select
       [ngModel]="source"
@@ -133,7 +133,15 @@
 @if (loading) {
   <p>Loading…</p>
 } @else if (activeRows.length === 0) {
-  <p>No clawback events in this period.</p>
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="alert-triangle" [size]="48"></app-icon>
+    </div>
+    <div class="empty-state__title">No clawback events in this period</div>
+    <div class="empty-state__description">
+      Try widening the period or clearing the source / producer filters.
+    </div>
+  </div>
 } @else {
   <table class="rate-table">
     <thead>

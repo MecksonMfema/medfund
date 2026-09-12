@@ -127,6 +127,9 @@ public class FraudReportService {
                         LinkedHashMap::new);
 
         // §B Phase 11 — mean cycle time (days) for cases closed in the window.
+        // AVG over an empty set returns a single NULL row; the R2DBC map must
+        // coerce that to ZERO because reactor 3.6+ rejects null emissions
+        // inside .map((row, meta) -> ...) with NullPointerException("data").
         Mono<BigDecimal> avgCycleTimeDays = db.sql("""
                         SELECT AVG(EXTRACT(EPOCH FROM (closed_at - opened_at)) / 86400.0) AS d
                         FROM siu_case
@@ -135,10 +138,13 @@ public class FraudReportService {
                         """)
                 .bind("start", start)
                 .bind("end",   end.plusDays(1))
-                .map((row, meta) -> row.get("d", BigDecimal.class))
+                .map((row, meta) -> {
+                    BigDecimal d = row.get("d", BigDecimal.class);
+                    return d != null ? d : BigDecimal.ZERO;
+                })
                 .one()
                 .defaultIfEmpty(BigDecimal.ZERO)
-                .map(v -> v != null ? v.setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO);
+                .map(v -> v.setScale(2, RoundingMode.HALF_UP));
 
         // §B Phase 11 — count of REOPENED transitions in the window. Uses
         // siu_case_note body prefix (see SiuCaseService.reopen() note-body
@@ -469,9 +475,11 @@ public class FraudReportService {
         boolean isSupervisor = isSupervisorOrAdmin(jwt);
         String actorEmail = AuditActor.email(jwt);
 
-        String scopeClause = isSupervisor
-                ? ""
-                : " AND s.closed_by_email = :actorEmail";
+        // Textblock-splicing the officer-scope onto the WHERE was joining
+        // ":actorEmail" straight into "GROUP" because the second text block
+        // starts with the GROUP keyword (no leading newline). Keep one SQL
+        // string and use a marker so the concatenation can never re-break.
+        String scopeClause = isSupervisor ? "" : "AND s.closed_by_email = :actorEmail";
         String sql = """
                 SELECT s.closed_by_email AS email,
                        COUNT(*) AS closed_count,
@@ -484,10 +492,10 @@ public class FraudReportService {
                 WHERE s.closed_at IS NOT NULL
                   AND s.closed_at >= :start AND s.closed_at < :end
                   AND s.closed_by_email IS NOT NULL
-                """ + scopeClause + """
+                  __SCOPE__
                 GROUP BY s.closed_by_email
                 ORDER BY closed_count DESC
-                """;
+                """.replace("__SCOPE__", scopeClause);
         var spec = db.sql(sql)
                 .bind("start", start)
                 .bind("end",   end.plusDays(1));

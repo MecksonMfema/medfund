@@ -5,7 +5,6 @@ import { forkJoin } from 'rxjs';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { LineChartComponent }
   from '../../../../../shared/components/charts/line-chart/line-chart.component';
-import { StatCardComponent } from '../../../../../shared/components/stat-card/stat-card.component';
 import { ToastService } from '../../../../../shared/components/toast/toast.service';
 import { ReportResponse } from '../../../../../core/services/report-envelope';
 import {
@@ -19,6 +18,7 @@ import {
   TrendPoint,
 } from './fraud-report.service';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
+import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
 
 /**
  * Fraud / SIU report. §B Phase 11 widens the MVP 4-tile page to a full
@@ -29,8 +29,9 @@ import { ReportBackButtonComponent } from '../shared/report-back-button.componen
 @Component({
   selector: 'app-fraud-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, LineChartComponent, StatCardComponent, ReportBackButtonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, LineChartComponent, ReportBackButtonComponent],
   templateUrl: './fraud-report.component.html',
+  styleUrl: './fraud-report.component.scss',
 })
 export class FraudReportComponent implements OnInit {
   envelope: ReportResponse<FraudReportData> | null = null;
@@ -44,9 +45,15 @@ export class FraudReportComponent implements OnInit {
   exporting = false;
   errorMessage: string | null = null;
 
-  periodStart = '';
-  periodEnd = '';
+  periodStart = defaultReportPeriodStart();
+  periodEnd = defaultReportPeriodEnd();
   reportingCurrency = '';
+
+  // Anchor the trend chart at zero (matches the admin-dashboard area chart
+  // grammar) and use whole-integer tick labels so months with no activity
+  // don't render fractional ticks like 0.5 / 1.5.
+  readonly trendYTickFormat = (value: number): string =>
+    Number.isInteger(value) ? value.toLocaleString('en-US') : '';
 
   constructor(
     private reportService: FraudReportService,
@@ -54,12 +61,6 @@ export class FraudReportComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    const today = new Date();
-    const firstOfThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const lastOfPrev = new Date(firstOfThisMonth.getTime() - 24 * 60 * 60 * 1000);
-    const firstOfPrev = new Date(lastOfPrev.getFullYear(), lastOfPrev.getMonth(), 1);
-    this.periodStart = this.iso(firstOfPrev);
-    this.periodEnd = this.iso(lastOfPrev);
     this.fetch();
   }
 
@@ -67,10 +68,6 @@ export class FraudReportComponent implements OnInit {
     if (!this.periodStart || !this.periodEnd) return;
     this.loading = true;
     const opts = this.opts();
-    // Fan out all six requests in parallel — the page renders once the
-    // slowest replies. Each backend endpoint is independently gated by
-    // the same permission + FRAUD_SIU_REPORT toggle, so 403s propagate
-    // together on the first denied call.
     forkJoin({
       summary:      this.reportService.summary(opts),
       trend:        this.reportService.trend(12),
@@ -115,35 +112,64 @@ export class FraudReportComponent implements OnInit {
   perCurrencyEntries(): { currency: string; amount: string }[] {
     if (!this.envelope?.data?.savingsPerCurrency) return [];
     return Object.entries(this.envelope.data.savingsPerCurrency)
-      .map(([currency, amount]) => ({ currency, amount }));
+      .map(([currency, amount]) => ({ currency, amount: this.formatDecimal(amount, 2) }));
   }
 
-  /** Line-chart series for `<app-line-chart>` — three series (opened,
-   *  confirmed, dismissed). ngx-charts expects
-   *  {@code [{ name, series: [{ name, value }] }]}. */
+  /** Whole integer with locale grouping (e.g. 1,234). */
+  formatCount(value: number | string | null | undefined): string {
+    if (value === null || value === undefined || value === '') return '0';
+    const n = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(n)) return String(value);
+    return Math.round(n).toLocaleString('en-US');
+  }
+
+  /** Fixed-decimal amount with locale grouping (e.g. 1,234.56). */
+  formatDecimal(value: number | string | null | undefined, dp = 2): string {
+    if (value === null || value === undefined || value === '') return '-';
+    const n = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(n)) return String(value);
+    return n.toLocaleString('en-US', { minimumFractionDigits: dp, maximumFractionDigits: dp });
+  }
+
+  /** 4dp fraction (server-side) rendered as one-decimal percentage. */
+  formatRate(value: number | string | null | undefined): string {
+    if (value === null || value === undefined || value === '') return '-';
+    const n = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(n)) return String(value);
+    return (n * 100).toFixed(1) + '%';
+  }
+
+  /** Line-chart series — three series, ISO month → short-month label. */
   get trendChartData(): { name: string; series: { name: string; value: number }[] }[] {
     if (this.trendPoints.length === 0) return [];
+    const label = (iso: string) => {
+      const d = new Date(iso + 'T00:00:00Z');
+      return isNaN(d.getTime())
+        ? iso
+        : d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit', timeZone: 'UTC' });
+    };
     return [
-      {
-        name: 'Cases opened',
-        series: this.trendPoints.map(p => ({ name: p.month, value: p.casesOpened })),
-      },
-      {
-        name: 'Confirmed',
-        series: this.trendPoints.map(p => ({ name: p.month, value: p.confirmedCount })),
-      },
-      {
-        name: 'Dismissed',
-        series: this.trendPoints.map(p => ({ name: p.month, value: p.dismissedCount })),
-      },
+      { name: 'Cases opened', series: this.trendPoints.map(p => ({ name: label(p.month), value: p.casesOpened })) },
+      { name: 'Confirmed',    series: this.trendPoints.map(p => ({ name: label(p.month), value: p.confirmedCount })) },
+      { name: 'Dismissed',    series: this.trendPoints.map(p => ({ name: label(p.month), value: p.dismissedCount })) },
     ];
+  }
+
+  /** Give the chart a stable y-max — 20% headroom above the tallest bar,
+   *  minimum of 5 so an all-zero window still shows tick labels. */
+  get trendYMax(): number {
+    let max = 0;
+    for (const p of this.trendPoints) {
+      max = Math.max(max, p.casesOpened, p.confirmedCount, p.dismissedCount);
+    }
+    return max > 0 ? Math.ceil(max * 1.2) : 5;
   }
 
   nativeSummary(perCurrency: Record<string, string>): string {
     if (!perCurrency) return '-';
     const entries = Object.entries(perCurrency);
     if (entries.length === 0) return '-';
-    return entries.map(([ccy, amt]) => `${ccy} ${amt}`).join(' · ');
+    return entries.map(([ccy, amt]) => `${ccy} ${this.formatDecimal(amt, 2)}`).join(' · ');
   }
 
   private opts(): FraudReportParams {
@@ -153,13 +179,6 @@ export class FraudReportComponent implements OnInit {
     };
     if (this.reportingCurrency) opts.reportingCurrency = this.reportingCurrency;
     return opts;
-  }
-
-  private iso(d: Date): string {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
   }
 
   private downloadBlob(blob: Blob, filename: string): void {
