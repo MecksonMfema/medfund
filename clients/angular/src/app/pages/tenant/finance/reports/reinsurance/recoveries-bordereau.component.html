@@ -26,7 +26,7 @@
 }
 
 <div class="tx-toolbar">
-  <div class="toolbar-cell">
+  <div class="toolbar-cell cell-year">
     <span class="cell-label">Year</span>
     <app-select
       [ngModel]="year.toString()"
@@ -36,7 +36,7 @@
       [searchable]="false"
     ></app-select>
   </div>
-  <div class="toolbar-cell">
+  <div class="toolbar-cell cell-quarter">
     <span class="cell-label">Quarter</span>
     <app-select
       [ngModel]="quarter.toString()"
@@ -112,7 +112,15 @@
 @if (loading) {
   <p>Loading…</p>
 } @else if (activeRows.length === 0) {
-  <p>No recoveries recorded in this quarter.</p>
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="shield" [size]="48"></app-icon>
+    </div>
+    <div class="empty-state__title">No recoveries recorded in this quarter</div>
+    <div class="empty-state__description">
+      Try a different quarter or clear the reinsurer / treaty filters.
+    </div>
+  </div>
 } @else {
   <table class="rate-table">
     <thead>

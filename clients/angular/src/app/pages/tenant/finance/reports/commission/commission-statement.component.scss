@@ -1,0 +1,47 @@
+// Per-page overrides for the commission statement. Mirrors the polish on
+// the clawback register: wider producer + currency cells so labels never
+// truncate, entity-picker flattened inside the toolbar so it reads as a
+// bare inline control (matching the date + app-select cells), and the
+// empty-state block gets breathing room above/below the fold.
+
+.toolbar-cell.cell-picker {
+  min-width: 280px;
+}
+
+.toolbar-cell.cell-currency {
+  min-width: 380px;
+}
+
+.toolbar-cell.cell-picker app-entity-picker,
+.toolbar-cell.cell-currency app-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+// Flatten the entity-picker's inner search + picked chip inside the
+// toolbar so it stops rendering as a bordered box against the flush
+// filter strip. Per-component ::ng-deep is required — the global rule
+// with a top-level ::ng-deep is dropped by browsers.
+.tx-toolbar .toolbar-cell.cell-picker {
+  ::ng-deep .search-wrapper input {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+    font-size: var(--font-size-sm);
+  }
+  ::ng-deep .picked {
+    border: none;
+    background: transparent;
+    padding: 0;
+    font-size: var(--font-size-sm);
+  }
+  ::ng-deep .picked-info strong { font-size: var(--font-size-sm); }
+}
+
+.empty-state {
+  margin-top: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+}

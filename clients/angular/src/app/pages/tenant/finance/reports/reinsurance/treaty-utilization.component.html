@@ -39,7 +39,7 @@
       searchPlaceholder="Search treaties…"
     ></app-select>
   </div>
-  <div class="toolbar-cell">
+  <div class="toolbar-cell cell-date">
     <span class="cell-label">As of</span>
     <input type="date" [(ngModel)]="asOfDate" (change)="onFilterChange()" name="asOfDate" />
   </div>
@@ -83,11 +83,29 @@
 }
 
 @if (!treatyId) {
-  <p>Choose a treaty to load utilization.</p>
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="shield" [size]="48"></app-icon>
+    </div>
+    <div class="empty-state__title">Pick a treaty to load utilization</div>
+    <div class="empty-state__description">
+      Utilization is calculated per treaty since inception. Choose one above
+      to see per-layer ceded totals and utilization %.
+    </div>
+  </div>
 } @else if (loading) {
   <p>Loading…</p>
 } @else if (activeRows.length === 0) {
-  <p>No cessions yet against this treaty.</p>
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="shield" [size]="48"></app-icon>
+    </div>
+    <div class="empty-state__title">No cessions yet against this treaty</div>
+    <div class="empty-state__description">
+      Nothing has been ceded to this treaty as of the selected date.
+      Try a later as-of date or a different treaty.
+    </div>
+  </div>
 } @else {
   <table class="rate-table">
     <thead>

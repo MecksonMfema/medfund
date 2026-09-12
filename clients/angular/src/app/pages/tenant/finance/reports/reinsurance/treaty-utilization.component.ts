@@ -26,7 +26,10 @@ import { ReportBackButtonComponent } from '../shared/report-back-button.componen
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent, SelectComponent, ReportBackButtonComponent],
   templateUrl: './treaty-utilization.component.html',
-  styleUrl: '../receipts/receipts-report.component.scss',
+  styleUrls: [
+    '../receipts/receipts-report.component.scss',
+    './treaty-utilization.component.scss',
+  ],
 })
 export class TreatyUtilizationComponent implements OnInit {
   loading = false;

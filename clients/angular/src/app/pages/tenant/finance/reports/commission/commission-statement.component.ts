@@ -31,7 +31,10 @@ import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/repo
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent, SelectComponent, EntityPickerComponent, ReportBackButtonComponent],
   templateUrl: './commission-statement.component.html',
-  styleUrl: '../receipts/receipts-report.component.scss',
+  styleUrls: [
+    '../receipts/receipts-report.component.scss',
+    './commission-statement.component.scss',
+  ],
 })
 export class CommissionStatementComponent implements OnInit {
   loading = false;

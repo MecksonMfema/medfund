@@ -27,7 +27,10 @@ import { ReportBackButtonComponent } from '../shared/report-back-button.componen
   standalone: true,
   imports: [CommonModule, FormsModule, IconComponent, SelectComponent, ReportBackButtonComponent],
   templateUrl: './cession-bordereau.component.html',
-  styleUrl: '../receipts/receipts-report.component.scss',
+  styleUrls: [
+    '../receipts/receipts-report.component.scss',
+    './cession-bordereau.component.scss',
+  ],
 })
 export class CessionBordereauComponent implements OnInit {
   loading = false;

@@ -50,3 +50,32 @@
   gap: var(--spacing-sm);
   margin-top: var(--spacing-sm);
 }
+
+// Per-page toolbar-cell widths so each dropdown label + option list
+// reads without truncation. Mirrors the cession bordereau polish so
+// the two reinsurance pages sit side-by-side identically.
+.toolbar-cell.cell-year,
+.toolbar-cell.cell-quarter {
+  min-width: 220px;
+}
+
+.toolbar-cell.cell-search {
+  min-width: 300px;
+}
+
+.toolbar-cell.cell-currency {
+  min-width: 380px;
+}
+
+.toolbar-cell.cell-year app-select,
+.toolbar-cell.cell-quarter app-select,
+.toolbar-cell.cell-search app-select,
+.toolbar-cell.cell-currency app-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.empty-state {
+  margin-top: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+}
