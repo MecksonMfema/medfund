@@ -1,0 +1,61 @@
+<header class="page-header">
+  <div>
+    <h1>Producer payouts</h1>
+    <p class="page-sub">Commission payment runs for producers. Each row is a period-scoped batch that groups all producers paid together; row-click opens the run to review, approve, or execute individual payments.</p>
+  </div>
+  <button
+    type="button"
+    class="btn btn-primary"
+    (click)="openNew()"
+  >
+    <app-icon name="plus" [size]="14"></app-icon>
+    New producer payout
+  </button>
+</header>
+
+@if (error) {
+  <div class="banner banner-error" (click)="error = null">{{ error }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Status</span>
+    <app-select
+      [(ngModel)]="statusFilter"
+      (selectionChange)="onStatusChange()"
+      name="status"
+      size="sm"
+      [options]="statusOptions"
+      placeholder="All statuses"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+
+  <div class="toolbar-cell cell-select">
+    <span class="cell-label">Currency</span>
+    <app-select
+      [(ngModel)]="currencyFilter"
+      (selectionChange)="onCurrencyChange()"
+      name="currency"
+      size="sm"
+      [options]="currencyOptions"
+      placeholder="All currencies"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+</div>
+
+<app-data-table
+  data-testid="producer-payouts-table"
+  [columns]="columns"
+  [data]="rows"
+  [searchable]="false"
+  [showToolbar]="false"
+  [loading]="loading"
+  [emptyMessage]="'No producer payouts'"
+  [emptyDescription]="'Producer commission runs land here once they are created. Use New producer payout to draft one.'"
+  [emptyIcon]="'wallet'"
+  (rowClick)="openRow($event)">
+</app-data-table>

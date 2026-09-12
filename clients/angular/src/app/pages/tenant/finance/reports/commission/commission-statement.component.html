@@ -43,40 +43,15 @@
       class="input"
     />
   </div>
-  <div class="toolbar-cell cell-search">
+  <div class="toolbar-cell cell-picker">
     <span class="cell-label">Producer</span>
-    @if (producerLabel) {
-      <div class="chip-row">
-        <span class="chip">{{ producerLabel }}</span>
-        <button type="button" class="btn btn-ghost btn-sm" (click)="clearProducer()">
-          Clear
-        </button>
-      </div>
-    } @else {
-      <input
-        type="text"
-        [(ngModel)]="producerSearchQuery"
-        (input)="onProducerSearchChange()"
-        name="producerSearch"
-        placeholder="Search by name or code…"
-        class="input"
-      />
-      @if (producerSearching) {
-        <div class="picker-hint">Searching…</div>
-      }
-      @if (producerMatches.length > 0) {
-        <ul class="picker-list">
-          @for (p of producerMatches; track p.id) {
-            <li>
-              <button type="button" class="picker-item" (click)="pickProducer(p)">
-                <strong>{{ p.producerCode }}</strong> - {{ p.name }}
-                <span class="picker-meta">{{ p.homeCurrency }}</span>
-              </button>
-            </li>
-          }
-        </ul>
-      }
-    }
+    <app-entity-picker
+      kind="producer"
+      [value]="producerId"
+      [prefillLabel]="producerLabel"
+      placeholder="Search by name or code…"
+      (selected)="onProducerPicked($event)">
+    </app-entity-picker>
   </div>
   <div class="toolbar-cell cell-currency">
     <span class="cell-label">Reporting currency</span>

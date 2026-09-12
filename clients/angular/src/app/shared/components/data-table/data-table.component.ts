@@ -36,6 +36,13 @@ export interface TableAction {
    * only — the data-table itself does not consult PermissionService.
    */
   requiresPermission?: string;
+  /** Optional data-testid emitted on the rendered action button. */
+  testid?: string;
+  /** Optional predicate — greys the action out (still visible) when true. */
+  disabled?: (row: any) => boolean;
+  /** Optional native title/tooltip. Static, or per-row via {@link titleFor}. */
+  title?: string;
+  titleFor?: (row: any) => string;
   handler: (row: any) => void;
 }
 

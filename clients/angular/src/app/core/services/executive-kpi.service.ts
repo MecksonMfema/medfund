@@ -30,6 +30,11 @@ export interface KpiFilters {
   schemeId?: string;
   producerId?: string;
   reportingCurrency?: string;
+  /** ISO date. Required by /dashboard (server 400s without it) — the service
+   *  defaults it to the 1st of the current month when the caller omits. */
+  periodStart?: string;
+  /** ISO date. Same story as {@link periodStart} — service defaults to today. */
+  periodEnd?: string;
 }
 
 /**
@@ -84,7 +89,27 @@ function filterParams(f: KpiFilters, extra: Record<string, string> = {}): Record
   if (f.schemeId)          p['schemeId']          = f.schemeId;
   if (f.producerId)        p['producerId']        = f.producerId;
   if (f.reportingCurrency) p['reportingCurrency'] = f.reportingCurrency;
+  if (f.periodStart)       p['periodStart']       = f.periodStart;
+  if (f.periodEnd)         p['periodEnd']         = f.periodEnd;
   return p;
+}
+
+/** Default period when the caller doesn't supply one: 1st-of-current-month
+ *  to today. Mirrors the anchor semantics the /trend endpoint uses
+ *  server-side, but /dashboard requires the range to be explicit.
+ *  Uses local date components (NOT toISOString) so timezones west of UTC
+ *  don't roll the 1st back into the previous month. */
+function withDefaultPeriod(f: KpiFilters): KpiFilters {
+  if (f.periodStart && f.periodEnd) return f;
+  const isoLocal = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const today = new Date();
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  return {
+    ...f,
+    periodStart: f.periodStart ?? isoLocal(monthStart),
+    periodEnd:   f.periodEnd   ?? isoLocal(today),
+  };
 }
 
 @Injectable({ providedIn: 'root' })
@@ -92,9 +117,12 @@ export class ExecutiveKpiService {
   constructor(private api: ApiService) {}
 
   /** All five tiles in one round-trip; missing tiles indicate the tenant has
-   *  disabled that report — dashboard endpoint 403s if every KPI is off. */
+   *  disabled that report — dashboard endpoint 403s if every KPI is off.
+   *  Defaults {@code periodStart} + {@code periodEnd} to the current month
+   *  when the caller omits them (server requires both). */
   dashboard(filters: KpiFilters): Observable<KpiDashboardResponse> {
-    return this.api.get<KpiDashboardResponse>('/reports/kpi/dashboard', filterParams(filters));
+    return this.api.get<KpiDashboardResponse>(
+      '/reports/kpi/dashboard', filterParams(withDefaultPeriod(filters)));
   }
 
   /** Time series for a single KPI. {@code windowMonths} must be 12 or 24. */

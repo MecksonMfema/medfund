@@ -1,15 +1,24 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import {
   EndorsementResponse,
   EndorsementService,
   EndorsementStatus,
 } from '../../../../core/services/endorsement.service';
-import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { NavigationService } from '../../../../core/services/navigation.service';
 import { PermissionService } from '../../../../core/security/permission.service';
+import {
+  DataTableComponent,
+  TableAction,
+  TableColumn,
+} from '../../../../shared/components/data-table/data-table.component';
+import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+
+interface EndorsementRow extends EndorsementResponse {
+  premiumDeltaNum: number | null;
+}
 
 /**
  * Phase 12 §C endorsement approver queue. Mirrors Phase 11's
@@ -23,12 +32,12 @@ import { PermissionService } from '../../../../core/security/permission.service'
 @Component({
   selector: 'app-endorsement-review-queue',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, IconComponent],
+  imports: [CommonModule, FormsModule, DataTableComponent, SelectComponent],
   templateUrl: './endorsement-review-queue.component.html',
   styleUrl: './endorsement-review-queue.component.scss',
 })
 export class EndorsementReviewQueueComponent implements OnInit {
-  rows: EndorsementResponse[] = [];
+  rows: EndorsementRow[] = [];
   loading = false;
   errorMessage: string | null = null;
   statusFilter: '' | EndorsementStatus = '';
@@ -47,11 +56,68 @@ export class EndorsementReviewQueueComponent implements OnInit {
   voidSubmitting = false;
   voidError: string | null = null;
 
-  readonly statusOptions: { value: '' | EndorsementStatus; label: string }[] = [
+  readonly statusOptions: SelectOption[] = [
     { value: '',         label: 'All (DRAFT + APPROVED)' },
     { value: 'DRAFT',    label: 'Draft' },
     { value: 'APPROVED', label: 'Approved' },
   ];
+
+  readonly columns: TableColumn[] = [
+    { key: 'status',           label: 'Status',      sortable: false, type: 'status' },
+    { key: 'reference',        label: 'Reference',   sortable: false },
+    { key: 'changeType',       label: 'Change type', sortable: false },
+    { key: 'effectiveFrom',    label: 'Effective',   sortable: false, type: 'date' },
+    { key: 'premiumDeltaNum',  label: 'Δ premium',   sortable: false, type: 'currency' },
+    { key: 'currencyCode',     label: 'Currency',    sortable: false },
+    { key: 'draftActorEmail',  label: 'Drafter',     sortable: false },
+    { key: 'draftAt',          label: 'Drafted at',  sortable: false, type: 'date' },
+  ];
+
+  get actions(): TableAction[] {
+    const items: TableAction[] = [];
+    if (this.canApprove()) {
+      items.push({
+        label: 'Approve',
+        icon: 'check-circle',
+        color: 'success',
+        testid: 'approve-btn',
+        visible: (row: EndorsementRow) => row.status === 'DRAFT',
+        disabled: (row: EndorsementRow) =>
+          this.actionInProgress[row.id] === true || this.isSameActor(row),
+        titleFor: (row: EndorsementRow) =>
+          this.isSameActor(row) ? 'Four-eyes: cannot approve your own draft' : '',
+        handler: (row: EndorsementRow) => this.approve(row),
+      });
+      items.push({
+        label: 'Commit',
+        icon: 'external-link',
+        color: 'success',
+        testid: 'commit-btn',
+        visible: (row: EndorsementRow) => row.status === 'APPROVED',
+        disabled: (row: EndorsementRow) => this.actionInProgress[row.id] === true,
+        handler: (row: EndorsementRow) => this.commit(row),
+      });
+      items.push({
+        label: 'Void',
+        icon: 'x-circle',
+        color: 'danger',
+        testid: 'void-btn',
+        visible: (row: EndorsementRow) =>
+          row.status === 'DRAFT' || row.status === 'APPROVED',
+        disabled: (row: EndorsementRow) => this.actionInProgress[row.id] === true,
+        handler: (row: EndorsementRow) => this.openVoid(row),
+      });
+    }
+    items.push({
+      label: 'Detail',
+      icon: 'eye',
+      color: 'default',
+      handler: (row: EndorsementRow) => this.openDetail(row),
+    });
+    return items;
+  }
+
+  private router = inject(Router);
 
   constructor(
     private svc: EndorsementService,
@@ -82,7 +148,10 @@ export class EndorsementReviewQueueComponent implements OnInit {
       size:   this.pageSize,
     }).subscribe({
       next: page => {
-        this.rows       = page.content;
+        this.rows = page.content.map(r => ({
+          ...r,
+          premiumDeltaNum: r.premiumDelta == null ? null : Number(r.premiumDelta),
+        }));
         this.totalCount = page.totalElements;
         this.totalPages = page.totalPages || 1;
         this.loading    = false;
@@ -97,6 +166,10 @@ export class EndorsementReviewQueueComponent implements OnInit {
   }
 
   onStatusChange(): void { this.page = 0; this.fetchPage(); }
+
+  openDetail(row: EndorsementResponse): void {
+    this.router.navigate(['/tenant/finance/underwriting/endorsements', row.id]);
+  }
 
   approve(row: EndorsementResponse): void {
     if (this.actionInProgress[row.id] || this.isSameActor(row)) return;

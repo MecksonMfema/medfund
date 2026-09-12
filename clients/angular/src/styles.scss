@@ -275,9 +275,351 @@ a:hover {
 /* Blue — enrolled / verified / info states */
 .badge-enrolled,
 .badge-verified,
-.badge-info {
+.badge-info,
+.badge-raised,
+.badge-reviewed,
+.badge-under_review,
+.badge-under-review {
   background: var(--color-info-light);
   color: #0096b4;
+}
+
+/* Extra green statuses (regulatory-filed, resolved, ledger-committed) */
+.badge-filed,
+.badge-closed,
+.badge-committed,
+.badge-received,
+.badge-ceded {
+  background: var(--color-success-light);
+  color: #1a9a8e;
+}
+
+/* Extra red statuses (voided, written off) */
+.badge-voided,
+.badge-written_off,
+.badge-written-off {
+  background: var(--color-error-light);
+  color: #c4162d;
+}
+
+/* Extra amber statuses (expected, invoiced) */
+.badge-expected,
+.badge-invoiced {
+  background: var(--color-warning-light);
+  color: #c47800;
+}
+
+/* ── Tab bar (list-filter tabs — the /tenant/claims pattern) ────────────
+ * Underlined tab strip that sits directly below a fullbleed page-header
+ * and above a data-table. Active tab draws a 2px underline in
+ * --color-primary. Historically named `.scheme-tabs`/`.scheme-tab` in
+ * every list page that grew tabs; promoted here so every tabbed list
+ * looks the same. The historical names are kept as aliases (via extra
+ * selectors) so existing templates don't need to be touched. */
+.tab-bar,
+.scheme-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 0 var(--spacing-xl);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+  overflow-x: auto;
+}
+.tab-bar__tab,
+.scheme-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 4px;
+  margin: 0 var(--spacing-sm) 0 0;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+.tab-bar__tab:hover,
+.scheme-tab:hover {
+  color: var(--color-text-primary);
+}
+.tab-bar__tab.is-active,
+.scheme-tab.is-active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+.tab-bar__tab:disabled,
+.scheme-tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Page header (title + subtitle on the left, actions on the right) ────
+ * Promoted from ~40 report / list pages that all redeclared this same
+ * flex row locally. Now one rule, one look everywhere. Note: no default
+ * margin-bottom — pages that need spacing between the header and the
+ * next element add it locally, so fullbleed pages that want a flush
+ * page-header → toolbar → table stack still work. */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-base);
+  flex-wrap: wrap;
+}
+.page-header h1 {
+  margin: 0 0 var(--spacing-xs);
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
+}
+.page-header .page-sub,
+.page-header .page-subtitle {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  max-width: 640px;
+  line-height: var(--line-height-normal);
+}
+.page-header .action-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-shrink: 0;
+}
+
+/* ── Canonical toolbar (divider-separated cells, self-contained card) ────
+ * One shape for every finance / reports page. Default is a self-contained
+ * elevated surface (rounded corners, border, subtle shadow) so it drops
+ * into padded pages without a separate card wrapper. On `fullbleed: true`
+ * pages (transactions, aged-debtors, ledger) add the `.is-flush` modifier
+ * to strip the radius / shadow / all-side borders so the toolbar joins a
+ * page-header + table into one edge-to-edge surface. */
+.tx-toolbar {
+  display: flex;
+  align-items: stretch;
+  min-height: 48px;
+  padding: 0 var(--spacing-xl);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  gap: 0;
+  flex-wrap: nowrap;
+  margin-bottom: var(--spacing-base);
+}
+/* Flush modifier: for fullbleed pages that stack page-header + toolbar +
+ * table into one continuous white surface. Drops the radius, shadow and
+ * side/top borders, keeps a bottom divider. */
+.tx-toolbar.is-flush {
+  border: none;
+  border-bottom: 1px solid var(--color-border-light);
+  border-radius: 0;
+  box-shadow: none;
+  margin-bottom: 0;
+}
+
+.toolbar-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 0 14px;
+  border-right: 1px solid var(--color-border-light);
+  min-height: 48px;
+  background: transparent;
+}
+.toolbar-cell:last-of-type { border-right: none; }
+
+.toolbar-cell .cell-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  font-weight: var(--font-weight-medium);
+}
+
+.toolbar-cell input[type="date"],
+.toolbar-cell input[type="text"],
+.toolbar-cell input[type="number"] {
+  border: none;
+  outline: none;
+  background: none;
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  height: 32px;
+  padding: 0;
+  min-width: 130px;
+}
+.toolbar-cell input::placeholder { color: var(--color-text-muted); }
+
+.toolbar-cell app-icon { color: var(--color-text-muted); flex-shrink: 0; }
+
+.toolbar-cell.cell-search {
+  flex: 1 1 260px;
+  min-width: 220px;
+  max-width: 380px;
+}
+.toolbar-cell.cell-search input[type="search"] {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: none;
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  height: 32px;
+  padding: 0;
+  min-width: 0;
+  -webkit-appearance: none;
+}
+.toolbar-cell.cell-search input[type="search"]::placeholder { color: var(--color-text-muted); }
+.toolbar-cell.cell-search input[type="search"]::-webkit-search-cancel-button { display: none; }
+
+.toolbar-cell.cell-select {
+  flex: 0 0 auto;
+  min-width: 220px;
+}
+.toolbar-cell.cell-select app-select { min-width: 170px; flex: 1; }
+
+/* Flatten the select trigger so it sits flush with the other cells.
+ * ::ng-deep is deprecated but still supported and least-invasive here. */
+.toolbar-cell.cell-select ::ng-deep .select-trigger {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  height: 32px;
+  min-width: 0;
+}
+.toolbar-cell.cell-select ::ng-deep .select-trigger:hover,
+.toolbar-cell.cell-select ::ng-deep .select-wrapper.is-open .select-trigger {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.toolbar-cell.cell-date { flex: 0 0 auto; }
+
+.toolbar-cell.cell-clear .clear-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+}
+.toolbar-cell.cell-clear .clear-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Rate table (summary / matrix / monthly-bucket tables) ───────────────
+ * Baseline that visually matches <app-data-table>. Renders as a card by
+ * default (surface, border, radius, shadow) so it drops into padded pages
+ * without a wrapper. For tabular data with sort/pagination reach for
+ * <app-data-table> instead. Use `.is-flush` for fullbleed pages. */
+.rate-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--font-size-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.rate-table.is-flush {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+.rate-table th,
+.rate-table td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border-light);
+  vertical-align: top;
+}
+.rate-table th {
+  background: var(--color-bg);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.rate-table th:first-child,
+.rate-table td:first-child { padding-left: var(--spacing-xl); }
+.rate-table th:last-child,
+.rate-table td:last-child { padding-right: var(--spacing-xl); }
+.rate-table td.num,
+.rate-table th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.rate-table td.actions,
+.rate-table th.actions {
+  text-align: right;
+  white-space: nowrap;
+}
+.rate-table tbody tr:hover td { background: var(--color-bg); }
+
+/* ── Stats grid (for pages rendering N <app-stat-card>s in a row) ────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+/* ── Empty state (matches the shape inside <app-data-table>) ──────────
+ * For host pages that need to render an empty-state outside a table —
+ * a reports hub with no reports enabled, a search returning no rows on
+ * a hand-rolled list, etc. */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 360px;
+  margin: 0 auto;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.empty-state__icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-light);
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.empty-state__title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.empty-state__description {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
 }
 
 /* Button Base */

@@ -1,79 +1,52 @@
-.fac-layout {
-  display: grid;
-  grid-template-columns: 1fr 380px;
-  gap: 1.5rem;
-  margin-top: 1rem;
-}
+// Cedable-claims tab. Toolbar + data-table are shared primitives; the
+// cede modal is the only tab-scoped surface. Modal chrome (.modal-backdrop
+// / .modal-card / .modal-actions) is duplicated from the sibling queue tab
+// intentionally — the two tabs are independent standalone components and
+// there is no shared modal wrapper yet.
 
-.candidates-pane {
-  min-width: 0;
-}
-
-.candidates-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-
-  th, td {
-    padding: 0.6rem 0.75rem;
-    text-align: left;
-    border-bottom: 1px solid var(--border-color, #e5e7eb);
-  }
-
-  th {
-    background: var(--surface-alt, #f9fafb);
-    font-weight: 600;
-    color: var(--text-secondary, #4b5563);
-  }
-
-  td.num, th.num {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-
-  tr.selected {
-    background: var(--accent-soft, #eef2ff);
-  }
-}
-
-.cede-pane {
-  background: var(--surface, #fff);
-  border: 1px solid var(--border-color, #e5e7eb);
-  border-radius: 8px;
-  padding: 1rem;
-  align-self: flex-start;
-  position: sticky;
-  top: 1rem;
-}
-
-.cede-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 2rem 1rem;
-  color: var(--text-secondary, #6b7280);
-  text-align: center;
-}
-
-.cede-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.75rem;
-
-  h3 {
-    font-size: 1rem;
-    margin: 0;
-  }
-
-  .link-btn {
-    background: none;
+// Flatten the app-select trigger inside toolbar cells. The equivalent
+// rule in the global styles.scss uses ::ng-deep at the top level, which
+// browsers drop as an invalid pseudo-element and the flattening never
+// takes effect. Pages that need it duplicate the rule locally, where
+// Angular's compiler actually strips ::ng-deep.
+.toolbar-cell.cell-select {
+  ::ng-deep .select-trigger {
     border: none;
-    color: var(--accent, #4f46e5);
-    cursor: pointer;
-    font-size: 0.85rem;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
   }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-card {
+  background: var(--color-surface, #fff);
+  border-radius: var(--radius-md, 8px);
+  padding: 1.25rem;
+  width: 480px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+
+  h3 { margin: 0 0 0.25rem 0; font-size: 1.05rem; }
+  .modal-sub { margin: 0 0 1rem 0; font-size: 0.85rem; color: var(--color-text-muted, #6b7280); }
 }
 
 .cede-summary {
@@ -83,14 +56,12 @@
   column-gap: 0.75rem;
   font-size: 0.85rem;
   margin: 0 0 1rem 0;
+  padding: 0.75rem;
+  background: var(--color-surface-alt, #f9fafb);
+  border-radius: var(--radius-sm, 6px);
 
-  dt {
-    color: var(--text-secondary, #6b7280);
-  }
-  dd {
-    margin: 0;
-    font-weight: 500;
-  }
+  dt { color: var(--color-text-muted, #6b7280); }
+  dd { margin: 0; font-weight: 500; }
 }
 
 .cede-form {
@@ -104,36 +75,31 @@
     gap: 0.25rem;
     font-size: 0.85rem;
 
-    span {
-      color: var(--text-secondary, #4b5563);
-      font-weight: 500;
-    }
+    span { color: var(--color-text-secondary, #4b5563); font-weight: 500; }
 
     input, textarea {
       padding: 0.5rem 0.6rem;
-      border: 1px solid var(--border-color, #d1d5db);
-      border-radius: 6px;
+      border: 1px solid var(--color-border, #d1d5db);
+      border-radius: var(--radius-sm, 6px);
       font-size: 0.9rem;
+      font-family: inherit;
     }
   }
 }
 
-.cede-actions {
+.modal-actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 0.25rem;
-}
-
-.loading, .empty {
-  padding: 2rem;
-  text-align: center;
-  color: var(--text-secondary, #6b7280);
+  gap: 0.5rem;
+  margin-top: 0.5rem;
 }
 
 .banner {
   padding: 0.55rem 0.75rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm, 6px);
   font-size: 0.85rem;
-  &.banner-error   { background: var(--danger-soft, #fee2e2); color: var(--danger, #991b1b); }
-  &.banner-success { background: var(--success-soft, #dcfce7); color: var(--success, #166534); }
+  margin: 0.75rem 1.5rem 0;
+
+  &.banner-error   { background: var(--color-danger-soft, #fee2e2); color: var(--color-danger, #991b1b); }
+  &.banner-success { background: var(--color-success-soft, #dcfce7); color: var(--color-success, #166534); }
 }

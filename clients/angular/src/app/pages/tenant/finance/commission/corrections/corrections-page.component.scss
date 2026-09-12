@@ -1,134 +1,119 @@
+// Corrections list — fullbleed layout matching the sibling review-queue
+// and creditors pages. The create flow lives on
+// /tenant/finance/commission/corrections/new; only the void modal stays
+// tab-scoped since it is a lightweight confirmation.
+
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  margin-bottom: 1rem;
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+  flex-wrap: wrap;
 }
 
-.page-sub {
-  color: var(--text-muted, #6b7280);
-  margin: 0.25rem 0 0;
-  max-width: 65ch;
+.page-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
 }
 
-.page-header-actions {
-  display: flex;
-  gap: 0.5rem;
+.page-header .page-sub {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  max-width: 70ch;
+}
+
+// Flatten app-select trigger inside toolbar. Global styles.scss authors
+// this rule with ::ng-deep at the top level which browsers drop; every
+// page needs a local copy where Angular's compiler actually strips it.
+.toolbar-cell.cell-select {
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
 }
 
 .hint-banner {
-  background: #eff6ff;
-  border-left: 3px solid #3b82f6;
-  color: #1e3a8a;
-  padding: 0.55rem 0.85rem;
-  margin: 0 0 0.75rem;
-  border-radius: 4px;
-  font-size: 0.9em;
+  margin: 12px 24px 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 0.85rem;
+  background: var(--color-primary-light);
+  color: var(--color-text-primary);
+  border: 1px solid rgba(0, 119, 182, 0.2);
 }
 
 .banner {
-  padding: 0.6rem 0.9rem;
-  border-radius: 6px;
-  margin-bottom: 0.75rem;
+  margin: 12px 24px 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm, 6px);
   cursor: pointer;
-}
-.banner-error {
-  background: #fee2e2;
-  color: #991b1b;
-}
+  font-size: 0.875rem;
 
-.loading,
-.empty {
-  padding: 1.5rem;
-  text-align: center;
-  color: var(--text-muted, #6b7280);
-}
-
-.queue-table {
-  width: 100%;
-  border-collapse: collapse;
-  th, td {
-    padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--border-subtle, #e5e7eb);
-    text-align: left;
-    vertical-align: top;
-  }
-  th.num, td.num { text-align: right; }
-  th.actions, td.actions { text-align: right; white-space: nowrap; }
-
-  .status-pill {
-    display: inline-block;
-    padding: 0.15rem 0.55rem;
-    border-radius: 999px;
-    font-size: 0.75em;
-    background: #e5e7eb;
-    color: #374151;
-
-    &[data-status='DRAFT']     { background: #dbeafe; color: #1e40af; }
-    &[data-status='APPROVED']  { background: #fef3c7; color: #92400e; }
-    &[data-status='COMMITTED'] { background: #d1fae5; color: #065f46; }
-    &[data-status='VOIDED']    { background: #f3f4f6; color: #6b7280; }
+  &.banner-error {
+    background: var(--color-error-light, #fee2e2);
+    color: var(--color-error, #991b1b);
+    border: 1px solid rgba(196, 22, 45, 0.25);
   }
 }
 
+// ── Void modal ────────────────────────────────────────────────────────
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: 1000;
 }
 
 .modal-card {
-  background: #fff;
-  padding: 1.25rem 1.5rem;
-  border-radius: 8px;
-  min-width: 480px;
-  max-width: 620px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  background: var(--color-surface, #fff);
+  border-radius: var(--radius-md, 8px);
+  padding: 1.25rem;
+  width: 480px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
 
-  h3 {
-    margin: 0 0 0.5rem;
-  }
-
-  .modal-sub {
-    color: var(--text-muted, #6b7280);
-    margin: 0 0 1rem;
-    font-size: 0.9em;
-  }
+  h3 { margin: 0 0 0.25rem 0; font-size: 1.05rem; }
+  .modal-sub { margin: 0 0 1rem 0; font-size: 0.85rem; color: var(--color-text-muted, #6b7280); }
 
   label {
-    display: block;
-    margin-bottom: 0.85rem;
-
-    span {
-      display: block;
-      font-weight: 600;
-      font-size: 0.9em;
-      margin-bottom: 0.25rem;
-
-      em {
-        font-weight: normal;
-        color: var(--text-muted, #6b7280);
-      }
-    }
-
-    input, textarea, select {
-      width: 100%;
-      padding: 0.4rem 0.6rem;
-      border: 1px solid var(--border-subtle, #d1d5db);
-      border-radius: 6px;
-      font: inherit;
-    }
-  }
-
-  .modal-actions {
     display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    margin-top: 1rem;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+
+    span { color: var(--color-text-secondary, #4b5563); font-weight: 500; }
+    textarea {
+      padding: 0.5rem 0.6rem;
+      border: 1px solid var(--color-border, #d1d5db);
+      border-radius: var(--radius-sm, 6px);
+      font-size: 0.9rem;
+      font-family: inherit;
+    }
   }
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
 }

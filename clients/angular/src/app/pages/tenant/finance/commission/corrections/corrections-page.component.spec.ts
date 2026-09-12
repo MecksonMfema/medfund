@@ -114,25 +114,9 @@ describe('CorrectionsPageComponent', () => {
     expect(svc.list).toHaveBeenCalledTimes(1);
   });
 
-  it('submitCreate() rejects a blank target then passes when filled', () => {
-    const svc = makeSvc();
-    svc.list.and.returnValue(of(emptyPage()));
-    svc.create.and.returnValue(of(row()));
-    const c = new CorrectionsPageComponent(svc, permsStub([
-      'finance.commission:draft_adjustment',
-    ]));
-    c.ngOnInit();
-    c.openCreate();
-    c.submitCreate();
-    expect(c.createError).toContain('Target');
-    expect(svc.create).not.toHaveBeenCalled();
-
-    c.form.targetReferenceQuery = 'tx-abcdef123';
-    c.form.adjustmentAmount = 25;
-    c.form.justification = 'A valid justification of at least 20 chars';
-    c.submitCreate();
-    expect(svc.create).toHaveBeenCalledTimes(1);
-  });
+  // submitCreate() moved to CreateCorrectionComponent — the list page no
+  // longer owns the create flow. Coverage for the new page lives alongside
+  // that component if / when it grows one.
 
   it('onStatusChange resets page and re-fetches with new filter', () => {
     const svc = makeSvc();

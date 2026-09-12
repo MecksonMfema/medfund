@@ -260,6 +260,11 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/members/*/producer-assignment/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reports/commission", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reports/commission/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 7 Executive KPI dashboard — batch composer + per-key trend +
+	// per-key XLSX export. Lives in finance-service under
+	// /api/v1/reports/kpi/{dashboard, {key}/trend, {key}/export/excel}.
+	app.All("/api/v1/reports/kpi", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/kpi/*", proxy.Handler(cfg.FinanceServiceURL))
 	// Phase 14 §Actuarial Phase 10 — actuarial report family (IBNR, LOSS,
 	// PERSISTENCY, MORTALITY, MORBIDITY, LAPSE). Async job orchestrator
 	// lives in finance-service; the Kafka-mediated compute path lands in

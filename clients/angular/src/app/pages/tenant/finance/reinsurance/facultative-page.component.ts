@@ -1,7 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PermissionService } from '../../../../core/security/permission.service';
-import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { FacultativeCandidatesTabComponent } from './facultative-candidates-tab.component';
 import { FacultativeQueueTabComponent } from './facultative-queue-tab.component';
 
@@ -24,7 +23,6 @@ type FacultativeTab = 'candidates' | 'queue';
   standalone: true,
   imports: [
     CommonModule,
-    IconComponent,
     FacultativeCandidatesTabComponent,
     FacultativeQueueTabComponent,
   ],

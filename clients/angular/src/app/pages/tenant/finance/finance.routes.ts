@@ -858,6 +858,19 @@ export const FINANCE_ROUTES: Routes = [
       fullbleed: true,
     },
   },
+  // Static /new must sit BEFORE /:id so 'new' isn't captured as an adjustment
+  // id by the detail route.
+  {
+    path: 'commission/corrections/new',
+    canActivate: [permissionGuard(['finance.commission:draft_adjustment'])],
+    loadComponent: () =>
+      import('./commission/corrections/create-correction.component')
+        .then(m => m.CreateCorrectionComponent),
+    data: {
+      title: 'New commission correction',
+      sidebar: 'operational',
+    },
+  },
   {
     path: 'commission/corrections/:id',
     canActivate: [permissionGuard([

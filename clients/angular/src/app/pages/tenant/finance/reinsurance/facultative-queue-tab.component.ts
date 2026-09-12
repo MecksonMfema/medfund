@@ -7,7 +7,11 @@ import {
   ReinsuranceService,
 } from '../../../../core/services/reinsurance.service';
 import { PermissionService } from '../../../../core/security/permission.service';
-import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import {
+  DataTableComponent,
+  TableAction,
+  TableColumn,
+} from '../../../../shared/components/data-table/data-table.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 /**
@@ -16,15 +20,20 @@ import { SelectComponent, SelectOption } from '../../../../shared/components/sel
  * {@code finance.reinsurance:approve_facultative}; view-only users see
  * the queue in read-only mode.
  */
+interface QueueRow extends CessionRow {
+  claimShort: string;
+  treatyShort: string;
+}
+
 @Component({
   selector: 'app-facultative-queue-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, DataTableComponent, SelectComponent],
   templateUrl: './facultative-queue-tab.component.html',
   styleUrl: './facultative-queue-tab.component.scss',
 })
 export class FacultativeQueueTabComponent implements OnInit {
-  rows: CessionRow[] = [];
+  rows: QueueRow[] = [];
   loading = false;
   errorMessage: string | null = null;
   statusFilter: '' | FacultativeQueueStatus = '';
@@ -49,6 +58,44 @@ export class FacultativeQueueTabComponent implements OnInit {
     { value: 'APPROVED', label: 'Approved' },
   ];
 
+  readonly columns: TableColumn[] = [
+    { key: 'status',      label: 'Status',   sortable: false, type: 'status' },
+    { key: 'claimShort',  label: 'Claim',    sortable: false },
+    { key: 'treatyShort', label: 'Treaty',   sortable: false },
+    { key: 'cededAmount', label: 'Ceded',    sortable: false, type: 'currency' },
+    { key: 'basisAmount', label: 'Basis',    sortable: false, type: 'currency' },
+    { key: 'createdAt',   label: 'Created',  sortable: false, type: 'date' },
+  ];
+
+  get actions(): TableAction[] {
+    if (!this.canAct) return [];
+    return [
+      {
+        label: 'Approve',
+        icon: 'check-circle',
+        color: 'success',
+        testid: 'approve-btn',
+        visible: (row: CessionRow) => row.status === 'DRAFT',
+        handler: (row: CessionRow) => this.approve(row),
+      },
+      {
+        label: 'Commit',
+        icon: 'external-link',
+        color: 'success',
+        testid: 'commit-btn',
+        visible: (row: CessionRow) => row.status === 'APPROVED',
+        handler: (row: CessionRow) => this.commit(row),
+      },
+      {
+        label: 'Void',
+        icon: 'x-circle',
+        color: 'danger',
+        testid: 'void-btn',
+        handler: (row: CessionRow) => this.openVoid(row),
+      },
+    ];
+  }
+
   constructor(
     private svc: ReinsuranceService,
     perms: PermissionService,
@@ -67,7 +114,11 @@ export class FacultativeQueueTabComponent implements OnInit {
       this.pageSize,
     ).subscribe({
       next: pageResp => {
-        this.rows = pageResp.content;
+        this.rows = pageResp.content.map(r => ({
+          ...r,
+          claimShort: `${r.sourceEventId.substring(0, 8)}…`,
+          treatyShort: `${r.treatyId.substring(0, 8)}…`,
+        }));
         this.totalCount = pageResp.total;
         this.totalPages = pageResp.totalPages;
         this.loading = false;

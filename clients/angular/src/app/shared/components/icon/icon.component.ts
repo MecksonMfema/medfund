@@ -149,6 +149,10 @@ const ICONS: Record<string, string> = {
   // the Underwriting sidebar entry and the treaty layers section.
   layers:
     '<path d="M11.99 18.54l-7.37-5.73L3 14.07l9 7 9-7-1.63-1.27-7.38 5.74zM12 16l7.36-5.73L21 9l-9-7-9 7 1.63 1.27L12 16z"/>',
+  // File outline with a 2x2 grid of cells inside — reads as a
+  // spreadsheet / Excel export. Used by the KPI tile export button.
+  'file-spreadsheet':
+    '<path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 13h3v2H8v-2zm5 0h3v2h-3v-2zm-5 4h3v2H8v-2zm5 0h3v2h-3v-2z"/>',
 };
 
 @Component({

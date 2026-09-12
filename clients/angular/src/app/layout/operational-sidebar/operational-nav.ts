@@ -202,7 +202,9 @@ export const OPERATIONAL_NAV: OperationalNavGroup[] = [
       // COMBINED_RATIO so Executive KPIs hides only when the tenant has
       // disabled every KPI (matches the batch endpoint gate).
       { label: 'Executive KPIs',     icon: 'chart',        route: '/tenant/finance/reports/kpi',           permissions: ['finance:view_subledger'], reportKey: 'COMBINED_RATIO', sectionKey: 'REPORTING_EXECUTIVE_KPIS' },
-      { label: 'Reports',            icon: 'chart',        route: '/tenant/finance/reports',               permissions: ['finance:view_debtors', 'finance:view_subledger'], sectionKey: 'REPORTING_REPORTS' },
+      // exactMatch — otherwise routerLinkActive lights up on every /reports/*
+      // child (Executive KPIs, Fraud, AML alerts, etc.) since it prefix-matches.
+      { label: 'Reports',            icon: 'chart',        route: '/tenant/finance/reports',               exactMatch: true, permissions: ['finance:view_debtors', 'finance:view_subledger'], sectionKey: 'REPORTING_REPORTS' },
     ],
   },
 ];

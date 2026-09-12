@@ -15,6 +15,9 @@
   @if (subtitle) {
     <div class="stat-subtitle">{{ subtitle }}</div>
   }
+  <div class="stat-sparkline">
+    <ng-content select="[stat-sparkline]"></ng-content>
+  </div>
   @if (actionLink && actionLabel) {
     <a class="stat-action" [routerLink]="actionLink">
       {{ actionLabel }}

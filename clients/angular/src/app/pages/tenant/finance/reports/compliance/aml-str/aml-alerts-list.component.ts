@@ -208,7 +208,7 @@ export class AmlAlertsListComponent implements OnInit {
   }
 
   statusClass(status: AmlAlertStatus): string {
-    return `status-chip status-${status.toLowerCase()}`;
+    return `badge badge-${status.toLowerCase()}`;
   }
 
   get workflowTxnRef(): string {

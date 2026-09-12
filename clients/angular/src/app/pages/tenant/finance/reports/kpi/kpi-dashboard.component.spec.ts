@@ -14,8 +14,6 @@ import {
 } from '../../../../../core/services/executive-kpi.service';
 import { CurrencyService } from '../../../../../core/services/currency.service';
 import { TenantService } from '../../../../../core/services/tenant.service';
-import { ContributionsService } from '../../../../../core/services/contributions.service';
-import { ProducerService } from '../../../../../core/services/producer.service';
 import { ReportResponse } from '../../../../../core/services/report-envelope';
 
 function envelope(data: KpiReportData): ReportResponse<KpiReportData> {
@@ -46,13 +44,9 @@ function trend(values: number[]): KpiTrendPoint[] {
 
 describe('KpiDashboardComponent', () => {
   let kpi: jasmine.SpyObj<ExecutiveKpiService>;
-  let contributions: jasmine.SpyObj<ContributionsService>;
-  let producers: jasmine.SpyObj<ProducerService>;
 
   beforeEach(() => {
     kpi = jasmine.createSpyObj<ExecutiveKpiService>('ExecutiveKpiService', ['dashboard', 'trend', 'exportExcel']);
-    contributions = jasmine.createSpyObj<ContributionsService>('ContributionsService', ['searchSchemes']);
-    producers = jasmine.createSpyObj<ProducerService>('ProducerService', ['searchProducers']);
 
     TestBed.configureTestingModule({
       imports: [KpiDashboardComponent],
@@ -64,8 +58,6 @@ describe('KpiDashboardComponent', () => {
         { provide: ExecutiveKpiService,   useValue: kpi },
         { provide: CurrencyService,       useValue: { listForTenant: () => of([]) } },
         { provide: TenantService,         useValue: { getTenantId: () => 'tnt-1' } },
-        { provide: ContributionsService,  useValue: contributions },
-        { provide: ProducerService,       useValue: producers },
       ],
     });
   });
@@ -142,18 +134,31 @@ describe('KpiDashboardComponent', () => {
     expect(fixture.componentInstance.filters.insuranceLine).toBe('HEALTH');
   });
 
-  it('picking a scheme sets the filter, clears the search, and re-fetches', () => {
+  it('picking a scheme sets the filter and re-fetches', () => {
     stubDefault();
     const fixture = TestBed.createComponent(KpiDashboardComponent);
     fixture.detectChanges();
     kpi.dashboard.calls.reset();
 
-    fixture.componentInstance.pickScheme({ id: 'sch-1', name: 'Elite Plan' } as any);
+    fixture.componentInstance.onSchemePicked({ id: 'sch-1', label: 'Elite Plan' });
 
     expect(fixture.componentInstance.schemeId).toBe('sch-1');
     expect(fixture.componentInstance.schemeLabel).toBe('Elite Plan');
-    expect(fixture.componentInstance.schemeMatches).toEqual([]);
     expect(fixture.componentInstance.filters.schemeId).toBe('sch-1');
+    expect(kpi.dashboard).toHaveBeenCalledTimes(1);
+  });
+
+  it('clearing scheme unsets the filter and re-fetches', () => {
+    stubDefault();
+    const fixture = TestBed.createComponent(KpiDashboardComponent);
+    fixture.detectChanges();
+    fixture.componentInstance.onSchemePicked({ id: 'sch-1', label: 'Elite Plan' });
+    kpi.dashboard.calls.reset();
+
+    fixture.componentInstance.onSchemePicked(null);
+
+    expect(fixture.componentInstance.schemeId).toBeNull();
+    expect(fixture.componentInstance.filters.schemeId).toBeUndefined();
     expect(kpi.dashboard).toHaveBeenCalledTimes(1);
   });
 
@@ -163,12 +168,10 @@ describe('KpiDashboardComponent', () => {
     fixture.detectChanges();
     kpi.dashboard.calls.reset();
 
-    fixture.componentInstance.pickProducer({
-      id: 'prod-1', producerCode: 'AGT001', name: 'Alpha Brokers',
-    } as any);
+    fixture.componentInstance.onProducerPicked({ id: 'prod-1', label: 'Alpha Brokers' });
 
     expect(fixture.componentInstance.producerId).toBe('prod-1');
-    expect(fixture.componentInstance.producerLabel).toBe('AGT001 - Alpha Brokers');
+    expect(fixture.componentInstance.producerLabel).toBe('Alpha Brokers');
     expect(fixture.componentInstance.filters.producerId).toBe('prod-1');
     expect(kpi.dashboard).toHaveBeenCalledTimes(1);
   });

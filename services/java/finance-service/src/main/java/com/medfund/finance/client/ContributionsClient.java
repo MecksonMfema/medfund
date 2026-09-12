@@ -9,6 +9,10 @@ import com.medfund.shared.report.ReportResponse;
 import com.medfund.shared.tenant.TenantContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -69,15 +73,18 @@ public class ContributionsClient {
     public Mono<List<BillingAggregateRow>> aggregateBilling(LocalDate periodStart, LocalDate periodEnd) {
         return Mono.deferContextual(ctx -> {
             String tenantId = TenantContext.get(ctx);
-            return http.get()
-                    .uri(uri -> uri.path("/api/v1/reports/aggregate/billing")
-                            .queryParam("periodStart", periodStart.toString())
-                            .queryParam("periodEnd",   periodEnd.toString())
-                            .build())
-                    .header("X-Tenant-ID", tenantId != null ? tenantId : "")
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .map(this::extractBillingRows);
+            return currentBearerToken().defaultIfEmpty("").flatMap(token -> {
+                var spec = http.get()
+                        .uri(uri -> uri.path("/api/v1/reports/aggregate/billing")
+                                .queryParam("periodStart", periodStart.toString())
+                                .queryParam("periodEnd",   periodEnd.toString())
+                                .build())
+                        .header("X-Tenant-ID", tenantId != null ? tenantId : "");
+                if (!token.isEmpty()) spec = spec.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+                return spec.retrieve()
+                        .bodyToMono(String.class)
+                        .map(this::extractBillingRows);
+            });
         });
     }
 
@@ -113,24 +120,27 @@ public class ContributionsClient {
                                                                 UUID schemeId) {
         return Mono.deferContextual(ctx -> {
             String tenantId = TenantContext.get(ctx);
-            return http.get()
-                    .uri(uri -> {
-                        var b = uri.path("/api/v1/reports/aggregate/premium-earned")
-                                .queryParam("periodStart", periodStart.toString())
-                                .queryParam("periodEnd",   periodEnd.toString())
-                                .queryParam("dimension",   dimension);
-                        if (insuranceLine != null && !insuranceLine.isBlank()) {
-                            b = b.queryParam("insuranceLine", insuranceLine);
-                        }
-                        if (schemeId != null) {
-                            b = b.queryParam("schemeId", schemeId.toString());
-                        }
-                        return b.build();
-                    })
-                    .header("X-Tenant-ID", tenantId != null ? tenantId : "")
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .map(this::extractPremiumEarnedRows);
+            return currentBearerToken().defaultIfEmpty("").flatMap(token -> {
+                var spec = http.get()
+                        .uri(uri -> {
+                            var b = uri.path("/api/v1/reports/aggregate/premium-earned")
+                                    .queryParam("periodStart", periodStart.toString())
+                                    .queryParam("periodEnd",   periodEnd.toString())
+                                    .queryParam("dimension",   dimension);
+                            if (insuranceLine != null && !insuranceLine.isBlank()) {
+                                b = b.queryParam("insuranceLine", insuranceLine);
+                            }
+                            if (schemeId != null) {
+                                b = b.queryParam("schemeId", schemeId.toString());
+                            }
+                            return b.build();
+                        })
+                        .header("X-Tenant-ID", tenantId != null ? tenantId : "");
+                if (!token.isEmpty()) spec = spec.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+                return spec.retrieve()
+                        .bodyToMono(String.class)
+                        .map(this::extractPremiumEarnedRows);
+            });
         });
     }
 
@@ -149,17 +159,37 @@ public class ContributionsClient {
                                                           String dimension) {
         return Mono.deferContextual(ctx -> {
             String tenantId = TenantContext.get(ctx);
-            return http.get()
-                    .uri(uri -> uri.path(path)
-                            .queryParam("periodStart", periodStart.toString())
-                            .queryParam("periodEnd",   periodEnd.toString())
-                            .queryParam("dimension",   dimension)
-                            .build())
-                    .header("X-Tenant-ID", tenantId != null ? tenantId : "")
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .map(this::extractMonthlyRows);
+            return currentBearerToken().defaultIfEmpty("").flatMap(token -> {
+                var spec = http.get()
+                        .uri(uri -> uri.path(path)
+                                .queryParam("periodStart", periodStart.toString())
+                                .queryParam("periodEnd",   periodEnd.toString())
+                                .queryParam("dimension",   dimension)
+                                .build())
+                        .header("X-Tenant-ID", tenantId != null ? tenantId : "");
+                if (!token.isEmpty()) spec = spec.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+                return spec.retrieve()
+                        .bodyToMono(String.class)
+                        .map(this::extractMonthlyRows);
+            });
         });
+    }
+
+    /**
+     * Pull the caller's JWT out of the reactive security context and forward
+     * it verbatim on the outgoing peer call. Without this the peer service
+     * (contributions) rejects the request as unauthenticated per its own
+     * {@code SecurityConfig.anyExchange().authenticated()}. Emits empty when
+     * no JWT is on the context (background/scheduled callers) so those paths
+     * still make the call and fail visibly at the peer rather than silently
+     * short-circuiting here.
+     */
+    private static Mono<String> currentBearerToken() {
+        return ReactiveSecurityContextHolder.getContext()
+                .map(sc -> sc.getAuthentication())
+                .filter(JwtAuthenticationToken.class::isInstance)
+                .map(auth -> ((JwtAuthenticationToken) auth).getToken())
+                .map(Jwt::getTokenValue);
     }
 
     /**

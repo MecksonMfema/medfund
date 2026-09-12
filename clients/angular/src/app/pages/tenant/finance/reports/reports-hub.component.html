@@ -30,14 +30,16 @@
   } @else if (errorMessage) {
     <div class="general-error">{{ errorMessage }}</div>
   } @else if (groups.length === 0) {
-    <div class="hub-empty">
-      <app-icon name="chart" [size]="48"></app-icon>
-      <h3>No reports are enabled yet</h3>
-      <p>
+    <div class="empty-state">
+      <div class="empty-state__icon">
+        <app-icon name="chart" [size]="32"></app-icon>
+      </div>
+      <div class="empty-state__title">No reports are enabled yet</div>
+      <div class="empty-state__description">
         Ask an admin to enable at least one report in
         <strong>Settings → Reports</strong>. Once a report is turned on it
         will appear here.
-      </p>
+      </div>
     </div>
   } @else {
     <div class="hub-grid">

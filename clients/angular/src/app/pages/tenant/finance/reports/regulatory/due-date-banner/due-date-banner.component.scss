@@ -2,15 +2,15 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--spacing-sm);
   margin-top: 6px;
   padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 12px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
   border: 1px solid transparent;
 
   .headline {
-    font-weight: 600;
+    font-weight: var(--font-weight-semibold);
   }
 
   .period {
@@ -20,19 +20,19 @@
 }
 
 .banner-info {
-  background: rgba(59, 130, 246, 0.08);
-  color: #1d4ed8;
-  border-color: rgba(59, 130, 246, 0.2);
+  background: var(--color-info-light);
+  color: #0096b4;
+  border-color: var(--color-info-light);
 }
 
 .banner-amber {
-  background: rgba(245, 158, 11, 0.12);
-  color: #b45309;
-  border-color: rgba(245, 158, 11, 0.3);
+  background: var(--color-warning-light);
+  color: #c47800;
+  border-color: var(--color-warning-light);
 }
 
 .banner-red {
-  background: rgba(220, 38, 38, 0.1);
-  color: #b91c1c;
-  border-color: rgba(220, 38, 38, 0.3);
+  background: var(--color-error-light);
+  color: #c4162d;
+  border-color: var(--color-error-light);
 }

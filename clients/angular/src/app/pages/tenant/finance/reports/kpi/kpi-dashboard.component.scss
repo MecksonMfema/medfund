@@ -1,9 +1,15 @@
+// Executive KPIs dashboard — fullbleed layout matching the sibling
+// finance pages (creditors, review-queue, corrections). Page-header +
+// toolbar stack flush; tiles live in a padded grid below.
+
 .page-header {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 1rem;
-  margin-bottom: 1rem;
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .page-header h1 {
@@ -12,130 +18,87 @@
 }
 
 .page-sub {
-  color: #64748b;
+  color: var(--color-text-muted);
   margin: 0;
-  max-width: 60ch;
-  font-size: 0.875rem;
+  max-width: 65ch;
+  font-size: 0.9rem;
 }
 
-.kpi-toolbar {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-  padding: 0.75rem 1rem;
-  background: #f8fafc;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
+// Flatten app-select trigger inside the toolbar. Global styles.scss
+// authors this rule with ::ng-deep at the top level which browsers drop;
+// every page needs a local copy where Angular's compiler actually
+// strips ::ng-deep.
+.toolbar-cell.cell-select {
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
 }
 
-.toolbar-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  position: relative;
+// Flatten the entity-picker input for the scheme / producer cells so
+// they read like search cells inside the toolbar rather than standalone
+// bordered form controls.
+.toolbar-cell.cell-picker {
+  flex: 1 1 240px;
+  min-width: 220px;
+  max-width: 320px;
+
+  ::ng-deep .search-wrapper input {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    font-size: var(--font-size-sm);
+  }
+  ::ng-deep .search-wrapper input:focus {
+    outline: none;
+    box-shadow: none;
+  }
 }
 
-.cell-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #475569;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.cell-search input[type="text"] {
-  padding: 0.5rem 0.75rem;
-  border-radius: 8px;
-  border: 1px solid #cbd5e1;
-  font-size: 0.875rem;
-  background: #ffffff;
-}
-
-.cell-search input[type="text"]:focus {
-  outline: none;
-  border-color: #6366f1;
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
-}
-
-.search-hint {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  padding: 2px 6px;
-  font-size: 0.7rem;
-  color: #64748b;
-}
-
-.search-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 20;
-  margin: 0;
-  padding: 0.25rem 0;
-  list-style: none;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.1);
-  max-height: 240px;
-  overflow-y: auto;
-}
-
-.search-menu li {
-  padding: 0.5rem 0.75rem;
+.banner {
+  margin: 12px 24px 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: 0.875rem;
-  color: #1e293b;
+  font-size: var(--font-size-sm);
 }
 
-.search-menu li:hover { background: #eef2ff; }
-
-.picked {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.4rem 0.75rem;
-  background: #eef2ff;
-  border-radius: 8px;
-  border: 1px solid #c7d2fe;
+.banner-error {
+  background: var(--color-error-light);
+  color: #c4162d;
 }
 
-.picked-label {
-  font-size: 0.875rem;
-  color: #3730a3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.banner-info {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  cursor: default;
+  margin: 24px;
 }
 
-.btn-clear {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px;
-  border: none;
-  background: transparent;
-  color: #4338ca;
-  cursor: pointer;
-  border-radius: 4px;
-}
-
-.btn-clear:hover { background: rgba(67, 56, 202, 0.1); }
+.banner-info a { color: var(--color-primary); text-decoration: underline; }
 
 .tile-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 1rem;
+  gap: var(--spacing-base);
+  padding: var(--spacing-lg) 24px;
 }
 
 .kpi-tile-skeleton {
   min-height: 200px;
-  border-radius: 12px;
-  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 37%, #f1f5f9 63%);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(90deg, var(--color-border-light) 25%, var(--color-border) 37%, var(--color-border-light) 63%);
   background-size: 400% 100%;
   animation: skeleton-shimmer 1.4s ease infinite;
 }
@@ -144,23 +107,3 @@
   0%   { background-position: 100% 50%; }
   100% { background-position: 0    50%; }
 }
-
-.banner {
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  margin-bottom: 1rem;
-  font-size: 0.875rem;
-}
-
-.banner-error {
-  background: #fee2e2;
-  color: #991b1b;
-  cursor: pointer;
-}
-
-.banner-info {
-  background: #eff6ff;
-  color: #1e3a8a;
-}
-
-.banner-info a { color: #2563eb; text-decoration: underline; }

@@ -238,8 +238,10 @@ public class KpiComposerService {
                 .onErrorResume(err -> {
                     log.warn("commission-aggregate compute failed: {}", err.getMessage());
                     if (warnings != null) {
-                        warnings.add("commission-aggregate compute failed: "
-                                + Objects.toString(err.getMessage(), err.getClass().getSimpleName()));
+                        // Do not leak raw cause message (may contain SQL / URLs)
+                        // into the report envelope. Structured token only; UI
+                        // renders the friendly label.
+                        warnings.add("commission-aggregate unavailable");
                     }
                     return Mono.just(List.of());
                 });
@@ -437,7 +439,7 @@ public class KpiComposerService {
         // would serve stale zeros for the whole TTL after the peer recovers.
         // Small-denominator / IBNR-missing warnings are legitimate steady-state
         // conditions and should still cache.
-        boolean peerFailed = warnings.stream().anyMatch(w -> w.contains("call failed")
+        boolean peerFailed = warnings.stream().anyMatch(w -> w.contains("unavailable")
                 || w.contains("compute failed"));
         if (peerFailed) {
             log.debug("Skipping KPI cache write for {} — peer failure warnings present", cacheKey);

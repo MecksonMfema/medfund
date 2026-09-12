@@ -18,20 +18,20 @@
   <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
 }
 
-<div class="filter-strip">
-  <label class="field">
-    <span class="field-label">Period start</span>
-    <input type="date" [(ngModel)]="periodStart" (change)="fetch()" />
-  </label>
-  <label class="field">
-    <span class="field-label">Period end</span>
-    <input type="date" [(ngModel)]="periodEnd" (change)="fetch()" />
-  </label>
-  <label class="field">
-    <span class="field-label">Reporting currency</span>
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-date">
+    <span class="cell-label">Period start</span>
+    <input type="date" [(ngModel)]="periodStart" (change)="fetch()" name="periodStart" />
+  </div>
+  <div class="toolbar-cell cell-date">
+    <span class="cell-label">Period end</span>
+    <input type="date" [(ngModel)]="periodEnd" (change)="fetch()" name="periodEnd" />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Reporting currency</span>
     <input type="text" maxlength="3" placeholder="tenant default"
-           [(ngModel)]="reportingCurrency" (change)="fetch()" />
-  </label>
+           [(ngModel)]="reportingCurrency" (change)="fetch()" name="reportingCurrency" />
+  </div>
 </div>
 
 @if (envelope?.warnings && envelope!.warnings.length > 0) {
@@ -46,43 +46,49 @@
 @if (loading) {
   <div class="banner">Loading…</div>
 } @else if (envelope) {
-  <section class="tiles">
-    <div class="tile">
-      <div class="tile-label">Cases opened</div>
-      <div class="tile-value">{{ envelope.data.casesOpened }}</div>
-      <div class="tile-sub">Total investigations opened in the window.</div>
-    </div>
-    <div class="tile">
-      <div class="tile-label">Confirmed</div>
-      <div class="tile-value">{{ envelope.data.confirmedCount }}</div>
-      <div class="tile-sub">Closed as CLOSED_CONFIRMED_FRAUD.</div>
-    </div>
-    <div class="tile">
-      <div class="tile-label">Savings ({{ envelope.reportingCurrency }})</div>
-      <div class="tile-value">{{ envelope.data.savingsComposite }}</div>
-      <div class="tile-sub">Composite of native-currency savings, FX-converted.</div>
-    </div>
-    <div class="tile">
-      <div class="tile-label">Confirmation rate</div>
-      <div class="tile-value">{{ envelope.data.confirmationRate }}</div>
-      <div class="tile-sub">Confirmed ÷ total opened (4dp).</div>
-    </div>
-    <div class="tile">
-      <div class="tile-label">Avg cycle time (days)</div>
-      <div class="tile-value">{{ envelope.data.avgCycleTimeDays }}</div>
-      <div class="tile-sub">Mean days between opened_at and closed_at for closures in period.</div>
-    </div>
-    <div class="tile">
-      <div class="tile-label">Reopened</div>
-      <div class="tile-value">{{ envelope.data.reopenedCount }}</div>
-      <div class="tile-sub">Cases that flipped from CLOSED_* back to UNDER_REVIEW.</div>
-    </div>
+  <section class="stats-grid">
+    <app-stat-card
+      label="Cases opened"
+      [value]="envelope.data.casesOpened"
+      subtitle="Total investigations opened in the window."
+      icon="alert-triangle"
+      color="orange"></app-stat-card>
+    <app-stat-card
+      label="Confirmed"
+      [value]="envelope.data.confirmedCount"
+      subtitle="Closed as CLOSED_CONFIRMED_FRAUD."
+      icon="alert-triangle"
+      color="red"></app-stat-card>
+    <app-stat-card
+      [label]="'Savings (' + envelope.reportingCurrency + ')'"
+      [value]="envelope.data.savingsComposite"
+      subtitle="Composite of native-currency savings, FX-converted."
+      icon="dollar-sign"
+      color="green"></app-stat-card>
+    <app-stat-card
+      label="Confirmation rate"
+      [value]="envelope.data.confirmationRate"
+      subtitle="Confirmed ÷ total opened (4dp)."
+      icon="chart"
+      color="blue"></app-stat-card>
+    <app-stat-card
+      label="Avg cycle time (days)"
+      [value]="envelope.data.avgCycleTimeDays"
+      subtitle="Mean days between opened_at and closed_at."
+      icon="clock"
+      color="cyan"></app-stat-card>
+    <app-stat-card
+      label="Reopened"
+      [value]="envelope.data.reopenedCount"
+      subtitle="Cases that flipped from CLOSED_* back to UNDER_REVIEW."
+      icon="refresh"
+      color="orange"></app-stat-card>
   </section>
 
   @if (perCurrencyEntries().length > 0) {
     <section class="card">
       <h3>Savings: per native currency</h3>
-      <table class="data-table">
+      <table class="rate-table">
         <thead><tr><th>Currency</th><th>Saved amount</th></tr></thead>
         <tbody>
           @for (e of perCurrencyEntries(); track e.currency) {
@@ -110,7 +116,7 @@
     @if (providers.length === 0) {
       <p class="empty">No confirmed provider-linked cases in this window.</p>
     } @else {
-      <table class="data-table">
+      <table class="rate-table">
         <thead>
           <tr>
             <th>Provider id</th>
@@ -138,7 +144,7 @@
     @if (members.length === 0) {
       <p class="empty">No confirmed member-linked cases in this window.</p>
     } @else {
-      <table class="data-table">
+      <table class="rate-table">
         <thead>
           <tr>
             <th>Member id</th>
@@ -170,7 +176,7 @@
       </div>
     }
     @if (calibration && calibration.rows.length > 0) {
-      <table class="data-table">
+      <table class="rate-table">
         <thead>
           <tr>
             <th>Risk level</th>
@@ -204,7 +210,7 @@
     @if (productivity.length === 0) {
       <p class="empty">No closures by any investigator in this window.</p>
     } @else {
-      <table class="data-table">
+      <table class="rate-table">
         <thead>
           <tr>
             <th>Officer</th>

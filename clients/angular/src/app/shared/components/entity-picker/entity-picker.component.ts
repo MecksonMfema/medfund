@@ -14,9 +14,10 @@ import { Observable, Subject, debounceTime, distinctUntilChanged, of, switchMap 
 import { ContributionsService, Scheme } from '../../../core/services/contributions.service';
 import { GroupsService, Group } from '../../../core/services/groups.service';
 import { MembersService, Member } from '../../../core/services/members.service';
+import { ProducerService, Producer } from '../../../core/services/producer.service';
 import { ProvidersService, Provider } from '../../../core/services/providers.service';
 
-export type EntityKind = 'provider' | 'member' | 'group' | 'scheme' | 'beneficiary';
+export type EntityKind = 'provider' | 'member' | 'group' | 'scheme' | 'beneficiary' | 'producer';
 
 export interface EntityPickerSelection {
   id: string;
@@ -130,6 +131,7 @@ export class EntityPickerComponent implements OnInit, OnChanges, ControlValueAcc
     private membersService: MembersService,
     private groupsService: GroupsService,
     private contributionsService: ContributionsService,
+    private producerService: ProducerService,
   ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -293,6 +295,16 @@ export class EntityPickerComponent implements OnInit, OnChanges, ControlValueAcc
             })),
           )),
         );
+      case 'producer':
+        return this.producerService.searchProducers(term, 20).pipe(
+          switchMap(rows => of<Suggestion[]>(
+            rows.map((p: Producer) => ({
+              id: p.id,
+              label: p.name,
+              sublabel: p.producerCode || undefined,
+            })),
+          )),
+        );
       case 'beneficiary':
         return this.membersService.searchBeneficiaries(term).pipe(
           switchMap(rows => of<Suggestion[]>(
@@ -327,6 +339,7 @@ export class EntityPickerComponent implements OnInit, OnChanges, ControlValueAcc
       case 'group':        return 'Search by group name…';
       case 'scheme':       return 'Search by scheme name…';
       case 'beneficiary':  return 'Search member or dependant…';
+      case 'producer':     return 'Search by producer name…';
     }
   }
 }

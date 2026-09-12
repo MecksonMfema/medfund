@@ -13,8 +13,8 @@
   <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
 }
 
-<div class="kpi-toolbar">
-  <div class="toolbar-cell">
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-select">
     <span class="cell-label">Insurance line</span>
     <app-select
       [ngModel]="filters.insuranceLine ?? ''"
@@ -26,69 +26,29 @@
     ></app-select>
   </div>
 
-  <div class="toolbar-cell cell-search">
+  <div class="toolbar-cell cell-picker">
     <span class="cell-label">Scheme</span>
-    @if (schemeLabel) {
-      <div class="picked">
-        <span class="picked-label">{{ schemeLabel }}</span>
-        <button type="button" class="btn-clear" (click)="clearScheme()" aria-label="Clear scheme">
-          <app-icon name="x" [size]="12"></app-icon>
-        </button>
-      </div>
-    } @else {
-      <input
-        type="text"
-        [(ngModel)]="schemeSearchQuery"
-        (ngModelChange)="onSchemeSearchChange()"
-        name="schemeQuery"
-        placeholder="Search schemes…"
-        autocomplete="off"
-      />
-      @if (schemeSearching) {
-        <div class="search-hint">Searching…</div>
-      }
-      @if (schemeMatches.length) {
-        <ul class="search-menu">
-          @for (m of schemeMatches; track m.id) {
-            <li (click)="pickScheme(m)">{{ m.name }}</li>
-          }
-        </ul>
-      }
-    }
+    <app-entity-picker
+      kind="scheme"
+      [value]="schemeId"
+      [prefillLabel]="schemeLabel"
+      placeholder="Search schemes…"
+      (selected)="onSchemePicked($event)">
+    </app-entity-picker>
   </div>
 
-  <div class="toolbar-cell cell-search">
+  <div class="toolbar-cell cell-picker">
     <span class="cell-label">Producer</span>
-    @if (producerLabel) {
-      <div class="picked">
-        <span class="picked-label">{{ producerLabel }}</span>
-        <button type="button" class="btn-clear" (click)="clearProducer()" aria-label="Clear producer">
-          <app-icon name="x" [size]="12"></app-icon>
-        </button>
-      </div>
-    } @else {
-      <input
-        type="text"
-        [(ngModel)]="producerSearchQuery"
-        (ngModelChange)="onProducerSearchChange()"
-        name="producerQuery"
-        placeholder="Search producers…"
-        autocomplete="off"
-      />
-      @if (producerSearching) {
-        <div class="search-hint">Searching…</div>
-      }
-      @if (producerMatches.length) {
-        <ul class="search-menu">
-          @for (m of producerMatches; track m.id) {
-            <li (click)="pickProducer(m)">{{ m.producerCode }} - {{ m.name }}</li>
-          }
-        </ul>
-      }
-    }
+    <app-entity-picker
+      kind="producer"
+      [value]="producerId"
+      [prefillLabel]="producerLabel"
+      placeholder="Search producers…"
+      (selected)="onProducerPicked($event)">
+    </app-entity-picker>
   </div>
 
-  <div class="toolbar-cell cell-currency">
+  <div class="toolbar-cell cell-select">
     <span class="cell-label">Reporting currency</span>
     <app-select
       [ngModel]="filters.reportingCurrency ?? ''"
@@ -102,15 +62,34 @@
 </div>
 
 @if (disabled) {
-  <div class="banner banner-info">
-    Executive KPIs are disabled for this tenant. Enable at least one KPI in
-    <a routerLink="/tenant/admin/settings/reports">Settings → Reports</a> to view the dashboard.
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="chart" [size]="32"></app-icon>
+    </div>
+    <div class="empty-state__title">Executive KPIs are disabled</div>
+    <div class="empty-state__description">
+      Enable at least one KPI in
+      <a routerLink="/tenant/admin/settings/reports">Settings → Reports</a>
+      to see loss, acquisition, combined, frequency and severity ratios here.
+    </div>
   </div>
 } @else if (loading) {
   <div class="tile-grid">
     @for (k of KPI_KEYS; track k) {
       <div class="kpi-tile-skeleton"></div>
     }
+  </div>
+} @else if (!hasAnyTile) {
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="chart" [size]="32"></app-icon>
+    </div>
+    <div class="empty-state__title">No KPI data for this period</div>
+    <div class="empty-state__description">
+      Nothing has posted to the contributions, claims or commission ledgers
+      in the current filter window yet. Broaden the filters above or wait
+      for the first cycle to close.
+    </div>
   </div>
 } @else {
   <div class="tile-grid">
@@ -126,6 +105,7 @@
           [warnings]="warningsFor(k)"
           [periodLabel]="periodLabel"
           [trendDirection]="directionFor(k)"
+          [valueFormat]="tileFormats[k]"
           [loading]="loading"
           [exporting]="isExporting(k)"
           (exportRequested)="exportKpi($event)"

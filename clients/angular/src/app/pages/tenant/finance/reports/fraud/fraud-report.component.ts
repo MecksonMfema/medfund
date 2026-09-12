@@ -5,6 +5,7 @@ import { forkJoin } from 'rxjs';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { LineChartComponent }
   from '../../../../../shared/components/charts/line-chart/line-chart.component';
+import { StatCardComponent } from '../../../../../shared/components/stat-card/stat-card.component';
 import { ToastService } from '../../../../../shared/components/toast/toast.service';
 import { ReportResponse } from '../../../../../core/services/report-envelope';
 import {
@@ -27,7 +28,7 @@ import {
 @Component({
   selector: 'app-fraud-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, LineChartComponent],
+  imports: [CommonModule, FormsModule, IconComponent, LineChartComponent, StatCardComponent],
   templateUrl: './fraud-report.component.html',
 })
 export class FraudReportComponent implements OnInit {

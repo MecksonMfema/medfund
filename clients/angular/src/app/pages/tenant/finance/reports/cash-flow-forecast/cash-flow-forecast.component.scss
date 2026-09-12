@@ -1,31 +1,17 @@
 .detail-section {
-  margin-bottom: 24px;
+  margin-bottom: var(--spacing-xl);
 
   h2 {
-    margin: 0 0 12px;
-    font-size: 16px;
+    margin: 0 0 var(--spacing-md);
+    font-size: var(--font-size-md);
     display: flex;
     align-items: baseline;
-    gap: 12px;
+    gap: var(--spacing-md);
 
     .kpi-meta {
-      font-size: 12px;
-      font-weight: 400;
-      color: var(--color-text-muted, #6b7280);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-regular);
+      color: var(--color-text-muted);
     }
   }
-}
-
-.rate-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-
-  th, td {
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--color-border, #e5e7eb);
-    text-align: left;
-  }
-  th { background: var(--color-surface-2, #f9fafb); font-weight: 600; }
-  td.num { text-align: right; font-variant-numeric: tabular-nums; }
 }

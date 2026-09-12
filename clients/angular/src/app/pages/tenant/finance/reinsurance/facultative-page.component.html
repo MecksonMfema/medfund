@@ -9,30 +9,28 @@
 </header>
 
 @if (showCandidatesTab && showQueueTab) {
-  <div class="tabs" role="tablist">
+  <nav class="scheme-tabs" role="tablist" aria-label="Filter facultative cessions">
     <button
       type="button"
-      class="tab"
+      class="scheme-tab"
       role="tab"
-      [class.active]="activeTab === 'candidates'"
-      [attr.aria-selected]="activeTab === 'candidates'"
-      (click)="setTab('candidates')"
-      data-testid="tab-candidates">
-      <app-icon name="plus-circle" [size]="16"></app-icon>
-      Cedable claims
-    </button>
-    <button
-      type="button"
-      class="tab"
-      role="tab"
-      [class.active]="activeTab === 'queue'"
+      [class.is-active]="activeTab === 'queue'"
       [attr.aria-selected]="activeTab === 'queue'"
       (click)="setTab('queue')"
       data-testid="tab-queue">
-      <app-icon name="check-circle" [size]="16"></app-icon>
       Cession queue
     </button>
-  </div>
+    <button
+      type="button"
+      class="scheme-tab"
+      role="tab"
+      [class.is-active]="activeTab === 'candidates'"
+      [attr.aria-selected]="activeTab === 'candidates'"
+      (click)="setTab('candidates')"
+      data-testid="tab-candidates">
+      Cedable claims
+    </button>
+  </nav>
 }
 
 <div class="tab-body">

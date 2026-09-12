@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
@@ -16,10 +17,12 @@ import {
 import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/services/currency.service';
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { ReportResponse } from '../../../../../core/services/report-envelope';
-import { ContributionsService, Scheme } from '../../../../../core/services/contributions.service';
-import { Producer, ProducerService } from '../../../../../core/services/producer.service';
 import { INSURANCE_LINES } from '../../../../../core/models/insurance-lines';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import {
+  EntityPickerComponent,
+  EntityPickerSelection,
+} from '../../../../../shared/components/entity-picker/entity-picker.component';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SparklinePoint } from '../../../../../shared/components/charts/sparkline/sparkline.component';
 import { KpiTileComponent } from './kpi-tile.component';
@@ -41,7 +44,7 @@ import { KpiTileComponent } from './kpi-tile.component';
 @Component({
   selector: 'app-kpi-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, SelectComponent, IconComponent, KpiTileComponent],
+  imports: [CommonModule, FormsModule, RouterModule, SelectComponent, EntityPickerComponent, IconComponent, KpiTileComponent],
   templateUrl: './kpi-dashboard.component.html',
   styleUrl: './kpi-dashboard.component.scss',
 })
@@ -62,6 +65,17 @@ export class KpiDashboardComponent implements OnInit {
     AVERAGE_SEVERITY:  'Average severity',
   };
 
+  // Loss / expense / combined / frequency are ratios (rendered as %).
+  // Average severity is a currency amount — showing `3.25 × 100 = 325%`
+  // for a $3.25 severity is nonsense; render it as a decimal.
+  readonly tileFormats: Record<KpiKey, 'ratio' | 'amount'> = {
+    LOSS_RATIO_KPI:    'ratio',
+    EXPENSE_RATIO:     'ratio',
+    COMBINED_RATIO:    'ratio',
+    CLAIMS_FREQUENCY:  'ratio',
+    AVERAGE_SEVERITY:  'amount',
+  };
+
   loading      = false;
   errorMessage: string | null = null;
   disabled     = false;
@@ -77,24 +91,14 @@ export class KpiDashboardComponent implements OnInit {
 
   schemeId: string | null = null;
   schemeLabel: string | null = null;
-  schemeSearchQuery = '';
-  schemeMatches: Scheme[] = [];
-  schemeSearching = false;
-  private schemeSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
   producerId: string | null = null;
   producerLabel: string | null = null;
-  producerSearchQuery = '';
-  producerMatches: Producer[] = [];
-  producerSearching = false;
-  private producerSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private kpiService: ExecutiveKpiService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
-    private contributions: ContributionsService,
-    private producerSvc: ProducerService,
   ) {}
 
   ngOnInit(): void {
@@ -140,61 +144,29 @@ export class KpiDashboardComponent implements OnInit {
     this.refresh();
   }
 
-  onSchemeSearchChange(): void {
-    if (this.schemeSearchTimer) clearTimeout(this.schemeSearchTimer);
-    const q = this.schemeSearchQuery.trim();
-    if (!q) { this.schemeMatches = []; return; }
-    this.schemeSearching = true;
-    this.schemeSearchTimer = setTimeout(() => {
-      this.contributions.searchSchemes(q, 10).subscribe({
-        next: rows => { this.schemeMatches = rows; this.schemeSearching = false; },
-        error: () => { this.schemeMatches = []; this.schemeSearching = false; },
-      });
-    }, 300);
-  }
-
-  pickScheme(s: Scheme): void {
-    this.schemeId    = s.id;
-    this.schemeLabel = s.name;
-    this.schemeSearchQuery = '';
-    this.schemeMatches = [];
-    this.filters = { ...this.filters, schemeId: s.id };
+  onSchemePicked(sel: EntityPickerSelection | null): void {
+    if (sel) {
+      this.schemeId = sel.id;
+      this.schemeLabel = sel.label;
+      this.filters = { ...this.filters, schemeId: sel.id };
+    } else {
+      this.schemeId = null;
+      this.schemeLabel = null;
+      this.filters = { ...this.filters, schemeId: undefined };
+    }
     this.refresh();
   }
 
-  clearScheme(): void {
-    this.schemeId    = null;
-    this.schemeLabel = null;
-    this.filters = { ...this.filters, schemeId: undefined };
-    this.refresh();
-  }
-
-  onProducerSearchChange(): void {
-    if (this.producerSearchTimer) clearTimeout(this.producerSearchTimer);
-    const q = this.producerSearchQuery.trim();
-    if (!q) { this.producerMatches = []; return; }
-    this.producerSearching = true;
-    this.producerSearchTimer = setTimeout(() => {
-      this.producerSvc.searchProducers(q, 10).subscribe({
-        next: rows => { this.producerMatches = rows; this.producerSearching = false; },
-        error: () => { this.producerMatches = []; this.producerSearching = false; },
-      });
-    }, 300);
-  }
-
-  pickProducer(p: Producer): void {
-    this.producerId    = p.id;
-    this.producerLabel = `${p.producerCode} - ${p.name}`;
-    this.producerSearchQuery = '';
-    this.producerMatches = [];
-    this.filters = { ...this.filters, producerId: p.id };
-    this.refresh();
-  }
-
-  clearProducer(): void {
-    this.producerId    = null;
-    this.producerLabel = null;
-    this.filters = { ...this.filters, producerId: undefined };
+  onProducerPicked(sel: EntityPickerSelection | null): void {
+    if (sel) {
+      this.producerId = sel.id;
+      this.producerLabel = sel.label;
+      this.filters = { ...this.filters, producerId: sel.id };
+    } else {
+      this.producerId = null;
+      this.producerLabel = null;
+      this.filters = { ...this.filters, producerId: undefined };
+    }
     this.refresh();
   }
 
@@ -254,6 +226,14 @@ export class KpiDashboardComponent implements OnInit {
 
   tileEnvelope(key: KpiKey): ReportResponse<KpiReportData> | null {
     return this.tiles[key] ?? null;
+  }
+
+  /** True when at least one KPI tile has data. Drives the empty-state
+   *  branch — when no tile came back and the tenant is not fully-disabled
+   *  we render the "No KPI data for this period" surface instead of a
+   *  blank grid. */
+  get hasAnyTile(): boolean {
+    return this.KPI_KEYS.some(k => !!this.tiles[k]);
   }
 
   compositeFor(key: KpiKey): number | null {

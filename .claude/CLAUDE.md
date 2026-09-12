@@ -53,6 +53,7 @@ Read these before starting any implementation work:
 10. **[Infrastructure & DevOps](infrastructure.md)** — Deployment, CI/CD, observability, security
 11. **[Coding Standards](coding-standards.md)** — Per-language conventions, testing, error handling
 12. **[Portals & Roles](portals.md)** — Super admin, tenant admin, provider, member, group liaison portal specifications
+13. **[Design System](design-system.md)** — Angular tokens, shared components, global CSS classes, canonical page structure. Read before adding any new page.
 
 ## Java Coding Conventions
 

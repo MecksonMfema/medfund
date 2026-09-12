@@ -1,32 +1,32 @@
 .reports-hub {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--spacing-lg);
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
+  gap: var(--spacing-base);
 }
 
 .hub-counter {
   text-align: center;
-  padding: 12px 20px;
-  border-radius: 8px;
-  background: rgba(0, 119, 182, 0.08);
-  color: #0369a1;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-light);
+  color: var(--color-primary);
 
   .hub-count {
     display: block;
-    font-size: 32px;
-    font-weight: 700;
+    font-size: var(--font-size-3xl);
+    font-weight: var(--font-weight-bold);
     line-height: 1;
   }
 
   .hub-count-label {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
@@ -35,21 +35,21 @@
 .hub-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
+  gap: var(--spacing-base);
 }
 
 .hub-family-card {
-  background: var(--surface, #fff);
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 8px;
-  padding: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-base);
 }
 
 .hub-family-title {
-  margin: 0 0 12px;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text, #1f2937);
+  margin: 0 0 var(--spacing-md);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
 }
 
 .hub-report-list {
@@ -64,14 +64,14 @@
 .hub-report-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--spacing-xs);
   padding: 8px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: 1px solid transparent;
 
   &:hover {
-    background: rgba(0, 119, 182, 0.04);
-    border-color: rgba(0, 119, 182, 0.12);
+    background: var(--color-sidebar-bg-hover);
+    border-color: var(--color-primary-light);
   }
 }
 
@@ -79,57 +79,29 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .hub-report-name {
-  font-size: 14px;
-  color: var(--text, #1f2937);
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
 }
 
-.badge {
-  display: inline-block;
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 600;
-
-  &.badge-cadenced {
-    background: rgba(0, 119, 182, 0.1);
-    color: #0369a1;
-  }
-}
-
-.hub-empty {
-  padding: 48px 20px;
-  text-align: center;
-  border: 1px dashed var(--border, #d1d5db);
-  border-radius: 8px;
-  color: var(--muted, #6b7280);
-
-  h3 {
-    margin: 12px 0 4px;
-    font-size: 16px;
-    color: var(--text, #1f2937);
-  }
-
-  p {
-    margin: 0 auto;
-    max-width: 420px;
-    font-size: 14px;
-  }
+.badge-cadenced {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
 }
 
 .general-error {
   padding: 10px 14px;
-  background: rgba(220, 38, 38, 0.1);
-  color: #b91c1c;
-  border-radius: 6px;
+  background: var(--color-error-light);
+  color: #c4162d;
+  border-radius: var(--radius-sm);
 }
 
 .page-subtitle {
-  margin: 4px 0 0;
-  color: var(--muted, #6b7280);
-  font-size: 13px;
+  margin: var(--spacing-xs) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
   max-width: 640px;
 }

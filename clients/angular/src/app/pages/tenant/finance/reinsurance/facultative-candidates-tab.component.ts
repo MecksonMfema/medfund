@@ -8,19 +8,23 @@ import {
   ReinsuranceService,
   Treaty,
 } from '../../../../core/services/reinsurance.service';
-import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import {
+  DataTableComponent,
+  TableAction,
+  TableColumn,
+} from '../../../../shared/components/data-table/data-table.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 /**
  * Cedable-claims tab of the merged Facultative page. Adjudicated claims
- * above the caller-supplied minAmount on the left; inline cede form on
- * the right when a candidate is picked. Approve / commit lives on the
+ * render as a standard data-table; clicking the row-level Cede action
+ * opens a modal to draft the cession. Approve / commit lives on the
  * sibling Cession queue tab.
  */
 @Component({
   selector: 'app-facultative-candidates-tab',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, DataTableComponent, SelectComponent],
   templateUrl: './facultative-candidates-tab.component.html',
   styleUrl: './facultative-candidates-tab.component.scss',
 })
@@ -56,6 +60,23 @@ export class FacultativeCandidatesTabComponent implements OnInit {
     { value: 'DISABILITY', label: 'Disability' },
     { value: 'VEHICLE', label: 'Motor' },
     { value: 'PROPERTY', label: 'Property' },
+  ];
+
+  readonly columns: TableColumn[] = [
+    { key: 'claimNumber',    label: 'Claim #',  sortable: false },
+    { key: 'memberName',     label: 'Member',   sortable: false },
+    { key: 'providerName',   label: 'Provider', sortable: false },
+    { key: 'insuranceLine',  label: 'Line',     sortable: false, type: 'status' },
+    { key: 'approvedAmount', label: 'Approved', sortable: false, type: 'currency' },
+  ];
+
+  readonly actions: TableAction[] = [
+    {
+      label: 'Cede',
+      icon: 'external-link',
+      color: 'default',
+      handler: (row: FacultativeCandidateRow) => this.select(row),
+    },
   ];
 
   constructor(private svc: ReinsuranceService) {}
@@ -126,8 +147,7 @@ export class FacultativeCandidatesTabComponent implements OnInit {
   get treatyOptions(): SelectOption[] {
     const opts: SelectOption[] = [{ value: '', label: this.treatiesLoading ? 'Loading…' : 'Select a treaty' }];
     if (!this.selected) return opts;
-    const eligible = this.activeTreaties;
-    for (const t of eligible) {
+    for (const t of this.activeTreaties) {
       opts.push({ value: t.id, label: `${t.treatyRef} (${t.treatyType}, ${t.declaredCurrency})` });
     }
     return opts;

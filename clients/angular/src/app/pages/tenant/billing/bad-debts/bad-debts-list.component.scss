@@ -114,42 +114,6 @@
 // the .scheme-tabs strip on the schemes page so both surfaces read the
 // same at a glance.
 
-.scheme-tabs {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 24px;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border-light);
-}
-
-.scheme-tab {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  padding: 12px 4px;
-  margin: 0 8px 0 0;
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--color-text-secondary);
-  font-family: var(--font-family);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: color var(--transition-fast), border-color var(--transition-fast);
-
-  &:hover {
-    color: var(--color-text-primary);
-  }
-
-  &.is-active {
-    color: var(--color-primary);
-    border-bottom-color: var(--color-primary);
-    font-weight: var(--font-weight-semibold);
-  }
-}
-
 // ── Error banner (transient, above the table) ─────────────────────────
 
 .banner {
@@ -165,3 +129,4 @@
   color: var(--color-error, #991b1b);
   border: 1px solid rgba(196, 22, 45, 0.25);
 }
+// Tab strip primitives (.scheme-tabs / .scheme-tab) live in styles.scss.

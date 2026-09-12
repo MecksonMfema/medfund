@@ -6,12 +6,15 @@ import {
   CommissionStatementParams,
   CommissionStatementRow,
 } from '../../../../../core/services/commission-report.service';
-import { Producer, ProducerService } from '../../../../../core/services/producer.service';
 import { ReportResponse } from '../../../../../core/services/report-envelope';
 import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/services/currency.service';
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import {
+  EntityPickerComponent,
+  EntityPickerSelection,
+} from '../../../../../shared/components/entity-picker/entity-picker.component';
 
 /**
  * Commission statement — one row per commission_transaction in the selected
@@ -24,7 +27,7 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 @Component({
   selector: 'app-commission-statement',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, EntityPickerComponent],
   templateUrl: './commission-statement.component.html',
   styleUrl: '../receipts/receipts-report.component.scss',
 })
@@ -42,14 +45,9 @@ export class CommissionStatementComponent implements OnInit {
 
   producerId: string | null = null;
   producerLabel: string | null = null;
-  producerSearchQuery = '';
-  producerMatches: Producer[] = [];
-  producerSearching = false;
-  private producerSearchTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private reportSvc: CommissionReportService,
-    private producerSvc: ProducerService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
   ) {}
@@ -121,30 +119,14 @@ export class CommissionStatementComponent implements OnInit {
 
   onFilterChange(): void { this.fetch(); }
 
-  onProducerSearchChange(): void {
-    if (this.producerSearchTimer) clearTimeout(this.producerSearchTimer);
-    const q = this.producerSearchQuery.trim();
-    if (!q) { this.producerMatches = []; return; }
-    this.producerSearching = true;
-    this.producerSearchTimer = setTimeout(() => {
-      this.producerSvc.searchProducers(q, 10).subscribe({
-        next: rows => { this.producerMatches = rows; this.producerSearching = false; },
-        error: () => { this.producerMatches = []; this.producerSearching = false; },
-      });
-    }, 300);
-  }
-
-  pickProducer(p: Producer): void {
-    this.producerId    = p.id;
-    this.producerLabel = `${p.producerCode} - ${p.name}`;
-    this.producerSearchQuery = '';
-    this.producerMatches = [];
-    this.fetch();
-  }
-
-  clearProducer(): void {
-    this.producerId    = null;
-    this.producerLabel = null;
+  onProducerPicked(sel: EntityPickerSelection | null): void {
+    if (sel) {
+      this.producerId = sel.id;
+      this.producerLabel = sel.label;
+    } else {
+      this.producerId = null;
+      this.producerLabel = null;
+    }
     this.fetch();
   }
 

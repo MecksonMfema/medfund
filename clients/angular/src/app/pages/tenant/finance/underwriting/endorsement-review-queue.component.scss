@@ -1,190 +1,107 @@
+// Endorsements review queue — fullbleed layout matching the sibling
+// reinsurance review-queue and commission-corrections list. Only the
+// void modal stays page-scoped.
+
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  margin-bottom: 1rem;
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
-.page-sub {
-  color: var(--text-muted, #6b7280);
-  margin: 0.25rem 0 0;
-  max-width: 60ch;
+.page-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+}
+
+.page-header .page-sub {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  max-width: 65ch;
+}
+
+// Flatten app-select trigger inside toolbar. Global styles.scss authors
+// this rule with ::ng-deep at the top level which browsers drop; every
+// page needs a local copy where Angular's compiler actually strips it.
+.toolbar-cell.cell-select {
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
 }
 
 .banner {
-  padding: 0.6rem 0.9rem;
-  border-radius: 6px;
-  margin-bottom: 0.75rem;
+  margin: 12px 24px 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm, 6px);
   cursor: pointer;
-}
-.banner-error {
-  background: #fee2e2;
-  color: #991b1b;
-}
+  font-size: 0.875rem;
 
-.tx-toolbar {
-  display: flex;
-  gap: 0.75rem;
-  align-items: flex-end;
-  margin-bottom: 1rem;
-}
-
-.toolbar-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.cell-label {
-  font-size: 0.8rem;
-  color: var(--text-muted, #6b7280);
-}
-
-.loading,
-.empty {
-  padding: 1.5rem;
-  text-align: center;
-  color: var(--text-muted, #6b7280);
-}
-
-.queue-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-
-  th, td {
-    padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid var(--border-subtle, #e5e7eb);
-    text-align: left;
-    vertical-align: top;
-  }
-  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  th.actions, td.actions { text-align: right; white-space: nowrap; }
-
-  .muted { color: #9ca3af; }
-
-  .status-pill {
-    display: inline-block;
-    padding: 0.15rem 0.55rem;
-    border-radius: 999px;
-    font-size: 0.75em;
-    background: #e5e7eb;
-    color: #374151;
-
-    &[data-status='DRAFT']     { background: #dbeafe; color: #1e40af; }
-    &[data-status='APPROVED']  { background: #fef3c7; color: #92400e; }
-    &[data-status='COMMITTED'] { background: #d1fae5; color: #065f46; }
-    &[data-status='COMPUTED']  { background: #ccfbf1; color: #115e59; }
-    &[data-status='VOIDED']    { background: #f3f4f6; color: #6b7280; }
+  &.banner-error {
+    background: var(--color-error-light, #fee2e2);
+    color: var(--color-error, #991b1b);
+    border: 1px solid rgba(196, 22, 45, 0.25);
   }
 }
 
-.btn {
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  border: 1px solid transparent;
-  cursor: pointer;
-  background: #f3f4f6;
-  color: #111827;
-
-  &:disabled { opacity: 0.55; cursor: not-allowed; }
-  &.btn-sm { padding: 4px 10px; font-size: 12.5px; }
-  &.btn-primary { background: #2563eb; color: #fff; }
-  &.btn-danger { background: #dc2626; color: #fff; }
-}
-
+// ── Void modal ────────────────────────────────────────────────────────
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: 1000;
 }
 
 .modal-card {
-  background: #fff;
-  padding: 1.25rem 1.5rem;
-  border-radius: 8px;
-  min-width: 480px;
-  max-width: 620px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  background: var(--color-surface, #fff);
+  border-radius: var(--radius-md, 8px);
+  padding: 1.25rem;
+  width: 480px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
 
-  h3 { margin: 0 0 0.5rem; }
-
-  .modal-sub {
-    color: var(--text-muted, #6b7280);
-    margin: 0 0 1rem;
-    font-size: 0.9em;
-  }
+  h3 { margin: 0 0 0.25rem 0; font-size: 1.05rem; }
+  .modal-sub { margin: 0 0 1rem 0; font-size: 0.85rem; color: var(--color-text-muted, #6b7280); }
 
   label {
-    display: block;
-    margin-bottom: 0.85rem;
-
-    span {
-      display: block;
-      font-weight: 600;
-      font-size: 0.9em;
-      margin-bottom: 0.25rem;
-
-      em { font-weight: normal; color: var(--text-muted, #6b7280); }
-    }
-
-    input, textarea {
-      width: 100%;
-      padding: 0.4rem 0.6rem;
-      border: 1px solid var(--border-subtle, #d1d5db);
-      border-radius: 6px;
-      font: inherit;
-    }
-  }
-
-  .modal-actions {
     display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    margin-top: 1rem;
-  }
-}
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
 
-.detail-grid {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.6rem 1.2rem;
-  margin: 1rem 0;
-
-  dt { color: var(--text-muted, #6b7280); font-weight: 600; }
-  dd { margin: 0; }
-}
-
-.timeline {
-  list-style: none;
-  padding: 0;
-  margin: 1rem 0;
-  border-left: 2px solid var(--border-subtle, #e5e7eb);
-
-  li {
-    padding: 0.4rem 0.75rem;
-    position: relative;
-
-    &::before {
-      content: '';
-      position: absolute;
-      left: -6px;
-      top: 0.85rem;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--border-subtle, #d1d5db);
+    span { color: var(--color-text-secondary, #4b5563); font-weight: 500; }
+    textarea {
+      padding: 0.5rem 0.6rem;
+      border: 1px solid var(--color-border, #d1d5db);
+      border-radius: var(--radius-sm, 6px);
+      font-size: 0.9rem;
+      font-family: inherit;
     }
-
-    &.done::before { background: #059669; }
-    strong { display: inline-block; margin-right: 0.5rem; }
-    small { color: var(--text-muted, #6b7280); }
   }
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
 }

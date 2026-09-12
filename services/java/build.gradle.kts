@@ -127,6 +127,43 @@ subprojects {
                 "-XX:+HeapDumpOnOutOfMemoryError",
                 "-XX:HeapDumpPath=build/heap-dumps/"
             )
+
+            // Consume the internal library projects (:shared, :rules-engine) as
+            // raw class + resource directories on the bootRun classpath instead
+            // of packaged JARs. Two things break when they ship as JARs in dev:
+            //
+            //  1. Spring Boot devtools only watches directories on the classpath.
+            //     A rebuild of :shared or :rules-engine (e.g. as a side effect of
+            //     `:some-service:compileJava`) rewrites the JAR file on disk, but
+            //     the running JVM keeps the stale ZipFile handle it opened at
+            //     boot. Any lazily-loaded class from the swapped JAR then trips
+            //     NoClassDefFoundError on its first reference. Reactor's
+            //     throwIfFatal turns that into an uncaught fatal that never
+            //     terminates the reactive stream, so callers just time out on
+            //     the guarded 2-second per-hop ceiling and the composed report
+            //     surfaces "partial data" for something that is actually a JVM
+            //     linkage failure.
+            //
+            //  2. Using class dirs lets devtools trigger a hot restart when the
+            //     library source changes, which is the point of having devtools
+            //     on the classpath in the first place.
+            //
+            // Filtering by JAR name (not File equality) is deliberate: the Jar
+            // task's archiveFile provider would be resolved eagerly and
+            // circumvent Gradle's build-time up-to-date checks. The Boot plugin's
+            // own `.jar` output for this subproject stays on the classpath as-is
+            // because we only strip the two library artefacts by name.
+            classpath = files(
+                sourceSets["main"].output,
+                project(":shared").sourceSets["main"].output,
+                project(":rules-engine").sourceSets["main"].output,
+                configurations.runtimeClasspath.get().filter { f ->
+                    val n = f.name
+                    !((n.startsWith("shared-") || n.startsWith("rules-engine-"))
+                            && n.endsWith(".jar"))
+                }
+            )
+            dependsOn(":shared:classes", ":rules-engine:classes")
         }
     }
 }

@@ -1,0 +1,233 @@
+<div class="correction-form-page">
+  <header class="page-header">
+    <div>
+      <h1>New commission correction</h1>
+      <p class="page-sub">
+        Records a DRAFT row against a committed commission transaction. A supervisor
+        with the <code>finance.commission:approve_adjustment</code> permission must
+        approve and commit before the ledger moves.
+      </p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/finance/commission/corrections">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back to corrections
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form (submit)="$event.preventDefault(); submit()" class="form-card">
+    <div class="form-card__heading">
+      <h2 class="form-card__title">Correction</h2>
+      <span class="form-card__hint">Fields marked with an asterisk are required.</span>
+    </div>
+
+    <!-- ── Section 1: producer picker + transaction picker ────────────── -->
+    <div class="form-sections form-sections--single">
+      <section class="form-section form-section--full">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="search" [size]="18"></app-icon></span>
+          <h3 class="section-title">Target commission transaction</h3>
+        </header>
+
+        <!-- Producer picker ────────────────────────────────────────────── -->
+        <label class="field">
+          <span class="field-label">Producer <span class="req">*</span></span>
+          @if (producer) {
+            <div class="selected-pill">
+              <div class="selected-info">
+                <strong>{{ producer.producerCode }}</strong> - {{ producer.name }}
+                <span class="muted">({{ producer.homeCurrency }})</span>
+              </div>
+              <button type="button" class="link-btn" (click)="clearProducer()">Change</button>
+            </div>
+          } @else {
+            <div class="search-wrapper">
+              <input
+                class="field-control"
+                type="text"
+                [(ngModel)]="producerSearchQuery"
+                (input)="onProducerSearchChange()"
+                name="producerSearch"
+                placeholder="Search producer by code or name..."
+                autocomplete="off"
+                data-testid="producer-search"
+              />
+              @if (producerMatches.length) {
+                <ul class="suggestions">
+                  @for (p of producerMatches; track p.id) {
+                    <li class="suggestion" (mousedown)="pickProducer(p)">
+                      <strong>{{ p.producerCode }}</strong> - {{ p.name }}
+                      <span class="muted">({{ p.homeCurrency }})</span>
+                    </li>
+                  }
+                </ul>
+              }
+              @if (producerSearching) {
+                <div class="search-hint">Searching...</div>
+              }
+            </div>
+          }
+          <small class="field-help">Only producers with committed commissions in the search window are relevant.</small>
+        </label>
+
+        <!-- Period range (secondary) ─────────────────────────────────── -->
+        @if (producer) {
+          <div class="period-row">
+            <label class="field field--inline">
+              <span class="field-label">Search from</span>
+              <input
+                class="field-control"
+                type="date"
+                [(ngModel)]="periodStart"
+                (change)="onPeriodChange()"
+                name="periodStart"
+              />
+            </label>
+            <label class="field field--inline">
+              <span class="field-label">Search to</span>
+              <input
+                class="field-control"
+                type="date"
+                [(ngModel)]="periodEnd"
+                (change)="onPeriodChange()"
+                name="periodEnd"
+              />
+            </label>
+          </div>
+        }
+
+        <!-- Transaction picker ────────────────────────────────────────── -->
+        @if (producer) {
+          <label class="field">
+            <span class="field-label">Commission transaction <span class="req">*</span></span>
+            @if (selectedTransaction) {
+              <div class="selected-pill selected-pill--wide">
+                <div class="selected-info">
+                  <strong>{{ selectedTransaction.reference }}</strong>
+                  <span class="muted"> - {{ selectedTransaction.insuranceLine }}, member {{ selectedTransaction.memberId.substring(0, 8) }}…</span>
+                  <div class="selected-meta">
+                    {{ selectedTransaction.nativeAmount }} {{ selectedTransaction.nativeCurrency }}
+                    · {{ selectedTransaction.occurredAt | date:'yyyy-MM-dd' }}
+                    · {{ selectedTransaction.status }}
+                  </div>
+                </div>
+                <button type="button" class="link-btn" (click)="clearTransaction()">Change</button>
+              </div>
+            } @else {
+              <input
+                class="field-control"
+                type="search"
+                [(ngModel)]="transactionsQuery"
+                name="txnSearch"
+                placeholder="Filter by reference, member id, or line..."
+                autocomplete="off"
+                data-testid="txn-search"
+              />
+
+              @if (transactionsLoading) {
+                <div class="txn-hint">Loading commissions…</div>
+              } @else if (transactionsError) {
+                <div class="txn-hint txn-hint--error">{{ transactionsError }}</div>
+              } @else if (transactions.length === 0) {
+                <div class="txn-hint">No commission transactions for this producer in the selected period.</div>
+              } @else if (filteredTransactions.length === 0) {
+                <div class="txn-hint">No transactions match "{{ transactionsQuery }}".</div>
+              } @else {
+                <ul class="txn-list" data-testid="txn-list">
+                  @for (t of filteredTransactions; track t.commissionTransactionId) {
+                    <li class="txn-row" (click)="pickTransaction(t)"
+                        [attr.data-testid]="'txn-row-' + t.reference">
+                      <div class="txn-row__main">
+                        <strong>{{ t.reference }}</strong>
+                        <span class="txn-badge">{{ t.status }}</span>
+                      </div>
+                      <div class="txn-row__meta">
+                        {{ t.insuranceLine }}
+                        · member {{ t.memberId.substring(0, 8) }}…
+                        · {{ t.occurredAt | date:'yyyy-MM-dd' }}
+                      </div>
+                      <div class="txn-row__amount">{{ t.nativeAmount }} {{ t.nativeCurrency }}</div>
+                    </li>
+                  }
+                </ul>
+                @if (transactions.length > filteredTransactions.length) {
+                  <small class="field-help">Showing {{ filteredTransactions.length }} of {{ transactions.length }} matches. Refine the filter to narrow the list.</small>
+                }
+              }
+            }
+            <small class="field-help">Search within the picked producer's commissions. Broaden the period above if the transaction is older than 6 months.</small>
+          </label>
+        }
+      </section>
+    </div>
+
+    <!-- ── Section 2: correction type + amount ────────────────────────── -->
+    <div class="form-sections">
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="edit" [size]="18"></app-icon></span>
+          <h3 class="section-title">Correction</h3>
+        </header>
+
+        <label class="field">
+          <span class="field-label">Type <span class="req">*</span></span>
+          <app-select
+            [(ngModel)]="adjustmentType"
+            name="adjustmentType"
+            [options]="adjustmentTypeOptions"
+            placeholder="Pick a type"
+            data-testid="type-select"
+          ></app-select>
+          <small class="field-help">Ex-gratia adds credit; Void reverses in full; Clawback/Reversal are bespoke.</small>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Amount <span class="req">*</span></span>
+          <input
+            class="field-control"
+            type="number"
+            step="0.0001"
+            [(ngModel)]="adjustmentAmount"
+            name="adjustmentAmount"
+            placeholder="e.g. 25.00 or -50.00"
+            data-testid="amount-input"
+          />
+          <small class="field-help">Signed. Negative reverses. Currency matches the target transaction ({{ selectedTransaction?.nativeCurrency || '—' }}).</small>
+        </label>
+      </section>
+
+      <section class="form-section form-section--wide">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="file-text" [size]="18"></app-icon></span>
+          <h3 class="section-title">Justification</h3>
+        </header>
+
+        <label class="field">
+          <span class="field-label">Justification <span class="req">*</span></span>
+          <textarea
+            class="field-control"
+            rows="6"
+            maxlength="1000"
+            [(ngModel)]="justification"
+            name="justification"
+            placeholder="e.g. Broker earned a promotional kicker not covered by the standing rate card"
+            data-testid="justification-input"
+          ></textarea>
+          <small class="field-help">Minimum 20 characters. Recorded on the audit trail alongside the correction.</small>
+        </label>
+      </section>
+    </div>
+
+    <footer class="form-actions">
+      <a class="btn btn-default" routerLink="/tenant/finance/commission/corrections">Cancel</a>
+      <button type="submit" class="btn btn-primary"
+              [disabled]="submitting || !isValid"
+              data-testid="create-submit">
+        {{ submitting ? 'Creating…' : 'Create draft' }}
+      </button>
+    </footer>
+  </form>
+</div>

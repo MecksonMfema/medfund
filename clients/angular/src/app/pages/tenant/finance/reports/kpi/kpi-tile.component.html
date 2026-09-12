@@ -23,39 +23,75 @@
   </header>
 
   <div class="composite">
-    {{ composite !== null ? (composite | percent:'1.1-1') : '-' }}
+    @if (composite === null) {
+      -
+    } @else if (valueFormat === 'ratio') {
+      {{ composite | percent:'1.1-1' }}
+    } @else {
+      {{ composite | number:'1.2-2' }}
+    }
   </div>
 
   <app-sparkline [data]="sparklineData" [height]="60"></app-sparkline>
 
-  @if (perCurrencyList.length) {
-    <div class="per-currency">
-      @for (entry of perCurrencyList; track entry.currency) {
-        <span class="chip">
-          {{ entry.currency }} {{ entry.value.ratio !== null ? (entry.value.ratio | percent:'1.0-1') : '-' }}
-        </span>
-      }
-    </div>
-  }
-
   <footer class="tile-footer">
-    <span>Period: {{ periodLabel || '-' }}</span>
+    <span class="period" [title]="'Period: ' + (periodLabel || '-')">
+      Period: {{ periodLabel || '-' }}
+    </span>
     <button
       type="button"
       class="btn-export"
       [disabled]="loading || exporting"
       (click)="onExportClick($event)"
-      aria-label="Export XLSX"
+      [title]="exporting ? 'Exporting…' : 'Export to Excel'"
+      aria-label="Export to Excel"
     >
-      {{ exporting ? 'Exporting…' : 'Export XLSX' }}
+      @if (exporting) {
+        <span class="btn-export__spinner" aria-hidden="true"></span>
+        <span class="btn-export__label">Exporting…</span>
+      } @else {
+        <app-icon name="download" [size]="16"></app-icon>
+        <span class="btn-export__label">Excel</span>
+      }
     </button>
   </footer>
 
-  @if (warnings.length) {
-    <div class="warnings">
-      @for (w of warnings; track w) {
-        <span class="warning">⚠ {{ w }}</span>
-      }
+  <!-- Spacer: absorbs the slack that grid-stretch gives shorter cards.
+       Placed AFTER the footer so the Period + Excel row sits directly
+       under the sparkline at a consistent y across every tile; the
+       warnings + chip below still anchor to the very bottom. -->
+  <div class="tile-spacer" aria-hidden="true"></div>
+
+  @if (hasWarnings) {
+    <div class="warnings" [class.peer]="warningKind === 'peer'" [class.quality]="warningKind === 'quality'">
+      <span
+        class="warning-badge"
+        [title]="warningTooltip"
+        [attr.aria-label]="warningTooltip"
+      >
+        <span class="warning-icon" aria-hidden="true">ⓘ</span>
+        <span class="warning-label">{{ warningLabel }}</span>
+      </span>
     </div>
   }
+
+  <!-- Per-currency chip at the very bottom of the card, below every other
+       row (composite, sparkline, footer, warnings). A reserved slot with
+       fixed `min-height` occupies the space even when no chip is present,
+       so the footer + warnings above it sit at a consistent y-position
+       across every tile. -->
+  <div class="per-currency-slot">
+    @if (perCurrencyList.length) {
+      <div class="per-currency">
+        @for (entry of perCurrencyList; track entry.currency) {
+          <span class="chip">
+            {{ entry.currency }}
+            @if (entry.value.ratio === null) { -
+            } @else if (valueFormat === 'ratio') { {{ entry.value.ratio | percent:'1.0-1' }}
+            } @else { {{ entry.value.ratio | number:'1.2-2' }} }
+          </span>
+        }
+      </div>
+    }
+  </div>
 </div>

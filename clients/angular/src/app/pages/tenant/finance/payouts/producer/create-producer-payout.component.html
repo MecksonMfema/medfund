@@ -1,0 +1,133 @@
+<div class="producer-payout-form-page">
+  <header class="page-header">
+    <div>
+      <h1>Create producer payout</h1>
+      <p class="page-sub">
+        Draft a producer-typed payment run. Period dates snap to the 1st /
+        last day of the month server-side; use this to define the commission
+        window, source bank, and settlement currency.
+      </p>
+    </div>
+    <a class="btn btn-default" routerLink="/tenant/finance/payouts/producer">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back to producer payouts
+    </a>
+  </header>
+
+  @if (errorMessage) {
+    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+  }
+
+  <form (submit)="$event.preventDefault(); submit()" class="form-card">
+    <div class="form-card__heading">
+      <h2 class="form-card__title">Payout run</h2>
+      <span class="form-card__hint">Fields marked with an asterisk are required.</span>
+    </div>
+
+    <div class="form-sections">
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="credit-card" [size]="18"></app-icon></span>
+          <h3 class="section-title">Source</h3>
+        </header>
+
+        <label class="field">
+          <span class="field-label">Source bank account <span class="req">*</span></span>
+          @if (bankOptions.length > 0) {
+            <app-select
+              [(ngModel)]="sourceBankAccountId"
+              (selectionChange)="onBankChange()"
+              name="sourceBankAccountId"
+              [options]="bankOptions"
+              placeholder="Pick a bank account"
+            ></app-select>
+          } @else {
+            <input class="field-control" type="text" value="" disabled placeholder="No active bank accounts on file" />
+          }
+          <small class="field-help">Only tenant bank accounts marked <em>active</em> are listed.</small>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Currency <span class="req">*</span></span>
+          @if (currencyOptions.length > 0) {
+            <app-select
+              [(ngModel)]="currencyCode"
+              name="currencyCode"
+              [options]="currencyOptions"
+              placeholder="Pick a currency"
+            ></app-select>
+          } @else {
+            <input
+              class="field-control"
+              [(ngModel)]="currencyCode"
+              name="currencyCode"
+              maxlength="3" minlength="3"
+              placeholder="ISO code, e.g. USD"
+              style="text-transform: uppercase"
+              required
+            />
+          }
+          <small class="field-help">Only currencies enabled for payments on this tenant are listed.</small>
+        </label>
+      </section>
+
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="calendar" [size]="18"></app-icon></span>
+          <h3 class="section-title">Period</h3>
+        </header>
+
+        <label class="field">
+          <span class="field-label">Period start <span class="req">*</span></span>
+          <input
+            class="field-control"
+            type="date"
+            [(ngModel)]="periodStart"
+            name="periodStart"
+            required
+          />
+          <small class="field-help">Server snaps to the 1st of the selected month.</small>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Period end <span class="req">*</span></span>
+          <input
+            class="field-control"
+            type="date"
+            [(ngModel)]="periodEnd"
+            name="periodEnd"
+            required
+          />
+          <small class="field-help">Server snaps to the last day of the selected month.</small>
+        </label>
+      </section>
+
+      <section class="form-section">
+        <header class="section-head">
+          <span class="section-icon"><app-icon name="file-text" [size]="18"></app-icon></span>
+          <h3 class="section-title">Details</h3>
+        </header>
+
+        <label class="field">
+          <span class="field-label">Description <span class="optional">(optional)</span></span>
+          <input
+            class="field-control"
+            type="text"
+            [(ngModel)]="description"
+            name="description"
+            maxlength="200"
+            placeholder="e.g. August 2026 broker commissions"
+          />
+          <small class="field-help">Free-form summary of the run. Surfaces on payout listings and reconciliations.</small>
+        </label>
+      </section>
+    </div>
+
+    <footer class="form-actions">
+      <a class="btn btn-default" routerLink="/tenant/finance/payouts/producer">Cancel</a>
+      <button type="submit" class="btn btn-primary" [disabled]="submitting || !isValid">
+        {{ submitting ? 'Creating…' : 'Create draft' }}
+      </button>
+    </footer>
+  </form>
+</div>

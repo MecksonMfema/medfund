@@ -12,7 +12,7 @@
 </header>
 
 <div class="tx-toolbar">
-  <div class="toolbar-cell">
+  <div class="toolbar-cell cell-select">
     <span class="cell-label">Status filter</span>
     <app-select
       name="statusFilter"
@@ -32,17 +32,17 @@
 }
 
 <div class="table-wrap">
-  <table class="data-table">
+  <table class="rate-table">
     <thead>
       <tr>
         <th>Txn ref</th>
         <th>Status</th>
         <th>Type</th>
-        <th class="right">Amount</th>
+        <th class="num">Amount</th>
         <th>Currency</th>
         <th>Raised</th>
         <th>Description</th>
-        <th class="right">Actions</th>
+        <th class="actions">Actions</th>
       </tr>
     </thead>
     <tbody>
@@ -58,24 +58,24 @@
             <td class="mono">{{ row.transactionRef }}</td>
             <td><span [class]="statusClass(row.status)">{{ row.status }}</span></td>
             <td>{{ row.transactionType }}</td>
-            <td class="right mono">{{ row.amountNative }}</td>
+            <td class="num mono">{{ row.amountNative }}</td>
             <td>{{ row.currency }}</td>
             <td class="mono small">
               {{ row.raisedAt | date:'y-MM-dd HH:mm' }}
               <div class="muted">{{ row.raisedByActorEmail || '-' }}</div>
             </td>
             <td class="clip">{{ row.description }}</td>
-            <td class="right actions-cell">
+            <td class="actions actions-cell">
               @if (canRow(row, 'review')) {
-                <button type="button" class="btn btn-small"
+                <button type="button" class="btn btn-sm btn-default"
                         (click)="openWorkflow(row, 'review')">Review</button>
               }
               @if (canRow(row, 'file')) {
-                <button type="button" class="btn btn-small btn-primary"
+                <button type="button" class="btn btn-sm btn-primary"
                         (click)="openWorkflow(row, 'file')">File</button>
               }
               @if (canRow(row, 'close')) {
-                <button type="button" class="btn btn-small btn-warning"
+                <button type="button" class="btn btn-sm btn-warn"
                         (click)="openWorkflow(row, 'close')">Close</button>
               }
             </td>

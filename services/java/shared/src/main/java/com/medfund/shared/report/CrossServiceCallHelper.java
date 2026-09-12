@@ -92,7 +92,12 @@ public final class CrossServiceCallHelper {
             String reason = cause.getMessage() != null ? cause.getMessage() : cause.getClass().getSimpleName();
             log.warn("[cross-service] {} call failed: {}", callName, reason);
             if (warnings != null) {
-                warnings.add(callName + " call failed: " + reason);
+                // Never leak URLs / HTTP status codes into the report envelope —
+                // the raw cause message contains "401 Unauthorized from GET http://..."
+                // which bleeds internal service topology to any client rendering
+                // the warnings list. Emit a structured token instead; the UI maps
+                // it to friendly copy.
+                warnings.add(callName + " unavailable");
             }
             return Mono.just(fallback);
         });

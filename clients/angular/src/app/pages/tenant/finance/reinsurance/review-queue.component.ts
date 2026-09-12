@@ -8,7 +8,11 @@ import {
   ReviewTaskRow,
   ReviewTaskStatus,
 } from '../../../../core/services/reinsurance.service';
-import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import {
+  DataTableComponent,
+  TableAction,
+  TableColumn,
+} from '../../../../shared/components/data-table/data-table.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 
 /**
@@ -17,15 +21,21 @@ import { SelectComponent, SelectOption } from '../../../../shared/components/sel
  * with one of RESOLVED_VOID (cascade-voids cession + recovery),
  * RESOLVED_KEEP (leaves cession alone), or DISMISSED (false positive).
  */
+interface ReviewRow extends ReviewTaskRow {
+  cessionShort: string;
+  claimShort: string;
+  statusText: string;
+}
+
 @Component({
   selector: 'app-reinsurance-review-queue',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, DataTableComponent, SelectComponent],
   templateUrl: './review-queue.component.html',
   styleUrl: './review-queue.component.scss',
 })
 export class ReinsuranceReviewQueueComponent implements OnInit {
-  rows: ReviewTaskRow[] = [];
+  rows: ReviewRow[] = [];
   loading = false;
   errorMessage: string | null = null;
   statusFilter: '' | ReviewTaskStatus = '';
@@ -58,6 +68,26 @@ export class ReinsuranceReviewQueueComponent implements OnInit {
     { value: 'DISMISSED', label: 'Dismiss: false positive' },
   ];
 
+  readonly columns: TableColumn[] = [
+    { key: 'statusText',   label: 'Status',   sortable: false, type: 'status' },
+    { key: 'taskType',     label: 'Type',     sortable: false },
+    { key: 'cessionShort', label: 'Cession',  sortable: false },
+    { key: 'claimShort',   label: 'Claim',    sortable: false },
+    { key: 'createReason', label: 'Reason',   sortable: false },
+    { key: 'createdAt',    label: 'Created',  sortable: false, type: 'date' },
+  ];
+
+  readonly actions: TableAction[] = [
+    {
+      label: 'Resolve',
+      icon: 'check-circle',
+      color: 'success',
+      testid: 'resolve-btn',
+      visible: (row: ReviewRow) => this.isOpen(row),
+      handler: (row: ReviewRow) => this.openResolve(row),
+    },
+  ];
+
   constructor(private svc: ReinsuranceService) {}
 
   ngOnInit(): void { this.fetchPage(); }
@@ -71,7 +101,12 @@ export class ReinsuranceReviewQueueComponent implements OnInit {
       this.pageSize,
     ).subscribe({
       next: pageResp => {
-        this.rows = pageResp.content;
+        this.rows = pageResp.content.map(r => ({
+          ...r,
+          cessionShort: r.cessionId ? `${r.cessionId.substring(0, 8)}…` : '-',
+          claimShort:   r.claimId   ? `${r.claimId.substring(0, 8)}…`   : '-',
+          statusText:   this.statusLabel(r.status),
+        }));
         this.totalCount = pageResp.total;
         this.totalPages = pageResp.totalPages;
         this.loading = false;

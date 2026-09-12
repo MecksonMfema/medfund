@@ -139,6 +139,9 @@
                     <button
                       class="action-btn"
                       [class]="'action-btn action-btn--' + ((action.colorFor && action.colorFor(row)) || action.color || 'default')"
+                      [attr.data-testid]="action.testid || null"
+                      [attr.title]="(action.titleFor && action.titleFor(row)) || action.title || null"
+                      [disabled]="action.disabled ? action.disabled(row) : null"
                       (click)="$event.stopPropagation(); action.handler(row)"
                     >
                       @if ((action.iconFor && action.iconFor(row)) || action.icon; as iconName) {
