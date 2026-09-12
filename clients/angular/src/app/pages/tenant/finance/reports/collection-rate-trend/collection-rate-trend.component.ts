@@ -13,16 +13,7 @@ import { IconComponent } from '../../../../../shared/components/icon/icon.compon
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { LineChartComponent } from '../../../../../shared/components/charts/line-chart/line-chart.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
-
-function firstOfPriorMonth(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth()).padStart(2, '0')}-01`;
-}
-
-function lastOfPriorMonth(): string {
-  const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 0).toISOString().slice(0, 10);
-}
+import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
 
 function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -54,8 +45,8 @@ export class CollectionRateTrendComponent implements OnInit {
   envelope: ReportResponse<CollectionRateTrendResponse> | null = null;
   currencies: TenantCurrencyConfig[] = [];
 
-  periodStart = firstOfPriorMonth();
-  periodEnd   = lastOfPriorMonth();
+  periodStart = defaultReportPeriodStart();
+  periodEnd   = defaultReportPeriodEnd();
   reportingCurrency = '';
 
   constructor(

@@ -13,6 +13,7 @@ import { INSURANCE_LINES, insuranceLineLabel } from '../../../../../core/models/
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
+import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
 
 /**
  * Phase 12 §B New business register — one row per policy that first bound
@@ -36,8 +37,8 @@ export class NewBusinessRegisterReportComponent implements OnInit {
   envelope: ReportResponse<NewBusinessRegisterRow[]> | null = null;
   currencies: TenantCurrencyConfig[] = [];
 
-  periodStart = firstOfPriorMonth();
-  periodEnd   = lastOfPriorMonth();
+  periodStart = defaultReportPeriodStart();
+  periodEnd   = defaultReportPeriodEnd();
   insuranceLine: string = '';
   reportingCurrency = '';
 
@@ -162,16 +163,6 @@ export class NewBusinessRegisterReportComponent implements OnInit {
   }
 }
 
-function firstOfPriorMonth(): string {
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  return d.toISOString().slice(0, 10);
-}
-function lastOfPriorMonth(): string {
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
-  return d.toISOString().slice(0, 10);
-}
 function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

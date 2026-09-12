@@ -15,6 +15,7 @@ import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
+import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
 
 /** Normalised view of a per-currency summary row so the same template
  *  renders whether the underlying detail is a corporate group or an
@@ -61,8 +62,8 @@ export class HolderBillingDetailComponent implements OnInit {
   envelope: ReportResponse<unknown> | null = null;
   currencies: TenantCurrencyConfig[] = [];
 
-  periodStart = firstOfPriorMonth();
-  periodEnd   = lastOfPriorMonth();
+  periodStart = defaultReportPeriodStart();
+  periodEnd   = defaultReportPeriodEnd();
   reportingCurrency = '';
 
   readonly summaryColumns: TableColumn[] = [
@@ -221,13 +222,3 @@ export class HolderBillingDetailComponent implements OnInit {
   }
 }
 
-function firstOfPriorMonth(): string {
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  return d.toISOString().slice(0, 10);
-}
-function lastOfPriorMonth(): string {
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
-  return d.toISOString().slice(0, 10);
-}

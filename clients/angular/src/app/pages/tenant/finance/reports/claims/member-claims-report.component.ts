@@ -17,6 +17,7 @@ import { IconComponent } from '../../../../../shared/components/icon/icon.compon
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
+import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
 
 /**
  * Per-member claims aggregate (§B G45) — paginated + searchable, mirrors the
@@ -41,8 +42,8 @@ export class MemberClaimsReportComponent implements OnInit {
   envelope: ReportResponse<ReportPage<ClaimsSummaryRow>> | null = null;
   currencies: TenantCurrencyConfig[] = [];
 
-  periodStart = firstOfPriorMonth();
-  periodEnd   = lastOfPriorMonth();
+  periodStart = defaultReportPeriodStart();
+  periodEnd   = defaultReportPeriodEnd();
   reportingCurrency = '';
   search = '';
   insuranceLine = '';
@@ -196,16 +197,6 @@ export class MemberClaimsReportComponent implements OnInit {
   }
 }
 
-function firstOfPriorMonth(): string {
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  return d.toISOString().slice(0, 10);
-}
-function lastOfPriorMonth(): string {
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
-  return d.toISOString().slice(0, 10);
-}
 function emptyPage(): ReportPage<ClaimsSummaryRow> {
   return { content: [], total: 0, page: 0, size: 50, totalPages: 0 };
 }

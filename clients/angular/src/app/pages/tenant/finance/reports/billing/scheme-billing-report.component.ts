@@ -14,6 +14,7 @@ import { IconComponent } from '../../../../../shared/components/icon/icon.compon
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
+import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
 
 /**
  * Per-scheme billing aggregate — one row per (scheme, currency). Rows stay
@@ -37,10 +38,10 @@ export class SchemeBillingReportComponent implements OnInit {
   envelope: ReportResponse<SchemeBillingSummaryRow[]> | null = null;
   currencies: TenantCurrencyConfig[] = [];
 
-  // Default the window to the last full month — the most common "how did we
-  // do last month" question. Tenant admin can widen to a quarter or year.
-  periodStart = firstOfPriorMonth();
-  periodEnd   = lastOfPriorMonth();
+  // Default the window to a rolling 3-month range so mid-month visits still
+  // surface current-month activity; tenant admin can widen to a quarter or year.
+  periodStart = defaultReportPeriodStart();
+  periodEnd   = defaultReportPeriodEnd();
   reportingCurrency = '';
 
   readonly columns: TableColumn[] = [
@@ -162,16 +163,6 @@ export class SchemeBillingReportComponent implements OnInit {
   }
 }
 
-function firstOfPriorMonth(): string {
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  return d.toISOString().slice(0, 10);
-}
-function lastOfPriorMonth(): string {
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
-  return d.toISOString().slice(0, 10);
-}
 function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

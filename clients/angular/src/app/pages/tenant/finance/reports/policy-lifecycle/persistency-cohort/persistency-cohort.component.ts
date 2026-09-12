@@ -10,6 +10,7 @@ import { ReportResponse } from '../../../../../../core/services/report-envelope'
 import { INSURANCE_LINES } from '../../../../../../core/models/insurance-lines';
 import { IconComponent } from '../../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../../shared/components/select/select.component';
+import { defaultReportPeriodEnd } from '../../shared/report-date-defaults';
 
 /**
  * Phase 13 §C Phase 10 — PERSISTENCY_COHORT report page. Configurable
@@ -31,7 +32,7 @@ export class PersistencyCohortReportComponent implements OnInit {
   envelope: ReportResponse<PersistencyCohortResult> | null = null;
 
   periodStart = firstOfLast24Months();
-  periodEnd   = lastOfPriorMonth();
+  periodEnd   = defaultReportPeriodEnd();
   checkpoints = '6,12,24';
   insuranceLine = '';
 
@@ -97,11 +98,6 @@ export class PersistencyCohortReportComponent implements OnInit {
 function firstOfLast24Months(): string {
   const now = new Date();
   const d = new Date(Date.UTC(now.getUTCFullYear() - 2, now.getUTCMonth(), 1));
-  return d.toISOString().slice(0, 10);
-}
-function lastOfPriorMonth(): string {
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
   return d.toISOString().slice(0, 10);
 }
 function downloadBlob(blob: Blob, filename: string): void {

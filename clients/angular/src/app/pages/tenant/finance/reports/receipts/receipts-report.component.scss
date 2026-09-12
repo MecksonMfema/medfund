@@ -121,6 +121,24 @@
 
 .cell-currency, .cell-line { min-width: 200px; }
 
+// Flatten app-select inside the toolbar so it reads as a bare inline
+// control matching the rest of the app (reference: producers-list).
+.tx-toolbar .toolbar-cell {
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
+}
+
 .chart-wrap {
   background: var(--color-surface);
   border: 1px solid var(--color-border-light);

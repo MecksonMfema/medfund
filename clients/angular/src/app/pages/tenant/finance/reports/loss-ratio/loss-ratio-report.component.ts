@@ -13,6 +13,7 @@ import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
+import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
 
 /**
  * Loss ratio — billing vs claims at scheme level, per currency. Never
@@ -35,8 +36,8 @@ export class LossRatioReportComponent implements OnInit {
   envelope: ReportResponse<LossRatioReportResponse> | null = null;
   currencies: TenantCurrencyConfig[] = [];
 
-  periodStart = firstOfPriorMonth();
-  periodEnd   = lastOfPriorMonth();
+  periodStart = defaultReportPeriodStart();
+  periodEnd   = defaultReportPeriodEnd();
   reportingCurrency = '';
 
   constructor(
@@ -123,16 +124,6 @@ export class LossRatioReportComponent implements OnInit {
   }
 }
 
-function firstOfPriorMonth(): string {
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  return d.toISOString().slice(0, 10);
-}
-function lastOfPriorMonth(): string {
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0));
-  return d.toISOString().slice(0, 10);
-}
 function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
