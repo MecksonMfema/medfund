@@ -47,7 +47,7 @@ class ReceiptsReportServiceTest {
     @Test
     void perSchemeSummary_delegatesToRepository() {
         ReceiptsSummaryRow row = new ReceiptsSummaryRow(
-                UUID.randomUUID(), "Gold", null, "USD", new BigDecimal("100.00"), 3L);
+                UUID.randomUUID(), "Gold", "GROUP", null, "USD", new BigDecimal("100.00"), 3L);
         when(repository.perSchemeSummary(periodStart, periodEnd)).thenReturn(Flux.just(row));
 
         StepVerifier.create(service.perSchemeSummary(periodStart, periodEnd))
@@ -70,7 +70,7 @@ class ReceiptsReportServiceTest {
     @Test
     void perGroupSummary_delegatesToRepository() {
         ReceiptsSummaryRow row = new ReceiptsSummaryRow(
-                UUID.randomUUID(), "Acme", null, "USD", new BigDecimal("500.00"), 10L);
+                UUID.randomUUID(), "Acme", "GROUP", null, "USD", new BigDecimal("500.00"), 10L);
         when(repository.perGroupSummary(periodStart, periodEnd)).thenReturn(Flux.just(row));
 
         StepVerifier.create(service.perGroupSummary(periodStart, periodEnd))
@@ -81,7 +81,7 @@ class ReceiptsReportServiceTest {
     @Test
     void perMemberSummary_stitchesContentAndCountIntoPage() {
         ReceiptsSummaryRow row = new ReceiptsSummaryRow(
-                UUID.randomUUID(), "M-001 — Alice", "LIFE", "USD",
+                UUID.randomUUID(), "M-001 — Alice", "INDIVIDUAL", "LIFE", "USD",
                 new BigDecimal("50.00"), 2L);
         when(repository.perMemberSummary(eq(periodStart), eq(periodEnd),
                 any(), any(), any(), eq(0), eq(50)))

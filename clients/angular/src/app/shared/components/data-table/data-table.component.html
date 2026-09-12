@@ -88,6 +88,17 @@
                   @case ('label') {
                     {{ toLabel(row[col.key]) }}
                   }
+                  @case ('holderType') {
+                    @if (row[col.key]) {
+                      <span class="badge holder-chip"
+                            [class.holder-chip--group]="row[col.key] === 'GROUP'"
+                            [class.holder-chip--individual]="row[col.key] === 'INDIVIDUAL'">
+                        {{ row[col.key] === 'INDIVIDUAL' ? 'Individual' : 'Group' }}
+                      </span>
+                    } @else {
+                      <span class="muted">-</span>
+                    }
+                  }
                   @case ('line') {
                     @if (row[col.key]) {
                       <span class="badge line-chip" [attr.data-line]="row[col.key]">

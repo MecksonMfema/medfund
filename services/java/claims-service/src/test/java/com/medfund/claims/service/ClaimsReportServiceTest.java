@@ -336,7 +336,7 @@ class ClaimsReportServiceTest {
 
     private static ClaimsSummaryRow summaryRow(String name, String ccy, int count) {
         return new ClaimsSummaryRow(
-                UUID.randomUUID(), name, null, ccy, count,
+                UUID.randomUUID(), name, "GROUP", null, ccy, count,
                 new BigDecimal("100.00"), new BigDecimal("90.00"), new BigDecimal("80.00"));
     }
 

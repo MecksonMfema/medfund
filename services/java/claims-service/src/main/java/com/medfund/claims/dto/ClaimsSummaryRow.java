@@ -18,6 +18,7 @@ import java.util.UUID;
 public record ClaimsSummaryRow(
         UUID   dimensionId,
         String dimensionName,
+        String holderType,
         String insuranceLine,
         String currencyCode,
         long   claimCount,

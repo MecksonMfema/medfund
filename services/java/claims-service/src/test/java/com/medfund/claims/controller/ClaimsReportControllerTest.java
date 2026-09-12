@@ -625,7 +625,7 @@ class ClaimsReportControllerTest {
 
     private static ClaimsSummaryRow summaryRow(String name, String ccy, int amount) {
         return new ClaimsSummaryRow(
-                UUID.randomUUID(), name, null, ccy, 1,
+                UUID.randomUUID(), name, "GROUP", null, ccy, 1,
                 java.math.BigDecimal.valueOf(amount),
                 java.math.BigDecimal.valueOf(amount),
                 java.math.BigDecimal.valueOf(amount));

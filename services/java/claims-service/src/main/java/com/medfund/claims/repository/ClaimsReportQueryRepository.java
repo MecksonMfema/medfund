@@ -159,27 +159,43 @@ public class ClaimsReportQueryRepository {
     // ══════════════════════════════════════════════════════════════════════════
 
     /**
-     * Per-group claims aggregate — groups resolved through
-     * {@code members.group_id}. Members without a group join the
-     * {@code 'Ungrouped'} pseudo-row (null {@code dimension_id}) mirroring
-     * the cross-service {@code aggregateGroup} precedent.
+     * Per-holder claims aggregate — corporate/employer groups (holderType=GROUP,
+     * resolved through {@code members.group_id}) plus each individual
+     * policyholder (holderType=INDIVIDUAL, one row per member with
+     * {@code group_id IS NULL}). Book-wide across both arms.
      */
     public Flux<ClaimsSummaryRow> perGroupSummary(LocalDate periodStart, LocalDate periodEnd,
                                                   String insuranceLine) {
         String sql = """
                 SELECT g.id                      AS dimension_id,
-                       COALESCE(g.name, 'Ungrouped') AS dimension_name,
-                       NULL                       AS insurance_line,
-                       c.currency_code            AS currency_code,
-                       COUNT(*)                   AS claim_count,
+                       COALESCE(g.name, '')      AS dimension_name,
+                       'GROUP'                   AS holder_type,
+                       NULL                      AS insurance_line,
+                       c.currency_code           AS currency_code,
+                       COUNT(*)                  AS claim_count,
                 """ + FUNNEL + """
                   FROM claims c
                   JOIN members m ON m.id = c.member_id
-                  LEFT JOIN groups g ON g.id = m.group_id
+                  JOIN groups g ON g.id = m.group_id
                  WHERE """ + CLAIMS_PERIOD + """
+                   AND m.group_id IS NOT NULL
                    AND (:insuranceLine IS NULL OR c.insurance_line = :insuranceLine)
                  GROUP BY g.id, g.name, c.currency_code
-                 ORDER BY g.name NULLS LAST, c.currency_code
+                UNION ALL
+                SELECT m.id                                          AS dimension_id,
+                       TRIM(m.first_name || ' ' || m.last_name)      AS dimension_name,
+                       'INDIVIDUAL'                                  AS holder_type,
+                       NULL                                          AS insurance_line,
+                       c.currency_code                               AS currency_code,
+                       COUNT(*)                                      AS claim_count,
+                """ + FUNNEL + """
+                  FROM claims c
+                  JOIN members m ON m.id = c.member_id
+                 WHERE """ + CLAIMS_PERIOD + """
+                   AND m.group_id IS NULL
+                   AND (:insuranceLine IS NULL OR c.insurance_line = :insuranceLine)
+                 GROUP BY m.id, m.first_name, m.last_name, c.currency_code
+                 ORDER BY 3 ASC, 2 ASC NULLS LAST, 5 ASC
                 """;
         return bindInsuranceLine(db.sql(sql).bind("periodStart", periodStart).bind("periodEnd", periodEnd),
                         insuranceLine)
@@ -1079,12 +1095,23 @@ public class ClaimsReportQueryRepository {
         return new ClaimsSummaryRow(
                 row.get("dimension_id", UUID.class),
                 nullSafe(row.get("dimension_name", String.class)),
+                readHolderType(row),
                 row.get("insurance_line", String.class),
                 nullSafe(row.get("currency_code", String.class)),
                 longOrZero(row, "claim_count"),
                 bigOrZero(row, "total_claimed"),
                 bigOrZero(row, "total_approved"),
                 bigOrZero(row, "total_paid"));
+    }
+
+    /** Read {@code holder_type} tolerating callers that don't project it. */
+    private static String readHolderType(Readable row) {
+        try {
+            String v = row.get("holder_type", String.class);
+            return v != null && !v.isBlank() ? v : null;
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private ClaimStatusMatrixCell toStatusMatrixCell(Readable row) {

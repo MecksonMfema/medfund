@@ -109,21 +109,41 @@ public class ReceiptsReportQueryRepository {
     }
 
     // ══════════════════════════════════════════════════════════════════════════
-    //   Per-group
+    //   Per-holder (corporate groups + individual policyholders)
     // ══════════════════════════════════════════════════════════════════════════
 
+    /**
+     * Per-holder receipts aggregate. Each corporate/employer group appears
+     * as one row (holderType=GROUP, dimensionId=groups.id); each individual
+     * policyholder — a receipt with {@code member_id} but no {@code group_id}
+     * — appears as its own row (holderType=INDIVIDUAL,
+     * dimensionId=members.id). Book-wide across both.
+     */
     public Flux<ReceiptsSummaryRow> perGroupSummary(LocalDate periodStart, LocalDate periodEnd) {
         String sql = RECEIPTS_CTE + """
                 SELECT g.id                                                       AS dimension_id,
-                       COALESCE(g.name, 'Ungrouped')                              AS dimension_name,
+                       COALESCE(g.name, '')                                       AS dimension_name,
+                       'GROUP'                                                    AS holder_type,
                        r.currency_code                                            AS currency_code,
                        SUM(CASE r.sign WHEN '-' THEN r.amount ELSE -r.amount END) AS total_received,
                        COUNT(*)                                                   AS transaction_count
                   FROM receipts r
-                  LEFT JOIN groups g ON g.id = r.group_id
+                  JOIN groups g ON g.id = r.group_id
                  WHERE r.group_id IS NOT NULL
                  GROUP BY g.id, g.name, r.currency_code
-                 ORDER BY g.name NULLS LAST, r.currency_code
+                UNION ALL
+                SELECT m.id                                                       AS dimension_id,
+                       TRIM(m.first_name || ' ' || m.last_name)                   AS dimension_name,
+                       'INDIVIDUAL'                                               AS holder_type,
+                       r.currency_code                                            AS currency_code,
+                       SUM(CASE r.sign WHEN '-' THEN r.amount ELSE -r.amount END) AS total_received,
+                       COUNT(*)                                                   AS transaction_count
+                  FROM receipts r
+                  JOIN members m ON m.id = r.member_id
+                 WHERE r.group_id IS NULL
+                   AND r.member_id IS NOT NULL
+                 GROUP BY m.id, m.first_name, m.last_name, r.currency_code
+                 ORDER BY 3 ASC, 2 ASC NULLS LAST, 4 ASC
                 """;
         return db.sql(sql)
                 .bind("periodStart", periodStart)
@@ -132,13 +152,18 @@ public class ReceiptsReportQueryRepository {
                 .all();
     }
 
+    /**
+     * Per-currency totals for the per-holder receipts report. Includes
+     * corporate-group and individual-policyholder receipts so the
+     * reporting-currency total ties to book-wide receipts.
+     */
     public Mono<Map<String, PerCurrencyTotal>> perGroupPerCurrencyTotals(LocalDate periodStart, LocalDate periodEnd) {
         String sql = RECEIPTS_CTE + """
                 SELECT r.currency_code                                            AS currency_code,
                        SUM(CASE r.sign WHEN '-' THEN r.amount ELSE -r.amount END) AS total_amount,
                        COUNT(*)                                                   AS row_count
                   FROM receipts r
-                 WHERE r.group_id IS NOT NULL
+                 WHERE r.member_id IS NOT NULL
                  GROUP BY r.currency_code
                 """;
         return perCurrencyTotals(sql, periodStart, periodEnd);
@@ -501,6 +526,7 @@ public class ReceiptsReportQueryRepository {
         return new ReceiptsSummaryRow(
                 row.get("dimension_id", UUID.class),
                 nullSafe(row.get("dimension_name", String.class)),
+                readHolderType(row),
                 null,
                 nullSafe(row.get("currency_code", String.class)),
                 bigOrZero(row, "total_received"),
@@ -516,10 +542,21 @@ public class ReceiptsReportQueryRepository {
         return new ReceiptsSummaryRow(
                 row.get("dimension_id", UUID.class),
                 display,
+                null,
                 nullSafe(row.get("insurance_line", String.class)),
                 nullSafe(row.get("currency_code", String.class)),
                 bigOrZero(row, "total_received"),
                 longOrZero(row, "transaction_count"));
+    }
+
+    /** Read {@code holder_type} tolerating callers that don't project it. */
+    private static String readHolderType(Readable row) {
+        try {
+            String v = row.get("holder_type", String.class);
+            return v != null && !v.isBlank() ? v : null;
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private ReceiptsDetailResponse.MonthlyBucket toMonthlyBucket(Readable row) {

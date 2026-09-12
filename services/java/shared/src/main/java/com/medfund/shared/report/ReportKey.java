@@ -26,7 +26,7 @@ public enum ReportKey {
 
     // ── Billing (Phase 2) ────────────────────────────────────────────────────
     BILLING_REPORT              ("Billing - per scheme",                    ReportFamily.BILLING,          false, null),
-    GROUP_BILLING_REPORT        ("Billing - per group",                     ReportFamily.BILLING,          false, null),
+    GROUP_BILLING_REPORT        ("Billing - per holder",                    ReportFamily.BILLING,          false, null),
     SCHEME_BILLING_DETAIL       ("Scheme billing detail",                   ReportFamily.BILLING,          false, null),
     GROUP_BILLING_DETAIL        ("Group billing detail",                    ReportFamily.BILLING,          false, null),
 

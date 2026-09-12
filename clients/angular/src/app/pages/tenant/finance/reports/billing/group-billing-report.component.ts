@@ -14,9 +14,11 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
 
 /**
- * Per-group billing aggregate — one row per (group, currency). Only rows
- * with a group_id and invoice_id IS NOT NULL are counted (per Phase 2
- * plan "committed contributions only").
+ * Per-holder billing aggregate — one row per (holder, currency). Corporate
+ * groups (holderType = GROUP) and individual policyholders (holderType =
+ * INDIVIDUAL, member with no group) both appear. Only rows with an
+ * invoice_id IS NOT NULL are counted (per Phase 2 plan "committed
+ * contributions only").
  */
 @Component({
   selector: 'app-group-billing-report',
@@ -39,7 +41,8 @@ export class GroupBillingReportComponent implements OnInit {
   reportingCurrency = '';
 
   readonly columns: TableColumn[] = [
-    { key: 'groupName',       label: 'Group',       sortable: false },
+    { key: 'groupName',       label: 'Holder',      sortable: false },
+    { key: 'holderType',      label: 'Type',        sortable: false, type: 'holderType' },
     { key: 'currencyCode',    label: 'Currency',    sortable: false },
     { key: 'principalCount',  label: 'Principals',  sortable: false },
     { key: 'dependantCount',  label: 'Dependants',  sortable: false },
@@ -109,7 +112,7 @@ export class GroupBillingReportComponent implements OnInit {
     this.exporting = true;
     this.finance.exportGroupBillingExcel(this.buildParams()).subscribe({
       next: blob => {
-        downloadBlob(blob, `billing-groups-${this.periodStart}-to-${this.periodEnd}.xlsx`);
+        downloadBlob(blob, `billing-holders-${this.periodStart}-to-${this.periodEnd}.xlsx`);
         this.exporting = false;
       },
       error: () => {

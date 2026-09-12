@@ -16,11 +16,13 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
 
 /**
- * Per-group claims aggregate (§B) — one row per (group, currency) with the
- * claimed / approved / paid funnel. Groups resolve through
- * {@code members.group_id}; ungrouped members join an 'Ungrouped' pseudo-row.
- * Period clock is adjudicated_at. Clicking a row drills into the group's
- * monthly buckets + claim ledger.
+ * Per-holder claims aggregate (§B) — one row per (holder, currency) with the
+ * claimed / approved / paid funnel. Corporate/employer groups (holderType =
+ * GROUP, resolved through {@code members.group_id}) and individual
+ * policyholders (holderType = INDIVIDUAL, one row per member with
+ * {@code group_id IS NULL}) both appear. Period clock is adjudicated_at.
+ * Clicking a row drills into the appropriate detail surface (group or
+ * member) for monthly buckets + claim ledger.
  */
 @Component({
   selector: 'app-group-claims-report',
@@ -44,7 +46,8 @@ export class GroupClaimsReportComponent implements OnInit {
   insuranceLine = '';
 
   readonly columns: TableColumn[] = [
-    { key: 'dimensionName',   label: 'Group',        sortable: false },
+    { key: 'dimensionName',   label: 'Holder',       sortable: false },
+    { key: 'holderType',      label: 'Type',         sortable: false, type: 'holderType' },
     { key: 'currencyCode',    label: 'Currency',     sortable: false },
     { key: 'claimCount',      label: 'Claims',       sortable: false },
     { key: 'totalClaimed',    label: 'Claimed',      sortable: false, type: 'currency' },
@@ -121,7 +124,7 @@ export class GroupClaimsReportComponent implements OnInit {
     this.exporting = true;
     this.claimsReport.exportClaimsPerGroupExcel(this.buildParams()).subscribe({
       next: blob => {
-        downloadBlob(blob, `claims-groups-${this.periodStart}-to-${this.periodEnd}.xlsx`);
+        downloadBlob(blob, `claims-holders-${this.periodStart}-to-${this.periodEnd}.xlsx`);
         this.exporting = false;
       },
       error: () => {
@@ -132,7 +135,11 @@ export class GroupClaimsReportComponent implements OnInit {
   }
 
   onRowClick(row: ClaimsSummaryRow): void {
-    this.router.navigate(['/tenant/finance/reports/claims-group', row.dimensionId],
+    if (!row.dimensionId) return;
+    const path = row.holderType === 'INDIVIDUAL'
+      ? '/tenant/finance/reports/claims-member'
+      : '/tenant/finance/reports/claims-group';
+    this.router.navigate([path, row.dimensionId],
       { queryParams: this.periodParams() });
   }
 

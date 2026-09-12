@@ -118,18 +118,20 @@ public class BillingReportQueryRepository {
                 .collectMap(Map.Entry::getKey, Map.Entry::getValue);
     }
 
-    // ── Per-group aggregate ─────────────────────────────────────────────────
+    // ── Per-holder aggregate (corporate groups + individual policyholders) ──
 
     /**
-     * Per-group, per-currency billing aggregate. Only rows with a
-     * {@code group_id} count (a member paying individually is not a group
-     * billing row). Same {@code invoice_id IS NOT NULL} filter — no preview
-     * rows in employer numbers.
+     * Per-holder, per-currency billing aggregate. A holder is either a
+     * corporate/employer group (holderType=GROUP, id=groups.id) or an
+     * individual policyholder — a member with {@code group_id IS NULL}
+     * (holderType=INDIVIDUAL, id=members.id). Both arms share the
+     * {@code invoice_id IS NOT NULL} committed-contributions filter.
      */
     public Flux<GroupBillingSummaryRow> perGroupSummary(LocalDate periodStart, LocalDate periodEnd) {
         String sql = """
                 SELECT g.id                                                                           AS group_id,
                        COALESCE(g.name, '')                                                           AS group_name,
+                       'GROUP'                                                                        AS holder_type,
                        c.currency_code                                                                AS currency_code,
                        COUNT(DISTINCT c.member_id)                                                    AS principal_count,
                        COUNT(DISTINCT c.dependant_id) FILTER (WHERE c.dependant_id IS NOT NULL)       AS dependant_count,
@@ -143,7 +145,25 @@ public class BillingReportQueryRepository {
                    AND c.period_start >= :periodStart
                    AND c.period_start <= :periodEnd
                  GROUP BY g.id, g.name, c.currency_code
-                 ORDER BY g.name ASC NULLS LAST, c.currency_code ASC
+                UNION ALL
+                SELECT m.id                                                                           AS group_id,
+                       TRIM(m.first_name || ' ' || m.last_name)                                       AS group_name,
+                       'INDIVIDUAL'                                                                   AS holder_type,
+                       c.currency_code                                                                AS currency_code,
+                       COUNT(DISTINCT c.member_id)                                                    AS principal_count,
+                       COUNT(DISTINCT c.dependant_id) FILTER (WHERE c.dependant_id IS NOT NULL)       AS dependant_count,
+                       COUNT(DISTINCT COALESCE(c.dependant_id, c.member_id))                          AS lives_covered,
+                       COALESCE(SUM(c.amount), 0)                                                     AS total_billed,
+                       COALESCE(SUM(c.amount) FILTER (WHERE c.status = 'paid'), 0)                    AS total_paid
+                  FROM contributions c
+                  JOIN members m ON m.id = c.member_id
+                 WHERE c.invoice_id IS NOT NULL
+                   AND c.group_id IS NULL
+                   AND c.member_id IS NOT NULL
+                   AND c.period_start >= :periodStart
+                   AND c.period_start <= :periodEnd
+                 GROUP BY m.id, m.first_name, m.last_name, c.currency_code
+                 ORDER BY 3 ASC, 2 ASC NULLS LAST, 4 ASC
                 """;
         return db.sql(sql)
                 .bind("periodStart", periodStart)
@@ -152,6 +172,12 @@ public class BillingReportQueryRepository {
                 .all();
     }
 
+    /**
+     * Per-currency totals for the per-holder report. Book-wide across
+     * corporate groups + individual policyholders — no {@code group_id}
+     * filter so the reporting-currency total ties back to the per-scheme
+     * report for the same window.
+     */
     public Mono<Map<String, PerCurrencyTotal>> perGroupPerCurrencyTotals(LocalDate periodStart, LocalDate periodEnd) {
         return db.sql("""
                 SELECT c.currency_code                             AS currency_code,
@@ -159,7 +185,7 @@ public class BillingReportQueryRepository {
                        COUNT(*)                                    AS row_count
                   FROM contributions c
                  WHERE c.invoice_id IS NOT NULL
-                   AND c.group_id IS NOT NULL
+                   AND c.member_id IS NOT NULL
                    AND c.period_start >= :periodStart
                    AND c.period_start <= :periodEnd
                  GROUP BY c.currency_code
@@ -229,6 +255,7 @@ public class BillingReportQueryRepository {
         String sql = """
                 SELECT g.id                                                                           AS group_id,
                        COALESCE(g.name, '')                                                           AS group_name,
+                       'GROUP'                                                                        AS holder_type,
                        c.currency_code                                                                AS currency_code,
                        COUNT(DISTINCT c.member_id)                                                    AS principal_count,
                        COUNT(DISTINCT c.dependant_id) FILTER (WHERE c.dependant_id IS NOT NULL)       AS dependant_count,
@@ -554,12 +581,23 @@ public class BillingReportQueryRepository {
         return new GroupBillingSummaryRow(
                 row.get("group_id", UUID.class),
                 nullSafe(row.get("group_name", String.class)),
+                readHolderType(row, "GROUP"),
                 nullSafe(row.get("currency_code", String.class)),
                 longOrZero(row, "principal_count"),
                 longOrZero(row, "dependant_count"),
                 longOrZero(row, "lives_covered"),
                 bigOrZero(row, "total_billed"),
                 bigOrZero(row, "total_paid"));
+    }
+
+    /** Read {@code holder_type} tolerating older callers that don't project it. */
+    private static String readHolderType(Readable row, String fallback) {
+        try {
+            String v = row.get("holder_type", String.class);
+            return v != null && !v.isBlank() ? v : fallback;
+        } catch (Exception ignored) {
+            return fallback;
+        }
     }
 
     private BillingMonthlyBucket toMonthlyBucket(Readable row) {

@@ -256,7 +256,7 @@ class ReceiptsReportControllerTest {
 
     private static ReceiptsSummaryRow summaryRow(String name, String ccy, int amount) {
         return new ReceiptsSummaryRow(
-                UUID.randomUUID(), name, null, ccy,
+                UUID.randomUUID(), name, "GROUP", null, ccy,
                 new BigDecimal(amount), 1L);
     }
 

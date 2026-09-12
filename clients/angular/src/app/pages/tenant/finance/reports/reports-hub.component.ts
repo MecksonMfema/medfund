@@ -26,28 +26,106 @@ interface FamilyGroup {
  * ReportKey → tenant-portal route. Kept in one place so the hub can
  * light up as a router link once a report page ships; anything not
  * listed here still shows in the hub as a plain label ("landing but
- * no page yet"). Phase 21 adds the IFRS 17 pair.
+ * no page yet").
+ *
+ * <p>Detail-only reports (per-scheme/group/member drill-downs, PDF
+ * exports, per-payee balance histories) are intentionally omitted:
+ * they have no landing surface and can only be reached from a parent
+ * summary. Prudential / tax returns without a shipped page are also
+ * omitted — they render as inert labels until a page lands.
  */
 const REPORT_ROUTES: Record<string, string> = {
-  IBNR_TRIANGLE: '/tenant/finance/reports/actuarial/ibnr-triangle',
-  LOSS_TRIANGLE: '/tenant/finance/reports/actuarial/loss-triangle',
-  PERSISTENCY_STUDY: '/tenant/finance/reports/actuarial/persistency-study',
-  LAPSE_STUDY: '/tenant/finance/reports/actuarial/lapse-study',
-  MORTALITY_STUDY: '/tenant/finance/reports/actuarial/mortality-study',
-  MORBIDITY_STUDY: '/tenant/finance/reports/actuarial/morbidity-study',
-  IFRS17_LRC_LIC_RECONCILIATION: '/tenant/finance/reports/ifrs17/lrc-lic-reconciliation',
-  IFRS17_INSURANCE_REVENUE_SERVICE_RESULT: '/tenant/finance/reports/ifrs17/insurance-revenue-service-result',
-  // Phase 7 — every executive KPI card in the hub deep-links into the
-  // shared batch dashboard. Individual tile visibility on the dashboard
-  // is gated per-key against the tenant's report toggles.
-  LOSS_RATIO_KPI:   '/tenant/finance/reports/kpi',
-  EXPENSE_RATIO:    '/tenant/finance/reports/kpi',
-  COMBINED_RATIO:   '/tenant/finance/reports/kpi',
-  CLAIMS_FREQUENCY: '/tenant/finance/reports/kpi',
-  AVERAGE_SEVERITY: '/tenant/finance/reports/kpi',
-  // Phase 19 §A Phase 6 — Fraud / SIU family MVP; §B Phase 11 widens
-  // the page but the route is stable.
-  FRAUD_SIU_REPORT: '/tenant/finance/reports/fraud',
+  // ── Billing (Phase 2) ─────────────────────────────────────────────────────
+  BILLING_REPORT:                  '/tenant/finance/reports/schemes',
+  GROUP_BILLING_REPORT:            '/tenant/finance/reports/group-billing',
+
+  // ── Receipts (Phase 3) ────────────────────────────────────────────────────
+  RECEIPTS_REPORT:                 '/tenant/finance/reports/receipts-schemes',
+  COLLECTION_RATE:                 '/tenant/finance/reports/collection-rate',
+
+  // ── Debtors ───────────────────────────────────────────────────────────────
+  AGED_DEBTORS:                    '/tenant/finance/reports/aged-debtors',
+  AGED_BALANCES:                   '/tenant/finance/reports/aged-debtors',
+  BAD_DEBTS:                       '/tenant/billing/bad-debts',
+  DEBTORS_LIST:                    '/tenant/billing/debtors',
+  INVOICE_LIST:                    '/tenant/billing/view',
+
+  // ── Payables / creditors ──────────────────────────────────────────────────
+  CREDITORS:                       '/tenant/finance/creditors',
+  PAYMENT_ADVICE:                  '/tenant/finance/advice',
+  PAYMENT_RUNS:                    '/tenant/finance/runs',
+  NOTES:                           '/tenant/finance/notes',
+  NOTES_TAX_WITHHELD:              '/tenant/finance/notes/tax-withheld',
+  NOTES_DEBIT:                     '/tenant/finance/notes',
+  NOTES_CREDIT:                    '/tenant/finance/notes',
+  NOTES_MEMO:                      '/tenant/finance/notes',
+  ADVANCE_PAYMENTS:                '/tenant/finance/payments/advance',
+  CTC_PAYMENTS:                    '/tenant/finance/payments/ctc',
+  RECONCILIATIONS:                 '/tenant/finance/reconciliations',
+
+  // ── Claims financial (Phase 4) ────────────────────────────────────────────
+  CLAIMS_SUMMARY:                  '/tenant/finance/reports/claims-schemes',
+  CLAIM_STATUS_LIST:               '/tenant/finance/reports/claim-status',
+  CLAIMS_FREQUENCY_SEVERITY:       '/tenant/finance/reports/claims-frequency-severity',
+  DENIAL_ANALYSIS:                 '/tenant/finance/reports/denial-analysis',
+  HIGH_COST_CLAIMANT:              '/tenant/finance/reports/high-cost-claimants',
+  PRE_AUTH_ACTIVITY:               '/tenant/finance/reports/pre-auth-activity',
+  PROVIDER_NETWORK_UTILIZATION:    '/tenant/finance/reports/claims/provider-network-utilization',
+
+  // ── Cross-service / reconciliation (Phase 5) ──────────────────────────────
+  LOSS_RATIO:                      '/tenant/finance/reports/billing-vs-claims',
+  MEMBER_PAYMENTS_UNIFIED:         '/tenant/finance/reports/member-payments',
+
+  // ── Aged / cash-flow (Phase 8) ────────────────────────────────────────────
+  CASH_FLOW_FORECAST_13W:          '/tenant/finance/reports/cash-flow-forecast',
+  COLLECTION_RATE_TREND:           '/tenant/finance/reports/collection-rate-trend',
+
+  // ── Policy lifecycle (Phase 13) ───────────────────────────────────────────
+  POLICY_MOVEMENT:                 '/tenant/finance/reports/policy-lifecycle/movement',
+  PERSISTENCY_COHORT:              '/tenant/finance/reports/policy-lifecycle/persistency-cohort',
+  GROUP_CENSUS:                    '/tenant/finance/reports/policy-lifecycle/group-census',
+
+  // ── Reinsurance (Phase 10) ────────────────────────────────────────────────
+  REINSURANCE_CESSION_BORDEREAU:   '/tenant/finance/reports/reinsurance/cession-bordereau',
+  REINSURANCE_RECOVERIES:          '/tenant/finance/reports/reinsurance/recoveries-bordereau',
+  REINSURANCE_TREATY_UTILIZATION:  '/tenant/finance/reports/reinsurance/treaty-utilization',
+
+  // ── Commission (Phase 11) ─────────────────────────────────────────────────
+  COMMISSION_STATEMENT:            '/tenant/finance/reports/commission/statement',
+  COMMISSION_CLAWBACK:             '/tenant/finance/reports/commission/clawback-register',
+
+  // ── Underwriting (Phase 12) ───────────────────────────────────────────────
+  UPR_MOVEMENT:                    '/tenant/finance/reports/underwriting/upr-movement',
+  PREMIUM_REGISTER:                '/tenant/finance/reports/underwriting/premium-register',
+  NEW_BUSINESS_REGISTER:           '/tenant/finance/reports/underwriting/new-business-register',
+  ENDORSEMENT_REGISTER:            '/tenant/finance/reports/underwriting/endorsement-register',
+
+  // ── Actuarial (Phase 14) ──────────────────────────────────────────────────
+  IBNR_TRIANGLE:                   '/tenant/finance/reports/actuarial/ibnr-triangle',
+  LOSS_TRIANGLE:                   '/tenant/finance/reports/actuarial/loss-triangle',
+  PERSISTENCY_STUDY:               '/tenant/finance/reports/actuarial/persistency-study',
+  LAPSE_STUDY:                     '/tenant/finance/reports/actuarial/lapse-study',
+  MORTALITY_STUDY:                 '/tenant/finance/reports/actuarial/mortality-study',
+  MORBIDITY_STUDY:                 '/tenant/finance/reports/actuarial/morbidity-study',
+
+  // ── IFRS 17 (Phase 15) ────────────────────────────────────────────────────
+  IFRS17_LRC_LIC_RECONCILIATION:            '/tenant/finance/reports/ifrs17/lrc-lic-reconciliation',
+  IFRS17_INSURANCE_REVENUE_SERVICE_RESULT:  '/tenant/finance/reports/ifrs17/insurance-revenue-service-result',
+
+  // ── Compliance (Phase 22-23) ──────────────────────────────────────────────
+  AML_STR:                         '/tenant/finance/reports/compliance/aml-str/alerts',
+
+  // ── Executive KPI (Phase 18) ──────────────────────────────────────────────
+  // Every KPI card deep-links into the shared batch dashboard; individual
+  // tile visibility is gated per-key against the tenant's report toggles.
+  LOSS_RATIO_KPI:                  '/tenant/finance/reports/kpi',
+  EXPENSE_RATIO:                   '/tenant/finance/reports/kpi',
+  COMBINED_RATIO:                  '/tenant/finance/reports/kpi',
+  CLAIMS_FREQUENCY:                '/tenant/finance/reports/kpi',
+  AVERAGE_SEVERITY:                '/tenant/finance/reports/kpi',
+
+  // ── Fraud (Phase 19) ──────────────────────────────────────────────────────
+  FRAUD_SIU_REPORT:                '/tenant/finance/reports/fraud',
 };
 
 /**

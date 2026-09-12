@@ -18,6 +18,12 @@ export type ReportDimension = 'scheme' | 'provider' | 'group' | 'member';
 export interface ClaimsSummaryRow {
   dimensionId: string;
   dimensionName: string;
+  /**
+   * Populated on the per-holder surface: `'GROUP'` when the row is a
+   * corporate/employer group, `'INDIVIDUAL'` when the row is a single
+   * policyholder (member with no group). Absent on other dimensions.
+   */
+  holderType?: 'GROUP' | 'INDIVIDUAL';
   /** Populated when dimension = MEMBER; null/absent otherwise. */
   insuranceLine: string | null;
   currencyCode: string;

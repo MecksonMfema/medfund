@@ -1126,6 +1126,13 @@ export interface SchemeBillingSummaryRow {
 export interface GroupBillingSummaryRow {
   groupId: string;
   groupName: string;
+  /**
+   * `'GROUP'`  → corporate/employer group; `groupId` = groups.id.
+   * `'INDIVIDUAL'` → individual policyholder; `groupId` = members.id,
+   * `groupName` = the person's full name.
+   * Optional so older responses without the field don't break parsing.
+   */
+  holderType?: 'GROUP' | 'INDIVIDUAL';
   currencyCode: string;
   principalCount: number;
   dependantCount: number;
@@ -1216,6 +1223,13 @@ export interface MemberBillingDetailResponse {
 export interface ReceiptsSummaryRow {
   dimensionId: string | null;
   dimensionName: string;
+  /**
+   * Populated only on the per-holder surface: `'GROUP'` when the row is a
+   * corporate/employer group, `'INDIVIDUAL'` when the row is a single
+   * policyholder (member with no group). Absent on scheme / member
+   * surfaces where the discriminator doesn't apply.
+   */
+  holderType?: 'GROUP' | 'INDIVIDUAL';
   insuranceLine: string | null;
   currencyCode: string;
   totalReceived: string;

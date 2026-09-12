@@ -15,8 +15,11 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
 
 /**
- * Per-group receipts aggregate — one row per (group, currency). Ungrouped
- * members' receipts appear on the per-member surface, not here.
+ * Per-holder receipts aggregate — one row per (holder, currency). Corporate
+ * groups (holderType = GROUP) and individual policyholders (holderType =
+ * INDIVIDUAL, member with no group) both appear. Row click drills to the
+ * appropriate detail surface — group detail for GROUP rows, member detail
+ * for INDIVIDUAL rows.
  */
 @Component({
   selector: 'app-group-receipts-report',
@@ -39,7 +42,8 @@ export class GroupReceiptsReportComponent implements OnInit {
   reportingCurrency = '';
 
   readonly columns: TableColumn[] = [
-    { key: 'dimensionName',    label: 'Group',        sortable: false },
+    { key: 'dimensionName',    label: 'Holder',       sortable: false },
+    { key: 'holderType',       label: 'Type',         sortable: false, type: 'holderType' },
     { key: 'currencyCode',     label: 'Currency',     sortable: false },
     { key: 'totalReceived',    label: 'Net received', sortable: false, type: 'currency' },
     { key: 'transactionCount', label: 'Transactions', sortable: false },
@@ -107,7 +111,7 @@ export class GroupReceiptsReportComponent implements OnInit {
     this.exporting = true;
     this.finance.exportGroupReceiptsExcel(this.buildParams()).subscribe({
       next: blob => {
-        downloadBlob(blob, `receipts-groups-${this.periodStart}-to-${this.periodEnd}.xlsx`);
+        downloadBlob(blob, `receipts-holders-${this.periodStart}-to-${this.periodEnd}.xlsx`);
         this.exporting = false;
       },
       error: () => {
@@ -119,7 +123,10 @@ export class GroupReceiptsReportComponent implements OnInit {
 
   onRowClick(row: ReceiptsSummaryRow): void {
     if (!row.dimensionId) return;
-    this.router.navigate(['/tenant/finance/reports/receipts-group', row.dimensionId],
+    const path = row.holderType === 'INDIVIDUAL'
+      ? '/tenant/finance/reports/receipts-member'
+      : '/tenant/finance/reports/receipts-group';
+    this.router.navigate([path, row.dimensionId],
       { queryParams: this.periodParams() });
   }
 

@@ -82,7 +82,7 @@ public class ClaimsExcelService {
             UUID tenantId = parseTenantId(TenantContext.get(ctx));
             return claimsReportService.perGroupSummary(periodStart, periodEnd, insuranceLine)
                     .flatMap(rows -> renderSummaryWorkbook(rows,
-                            "Claims by group", "Group", false,
+                            "Claims by holder", "Holder", false,
                             periodStart, periodEnd, reportingCurrency, tenantId));
         });
     }
@@ -190,10 +190,11 @@ public class ClaimsExcelService {
                     "Row count " + rows.size() + " exceeds " + ROW_CEILING
                             + " - narrow the period or filter."));
         }
+        boolean hasHolderType = rows.stream().anyMatch(r -> r.holderType() != null && !r.holderType().isBlank());
         return loadFxRates(rows, ClaimsSummaryRow::currencyCode, reportingCurrency, tenantId, periodEnd)
                 .map(fx -> {
                     boolean converted = reportingCurrency != null && !reportingCurrency.isBlank();
-                    int span = (showLine ? 1 : 0) + (converted ? 8 : 7);
+                    int span = (showLine ? 1 : 0) + (hasHolderType ? 1 : 0) + (converted ? 8 : 7);
 
                     ReportWorkbook.SheetWriter sheet = ReportWorkbook.newBook()
                             .sheet(sheetName)
@@ -206,23 +207,42 @@ public class ClaimsExcelService {
 
                     if (showLine) {
                         if (converted) {
-                            sheet.header(dimensionLabel, "Line", "Currency", "Claims",
-                                    "Claimed", "Approved", "Paid",
-                                    "Amount in " + reportingCurrency);
+                            if (hasHolderType) {
+                                sheet.header(dimensionLabel, "Holder type", "Line", "Currency", "Claims",
+                                        "Claimed", "Approved", "Paid",
+                                        "Amount in " + reportingCurrency);
+                            } else {
+                                sheet.header(dimensionLabel, "Line", "Currency", "Claims",
+                                        "Claimed", "Approved", "Paid",
+                                        "Amount in " + reportingCurrency);
+                            }
+                        } else if (hasHolderType) {
+                            sheet.header(dimensionLabel, "Holder type", "Line", "Currency", "Claims",
+                                    "Claimed", "Approved", "Paid");
                         } else {
                             sheet.header(dimensionLabel, "Line", "Currency", "Claims",
                                     "Claimed", "Approved", "Paid");
                         }
                     } else if (converted) {
-                        sheet.header(dimensionLabel, "Currency", "Claims",
-                                "Claimed", "Approved", "Paid",
-                                "Amount in " + reportingCurrency);
+                        if (hasHolderType) {
+                            sheet.header(dimensionLabel, "Holder type", "Currency", "Claims",
+                                    "Claimed", "Approved", "Paid",
+                                    "Amount in " + reportingCurrency);
+                        } else {
+                            sheet.header(dimensionLabel, "Currency", "Claims",
+                                    "Claimed", "Approved", "Paid",
+                                    "Amount in " + reportingCurrency);
+                        }
+                    } else if (hasHolderType) {
+                        sheet.header(dimensionLabel, "Holder type", "Currency", "Claims",
+                                "Claimed", "Approved", "Paid");
                     } else {
                         sheet.header(dimensionLabel, "Currency", "Claims",
                                 "Claimed", "Approved", "Paid");
                     }
                     sheet.forEach(rows, (sw, row) -> {
                         sw.text(row.dimensionName());
+                        if (hasHolderType) sw.text(row.holderType());
                         if (showLine) sw.text(row.insuranceLine());
                         sw.text(row.currencyCode())
                                 .number(row.claimCount())

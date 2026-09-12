@@ -19,6 +19,7 @@ import java.util.UUID;
 public record ReceiptsSummaryRow(
         UUID dimensionId,
         String dimensionName,
+        String holderType,
         String insuranceLine,
         String currencyCode,
         BigDecimal totalReceived,

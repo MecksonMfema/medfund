@@ -515,6 +515,18 @@ tbody tr:hover {
   &[data-line="GROUP"]      { background: #e0e7ff; color: #312e81; }
 }
 
+// ── Holder-type chip (per-holder reports) ──────────────────────────────
+// Corporate group vs individual policyholder — same shape as line-chip
+// with a two-value palette. Kept generic so any future report that
+// needs the same GROUP/INDIVIDUAL discriminator reuses it.
+.badge.holder-chip {
+  font-weight: 500;
+  background: #e5e7eb;
+  color: #374151;
+  &.holder-chip--group      { background: #e0e7ff; color: #312e81; }
+  &.holder-chip--individual { background: #dcfce7; color: #14532d; }
+}
+
 // ── Inline select column type (Phase 13 §A per L17) ────────────────────
 // Compact native <select> for admin-only single-column edits (e.g. the
 // provider network_tier dropdown). Row click is suppressed on the select

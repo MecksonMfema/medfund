@@ -152,8 +152,8 @@ public class BillingReportExcelService {
                                        String reportingCurrency, Map<String, BigDecimal> fx) {
         boolean converted = reportingCurrency != null && !reportingCurrency.isBlank();
         ReportWorkbook.SheetWriter sheet = ReportWorkbook.newBook()
-                .sheet("Billing by group")
-                .titleMerged("Billing report - per group", converted ? 8 : 7)
+                .sheet("Billing by holder")
+                .titleMerged("Billing report - per holder", converted ? 9 : 8)
                 .meta("Period start", periodStart != null ? periodStart.toString() : "-")
                 .meta("Period end",   periodEnd   != null ? periodEnd.toString()   : "-")
                 .meta("Reporting currency", converted ? reportingCurrency : "(native)")
@@ -161,18 +161,19 @@ public class BillingReportExcelService {
                 .blankRow();
 
         if (converted) {
-            sheet.header("Group", "Currency",
+            sheet.header("Holder", "Holder type", "Currency",
                     "Principals", "Dependants", "Lives",
                     "Total billed", "Total paid",
                     "Total billed (" + reportingCurrency + ")");
         } else {
-            sheet.header("Group", "Currency",
+            sheet.header("Holder", "Holder type", "Currency",
                     "Principals", "Dependants", "Lives",
                     "Total billed", "Total paid");
         }
 
         sheet.forEach(rows, (sw, row) -> {
             sw.text(row.groupName())
+                    .text(row.holderType())
                     .text(row.currencyCode())
                     .number(row.principalCount())
                     .number(row.dependantCount())

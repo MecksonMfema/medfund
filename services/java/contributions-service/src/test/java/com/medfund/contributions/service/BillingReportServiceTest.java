@@ -120,7 +120,7 @@ class BillingReportServiceTest {
     void groupDetail_stitchesSummaryAndMonthlyIntoDetailResponse() {
         UUID groupId = UUID.randomUUID();
         GroupBillingSummaryRow summary = new GroupBillingSummaryRow(
-                groupId, "Acme Corp", "USD",
+                groupId, "Acme Corp", "GROUP", "USD",
                 20L, 10L, 30L,
                 new BigDecimal("500.00"), new BigDecimal("250.00"));
         BillingMonthlyBucket bucket = new BillingMonthlyBucket(

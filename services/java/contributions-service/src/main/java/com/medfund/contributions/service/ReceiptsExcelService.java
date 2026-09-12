@@ -56,7 +56,7 @@ public class ReceiptsExcelService {
             UUID tenantId = parseTenantId(TenantContext.get(ctx));
             return receiptsReportService.perGroupSummary(periodStart, periodEnd)
                     .flatMap(rows -> renderSummaryWorkbook(rows,
-                            "Receipts by group", "Group",
+                            "Receipts by holder", "Holder",
                             periodStart, periodEnd, reportingCurrency, tenantId));
         });
     }
@@ -122,10 +122,11 @@ public class ReceiptsExcelService {
                             + " - narrow the period or filter."));
         }
         boolean hasInsuranceLine = rows.stream().anyMatch(r -> r.insuranceLine() != null && !r.insuranceLine().isBlank());
+        boolean hasHolderType    = rows.stream().anyMatch(r -> r.holderType()    != null && !r.holderType().isBlank());
         return loadFxRates(rows, ReceiptsSummaryRow::currencyCode, reportingCurrency, tenantId, periodEnd)
                 .map(fx -> {
                     boolean converted = reportingCurrency != null && !reportingCurrency.isBlank();
-                    int baseCols = hasInsuranceLine ? 6 : 5;
+                    int baseCols = (hasInsuranceLine ? 6 : 5) + (hasHolderType ? 1 : 0);
                     int spanCols = converted ? baseCols + 1 : baseCols;
 
                     ReportWorkbook.SheetWriter sheet = ReportWorkbook.newBook()
@@ -139,15 +140,26 @@ public class ReceiptsExcelService {
 
                     if (hasInsuranceLine) {
                         if (converted) {
-                            sheet.header(dimensionLabel, "Line", "Currency",
-                                    "Net received", "Transactions",
-                                    "Net received (" + reportingCurrency + ")");
+                            if (hasHolderType) {
+                                sheet.header(dimensionLabel, "Holder type", "Line", "Currency",
+                                        "Net received", "Transactions",
+                                        "Net received (" + reportingCurrency + ")");
+                            } else {
+                                sheet.header(dimensionLabel, "Line", "Currency",
+                                        "Net received", "Transactions",
+                                        "Net received (" + reportingCurrency + ")");
+                            }
                         } else {
-                            sheet.header(dimensionLabel, "Line", "Currency", "Net received", "Transactions");
+                            if (hasHolderType) {
+                                sheet.header(dimensionLabel, "Holder type", "Line", "Currency", "Net received", "Transactions");
+                            } else {
+                                sheet.header(dimensionLabel, "Line", "Currency", "Net received", "Transactions");
+                            }
                         }
                         sheet.forEach(rows, (sw, row) -> {
-                            sw.text(row.dimensionName())
-                                    .text(row.insuranceLine())
+                            sw.text(row.dimensionName());
+                            if (hasHolderType) sw.text(row.holderType());
+                            sw.text(row.insuranceLine())
                                     .text(row.currencyCode())
                                     .moneyBold(row.totalReceived())
                                     .number(row.transactionCount());
@@ -155,15 +167,26 @@ public class ReceiptsExcelService {
                         });
                     } else {
                         if (converted) {
-                            sheet.header(dimensionLabel, "Currency",
-                                    "Net received", "Transactions",
-                                    "Net received (" + reportingCurrency + ")");
+                            if (hasHolderType) {
+                                sheet.header(dimensionLabel, "Holder type", "Currency",
+                                        "Net received", "Transactions",
+                                        "Net received (" + reportingCurrency + ")");
+                            } else {
+                                sheet.header(dimensionLabel, "Currency",
+                                        "Net received", "Transactions",
+                                        "Net received (" + reportingCurrency + ")");
+                            }
                         } else {
-                            sheet.header(dimensionLabel, "Currency", "Net received", "Transactions");
+                            if (hasHolderType) {
+                                sheet.header(dimensionLabel, "Holder type", "Currency", "Net received", "Transactions");
+                            } else {
+                                sheet.header(dimensionLabel, "Currency", "Net received", "Transactions");
+                            }
                         }
                         sheet.forEach(rows, (sw, row) -> {
-                            sw.text(row.dimensionName())
-                                    .text(row.currencyCode())
+                            sw.text(row.dimensionName());
+                            if (hasHolderType) sw.text(row.holderType());
+                            sw.text(row.currencyCode())
                                     .moneyBold(row.totalReceived())
                                     .number(row.transactionCount());
                             if (converted) sw.money(convert(row.totalReceived(), row.currencyCode(), fx));
