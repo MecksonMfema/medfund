@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { ActivatedRoute, NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { Subscription, filter } from 'rxjs';
 import { SidebarComponent } from './sidebar/sidebar.component';
 import { HeaderComponent } from './header/header.component';
 import { ProgressBarComponent } from '../shared/components/progress-bar/progress-bar.component';
@@ -18,10 +18,19 @@ import { NavigationService } from '../core/services/navigation.service';
 })
 export class LayoutComponent implements OnInit, OnDestroy {
   collapsed = false;
-  private sub?: Subscription;
+  /**
+   * Routes can opt the main content area out of its standard page padding
+   * by setting {@code data: { fullbleed: true }}. Matches the same flag on
+   * TenantLayoutComponent so list pages under /platform/* can span
+   * edge-to-edge the same way tenant list pages do.
+   */
+  fullbleed = false;
+  private subs: Subscription[] = [];
 
   constructor(
     private navService: NavigationService,
+    private router: Router,
+    private route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
@@ -32,12 +41,35 @@ export class LayoutComponent implements OnInit, OnDestroy {
     // would force a re-pick every time a super_admin bounces between the
     // platform portal and a tenant they're currently administering.
 
-    this.sub = this.navService.collapsed$.subscribe(
-      (c) => (this.collapsed = c)
+    this.subs.push(
+      this.navService.collapsed$.subscribe((c) => (this.collapsed = c)),
     );
+
+    this.subs.push(
+      this.router.events
+        .pipe(filter(e => e instanceof NavigationEnd))
+        .subscribe(() => { this.fullbleed = this.resolveFullbleed(); }),
+    );
+    this.fullbleed = this.resolveFullbleed();
   }
 
   ngOnDestroy(): void {
-    this.sub?.unsubscribe();
+    this.subs.forEach(s => s.unsubscribe());
+  }
+
+  /**
+   * Walks the activated route tree and returns the deepest
+   * {@code fullbleed} route-data flag, defaulting to {@code false} so
+   * standard padded layouts still apply when nothing is declared.
+   */
+  private resolveFullbleed(): boolean {
+    let r = this.route;
+    let pick = false;
+    while (r.firstChild) {
+      r = r.firstChild;
+      const v = r.snapshot.data['fullbleed'];
+      if (typeof v === 'boolean') pick = v;
+    }
+    return pick;
   }
 }

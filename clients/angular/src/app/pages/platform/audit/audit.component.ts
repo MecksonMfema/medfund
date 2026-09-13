@@ -58,8 +58,10 @@ export class AuditComponent implements OnInit {
   ];
 
   // ── SelectComponent options ─────────────────────────────────────────────
+  // Empty-value entries dropped: filters use the toolbar-cell pattern where
+  // "All" is a placeholder rather than a synthetic option. An empty string
+  // still means "no filter".
   readonly entityFilterOptions: SelectOption[] = [
-    { value: '',        label: 'All Entities' },
     { value: 'AUTH',    label: 'Auth / Security' },
     { value: 'TENANT',  label: 'Tenant' },
     { value: 'USER',    label: 'User' },
@@ -70,7 +72,6 @@ export class AuditComponent implements OnInit {
   ];
   /** Action filter with the Auth Events block grouped for clarity. */
   readonly actionFilterOptions: SelectOption[] = [
-    { value: '',       label: 'All Actions' },
     { value: 'CREATE', label: 'Create' },
     { value: 'UPDATE', label: 'Update' },
     { value: 'DELETE', label: 'Delete' },

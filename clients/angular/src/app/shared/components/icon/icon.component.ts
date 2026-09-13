@@ -153,6 +153,31 @@ const ICONS: Record<string, string> = {
   // spreadsheet / Excel export. Used by the KPI tile export button.
   'file-spreadsheet':
     '<path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13zM8 13h3v2H8v-2zm5 0h3v2h-3v-2zm-5 4h3v2H8v-2zm5 0h3v2h-3v-2z"/>',
+  // Rules engine category icons (Phase 15 — RULE_CATEGORIES). These names
+  // are referenced by rules.service.ts:RULE_CATEGORIES and were previously
+  // falling back to the `alert-circle` glyph.
+  // Shield with a `+` inside — Reinsurance category.
+  'shield-plus':
+    '<path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm1 14h-2v-3H8v-2h3V7h2v3h3v2h-3v3z"/>',
+  // Two circles connected by a diagonal slash — Commission category.
+  percent:
+    '<path d="M7.5 11C9.43 11 11 9.43 11 7.5S9.43 4 7.5 4 4 5.57 4 7.5 5.57 11 7.5 11zm0-5C8.33 6 9 6.67 9 7.5S8.33 9 7.5 9 6 8.33 6 7.5 6.67 6 7.5 6zM4.004 18.588L18.582 4.01l1.414 1.414L5.418 20.003 4.004 18.588zM16.5 13c-1.93 0-3.5 1.57-3.5 3.5s1.57 3.5 3.5 3.5 3.5-1.57 3.5-3.5S18.43 13 16.5 13zm0 5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>',
+  // Rising line-chart segments — Actuarial category. Material `show_chart`.
+  'chart-line':
+    '<path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/>',
+  // Three horizontal sliders with knobs — Regulatory Parameter category.
+  // Material `tune`.
+  sliders:
+    '<path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/>',
+  // Medical first-aid kit — PMB Classification category. Material
+  // `medical_services` — closest registered analogue to a stethoscope in
+  // the current icon set.
+  stethoscope:
+    '<path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2zm3 9h-4v4h-2v-4H7v-2h4V9h2v4h4v2z"/>',
+  // Division sign (÷) — Benefit Proration category. Reads as "split" /
+  // "divide across periods".
+  divide:
+    '<path d="M19 11H5v2h14v-2zM12 4c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 12c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>',
 };
 
 @Component({

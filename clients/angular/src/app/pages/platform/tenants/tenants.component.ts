@@ -96,22 +96,20 @@ export class TenantsComponent implements OnInit, OnDestroy {
   ];
 
   // ── SelectComponent options ─────────────────────────────────────────────
+  // Empty-value entries dropped: filters use the toolbar-cell pattern where
+  // "All" is a placeholder rather than a synthetic option. An empty string
+  // still means "no filter".
   readonly statusFilterOptions: SelectOption[] = [
-    { value: '',          label: 'All statuses' },
     { value: 'active',    label: 'Active' },
     { value: 'suspended', label: 'Suspended' },
   ];
   readonly modelFilterOptions: SelectOption[] = [
-    { value: '',           label: 'All models' },
     { value: 'individual', label: 'Individual' },
     { value: 'group',      label: 'Group' },
     { value: 'hybrid',     label: 'Hybrid' },
   ];
   get lineFilterOptions(): SelectOption[] {
-    return [
-      { value: '', label: 'All insurance lines' },
-      ...this.insuranceLineOptions.map(l => ({ value: l.value, label: l.label })),
-    ];
+    return this.insuranceLineOptions.map(l => ({ value: l.value, label: l.label }));
   }
   /** Membership model picker — shared by the create + edit modals. */
   readonly membershipModelOptions: SelectOption[] = [

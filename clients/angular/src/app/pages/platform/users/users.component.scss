@@ -1,29 +1,41 @@
-.page-header {
+// This component uses ViewEncapsulation.None (so its modal overlay can
+// escape scoping). That means every selector here is global — every page-
+// level rule is prefixed with `app-users` so it doesn't leak into other
+// pages while /platform/users is on-screen.
+
+// Fullbleed shell — matches /platform/tenants + /tenant/admin/audit. Route
+// data.fullbleed = true strips LayoutComponent's outer padding, so the
+// page-header owns its own edge gutter + surface background + bottom
+// border, and the data-table below spans edge-to-edge.
+app-users .page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: var(--spacing-xl);
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
 }
-.page-header h1 { font-size: var(--font-size-2xl); margin-bottom: 4px; }
-.page-subtitle { color: var(--color-text-secondary); font-size: var(--font-size-base); }
+app-users .page-header h1 { font-size: var(--font-size-2xl); margin-bottom: 4px; }
+app-users .page-subtitle  { color: var(--color-text-secondary); font-size: var(--font-size-base); }
 
-.stats-grid {
+// Stat cards + tabs sit in a padded band above the fullbleed data-table.
+app-users .stats-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--spacing-lg);
-  margin-bottom: var(--spacing-xl);
+  margin: 20px 24px;
 }
 
-/* ── Tabs ──────────────────────────────────────────────────────────────── */
+// ── Tabs ────────────────────────────────────────────────────────────────
 
-.tab-bar {
+app-users .tab-bar {
   display: flex;
   gap: 4px;
   border-bottom: 2px solid var(--color-border-light);
-  margin-bottom: var(--spacing-lg);
+  margin: 0 24px var(--spacing-lg);
 }
 
-.tab-btn {
+app-users .tab-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -46,7 +58,7 @@
   }
 }
 
-.tab-count {
+app-users .tab-count {
   background: var(--color-primary-light);
   color: var(--color-primary);
   border-radius: 10px;
@@ -55,79 +67,57 @@
   font-weight: var(--font-weight-semibold);
 }
 
-/* ── Toolbar ───────────────────────────────────────────────────────────── */
+// ── DataTable toolbar overrides ─────────────────────────────────────────
+// Filters hug the built-in search on the left (mirrors /tenant/admin/audit
+// + /platform/tenants). DataTable's default toolbar is
+// [search][spacer][filters]; push the spacer past our projected filter
+// cells via flex order so search + filter cells cluster left.
+app-users .table-toolbar .toolbar-spacer { order: 1; }
 
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-lg);
-  flex-wrap: wrap;
-}
+// Members-tab tenant picker cell. 240px cell / 180px inner select — wider
+// than the tenants-page filters because tenant names can be long.
+app-users .toolbar-cell.cell-ufilter { flex: 0 0 auto; min-width: 240px; }
+app-users .toolbar-cell.cell-ufilter app-select { min-width: 180px; flex: 1; }
 
-.search-box {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
-  padding: 0 var(--spacing-sm);
-  flex: 1;
-  min-width: 240px;
-
-  app-icon { color: var(--color-text-muted); flex-shrink: 0; }
-}
-
-.search-input {
+// Strip the SelectComponent's default border + rounded background so the
+// picker reads as a flat toolbar value rather than a boxed form input.
+app-users .toolbar-cell.cell-ufilter .select-trigger {
   border: none;
-  outline: none;
+  border-radius: 0;
   background: transparent;
-  padding: 9px 4px;
-  font-size: var(--font-size-sm);
-  width: 100%;
-  color: var(--color-text-primary);
+  padding: 0;
+  height: 32px;
+  min-width: 0;
+}
+app-users .toolbar-cell.cell-ufilter .select-trigger:hover,
+app-users .toolbar-cell.cell-ufilter .select-wrapper.is-open .select-trigger {
+  border-color: transparent;
+  box-shadow: none;
 }
 
-.tenant-select-wrap {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
-  padding: 0 var(--spacing-sm);
-
-  app-icon { color: var(--color-text-muted); }
+// The dropdown panel defaults to `left:0; right:0` on SelectComponent so
+// it inherits the trigger's width. Release the right constraint and give
+// it a comfortable min-width so tenant names render in full while the
+// trigger stays compact.
+app-users .toolbar-cell.cell-ufilter .select-panel {
+  right: auto;
+  min-width: 260px;
+  z-index: 1000;
 }
 
-.tenant-select {
-  border: none;
-  outline: none;
-  background: transparent;
-  padding: 9px 4px;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  cursor: pointer;
-  min-width: 220px;
+// DataTable's outer .table-container has `overflow: hidden` (rounded
+// corners) and `.table-scroll` has `overflow-x: auto` (which implicitly
+// sets `overflow-y: auto` per CSS spec) — both clip the filter dropdown
+// panel when the table has few rows and collapses tight. Release them here
+// and give the container a min-height as a defensive floor.
+app-users .table-container,
+app-users .table-toolbar,
+app-users .table-scroll {
+  overflow: visible !important;
 }
+app-users .table-container { min-height: 360px; }
 
-/* ── Empty state ───────────────────────────────────────────────────────── */
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 24px;
-  color: var(--color-text-muted);
-  gap: var(--spacing-base);
-  text-align: center;
-
-  p { font-size: var(--font-size-base); margin: 0; }
-}
-
-/* ── Modal ─────────────────────────────────────────────────────────────── */
+// ── Modal ──────────────────────────────────────────────────────────────
 
 .modal-overlay {
   position: fixed;
@@ -264,6 +254,6 @@
   }
 }
 
-@media (max-width: 1280px) { .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 1024px) { .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 600px)  { .stats-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1280px) { app-users .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1024px) { app-users .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px)  { app-users .stats-grid { grid-template-columns: 1fr; } }

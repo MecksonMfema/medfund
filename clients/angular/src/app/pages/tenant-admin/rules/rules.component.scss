@@ -1,3 +1,15 @@
+// The rules page owns its own vertical space. :host fills the tenant-content
+// scroll viewport so the shell below can split the remaining height between
+// a fixed inner sidebar (categories) and a scrollable main panel — instead
+// of sticky-positioning, which was fighting with tenant-content's own
+// overflow-y and letting the rail drift with the page scroll.
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -5,26 +17,40 @@
   margin-bottom: var(--spacing-xl);
   gap: var(--spacing-lg);
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 .page-header h1 { font-size: var(--font-size-2xl); margin-bottom: 4px; }
 .page-subtitle  { color: var(--color-text-secondary); font-size: var(--font-size-base); max-width: 720px; }
 
 /* ── Two-column shell ────────────────────────────────────────────────────── */
 
+// Fills the remaining vertical space under the page-header. Grid gives the
+// same 240px + 1fr layout, but with an explicit box height so each column
+// can scroll internally.
 .rules-shell {
   display: grid;
   grid-template-columns: 240px 1fr;
   gap: var(--spacing-xl);
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
+// Inner sidebar. Fills the shell's height and scrolls its list internally
+// when there are more categories than fit — never drifts with the page.
 .category-rail {
   background: var(--color-surface);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
-  padding: var(--spacing-base);
-  align-self: start;
-  position: sticky;
-  top: var(--spacing-base);
+  // Zero right padding so the internal scrollbar sits flush against the
+  // rail's right edge instead of being inset from it. List items already
+  // carry their own inner padding, so text still has breathing room from
+  // the scrollbar.
+  padding: var(--spacing-base) 0 var(--spacing-base) var(--spacing-base);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .rail-title {
@@ -33,6 +59,7 @@
   letter-spacing: 0.06em;
   color: var(--color-text-secondary);
   margin: 4px 8px 8px;
+  flex-shrink: 0;
 }
 
 .category-list {
@@ -42,6 +69,21 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  // Only the list scrolls; the title above stays fixed inside the rail card.
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+
+  // Subtle thin scrollbar so it doesn't overpower the compact rail.
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+  }
+  &::-webkit-scrollbar-track { background: transparent; }
 }
 
 .category-item {
@@ -86,8 +128,14 @@
   }
 }
 
+// Right column scrolls internally so the rail stays put on the left. Same
+// height as the rail; own scroll context so the data-table can grow without
+// pushing the whole page.
 .main-panel {
   min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
 }
 
 /* ── Modal (template picker) ─────────────────────────────────────────────── */

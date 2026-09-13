@@ -1,4 +1,11 @@
-.page { padding: 1.5rem; }
+// The jobs page follows the /tenant/admin/rules configurations rail
+// pattern for the aside, but the DETAIL panel flows naturally and lets
+// the outer .page-content scroll handle any overflow — so the runs table
+// scrolls at page width, not inside a boxed panel. The rail column stays
+// visible via `position: sticky` on the aside.
+.page {
+  display: block;
+}
 
 .page-header {
   display: flex;
@@ -86,19 +93,77 @@
 }
 .banner-success { background: var(--success-bg, #d1fae5); color: var(--success-fg, #065f46); }
 
+// Grid shell — natural block height. Detail column drives the total
+// layout height; the aside sticks within it while the outer .page-content
+// scroll takes care of the overflow.
 .layout {
   display: grid;
   grid-template-columns: 320px 1fr;
   gap: 1rem;
+  align-items: start;
 }
-@media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+}
 
-.job-list,
+// .job-detail keeps the standard card look; .job-list's background/border/
+// radius are set explicitly below to match the rules-page .category-rail
+// (which uses --radius-lg, not --radius-md).
 .job-detail {
   background: var(--color-surface, #fff);
   border: 1px solid var(--color-border-light, #e5e7eb);
   border-radius: var(--radius-md, 8px);
+}
+
+// Configurations card — mirrors .category-rail on /tenant/admin/rules:
+// exactly viewport-tall, `overflow: hidden` so only the inner list
+// scrolls, zero right padding so the scrollbar sits flush against the
+// right edge.
+//
+// `align-self: start` is critical here: grid items default to `stretch`
+// on the block axis, which was making the card grow to match the runs
+// column's total height. Combined with an explicit `height` that maps
+// to the visible scroll area (viewport minus the top app-header and a
+// small margin), the card stays exactly screen-tall regardless of what
+// the detail column is doing. Sticky positioning pins it at the top of
+// .page-content's scroll container so it stays visible while the runs
+// table scrolls past at page width.
+.job-list {
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border-light, #e5e7eb);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--spacing-base, 1rem) 0 var(--spacing-base, 1rem) var(--spacing-base, 1rem);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  align-self: start;
+  position: sticky;
+  top: 0;
+  // Fits inside the visible scroll area of .page-content. The offset
+  // covers everything sitting above/below the card:
+  //   top app-header       ~64px
+  //   .page-content padding (top + bottom)  ~48px
+  //   page-header block   ~70px
+  //   filter-bar row      ~48px
+  //   small breathing gap ~16px
+  // ≈ 15rem total, so this lands on 100vh - 15rem.
+  height: calc(100vh - 18rem);
+  overflow: hidden;
+}
+@media (max-width: 900px) {
+  // On narrow screens the sidebar stacks above the detail — no sticky,
+  // no viewport cap.
+  .job-list {
+    position: static;
+    height: auto;
+    overflow: visible;
+    align-self: auto;
+  }
+}
+
+.job-detail {
   padding: 1rem;
+  min-width: 0;
 }
 
 .section-title {
@@ -110,7 +175,34 @@
   color: var(--color-text-muted, #6b7280);
 }
 
-.job-list ul { list-style: none; margin: 0; padding: 0; }
+// Sticky rail header inside .job-list — mirrors .rail-title on rules page.
+.rail-title {
+  padding-right: 1rem;
+  flex-shrink: 0;
+}
+
+// Only the list scrolls; the header above stays fixed inside the rail card.
+// Subtle thin scrollbar so it doesn't overpower the compact rail.
+.job-rail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0.5rem 0 0;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border, #d1d5db) transparent;
+
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-border, #d1d5db);
+    border-radius: 3px;
+  }
+  &::-webkit-scrollbar-track { background: transparent; }
+}
+
+.rail-fallback { padding-right: 1rem; flex-shrink: 0; }
 .job-row {
   padding: 0.6rem 0.75rem;
   border-radius: var(--radius-md, 8px);
@@ -173,6 +265,9 @@
   text-align: center;
 }
 
+// Runs table flows naturally inside .job-detail — the detail panel's own
+// overflow-y: auto handles scrolling when the paginated slice + pager
+// combined outgrow the viewport. No sticky header / height cap here.
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -186,6 +281,47 @@
   vertical-align: top;
 }
 .data-table tr.failed { background: rgba(254, 226, 226, 0.4); }
+
+// Client-side pager under the runs table. Range label on the left,
+// prev/next + page counter on the right.
+.runs-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  padding: 0.25rem 0.1rem;
+  flex-wrap: wrap;
+}
+
+.runs-range {
+  font-size: 0.8rem;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.runs-pager {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.runs-pager .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.runs-pager .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.runs-page-label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary, #4b5563);
+}
 
 .error-cell {
   font-family: ui-monospace, "Cascadia Mono", monospace;

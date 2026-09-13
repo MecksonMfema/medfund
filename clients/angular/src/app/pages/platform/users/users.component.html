@@ -1,4 +1,4 @@
-<div class="page-header">
+<header class="page-header">
   <div>
     <h1>All Users</h1>
     <p class="page-subtitle">Platform staff, tenant members and tenant staff in one place</p>
@@ -9,7 +9,7 @@
       Invite Staff User
     </button>
   }
-</div>
+</header>
 
 <!-- Stat cards -->
 <div class="stats-grid">
@@ -45,19 +45,6 @@
 
 <!-- ── Platform Staff ───────────────────────────────────────────────────── -->
 @if (activeTab === 'staff') {
-  <div class="toolbar">
-    <div class="search-box">
-      <app-icon name="search" [size]="16"></app-icon>
-      <input
-        class="search-input"
-        type="text"
-        placeholder="Search by name, email or role…"
-        [ngModel]="staffSearch"
-        (ngModelChange)="onStaffSearchChange($event)"
-      />
-    </div>
-  </div>
-
   <app-data-table
     title="Platform Staff"
     [subtitle]="staffUsers.length + ' users'"
@@ -65,7 +52,8 @@
     [data]="staffUsers"
     [actions]="staffActions"
     [loading]="staffLoading"
-    [searchable]="false"
+    searchPlaceholder="Search by name, email or role..."
+    (searchChange)="onStaffSearchChange($event)"
     emptyMessage="No staff users found."
   ></app-data-table>
 }
@@ -86,48 +74,28 @@
 
 <!-- ── Tenant Members & Staff ──────────────────────────────────────────── -->
 @if (activeTab === 'members') {
-  <div class="toolbar">
-    <div class="tenant-select-wrap">
-      <app-icon name="building" [size]="16"></app-icon>
+  <app-data-table
+    title="Members &amp; Staff"
+    [subtitle]="membersSubtitle"
+    [columns]="memberColumns"
+    [data]="members"
+    [loading]="membersLoading"
+    searchPlaceholder="Search by name or member number..."
+    (searchChange)="onMemberSearchChange($event)"
+    [emptyMessage]="membersEmptyMessage"
+  >
+    <div table-filters class="toolbar-cell cell-ufilter">
+      <span class="cell-label">Tenant</span>
       <app-select
         [(ngModel)]="selectedTenantId"
+        (selectionChange)="onTenantChange()"
         name="selectedTenantId"
         [options]="tenantOptions"
-        (ngModelChange)="onTenantChange()"
-        placeholder="Select a tenant…"
-        size="sm"
+        placeholder="Select a tenant..."
+        [autoSearchThreshold]="6"
       ></app-select>
     </div>
-    @if (selectedTenantId) {
-      <div class="search-box">
-        <app-icon name="search" [size]="16"></app-icon>
-        <input
-          class="search-input"
-          type="text"
-          placeholder="Search by name or member number…"
-          [ngModel]="memberSearch"
-          (ngModelChange)="onMemberSearchChange($event)"
-        />
-      </div>
-    }
-  </div>
-
-  @if (!selectedTenantId) {
-    <div class="empty-state">
-      <app-icon name="building" [size]="48"></app-icon>
-      <p>Select a tenant above to view its members and staff.</p>
-    </div>
-  } @else {
-    <app-data-table
-      title="Members &amp; Staff"
-      [subtitle]="members.length + ' users'"
-      [columns]="memberColumns"
-      [data]="members"
-      [loading]="membersLoading"
-      [searchable]="false"
-      emptyMessage="No members found for this tenant."
-    ></app-data-table>
-  }
+  </app-data-table>
 }
 
 <!-- ── Edit Staff User Modal ───────────────────────────────────────────── -->
@@ -175,14 +143,14 @@
             [(ngModel)]="edit.realmRole"
             name="editRealmRole"
             [options]="platformRoleOptions"
-            placeholder="Select a role…"
+            placeholder="Select a role..."
           ></app-select>
         </div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" [disabled]="editSubmitting" (click)="showEditModal = false">Cancel</button>
         <button class="btn btn-primary" [disabled]="editSubmitting || !editHasChanges" (click)="saveEdit()">
-          @if (editSubmitting) { Saving… } @else { Save Changes }
+          @if (editSubmitting) { Saving... } @else { Save Changes }
         </button>
       </div>
     </div>
@@ -253,7 +221,7 @@
             name="inviteRealmRole"
             [options]="platformRoleOptions"
             (ngModelChange)="onInviteRoleChange()"
-            placeholder="Select a role…"
+            placeholder="Select a role..."
           ></app-select>
           @if (inviteFieldError('realmRole')) { <span class="field-error">{{ inviteFieldError('realmRole') }}</span> }
         </div>
@@ -265,7 +233,7 @@
               [(ngModel)]="invite.tenantId"
               name="inviteTenantId"
               [options]="tenantOptions"
-              placeholder="Select a tenant…"
+              placeholder="Select a tenant..."
             ></app-select>
             @if (inviteFieldError('tenantId')) { <span class="field-error">{{ inviteFieldError('tenantId') }}</span> }
             <span class="field-hint">This user will only appear in the selected tenant's portal.</span>
@@ -276,7 +244,7 @@
       <div class="modal-footer">
         <button class="btn btn-outline" [disabled]="inviteSubmitting" (click)="showInviteModal = false">Cancel</button>
         <button class="btn btn-primary" [disabled]="inviteSubmitting" (click)="sendInvite()">
-          @if (inviteSubmitting) { Sending… } @else { Send Invitation }
+          @if (inviteSubmitting) { Sending... } @else { Send Invitation }
         </button>
       </div>
     </div>

@@ -105,18 +105,16 @@ export class ProvidersComponent implements OnInit, OnDestroy {
   submitting = false;
 
   // ── SelectComponent options ─────────────────────────────────────────────
+  // Empty-value entries dropped: filters use the toolbar-cell pattern where
+  // "All" is a placeholder rather than a synthetic option. An empty string
+  // still means "no filter".
   readonly statusFilterOptions: SelectOption[] = [
-    { value: '',                     label: 'All statuses' },
     { value: 'active',               label: 'Active' },
     { value: 'pending_verification', label: 'Pending verification' },
     { value: 'suspended',            label: 'Suspended' },
   ];
-  /** Provider-type catalogue, with a leading "All types" row for the filter chip. */
   get typeFilterOptions(): SelectOption[] {
-    return [
-      { value: '', label: 'All types' },
-      ...this.providerTypes.map(t => ({ value: t.value, label: t.label })),
-    ];
+    return this.providerTypes.map(t => ({ value: t.value, label: t.label }));
   }
   /** Same catalogue without the All row — used by the register-provider modal. */
   get providerTypeSelectOptions(): SelectOption[] {

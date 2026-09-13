@@ -1,8 +1,14 @@
+// Fullbleed shell — matches /tenant/admin/audit. Route data.fullbleed = true
+// strips LayoutComponent's outer padding, so page-header owns its own edge
+// gutter + a surface background + bottom border. The data-table below spans
+// edge-to-edge for the one-white-surface look.
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: var(--spacing-xl);
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
 .page-header h1 {
@@ -15,6 +21,9 @@
   font-size: var(--font-size-base);
 }
 
+// Cards live in the padded region above the fullbleed data-table.
+.stats-grid { margin: 20px 24px; }
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -22,60 +31,76 @@
   margin-bottom: var(--spacing-xl);
 }
 
-/* Filter bar */
-.filter-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-lg);
-  flex-wrap: wrap;
+// Match /tenant/admin/audit toolbar behaviour: filters sit next to the
+// built-in search on the left. DataTable's default is [search][spacer][filters];
+// push the spacer past the projected filters so search + filter cells hug the
+// left edge.
+::ng-deep .table-toolbar .toolbar-spacer { order: 1; }
+
+// The filter dropdown panel is `position: absolute` relative to
+// `.select-wrapper`, which sits inside `.table-container`. On tables with
+// many rows the container is tall enough that the panel drops into the
+// body area without hitting a clip; with a single tenant it collapses
+// tight to one row and the panel is cut off by `.table-container`'s own
+// `overflow: hidden` (there to clip rounded corners).
+//
+// Two-part fix so the dropdown works whatever the row count:
+//   1. Release the clip on every candidate wrapper. `.table-scroll` has
+//      `overflow-x: auto`, which per the CSS spec implicitly sets
+//      `overflow-y: auto` too — also a clip on the vertical axis.
+//   2. Give the container a min-height that fits the tallest panel
+//      (search box + eight lines + padding ≈ 340px) so even the empty
+//      state has room. Belt-and-suspenders in case some encapsulation
+//      selector races and rule (1) doesn't win.
+// !important on the overflow rules because each rule in the encapsulated
+// app-data-table matches at the same specificity as `:host ::ng-deep …`
+// and the cascade order isn't guaranteed with lazy-loaded components.
+:host ::ng-deep .table-container,
+:host ::ng-deep .table-toolbar,
+:host ::ng-deep .table-scroll {
+  overflow: visible !important;
 }
+:host ::ng-deep .table-container { min-height: 360px; }
 
-// Each filter dropdown is its own SelectComponent. The component's :host
-// is display:block; width:100%, so without an explicit basis they'd each
-// claim the whole row and the flex container would wrap them to their own
-// lines. Pin them to ~200px so they sit inline next to the search and the
-// search keeps flex:1 of the remaining width.
-.filter-bar app-select {
-  flex: 0 1 200px;
-  min-width: 160px;
-}
+// Panel z-index above table cells / sticky header shadows.
+:host ::ng-deep .select-panel { z-index: 1000; }
 
-.filter-search {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
-  padding: 0 var(--spacing-sm);
-  flex: 1 1 280px;
-  min-width: 240px;
+// Per-cell width for the three side-by-side tenant filters. Narrower than
+// the shared .cell-select default (220px) because three filters + search
+// have to fit comfortably on one row.
+.toolbar-cell.cell-tfilter { flex: 0 0 auto; min-width: 180px; }
+.toolbar-cell.cell-tfilter app-select { min-width: 130px; flex: 1; }
 
-  app-icon { color: var(--color-text-muted); flex-shrink: 0; }
-}
+// Strip the SelectComponent's default border + rounded background so the
+// select reads as a flat toolbar value rather than a boxed form input.
+// The shared rule in styles.scss ought to cover this via .cell-select, but
+// the component's emulated-encapsulation `.select-trigger[_ngcontent-...]`
+// selector has been out-specifying it on this page — repeating the strip
+// here at cell-tfilter scope wins deterministically.
+.toolbar-cell.cell-tfilter {
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
 
-.filter-input {
-  border: none;
-  outline: none;
-  background: transparent;
-  padding: 8px 4px;
-  font-size: var(--font-size-sm);
-  width: 100%;
-  color: var(--color-text-primary);
-}
-
-.filter-select {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
-  padding: 8px var(--spacing-md);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  cursor: pointer;
-  outline: none;
-
-  &:focus { border-color: var(--color-primary); }
+  // The dropdown panel defaults to `left:0; right:0` on the SelectComponent,
+  // so it inherits the trigger's compact width and ellipsizes long option
+  // labels ("Health Insurance", "Vehicle / Motor Insurance", ...). Release
+  // the right constraint and give the panel a comfortable min-width so
+  // options render in full while the trigger stays narrow.
+  ::ng-deep .select-panel {
+    right: auto;
+    min-width: 240px;
+  }
 }
 
 /* Modal */

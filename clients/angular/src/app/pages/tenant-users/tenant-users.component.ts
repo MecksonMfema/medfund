@@ -5,6 +5,8 @@ import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 import { AdminService, Role, StaffUser } from '../../core/services/admin.service';
 import { MembersService, Member } from '../../core/services/members.service';
+import { GroupsService, Group } from '../../core/services/groups.service';
+import { ContributionsService, Scheme } from '../../core/services/contributions.service';
 import { TenantService } from '../../core/services/tenant.service';
 import { DataTableComponent, TableAction } from '../../shared/components/data-table/data-table.component';
 import { StatCardComponent } from '../../shared/components/stat-card/stat-card.component';
@@ -119,8 +121,11 @@ export class TenantUsersComponent implements OnInit, OnDestroy {
 
   private memberSearch$ = new Subject<string>();
 
+  // The empty-value entry ("All statuses") was dropped because the filter now
+  // uses the shared toolbar-cell pattern from /tenant/finance/runs, where the
+  // "All" state is expressed via the placeholder rather than a synthetic
+  // option. memberStatus === '' still means "no filter".
   memberStatusOptions = [
-    { value: '',           label: 'All statuses' },
     { value: 'active',     label: 'Active' },
     { value: 'enrolled',   label: 'Enrolled' },
     { value: 'suspended',  label: 'Suspended' },
@@ -137,34 +142,16 @@ export class TenantUsersComponent implements OnInit, OnDestroy {
     { key: 'enrollmentDate', label: 'Enrolled', type: 'date' },
   ];
 
+  // Members are read-only on this admin page. All mutations (edit,
+  // activate/suspend/terminate, swap, record death) live on the operational
+  // member detail page at /tenant/members/{id}; this tab is discovery + a
+  // read-only card via the View action.
   memberActions: TableAction[] = [
     {
-      label: 'Edit',
-      icon: 'edit',
+      label: 'View',
+      icon: 'eye',
       color: 'default',
-      visible: () => true,
-      handler: (m: Member) => this.openEditMemberModal(m),
-    },
-    {
-      label: 'Activate',
-      icon: 'play-circle',
-      color: 'success',
-      visible: (m: Member) => m.status === 'enrolled' || m.status === 'suspended',
-      handler: (m: Member) => this.activateMember(m),
-    },
-    {
-      label: 'Suspend',
-      icon: 'pause-circle',
-      color: 'warning',
-      visible: (m: Member) => m.status === 'active',
-      handler: (m: Member) => this.suspendMember(m),
-    },
-    {
-      label: 'Terminate',
-      icon: 'x-circle',
-      color: 'danger',
-      visible: (m: Member) => m.status !== 'terminated',
-      handler: (m: Member) => this.terminateMember(m),
+      handler: (m: Member) => this.openViewMemberModal(m),
     },
   ];
 
@@ -177,14 +164,15 @@ export class TenantUsersComponent implements OnInit, OnDestroy {
   enrollErrors: Record<string, string> = {};
   enrollSubmitting = false;
 
-  showEditMemberModal = false;
-  editingMember: Member | null = null;
-  editMemberForm = {
-    firstName: '', lastName: '', dateOfBirth: '', gender: '',
-    nationalId: '', email: '', phone: '', address: '', groupId: '', schemeId: '',
-  };
-  editMemberErrors: Record<string, string> = {};
-  editMemberSubmitting = false;
+  // View-only member detail modal. Opens on the View row action; carries no
+  // form state because nothing is editable here.
+  showViewMemberModal = false;
+  viewingMember: Member | null = null;
+
+  // Lookup maps for the view modal — resolves member.groupId / member.schemeId
+  // to friendly names so the modal never surfaces a raw UUID.
+  private groupNameById  = new Map<string, string>();
+  private schemeNameById = new Map<string, string>();
 
   // ── SelectComponent options ─────────────────────────────────────────────
   /** Member-status filter — already shaped as {value,label}, just retype it. */
@@ -210,6 +198,8 @@ export class TenantUsersComponent implements OnInit, OnDestroy {
   constructor(
     private adminService: AdminService,
     private membersService: MembersService,
+    private groupsService: GroupsService,
+    private contributionsService: ContributionsService,
     private tenantService: TenantService,
   ) {}
 
@@ -233,11 +223,14 @@ export class TenantUsersComponent implements OnInit, OnDestroy {
         this.loadStaff();
         this.loadMembers();
         this.loadRoles();
+        this.loadHolderLookups();
       } else {
         this.staff          = [];
         this.members        = [];
         this.availableRoles = [];
         this.rolesById      = {};
+        this.groupNameById.clear();
+        this.schemeNameById.clear();
         this.staffLoading   = false;
         this.membersLoading = false;
       }
@@ -449,6 +442,24 @@ export class TenantUsersComponent implements OnInit, OnDestroy {
 
   onMemberQueryChange(): void { this.memberSearch$.next(this.memberQuery); }
 
+  /**
+   * Search handler for the data-table's built-in toolbar search on the members
+   * tab. The term arrives already debounced (400ms) inside the data-table.
+   * Resets cursor state and re-fetches the first page.
+   */
+  onMemberSearchChange(term: string): void {
+    this.memberQuery = term;
+    this.memberCursors = [];
+    this.loadMembers();
+  }
+
+  /** Same, but for the staff tab's built-in toolbar search. */
+  onStaffSearchChange(term: string): void {
+    this.staffQuery = term;
+    this.staffCursors = [];
+    this.loadStaff();
+  }
+
   onMemberStatusChange(): void {
     this.memberCursors = [];
     this.loadMembers();
@@ -496,52 +507,51 @@ export class TenantUsersComponent implements OnInit, OnDestroy {
     });
   }
 
-  openEditMemberModal(m: Member): void {
-    this.editingMember = m;
-    const raw = m as any;
-    const genderRaw = (raw.gender ?? '').toLowerCase();
-    const gender = ['male', 'female', 'other'].includes(genderRaw) ? genderRaw : '';
-    this.editMemberForm = {
-      firstName: m.firstName, lastName: m.lastName,
-      dateOfBirth: m.dateOfBirth ?? '', gender,
-      nationalId: raw.nationalId ?? '', email: m.email ?? '',
-      phone: m.phone ?? '', address: raw.address ?? '',
-      groupId: m.groupId ?? '', schemeId: m.schemeId ?? '',
-    };
-    this.editMemberErrors = {};
-    this.showEditMemberModal = true;
+  openViewMemberModal(m: Member): void {
+    this.viewingMember = m;
+    this.showViewMemberModal = true;
   }
 
-  submitEditMember(): void {
-    if (!this.editingMember) return;
-    this.editMemberErrors = {};
-    if (!this.editMemberForm.firstName.trim())  this.editMemberErrors['firstName']   = 'Required';
-    if (!this.editMemberForm.lastName.trim())   this.editMemberErrors['lastName']    = 'Required';
-    if (!this.editMemberForm.dateOfBirth)       this.editMemberErrors['dateOfBirth'] = 'Required';
-    if (!this.editMemberForm.gender)            this.editMemberErrors['gender']      = 'Required';
-    if (Object.keys(this.editMemberErrors).length) return;
+  /** Group display name for the currently-viewed member, or "—" when unset / unknown. */
+  get viewingGroupName(): string {
+    const id = this.viewingMember?.groupId;
+    if (!id) return '—';
+    return this.groupNameById.get(id) ?? '—';
+  }
 
-    this.editMemberSubmitting = true;
-    this.membersService.update(this.editingMember.id, this.editMemberForm).subscribe({
-      next: () => {
-        this.showEditMemberModal  = false;
-        this.editMemberSubmitting = false;
-        this.loadMembers(this.memberCursors.at(-1));
+  /** Scheme display name for the currently-viewed member, or "—" when unset / unknown. */
+  get viewingSchemeName(): string {
+    const id = this.viewingMember?.schemeId;
+    if (!id) return '—';
+    return this.schemeNameById.get(id) ?? '—';
+  }
+
+  // National ID and address exist on the wire payload but aren't declared on
+  // the typed Member interface (the operational members module reads them via
+  // `as any`). Mirror the same escape-hatch here so the view modal renders
+  // them without widening the shared Member type just for this page.
+  get viewingNationalId(): string { return (this.viewingMember as any)?.nationalId || '—'; }
+  get viewingAddress(): string    { return (this.viewingMember as any)?.address    || '—'; }
+
+  /**
+   * Populate the group + scheme name lookups used by the read-only member
+   * modal. Reload on tenant switch alongside the roles/stats fetch. Silent on
+   * error: the modal falls back to "—" for any id it can't resolve.
+   */
+  private loadHolderLookups(): void {
+    this.groupsService.list().subscribe({
+      next: (groups: Group[]) => {
+        this.groupNameById.clear();
+        groups.forEach(g => this.groupNameById.set(g.id, g.name));
       },
-      error: () => { this.editMemberSubmitting = false; },
+      error: () => { this.groupNameById.clear(); },
     });
-  }
-
-  activateMember(m: Member): void {
-    this.membersService.activate(m.id).subscribe({ next: () => { this.loadStats(); this.loadMembers(this.memberCursors.at(-1)); } });
-  }
-
-  suspendMember(m: Member): void {
-    this.membersService.suspend(m.id).subscribe({ next: () => { this.loadStats(); this.loadMembers(this.memberCursors.at(-1)); } });
-  }
-
-  terminateMember(m: Member): void {
-    if (!confirm(`Terminate membership for ${m.firstName} ${m.lastName}? This cannot be undone.`)) return;
-    this.membersService.terminate(m.id).subscribe({ next: () => { this.loadStats(); this.loadMembers(this.memberCursors.at(-1)); } });
+    this.contributionsService.getSchemes().subscribe({
+      next: (schemes: Scheme[]) => {
+        this.schemeNameById.clear();
+        schemes.forEach(s => this.schemeNameById.set(s.id, s.name));
+      },
+      error: () => { this.schemeNameById.clear(); },
+    });
   }
 }

@@ -1,4 +1,4 @@
-<div class="page-header">
+<header class="page-header">
   <div>
     <h1>Tenant Management</h1>
     <p class="page-subtitle">Manage organizations using the platform</p>
@@ -7,7 +7,7 @@
     <app-icon name="plus" [size]="18"></app-icon>
     Create Tenant
   </button>
-</div>
+</header>
 
 <div class="stats-grid">
   <app-stat-card
@@ -30,56 +30,59 @@
   ></app-stat-card>
 </div>
 
-<!-- Filter bar -->
-<div class="filter-bar">
-  <div class="filter-search">
-    <app-icon name="search" [size]="16"></app-icon>
-    <input
-      class="filter-input"
-      type="text"
-      placeholder="Search by name, slug or email…"
-      [ngModel]="searchTerm"
-      (ngModelChange)="onSearchChange($event)"
-    />
-  </div>
-  <app-select
-    [(ngModel)]="statusFilter"
-    name="statusFilter"
-    [options]="statusFilterOptions"
-    (ngModelChange)="onFilterChange()"
-    size="sm"
-  ></app-select>
-  <app-select
-    [(ngModel)]="modelFilter"
-    name="modelFilter"
-    [options]="modelFilterOptions"
-    (ngModelChange)="onFilterChange()"
-    size="sm"
-  ></app-select>
-  <app-select
-    [(ngModel)]="lineFilter"
-    name="lineFilter"
-    [options]="lineFilterOptions"
-    (ngModelChange)="onFilterChange()"
-    size="sm"
-  ></app-select>
-</div>
-
 <app-data-table
   title="All Tenants"
   [subtitle]="totalCount + ' organizations'"
   [columns]="columns"
   [data]="tenants"
   [actions]="tableActions"
-  [searchable]="false"
   [serverSide]="true"
   [loading]="loading"
   [totalCount]="totalCount"
   [totalPages]="totalPages"
   [serverPage]="currentPage"
+  searchPlaceholder="Search by name, slug or email..."
+  (searchChange)="onSearchChange($event)"
   (pageChange)="onPageChange($event)"
   (rowClick)="onTenantClick($event)"
-></app-data-table>
+>
+  <div table-filters class="toolbar-cell cell-tfilter">
+    <span class="cell-label">Status</span>
+    <app-select
+      [(ngModel)]="statusFilter"
+      (selectionChange)="onFilterChange()"
+      name="statusFilter"
+      [options]="statusFilterOptions"
+      placeholder="All"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+  <div table-filters class="toolbar-cell cell-tfilter">
+    <span class="cell-label">Model</span>
+    <app-select
+      [(ngModel)]="modelFilter"
+      (selectionChange)="onFilterChange()"
+      name="modelFilter"
+      [options]="modelFilterOptions"
+      placeholder="All"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+  <div table-filters class="toolbar-cell cell-tfilter">
+    <span class="cell-label">Line</span>
+    <app-select
+      [(ngModel)]="lineFilter"
+      (selectionChange)="onFilterChange()"
+      name="lineFilter"
+      [options]="lineFilterOptions"
+      placeholder="All"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+</app-data-table>
 
 <!-- Edit Tenant Modal -->
 @if (showEditModal) {

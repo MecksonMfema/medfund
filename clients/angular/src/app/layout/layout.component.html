@@ -5,7 +5,7 @@
   <app-sidebar />
   <div class="main-area">
     <app-header />
-    <main class="page-content">
+    <main class="page-content" [class.is-fullbleed]="fullbleed">
       <router-outlet />
     </main>
   </div>

@@ -19,17 +19,17 @@ export const routes: Routes = [
       {
         path: 'tenants',
         loadComponent: () => import('./pages/platform/tenants/tenants.component').then(m => m.TenantsComponent),
-        data: { title: 'Tenant Management' },
+        data: { title: 'Tenant Management', fullbleed: true },
       },
       {
         path: 'users',
         loadComponent: () => import('./pages/platform/users/users.component').then(m => m.UsersComponent),
-        data: { title: 'User Management' },
+        data: { title: 'User Management', fullbleed: true },
       },
       {
         path: 'audit',
         loadComponent: () => import('./pages/platform/audit/audit.component').then(m => m.AuditComponent),
-        data: { title: 'Audit Logs' },
+        data: { title: 'Audit Logs', fullbleed: true },
       },
       {
         path: 'settings',
@@ -44,7 +44,7 @@ export const routes: Routes = [
       {
         path: 'providers',
         loadComponent: () => import('./pages/providers/providers.component').then(m => m.ProvidersComponent),
-        data: { title: 'Providers' },
+        data: { title: 'Providers', fullbleed: true },
       },
       {
         path: 'jobs',
@@ -65,7 +65,7 @@ export const routes: Routes = [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'dashboard', loadComponent: () => import('./pages/dashboard/dashboard.component').then(m => m.DashboardComponent), data: { title: 'Dashboard' } },
       { path: 'users',     loadComponent: () => import('./pages/tenant-users/tenant-users.component').then(m => m.TenantUsersComponent), data: { title: 'Users' } },
-      { path: 'audit',     loadComponent: () => import('./pages/tenant-admin/audit/audit.component').then(m => m.TenantAuditComponent), data: { title: 'Audit Logs' } },
+      { path: 'audit',     loadComponent: () => import('./pages/tenant-admin/audit/audit.component').then(m => m.TenantAuditComponent), data: { title: 'Audit Logs', fullbleed: true } },
       { path: 'rules',     loadComponent: () => import('./pages/tenant-admin/rules/rules.component').then(m => m.TenantRulesComponent), data: { title: 'Rules Engine' } },
       { path: 'settings',  loadComponent: () => import('./pages/tenant-admin/settings/settings.component').then(m => m.TenantSettingsComponent), data: { title: 'Settings' } },
       // Phase 17 §C.1 — standalone report-schedules admin page. Deep-linked

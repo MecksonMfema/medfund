@@ -1,8 +1,14 @@
+// Fullbleed shell — matches /platform/tenants + /platform/users. Route
+// data.fullbleed = true strips LayoutComponent's outer padding, so the
+// page-header owns its own edge gutter + surface background + bottom
+// border, and the data-table below spans edge-to-edge.
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: var(--spacing-xl);
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
 
   h1 {
     font-size: var(--font-size-2xl);
@@ -15,71 +21,63 @@
   font-size: var(--font-size-base);
 }
 
+// Stat cards sit in a padded band above the fullbleed data-table.
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--spacing-lg);
-  margin-bottom: var(--spacing-xl);
+  margin: 20px 24px;
 }
 
-// ── Filter bar ────────────────────────────────────────────────────────────────
+// ── DataTable toolbar overrides ────────────────────────────────────────────
+// Filters hug the built-in search on the left, matching the platform-tenants
+// pattern. DataTable's default toolbar is [search][spacer][filters]; push
+// the spacer past the projected filter cells via flex order.
+::ng-deep .table-toolbar .toolbar-spacer { order: 1; }
 
-.filter-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  margin-bottom: var(--spacing-lg);
-  flex-wrap: wrap;
-}
+// Two side-by-side provider filters (Status, Type). Narrower than the
+// shared .cell-select default (220px) so they fit comfortably alongside
+// the search on one row.
+.toolbar-cell.cell-pfilter { flex: 0 0 auto; min-width: 200px; }
+.toolbar-cell.cell-pfilter app-select { min-width: 140px; flex: 1; }
 
-.filter-search {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
-  padding: 0 var(--spacing-sm);
-  flex: 1;
-  min-width: 240px;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+// Strip the SelectComponent's default border + rounded background so the
+// select reads as a flat toolbar value rather than a boxed form input.
+.toolbar-cell.cell-pfilter {
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+  ::ng-deep .select-trigger:hover,
+  ::ng-deep .select-wrapper.is-open .select-trigger {
+    border-color: transparent;
+    box-shadow: none;
+  }
 
-  app-icon { color: var(--color-text-muted); flex-shrink: 0; }
-
-  &:focus-within {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px var(--color-primary-light);
+  // Panel widened past the compact trigger so long type labels like
+  // "Financial Services" and "Pending verification" render in full.
+  ::ng-deep .select-panel {
+    right: auto;
+    min-width: 240px;
   }
 }
 
-.filter-input {
-  border: none;
-  outline: none;
-  background: transparent;
-  padding: 9px 4px;
-  font-size: var(--font-size-sm);
-  width: 100%;
-  color: var(--color-text-primary);
-  font-family: var(--font-family);
-
-  &::placeholder { color: var(--color-text-muted); }
+// DataTable's outer .table-container has `overflow: hidden` (rounded
+// corners) and `.table-scroll` has `overflow-x: auto` (which implicitly
+// sets `overflow-y: auto` per CSS spec) — both clip the filter dropdown
+// panel when the table has few rows and collapses tight. Release them
+// here and give the container a min-height as a defensive floor.
+:host ::ng-deep .table-container,
+:host ::ng-deep .table-toolbar,
+:host ::ng-deep .table-scroll {
+  overflow: visible !important;
 }
-
-.filter-select {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
-  padding: 9px var(--spacing-md);
-  font-size: var(--font-size-sm);
-  font-family: var(--font-family);
-  color: var(--color-text-primary);
-  cursor: pointer;
-  outline: none;
-  appearance: none;
-  transition: border-color var(--transition-fast);
-
-  &:focus { border-color: var(--color-primary); }
-}
+:host ::ng-deep .table-container { min-height: 360px; }
+:host ::ng-deep .select-panel { z-index: 1000; }
 
 // ── Modal ────────────────────────────────────────────────────────────────────
 

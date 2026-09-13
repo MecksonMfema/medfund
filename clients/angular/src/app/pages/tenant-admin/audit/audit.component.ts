@@ -64,8 +64,10 @@ export class TenantAuditComponent implements OnInit {
   ];
 
   // ── SelectComponent options ─────────────────────────────────────────────
+  // Empty-value entries dropped: the filter now uses the shared toolbar-cell
+  // pattern from /tenant/finance/runs where "All" is the placeholder rather
+  // than a synthetic option. entityFilter === '' still means "no filter".
   readonly entityFilterOptions: SelectOption[] = [
-    { value: '',          label: 'All Entities' },
     { value: 'AUTH',      label: 'Auth / Security' },
     { value: 'USER',      label: 'User' },
     { value: 'MEMBER',    label: 'Member' },
@@ -79,7 +81,6 @@ export class TenantAuditComponent implements OnInit {
   ];
   /** Action filter with the Auth Events block grouped for clarity. */
   readonly actionFilterOptions: SelectOption[] = [
-    { value: '',       label: 'All Actions' },
     { value: 'CREATE', label: 'Create' },
     { value: 'UPDATE', label: 'Update' },
     { value: 'DELETE', label: 'Delete' },

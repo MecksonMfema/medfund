@@ -1,9 +1,13 @@
 <!-- ── Page header ────────────────────────────────────────────────────────── -->
-<h1>Users &amp; Members</h1>
-<p class="page-sub">
-  Manage who has access to this portal (<strong>staff users</strong>) and who is covered by your insurance policies (<strong>members</strong>).
-  A staff user may also hold a member record: the two are tracked separately.
-</p>
+<header class="page-header">
+  <div>
+    <h1>Users &amp; Members</h1>
+    <p class="page-sub">
+      Manage who has access to this portal (<strong>staff users</strong>) and who is covered by your insurance policies (<strong>members</strong>).
+      A staff user may also hold a member record: the two are tracked separately.
+    </p>
+  </div>
+</header>
 
 <!-- ── Stat cards ─────────────────────────────────────────────────────────── -->
 <div class="stats-grid">
@@ -53,29 +57,19 @@
         </button>
       </div>
 
-      <div class="toolbar">
-        <div class="search-bar">
-          <app-icon name="search" [size]="16"></app-icon>
-          <input
-            type="text"
-            placeholder="Search by name or email…"
-            [(ngModel)]="staffQuery"
-            (ngModelChange)="onStaffQueryChange()"
-          />
-        </div>
-      </div>
-
       <app-data-table
         [columns]="staffColumns"
         [data]="staff"
         [actions]="staffActions"
         [loading]="staffLoading"
         [serverSide]="true"
-        [searchable]="false"
+        [searchable]="true"
+        searchPlaceholder="Search staff by name or email…"
         [hasPrev]="staffHasPrev"
         [hasNext]="staffHasNext"
         (prevPage)="staffPrevPage()"
         (nextPage)="staffNextPage()"
+        (searchChange)="onStaffSearchChange($event)"
         emptyMessage="No staff users yet: add the first one."
       ></app-data-table>
     </div>
@@ -88,33 +82,11 @@
         <div>
           <h2 class="content-title">Members (Policyholders)</h2>
           <p class="content-sub">
-            Individuals covered by this organisation's insurance policies. Members are enrolled in schemes and may have dependants.
-            Note: a member is not automatically a staff user. They are separate records.
+            Individuals covered by this organisation's insurance policies. This admin
+            view is read-only: to enroll a member, edit their record, or change status, use the
+            operational Members module.
           </p>
         </div>
-        <button class="btn btn-primary" (click)="openEnrollModal()">
-          <app-icon name="plus" [size]="16"></app-icon>
-          Enroll member
-        </button>
-      </div>
-
-      <div class="toolbar">
-        <div class="search-bar">
-          <app-icon name="search" [size]="16"></app-icon>
-          <input
-            type="text"
-            placeholder="Search by name or member number…"
-            [(ngModel)]="memberQuery"
-            (ngModelChange)="onMemberQueryChange()"
-          />
-        </div>
-        <app-select
-          [(ngModel)]="memberStatus"
-          name="memberStatus"
-          [options]="memberStatusSelectOptions"
-          (ngModelChange)="onMemberStatusChange()"
-          size="sm"
-        ></app-select>
       </div>
 
       <app-data-table
@@ -123,13 +95,28 @@
         [actions]="memberActions"
         [loading]="membersLoading"
         [serverSide]="true"
-        [searchable]="false"
+        [searchable]="true"
+        searchPlaceholder="Search members by name or member number…"
         [hasPrev]="memberHasPrev"
         [hasNext]="memberHasNext"
         (prevPage)="memberPrevPage()"
         (nextPage)="memberNextPage()"
+        (searchChange)="onMemberSearchChange($event)"
         emptyMessage="No members enrolled yet."
-      ></app-data-table>
+      >
+        <div table-filters class="toolbar-cell cell-status">
+          <span class="cell-label">Status</span>
+          <app-select
+            [(ngModel)]="memberStatus"
+            (selectionChange)="onMemberStatusChange()"
+            name="memberStatus"
+            [options]="memberStatusSelectOptions"
+            placeholder="All"
+            [searchable]="false"
+            [autoSearchThreshold]="9999"
+          ></app-select>
+        </div>
+      </app-data-table>
     </div>
   }
 </div>
@@ -356,80 +343,78 @@
   </div>
 }
 
-<!-- ── Edit member modal ──────────────────────────────────────────────────── -->
-@if (showEditMemberModal) {
-  <div class="modal-overlay" (click)="showEditMemberModal = false">
+<!-- ── View member modal (read-only) ──────────────────────────────────────── -->
+@if (showViewMemberModal && viewingMember) {
+  <div class="modal-overlay" (click)="showViewMemberModal = false">
     <div class="modal modal-wide" (click)="$event.stopPropagation()">
       <div class="modal-header">
-        <h3>Edit member: {{ editingMember?.memberNumber }}</h3>
-        <button class="modal-close" (click)="showEditMemberModal = false">
+        <h3>Member: {{ viewingMember.memberNumber }}</h3>
+        <button class="modal-close" (click)="showViewMemberModal = false">
           <app-icon name="x" [size]="20"></app-icon>
         </button>
       </div>
       <div class="modal-body">
-        <div class="form-row">
-          <div class="form-field" [class.has-error]="editMemberErrors['firstName']">
-            <label>First name *</label>
-            <input type="text" [(ngModel)]="editMemberForm.firstName" />
-            @if (editMemberErrors['firstName']) { <span class="field-error">{{ editMemberErrors['firstName'] }}</span> }
-          </div>
-          <div class="form-field" [class.has-error]="editMemberErrors['lastName']">
-            <label>Last name *</label>
-            <input type="text" [(ngModel)]="editMemberForm.lastName" />
-            @if (editMemberErrors['lastName']) { <span class="field-error">{{ editMemberErrors['lastName'] }}</span> }
-          </div>
+        <div class="notice-box">
+          <app-icon name="info" [size]="15"></app-icon>
+          <span>Read-only view. To edit this member, change their status, or manage dependants, open them under the operational <strong>Members</strong> module.</span>
         </div>
-        <div class="form-row">
-          <div class="form-field" [class.has-error]="editMemberErrors['dateOfBirth']">
-            <label>Date of birth *</label>
-            <input type="date" [(ngModel)]="editMemberForm.dateOfBirth" />
-            @if (editMemberErrors['dateOfBirth']) { <span class="field-error">{{ editMemberErrors['dateOfBirth'] }}</span> }
+        <dl class="detail-grid">
+          <div class="detail-row">
+            <dt>First name</dt>
+            <dd>{{ viewingMember.firstName || '—' }}</dd>
           </div>
-          <div class="form-field" [class.has-error]="editMemberErrors['gender']">
-            <label>Gender *</label>
-            <app-select
-              [(ngModel)]="editMemberForm.gender"
-              name="editMemberGender"
-              [options]="genderOptions"
-              placeholder="Select…"
-            ></app-select>
-            @if (editMemberErrors['gender']) { <span class="field-error">{{ editMemberErrors['gender'] }}</span> }
+          <div class="detail-row">
+            <dt>Last name</dt>
+            <dd>{{ viewingMember.lastName || '—' }}</dd>
           </div>
-        </div>
-        <div class="form-row">
-          <div class="form-field">
-            <label>National ID / Passport</label>
-            <input type="text" [(ngModel)]="editMemberForm.nationalId" placeholder="ID number" />
+          <div class="detail-row">
+            <dt>Date of birth</dt>
+            <dd>{{ viewingMember.dateOfBirth || '—' }}</dd>
           </div>
-          <div class="form-field">
-            <label>Phone</label>
-            <input type="tel" [(ngModel)]="editMemberForm.phone" placeholder="+263 77 123 4567" />
+          <div class="detail-row">
+            <dt>Gender</dt>
+            <dd>{{ viewingMember.gender || '—' }}</dd>
           </div>
-        </div>
-        <div class="form-field">
-          <label>Email</label>
-          <input type="email" [(ngModel)]="editMemberForm.email" />
-        </div>
-        <div class="form-field">
-          <label>Address</label>
-          <input type="text" [(ngModel)]="editMemberForm.address" />
-        </div>
-        <div class="form-row">
-          <div class="form-field">
-            <label>Group ID <span class="field-hint">(optional)</span></label>
-            <input type="text" [(ngModel)]="editMemberForm.groupId" placeholder="Corporate group UUID" />
+          <div class="detail-row">
+            <dt>National ID</dt>
+            <dd>{{ viewingNationalId }}</dd>
           </div>
-          <div class="form-field">
-            <label>Scheme ID <span class="field-hint">(optional)</span></label>
-            <input type="text" [(ngModel)]="editMemberForm.schemeId" placeholder="Insurance scheme UUID" />
+          <div class="detail-row">
+            <dt>Email</dt>
+            <dd>{{ viewingMember.email || '—' }}</dd>
           </div>
-        </div>
+          <div class="detail-row">
+            <dt>Phone</dt>
+            <dd>{{ viewingMember.phone || '—' }}</dd>
+          </div>
+          <div class="detail-row">
+            <dt>Address</dt>
+            <dd>{{ viewingAddress }}</dd>
+          </div>
+          <div class="detail-row">
+            <dt>Group</dt>
+            <dd>{{ viewingGroupName }}</dd>
+          </div>
+          <div class="detail-row">
+            <dt>Scheme</dt>
+            <dd>{{ viewingSchemeName }}</dd>
+          </div>
+          <div class="detail-row">
+            <dt>Status</dt>
+            <dd>
+              <span class="badge" [class]="'badge-' + viewingMember.status">
+                {{ viewingMember.status }}
+              </span>
+            </dd>
+          </div>
+          <div class="detail-row">
+            <dt>Enrolled</dt>
+            <dd>{{ viewingMember.enrollmentDate || '—' }}</dd>
+          </div>
+        </dl>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-ghost" (click)="showEditMemberModal = false">Cancel</button>
-        <button class="btn btn-primary" (click)="submitEditMember()" [disabled]="editMemberSubmitting">
-          {{ editMemberSubmitting ? 'Saving…' : 'Save changes' }}
-        </button>
+        <button class="btn btn-ghost" (click)="showViewMemberModal = false">Close</button>
       </div>
     </div>
   </div>

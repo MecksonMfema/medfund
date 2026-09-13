@@ -27,6 +27,12 @@ export class JobsMonitorComponent implements OnInit {
   selected: ScheduledJob | null = null;
   runs: ScheduledJobRun[] = [];
 
+  /** Client-side pagination for the runs table: 25 rows per page over the
+   *  full loaded run buffer. Resets to page 1 whenever a new job is picked
+   *  or the runs list is refreshed. */
+  readonly runsPageSize = 25;
+  runsPage = 1;
+
   /** null = "All tenants" (cross-tenant view, the default for super admin). */
   tenantFilter: string | null = null;
 
@@ -175,13 +181,48 @@ export class JobsMonitorComponent implements OnInit {
 
   refreshRuns(id: string): void {
     this.loadingRuns = true;
-    this.admin.listJobRuns(id, 50, this.tenantFilter).subscribe({
-      next: (rows) => { this.runs = rows; this.loadingRuns = false; },
+    // Fetch a wider buffer than one page so the client-side paginator can
+    // walk backwards through history without re-hitting the API. Backend
+    // sorts by startedAt desc, so `slice(...)` on the buffer yields the
+    // "most recent first" ordering the UI wants.
+    this.admin.listJobRuns(id, 100, this.tenantFilter).subscribe({
+      next: (rows) => {
+        this.runs = rows;
+        this.runsPage = 1;
+        this.loadingRuns = false;
+      },
       error: (err) => {
         this.toast.error(extractErrorMessage(err, 'Failed to load runs'));
         this.loadingRuns = false;
       },
     });
+  }
+
+  // ── Runs pagination ──
+
+  get runsTotalPages(): number {
+    return Math.max(1, Math.ceil(this.runs.length / this.runsPageSize));
+  }
+
+  get visibleRuns(): ScheduledJobRun[] {
+    const start = (this.runsPage - 1) * this.runsPageSize;
+    return this.runs.slice(start, start + this.runsPageSize);
+  }
+
+  get runsRangeStart(): number {
+    return this.runs.length === 0 ? 0 : (this.runsPage - 1) * this.runsPageSize + 1;
+  }
+
+  get runsRangeEnd(): number {
+    return Math.min(this.runsPage * this.runsPageSize, this.runs.length);
+  }
+
+  prevRunsPage(): void {
+    if (this.runsPage > 1) this.runsPage--;
+  }
+
+  nextRunsPage(): void {
+    if (this.runsPage < this.runsTotalPages) this.runsPage++;
   }
 
   toggleEnabled(job: ScheduledJob, event: Event): void {
