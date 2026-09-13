@@ -10,10 +10,6 @@
     }
   </div>
   <div class="header-actions">
-    <a class="btn btn-default" routerLink="/tenant/billing/schemes">
-      <app-icon name="arrow-left" [size]="14"></app-icon>
-      Back to schemes
-    </a>
     <a
       *hasPermission="'billing:manage_schemes'"
       class="btn btn-primary"
@@ -21,6 +17,10 @@
     >
       <app-icon name="plus" [size]="14"></app-icon>
       Add benefit
+    </a>
+    <a class="btn btn-default" routerLink="/tenant/billing/schemes">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back to schemes
     </a>
   </div>
 </header>
