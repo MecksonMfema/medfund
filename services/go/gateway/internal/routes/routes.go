@@ -239,6 +239,11 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/reports/billing-vs-claims/*", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reports/member-payments", proxy.Handler(cfg.FinanceServiceURL))
 	app.All("/api/v1/reports/member-payments/*", proxy.Handler(cfg.FinanceServiceURL))
+	// Phase 6 (V080 D6) — per-payee balance history. Freeze-frame of a
+	// provider's or member's balance at each executed payment run. Entry
+	// point is the "Balance history" button on the creditors detail pages.
+	app.All("/api/v1/reports/balance-history", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/balance-history/*", proxy.Handler(cfg.FinanceServiceURL))
 	// Phase 10 Reinsurance — Reinsurer + Treaty CRUD (nested layer /
 	// participant / applicable-line / cession-rule editors) live in
 	// finance-service. Reports at /api/v1/reports/reinsurance/* land in

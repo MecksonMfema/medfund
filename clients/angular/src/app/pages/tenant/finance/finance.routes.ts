@@ -1036,7 +1036,7 @@ export const FINANCE_ROUTES: Routes = [
     path: 'creditors/member/:id',
     canActivate: [permissionGuard(['finance:view_creditors'])],
     loadComponent: () => import('./creditors/member-balance-detail.component').then(m => m.MemberBalanceDetailComponent),
-    data: { title: 'Member Balance', sidebar: 'operational' },
+    data: { title: 'Member Balance', sidebar: 'operational', fullbleed: true },
   },
 
   // ── Currencies ────────────────────────────────────────────────────────────

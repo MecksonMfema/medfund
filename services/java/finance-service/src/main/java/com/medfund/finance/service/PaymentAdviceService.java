@@ -39,9 +39,15 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * Per-payee payment-advice generator. One advice per (run, payee) with
  * a typed ledger of debits (money owed to the payee) and credits
- * (deductions from that balance). Bounded by
- * {@code (prior_run.executed_at, this_run.executed_at]} so the ledger
- * shows every event the payee saw since the last time they were paid.
+ * (deductions from that balance). The ledger window is
+ * {@code (this_payee.prior_advice.period_end_at, this_run.executed_at]}
+ * so a first-time payee's first advice spans from {@link Instant#EPOCH}
+ * forward and enumerates every historical line — repeat payees only see
+ * activity since the last advice they received. Bounding by the payee's
+ * own history (rather than the tenant's prior run) closes a silent
+ * under-reporting gap where a first-time payee's outstanding balance
+ * pre-dated the tenant's prior run and the advice's CLAIM_PAID lines
+ * did not tally to {@code PaymentRunItem.amount}.
  */
 @Slf4j
 @Service
@@ -115,11 +121,10 @@ public class PaymentAdviceService {
     public Flux<PaymentAdvice> generateAdvicesForRun(UUID paymentRunId) {
         return paymentRunRepository.findById(paymentRunId)
             .switchIfEmpty(Mono.error(new PaymentNotFoundException(paymentRunId)))
-            .flatMapMany(run -> resolvePriorExecutedAt(run)
-                .flatMapMany(periodStart -> paymentRunItemRepository.findByPaymentRunId(paymentRunId)
-                    .groupBy(this::payeeKey)
-                    .flatMap(group -> group.collectList()
-                        .flatMap(items -> buildAdviceForPayee(run, items, periodStart)))));
+            .flatMapMany(run -> paymentRunItemRepository.findByPaymentRunId(paymentRunId)
+                .groupBy(this::payeeKey)
+                .flatMap(group -> group.collectList()
+                    .flatMap(items -> buildAdviceForPayee(run, items))));
     }
 
     /**
@@ -140,17 +145,41 @@ public class PaymentAdviceService {
         return type + ":" + (id != null ? id.toString() : "null");
     }
 
-    private Mono<Instant> resolvePriorExecutedAt(PaymentRun run) {
-        Instant runEnd = run.getExecutedAt() != null ? run.getExecutedAt() : Instant.now();
-        return paymentRunRepository.findMostRecentPriorExecuted(
-                run.getCurrencyCode(), runEnd, run.getId())
-            .map(prior -> prior.getExecutedAt() != null ? prior.getExecutedAt() : Instant.EPOCH)
-            .defaultIfEmpty(run.getCreatedAt() != null ? run.getCreatedAt() : Instant.EPOCH);
+    /**
+     * Per-payee period-start — the {@code period_end_at} of this payee's
+     * most recent prior payment advice in the same currency. Falls back
+     * to {@link Instant#EPOCH} when the payee has never received an
+     * advice, so a first-time payee's advice enumerates every historical
+     * CLAIM_PAID / CTC / ADVANCE / TAX / SHORTFALL / NOTE line rather
+     * than inheriting the tenant's prior-run boundary and silently
+     * missing pre-window activity. Pairs with {@code carriedIn = 0} for
+     * first-timers: since there was no prior advice, there is nothing
+     * to carry, and the ledger is authoritative from EPOCH forward.
+     */
+    private Mono<Instant> resolvePayeePriorPeriodEnd(PaymentRun run, String payeeType,
+                                                     UUID providerId, UUID memberId) {
+        String payeeCol = "MEMBER".equalsIgnoreCase(payeeType) ? "member_id" : "provider_id";
+        UUID payeeId    = "MEMBER".equalsIgnoreCase(payeeType) ? memberId    : providerId;
+        if (payeeId == null) return Mono.just(Instant.EPOCH);
+        String sql = "SELECT MAX(period_end_at) AS boundary"
+                + "  FROM payment_advices"
+                + " WHERE " + payeeCol + " = :id"
+                + "   AND currency_code = :currency"
+                + "   AND payment_run_id <> :excludeRunId";
+        return db.sql(sql)
+            .bind("id", payeeId)
+            .bind("currency", run.getCurrencyCode())
+            .bind("excludeRunId", run.getId())
+            .map((row, meta) -> {
+                Instant v = row.get("boundary", Instant.class);
+                return v != null ? v : Instant.EPOCH;
+            })
+            .one()
+            .defaultIfEmpty(Instant.EPOCH);
     }
 
     private Mono<PaymentAdvice> buildAdviceForPayee(PaymentRun run,
-                                                    List<PaymentRunItem> items,
-                                                    Instant periodStart) {
+                                                    List<PaymentRunItem> items) {
         PaymentRunItem first = items.get(0);
         String payeeType = first.getPayeeType() != null ? first.getPayeeType() : "PROVIDER";
         UUID providerId  = "PROVIDER".equalsIgnoreCase(payeeType) ? first.getProviderId() : null;
@@ -161,29 +190,30 @@ public class PaymentAdviceService {
         List<PaymentAdviceLine> lines = new ArrayList<>();
 
         return loadPayeeName(payeeType, providerId, memberId)
-            .flatMap(payeeName -> resolvePriorRunId(run)
-                .flatMap(priorRunOpt -> {
-                    UUID priorRunId = priorRunOpt.orElse(null);
-                    return loadCarryForward(payeeType, providerId, memberId, currency, run.getId())
-                        .flatMap(carry -> {
-                            if (carry.signum() > 0) {
-                                lines.add(newLine("CARRY_FORWARD", "payment_run", null,
-                                        "Carried forward from prior run", carry, BigDecimal.ZERO,
-                                        currency, periodStart, lines.size() + 1, null));
-                            }
-                            return loadClaimsPaidLines(payeeType, providerId, memberId, currency, periodStart, periodEnd, lines)
-                                .then(loadCtcAppliedLines(memberId, currency, periodStart, periodEnd, lines))
-                                .then(loadAdvanceAppliedLines(providerId, currency, periodStart, periodEnd, lines))
-                                .then(loadTaxWithheldLines(payeeType, providerId, memberId, currency, periodStart, periodEnd, lines))
-                                .then(loadShortfallLines(payeeType, providerId, memberId, currency, periodStart, periodEnd, lines))
-                                .then(loadNoteLines(payeeType, providerId, memberId, currency,
-                                        periodStart, periodEnd, priorRunId, lines))
-                                .thenReturn(carry);
-                        })
-                        .flatMap(carry -> persistAdvice(run, payeeType, providerId, memberId, payeeName,
-                                currency, periodStart, periodEnd, carry, lines))
-                        .flatMap(this::publishAndAudit);
-                }));
+            .flatMap(payeeName -> resolvePayeePriorPeriodEnd(run, payeeType, providerId, memberId)
+                .flatMap(periodStart -> resolvePriorRunId(run)
+                    .flatMap(priorRunOpt -> {
+                        UUID priorRunId = priorRunOpt.orElse(null);
+                        return loadCarryForward(payeeType, providerId, memberId, currency, run.getId())
+                            .flatMap(carry -> {
+                                if (carry.signum() > 0) {
+                                    lines.add(newLine("CARRY_FORWARD", "payment_run", null,
+                                            "Carried forward from prior run", carry, BigDecimal.ZERO,
+                                            currency, periodStart, lines.size() + 1, null));
+                                }
+                                return loadClaimsPaidLines(payeeType, providerId, memberId, currency, periodStart, periodEnd, lines)
+                                    .then(loadCtcAppliedLines(memberId, currency, periodStart, periodEnd, lines))
+                                    .then(loadAdvanceAppliedLines(providerId, currency, periodStart, periodEnd, lines))
+                                    .then(loadTaxWithheldLines(payeeType, providerId, memberId, currency, periodStart, periodEnd, lines))
+                                    .then(loadShortfallLines(payeeType, providerId, memberId, currency, periodStart, periodEnd, lines))
+                                    .then(loadNoteLines(payeeType, providerId, memberId, currency,
+                                            periodStart, periodEnd, priorRunId, lines))
+                                    .thenReturn(carry);
+                            })
+                            .flatMap(carry -> persistAdvice(run, payeeType, providerId, memberId, payeeName,
+                                    currency, periodStart, periodEnd, carry, lines))
+                            .flatMap(this::publishAndAudit);
+                    })));
     }
 
     /**

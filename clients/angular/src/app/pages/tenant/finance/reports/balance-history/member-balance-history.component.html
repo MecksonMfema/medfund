@@ -7,7 +7,10 @@
     </p>
   </div>
   <div class="header-actions">
-    <app-report-back-button></app-report-back-button>
+    <app-report-back-button
+      label="Back to member"
+      [fallback]="'/tenant/finance/creditors/member/' + memberId"
+    ></app-report-back-button>
     <button
       type="button"
       class="btn btn-primary"
@@ -58,9 +61,26 @@
 }
 
 @if (loading) {
-  <p>Loading…</p>
+  <div class="report-loading" aria-busy="true" aria-live="polite">
+    <div class="report-loading__rows">
+      <app-skeleton variant="table-row"></app-skeleton>
+      <app-skeleton variant="table-row"></app-skeleton>
+      <app-skeleton variant="table-row"></app-skeleton>
+      <app-skeleton variant="table-row"></app-skeleton>
+    </div>
+    <span class="visually-hidden">Loading member balance history…</span>
+  </div>
 } @else if (activeRows.length === 0) {
-  <p>No balance snapshots recorded for this member.</p>
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="file-text" [size]="32"></app-icon>
+    </div>
+    <div class="empty-state__title">No balance snapshots yet</div>
+    <div class="empty-state__description">
+      No executed payment run has recorded a balance for this member.
+      Snapshots appear once the first run touching this member is executed.
+    </div>
+  </div>
 } @else {
   <table class="rate-table">
     <thead>

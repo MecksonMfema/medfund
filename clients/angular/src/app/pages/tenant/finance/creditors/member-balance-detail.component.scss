@@ -1,33 +1,45 @@
-.page { padding: 1.5rem; }
+// Fullbleed shell (route data.fullbleed = true) matching the shape used
+// by /tenant/finance/reports/*, /tenant/finance/runs, and
+// /tenant/finance/reconciliations: header banner + tabs sit flush with
+// the tenant-layout gutter, and body content owns its own 24px padding.
 
+:host { display: block; }
+
+// Matches the receipts-report shell: no flex-wrap on the header so the
+// action cluster stays pinned to the right even on narrower viewports
+// (dropping flex-wrap was the whole regression fix — with it, the
+// cluster wrapped under the title block and read as "actions on the
+// left"). Left block owns min-width: 0 so its content can shrink instead
+// of forcing the actions to overflow off-canvas.
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  margin-bottom: 1.25rem;
-  flex-wrap: wrap;
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.page-header > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .page-header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
 .page-sub { margin: 0; color: var(--color-text-muted, #6b7280); font-size: 0.9rem; }
 .page-sub code { font-family: ui-monospace, "Cascadia Mono", monospace; font-size: 0.85rem; }
 
-.link-back {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--color-text-muted, #6b7280);
-  font-size: 0.85rem;
-  padding: 0;
-  margin-bottom: 0.5rem;
-  display: inline-flex;
+.header-actions {
+  display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 8px;
+  flex-shrink: 0;
 }
-.link-back:hover { color: var(--color-primary, #0077b6); }
 
-.btn-balance-history { margin-left: 0.5rem; }
+.page-body {
+  padding: 1.25rem 24px 2rem;
+}
 
 .tab-body {
   background: var(--color-surface, #fff);

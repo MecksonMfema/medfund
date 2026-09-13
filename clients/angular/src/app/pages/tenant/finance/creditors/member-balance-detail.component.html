@@ -1,24 +1,28 @@
-<div class="page">
-  <header class="page-header">
-    <div>
-      <button class="link-back" (click)="back()">
-        <app-icon name="arrow-left" [size]="14"></app-icon>
-        Back to creditors
-      </button>
-      <button type="button" class="btn btn-primary btn-sm btn-balance-history" (click)="balanceHistory()">
-        <app-icon name="history" [size]="14"></app-icon>
-        Balance history
-      </button>
-      <h1>Member: {{ displayName }}</h1>
-      @if (memberId) {
-        <p class="page-sub"><code>{{ memberId }}</code></p>
-      }
-    </div>
-  </header>
+<header class="page-header">
+  <div>
+    <h1>Member: {{ displayName }}</h1>
+    @if (memberId) {
+      <p class="page-sub"><code>{{ memberId }}</code></p>
+    }
+  </div>
+  <div class="header-actions">
+    <button type="button" class="btn btn-default" (click)="back()">
+      <app-icon name="arrow-left" [size]="14"></app-icon>
+      Back to creditors
+    </button>
+    <button type="button" class="btn btn-primary" (click)="balanceHistory()">
+      <app-icon name="history" [size]="14"></app-icon>
+      Balance history
+    </button>
+  </div>
+</header>
 
-  @if (loading) {
+@if (loading) {
+  <div class="page-body">
     <app-skeleton></app-skeleton>
-  } @else {
+  </div>
+} @else {
+  <div class="page-body">
     <section class="tab-body">
       <h2 class="section-title">Balances</h2>
       @if (balances.length === 0) {
@@ -208,5 +212,5 @@
         }
       </section>
     }
-  }
-</div>
+  </div>
+}

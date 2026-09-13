@@ -167,6 +167,88 @@ class PaymentAdviceServiceTest {
     }
 
     @Test
+    void generateAdvicesForRun_firstTimePayee_windowStartsAtEpoch() {
+        // A payee that has never received a payment advice before must see
+        // period_start_at = EPOCH on their first advice, so every historical
+        // CLAIM_PAID / NOTE / CTC line since forever is enumerated and the
+        // advice net_due tallies to PaymentRunItem.amount (which drains the
+        // period-agnostic outstanding_balance). Guards the silent
+        // under-reporting gap fixed by resolvePayeePriorPeriodEnd.
+        UUID runId = UUID.randomUUID();
+        UUID providerId = UUID.randomUUID();
+        PaymentRun run = mkRun(runId, "USD");
+
+        var item = new PaymentRunItem();
+        item.setId(UUID.randomUUID());
+        item.setPaymentRunId(runId);
+        item.setPayeeType("PROVIDER");
+        item.setProviderId(providerId);
+        item.setAmount(new BigDecimal("500.00"));
+        item.setCurrencyCode("USD");
+
+        when(paymentRunRepository.findById(runId)).thenReturn(Mono.just(run));
+        when(paymentRunRepository.findMostRecentPriorExecuted(anyString(), any(), any()))
+            .thenReturn(Mono.empty());
+        when(paymentRunItemRepository.findByPaymentRunId(runId)).thenReturn(Flux.just(item));
+
+        // All ledger + boundary queries empty — the payee has never been
+        // touched by a prior advice. resolvePayeePriorPeriodEnd hits the
+        // same stub and returns EPOCH via defaultIfEmpty.
+        stubEmptyDb();
+        stubAdviceSaveAndPublish();
+
+        StepVerifier.create(service.generateAdvicesForRun(runId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .assertNext(advice -> assertThat(advice.periodStartAt()).isEqualTo(Instant.EPOCH))
+            .verifyComplete();
+
+        ArgumentCaptor<PaymentAdviceRecord> cap = ArgumentCaptor.forClass(PaymentAdviceRecord.class);
+        verify(adviceRepository).save(cap.capture());
+        assertThat(cap.getValue().getPeriodStartAt()).isEqualTo(Instant.EPOCH);
+        assertThat(cap.getValue().getCarriedInAmount()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void generateAdvicesForRun_repeatPayee_windowStartsAtPriorAdvicePeriodEnd() {
+        // A payee who received a prior advice in the same currency must see
+        // period_start_at = that prior advice's period_end_at — not the
+        // tenant's prior run boundary. Guards against the window growing
+        // wider than needed for repeat payees.
+        UUID runId = UUID.randomUUID();
+        UUID providerId = UUID.randomUUID();
+        Instant priorBoundary = Instant.parse("2026-06-01T00:00:00Z");
+        PaymentRun run = mkRun(runId, "USD");
+
+        var item = new PaymentRunItem();
+        item.setId(UUID.randomUUID());
+        item.setPaymentRunId(runId);
+        item.setPayeeType("PROVIDER");
+        item.setProviderId(providerId);
+        item.setAmount(new BigDecimal("120.00"));
+        item.setCurrencyCode("USD");
+
+        when(paymentRunRepository.findById(runId)).thenReturn(Mono.just(run));
+        when(paymentRunRepository.findMostRecentPriorExecuted(anyString(), any(), any()))
+            .thenReturn(Mono.empty());
+        when(paymentRunItemRepository.findByPaymentRunId(runId)).thenReturn(Flux.just(item));
+
+        // Route the payee-boundary query to return priorBoundary; all other
+        // queries return empty (no ledger lines, no carry-forward — that's
+        // fine, we only care about the window boundary here).
+        stubDbWithBoundary(priorBoundary);
+        stubAdviceSaveAndPublish();
+
+        StepVerifier.create(service.generateAdvicesForRun(runId)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .assertNext(advice -> assertThat(advice.periodStartAt()).isEqualTo(priorBoundary))
+            .verifyComplete();
+
+        ArgumentCaptor<PaymentAdviceRecord> cap = ArgumentCaptor.forClass(PaymentAdviceRecord.class);
+        verify(adviceRepository).save(cap.capture());
+        assertThat(cap.getValue().getPeriodStartAt()).isEqualTo(priorBoundary);
+    }
+
+    @Test
     void regenerateAdvicesForRun_deletesFirstThenBuilds() {
         UUID runId = UUID.randomUUID();
         PaymentRun run = mkRun(runId, "USD");
@@ -193,6 +275,55 @@ class PaymentAdviceServiceTest {
         when(spec.map(any(java.util.function.Function.class))).thenReturn((FetchSpec) fetch);
         when(fetch.one()).thenReturn(Mono.empty());
         when(fetch.all()).thenReturn(Flux.empty());
+    }
+
+    /**
+     * Route the payee-boundary query (SQL containing {@code period_end_at})
+     * to a dedicated FetchSpec that returns {@code boundary}; every other
+     * SQL still returns empty. Keeps the ledger-loading paths quiet so
+     * assertions can focus on the window boundary.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void stubDbWithBoundary(Instant boundary) {
+        var boundarySpec = org.mockito.Mockito.mock(DatabaseClient.GenericExecuteSpec.class);
+        var boundaryFetch = org.mockito.Mockito.mock(FetchSpec.class);
+        when(boundarySpec.bind(anyString(), any())).thenReturn(boundarySpec);
+        when(boundarySpec.map(any(java.util.function.BiFunction.class))).thenReturn(boundaryFetch);
+        when(boundaryFetch.one()).thenReturn(Mono.just(boundary));
+
+        when(db.sql(anyString())).thenAnswer(inv -> {
+            String sql = inv.getArgument(0);
+            return sql != null && sql.contains("period_end_at") ? boundarySpec : spec;
+        });
+        when(spec.bind(anyString(), any())).thenReturn(spec);
+        when(spec.fetch()).thenReturn((FetchSpec) fetch);
+        when(spec.map(any(java.util.function.BiFunction.class))).thenReturn((FetchSpec) fetch);
+        when(spec.map(any(java.util.function.Function.class))).thenReturn((FetchSpec) fetch);
+        when(fetch.one()).thenReturn(Mono.empty());
+        when(fetch.all()).thenReturn(Flux.empty());
+    }
+
+    @SuppressWarnings({"unchecked"})
+    private void stubAdviceSaveAndPublish() {
+        when(adviceRepository.save(any())).thenAnswer(inv -> {
+            PaymentAdviceRecord r = inv.getArgument(0);
+            if (r.getId() == null) r.setId(UUID.randomUUID());
+            return Mono.just(r);
+        });
+        when(adviceLineRepository.saveAll(any(Iterable.class))).thenReturn(Flux.empty());
+        when(adviceRepository.findByPaymentRunIdAndProviderId(any(), any()))
+            .thenAnswer(inv -> {
+                var r = new PaymentAdviceRecord();
+                r.setId(UUID.randomUUID());
+                r.setAdviceNumber("ADV-000001");
+                r.setPaymentRunId(inv.getArgument(0));
+                r.setProviderId(inv.getArgument(1));
+                r.setPayeeType("PROVIDER");
+                r.setNetDueAmount(BigDecimal.ZERO);
+                return Mono.just(r);
+            });
+        when(eventPublisher.publishAdviceGenerated(any(), any())).thenReturn(Mono.empty());
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
     }
 
     private PaymentRun mkRun(UUID id, String currency) {

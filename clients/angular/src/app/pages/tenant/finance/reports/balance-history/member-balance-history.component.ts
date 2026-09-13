@@ -12,6 +12,7 @@ import {
 } from '../../../../../core/services/finance.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import { SkeletonComponent } from '../../../../../shared/components/skeleton/skeleton.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { ToastService } from '../../../../../shared/components/toast/toast.service';
 import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
@@ -25,7 +26,7 @@ import { composeWarningsToast, extractErrorMessage } from '../../../../../core/u
 @Component({
   selector: 'app-member-balance-history',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, ReportBackButtonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, SkeletonComponent, ReportBackButtonComponent],
   templateUrl: './member-balance-history.component.html',
   styleUrl: '../receipts/receipts-report.component.scss',
 })
