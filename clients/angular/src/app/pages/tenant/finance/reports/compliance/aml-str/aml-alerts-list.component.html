@@ -34,7 +34,18 @@
   <div class="banner banner-error" (click)="loadError = null">{{ loadError }}</div>
 }
 
-<div class="table-wrap">
+@if (!loading && rows.length === 0 && !loadError) {
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="shield" [size]="48"></app-icon>
+    </div>
+    <div class="empty-state__title">No alerts in this slice</div>
+    <div class="empty-state__description">
+      Nothing to review. Try a different status filter, or raise a new
+      alert if you have {{ 'compliance:aml_raise' }}.
+    </div>
+  </div>
+} @else {
   <table class="rate-table">
     <thead>
       <tr>
@@ -51,10 +62,6 @@
     <tbody>
       @if (loading) {
         <tr><td colspan="8" class="empty">Loading…</td></tr>
-      } @else if (rows.length === 0) {
-        <tr><td colspan="8" class="empty">
-          No alerts in this slice. Nothing to review.
-        </td></tr>
       } @else {
         @for (row of rows; track row.id) {
           <tr>
@@ -87,7 +94,7 @@
       }
     </tbody>
   </table>
-</div>
+}
 
 <app-raise-aml-alert-modal
   [open]="raiseOpen"

@@ -180,7 +180,7 @@ public class UserServiceClient {
     }
 
     /**
-     * Wire shape for {@link #pmbBeneficiaryCount(LocalDate)} — mirrors
+     * Wire shape for {@link #pmbBeneficiaryCount(LocalDate)}: mirrors
      * {@code com.medfund.user.reports.pmb.controller.PmbSupportController.BeneficiaryCountResponse}.
      */
     public record PmbBeneficiaryCountResponse(

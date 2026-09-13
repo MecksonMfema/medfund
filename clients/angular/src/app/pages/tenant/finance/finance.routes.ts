@@ -7,6 +7,7 @@ import { ACTUARIAL_REPORT_ROUTES } from './reports/actuarial/actuarial.routes';
 import { IFRS17_REPORT_ROUTES } from './reports/ifrs17/ifrs17.routes';
 import { AML_ALERT_ROUTES } from './reports/compliance/aml-str/aml-alerts.routes';
 import { PMB_SPEND_REPORT_ROUTES } from './reports/regulatory/pmb-spend/pmb-spend.routes';
+import { TAX_REPORT_ROUTES } from './reports/regulatory/tax/tax-reports.routes';
 
 const loadComingSoon = () =>
   import('../../../shared/components/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent);
@@ -856,6 +857,12 @@ export const FINANCE_ROUTES: Routes = [
   // jurisdiction + ZA country + PMB_SPEND report toggle + finance:view /
   // finance:export_regulatory permission.
   ...PMB_SPEND_REPORT_ROUTES,
+
+  // ── Tax regulator reports (Phase 16 §C, Phase 20) ───────────────────────
+  // VAT return (ZIMRA VAT7 / SARS VAT201) + tax-withheld return. Backend
+  // gates on country (ZW / ZA) + per-report toggle + finance:view /
+  // finance:export_regulatory permission.
+  ...TAX_REPORT_ROUTES,
 
   // ── Commission reports (Phase 11 §A) ────────────────────────────────────
   {

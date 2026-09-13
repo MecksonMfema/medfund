@@ -1,33 +1,20 @@
-:host { display: block; }
+// Per-page overrides for the AML/STR alerts queue. Shared shell
+// (.page-header / .header-actions / .tx-toolbar / .toolbar-cell /
+// .banner / .rate-table) comes from receipts-report.component.scss via
+// styleUrls, so this file only carries the AML-specific bits: filter
+// cell width, right-aligned total counter, and per-cell table tweaks.
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  padding: 20px 24px;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border-light);
-
-  h1 {
-    margin: 0 0 0.25rem;
-    font-size: var(--font-size-xl);
-  }
-  .page-sub {
-    margin: 0;
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm);
-    max-width: 65ch;
-  }
+.toolbar-cell.cell-select {
+  min-width: 320px;
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
+.toolbar-cell.cell-select app-select {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
+// Right-align the "total" pill so it sits opposite the status filter,
+// matching the layout other queue pages use for a lightweight counter.
 .tx-toolbar .toolbar-cell.right {
   margin-left: auto;
   align-items: flex-end;
@@ -38,40 +25,34 @@
   color: var(--color-text-primary);
 }
 
-.banner {
-  padding: 10px 14px;
-  margin: 12px 24px 0;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-
-  &.banner-error {
-    background: var(--color-error-light);
-    color: #c4162d;
-  }
+// Table cell modifiers reused across the alerts + workflow modals.
+.rate-table td.mono {
+  font-family: ui-monospace, SFMono-Regular, monospace;
 }
-
-.table-wrap {
-  overflow-x: auto;
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  margin: var(--spacing-md) 24px 24px;
+.rate-table td.small {
+  font-size: var(--font-size-xs);
 }
-
-.rate-table td.mono { font-family: ui-monospace, SFMono-Regular, monospace; }
-.rate-table td.small { font-size: var(--font-size-xs); }
 .rate-table td.clip {
   max-width: 380px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.rate-table .muted { color: var(--color-text-muted); font-size: var(--font-size-xs); }
+.rate-table .muted {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
 .rate-table .empty {
   text-align: center;
   color: var(--color-text-muted);
   padding: var(--spacing-xl);
 }
 
-.actions-cell .btn + .btn { margin-left: var(--spacing-xs); }
+.actions-cell .btn + .btn {
+  margin-left: var(--spacing-xs);
+}
+
+.empty-state {
+  margin-top: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+}

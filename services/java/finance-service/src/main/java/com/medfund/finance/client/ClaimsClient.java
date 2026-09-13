@@ -153,13 +153,13 @@ public class ClaimsClient {
 
     /**
      * GET {@code /api/v1/reports/aggregate/pmb-paid?periodStart&periodEnd}
-     * — per-({@code isPmb}, {@code pmbConditionCode}, {@code currencyCode})
+     * returns per-({@code isPmb}, {@code pmbConditionCode}, {@code currencyCode})
      * paid totals for the reporting window. Feeds the real
      * {@code PmbSpendRawDataProvider}: caller buckets each populated
      * condition code via {@code PmbCategory.forCode(...)} and converts
      * non-ZAR amounts through {@code RegulatoryFxPolicy}.
      *
-     * <p>Peer returns a bare JSON array (no envelope wrapper) — same wire
+     * <p>Peer returns a bare JSON array (no envelope wrapper): same wire
      * shape as {@link #claimsIncurred(LocalDate, LocalDate, String, String, UUID)}.
      */
     public Mono<List<PmbPaidAggregateRow>> pmbPaid(LocalDate periodStart, LocalDate periodEnd) {

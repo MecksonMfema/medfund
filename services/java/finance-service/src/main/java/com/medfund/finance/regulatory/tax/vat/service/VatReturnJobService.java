@@ -144,7 +144,8 @@ public class VatReturnJobService {
                                  String actorId, String actorEmail) {
         return markProcessing(saved)
                 .then(shapingService.shape(ReportKey.VAT_RETURN,
-                        tenantId, request.periodStart(), request.periodEnd()))
+                        tenantId, request.periodStart(), request.periodEnd(),
+                        request.reportingCurrency()))
                 .flatMap(data -> maybeArchive(data, request, tenantId, jwt, actorId, actorEmail, saved)
                         .flatMap(submissionId -> writeCompleted(saved, data, submissionId)))
                 .onErrorResume(err -> markFailed(saved, err));
@@ -227,8 +228,12 @@ public class VatReturnJobService {
             return Mono.error(new IllegalStateException(
                     "VAT Return job " + job.getJobId() + " params missing periodStart/periodEnd"));
         }
+        String currency = extractString(job.getParamsJson(), "reportingCurrency");
+        // Persisted "COUNTRY_NATIVE" sentinel means the caller did not pick;
+        // pass null so the shaper falls back to the country default.
+        String override = (currency == null || "COUNTRY_NATIVE".equals(currency)) ? null : currency;
         return shapingService.shape(ReportKey.VAT_RETURN,
-                job.getTenantId(), periodStart, periodEnd);
+                job.getTenantId(), periodStart, periodEnd, override);
     }
 
     /** Retrieve a job with the Rule-2 tenant guard applied. 404 on cross-tenant. */
@@ -259,8 +264,12 @@ public class VatReturnJobService {
         params.put("reportKey", ReportKey.VAT_RETURN.name());
         params.put("periodStart", request.periodStart().toString());
         params.put("periodEnd", request.periodEnd().toString());
-        // Currency is country-native — persist for observability, not for dedupe.
-        params.put("reportingCurrency", "COUNTRY_NATIVE");
+        // Currency scopes the return (picker); dedup keys the choice so
+        // separate ZWG + USD runs in the same window are distinct jobs.
+        params.put("reportingCurrency", request.reportingCurrency() == null
+                || request.reportingCurrency().isBlank()
+                ? "COUNTRY_NATIVE"
+                : request.reportingCurrency().trim().toUpperCase());
         return params;
     }
 
@@ -290,6 +299,18 @@ public class VatReturnJobService {
             Object v = map.get(key);
             if (v == null) return null;
             return LocalDate.parse(v.toString());
+        } catch (Exception e) {
+            log.warn("[vat-job] failed to extract {} from params: {}", key, e.getMessage());
+            return null;
+        }
+    }
+
+    private String extractString(Json json, String key) {
+        if (json == null) return null;
+        try {
+            Map<?, ?> map = objectMapper.readValue(json.asString(), Map.class);
+            Object v = map.get(key);
+            return v != null ? v.toString() : null;
         } catch (Exception e) {
             log.warn("[vat-job] failed to extract {} from params: {}", key, e.getMessage());
             return null;

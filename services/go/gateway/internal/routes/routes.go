@@ -298,6 +298,16 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// delivery email so it cannot require login. Proxied to tenancy-service.
 	app.Post("/api/v1/report-schedule-recipients/unsubscribe/:token", proxy.Handler(cfg.TenancyServiceURL))
 
+	// ── Regulatory reports (Phase 16 §B, Phase 18, Phase 22-23) ──────────────
+	// Covers due-dates banner, AML STR periodic + alert queue, PMB spend,
+	// IPEC quarterly, CMS ASR, NAIC schedule-F / schedule-P, tax VAT /
+	// withheld returns, and regulatory submissions archive. Every path
+	// under these two prefixes is finance-service owned.
+	app.All("/api/v1/reports/regulatory", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/reports/regulatory/*", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/regulatory", proxy.Handler(cfg.FinanceServiceURL))
+	app.All("/api/v1/regulatory/*", proxy.Handler(cfg.FinanceServiceURL))
+
 	// ── Rules Service (per-tenant Drools rules) ───────────────────────────────
 	app.All("/api/v1/rules", proxy.Handler(cfg.RulesServiceURL))
 	app.All("/api/v1/rules/*", proxy.Handler(cfg.RulesServiceURL))

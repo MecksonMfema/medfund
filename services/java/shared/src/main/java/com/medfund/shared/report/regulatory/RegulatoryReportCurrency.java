@@ -54,7 +54,13 @@ public final class RegulatoryReportCurrency {
         };
     }
 
-    /** True when the report's currency follows the tenant's country. */
+    /**
+     * True when the report's currency follows the tenant's country by
+     * default. VAT + WHT retain this classification for the picker's
+     * fallback path (empty pick → country default) even though they also
+     * opt into {@link #supportsCurrencyOverride} so the picker itself can
+     * override.
+     */
     public static boolean isCountryNative(ReportKey key) {
         return switch (key) {
             case AML_STR, TAX_WITHHELD_RETURN, VAT_RETURN -> true;
@@ -63,15 +69,41 @@ public final class RegulatoryReportCurrency {
     }
 
     /**
+     * True when the caller may pick the reporting currency via a picker.
+     * VAT and WHT tenants may operate in multiple currencies (e.g. a
+     * Zimbabwe operation running ZWG and USD side-by-side) and file
+     * separate returns per currency, so the report scopes to whatever
+     * the picker selects rather than a single country-forced currency.
+     */
+    public static boolean supportsCurrencyOverride(ReportKey key) {
+        return switch (key) {
+            case TAX_WITHHELD_RETURN, VAT_RETURN -> true;
+            default -> false;
+        };
+    }
+
+    /**
      * Resolve the reporting currency or throw when neither the fixed nor
      * the country-native map yields a value — a genuine data / config
-     * error (unknown country for an AML/TAX/VAT tenant, or the key is
-     * not a Phase-16 regulator report at all).
+     * error (unknown country for an AML tenant, or the key is not a
+     * Phase-16 regulator report at all).
      */
     public static String resolveOrThrow(ReportKey key, String tenantCountryCode) {
         return fixedFor(key)
                 .or(() -> countryNativeFor(key, tenantCountryCode))
                 .orElseThrow(() -> new IllegalStateException(
                         "No regulator currency for " + key + " country " + tenantCountryCode));
+    }
+
+    /**
+     * Resolve honouring a client picker. When the report supports override
+     * and the caller supplies a non-blank currency, it wins. Otherwise
+     * falls back to {@link #resolveOrThrow(ReportKey, String)}.
+     */
+    public static String resolveWithOverride(ReportKey key, String override, String tenantCountryCode) {
+        if (override != null && !override.isBlank() && supportsCurrencyOverride(key)) {
+            return override.trim().toUpperCase();
+        }
+        return resolveOrThrow(key, tenantCountryCode);
     }
 }

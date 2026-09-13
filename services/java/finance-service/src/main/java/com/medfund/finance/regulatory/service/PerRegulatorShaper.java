@@ -23,10 +23,26 @@ public interface PerRegulatorShaper {
      * Pull raw data via {@code CrossServiceCallHelper} + finance-service
      * repositories, convert monetary values via {@link RegulatoryFxPolicy},
      * assemble into a {@link RegulatoryReportData} whose reporting currency
-     * matches {@link RegulatoryReportCurrency#resolveOrThrow}.
+     * matches {@link com.medfund.shared.report.regulatory.RegulatoryReportCurrency#resolveOrThrow}.
      */
     Mono<RegulatoryReportData> shape(UUID tenantId,
                                      LocalDate periodStart,
                                      LocalDate periodEnd,
                                      String tenantCountryCode);
+
+    /**
+     * Override-aware variant. Shapers whose report is opted into
+     * {@code RegulatoryReportCurrency.supportsCurrencyOverride} (VAT +
+     * WHT today; same tenant may run separate returns per operating
+     * currency) implement this to honour the picker. The default
+     * ignores the override so fixed-currency reports (IPEC/CMS/NAIC/PMB)
+     * and country-native ones (AML) keep their existing contract.
+     */
+    default Mono<RegulatoryReportData> shape(UUID tenantId,
+                                             LocalDate periodStart,
+                                             LocalDate periodEnd,
+                                             String tenantCountryCode,
+                                             String reportingCurrencyOverride) {
+        return shape(tenantId, periodStart, periodEnd, tenantCountryCode);
+    }
 }

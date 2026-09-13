@@ -102,6 +102,10 @@ const REPORT_ROUTES: Record<string, string> = {
   // ── Regulator returns (Phase 16 §B + Phase 18) ────────────────────────────
   PMB_SPEND:                       '/tenant/finance/reports/regulatory/pmb-spend',
 
+  // ── Tax returns (Phase 16 §C + Phase 20) ──────────────────────────────────
+  VAT_RETURN:                      '/tenant/finance/reports/regulatory/tax/vat-return',
+  TAX_WITHHELD_RETURN:             '/tenant/finance/reports/regulatory/tax/withheld-return',
+
   // ── Executive KPI (Phase 18) ──────────────────────────────────────────────
   // Every KPI card deep-links into the shared batch dashboard; individual
   // tile visibility is gated per-key against the tenant's report toggles.

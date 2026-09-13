@@ -42,7 +42,10 @@ import { ReportBackButtonComponent } from '../../shared/report-back-button.compo
     ReportBackButtonComponent,
   ],
   templateUrl: './aml-alerts-list.component.html',
-  styleUrl: './aml-alerts-list.component.scss',
+  styleUrls: [
+    '../../receipts/receipts-report.component.scss',
+    './aml-alerts-list.component.scss',
+  ],
 })
 export class AmlAlertsListComponent implements OnInit {
   readonly pageTitle = 'AML/STR alerts';

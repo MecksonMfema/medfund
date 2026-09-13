@@ -51,8 +51,21 @@ public class TaxWithheldReturnReportShaper implements PerRegulatorShaper {
                                             LocalDate periodStart,
                                             LocalDate periodEnd,
                                             String tenantCountryCode) {
-        String currency = RegulatoryReportCurrency.resolveOrThrow(
-                ReportKey.TAX_WITHHELD_RETURN, tenantCountryCode);
+        return shape(tenantId, periodStart, periodEnd, tenantCountryCode, null);
+    }
+
+    @Override
+    public Mono<RegulatoryReportData> shape(UUID tenantId,
+                                            LocalDate periodStart,
+                                            LocalDate periodEnd,
+                                            String tenantCountryCode,
+                                            String reportingCurrencyOverride) {
+        // Currency picker scopes the return: a tenant that withholds on
+        // both ZWG and USD payments files two returns, one per currency,
+        // each in native units. Override wins when supplied; otherwise
+        // fall back to the country default (ZWL / ZAR).
+        String currency = RegulatoryReportCurrency.resolveWithOverride(
+                ReportKey.TAX_WITHHELD_RETURN, reportingCurrencyOverride, tenantCountryCode);
         return Mono.zip(
                         rawDataProvider.load(tenantId, periodStart, periodEnd),
                         rateReader.resolve(tenantId, tenantCountryCode, currency, periodEnd))

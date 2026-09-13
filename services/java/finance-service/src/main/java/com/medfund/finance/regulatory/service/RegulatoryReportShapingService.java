@@ -55,14 +55,18 @@ public class RegulatoryReportShapingService {
 
     /**
      * Reject a client-supplied {@code reportingCurrency} for Phase 16 keys
-     * — the regulator dictates the currency, tenants cannot override.
-     * Surfaced as HTTP 422 so callers know it's a request-shape error
-     * (400 would suggest "malformed", which is misleading).
+     * whose currency the regulator dictates. Reports opted into
+     * {@link RegulatoryReportCurrency#supportsCurrencyOverride} (VAT + WHT)
+     * skip the check: multi-currency tenants file separate returns per
+     * operating currency and the picker scopes each run. Fixed-currency
+     * (IPEC / CMS / NAIC / PMB) and remaining country-native (AML) keys
+     * still 422 on any non-blank override.
      */
     public static void rejectClientCurrencyOverride(ReportKey key, String override) {
-        if (override != null && !override.isBlank()
-                && (RegulatoryReportCurrency.fixedFor(key).isPresent()
-                        || RegulatoryReportCurrency.isCountryNative(key))) {
+        if (override == null || override.isBlank()) return;
+        if (RegulatoryReportCurrency.supportsCurrencyOverride(key)) return;
+        if (RegulatoryReportCurrency.fixedFor(key).isPresent()
+                || RegulatoryReportCurrency.isCountryNative(key)) {
             throw new ResponseStatusException(
                     HttpStatus.UNPROCESSABLE_ENTITY,
                     "reportingCurrency is not overridable for regulator report " + key.name()
@@ -80,6 +84,22 @@ public class RegulatoryReportShapingService {
                                             UUID tenantId,
                                             LocalDate periodStart,
                                             LocalDate periodEnd) {
+        return shape(key, tenantId, periodStart, periodEnd, null);
+    }
+
+    /**
+     * Overload accepting a client-supplied {@code reportingCurrency}. Shapers
+     * whose report is opted into
+     * {@link RegulatoryReportCurrency#supportsCurrencyOverride} pick it up;
+     * others ignore it. Callers still need to invoke
+     * {@link #rejectClientCurrencyOverride} first so a fixed-currency report
+     * refuses an override with 422 before ever reaching the shaper.
+     */
+    public Mono<RegulatoryReportData> shape(ReportKey key,
+                                            UUID tenantId,
+                                            LocalDate periodStart,
+                                            LocalDate periodEnd,
+                                            String reportingCurrencyOverride) {
         PerRegulatorShaper shaper = shapers.get(key);
         if (shaper == null) {
             return Mono.error(new ResponseStatusException(
@@ -88,7 +108,8 @@ public class RegulatoryReportShapingService {
                             + " - Phase 16 sub-phase not yet shipped."));
         }
         return tenantMetadata.load(tenantId)
-                .flatMap(meta -> shaper.shape(tenantId, periodStart, periodEnd, meta.countryCode()));
+                .flatMap(meta -> shaper.shape(tenantId, periodStart, periodEnd,
+                        meta.countryCode(), reportingCurrencyOverride));
     }
 
     /** Visible for tests + phase-10+ controllers that need to know which keys are wired. */

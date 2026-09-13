@@ -28,12 +28,12 @@ import java.util.UUID;
  * a single {@link PmbSpendRawData}:
  *
  * <ol>
- *   <li>claims-service {@code /aggregate/pmb-paid} — per
+ *   <li>claims-service {@code /aggregate/pmb-paid}: per
  *       ({@code isPmb}, {@code pmbConditionCode}, {@code currencyCode})
  *       paid totals + counts</li>
- *   <li>user-service {@code /reports/pmb/beneficiary-count} — principal
+ *   <li>user-service {@code /reports/pmb/beneficiary-count}: principal
  *       members + dependants active on the reporting period end</li>
- *   <li>{@link PmbSchemeIdentityReader} — scheme name + registration
+ *   <li>{@link PmbSchemeIdentityReader}: scheme name + registration
  *       number for the report's meta section</li>
  * </ol>
  *

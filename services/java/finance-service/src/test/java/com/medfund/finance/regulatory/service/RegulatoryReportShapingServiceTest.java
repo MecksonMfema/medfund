@@ -114,9 +114,19 @@ class RegulatoryReportShapingServiceTest {
 
     @Test
     void rejectClientCurrencyOverride_countryNativeOverride_throws422() {
+        // AML_STR is country-native and NOT opted into supportsCurrencyOverride,
+        // so an override is still 422'd. (VAT + WHT opt in; a picker value is
+        // accepted there; see the tax job-service tests for that behaviour.)
         assertThatThrownBy(() -> RegulatoryReportShapingService.rejectClientCurrencyOverride(
-                ReportKey.VAT_RETURN, "EUR"))
+                ReportKey.AML_STR, "EUR"))
                 .isInstanceOf(ResponseStatusException.class);
+    }
+
+    @Test
+    void rejectClientCurrencyOverride_overrideOptedInReports_passes() {
+        // VAT + WHT support the picker: an override is accepted (no 422).
+        RegulatoryReportShapingService.rejectClientCurrencyOverride(ReportKey.VAT_RETURN, "USD");
+        RegulatoryReportShapingService.rejectClientCurrencyOverride(ReportKey.TAX_WITHHELD_RETURN, "ZWG");
     }
 
     @Test

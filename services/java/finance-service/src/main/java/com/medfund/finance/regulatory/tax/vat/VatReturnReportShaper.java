@@ -54,8 +54,21 @@ public class VatReturnReportShaper implements PerRegulatorShaper {
                                             LocalDate periodStart,
                                             LocalDate periodEnd,
                                             String tenantCountryCode) {
-        String currency = RegulatoryReportCurrency.resolveOrThrow(
-                ReportKey.VAT_RETURN, tenantCountryCode);
+        return shape(tenantId, periodStart, periodEnd, tenantCountryCode, null);
+    }
+
+    @Override
+    public Mono<RegulatoryReportData> shape(UUID tenantId,
+                                            LocalDate periodStart,
+                                            LocalDate periodEnd,
+                                            String tenantCountryCode,
+                                            String reportingCurrencyOverride) {
+        // Currency picker scopes the report: a tenant operating ZWG + USD
+        // side by side files two returns, one per currency, each in native
+        // units. The override wins when supplied; otherwise fall back to
+        // the country default (ZWL / ZAR).
+        String currency = RegulatoryReportCurrency.resolveWithOverride(
+                ReportKey.VAT_RETURN, reportingCurrencyOverride, tenantCountryCode);
         return Mono.zip(
                         rawDataProvider.load(tenantId, periodStart, periodEnd),
                         rateReader.resolve(tenantId, tenantCountryCode, currency, periodEnd))

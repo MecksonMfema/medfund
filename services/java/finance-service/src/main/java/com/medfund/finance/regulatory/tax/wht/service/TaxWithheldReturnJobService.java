@@ -138,7 +138,8 @@ public class TaxWithheldReturnJobService {
                                  String actorId, String actorEmail) {
         return markProcessing(saved)
                 .then(shapingService.shape(ReportKey.TAX_WITHHELD_RETURN,
-                        tenantId, request.periodStart(), request.periodEnd()))
+                        tenantId, request.periodStart(), request.periodEnd(),
+                        request.reportingCurrency()))
                 .flatMap(data -> maybeArchive(data, request, tenantId, jwt, actorId, actorEmail, saved)
                         .flatMap(submissionId -> writeCompleted(saved, data, submissionId)))
                 .onErrorResume(err -> markFailed(saved, err));
@@ -221,8 +222,12 @@ public class TaxWithheldReturnJobService {
             return Mono.error(new IllegalStateException(
                     "Tax-Withheld Return job " + job.getJobId() + " params missing periodStart/periodEnd"));
         }
+        String currency = extractString(job.getParamsJson(), "reportingCurrency");
+        // Persisted "COUNTRY_NATIVE" sentinel means the caller did not pick;
+        // downstream falls back to the country default when we pass null.
+        String override = (currency == null || "COUNTRY_NATIVE".equals(currency)) ? null : currency;
         return shapingService.shape(ReportKey.TAX_WITHHELD_RETURN,
-                job.getTenantId(), periodStart, periodEnd);
+                job.getTenantId(), periodStart, periodEnd, override);
     }
 
     public Mono<ReportJob> get(UUID jobId, UUID tenantId) {
@@ -252,7 +257,12 @@ public class TaxWithheldReturnJobService {
         params.put("reportKey", ReportKey.TAX_WITHHELD_RETURN.name());
         params.put("periodStart", request.periodStart().toString());
         params.put("periodEnd", request.periodEnd().toString());
-        params.put("reportingCurrency", "COUNTRY_NATIVE");
+        // Currency scopes the return (picker); dedup keys the choice so
+        // separate ZWG + USD runs in the same window are distinct jobs.
+        params.put("reportingCurrency", request.reportingCurrency() == null
+                || request.reportingCurrency().isBlank()
+                ? "COUNTRY_NATIVE"
+                : request.reportingCurrency().trim().toUpperCase());
         return params;
     }
 
@@ -282,6 +292,18 @@ public class TaxWithheldReturnJobService {
             Object v = map.get(key);
             if (v == null) return null;
             return LocalDate.parse(v.toString());
+        } catch (Exception e) {
+            log.warn("[wht-job] failed to extract {} from params: {}", key, e.getMessage());
+            return null;
+        }
+    }
+
+    private String extractString(Json json, String key) {
+        if (json == null) return null;
+        try {
+            Map<?, ?> map = objectMapper.readValue(json.asString(), Map.class);
+            Object v = map.get(key);
+            return v != null ? v.toString() : null;
         } catch (Exception e) {
             log.warn("[wht-job] failed to extract {} from params: {}", key, e.getMessage());
             return null;

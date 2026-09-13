@@ -61,16 +61,27 @@ class VatReturnJobServiceTest {
     }
 
     @Test
-    void submit_rejectsClientCurrencyOverride_with422() {
-        VatReturnReportRequest override = new VatReturnReportRequest(PERIOD_START, PERIOD_END,
-                "USD", false, null);
+    void submit_acceptsCurrencyPicker_multiCurrencyTenantsFileSeparateReturns() {
+        // VAT + WHT opt into RegulatoryReportCurrency.supportsCurrencyOverride
+        // so a picker value (e.g. USD when the tenant also files in ZWG) is
+        // no longer 422'd; the picker scopes the return to that currency.
+        when(jobRepository.findFirstByTenantIdAndParamsHashAndStatusInOrderByRequestedAtDesc(
+                eq(TENANT), any(), anyList()))
+                .thenReturn(Mono.empty());
+        when(jobRepository.save(any(ReportJob.class))).thenAnswer(inv -> {
+            ReportJob r = inv.getArgument(0);
+            if (r.getJobId() == null) r.setJobId(UUID.randomUUID());
+            return Mono.just(r);
+        });
+        when(shapingService.shape(eq(ReportKey.VAT_RETURN),
+                eq(TENANT), eq(PERIOD_START), eq(PERIOD_END), any()))
+                .thenReturn(Mono.just(emptyData()));
 
-        StepVerifier.create(service.submit(override, TENANT, null, ACTOR.toString(), ACTOR_EMAIL))
-                .expectErrorSatisfies(err -> {
-                    assertThat(err).isInstanceOf(ResponseStatusException.class);
-                    assertThat(((ResponseStatusException) err).getStatusCode().value()).isEqualTo(422);
-                })
-                .verify();
+        VatReturnReportRequest picked = new VatReturnReportRequest(PERIOD_START, PERIOD_END,
+                "USD", false, null);
+        StepVerifier.create(service.submit(picked, TENANT, null, ACTOR.toString(), ACTOR_EMAIL))
+                .assertNext(resp -> assertThat(resp.deduplicated()).isFalse())
+                .verifyComplete();
     }
 
     @Test
@@ -102,7 +113,7 @@ class VatReturnJobServiceTest {
             return Mono.just(r);
         });
         when(shapingService.shape(eq(ReportKey.VAT_RETURN),
-                eq(TENANT), eq(PERIOD_START), eq(PERIOD_END)))
+                eq(TENANT), eq(PERIOD_START), eq(PERIOD_END), any()))
                 .thenReturn(Mono.just(emptyData()));
 
         VatReturnReportRequest req = new VatReturnReportRequest(PERIOD_START, PERIOD_END, null, false, null);
@@ -120,7 +131,7 @@ class VatReturnJobServiceTest {
         ReportJob row = jobRow(UUID.randomUUID(), VatReturnJobService.STATUS_REQUESTED);
         when(jobRepository.save(any(ReportJob.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(shapingService.shape(eq(ReportKey.VAT_RETURN),
-                eq(TENANT), eq(PERIOD_START), eq(PERIOD_END)))
+                eq(TENANT), eq(PERIOD_START), eq(PERIOD_END), any()))
                 .thenReturn(Mono.just(emptyData()));
 
         VatReturnReportRequest req = new VatReturnReportRequest(PERIOD_START, PERIOD_END, null, false, null);
@@ -142,7 +153,7 @@ class VatReturnJobServiceTest {
         ReportJob row = jobRow(UUID.randomUUID(), VatReturnJobService.STATUS_REQUESTED);
         when(jobRepository.save(any(ReportJob.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
         when(shapingService.shape(eq(ReportKey.VAT_RETURN),
-                eq(TENANT), eq(PERIOD_START), eq(PERIOD_END)))
+                eq(TENANT), eq(PERIOD_START), eq(PERIOD_END), any()))
                 .thenReturn(Mono.just(emptyData()));
         when(xlsxService.render(eq(TENANT), any(RegulatoryReportData.class)))
                 .thenReturn(Mono.just(new VatXlsxService.VatRenderResult(
@@ -171,7 +182,7 @@ class VatReturnJobServiceTest {
     void computeChain_shapingError_flipsToFailed() {
         ReportJob row = jobRow(UUID.randomUUID(), VatReturnJobService.STATUS_REQUESTED);
         when(jobRepository.save(any(ReportJob.class))).thenAnswer(inv -> Mono.just(inv.getArgument(0)));
-        when(shapingService.shape(any(), any(), any(), any()))
+        when(shapingService.shape(any(), any(), any(), any(), any()))
                 .thenReturn(Mono.error(new IllegalStateException("FX rate missing for ZAR")));
 
         VatReturnReportRequest req = new VatReturnReportRequest(PERIOD_START, PERIOD_END, null, false, null);
@@ -215,8 +226,10 @@ class VatReturnJobServiceTest {
                         + "\"periodStart\":\"2026-04-01\","
                         + "\"periodEnd\":\"2026-06-30\","
                         + "\"reportingCurrency\":\"COUNTRY_NATIVE\"}"));
+        // COUNTRY_NATIVE sentinel → reshape passes null override so the
+        // shaper falls back to the tenant's country default.
         when(shapingService.shape(ReportKey.VAT_RETURN,
-                TENANT, PERIOD_START, PERIOD_END))
+                TENANT, PERIOD_START, PERIOD_END, null))
                 .thenReturn(Mono.just(emptyData()));
 
         StepVerifier.create(service.reshapeFromJob(row))

@@ -5,7 +5,7 @@ import { ApiService } from './api.service';
 /**
  * Client for finance-service's PMB Spend async job orchestrator at
  * {@code /api/v1/reports/regulatory/pmb/spend/*}. Same submit → poll →
- * XLSX shape as the IFRS 17 client — poll status via
+ * XLSX shape as the IFRS 17 client: poll status via
  * {@code ReportJobPollingService} and hit {@link #exportXlsxUrl} once
  * the job flips to {@code completed}.
  *
@@ -16,7 +16,7 @@ export interface PmbSpendReportRequest {
   periodStart: string;
   periodEnd: string;
   /** Archive the composed XLSX to regulatory_submission (requires fresh
-   *  MFA). Defaults to false — dry-run export for review. */
+   *  MFA). Defaults to false: dry-run export for review. */
   submit?: boolean;
   attestationNote?: string | null;
 }

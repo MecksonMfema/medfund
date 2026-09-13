@@ -150,7 +150,7 @@ public class ClaimsAggregateQueryRepository {
      * claims. Non-paid claims drop out so the aggregate only reflects
      * money that actually moved.
      *
-     * <p>Period clock is {@code adjudicated_at} — same convention as the
+     * <p>Period clock is {@code adjudicated_at}: same convention as the
      * incurred-claims aggregate. Rows with {@code is_pmb = FALSE} carry
      * {@code pmb_condition_code = NULL}; the caller sums those into the
      * non-PMB bucket.

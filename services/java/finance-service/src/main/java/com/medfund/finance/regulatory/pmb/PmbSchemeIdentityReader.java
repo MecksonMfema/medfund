@@ -11,7 +11,7 @@ import java.util.UUID;
  * regulator-id table (or a JSON settings blob) can register its own
  * {@code @Primary @Component} without rewriting the provider.
  *
- * <p>Mirrors the AML pattern —
+ * <p>Mirrors the AML pattern :
  * {@code com.medfund.finance.regulatory.aml.AmlFilingIdentityReader}.
  */
 public interface PmbSchemeIdentityReader {

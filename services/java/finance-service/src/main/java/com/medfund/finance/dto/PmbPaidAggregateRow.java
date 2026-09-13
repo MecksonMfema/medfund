@@ -3,7 +3,7 @@ package com.medfund.finance.dto;
 import java.math.BigDecimal;
 
 /**
- * Finance-side parallel of {@code claims.dto.PmbPaidAggregateRow} — one
+ * Finance-side parallel of {@code claims.dto.PmbPaidAggregateRow}: one
  * row of the {@code /aggregate/pmb-paid} feed consumed by the real
  * {@code PmbSpendRawDataProvider}. Aggregates {@code SUM(paid_amount) +
  * COUNT(*)} on the tenant's claims table for the reporting window,
