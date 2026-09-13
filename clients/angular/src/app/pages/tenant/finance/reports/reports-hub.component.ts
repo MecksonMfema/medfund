@@ -99,6 +99,9 @@ const REPORT_ROUTES: Record<string, string> = {
   // ── Compliance (Phase 22-23) ──────────────────────────────────────────────
   AML_STR:                         '/tenant/finance/reports/compliance/aml-str/alerts',
 
+  // ── Regulator returns (Phase 16 §B + Phase 18) ────────────────────────────
+  PMB_SPEND:                       '/tenant/finance/reports/regulatory/pmb-spend',
+
   // ── Executive KPI (Phase 18) ──────────────────────────────────────────────
   // Every KPI card deep-links into the shared batch dashboard; individual
   // tile visibility is gated per-key against the tenant's report toggles.

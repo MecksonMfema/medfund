@@ -1,6 +1,7 @@
 package com.medfund.claims.service;
 
 import com.medfund.claims.dto.ClaimsIncurredAggregateRow;
+import com.medfund.claims.dto.PmbPaidAggregateRow;
 import com.medfund.claims.repository.ClaimsAggregateQueryRepository;
 import com.medfund.claims.repository.ClaimsAggregateQueryRepository.Dimension;
 import lombok.RequiredArgsConstructor;
@@ -35,5 +36,12 @@ public class ClaimsAggregateService {
                 .collectList()
                 .doOnNext(rows -> log.debug("claims-incurred aggregate: {} rows for {}..{} dim={}",
                         rows.size(), periodStart, periodEnd, dimension));
+    }
+
+    public Mono<List<PmbPaidAggregateRow>> pmbPaid(LocalDate periodStart, LocalDate periodEnd) {
+        return queryRepository.pmbPaid(periodStart, periodEnd)
+                .collectList()
+                .doOnNext(rows -> log.debug("pmb-paid aggregate: {} rows for {}..{}",
+                        rows.size(), periodStart, periodEnd));
     }
 }

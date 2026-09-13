@@ -1,0 +1,22 @@
+// Per-page overrides for the PMB spend report. Mirrors the polish on
+// the reinsurance + commission pages: wider date cells so labels never
+// truncate, the job-progress card gets breathing room, and the
+// empty-state block sits away from the toolbar / progress fold.
+
+.toolbar-cell.cell-date {
+  min-width: 220px;
+}
+
+.toolbar-cell.toolbar-cell-cta {
+  align-self: flex-end;
+}
+
+.ajp-slot {
+  margin-top: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.empty-state {
+  margin-top: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+}

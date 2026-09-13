@@ -152,6 +152,43 @@ public class UserServiceClient {
     }
 
     /**
+     * GET {@code /api/v1/reports/pmb/beneficiary-count?asOfDate=…}. Returns
+     * principal-member + dependant counts active on the given date. Feeds
+     * the PMB Spend report's per-beneficiary ratio.
+     */
+    public Mono<PmbBeneficiaryCountResponse> pmbBeneficiaryCount(LocalDate asOfDate) {
+        return Mono.deferContextual(ctx -> {
+            String tenantId = TenantContext.get(ctx);
+            return http.get()
+                    .uri(uri -> uri.path("/api/v1/reports/pmb/beneficiary-count")
+                            .queryParam("asOfDate", asOfDate.toString())
+                            .build())
+                    .header("X-Tenant-ID", tenantId != null ? tenantId : "")
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .map(this::decodeBeneficiaryCount);
+        });
+    }
+
+    private PmbBeneficiaryCountResponse decodeBeneficiaryCount(String body) {
+        try {
+            return objectMapper.readValue(body, PmbBeneficiaryCountResponse.class);
+        } catch (Exception e) {
+            log.warn("[user-service] failed to decode pmb beneficiary-count body: {}", e.getMessage());
+            return new PmbBeneficiaryCountResponse(0L, 0L, 0L);
+        }
+    }
+
+    /**
+     * Wire shape for {@link #pmbBeneficiaryCount(LocalDate)} — mirrors
+     * {@code com.medfund.user.reports.pmb.controller.PmbSupportController.BeneficiaryCountResponse}.
+     */
+    public record PmbBeneficiaryCountResponse(
+            long principalMembers,
+            long dependants,
+            long totalBeneficiaries) {}
+
+    /**
      * Wire shape for a single cohort row — matches
      * {@code com.medfund.user.reports.lifecycle.dto.PersistencyCohortRow} on
      * the user-service side. Kept local to avoid a shared-module coupling.

@@ -6,6 +6,7 @@ import { POLICY_LIFECYCLE_REPORT_ROUTES } from './reports/policy-lifecycle/polic
 import { ACTUARIAL_REPORT_ROUTES } from './reports/actuarial/actuarial.routes';
 import { IFRS17_REPORT_ROUTES } from './reports/ifrs17/ifrs17.routes';
 import { AML_ALERT_ROUTES } from './reports/compliance/aml-str/aml-alerts.routes';
+import { PMB_SPEND_REPORT_ROUTES } from './reports/regulatory/pmb-spend/pmb-spend.routes';
 
 const loadComingSoon = () =>
   import('../../../shared/components/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent);
@@ -848,6 +849,13 @@ export const FINANCE_ROUTES: Routes = [
   // future compliance surfaces (Phase 25 periodic AML summary etc.) under
   // the same parent.
   ...AML_ALERT_ROUTES,
+
+  // ── PMB spend regulator report (Phase 16 §B, Phase 18) ──────────────────
+  // Async submit → poll → download-XLSX page for the CMS Prescribed Minimum
+  // Benefit annual spend return. Backend gates on ZA_CMS_MEDICAL_SCHEME
+  // jurisdiction + ZA country + PMB_SPEND report toggle + finance:view /
+  // finance:export_regulatory permission.
+  ...PMB_SPEND_REPORT_ROUTES,
 
   // ── Commission reports (Phase 11 §A) ────────────────────────────────────
   {

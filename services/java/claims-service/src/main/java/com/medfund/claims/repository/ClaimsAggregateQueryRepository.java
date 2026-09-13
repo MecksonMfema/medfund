@@ -1,6 +1,7 @@
 package com.medfund.claims.repository;
 
 import com.medfund.claims.dto.ClaimsIncurredAggregateRow;
+import com.medfund.claims.dto.PmbPaidAggregateRow;
 import lombok.RequiredArgsConstructor;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Repository;
@@ -141,4 +142,44 @@ public class ClaimsAggregateQueryRepository {
     }
 
     private static final String RESERVE_HISTORY_TABLE = "claim_reserve_history";
+
+    /**
+     * PMB paid aggregate. One row per distinct
+     * ({@code is_pmb}, {@code pmb_condition_code}, {@code currency_code})
+     * triple over the period, summing {@code paid_amount} and counting
+     * claims. Non-paid claims drop out so the aggregate only reflects
+     * money that actually moved.
+     *
+     * <p>Period clock is {@code adjudicated_at} — same convention as the
+     * incurred-claims aggregate. Rows with {@code is_pmb = FALSE} carry
+     * {@code pmb_condition_code = NULL}; the caller sums those into the
+     * non-PMB bucket.
+     */
+    public Flux<PmbPaidAggregateRow> pmbPaid(LocalDate periodStart, LocalDate periodEnd) {
+        String sql = """
+                SELECT COALESCE(is_pmb, FALSE)      AS is_pmb,
+                       pmb_condition_code           AS pmb_condition_code,
+                       currency_code                AS currency_code,
+                       COALESCE(SUM(paid_amount), 0) AS paid_amount,
+                       COUNT(*)                     AS claim_count
+                  FROM claims
+                 WHERE adjudicated_at >= :periodStart
+                   AND adjudicated_at <  :periodEnd
+                   AND COALESCE(paid_amount, 0) > 0
+                 GROUP BY COALESCE(is_pmb, FALSE), pmb_condition_code, currency_code
+                 ORDER BY is_pmb DESC, pmb_condition_code NULLS LAST, currency_code
+                """;
+        return databaseClient.sql(sql)
+                .bind("periodStart", periodStart)
+                .bind("periodEnd", periodEnd)
+                .map((row, meta) -> new PmbPaidAggregateRow(
+                        row.get("is_pmb", Boolean.class),
+                        row.get("pmb_condition_code", String.class),
+                        row.get("currency_code", String.class),
+                        nz(row.get("paid_amount", BigDecimal.class)),
+                        row.get("claim_count", Long.class) != null
+                                ? row.get("claim_count", Long.class)
+                                : 0L))
+                .all();
+    }
 }

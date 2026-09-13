@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.medfund.finance.dto.ClaimsAggregateRow;
 import com.medfund.finance.dto.ClaimsIncurredAggregateRow;
+import com.medfund.finance.dto.PmbPaidAggregateRow;
 import com.medfund.finance.reinsurance.dto.FacultativeCandidateRow;
 import com.medfund.shared.report.MonthlyAggregateRow;
 import com.medfund.shared.report.ReportResponse;
@@ -146,6 +147,45 @@ public class ClaimsClient {
             return rows != null ? rows : List.of();
         } catch (Exception e) {
             log.warn("[claims-client] failed to decode claims-incurred array: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
+     * GET {@code /api/v1/reports/aggregate/pmb-paid?periodStart&periodEnd}
+     * — per-({@code isPmb}, {@code pmbConditionCode}, {@code currencyCode})
+     * paid totals for the reporting window. Feeds the real
+     * {@code PmbSpendRawDataProvider}: caller buckets each populated
+     * condition code via {@code PmbCategory.forCode(...)} and converts
+     * non-ZAR amounts through {@code RegulatoryFxPolicy}.
+     *
+     * <p>Peer returns a bare JSON array (no envelope wrapper) — same wire
+     * shape as {@link #claimsIncurred(LocalDate, LocalDate, String, String, UUID)}.
+     */
+    public Mono<List<PmbPaidAggregateRow>> pmbPaid(LocalDate periodStart, LocalDate periodEnd) {
+        return Mono.deferContextual(ctx -> {
+            String tenantId = TenantContext.get(ctx);
+            return currentBearerToken().defaultIfEmpty("").flatMap(token -> {
+                var spec = http.get()
+                        .uri(uri -> uri.path("/api/v1/reports/aggregate/pmb-paid")
+                                .queryParam("periodStart", periodStart.toString())
+                                .queryParam("periodEnd",   periodEnd.toString())
+                                .build())
+                        .header("X-Tenant-ID", tenantId != null ? tenantId : "");
+                if (!token.isEmpty()) spec = spec.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+                return spec.retrieve()
+                        .bodyToMono(String.class)
+                        .map(this::extractPmbPaidRows);
+            });
+        });
+    }
+
+    private List<PmbPaidAggregateRow> extractPmbPaidRows(String body) {
+        try {
+            List<PmbPaidAggregateRow> rows = objectMapper.readValue(body, new TypeReference<>() {});
+            return rows != null ? rows : List.of();
+        } catch (Exception e) {
+            log.warn("[claims-client] failed to decode pmb-paid array: {}", e.getMessage());
             return List.of();
         }
     }

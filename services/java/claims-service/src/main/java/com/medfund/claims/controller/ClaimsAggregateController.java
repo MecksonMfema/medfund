@@ -2,6 +2,7 @@ package com.medfund.claims.controller;
 
 import com.medfund.claims.dto.ClaimsAggregateRow;
 import com.medfund.claims.dto.ClaimsIncurredAggregateRow;
+import com.medfund.claims.dto.PmbPaidAggregateRow;
 import com.medfund.claims.repository.ClaimsAggregateQueryRepository.Dimension;
 import com.medfund.claims.service.ClaimsAggregateService;
 import com.medfund.claims.service.ClaimsReportService;
@@ -115,5 +116,21 @@ public class ClaimsAggregateController {
                 dimension,
                 insuranceLine,
                 schemeId);
+    }
+
+    @GetMapping("/pmb-paid")
+    @RequiresPermission(Permissions.CLAIMS_READ_AGGREGATE)
+    @Operation(summary = "PMB paid aggregate per (isPmb, pmbConditionCode, currency)",
+            description = "Feeds the finance-service PMB Spend regulator report shaper. One row per "
+                        + "distinct triple in the reporting window; caller transposes pmbConditionCode "
+                        + "into PmbCategory rollups and converts non-ZAR paidAmount downstream. "
+                        + "Period clock is claims.adjudicated_at. Non-paid claims (paid_amount NULL or "
+                        + "zero) drop out.")
+    public Mono<List<PmbPaidAggregateRow>> pmbPaid(
+            @RequestParam String periodStart,
+            @RequestParam String periodEnd) {
+        return claimsAggregateService.pmbPaid(
+                LocalDate.parse(periodStart),
+                LocalDate.parse(periodEnd));
     }
 }
