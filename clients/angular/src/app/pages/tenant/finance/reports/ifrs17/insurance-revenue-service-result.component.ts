@@ -61,7 +61,10 @@ interface PortfolioBucket {
     ReportBackButtonComponent,
   ],
   templateUrl: './insurance-revenue-service-result.component.html',
-  styleUrls: ['./ifrs17-reports.scss'],
+  styleUrls: [
+    '../receipts/receipts-report.component.scss',
+    './ifrs17-reports.scss',
+  ],
 })
 export class InsuranceRevenueServiceResultComponent implements OnInit, OnDestroy {
   readonly reportKey = 'IFRS17_INSURANCE_REVENUE_SERVICE_RESULT';

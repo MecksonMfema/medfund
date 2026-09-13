@@ -87,7 +87,7 @@ export class KpiTileComponent {
 
   get basisTooltip(): string {
     if (this.basisNote === 'MIXED_LOSS_EARNED_EXPENSE_WRITTEN') {
-      return 'Mixed basis: loss ratio on earned premium, expense ratio on written premium (NAIC convention).';
+      return 'Mixed basis: loss ratio on earned premium, expense ratio on written premium.';
     }
     return this.basisNote ?? '';
   }

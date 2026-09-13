@@ -32,8 +32,6 @@ public final class ReportCadenceCatalog {
         Map<ReportKey, CadenceInfo> m = new EnumMap<>(ReportKey.class);
         m.put(ReportKey.IPEC_QUARTERLY_RETURN, new CadenceInfo(ReportCadence.QUARTERLY, 30));
         m.put(ReportKey.CMS_ASR,               new CadenceInfo(ReportCadence.ANNUAL,    180));
-        m.put(ReportKey.NAIC_SCHEDULE_P,       new CadenceInfo(ReportCadence.ANNUAL,    60));
-        m.put(ReportKey.NAIC_SCHEDULE_F,       new CadenceInfo(ReportCadence.ANNUAL,    60));
         m.put(ReportKey.PMB_SPEND,             new CadenceInfo(ReportCadence.ANNUAL,    180));
         m.put(ReportKey.TAX_WITHHELD_RETURN,   new CadenceInfo(ReportCadence.MONTHLY,   15));
         m.put(ReportKey.VAT_RETURN,            new CadenceInfo(ReportCadence.MONTHLY,   25));

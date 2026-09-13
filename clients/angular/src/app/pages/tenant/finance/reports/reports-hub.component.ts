@@ -99,7 +99,8 @@ const REPORT_ROUTES: Record<string, string> = {
   // ── Compliance (Phase 22-23) ──────────────────────────────────────────────
   AML_STR:                         '/tenant/finance/reports/compliance/aml-str/alerts',
 
-  // ── Regulator returns (Phase 16 §B + Phase 18) ────────────────────────────
+  // ── Regulator returns (Phase 16 §A + §B, Phase 10, Phase 18) ──────────────
+  IPEC_QUARTERLY_RETURN:           '/tenant/finance/reports/regulatory/ipec/quarterly-return',
   PMB_SPEND:                       '/tenant/finance/reports/regulatory/pmb-spend',
 
   // ── Tax returns (Phase 16 §C + Phase 20) ──────────────────────────────────
@@ -168,6 +169,12 @@ const HIDDEN_HUB_KEYS = new Set<string>([
   'PAYMENT_ADVICE_DETAIL',
   'PAYMENT_RUN_ITEMS',
   'PAYMENT_RUN_WORKBOOK',
+
+  // SADC-only platform: CMS + PMB (ZA medical-scheme regulator) stay in
+  // the catalogue for historical tenants but must not surface on the
+  // operational reports hub. IPEC is the sole active prudential regulator.
+  'CMS_ASR',
+  'PMB_SPEND',
 ]);
 
 /**

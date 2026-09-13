@@ -102,8 +102,6 @@ class ReportKeyTest {
         // retains IFRS 17 only.
         assertThat(ReportKey.IPEC_QUARTERLY_RETURN.getFamily()).isEqualTo(ReportFamily.PRUDENTIAL);
         assertThat(ReportKey.CMS_ASR.getFamily()).isEqualTo(ReportFamily.PRUDENTIAL);
-        assertThat(ReportKey.NAIC_SCHEDULE_P.getFamily()).isEqualTo(ReportFamily.PRUDENTIAL);
-        assertThat(ReportKey.NAIC_SCHEDULE_F.getFamily()).isEqualTo(ReportFamily.PRUDENTIAL);
 
         assertThat(ReportKey.PMB_SPEND.getFamily()).isEqualTo(ReportFamily.COMPLIANCE);
         assertThat(ReportKey.AML_STR.getFamily()).isEqualTo(ReportFamily.COMPLIANCE);

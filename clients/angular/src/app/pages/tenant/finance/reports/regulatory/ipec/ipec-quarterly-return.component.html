@@ -1,0 +1,72 @@
+<header class="page-header">
+  <div>
+    <h1>{{ pageTitle }}</h1>
+    <p class="page-sub">{{ pageSubtitle }}</p>
+  </div>
+  <div class="header-actions">
+    <app-report-back-button></app-report-back-button>
+    <button
+      type="button"
+      class="btn btn-primary"
+      [disabled]="!currentJob || currentJob.status !== 'completed'"
+      (click)="exportXlsx()">
+      <app-icon name="download" [size]="14"></app-icon>
+      Download XLSX
+    </button>
+  </div>
+</header>
+
+@if (errorMessage) {
+  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+}
+
+<div class="tx-toolbar">
+  <div class="toolbar-cell cell-date">
+    <span class="cell-label">Period start</span>
+    <input type="date" [(ngModel)]="periodStart" name="periodStart" />
+  </div>
+  <div class="toolbar-cell cell-date">
+    <span class="cell-label">Period end</span>
+    <input type="date" [(ngModel)]="periodEnd" name="periodEnd" />
+  </div>
+  <div class="toolbar-cell toolbar-cell-cta">
+    <button type="button" class="btn btn-primary"
+            [disabled]="submitting" (click)="submit()">
+      {{ submitting ? 'Submitting…' : 'Run report' }}
+    </button>
+  </div>
+</div>
+
+@if (currentJob) {
+  <div class="ajp-slot">
+    <app-actuarial-job-progress
+      [status]="currentJob"
+      [startedAt]="startedAt"
+      (cancel)="cancelPolling()"></app-actuarial-job-progress>
+  </div>
+}
+
+@if (currentJob?.status === 'completed') {
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="check-circle" [size]="48"></app-icon>
+    </div>
+    <div class="empty-state__title">Report ready</div>
+    <div class="empty-state__description">
+      The IPEC quarterly return workbook has been composed. Use the Download XLSX
+      button above to open the IPEC-templated file.
+    </div>
+  </div>
+} @else if (!currentJob) {
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="file-text" [size]="48"></app-icon>
+    </div>
+    <div class="empty-state__title">Choose a reporting quarter</div>
+    <div class="empty-state__description">
+      IPEC is filed quarterly. The picker defaults to the previous complete
+      quarter. Run the report to enqueue a background job that composes the
+      workbook.
+    </div>
+  </div>
+}

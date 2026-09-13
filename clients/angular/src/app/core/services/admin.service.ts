@@ -72,7 +72,7 @@ export interface Tenant {
   memberNumberScheme?: 'INDEPENDENT' | 'SHARED_WITH_SUFFIX';
   /**
    * Regulator jurisdiction code (V131). Gates regulator-templated
-   * reports — e.g. ZW_IPEC_SHORT_TERM, ZA_CMS_MEDICAL_SCHEME, US_NAIC.
+   * reports, e.g. ZW_IPEC_SHORT_TERM, ZW_IPEC_LIFE, ZA_FSCA_SHORT_TERM.
    * Empty / undefined = no regulator-format reports surfaced.
    */
   jurisdictionCode?: string;

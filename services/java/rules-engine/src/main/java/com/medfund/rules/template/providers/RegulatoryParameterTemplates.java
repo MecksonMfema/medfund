@@ -24,10 +24,10 @@ import static com.medfund.rules.template.TemplateBuilder.rule;
  * {@code REGULATORY_PARAMETER} agenda group per parameter lookup at report
  * compute time and reads the chosen value back off the fact.
  *
- * <p>The three templates cover the three currently-live regulator YAML
- * bundles (IPEC, CMS, NAIC). Tenant admins customise the parameter key,
- * value, and effective-from filter; the shipped rules are agenda-gated so
- * an unmodified template does not accidentally override a live report.
+ * <p>The templates cover the currently-live regulator YAML bundles
+ * (IPEC, CMS). Tenant admins customise the parameter key, value, and
+ * effective-from filter; the shipped rules are agenda-gated so an
+ * unmodified template does not accidentally override a live report.
  */
 @Component
 public class RegulatoryParameterTemplates implements TemplateProvider {
@@ -64,22 +64,7 @@ public class RegulatoryParameterTemplates implements TemplateProvider {
                  all(cond("regulatoryParameter.parameterKey", "EQUALS", "non_healthcare_cost_target"),
                      cond("regulatoryParameter.jurisdiction", "EQUALS", "ZA_CMS_MEDICAL_SCHEME")),
                  setRegulatoryParameter("PARAMETER_VALUE:0.10",
-                                        "CMS non_healthcare_cost_target override")),
-
-            rule("R72 - NAIC certified_reinsurer_provision_percentage override",
-                 "Override the NAIC Schedule F statutory provision percentage on liability "
-                       + "ceded to certified reinsurers for US tenants. Bundled YAML default "
-                       + "is 0.20 (regulatory-defaults/US_NAIC/2024-06-01.yaml - mid-range "
-                       + "placeholder pending the graduated AM Best / S&P rating table). "
-                       + "Adjust the value to your tenant's per-rating credit-for-reinsurance "
-                       + "table. The condition filters on parameterKey + jurisdiction so "
-                       + "this rule only fires for the NAIC lookup.",
-                 RuleCategory.REGULATORY_PARAMETER, 100,
-                 all(cond("regulatoryParameter.parameterKey", "EQUALS",
-                          "certified_reinsurer_provision_percentage"),
-                     cond("regulatoryParameter.jurisdiction", "EQUALS", "US_NAIC")),
-                 setRegulatoryParameter("PARAMETER_VALUE:0.20",
-                                        "NAIC certified_reinsurer_provision_percentage override"))
+                                        "CMS non_healthcare_cost_target override"))
         );
     }
 

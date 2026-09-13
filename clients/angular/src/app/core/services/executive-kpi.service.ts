@@ -54,8 +54,8 @@ export interface KpiValue {
  * numerator/denominator are in the requested {@code reportingCurrency} after
  * FX conversion; {@code perCurrency} keeps the raw native rows for
  * transparency. {@code basisNote} is populated only for COMBINED_RATIO
- * (server sets it to {@code MIXED_LOSS_EARNED_EXPENSE_WRITTEN} per NAIC
- * convention when the two component ratios use different bases).
+ * (server sets it to {@code MIXED_LOSS_EARNED_EXPENSE_WRITTEN} when the two
+ * component ratios use different bases).
  */
 export interface KpiReportData {
   compositeRatio:       number | null;

@@ -21,10 +21,14 @@ import java.util.stream.Collectors;
 public enum TenantJurisdiction {
     ZW_IPEC_SHORT_TERM("Zimbabwe - IPEC short-term insurance"),
     ZW_IPEC_LIFE("Zimbabwe - IPEC life insurance"),
+    /**
+     * SADC platform kept the ZA/CMS row on the backend so historical rows
+     * still parse; it is hidden from every tenant-admin picker and the
+     * operational reports hub. Do not surface in new UI.
+     */
     ZA_CMS_MEDICAL_SCHEME("South Africa - CMS medical scheme"),
     ZA_FSCA_SHORT_TERM("South Africa - FSCA short-term insurance"),
-    ZA_FSCA_LONG_TERM("South Africa - FSCA long-term (life) insurance"),
-    US_NAIC("United States - NAIC");
+    ZA_FSCA_LONG_TERM("South Africa - FSCA long-term (life) insurance");
 
     private final String displayLabel;
 

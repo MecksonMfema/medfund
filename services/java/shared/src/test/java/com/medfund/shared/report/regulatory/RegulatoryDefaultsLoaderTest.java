@@ -13,11 +13,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Covers the pure-function version-pick seam + the classpath-backed
  * {@code loadParameters} / {@code lookup} paths using the real bundled
- * YAMLs shipped for Phase 10-13 (ZW_IPEC_SHORT_TERM, ZA_CMS_MEDICAL_SCHEME,
- * US_NAIC). Missing keys / missing jurisdictions / null inputs all short
- * to {@link Optional#empty()}; malformed YAML would throw
+ * YAMLs shipped for Phase 10-13 (ZW_IPEC_SHORT_TERM, ZA_CMS_MEDICAL_SCHEME).
+ * Missing keys / missing jurisdictions / null inputs all short to
+ * {@link Optional#empty()}; malformed YAML would throw
  * {@link RegulatoryReportGenerationException} (covered by
- * {@code IpecSolvencyCalculatorTest} — the shared loader shares the same
+ * {@code IpecSolvencyCalculatorTest} the shared loader shares the same
  * validation path).
  */
 class RegulatoryDefaultsLoaderTest {
@@ -41,15 +41,15 @@ class RegulatoryDefaultsLoaderTest {
         List<String> files = List.of("2024-01-01.yaml", "2027-03-01.yaml");
 
         Optional<String> pick = RegulatoryDefaultsLoader.pickHighestVersion(
-                "US_NAIC", files, LocalDate.of(2026, 6, 30));
+                "ZW_IPEC_SHORT_TERM", files, LocalDate.of(2026, 6, 30));
 
-        assertThat(pick).contains("regulatory-defaults/US_NAIC/2024-01-01.yaml");
+        assertThat(pick).contains("regulatory-defaults/ZW_IPEC_SHORT_TERM/2024-01-01.yaml");
     }
 
     @Test
     void pickHighestVersion_emptyWhenNothingMatchesEffectiveDate() {
         Optional<String> pick = RegulatoryDefaultsLoader.pickHighestVersion(
-                "US_NAIC", List.of("2030-01-01.yaml"), LocalDate.of(2026, 1, 1));
+                "ZW_IPEC_SHORT_TERM", List.of("2030-01-01.yaml"), LocalDate.of(2026, 1, 1));
 
         assertThat(pick).isEmpty();
     }
@@ -126,17 +126,6 @@ class RegulatoryDefaultsLoaderTest {
         Map<String, BigDecimal> map = params.orElseThrow();
         assertThat(map.get("min_solvency_ratio")).isEqualByComparingTo("0.25");
         assertThat(map.get("non_healthcare_cost_target")).isEqualByComparingTo("0.10");
-    }
-
-    @Test
-    void loadParameters_naicYaml_returnsEveryDecimalKey() {
-        Optional<Map<String, BigDecimal>> params = loader.loadParameters(
-                "US_NAIC", LocalDate.of(2026, 6, 30));
-
-        assertThat(params).isPresent();
-        Map<String, BigDecimal> map = params.orElseThrow();
-        assertThat(map.get("unauthorized_reinsurer_provision_percentage")).isEqualByComparingTo("1.00");
-        assertThat(map.get("certified_reinsurer_provision_percentage")).isEqualByComparingTo("0.20");
     }
 
     @Test

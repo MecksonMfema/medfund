@@ -1,25 +1,23 @@
 import { JURISDICTIONS } from './settings.component';
 
 describe('JURISDICTIONS constant', () => {
-  it('exposes the — None — placeholder plus every TenantJurisdiction value', () => {
-    // The list must stay in sync with the Java enum
-    // (services/java/tenancy-service/.../TenantJurisdiction.java). Server-side
-    // validation returns 422 on any code we ship here that the enum doesn't
-    // know about — this test guards the intent, the server guards the round-trip.
+  it('exposes the placeholder plus every UI-visible TenantJurisdiction value', () => {
+    // SADC-only platform: US_NAIC is deleted from the Java enum and
+    // ZA_CMS_MEDICAL_SCHEME is retained on the backend but hidden from
+    // this picker so tenants cannot select it. Server-side validation
+    // still accepts ZA_CMS_MEDICAL_SCHEME rows already persisted.
     const values = JURISDICTIONS.map(j => j.value);
     expect(values).toEqual([
       '',
       'ZW_IPEC_SHORT_TERM',
       'ZW_IPEC_LIFE',
-      'ZA_CMS_MEDICAL_SCHEME',
       'ZA_FSCA_SHORT_TERM',
       'ZA_FSCA_LONG_TERM',
-      'US_NAIC',
     ]);
   });
 
-  it('renders 7 selectable options — the placeholder plus 6 jurisdictions', () => {
-    expect(JURISDICTIONS.length).toBe(7);
+  it('renders 5 selectable options: placeholder plus 4 jurisdictions', () => {
+    expect(JURISDICTIONS.length).toBe(5);
   });
 
   it('every option carries a non-blank label', () => {

@@ -47,7 +47,7 @@ describe('KpiTileComponent', () => {
     const note: HTMLElement = fixture.nativeElement.querySelector('.basis-note');
     expect(note).toBeTruthy();
     expect(note.getAttribute('title'))
-      .toBe('Mixed basis: loss ratio on earned premium, expense ratio on written premium (NAIC convention).');
+      .toBe('Mixed basis: loss ratio on earned premium, expense ratio on written premium.');
   });
 
   it('renders per-currency chips sorted alphabetically', () => {

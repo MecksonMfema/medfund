@@ -1,84 +1,187 @@
-/* Shared styles for the two IFRS 17 report pages. Kept small — the
- * pages reuse the actuarial page shell (page-header, tx-toolbar,
- * banner) via global styles; this file only adds ifrs17-specific
- * bits (portfolio treetable, split view, currency toggle). */
+// Per-page overrides for the two IFRS 17 report pages. The base shell
+// (page-header, tx-toolbar, banner, btn) comes from the co-imported
+// receipts-report.component.scss; this file only sizes the toolbar
+// cells, flattens the currency picker to match the toolbar rhythm,
+// styles the LRC/LIC view toggle, and wraps content blocks in the
+// 24px horizontal gutter used by the rest of the report shell.
 
-.ifrs17-page {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.toolbar-cell.cell-date {
+  min-width: 220px;
 }
 
-.ifrs17-portfolio-block {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-  gap: 20px;
-  padding: 16px 0;
-  border-top: 1px solid var(--color-border, #e5e7eb);
+.toolbar-cell.cell-currency {
+  min-width: 260px;
 }
 
-.ifrs17-portfolio-block h3.pane-title {
-  margin: 0 0 8px;
-  font-size: 14px;
-  font-weight: 600;
+.toolbar-cell.cell-currency app-select {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
-.ifrs17-matrix-scroll {
-  overflow-x: auto;
-  max-width: 100%;
+.toolbar-cell.cell-view {
+  min-width: 260px;
 }
 
-.ifrs17-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-
-  th, td {
-    padding: 6px 10px;
-    border-bottom: 1px solid var(--color-border, #e5e7eb);
-    text-align: left;
-  }
-  th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
-  tbody tr.cohort-row td { background: var(--color-surface, #fff); }
-  tbody tr.cohort-row + tr.currency-row td { padding-left: 20px; color: var(--color-text-muted, #4b5563); }
-  tfoot td { font-weight: 600; }
+.toolbar-cell.toolbar-cell-cta {
+  align-self: center;
+  margin-left: auto;
 }
 
 .ifrs17-view-toggle {
   display: inline-flex;
-  gap: 4px;
-  border: 1px solid var(--color-border, #d1d5db);
-  border-radius: 6px;
+  gap: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   overflow: hidden;
+  background: var(--color-surface);
 
   button {
-    padding: 6px 12px;
+    appearance: none;
     background: transparent;
     border: none;
-    font-size: 13px;
+    padding: 6px 12px;
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
     cursor: pointer;
+    line-height: 1;
+
+    & + button {
+      border-left: 1px solid var(--color-border-light);
+    }
+
+    &:hover:not(.active) {
+      background: var(--color-bg);
+    }
 
     &.active {
-      background: var(--color-primary, #0077b6);
+      background: var(--color-primary);
       color: #fff;
     }
   }
 }
 
+.ajp-slot {
+  margin: var(--spacing-md) 24px 0;
+}
+
 .ifrs17-summary-strip {
   display: flex;
-  gap: 24px;
-  padding: 8px 12px;
-  background: var(--color-surface-alt, #f9fafb);
-  border-radius: 6px;
-  font-size: 13px;
+  flex-wrap: wrap;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin: var(--spacing-md) 24px 0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
 
-  span { color: var(--color-text-muted, #4b5563); }
-  strong { color: var(--color-text, #111827); margin-left: 4px; }
+  > div {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--spacing-xs);
+  }
+
+  span {
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+  }
+
+  strong {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+  }
 }
 
 .ifrs17-empty {
-  padding: 32px 0;
+  padding: var(--spacing-xl) 24px;
   text-align: center;
-  color: var(--color-text-muted, #6b7280);
+  color: var(--color-text-muted);
+}
+
+.ifrs17-portfolio-block {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg) 24px;
+
+  & + .ifrs17-portfolio-block {
+    border-top: 1px solid var(--color-border-light);
+  }
+
+  .pane-title {
+    margin: 0 0 var(--spacing-sm);
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+  }
+
+  .triangle-chart {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+  }
+}
+
+.ifrs17-matrix-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+
+  > * + .ifrs17-table {
+    margin-top: var(--spacing-md);
+  }
+}
+
+.ifrs17-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+
+  th,
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--color-border-light);
+    text-align: left;
+    color: var(--color-text-primary);
+  }
+
+  th {
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: var(--font-size-xs);
+    background: var(--color-bg);
+  }
+
+  th.num,
+  td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  tbody tr:hover td {
+    background: var(--color-bg);
+  }
+
+  tfoot td {
+    font-weight: var(--font-weight-semibold);
+    background: var(--color-bg);
+    border-top: 2px solid var(--color-border);
+    border-bottom: none;
+  }
+}
+
+@media (max-width: 960px) {
+  .ifrs17-portfolio-block {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

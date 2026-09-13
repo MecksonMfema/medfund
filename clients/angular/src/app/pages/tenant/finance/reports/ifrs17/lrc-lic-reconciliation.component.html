@@ -21,15 +21,15 @@
 }
 
 <div class="tx-toolbar">
-  <div class="toolbar-cell">
+  <div class="toolbar-cell cell-date">
     <span class="cell-label">Period start</span>
-    <input type="date" class="input" name="periodStart" [(ngModel)]="periodStart" />
+    <input type="date" name="periodStart" [(ngModel)]="periodStart" />
   </div>
-  <div class="toolbar-cell">
+  <div class="toolbar-cell cell-date">
     <span class="cell-label">Period end</span>
-    <input type="date" class="input" name="periodEnd" [(ngModel)]="periodEnd" />
+    <input type="date" name="periodEnd" [(ngModel)]="periodEnd" />
   </div>
-  <div class="toolbar-cell">
+  <div class="toolbar-cell cell-currency">
     <span class="cell-label">Reporting currency</span>
     <app-select
       name="reportingCurrency"
@@ -39,7 +39,7 @@
       placeholder="Tenant default"
       [searchable]="false"></app-select>
   </div>
-  <div class="toolbar-cell">
+  <div class="toolbar-cell cell-view">
     <span class="cell-label">View</span>
     <div class="ifrs17-view-toggle" role="tablist">
       <button type="button" role="tab" [class.active]="view === 'LRC'"

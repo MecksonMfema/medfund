@@ -13,8 +13,6 @@ class ReportCadenceCatalogTest {
     private static final List<ReportKey> PHASE_16_KEYS = List.of(
             ReportKey.IPEC_QUARTERLY_RETURN,
             ReportKey.CMS_ASR,
-            ReportKey.NAIC_SCHEDULE_P,
-            ReportKey.NAIC_SCHEDULE_F,
             ReportKey.PMB_SPEND,
             ReportKey.AML_STR,
             ReportKey.TAX_WITHHELD_RETURN,
@@ -59,15 +57,6 @@ class ReportCadenceCatalogTest {
 
         assertThat(ReportCadenceCatalog.dueDate(ReportKey.CMS_ASR, LocalDate.of(2026, 12, 31)))
                 .isEqualTo(LocalDate.of(2027, 6, 29));
-    }
-
-    @Test
-    void naicScheduleSetIsAnnualPlus60() {
-        for (ReportKey key : List.of(ReportKey.NAIC_SCHEDULE_P, ReportKey.NAIC_SCHEDULE_F)) {
-            ReportCadenceCatalog.CadenceInfo info = ReportCadenceCatalog.lookup(key).orElseThrow();
-            assertThat(info.cadence()).isEqualTo(ReportCadence.ANNUAL);
-            assertThat(info.daysPostPeriodEnd()).isEqualTo(60);
-        }
     }
 
     @Test

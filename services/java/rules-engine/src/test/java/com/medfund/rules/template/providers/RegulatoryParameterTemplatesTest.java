@@ -25,21 +25,21 @@ class RegulatoryParameterTemplatesTest {
     }
 
     @Test
-    void templates_shipsThreeStartingPointsCoveringIpecCmsAndNaic() {
+    void templates_shipsStartingPointsCoveringIpecAndCms() {
         List<RuleDefinition> templates = provider.templates();
 
-        assertThat(templates).hasSize(3);
+        assertThat(templates).hasSize(2);
         assertThat(templates).allSatisfy(t -> {
             assertThat(t.getCategory()).isEqualTo("REGULATORY_PARAMETER");
             assertThat(t.getAction().getType()).isEqualTo("SET_REGULATORY_PARAMETER");
             assertThat(t.getAction().getValue()).asString().startsWith("PARAMETER_VALUE:");
         });
-        // One template per shipped regulator YAML — IPEC, CMS, NAIC.
+        // One template per shipped regulator YAML: IPEC and CMS.
         assertThat(templates)
                 .extracting(t -> t.getConditions().getItems().stream()
                         .filter(c -> "regulatoryParameter.jurisdiction".equals(c.getField()))
                         .findFirst().orElseThrow().getValue().toString())
-                .containsExactlyInAnyOrder("ZW_IPEC_SHORT_TERM", "ZA_CMS_MEDICAL_SCHEME", "US_NAIC");
+                .containsExactlyInAnyOrder("ZW_IPEC_SHORT_TERM", "ZA_CMS_MEDICAL_SCHEME");
     }
 
     @Test

@@ -281,7 +281,7 @@ class TenantServiceTest {
                     assertThat(rse.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
                     assertThat(rse.getReason()).contains("XX_INVALID");
                     assertThat(rse.getReason()).contains("ZW_IPEC_SHORT_TERM");
-                    assertThat(rse.getReason()).contains("US_NAIC");
+                    assertThat(rse.getReason()).contains("ZA_FSCA_SHORT_TERM");
                 })
                 .verify();
 

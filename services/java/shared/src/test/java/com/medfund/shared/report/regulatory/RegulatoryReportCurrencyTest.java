@@ -13,8 +13,6 @@ class RegulatoryReportCurrencyTest {
     private static final List<ReportKey> PHASE_16_KEYS = List.of(
             ReportKey.IPEC_QUARTERLY_RETURN,
             ReportKey.CMS_ASR,
-            ReportKey.NAIC_SCHEDULE_P,
-            ReportKey.NAIC_SCHEDULE_F,
             ReportKey.PMB_SPEND,
             ReportKey.AML_STR,
             ReportKey.TAX_WITHHELD_RETURN,
@@ -30,12 +28,6 @@ class RegulatoryReportCurrencyTest {
     void fixedFor_cmsAndPmbReturnZar() {
         assertThat(RegulatoryReportCurrency.fixedFor(ReportKey.CMS_ASR)).contains("ZAR");
         assertThat(RegulatoryReportCurrency.fixedFor(ReportKey.PMB_SPEND)).contains("ZAR");
-    }
-
-    @Test
-    void fixedFor_naicSchedulesReturnUsd() {
-        assertThat(RegulatoryReportCurrency.fixedFor(ReportKey.NAIC_SCHEDULE_P)).contains("USD");
-        assertThat(RegulatoryReportCurrency.fixedFor(ReportKey.NAIC_SCHEDULE_F)).contains("USD");
     }
 
     @Test
@@ -58,15 +50,14 @@ class RegulatoryReportCurrencyTest {
         assertThat(RegulatoryReportCurrency.isCountryNative(ReportKey.TAX_WITHHELD_RETURN)).isTrue();
         // Fixed-currency reports must not be country-native as well.
         assertThat(RegulatoryReportCurrency.isCountryNative(ReportKey.IPEC_QUARTERLY_RETURN)).isFalse();
-        assertThat(RegulatoryReportCurrency.isCountryNative(ReportKey.NAIC_SCHEDULE_P)).isFalse();
         assertThat(RegulatoryReportCurrency.isCountryNative(ReportKey.CMS_ASR)).isFalse();
     }
 
     @Test
-    void countryNativeFor_zwZaUsResolveExpectedCurrencies() {
+    void countryNativeFor_zwAndZaResolveExpectedCurrencies() {
         assertThat(RegulatoryReportCurrency.countryNativeFor(ReportKey.VAT_RETURN, "ZW")).contains("ZWL");
         assertThat(RegulatoryReportCurrency.countryNativeFor(ReportKey.VAT_RETURN, "ZA")).contains("ZAR");
-        assertThat(RegulatoryReportCurrency.countryNativeFor(ReportKey.AML_STR, "US")).contains("USD");
+        assertThat(RegulatoryReportCurrency.countryNativeFor(ReportKey.AML_STR, "ZA")).contains("ZAR");
     }
 
     @Test
@@ -88,12 +79,12 @@ class RegulatoryReportCurrencyTest {
         // Fixed-currency reports resolve regardless of country; country-native reports use country.
         assertThat(RegulatoryReportCurrency.resolveOrThrow(ReportKey.IPEC_QUARTERLY_RETURN, null))
                 .isEqualTo("ZWL");
-        assertThat(RegulatoryReportCurrency.resolveOrThrow(ReportKey.NAIC_SCHEDULE_P, "US"))
-                .isEqualTo("USD");
+        assertThat(RegulatoryReportCurrency.resolveOrThrow(ReportKey.CMS_ASR, null))
+                .isEqualTo("ZAR");
         assertThat(RegulatoryReportCurrency.resolveOrThrow(ReportKey.VAT_RETURN, "ZW"))
                 .isEqualTo("ZWL");
-        assertThat(RegulatoryReportCurrency.resolveOrThrow(ReportKey.AML_STR, "US"))
-                .isEqualTo("USD");
+        assertThat(RegulatoryReportCurrency.resolveOrThrow(ReportKey.AML_STR, "ZA"))
+                .isEqualTo("ZAR");
     }
 
     @Test

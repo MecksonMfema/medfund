@@ -120,10 +120,11 @@ public enum ReportKey {
     IFRS17_INSURANCE_REVENUE_SERVICE_RESULT ("IFRS 17 - insurance revenue & service result", ReportFamily.REGULATORY, true, ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
 
     // ── Prudential returns (Phase 16 §A) — jurisdiction-gated on top of the toggle ──
+    // The platform targets SADC. IPEC is the active prudential regulator; CMS
+    // stays as backend-only (hidden from every UI surface) so historical ZA
+    // tenants keep their persisted rows resolvable.
     IPEC_QUARTERLY_RETURN       ("IPEC - quarterly return (ZW)",            ReportFamily.PRUDENTIAL,       true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
     CMS_ASR                     ("CMS - annual statutory return (ZA)",      ReportFamily.PRUDENTIAL,       true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
-    NAIC_SCHEDULE_P             ("NAIC Schedule P (US)",                    ReportFamily.PRUDENTIAL,       true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
-    NAIC_SCHEDULE_F             ("NAIC Schedule F (US)",                    ReportFamily.PRUDENTIAL,       true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),
 
     // ── Compliance (Phase 16 §B + §D) — jurisdiction/country-gated ──────────
     PMB_SPEND                   ("PMB spend",                               ReportFamily.COMPLIANCE,       true,  ReportPeriodShape.PREVIOUS_COMPLETE_PERIOD),

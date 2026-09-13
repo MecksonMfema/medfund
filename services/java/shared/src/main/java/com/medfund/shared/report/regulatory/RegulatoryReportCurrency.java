@@ -9,9 +9,9 @@ import java.util.Optional;
  * report must be filed in. Two axes:
  *
  * <ul>
- *   <li>{@link #fixedFor(ReportKey)} — the report has a single fixed
+ *   <li>{@link #fixedFor(ReportKey)} the report has a single fixed
  *       currency dictated by the regulator regardless of tenant country
- *       (e.g. IPEC only accepts ZWL, NAIC only USD). Returns
+ *       (e.g. IPEC only accepts ZWL, CMS only ZAR). Returns
  *       {@link Optional#empty()} for country-native reports.</li>
  *   <li>{@link #countryNativeFor(ReportKey, String)} — the report is filed
  *       in the tenant's own country's currency (e.g. VAT return in ZW is
@@ -33,7 +33,6 @@ public final class RegulatoryReportCurrency {
         return switch (key) {
             case IPEC_QUARTERLY_RETURN -> Optional.of("ZWL");
             case CMS_ASR, PMB_SPEND -> Optional.of("ZAR");
-            case NAIC_SCHEDULE_P, NAIC_SCHEDULE_F -> Optional.of("USD");
             default -> Optional.empty();
         };
     }
@@ -49,7 +48,6 @@ public final class RegulatoryReportCurrency {
         return switch (countryCode) {
             case "ZW" -> Optional.of("ZWL");
             case "ZA" -> Optional.of("ZAR");
-            case "US" -> Optional.of("USD");
             default -> Optional.empty();
         };
     }

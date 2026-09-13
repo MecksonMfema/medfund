@@ -127,7 +127,7 @@ class SecurityEventPublisherTest {
         Map<String, Object> details = new LinkedHashMap<>();
         details.put("guard", "RequiresJurisdiction");
         details.put("required", "[ZW_IPEC_SHORT_TERM]");
-        details.put("actualJurisdiction", "US_NAIC");
+        details.put("actualJurisdiction", "ZA_FSCA_SHORT_TERM");
 
         StepVerifier.create(publisher.publishAccessDenied(
                         "tenant-1", "actor-1", "actor@example.com",
@@ -147,7 +147,7 @@ class SecurityEventPublisherTest {
                         JsonNode inner = objectMapper.readTree(outer.get("details").asText());
                         assertThat(inner.get("reason").asText()).isEqualTo("jurisdiction gate failed");
                         assertThat(inner.get("guard").asText()).isEqualTo("RequiresJurisdiction");
-                        assertThat(inner.get("actualJurisdiction").asText()).isEqualTo("US_NAIC");
+                        assertThat(inner.get("actualJurisdiction").asText()).isEqualTo("ZA_FSCA_SHORT_TERM");
                     } catch (Exception e) {
                         throw new AssertionError("Failed to parse payload", e);
                     }

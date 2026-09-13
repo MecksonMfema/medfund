@@ -8,6 +8,7 @@ import { IFRS17_REPORT_ROUTES } from './reports/ifrs17/ifrs17.routes';
 import { AML_ALERT_ROUTES } from './reports/compliance/aml-str/aml-alerts.routes';
 import { PMB_SPEND_REPORT_ROUTES } from './reports/regulatory/pmb-spend/pmb-spend.routes';
 import { TAX_REPORT_ROUTES } from './reports/regulatory/tax/tax-reports.routes';
+import { IPEC_QUARTERLY_RETURN_ROUTES } from './reports/regulatory/ipec/ipec.routes';
 
 const loadComingSoon = () =>
   import('../../../shared/components/coming-soon/coming-soon.component').then(m => m.ComingSoonComponent);
@@ -863,6 +864,12 @@ export const FINANCE_ROUTES: Routes = [
   // gates on country (ZW / ZA) + per-report toggle + finance:view /
   // finance:export_regulatory permission.
   ...TAX_REPORT_ROUTES,
+
+  // ── IPEC quarterly return (Phase 16 §A, Phase 10) ───────────────────────
+  // Zimbabwe IPEC short-term insurance quarterly return. Backend gates on
+  // ZW_IPEC_SHORT_TERM jurisdiction + ZW country + IPEC_QUARTERLY_RETURN
+  // report toggle + finance:view / finance:export_regulatory permission.
+  ...IPEC_QUARTERLY_RETURN_ROUTES,
 
   // ── Commission reports (Phase 11 §A) ────────────────────────────────────
   {

@@ -30,7 +30,7 @@ class ReportJobServiceTest {
                 ReportKey.IPEC_QUARTERLY_RETURN.name()))
                 .isEqualTo(ReportJob.RETENTION_STATUTORY_7Y);
         assertThat(ReportJobService.classifyRetention(
-                ReportKey.NAIC_SCHEDULE_F.name()))
+                ReportKey.CMS_ASR.name()))
                 .isEqualTo(ReportJob.RETENTION_STATUTORY_7Y);
         // TAX (Phase 16 §C)
         assertThat(ReportJobService.classifyRetention(

@@ -44,8 +44,7 @@ import java.util.regex.Pattern;
  *   <li>{@code RegulatoryParameterResolver} (finance-service) — falls back
  *       here when no rules-engine {@code REGULATORY_PARAMETER} rule fires.</li>
  *   <li>Per-regulator calculators
- *       ({@code IpecSolvencyCalculator}, {@code CmsAsrCalculator},
- *       {@code NaicSchedulePCalculator}, {@code NaicScheduleFCalculator}) —
+ *       ({@code IpecSolvencyCalculator}, {@code CmsAsrCalculator})
  *       consume this to build their typed parameters record after the
  *       resolver has produced any rules-engine overrides.</li>
  * </ul>

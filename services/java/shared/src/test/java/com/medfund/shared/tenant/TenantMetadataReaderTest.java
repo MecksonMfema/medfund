@@ -112,14 +112,14 @@ class TenantMetadataReaderTest {
     @Test
     void loadFromContext_readsValidTenantAndCallsDb() {
         RowsFetchSpec<TenantMetadata> fetch = stubFetch();
-        when(fetch.one()).thenReturn(Mono.just(new TenantMetadata("US_NAIC", "US")));
+        when(fetch.one()).thenReturn(Mono.just(new TenantMetadata("ZW_IPEC_SHORT_TERM", "ZW")));
 
         StepVerifier.create(reader.loadFromContext()
                         .contextWrite(ctx -> TenantContext.put(reactor.util.context.Context.of(ctx),
                                 UUID.randomUUID().toString())))
                 .assertNext(m -> {
-                    assertThat(m.jurisdictionCode()).isEqualTo("US_NAIC");
-                    assertThat(m.countryCode()).isEqualTo("US");
+                    assertThat(m.jurisdictionCode()).isEqualTo("ZW_IPEC_SHORT_TERM");
+                    assertThat(m.countryCode()).isEqualTo("ZW");
                 })
                 .verifyComplete();
     }

@@ -14,7 +14,7 @@ import java.util.List;
  * regulator-report compute time by finance-service's
  * {@code RegulatoryParameterResolver}; the {@code SetRegulatoryParameterEmitter}
  * fires rules that override a bundled YAML default for a numeric parameter
- * (IPEC {@code min_solvency_ratio}, NAIC {@code unauthorized_reinsurer_provision_percentage},
+ * (IPEC {@code min_solvency_ratio}, CMS {@code non_healthcare_cost_target},
  * etc.) and record the chosen value on this fact for the caller to consume.
  *
  * <p>Read-only inputs (populated by the resolver) describe the parameter
@@ -40,8 +40,8 @@ public class RegulatoryParameterFact {
     private String parameterKey;
 
     /**
-     * {@code TenantJurisdiction} name — {@code ZW_IPEC_SHORT_TERM},
-     * {@code ZA_CMS_MEDICAL_SCHEME}, {@code US_NAIC}, ...
+     * {@code TenantJurisdiction} name: {@code ZW_IPEC_SHORT_TERM},
+     * {@code ZA_CMS_MEDICAL_SCHEME}, ...
      */
     private String jurisdiction;
 

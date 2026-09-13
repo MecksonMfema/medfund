@@ -50,8 +50,6 @@ class ScheduledReportEligibilityTest {
                 ReportKey.IFRS17_INSURANCE_REVENUE_SERVICE_RESULT,
                 ReportKey.IPEC_QUARTERLY_RETURN,
                 ReportKey.CMS_ASR,
-                ReportKey.NAIC_SCHEDULE_P,
-                ReportKey.NAIC_SCHEDULE_F,
                 ReportKey.PMB_SPEND,
                 ReportKey.AML_STR,
                 ReportKey.TAX_WITHHELD_RETURN,

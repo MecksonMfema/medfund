@@ -46,18 +46,18 @@ class TenantJurisdictionTest {
     }
 
     @Test
-    void enum_carriesExpectedSixValues() {
-        // Locked in by Phase 1 of the regulatory-format reports plan; widening
-        // requires a matching Angular JURISDICTIONS change (settings.component.ts).
-        assertThat(TenantJurisdiction.values()).hasSize(6);
+    void enum_carriesExpectedFiveSadcValues() {
+        // SADC-only platform: US_NAIC removed, ZA_CMS_MEDICAL_SCHEME retained
+        // for backend parse-through but hidden from the Angular JURISDICTIONS
+        // dropdown (settings.component.ts).
+        assertThat(TenantJurisdiction.values()).hasSize(5);
         Optional.of(TenantJurisdiction.values()).ifPresent(vals -> {
             assertThat(vals).containsExactly(
                     TenantJurisdiction.ZW_IPEC_SHORT_TERM,
                     TenantJurisdiction.ZW_IPEC_LIFE,
                     TenantJurisdiction.ZA_CMS_MEDICAL_SCHEME,
                     TenantJurisdiction.ZA_FSCA_SHORT_TERM,
-                    TenantJurisdiction.ZA_FSCA_LONG_TERM,
-                    TenantJurisdiction.US_NAIC);
+                    TenantJurisdiction.ZA_FSCA_LONG_TERM);
         });
     }
 }

@@ -132,7 +132,7 @@ class JurisdictionGuardAspectTest {
     @Test
     void mono_denies403WhenNonMatchingJurisdiction() throws Throwable {
         wireMethod("mono");
-        when(metadataReader.loadFromContext()).thenReturn(Mono.just(new TenantMetadata("US_NAIC", "US")));
+        when(metadataReader.loadFromContext()).thenReturn(Mono.just(new TenantMetadata("ZA_FSCA_SHORT_TERM", "ZA")));
 
         StepVerifier.create(((Mono<?>) aspect.enforce(pjp)))
                 .expectErrorSatisfies(err -> {
@@ -143,7 +143,7 @@ class JurisdictionGuardAspectTest {
 
         verify(securityEvents).publishAccessDenied(
                 eq(null), any(), any(), eq("jurisdiction gate failed"), detailsCaptor.capture());
-        assertThat(detailsCaptor.getValue().get("actualJurisdiction")).isEqualTo("US_NAIC");
+        assertThat(detailsCaptor.getValue().get("actualJurisdiction")).isEqualTo("ZA_FSCA_SHORT_TERM");
     }
 
     @Test

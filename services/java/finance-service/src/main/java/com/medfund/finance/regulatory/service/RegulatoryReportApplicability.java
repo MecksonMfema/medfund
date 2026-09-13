@@ -30,10 +30,6 @@ public final class RegulatoryReportApplicability {
                     new Rule(Axis.JURISDICTION, Set.of("ZW_IPEC_SHORT_TERM"))),
             java.util.Map.entry(ReportKey.CMS_ASR,
                     new Rule(Axis.JURISDICTION, Set.of("ZA_CMS_MEDICAL_SCHEME"))),
-            java.util.Map.entry(ReportKey.NAIC_SCHEDULE_P,
-                    new Rule(Axis.JURISDICTION, Set.of("US_NAIC"))),
-            java.util.Map.entry(ReportKey.NAIC_SCHEDULE_F,
-                    new Rule(Axis.JURISDICTION, Set.of("US_NAIC"))),
             java.util.Map.entry(ReportKey.PMB_SPEND,
                     new Rule(Axis.JURISDICTION, Set.of("ZA_CMS_MEDICAL_SCHEME"))),
             java.util.Map.entry(ReportKey.VAT_RETURN,
@@ -41,7 +37,7 @@ public final class RegulatoryReportApplicability {
             java.util.Map.entry(ReportKey.TAX_WITHHELD_RETURN,
                     new Rule(Axis.COUNTRY, Set.of("ZW", "ZA"))),
             java.util.Map.entry(ReportKey.AML_STR,
-                    new Rule(Axis.COUNTRY, Set.of("ZW", "ZA", "US")))
+                    new Rule(Axis.COUNTRY, Set.of("ZW", "ZA")))
     );
 
     /** Every Phase-16 key that participates in the applicability matrix. */

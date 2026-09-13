@@ -76,7 +76,10 @@ interface PortfolioBucket {
     ReportBackButtonComponent,
   ],
   templateUrl: './lrc-lic-reconciliation.component.html',
-  styleUrls: ['./ifrs17-reports.scss'],
+  styleUrls: [
+    '../receipts/receipts-report.component.scss',
+    './ifrs17-reports.scss',
+  ],
 })
 export class LrcLicReconciliationComponent implements OnInit, OnDestroy {
   readonly reportKey = 'IFRS17_LRC_LIC_RECONCILIATION';
