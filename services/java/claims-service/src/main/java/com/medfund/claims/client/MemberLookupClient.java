@@ -54,6 +54,37 @@ public class MemberLookupClient {
     }
 
     /**
+     * Resolve a dependant by primary key. Used by the eligibility-quote
+     * flow to route a dependant pick into the transient claim so the
+     * accumulator lookup keys on {@code dependant_id} under INDIVIDUAL
+     * scope. The caller is responsible for verifying that
+     * {@link DependantSummary#memberId()} matches the sponsor found via
+     * {@link #findByMemberNumber(String)}.
+     */
+    public Mono<DependantSummary> findDependantById(UUID dependantId) {
+        if (dependantId == null) {
+            return Mono.empty();
+        }
+        return databaseClient.sql("""
+                SELECT id, member_id, member_number, first_name, last_name,
+                       status, date_of_birth
+                  FROM dependants
+                 WHERE id = :dependantId
+                 LIMIT 1
+                """)
+                .bind("dependantId", dependantId)
+                .map((row, meta) -> new DependantSummary(
+                        row.get("id", UUID.class),
+                        row.get("member_id", UUID.class),
+                        row.get("member_number", String.class),
+                        row.get("first_name", String.class),
+                        row.get("last_name", String.class),
+                        row.get("status", String.class),
+                        row.get("date_of_birth", LocalDate.class)))
+                .one();
+    }
+
+    /**
      * Slim view of a member row — just what the quote flow needs. Full member
      * profile stays in user-service; this reader exists so the adjudication
      * hot path never has to make an outbound REST call to resolve a policy
@@ -70,5 +101,20 @@ public class MemberLookupClient {
             UUID groupId,
             LocalDate enrollmentDate,
             LocalDate terminationDate) {
+    }
+
+    /**
+     * Slim view of a dependant row — sponsor id, own memberNumber (for the
+     * audit trail), name (for the friendly entity name) and status (used to
+     * classify coverage more restrictively than the sponsor alone).
+     */
+    public record DependantSummary(
+            UUID id,
+            UUID memberId,
+            String memberNumber,
+            String firstName,
+            String lastName,
+            String status,
+            LocalDate dateOfBirth) {
     }
 }

@@ -13,24 +13,28 @@
     </div>
 
     <div class="form-sections">
-      <!-- ── Member ─────────────────────────────────────────────────────── -->
+      <!-- ── Beneficiary (member OR dependant) ──────────────────────────── -->
       <section class="form-section form-section--full">
         <header class="section-head">
           <span class="section-icon"><app-icon name="users" [size]="18"></app-icon></span>
-          <h3 class="section-title">Member</h3>
+          <h3 class="section-title">Member or dependant</h3>
         </header>
 
         <div class="field-grid field-grid--2">
           <label class="field">
-            <span class="field-label">Member <span class="req">*</span></span>
+            <span class="field-label">Beneficiary <span class="req">*</span></span>
             <app-entity-picker
-              kind="member"
-              [value]="memberId"
-              (selected)="onMemberPicked($event)"
-              placeholder="Search by member name…"
+              kind="beneficiary"
+              [value]="beneficiaryId"
+              (selected)="onBeneficiaryPicked($event)"
+              placeholder="Search member or dependant…"
             ></app-entity-picker>
-            @if (memberNumber) {
-              <small class="field-help">Member number <code>{{ memberNumber }}</code></small>
+            @if (pickedKind === 'DEPENDANT' && sponsorMemberNumber) {
+              <small class="field-help">
+                Dependant of member <code>{{ sponsorMemberNumber }}</code>
+              </small>
+            } @else if (pickedKind === 'MEMBER' && sponsorMemberNumber) {
+              <small class="field-help">Member number <code>{{ sponsorMemberNumber }}</code></small>
             }
           </label>
 
@@ -51,34 +55,47 @@
 
         @for (row of tariffs; track $index) {
           <div class="tariff-row">
-            <label class="field field--grow">
+            <div class="field field--grow">
               <span class="field-label">Tariff code <span class="req">*</span></span>
-              <div class="tariff-cell">
-                <input class="field-control" type="text"
-                       [(ngModel)]="row.code" [name]="'tariff-' + $index"
-                       placeholder="Search tariff…"
-                       autocomplete="off"
-                       (focus)="onTariffFocus(row)"
-                       (input)="onTariffInput(row)"
-                       (blur)="onTariffBlur(row)" />
-                @if (row.showMatches && (row.searching || row.matches.length > 0)) {
-                  <ul class="suggestions">
-                    @if (row.searching) {
-                      <li class="suggestion muted">Searching…</li>
-                    } @else {
-                      @for (t of row.matches; track t.id) {
-                        <li class="suggestion" (mousedown)="pickTariff(row, t)">
-                          <code>{{ t.code }}</code>
-                          <span class="muted">- {{ t.description }}</span>
-                        </li>
+              @if (row.code) {
+                <!-- Picked state: shows the code + description so the
+                     operator sees what they selected instead of a bare
+                     code. Change returns the row to search mode. -->
+                <div class="picked-tariff">
+                  <div class="picked-tariff__info">
+                    <code class="picked-tariff__code">{{ row.code }}</code>
+                    <span class="picked-tariff__desc">{{ row.description }}</span>
+                  </div>
+                  <button type="button" class="link-btn" (click)="clearTariff(row)">Change</button>
+                </div>
+              } @else {
+                <div class="tariff-cell">
+                  <input class="field-control" type="text"
+                         [(ngModel)]="row.query" [name]="'tariff-' + $index"
+                         placeholder="Search tariff…"
+                         autocomplete="off"
+                         (focus)="onTariffFocus(row)"
+                         (input)="onTariffInput(row)"
+                         (blur)="onTariffBlur(row)" />
+                  @if (row.showMatches && (row.searching || row.matches.length > 0)) {
+                    <ul class="suggestions">
+                      @if (row.searching) {
+                        <li class="suggestion muted">Searching…</li>
+                      } @else {
+                        @for (t of row.matches; track t.id) {
+                          <li class="suggestion" (mousedown)="pickTariff(row, t)">
+                            <code>{{ t.code }}</code>
+                            <span class="muted">{{ t.description }}</span>
+                          </li>
+                        }
                       }
-                    }
-                  </ul>
-                }
-              </div>
-            </label>
+                    </ul>
+                  }
+                </div>
+              }
+            </div>
             @if (tariffs.length > 1) {
-              <button type="button" class="btn btn-default btn-sm"
+              <button type="button" class="btn btn-default"
                       (click)="removeTariffRow($index)"
                       aria-label="Remove tariff code">
                 <app-icon name="x" [size]="14"></app-icon>
@@ -87,7 +104,7 @@
           </div>
         }
 
-        <button type="button" class="btn btn-default btn-sm" (click)="addTariffRow()">
+        <button type="button" class="btn btn-default tariff-add" (click)="addTariffRow()">
           <app-icon name="plus" [size]="14"></app-icon>
           Add another tariff code
         </button>
@@ -140,56 +157,61 @@
   </form>
 
   @if (quote) {
-    <section class="quote-result">
-      <header class="page-header">
-        <div>
-          <h2>Quote result</h2>
-          <p class="page-sub">Estimates only: a real claim adjudicates against live data at submission time.</p>
+    <section class="form-card">
+      <div class="form-card__heading">
+        <div class="quote-heading">
+          <div>
+            <h2 class="form-card__title">Quote result</h2>
+            <span class="form-card__hint">Estimates only. A real claim adjudicates against live data at submission time.</span>
+          </div>
+          <span class="coverage-chip"
+                [class.coverage-chip--active]="quote.coverage === 'ACTIVE'"
+                [class.coverage-chip--warn]="quote.coverage === 'IN_ARREARS' || quote.coverage === 'SUSPENDED'"
+                [class.coverage-chip--danger]="quote.coverage === 'TERMINATED' || quote.coverage === 'INELIGIBLE'">
+            {{ quote.coverage }}
+          </span>
         </div>
-        <span class="coverage-chip" [class.coverage-chip--active]="quote.coverage === 'ACTIVE'"
-              [class.coverage-chip--warn]="quote.coverage === 'IN_ARREARS' || quote.coverage === 'SUSPENDED'"
-              [class.coverage-chip--danger]="quote.coverage === 'TERMINATED' || quote.coverage === 'INELIGIBLE'">
-          {{ quote.coverage }}
-        </span>
-      </header>
+      </div>
 
-      <div class="quote-grid">
-        <div class="quote-cell">
-          <span class="quote-label">Allowed</span>
-          <span class="quote-value">{{ quote.estimatedAllowed }} {{ quote.currencyCode }}</span>
-        </div>
-        <div class="quote-cell">
-          <span class="quote-label">Copay</span>
-          <span class="quote-value">{{ quote.estimatedCopay }} {{ quote.currencyCode }}</span>
-        </div>
-        <div class="quote-cell">
-          <span class="quote-label">Coinsurance</span>
-          <span class="quote-value">{{ quote.estimatedCoinsurance }} {{ quote.currencyCode }}</span>
-        </div>
-        <div class="quote-cell">
-          <span class="quote-label">Shortfall</span>
-          <span class="quote-value">{{ quote.estimatedShortfall }} {{ quote.currencyCode }}</span>
-        </div>
-        <div class="quote-cell quote-cell--emphasis">
-          <span class="quote-label">Member owes</span>
-          <span class="quote-value">{{ quote.estimatedPatientResponsibility }} {{ quote.currencyCode }}</span>
-        </div>
-        <div class="quote-cell quote-cell--emphasis">
-          <span class="quote-label">Plan pays</span>
-          <span class="quote-value">{{ quote.estimatedPlanPaid }} {{ quote.currencyCode }}</span>
-        </div>
-        @if (quote.deductibleRemaining !== null) {
+      <div class="quote-body">
+        <div class="quote-grid">
           <div class="quote-cell">
-            <span class="quote-label">Deductible remaining</span>
-            <span class="quote-value">{{ quote.deductibleRemaining }} {{ quote.currencyCode }}</span>
+            <span class="quote-label">Allowed</span>
+            <span class="quote-value">{{ quote.estimatedAllowed }} {{ quote.currencyCode }}</span>
           </div>
-        }
-        @if (quote.oopMaxRemaining !== null) {
           <div class="quote-cell">
-            <span class="quote-label">OOP-max remaining</span>
-            <span class="quote-value">{{ quote.oopMaxRemaining }} {{ quote.currencyCode }}</span>
+            <span class="quote-label">Copay</span>
+            <span class="quote-value">{{ quote.estimatedCopay }} {{ quote.currencyCode }}</span>
           </div>
-        }
+          <div class="quote-cell">
+            <span class="quote-label">Coinsurance</span>
+            <span class="quote-value">{{ quote.estimatedCoinsurance }} {{ quote.currencyCode }}</span>
+          </div>
+          <div class="quote-cell">
+            <span class="quote-label">Shortfall</span>
+            <span class="quote-value">{{ quote.estimatedShortfall }} {{ quote.currencyCode }}</span>
+          </div>
+          <div class="quote-cell quote-cell--emphasis">
+            <span class="quote-label">Member owes</span>
+            <span class="quote-value">{{ quote.estimatedPatientResponsibility }} {{ quote.currencyCode }}</span>
+          </div>
+          <div class="quote-cell quote-cell--emphasis">
+            <span class="quote-label">Plan pays</span>
+            <span class="quote-value">{{ quote.estimatedPlanPaid }} {{ quote.currencyCode }}</span>
+          </div>
+          @if (quote.deductibleRemaining !== null) {
+            <div class="quote-cell">
+              <span class="quote-label">Deductible remaining</span>
+              <span class="quote-value">{{ quote.deductibleRemaining }} {{ quote.currencyCode }}</span>
+            </div>
+          }
+          @if (quote.oopMaxRemaining !== null) {
+            <div class="quote-cell">
+              <span class="quote-label">OOP-max remaining</span>
+              <span class="quote-value">{{ quote.oopMaxRemaining }} {{ quote.currencyCode }}</span>
+            </div>
+          }
+        </div>
       </div>
 
       @if (quote.notes && quote.notes.length > 0) {

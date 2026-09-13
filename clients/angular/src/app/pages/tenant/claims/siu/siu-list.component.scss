@@ -1,8 +1,8 @@
-// Full-bleed shell. Same shape as /tenant/claims/siu,
-// /tenant/finance/runs, pending-claims-list. Status filter lives inside
-// the data-table's [table-filters] slot and is styled via the
-// .toolbar-cell block below, matching those pages so all three read as
-// the same filter language.
+// Full-bleed shell. Same shape as pending-claims-list, pre-auth-list,
+// payment-runs-list. Status filter lives inside the data-table's
+// [table-filters] slot and is styled via the .toolbar-cell block below,
+// matching /tenant/finance/runs so both pages read as the same filter
+// language.
 
 .page-header {
   display: flex;
@@ -26,14 +26,6 @@
   font-size: 0.9rem;
   max-width: 70ch;
 }
-
-.banner {
-  padding: 0.5rem 0.75rem;
-  cursor: pointer;
-  margin: 0.75rem 24px 0;
-  border-radius: var(--radius-md, 8px);
-}
-.banner-success { background: var(--success-bg, #d1fae5); color: var(--success-fg, #065f46); }
 
 // DataTable's toolbar layout is [search][spacer][filters], which pushes
 // projected filters to the far right. Push the spacer past our filter
@@ -84,5 +76,10 @@
 
 .toolbar-cell.cell-status {
   flex: 0 0 auto;
-  min-width: 200px;
+  // Wider than the payment-runs status filter: SIU status labels
+  // ("Closed: confirmed fraud", "Closed: dismissed") are long enough
+  // to truncate in a 200px cell.
+  min-width: 320px;
+
+  app-select { min-width: 240px; }
 }

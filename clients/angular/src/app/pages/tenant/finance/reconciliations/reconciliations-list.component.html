@@ -9,19 +9,6 @@
   <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
 }
 
-<div class="filter-strip">
-  <label class="field">
-    <span class="field-label">Status</span>
-    <app-select
-      [(ngModel)]="statusFilter"
-      (selectionChange)="onStatusChange()"
-      name="status"
-      [options]="statusOptions"
-      size="sm"
-    ></app-select>
-  </label>
-</div>
-
 <app-data-table
   [columns]="columns"
   [data]="rows"
@@ -41,4 +28,16 @@
   (pageChange)="onPageChange($event)"
   (searchChange)="onSearchChange($event)"
   (sortChange)="onSortChange($event)">
+  <div table-filters class="toolbar-cell cell-status">
+    <span class="cell-label">Status</span>
+    <app-select
+      [(ngModel)]="statusFilter"
+      (selectionChange)="onStatusChange()"
+      name="status"
+      [options]="statusOptions"
+      placeholder="All"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
 </app-data-table>

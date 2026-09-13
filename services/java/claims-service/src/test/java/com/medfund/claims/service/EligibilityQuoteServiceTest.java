@@ -1,6 +1,7 @@
 package com.medfund.claims.service;
 
 import com.medfund.claims.client.MemberLookupClient;
+import com.medfund.claims.client.MemberLookupClient.DependantSummary;
 import com.medfund.claims.client.MemberLookupClient.MemberSummary;
 import com.medfund.claims.costshare.CostShareConfig;
 import com.medfund.claims.costshare.MemberCostShareAccumulatorReader;
@@ -9,6 +10,7 @@ import com.medfund.claims.dto.AdjudicationResult.CostShareBreakdown;
 import com.medfund.claims.dto.AdjudicationResult.StageResult;
 import com.medfund.claims.dto.EligibilityQuoteRequest;
 import com.medfund.claims.dto.EligibilityQuoteResponse;
+import com.medfund.claims.entity.Claim;
 import com.medfund.claims.service.AdjudicationPipeline.DryRunResult;
 import com.medfund.shared.audit.AuditEvent;
 import com.medfund.shared.audit.AuditPublisher;
@@ -26,6 +28,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -46,6 +49,8 @@ class EligibilityQuoteServiceTest {
     private EligibilityQuoteService service;
 
     private static final UUID MEMBER_ID = UUID.randomUUID();
+    private static final UUID DEPENDANT_ID = UUID.randomUUID();
+    private static final UUID OTHER_MEMBER_ID = UUID.randomUUID();
     private static final UUID SCHEME_ID = UUID.randomUUID();
     private static final UUID PROVIDER_ID = UUID.randomUUID();
 
@@ -163,11 +168,110 @@ class EligibilityQuoteServiceTest {
                 .containsEntry("estimatedPatientResponsibility", "125");
     }
 
+    @Test
+    void quoteResolvesDependantAndSetsDependantIdOnTransientClaim() {
+        when(memberLookupClient.findByMemberNumber("M-100"))
+                .thenReturn(Mono.just(member("M-100", "active", null)));
+        when(memberLookupClient.findDependantById(DEPENDANT_ID))
+                .thenReturn(Mono.just(dependant(MEMBER_ID, "active")));
+
+        service.quote(requestWithDependant("M-100", DEPENDANT_ID), PROVIDER_ID, "u1", "u1@example.com")
+                .block();
+
+        // Load-bearing: the transient claim handed to the pipeline must
+        // carry the dependant so the INDIVIDUAL-scope accumulator lookup
+        // keys on dependant_id, not member_id alone.
+        ArgumentCaptor<Claim> claimCaptor = ArgumentCaptor.forClass(Claim.class);
+        verify(pipeline).dryRun(claimCaptor.capture(), any());
+        assertThat(claimCaptor.getValue().getDependantId()).isEqualTo(DEPENDANT_ID);
+        assertThat(claimCaptor.getValue().getMemberId()).isEqualTo(MEMBER_ID);
+
+        // Accumulator read must be keyed on dependantId under INDIVIDUAL scope.
+        verify(accReader).findFor(eq(MEMBER_ID), eq(DEPENDANT_ID), eq(SCHEME_ID), anyInt());
+    }
+
+    @Test
+    void quoteRejectsMismatchedDependantMember() {
+        when(memberLookupClient.findByMemberNumber("M-100"))
+                .thenReturn(Mono.just(member("M-100", "active", null)));
+        // Dependant belongs to a different member — service must refuse.
+        when(memberLookupClient.findDependantById(DEPENDANT_ID))
+                .thenReturn(Mono.just(dependant(OTHER_MEMBER_ID, "active")));
+
+        StepVerifier.create(service.quote(
+                        requestWithDependant("M-100", DEPENDANT_ID), PROVIDER_ID, "u1", "u1@example.com"))
+                .expectError(IllegalArgumentException.class)
+                .verify();
+    }
+
+    @Test
+    void quoteFailsWhenDependantIdIsUnknown() {
+        when(memberLookupClient.findByMemberNumber("M-100"))
+                .thenReturn(Mono.just(member("M-100", "active", null)));
+        when(memberLookupClient.findDependantById(DEPENDANT_ID))
+                .thenReturn(Mono.empty());
+
+        StepVerifier.create(service.quote(
+                        requestWithDependant("M-100", DEPENDANT_ID), PROVIDER_ID, "u1", "u1@example.com"))
+                .expectError(EligibilityQuoteService.DependantNotFoundException.class)
+                .verify();
+    }
+
+    @Test
+    void terminatedDependantOnActiveMember_returnsTerminatedCoverage() {
+        when(memberLookupClient.findByMemberNumber("M-100"))
+                .thenReturn(Mono.just(member("M-100", "active", null)));
+        when(memberLookupClient.findDependantById(DEPENDANT_ID))
+                .thenReturn(Mono.just(dependant(MEMBER_ID, "deactivated")));
+
+        EligibilityQuoteResponse response = service
+                .quote(requestWithDependant("M-100", DEPENDANT_ID), PROVIDER_ID, "u1", "u1@example.com")
+                .block();
+
+        assertThat(response).isNotNull();
+        // A dependant whose status is deactivated / removed / swapped /
+        // deceased has to override the sponsor's ACTIVE status — otherwise
+        // the quote would say ACTIVE for a dependant with no coverage.
+        assertThat(response.coverage()).isEqualTo("TERMINATED");
+    }
+
+    @Test
+    void dependantQuote_emitsAuditEventWithDependantFields() {
+        when(memberLookupClient.findByMemberNumber("M-100"))
+                .thenReturn(Mono.just(member("M-100", "active", null)));
+        when(memberLookupClient.findDependantById(DEPENDANT_ID))
+                .thenReturn(Mono.just(dependant(MEMBER_ID, "active")));
+
+        service.quote(requestWithDependant("M-100", DEPENDANT_ID), PROVIDER_ID, "u1", "u1@example.com")
+                .block();
+
+        ArgumentCaptor<AuditEvent> captor = ArgumentCaptor.forClass(AuditEvent.class);
+        verify(auditPublisher).publish(captor.capture());
+        AuditEvent event = captor.getValue();
+
+        assertThat(event.newValue())
+                .containsEntry("dependantId", DEPENDANT_ID.toString())
+                .containsEntry("dependantMemberNumber", "D-100")
+                .containsEntry("dependantName", "Junior Member");
+        // Friendly entity name mentions both the sponsor and dependant
+        // (per feedback_audit_entity_name — never the UUID).
+        assertThat(event.entityName())
+                .contains("M-100")
+                .contains("Junior Member")
+                .doesNotContain(event.entityId());
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────────
 
     private EligibilityQuoteRequest request(String memberNumber) {
         return new EligibilityQuoteRequest(
-                memberNumber, "CONSULTATION", List.of("CONS-01"),
+                memberNumber, null, "CONSULTATION", List.of("CONS-01"),
+                new BigDecimal("500"), "USD", LocalDate.of(2026, 6, 1));
+    }
+
+    private EligibilityQuoteRequest requestWithDependant(String memberNumber, UUID dependantId) {
+        return new EligibilityQuoteRequest(
+                memberNumber, dependantId, "CONSULTATION", List.of("CONS-01"),
                 new BigDecimal("500"), "USD", LocalDate.of(2026, 6, 1));
     }
 
@@ -175,6 +279,12 @@ class EligibilityQuoteServiceTest {
         return new MemberSummary(
                 MEMBER_ID, number, "Test", "Member", status, suspendReason,
                 SCHEME_ID, null, LocalDate.of(2025, 1, 1), null);
+    }
+
+    private DependantSummary dependant(UUID sponsorId, String status) {
+        return new DependantSummary(
+                DEPENDANT_ID, sponsorId, "D-100", "Junior", "Member", status,
+                LocalDate.of(2015, 1, 1));
     }
 
     private CostShareBreakdown breakdown(String allowed, String deductible, String copay,

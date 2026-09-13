@@ -24,7 +24,15 @@ import { ToastService } from '../../../../shared/components/toast/toast.service'
 import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface TariffRow {
+  /** The tariff code submitted to the quote endpoint. */
   code: string;
+  /** Human-readable description surfaced next to the code once picked
+   *  so the operator sees what they selected instead of a bare code. */
+  description: string;
+  /** Free-text search entered while the row is in search mode. Cleared
+   *  the moment a suggestion is picked (which populates {@link code}
+   *  + {@link description} instead). */
+  query: string;
   matches: TariffCode[];
   searching: boolean;
   showMatches: boolean;
@@ -60,9 +68,22 @@ export class EligibilityQuoteComponent implements OnInit {
   loading = false;
   quote: EligibilityQuoteResponse | null = null;
 
-  memberId: string | null = null;
-  memberNumber: string | null = null;
-  memberLabel: string | null = null;
+  /** Picker's own value (member id or dependant id). Bound to the entity
+   *  picker's [value] so it can render the picked chip on first paint. */
+  beneficiaryId: string | null = null;
+  /** Sponsoring member's UUID. When the operator picks a member this
+   *  equals {@link beneficiaryId}; when they pick a dependant it holds
+   *  the sponsor's UUID (from {@code BeneficiaryPick.memberId}). */
+  sponsorMemberId: string | null = null;
+  /** Sponsor's friendly memberNumber — always the sponsor's number, per
+   *  the backend wire (memberNumber names the sponsor even in the
+   *  dependant case). */
+  sponsorMemberNumber: string | null = null;
+  /** Set only when the operator picked a dependant. Threaded through
+   *  to the backend to key the accumulator read on dependant_id. */
+  dependantId: string | null = null;
+  pickedLabel: string | null = null;
+  pickedKind: 'MEMBER' | 'DEPENDANT' | null = null;
 
   currencies: TenantCurrencyConfig[] = [];
 
@@ -122,25 +143,47 @@ export class EligibilityQuoteComponent implements OnInit {
     this.wireTariffRow(this.tariffs[0]);
   }
 
-  // ── Member picker ─────────────────────────────────────────────────────
-  onMemberPicked(sel: EntityPickerSelection | null): void {
+  // ── Beneficiary picker (member OR dependant) ──────────────────────────
+  onBeneficiaryPicked(sel: EntityPickerSelection | null): void {
+    this.beneficiaryId = sel?.id ?? null;
     if (!sel) {
-      this.memberId = null;
-      this.memberNumber = null;
-      this.memberLabel = null;
+      this.sponsorMemberId = null;
+      this.sponsorMemberNumber = null;
+      this.dependantId = null;
+      this.pickedLabel = null;
+      this.pickedKind = null;
       return;
     }
-    this.memberId = sel.id;
-    this.memberLabel = sel.label;
-    // The member picker's sublabel is the memberNumber (see EntityPicker
-    // search branch for kind='member'). Keep it structured — the request
-    // payload carries the memberNumber, never the raw id.
-    this.memberNumber = sel.sublabel ?? null;
-    if (!this.memberNumber) {
-      // Fallback: fetch the full member row when the picker didn't populate
-      // sublabel (defensive — happens if the search shape ever changes).
-      this.members.getById(sel.id).subscribe({
-        next: (m) => { this.memberNumber = m.memberNumber; },
+    const b = sel.beneficiary;
+    this.pickedLabel = sel.label;
+    if (!b) {
+      // Defensive fallback — should never happen when kind='beneficiary'.
+      // Treat as a bare member pick and hope the search shape is intact.
+      this.sponsorMemberId = sel.id;
+      this.sponsorMemberNumber = sel.sublabel ?? null;
+      this.dependantId = null;
+      this.pickedKind = 'MEMBER';
+      return;
+    }
+    this.pickedKind = b.kind;
+    this.sponsorMemberId = b.memberId;
+    if (b.kind === 'DEPENDANT') {
+      // Backend needs the SPONSOR's memberNumber even for dependant
+      // quotes; the picker gives us that via BeneficiaryPick.sponsorMemberNumber
+      // (surfaced from the member row via the beneficiary search).
+      this.sponsorMemberNumber = b.sponsorMemberNumber ?? null;
+      this.dependantId = b.dependantId;
+    } else {
+      // MEMBER pick — beneficiary id IS the member id; the sublabel is
+      // formatted as "MEM · <memberNumber>", so we extract the number.
+      this.sponsorMemberNumber = extractMemberNumber(sel.sublabel);
+      this.dependantId = null;
+    }
+    // Defensive backfill: if we somehow ended up without a memberNumber,
+    // fetch it (happens if the beneficiary search ever drops the field).
+    if (!this.sponsorMemberNumber && this.sponsorMemberId) {
+      this.members.getById(this.sponsorMemberId).subscribe({
+        next: (m) => { this.sponsorMemberNumber = m.memberNumber; },
       });
     }
   }
@@ -159,7 +202,7 @@ export class EligibilityQuoteComponent implements OnInit {
 
   onTariffInput(row: TariffRow): void {
     row.showMatches = true;
-    row.query$.next(row.code);
+    row.query$.next(row.query);
   }
 
   onTariffFocus(row: TariffRow): void { row.showMatches = true; }
@@ -170,12 +213,28 @@ export class EligibilityQuoteComponent implements OnInit {
 
   pickTariff(row: TariffRow, t: TariffCode): void {
     row.code = t.code;
+    row.description = t.description;
+    row.query = '';
+    row.matches = [];
+    row.showMatches = false;
+  }
+
+  /** Drop the current pick and return the row to search mode so the
+   *  operator can pick a different code. */
+  clearTariff(row: TariffRow): void {
+    row.code = '';
+    row.description = '';
+    row.query = '';
     row.matches = [];
     row.showMatches = false;
   }
 
   private blankTariffRow(): TariffRow {
-    return { code: '', matches: [], searching: false, showMatches: false, query$: new Subject<string>() };
+    return {
+      code: '', description: '', query: '',
+      matches: [], searching: false, showMatches: false,
+      query$: new Subject<string>(),
+    };
   }
 
   private wireTariffRow(row: TariffRow): void {
@@ -199,7 +258,10 @@ export class EligibilityQuoteComponent implements OnInit {
   // ── Submit ────────────────────────────────────────────────────────────
   submit(): void {
     this.quote = null;
-    if (!this.memberNumber) { this.toast.warning('Pick a member'); return; }
+    if (!this.sponsorMemberNumber) {
+      this.toast.warning('Pick a member or dependant');
+      return;
+    }
     const codes = this.tariffs.map(r => r.code.trim().toUpperCase()).filter(c => c.length > 0);
     if (codes.length === 0) { this.toast.warning('Add at least one tariff code'); return; }
     if (!this.form.billedAmount || this.billedAmountNumber <= 0) {
@@ -208,7 +270,8 @@ export class EligibilityQuoteComponent implements OnInit {
     }
 
     const request: EligibilityQuoteRequest = {
-      memberNumber: this.memberNumber,
+      memberNumber: this.sponsorMemberNumber,
+      dependantId: this.dependantId ?? undefined,
       serviceCategory: this.form.serviceCategory,
       tariffCodes: codes,
       billedAmount: this.form.billedAmount,
@@ -228,4 +291,18 @@ export class EligibilityQuoteComponent implements OnInit {
       },
     });
   }
+}
+
+/**
+ * Pull the plain memberNumber out of the beneficiary picker's sublabel.
+ * The picker formats MEMBER hits as {@code "MEM · MBR-000123"} (see
+ * {@link EntityPickerComponent}'s beneficiary search branch). We slice
+ * off the {@code "MEM · "} prefix; if the format ever changes and
+ * doesn't match, we fall back to the whole sublabel so submit still
+ * has something to send.
+ */
+function extractMemberNumber(sublabel: string | undefined): string | null {
+  if (!sublabel) return null;
+  const match = sublabel.match(/^MEM\s*·\s*(.+)$/);
+  return match ? match[1].trim() : sublabel;
 }

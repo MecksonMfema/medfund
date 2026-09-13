@@ -1,6 +1,6 @@
 <div class="member-detail-page">
   <header class="page-header">
-    <div>
+    <div class="page-header__lead">
       @if (member) {
         <h1>
           {{ member.firstName }} {{ member.lastName }}
@@ -19,16 +19,17 @@
         <h1>Loading…</h1>
       }
     </div>
-    <!-- Right-side cluster: status actions on the far LEFT of the
-         group, Back-to-list pinned to the far RIGHT so it's the
-         last thing an operator's eye lands on when scanning the
-         header. Standard for pages with multiple buttons. -->
+    <!-- Single right-side action cluster. All buttons (Activate,
+         Suspend, Terminate, Record death, Clear custom premium, Swap,
+         Back) share the same outlined weight so nothing screams louder
+         than its neighbour. Change group and Change scheme are not
+         here: they're triggered by picking a new value in the
+         Enrolment form below. -->
     <div class="header-actions">
       @if (member) {
-        @if (canActivate())      { <button type="button" class="btn btn-default"  (click)="activate()">Activate</button> }
-        @if (canSuspend())       { <button type="button" class="btn btn-warn"     (click)="suspend()">Suspend</button> }
-        @if (canTerminate())     { <button type="button" class="btn btn-danger"   (click)="terminate()">Terminate</button> }
-        <!-- Actuarial Phase 5: gated on members:record_death so a supervisor role can own it. -->
+        @if (canActivate())      { <button type="button" class="btn btn-default" (click)="activate()">Activate</button> }
+        @if (canSuspend())       { <button type="button" class="btn btn-warn"    (click)="suspend()">Suspend</button> }
+        @if (canTerminate())     { <button type="button" class="btn btn-danger"  (click)="terminate()">Terminate</button> }
         @if (canRecordDeath()) {
           <button *hasPermission="'members:record_death'"
                   type="button"
@@ -38,12 +39,7 @@
             Record death
           </button>
         }
-        @if (canClearOverride()) { <button type="button" class="btn btn-default"  (click)="clearBillingOverride()">Clear custom premium</button> }
-        <!-- V048 group change: back-dated posts arrears/rebate; forward-dated stashes PENDING for approval. -->
-        <button type="button" class="btn btn-default" (click)="openChangeGroupModal()">Change group</button>
-        <!-- Scheme change: goes through contributions-service so waiting-period rules and UPGRADE/DOWNGRADE classification apply. -->
-        <button type="button" class="btn btn-default" (click)="openChangeSchemeModal()">Change scheme</button>
-        <!-- V048 swap: promote a dependant to principal + demote current member; modal handles picking. -->
+        @if (canClearOverride()) { <button type="button" class="btn btn-default" (click)="clearBillingOverride()">Clear custom premium</button> }
         <button type="button" class="btn btn-default" (click)="openSwapModal()">Swap with dependant</button>
       }
       <a class="btn btn-default" routerLink="/tenant/members">
@@ -183,32 +179,40 @@
           <div class="field-grid field-grid--2">
             <div class="field">
               <span class="field-label">Group <span class="optional">(optional)</span></span>
+              <!-- Picking a different group opens the change-group modal
+                   pre-populated with the pick so the operator only
+                   confirms the effective date + reason. Cancel reverts
+                   the picker; Submit runs the V048 flow so back-dated
+                   changes post arrears/rebate and forward-dated changes
+                   stash PENDING for approval. -->
               <app-entity-picker
                 kind="group"
-                [(value)]="form.groupId"
+                [value]="form.groupId"
+                (valueChange)="onGroupPickerChange($event)"
                 [prefillLabel]="groupLabel"
                 [prefillSublabel]="groupSublabel"
                 placeholder="Search by group name…">
               </app-entity-picker>
-              <small class="field-help">Leave blank for an individual; picking a group makes this member billable through the group's liaison.</small>
+              <small class="field-help">Changing the group opens a confirmation for the effective date and reason. Leave blank for an individual policyholder.</small>
             </div>
 
             <div class="field">
               <span class="field-label">Scheme</span>
-              <!-- Read-only display. Scheme changes must go through the
-                   "Change scheme" button in the page header so
-                   waiting-period rules, UPGRADE/DOWNGRADE
-                   classification, and arrears/rebate all fire via
-                   contributions-service. -->
+              <!-- Picking a different scheme opens the change-scheme
+                   modal pre-populated with the pick. Routes through
+                   contributions-service so waiting-period rules,
+                   UPGRADE/DOWNGRADE classification, and arrears/rebate
+                   all fire. Cancel reverts the picker to the saved
+                   scheme; Submit runs the workflow. -->
               <app-entity-picker
                 kind="scheme"
-                [(value)]="form.schemeId"
-                [disabled]="true"
+                [value]="form.schemeId"
+                (valueChange)="onSchemePickerChange($event)"
                 [prefillLabel]="schemeLabel"
                 [prefillSublabel]="schemeSublabel"
                 placeholder="Search by scheme name…">
               </app-entity-picker>
-              <small class="field-help">Use <strong>Change scheme</strong> above to move this member to a different scheme.</small>
+              <small class="field-help">Changing the scheme opens a confirmation for the effective date and reason.</small>
             </div>
 
           </div>
@@ -649,21 +653,27 @@
   </div>
 </ng-template>
 
-<!-- V048 modal: change group. Standalone component with EntityPicker for group selection. -->
+<!-- V048 modal: change group. Prefilled with the group the operator
+     picked in the Enrolment form; they only confirm the effective
+     date + reason. -->
 <app-change-group-modal
   [open]="changeGroupModalOpen"
   [memberName]="member ? member.firstName + ' ' + member.lastName : ''"
+  [currentGroupName]="groupLabel"
+  [initialTargetGroupId]="pendingGroupChangeId"
   (cancel)="onChangeGroupCancel()"
   (submit)="onChangeGroupSubmit($event)">
 </app-change-group-modal>
 
-<!-- Scheme change modal. Routes through contributions-service; the
-     kind is auto-classified server-side. -->
+<!-- Scheme change modal. Prefilled with the scheme the operator picked
+     in the Enrolment form; routes through contributions-service and
+     the kind is auto-classified server-side. -->
 <app-change-scheme-modal
   [open]="changeSchemeModalOpen"
   [memberName]="member ? member.firstName + ' ' + member.lastName : ''"
   [currentSchemeName]="schemeLabel"
   [currentSchemeId]="member?.schemeId ?? null"
+  [initialToSchemeId]="pendingSchemeChangeId"
   (cancel)="onChangeSchemeCancel()"
   (submit)="onChangeSchemeSubmit($event)">
 </app-change-scheme-modal>

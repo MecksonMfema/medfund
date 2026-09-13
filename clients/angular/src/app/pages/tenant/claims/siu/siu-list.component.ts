@@ -18,6 +18,7 @@ import { SiuCaseSummary, SiuService } from './siu.service';
   standalone: true,
   imports: [CommonModule, FormsModule, SelectComponent, DataTableComponent],
   templateUrl: './siu-list.component.html',
+  styleUrl: './siu-list.component.scss',
 })
 export class SiuListComponent implements OnInit {
   rows: SiuCaseSummary[] = [];

@@ -1,3 +1,8 @@
+// Shared form vocabulary (form-card / form-sections / field-grid /
+// field-control / page-header etc.). Without this @use the standard
+// classes on the template render unstyled.
+@use '../../../../shared/styles/form-grammar';
+
 .claim-form-page {
   padding: 24px;
   max-width: 1200px;
@@ -7,70 +12,138 @@
   gap: 24px;
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 24px;
+// Stack form-cards with breathing room, mirroring member-form / group-detail.
+.form-card + .form-card { margin-top: 0; }
 
-  h1, h2 {
-    margin: 0;
-  }
-
-  .page-sub {
-    margin: 4px 0 0;
-    color: var(--muted-fg, #6b7280);
-    max-width: 68ch;
-  }
-}
-
+// ── Tariff-code repeatable row ──────────────────────────────────────────
+// One row per code with an inline suggestion popover under the input.
+// Row footer holds the "add another" button aligned to the left so it
+// doesn't fight the primary submit at the form footer.
 .tariff-row {
   display: flex;
   align-items: flex-end;
   gap: 12px;
-  margin-bottom: 12px;
 
-  .field--grow {
-    flex: 1 1 auto;
-  }
+  .field--grow { flex: 1 1 auto; min-width: 0; }
 }
 
-.quote-result {
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 8px;
-  padding: 24px;
-  background: var(--surface, #fff);
+.tariff-row + .tariff-row { margin-top: 12px; }
+
+.tariff-add {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+// Position anchor for the popover.
+.tariff-cell { position: relative; }
+
+// Picked tariff: mirrors the entity-picker's chip so the two typeaheads
+// read as one family. Code sits in a monospaced pill, description
+// wraps beside it, and "Change" swings the row back into search mode.
+.picked-tariff {
   display: flex;
-  flex-direction: column;
-  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
 }
 
-.coverage-chip {
-  display: inline-flex;
+.picked-tariff__info {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.picked-tariff__code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-weight: var(--font-weight-semibold);
+  flex-shrink: 0;
+}
+
+.picked-tariff__desc {
+  font-size: 0.875rem;
+  color: var(--color-text-primary);
+  min-width: 0;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  padding: 0;
+  font-family: inherit;
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) { text-decoration: underline; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+// Suggestion popover — same visual grammar as the entity-picker's
+// popover so the two typeaheads read as one control family.
+.suggestions {
+  position: absolute;
+  inset-inline-start: 0;
+  inset-inline-end: 0;
+  top: calc(100% + 4px);
+  z-index: 30;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md, 0 4px 6px rgba(0,0,0,0.04));
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.suggestion {
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-sm);
+    padding: 1px 6px;
+    font-size: 0.8125rem;
+    color: var(--color-text-primary);
+  }
+
+  .muted { color: var(--color-text-muted); font-size: 0.8125rem; }
+
+  &:hover { background: var(--color-bg); }
+  &.muted { color: var(--color-text-muted); cursor: default; font-style: italic; }
+}
+
+// ── Quote result panel ──────────────────────────────────────────────────
+// A separate .form-card so the eight cost-share cells sit inside the
+// same surface grammar as the input form above. Header uses the
+// standard .form-card__heading + coverage chip.
+.quote-heading {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  background: var(--muted-bg, #f3f4f6);
-  color: var(--muted-fg, #6b7280);
-  height: fit-content;
-
-  &--active {
-    background: #d1fae5;
-    color: #065f46;
-  }
-
-  &--warn {
-    background: #fef3c7;
-    color: #92400e;
-  }
-
-  &--danger {
-    background: #fee2e2;
-    color: #991b1b;
-  }
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .quote-grid {
@@ -80,44 +153,83 @@
 }
 
 .quote-cell {
-  padding: 12px 16px;
-  border-radius: 6px;
-  background: var(--muted-bg, #f9fafb);
+  padding: 14px 16px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
   display: flex;
   flex-direction: column;
   gap: 4px;
 
   &--emphasis {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
+    background: var(--color-primary-light);
+    border-color: var(--color-primary);
   }
 }
 
 .quote-label {
-  font-size: 12px;
-  color: var(--muted-fg, #6b7280);
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
 }
 
 .quote-value {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--fg, #111827);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.coverage-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border-light);
+
+  &--active {
+    background: #d1fae5;
+    color: #065f46;
+    border-color: #10b981;
+  }
+  &--warn {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fbbf24;
+  }
+  &--danger {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #ef4444;
+  }
 }
 
 .quote-notes {
-  border-top: 1px solid var(--border, #e5e7eb);
-  padding-top: 16px;
+  padding: 20px 24px;
+  border-top: 1px solid var(--color-border-light);
 
   h3 {
     margin: 0 0 8px;
-    font-size: 14px;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
   }
-
   ul {
     margin: 0;
     padding-left: 20px;
-    color: var(--muted-fg, #6b7280);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
   }
 }
+
+// The .form-sections default has 24px padding; the quote grid + notes
+// live in their own thinner blocks so we tighten spacing when they're
+// the only children.
+.quote-body { padding: 20px 24px; }

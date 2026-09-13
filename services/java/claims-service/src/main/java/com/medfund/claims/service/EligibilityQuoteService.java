@@ -1,6 +1,7 @@
 package com.medfund.claims.service;
 
 import com.medfund.claims.client.MemberLookupClient;
+import com.medfund.claims.client.MemberLookupClient.DependantSummary;
 import com.medfund.claims.client.MemberLookupClient.MemberSummary;
 import com.medfund.claims.dto.AdjudicationResult.CostShareBreakdown;
 import com.medfund.claims.dto.AdjudicationResult.StageResult;
@@ -18,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import reactor.util.function.Tuples;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -57,12 +59,54 @@ public class EligibilityQuoteService {
                                                  String actorEmail) {
         return memberLookupClient.findByMemberNumber(request.memberNumber())
                 .switchIfEmpty(Mono.error(new MemberNotFoundException(request.memberNumber())))
-                .flatMap(member -> runQuote(member, request, providerId))
-                .flatMap(response -> publishQuoteAudit(request, providerId, response, actorId, actorEmail)
-                        .thenReturn(response));
+                .flatMap(member -> resolveDependant(request, member)
+                        .flatMap(dep -> runQuote(member, dep, request, providerId)
+                                .map(r -> Tuples.of(r, (DependantSummary) dep)))
+                        .switchIfEmpty(Mono.defer(() -> runQuote(member, null, request, providerId)
+                                .map(r -> Tuples.<EligibilityQuoteResponse, DependantSummary>of(
+                                        r, empty())))))
+                .flatMap(tuple -> {
+                    EligibilityQuoteResponse response = tuple.getT1();
+                    DependantSummary dependant = tuple.getT2().id() == null ? null : tuple.getT2();
+                    return publishQuoteAudit(request, dependant, providerId, response, actorId, actorEmail)
+                            .thenReturn(response);
+                });
+    }
+
+    /**
+     * Sentinel used to carry a "no dependant" through the tuple pipeline
+     * without unpacking every step to null-check. Reactor tuples reject null
+     * components, so we substitute a summary whose {@code id} is null and
+     * unwrap it back to {@code null} at the audit step.
+     */
+    private static DependantSummary empty() {
+        return new DependantSummary(null, null, null, null, null, null, null);
+    }
+
+    /**
+     * Resolve the dependant when the request carries one; verify it belongs
+     * to the sponsor named by {@code memberNumber}. Returns an empty Mono
+     * when the request has no dependantId — the caller then falls through
+     * to the member-only quote path.
+     */
+    private Mono<DependantSummary> resolveDependant(EligibilityQuoteRequest request, MemberSummary member) {
+        if (request.dependantId() == null) {
+            return Mono.empty();
+        }
+        return memberLookupClient.findDependantById(request.dependantId())
+                .switchIfEmpty(Mono.error(new DependantNotFoundException(request.dependantId())))
+                .flatMap(dep -> {
+                    if (!member.id().equals(dep.memberId())) {
+                        return Mono.error(new IllegalArgumentException(
+                                "Dependant " + dep.id() + " does not belong to member "
+                                        + member.memberNumber()));
+                    }
+                    return Mono.just(dep);
+                });
     }
 
     private Mono<EligibilityQuoteResponse> runQuote(MemberSummary member,
+                                                     DependantSummary dependant,
                                                      EligibilityQuoteRequest request,
                                                      UUID providerId) {
         if (member.schemeId() == null) {
@@ -70,23 +114,24 @@ public class EligibilityQuoteService {
                     "Member " + member.memberNumber() + " is not enrolled in a scheme"));
         }
 
-        Claim transientClaim = buildTransientClaim(member, request, providerId);
+        Claim transientClaim = buildTransientClaim(member, dependant, request, providerId);
         List<ClaimLine> transientLines = buildTransientLines(request);
 
         return pipeline.dryRun(transientClaim, transientLines)
                 .flatMap(dryRun -> costShareCalculator
                         .compute(transientClaim, transientLines, dryRun.ruleActions(), dryRun.ruleAdjustedTotal())
                         .flatMap(breakdown -> assembleResponse(
-                                member, transientClaim, dryRun.stages(), breakdown)));
+                                member, dependant, transientClaim, dryRun.stages(), breakdown)));
     }
 
     private Mono<EligibilityQuoteResponse> assembleResponse(MemberSummary member,
+                                                             DependantSummary dependant,
                                                              Claim claim,
                                                              List<StageResult> stages,
                                                              CostShareBreakdown breakdown) {
         LocalDate asOf = claim.getServiceDate();
         int policyYear = asOf.getYear();
-        String coverage = classifyCoverage(member, stages);
+        String coverage = classifyCoverage(member, dependant, stages);
         List<String> notes = stageNotes(stages);
 
         Mono<CostShareConfig.Scheme> schemeMono =
@@ -125,9 +170,16 @@ public class EligibilityQuoteService {
         });
     }
 
-    private Claim buildTransientClaim(MemberSummary member, EligibilityQuoteRequest request, UUID providerId) {
+    private Claim buildTransientClaim(MemberSummary member, DependantSummary dependant,
+                                       EligibilityQuoteRequest request, UUID providerId) {
         Claim claim = new Claim();
         claim.setMemberId(member.id());
+        if (dependant != null) {
+            // Load-bearing: the INDIVIDUAL-scope accumulator read at
+            // assembleResponse keys on getDependantId(). Without this the
+            // dependant's quote silently reads the sponsor's pot.
+            claim.setDependantId(dependant.id());
+        }
         claim.setProviderId(providerId);
         claim.setSchemeId(member.schemeId());
         claim.setServiceDate(request.dateOfService());
@@ -158,13 +210,28 @@ public class EligibilityQuoteService {
         return lines;
     }
 
-    private String classifyCoverage(MemberSummary member, List<StageResult> stages) {
+    private String classifyCoverage(MemberSummary member, DependantSummary dependant,
+                                     List<StageResult> stages) {
         if (member.status() == null) return "UNKNOWN";
-        String status = member.status().toLowerCase();
-        if ("terminated".equals(status)) return "TERMINATED";
-        if ("suspended".equals(status)) {
+        String memberStatus = member.status().toLowerCase();
+        if ("terminated".equals(memberStatus)) return "TERMINATED";
+        if ("suspended".equals(memberStatus)) {
             String reason = member.suspendReason();
             return reason != null && reason.toUpperCase().contains("ARREARS") ? "IN_ARREARS" : "SUSPENDED";
+        }
+        // When a dependant is on the ticket, take the more restrictive of
+        // (sponsor status, dependant status). A dependant whose status is
+        // deactivated / removed / swapped / deceased has to report
+        // TERMINATED even though the sponsor is ACTIVE.
+        if (dependant != null && dependant.status() != null) {
+            String depStatus = dependant.status().toLowerCase();
+            if ("deactivated".equals(depStatus)
+                    || "removed".equals(depStatus)
+                    || "swapped".equals(depStatus)
+                    || "deceased".equals(depStatus)
+                    || "terminated".equals(depStatus)) {
+                return "TERMINATED";
+            }
         }
         // If the member is active but the eligibility stage flagged them
         // (e.g. member row missing, status not active/enrolled), reflect the
@@ -194,7 +261,9 @@ public class EligibilityQuoteService {
         return null;
     }
 
-    private Mono<Void> publishQuoteAudit(EligibilityQuoteRequest request, UUID providerId,
+    private Mono<Void> publishQuoteAudit(EligibilityQuoteRequest request,
+                                         DependantSummary dependant,
+                                         UUID providerId,
                                          EligibilityQuoteResponse response,
                                          String actorId, String actorEmail) {
         return Mono.deferContextual(ctx -> {
@@ -214,9 +283,19 @@ public class EligibilityQuoteService {
                     response.estimatedPlanPaid() != null
                             ? response.estimatedPlanPaid().toPlainString() : "");
             newValue.put("providerId", providerId != null ? providerId.toString() : "");
+            if (dependant != null) {
+                newValue.put("dependantId", dependant.id().toString());
+                newValue.put("dependantMemberNumber",
+                        dependant.memberNumber() != null ? dependant.memberNumber() : "");
+                newValue.put("dependantName", dependantDisplayName(dependant));
+            }
 
-            String friendlyName = "Eligibility quote for member " + request.memberNumber()
-                    + " (" + request.dateOfService() + ")";
+            String friendlyName = dependant != null
+                    ? "Eligibility quote for member " + request.memberNumber()
+                            + " dep " + dependantDisplayName(dependant)
+                            + " (" + request.dateOfService() + ")"
+                    : "Eligibility quote for member " + request.memberNumber()
+                            + " (" + request.dateOfService() + ")";
             AuditEvent event = AuditEvent.create(
                     tenantId != null ? tenantId : "unknown",
                     "EligibilityQuote",
@@ -229,6 +308,13 @@ public class EligibilityQuoteService {
                     UUID.randomUUID().toString());
             return auditPublisher.publish(event);
         });
+    }
+
+    private static String dependantDisplayName(DependantSummary dep) {
+        String first = dep.firstName() != null ? dep.firstName() : "";
+        String last = dep.lastName() != null ? dep.lastName() : "";
+        String combined = (first + " " + last).trim();
+        return combined.isEmpty() ? dep.id().toString() : combined;
     }
 
     private static BigDecimal remainingBucket(BigDecimal cap, BigDecimal consumed) {
@@ -246,6 +332,15 @@ public class EligibilityQuoteService {
     public static class MemberNotFoundException extends java.util.NoSuchElementException {
         public MemberNotFoundException(String memberNumber) {
             super("No member found with member_number=" + memberNumber);
+        }
+    }
+
+    /** 404-mapped exception for a stale/unknown dependant UUID. Same
+     *  {@link java.util.NoSuchElementException} inheritance as
+     *  {@link MemberNotFoundException} so the not-found handler picks it up. */
+    public static class DependantNotFoundException extends java.util.NoSuchElementException {
+        public DependantNotFoundException(UUID dependantId) {
+            super("No dependant found with id=" + dependantId);
         }
     }
 }

@@ -4,11 +4,17 @@ import { ApiService } from './api.service';
 
 /**
  * Payload for {@code POST /api/v1/eligibility-quote} on claims-service.
- * The member is named by the friendly {@code memberNumber} — never a raw
- * UUID (per {@code feedback_no_raw_id_inputs}).
+ * The sponsoring member is named by the friendly {@code memberNumber} —
+ * never a raw UUID (per {@code feedback_no_raw_id_inputs}). When the
+ * quote is for a dependant, the caller also sets {@link #dependantId}
+ * (UUID matches the backend and the beneficiary picker's payload).
  */
 export interface EligibilityQuoteRequest {
   memberNumber: string;
+  /** Optional. When present, the quote is scoped to this dependant of
+   *  the member named by memberNumber. UUID matches SubmitClaimRequest
+   *  / PreAuthRequest on the backend. */
+  dependantId?: string;
   serviceCategory: string;
   tariffCodes: string[];
   billedAmount: string;

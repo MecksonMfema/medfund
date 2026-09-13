@@ -664,16 +664,36 @@ export class MemberDetailComponent implements OnInit {
   back(): void { this.router.navigate(['/tenant/members']); }
 
   // ── V048 group change (modal-based) ─────────────────────────────
+  //
+  // The Enrolment form's group picker is the trigger: when the operator
+  // picks a different group, we open the modal pre-populated with the
+  // pick so they only need to confirm the effective date + reason.
+  // Cancel reverts the picker to the current saved value; Submit runs
+  // through the contributions/user backend so waiting-period rules,
+  // classification, and arrears/rebate all fire.
 
   changeGroupModalOpen = false;
+  /** Prefill for the change-group modal — the id the operator picked
+   *  in the Enrolment form's group picker. */
+  pendingGroupChangeId: string | null = null;
 
-  openChangeGroupModal(): void {
+  /** (valueChange) handler on the Enrolment form's group picker. Only
+   *  triggers the modal when the pick genuinely differs from what's
+   *  saved on the member so idle rehydration (prefill labels landing,
+   *  a re-render) doesn't open a modal. */
+  onGroupPickerChange(newGroupId: string | null): void {
     if (!this.member) return;
+    const currentSaved = this.member.groupId ?? null;
+    const pick = newGroupId || null;
+    if (pick === currentSaved) return;
+    this.pendingGroupChangeId = pick;
     this.changeGroupModalOpen = true;
   }
 
   onChangeGroupCancel(): void {
     this.changeGroupModalOpen = false;
+    this.pendingGroupChangeId = null;
+    if (this.member) this.form.groupId = this.member.groupId ?? '';
   }
 
   onChangeGroupSubmit(payload: ChangeGroupPayload): void {
@@ -681,29 +701,50 @@ export class MemberDetailComponent implements OnInit {
     this.members.requestGroupChange(this.member.id, payload).subscribe({
       next: (saved) => {
         this.changeGroupModalOpen = false;
+        this.pendingGroupChangeId = null;
+        if (saved.status === 'APPLIED' || saved.backdated) {
+          if (this.member) this.member.groupId = payload.targetGroupId;
+          this.form.groupId = payload.targetGroupId;
+        } else if (this.member) {
+          this.form.groupId = this.member.groupId ?? '';
+        }
         const label = saved.status === 'APPLIED' || saved.backdated
           ? `Group change applied immediately (back-dated); arrears/rebate posting…`
           : `Group change booked ${saved.status}, effective ${payload.effectiveDate}`;
         this.toast.success(label);
       },
-      error: (err) => this.toast.error(err?.error?.detail || 'Group change failed'),
+      error: (err) => {
+        if (this.member) this.form.groupId = this.member.groupId ?? '';
+        this.toast.error(err?.error?.detail || 'Group change failed');
+      },
     });
   }
 
   // ── Scheme change (modal-based) ─────────────────────────────────
   // Routes through contributions-service so waiting-period rules and
-  // UPGRADE/DOWNGRADE classification apply; the profile form's scheme
-  // picker is read-only precisely so operators can't sidestep this.
+  // UPGRADE/DOWNGRADE classification apply. Triggered from the
+  // Enrolment form's scheme picker: the operator picks a different
+  // scheme, the modal opens pre-populated, and only the effective date
+  // + reason need confirming.
 
   changeSchemeModalOpen = false;
+  /** Prefill for the change-scheme modal — the id the operator picked
+   *  in the Enrolment form's scheme picker. */
+  pendingSchemeChangeId: string | null = null;
 
-  openChangeSchemeModal(): void {
+  onSchemePickerChange(newSchemeId: string | null): void {
     if (!this.member) return;
+    const currentSaved = this.member.schemeId ?? null;
+    const pick = newSchemeId || null;
+    if (pick === currentSaved) return;
+    this.pendingSchemeChangeId = pick;
     this.changeSchemeModalOpen = true;
   }
 
   onChangeSchemeCancel(): void {
     this.changeSchemeModalOpen = false;
+    this.pendingSchemeChangeId = null;
+    if (this.member) this.form.schemeId = this.member.schemeId ?? '';
   }
 
   onChangeSchemeSubmit(payload: ChangeSchemePayload): void {
@@ -711,13 +752,24 @@ export class MemberDetailComponent implements OnInit {
     this.members.requestSchemeChange({ memberId: this.member.id, ...payload }).subscribe({
       next: (saved) => {
         this.changeSchemeModalOpen = false;
+        this.pendingSchemeChangeId = null;
+        if (saved.status === 'EFFECTIVE') {
+          if (this.member) this.member.schemeId = payload.toSchemeId;
+          this.form.schemeId = payload.toSchemeId;
+          this.loadAgeGroups(payload.toSchemeId);
+        } else if (this.member) {
+          this.form.schemeId = this.member.schemeId ?? '';
+        }
         const kind = saved.changeKind ? ` (${saved.changeKind})` : '';
         const label = saved.status === 'EFFECTIVE'
           ? `Scheme change applied immediately${kind}; arrears/rebate posting…`
           : `Scheme change booked ${saved.status}${kind}, effective ${saved.effectiveDate}`;
         this.toast.success(label);
       },
-      error: (err) => this.toast.error(err?.error?.detail || 'Scheme change failed'),
+      error: (err) => {
+        if (this.member) this.form.schemeId = this.member.schemeId ?? '';
+        this.toast.error(err?.error?.detail || 'Scheme change failed');
+      },
     });
   }
 
