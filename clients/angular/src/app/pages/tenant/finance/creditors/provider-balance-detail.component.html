@@ -19,10 +19,6 @@
     </div>
   </header>
 
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
-
   @if (loading) {
     <app-skeleton></app-skeleton>
   } @else {

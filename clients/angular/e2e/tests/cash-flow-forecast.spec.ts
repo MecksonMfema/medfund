@@ -9,7 +9,7 @@ import { test, expect, TENANT } from '../fixtures/test';
  *   2. Refetches with the new rollingWeeks when the selector changes — the
  *      request carries the picked window.
  *   3. Exports the workbook — `GET /reports/cash-flow-forecast/export/excel`.
- *   4. Shows the warnings banner when the envelope carries the
+ *   4. Fires an aggregated warning toast when the envelope carries the
  *      finance-service-down warning.
  *
  * Every /api/v1 call is stubbed via ApiMocks — no live services needed.
@@ -84,7 +84,7 @@ function reportCatalogue() {
 }
 
 test.describe('Cash-flow forecast (Phase 8)', () => {
-  test('golden path: render → refilter weeks → export → warnings banner', async ({ page, apiMocks, signInAs }) => {
+  test('golden path: render, refilter weeks, export, warnings toast', async ({ page, apiMocks, signInAs }) => {
     await signInAs({
       realmRoles: ['operator'],
       permissions: ['finance:view_subledger'],
@@ -134,11 +134,16 @@ test.describe('Cash-flow forecast (Phase 8)', () => {
     expect(fetches[2].get('rollingWeeks')).toBe('26');
     expect(fetches[2].get('asOf')).toBe('2026-08-14');
 
-    // Third fetch returns the finance-down warning → banner appears.
+    // Third fetch returns the finance-down warning: aggregated warning toast appears.
     await page.locator('app-select[name="rollingWeeks"] .select-trigger').click();
     await page.getByRole('option', { name: /^13 weeks$/ }).click();
     await expect.poll(() => fetches.length).toBe(4);
-    await expect(page.getByText(/outflow reads as zero/)).toBeVisible();
+    await expect(
+      page.locator('[role="status"]', { hasText: /partial data/i }),
+    ).toBeVisible();
+    await expect(
+      page.locator('[role="status"]', { hasText: /outflow reads as zero/ }),
+    ).toBeVisible();
 
     // Export the workbook — the blob GET fires and resolves 200.
     const exportResp = page.waitForResponse(

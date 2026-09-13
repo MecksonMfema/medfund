@@ -1,117 +1,153 @@
-<section class="report">
-  <header class="report-header">
-    <h2>Provider network utilization</h2>
-    <p class="muted">
-      Per-network-tier summary + per-provider detail for the reporting window. Provider names + tier
-      are enriched via user-service; a peer outage falls back to placeholder names + an envelope
-      warning.
+<header class="page-header">
+  <div>
+    <h1>Provider network utilization</h1>
+    <p class="page-sub">
+      Per-network-tier summary + per-provider detail for the reporting
+      window. Provider names and tier are enriched via user-service; a peer
+      outage falls back to placeholder names and surfaces a warning toast.
     </p>
-  </header>
+  </div>
+  <div class="header-actions">
+    <app-report-back-button></app-report-back-button>
+    <button
+      type="button"
+      class="btn btn-primary"
+      [disabled]="exporting || loading || !detail.length"
+      (click)="exportExcel()"
+    >
+      <app-icon name="download" [size]="14"></app-icon>
+      {{ exporting ? 'Exporting…' : 'Export Excel' }}
+    </button>
+  </div>
+</header>
 
-  <form class="filters" (submit)="$event.preventDefault(); fetch()">
-    <label>
-      From
-      <input type="date" [(ngModel)]="periodStart" name="periodStart" (change)="onFilterChange()"/>
-    </label>
-    <label>
-      To
-      <input type="date" [(ngModel)]="periodEnd" name="periodEnd" (change)="onFilterChange()"/>
-    </label>
-    <label>
-      Line
-      <app-select [ngModel]="insuranceLine" name="insuranceLine"
-                  [options]="lineOptions"
-                  (ngModelChange)="insuranceLine = $event; onFilterChange()"></app-select>
-    </label>
-    <label>
-      Network tier
-      <app-select [ngModel]="networkTier" name="networkTier"
-                  [options]="tierOptions"
-                  (ngModelChange)="networkTier = $event; onFilterChange()"></app-select>
-    </label>
-    <div class="actions">
-      <button type="submit" class="btn" [disabled]="loading">Refresh</button>
-      <button type="button" class="btn btn-primary"
-              (click)="exportExcel()"
-              [disabled]="exporting || loading">
-        <app-icon name="download"></app-icon>
-        {{ exporting ? 'Exporting…' : 'Export XLSX' }}
-      </button>
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">Period start</span>
+    <input
+      type="date"
+      [(ngModel)]="periodStart"
+      (change)="onFilterChange()"
+      name="periodStart"
+      class="input"
+    />
+  </div>
+  <div class="toolbar-cell">
+    <span class="cell-label">Period end</span>
+    <input
+      type="date"
+      [(ngModel)]="periodEnd"
+      (change)="onFilterChange()"
+      name="periodEnd"
+      class="input"
+    />
+  </div>
+  <div class="toolbar-cell cell-line">
+    <span class="cell-label">Insurance line</span>
+    <app-select
+      [(ngModel)]="insuranceLine"
+      (selectionChange)="onFilterChange()"
+      name="insuranceLine"
+      [options]="lineOptions"
+      placeholder="All lines"
+      [searchable]="false"
+    ></app-select>
+  </div>
+  <div class="toolbar-cell cell-line">
+    <span class="cell-label">Network tier</span>
+    <app-select
+      [(ngModel)]="networkTier"
+      (selectionChange)="onFilterChange()"
+      name="networkTier"
+      [options]="tierOptions"
+      placeholder="All tiers"
+      [searchable]="false"
+    ></app-select>
+  </div>
+</div>
+
+@if (loading) {
+  <div class="detail-section" aria-busy="true" aria-live="polite">
+    <app-skeleton variant="line" width="30%" height="18px"></app-skeleton>
+    <app-skeleton variant="table-row"></app-skeleton>
+    <app-skeleton variant="table-row"></app-skeleton>
+    <app-skeleton variant="table-row"></app-skeleton>
+    <app-skeleton variant="table-row"></app-skeleton>
+    <span class="visually-hidden">Loading provider utilization…</span>
+  </div>
+} @else if (detail.length === 0 && summaryEntries().length === 0) {
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="users" [size]="32"></app-icon>
     </div>
-  </form>
-
-  @if (warnings.length) {
-    <div class="warning-banner">
-      @for (w of warnings; track w) { <div>{{ w }}</div> }
+    <div class="empty-state__title">No provider utilization</div>
+    <div class="empty-state__description">
+      No provider carried a claim in this window for the selected line and
+      tier. Widen the period or drop the filters to surface any activity.
     </div>
-  }
-
-  @if (errorMessage) {
-    <div class="error-banner">{{ errorMessage }}</div>
-  }
-
-  <h3>Summary</h3>
-  @if (summaryEntries().length === 0) {
-    <div class="empty">No summary rows for this window.</div>
-  } @else {
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Tier</th>
-          <th class="num">Providers</th>
-          <th class="num">Claims</th>
-          <th class="num">Denials</th>
-          <th class="num">Total paid</th>
-          <th class="num">Unique members</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (s of summaryEntries(); track s.tier) {
+  </div>
+} @else {
+  <div class="detail-sections">
+    <section class="detail-section">
+      <h2>Summary by tier</h2>
+      <table class="rate-table">
+        <thead>
           <tr>
-            <td>{{ s.tier }}</td>
-            <td class="num">{{ s.providerCount }}</td>
-            <td class="num">{{ s.claimCount }}</td>
-            <td class="num">{{ s.denialCount }}</td>
-            <td class="num">{{ s.totalPaid }}</td>
-            <td class="num">{{ s.uniqueMembers }}</td>
+            <th>Tier</th>
+            <th class="num">Providers</th>
+            <th class="num">Claims</th>
+            <th class="num">Denials</th>
+            <th class="num">Total paid</th>
+            <th class="num">Unique members</th>
           </tr>
-        }
-      </tbody>
-    </table>
-  }
+        </thead>
+        <tbody>
+          @for (s of summaryEntries(); track s.tier) {
+            <tr>
+              <td>{{ s.tier }}</td>
+              <td class="num">{{ s.providerCount }}</td>
+              <td class="num">{{ s.claimCount }}</td>
+              <td class="num">{{ s.denialCount }}</td>
+              <td class="num">{{ s.totalPaid }}</td>
+              <td class="num">{{ s.uniqueMembers }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
 
-  <h3>Per-provider detail</h3>
-  @if (loading) {
-    <div class="loading">Loading…</div>
-  } @else if (detail.length === 0) {
-    <div class="empty">No provider utilization in this window.</div>
-  } @else {
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>Provider</th><th>Tier</th><th>Line</th><th>Currency</th>
-          <th class="num">Claims</th>
-          <th class="num">Denials</th>
-          <th class="num">Total claimed</th>
-          <th class="num">Total paid</th>
-          <th class="num">Unique members</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (r of detail; track r.providerId + '-' + r.insuranceLine + '-' + r.currencyCode) {
+    <section class="detail-section">
+      <h2>Per-provider detail</h2>
+      <table class="rate-table">
+        <thead>
           <tr>
-            <td>{{ r.providerName }}</td>
-            <td>{{ r.networkTier }}</td>
-            <td>{{ r.insuranceLine }}</td>
-            <td>{{ r.currencyCode }}</td>
-            <td class="num">{{ r.claimCount }}</td>
-            <td class="num">{{ r.denialCount }}</td>
-            <td class="num">{{ r.totalClaimed }}</td>
-            <td class="num">{{ r.totalPaid }}</td>
-            <td class="num">{{ r.uniqueMembers }}</td>
+            <th>Provider</th>
+            <th>Tier</th>
+            <th>Line</th>
+            <th>Currency</th>
+            <th class="num">Claims</th>
+            <th class="num">Denials</th>
+            <th class="num">Total claimed</th>
+            <th class="num">Total paid</th>
+            <th class="num">Unique members</th>
           </tr>
-        }
-      </tbody>
-    </table>
-  }
-</section>
+        </thead>
+        <tbody>
+          @for (r of detail; track r.providerId + '-' + r.insuranceLine + '-' + r.currencyCode) {
+            <tr>
+              <td>{{ r.providerName }}</td>
+              <td>{{ r.networkTier }}</td>
+              <td>{{ r.insuranceLine }}</td>
+              <td>{{ r.currencyCode }}</td>
+              <td class="num">{{ r.claimCount }}</td>
+              <td class="num">{{ r.denialCount }}</td>
+              <td class="num">{{ r.totalClaimed }}</td>
+              <td class="num">{{ r.totalPaid }}</td>
+              <td class="num">{{ r.uniqueMembers }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  </div>
+}

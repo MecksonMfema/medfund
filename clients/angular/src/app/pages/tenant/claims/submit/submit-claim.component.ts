@@ -36,6 +36,7 @@ import { IconComponent } from '../../../../shared/components/icon/icon.component
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { StatCardComponent } from '../../../../shared/components/stat-card/stat-card.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 
 interface LineDraft {
@@ -90,7 +91,6 @@ const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 })
 export class SubmitClaimComponent implements OnInit {
   saving = false;
-  formError: string | null = null;
   submittedClaim: Claim | null = null;
   submittedBatchNumber: string | null = null;
 
@@ -540,40 +540,39 @@ export class SubmitClaimComponent implements OnInit {
 
   // ── Submit ───────────────────────────────────────────────────────
   submit(): void {
-    this.formError = null;
-    if (!this.memberId)   { this.formError = 'Pick a beneficiary'; return; }
+    if (!this.memberId)   { this.toast.warning('Pick a beneficiary'); return; }
     if (this.providerMode === 'FORBIDDEN' && this.providerId) {
-      this.formError = `${this.activeLine} claims are paid to the member: remove the provider`;
+      this.toast.warning(`${this.activeLine} claims are paid to the member: remove the provider`);
       return;
     }
     if (this.providerMode === 'REQUIRED' && !this.providerId) {
-      this.formError = `${this.activeLine} claims require a service provider: pick one (use "Reimburse to member" if the member paid out-of-pocket)`;
+      this.toast.warning(`${this.activeLine} claims require a service provider: pick one (use "Reimburse to member" if the member paid out-of-pocket)`);
       return;
     }
     if (this.payeeType === 'PROVIDER' && !this.providerId) {
       // Belt-and-braces: the UI hides the radio when there's no provider,
       // but if the operator somehow reached PROVIDER + null the server
-      // would 400 anyway — catch it here so we can point at the fix.
-      this.formError = 'Pick a service provider or switch payee to "Reimburse to member"';
+      // would 400 anyway: catch it here so we can point at the fix.
+      this.toast.warning('Pick a service provider or switch payee to "Reimburse to member"');
       return;
     }
-    if (!this.schemeId)   { this.formError = 'Pick a scheme'; return; }
-    if (!this.activeLine) { this.formError = 'Scheme has no insurance line: pick a different scheme'; return; }
-    if (!this.form.serviceDate) { this.formError = 'Service date is required'; return; }
+    if (!this.schemeId)   { this.toast.warning('Pick a scheme'); return; }
+    if (!this.activeLine) { this.toast.warning('Scheme has no insurance line: pick a different scheme'); return; }
+    if (!this.form.serviceDate) { this.toast.warning('Service date is required'); return; }
 
     const total = this.totalAmount();
     if (total <= 0) {
-      this.formError = this.usesItemLines
+      this.toast.warning(this.usesItemLines
         ? 'Add at least one line item with a tariff code and unit price'
-        : 'Enter the claimed amount';
+        : 'Enter the claimed amount');
       return;
     }
-    // Per-line required fields — mirrors ClaimService.validateLineRequirements()
+    // Per-line required fields: mirrors ClaimService.validateLineRequirements()
     // server-side. The UI check is here for immediate feedback; the server
     // still enforces it authoritatively.
     const missing = this.missingRequiredFieldFor(this.activeLine);
     if (missing) {
-      this.formError = `${this.activeLine} claims require ${missing}`;
+      this.toast.warning(`${this.activeLine} claims require ${missing}`);
       return;
     }
 
@@ -643,9 +642,7 @@ export class SubmitClaimComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        const msg = err?.error?.detail || err?.error?.title || 'Submission failed';
-        this.formError = msg;
-        this.toast.error(msg);
+        this.toast.error(extractErrorMessage(err, 'Submission failed'));
       },
     });
   }
@@ -733,6 +730,5 @@ export class SubmitClaimComponent implements OnInit {
     };
     this.lines = [this.emptyLine()];
     this.attachments = [];
-    this.formError = null;
   }
 }

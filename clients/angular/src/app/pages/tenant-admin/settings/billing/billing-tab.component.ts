@@ -19,6 +19,8 @@ import { SelectComponent, SelectOption } from '../../../../shared/components/sel
 import { AdminService } from '../../../../core/services/admin.service';
 import { TenantService } from '../../../../core/services/tenant.service';
 import { MemberNumberConfig, MemberNumberConfigService } from '../../../../core/services/member-number-config.service';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 type SubSection = 'benefit-types' | 'payment-methods' | 'transaction-types' | 'dunning' | 'cycle' | 'pricing-mode' | 'member-number-scheme';
 type PricingMode = 'STANDARD' | 'INDIVIDUAL' | 'AI_DRIVEN';
@@ -54,7 +56,6 @@ interface TransactionTypeDraft extends UpsertTransactionTypePayload {
 export class TenantBillingTabComponent implements OnInit {
   active: SubSection = 'benefit-types';
   loading = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   benefitTypes: BenefitType[] = [];
@@ -140,6 +141,7 @@ export class TenantBillingTabComponent implements OnInit {
     private admin: AdminService,
     private tenantSvc: TenantService,
     private mnc: MemberNumberConfigService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -199,7 +201,6 @@ export class TenantBillingTabComponent implements OnInit {
 
   loadAll(): void {
     this.loading = true;
-    this.errorMessage = null;
     forkJoin({
       benefits:     this.svc.listBenefitTypes(false),
       payments:     this.svc.listPaymentMethods(false),
@@ -218,7 +219,7 @@ export class TenantBillingTabComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.message || 'Failed to load billing catalogues';
+        this.toast.error(extractErrorMessage(err, 'Failed to load billing catalogues'));
         this.loading = false;
       },
     });
@@ -248,7 +249,7 @@ export class TenantBillingTabComponent implements OnInit {
     this.saving = true;
     stream.subscribe({
       next: () => { this.saving = false; this.flash('Benefit type saved'); this.refreshSection('benefit-types'); this.cancelBenefitEdit(); this.newBenefit = this.emptyBenefit(); },
-      error: (err) => { this.saving = false; this.errorMessage = err?.error?.detail || 'Save failed'; },
+      error: (err) => { this.saving = false; this.toast.error(extractErrorMessage(err, 'Save failed')); },
     });
   }
 
@@ -257,7 +258,7 @@ export class TenantBillingTabComponent implements OnInit {
     this.pendingId = b.id;
     this.svc.deleteBenefitType(b.id).subscribe({
       next: () => { this.pendingId = null; this.refreshSection('benefit-types'); },
-      error: (err) => { this.pendingId = null; this.errorMessage = err?.error?.detail || 'Delete failed'; },
+      error: (err) => { this.pendingId = null; this.toast.error(extractErrorMessage(err, 'Delete failed')); },
     });
   }
 
@@ -283,7 +284,7 @@ export class TenantBillingTabComponent implements OnInit {
     this.saving = true;
     stream.subscribe({
       next: () => { this.saving = false; this.flash('Payment method saved'); this.refreshSection('payment-methods'); this.cancelPaymentEdit(); this.newPayment = this.emptyPayment(); },
-      error: (err) => { this.saving = false; this.errorMessage = err?.error?.detail || 'Save failed'; },
+      error: (err) => { this.saving = false; this.toast.error(extractErrorMessage(err, 'Save failed')); },
     });
   }
 
@@ -292,7 +293,7 @@ export class TenantBillingTabComponent implements OnInit {
     this.pendingId = p.id;
     this.svc.deletePaymentMethod(p.id).subscribe({
       next: () => { this.pendingId = null; this.refreshSection('payment-methods'); },
-      error: (err) => { this.pendingId = null; this.errorMessage = err?.error?.detail || 'Delete failed'; },
+      error: (err) => { this.pendingId = null; this.toast.error(extractErrorMessage(err, 'Delete failed')); },
     });
   }
 
@@ -318,7 +319,7 @@ export class TenantBillingTabComponent implements OnInit {
     this.saving = true;
     stream.subscribe({
       next: () => { this.saving = false; this.flash('Transaction type saved'); this.refreshSection('transaction-types'); this.cancelTransactionEdit(); this.newTransaction = this.emptyTransaction(); },
-      error: (err) => { this.saving = false; this.errorMessage = err?.error?.detail || 'Save failed'; },
+      error: (err) => { this.saving = false; this.toast.error(extractErrorMessage(err, 'Save failed')); },
     });
   }
 
@@ -327,7 +328,7 @@ export class TenantBillingTabComponent implements OnInit {
     this.pendingId = t.id;
     this.svc.deleteTransactionType(t.id).subscribe({
       next: () => { this.pendingId = null; this.refreshSection('transaction-types'); },
-      error: (err) => { this.pendingId = null; this.errorMessage = err?.error?.detail || 'Delete failed'; },
+      error: (err) => { this.pendingId = null; this.toast.error(extractErrorMessage(err, 'Delete failed')); },
     });
   }
 
@@ -337,7 +338,7 @@ export class TenantBillingTabComponent implements OnInit {
     this.saving = true;
     this.svc.upsertDunning(this.dunningDraft).subscribe({
       next: (saved) => { this.dunning = saved; this.dunningDraft = { ...saved }; this.saving = false; this.flash('Dunning rules saved'); },
-      error: (err) => { this.saving = false; this.errorMessage = err?.error?.detail || 'Save failed'; },
+      error: (err) => { this.saving = false; this.toast.error(extractErrorMessage(err, 'Save failed')); },
     });
   }
 
@@ -345,14 +346,14 @@ export class TenantBillingTabComponent implements OnInit {
     this.saving = true;
     this.svc.upsertCycle(this.cycleDraft).subscribe({
       next: (saved) => { this.cycle = saved; this.cycleDraft = { ...saved }; this.saving = false; this.flash('Billing cycle saved'); },
-      error: (err) => { this.saving = false; this.errorMessage = err?.error?.detail || 'Save failed'; },
+      error: (err) => { this.saving = false; this.toast.error(extractErrorMessage(err, 'Save failed')); },
     });
   }
 
   savePricingMode(): void {
     const t = this.tenantSvc.getTenant();
     if (!t?.id) {
-      this.errorMessage = 'No tenant in session: refresh and try again';
+      this.toast.warning('No tenant in session: refresh and try again');
       return;
     }
     this.saving = true;
@@ -365,14 +366,14 @@ export class TenantBillingTabComponent implements OnInit {
         this.tenantSvc.setTenant({ ...t, pricingModel: this.pricingModeDraft });
         this.flash('Pricing mode saved');
       },
-      error: (err) => { this.saving = false; this.errorMessage = err?.error?.detail || 'Save failed'; },
+      error: (err) => { this.saving = false; this.toast.error(extractErrorMessage(err, 'Save failed')); },
     });
   }
 
   saveMemberNumberScheme(): void {
     const t = this.tenantSvc.getTenant();
     if (!t?.id) {
-      this.errorMessage = 'No tenant in session: refresh and try again';
+      this.toast.warning('No tenant in session: refresh and try again');
       return;
     }
     this.saving = true;
@@ -397,7 +398,7 @@ export class TenantBillingTabComponent implements OnInit {
         this.tenantSvc.setTenant({ ...t, memberNumberScheme: this.memberNumberSchemeDraft });
         this.flash('Member-number config saved');
       },
-      error: (err) => { this.saving = false; this.errorMessage = err?.error?.detail || 'Save failed'; },
+      error: (err) => { this.saving = false; this.toast.error(extractErrorMessage(err, 'Save failed')); },
     });
   }
 

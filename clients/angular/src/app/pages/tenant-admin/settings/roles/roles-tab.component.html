@@ -11,10 +11,6 @@
     </div>
   </header>
 
-  @if (loadError) {
-    <div class="banner banner-error" (click)="loadError = null">{{ loadError }}</div>
-  }
-
   @if (loading) {
     <div class="role-list">
       @for (_ of [0,1,2,3]; track $index) {
@@ -70,9 +66,6 @@
     </div>
 
     <div class="drawer-body">
-      @if (editorError) {
-        <div class="banner banner-error" (click)="editorError = null">{{ editorError }}</div>
-      }
       <div class="form-grid">
         <div class="form-field">
           <label class="form-label">Name <span class="label-hint">(unique identifier)</span></label>

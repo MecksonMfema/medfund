@@ -103,7 +103,7 @@ test.describe('Claims report toggles (Phase 4 §B)', () => {
     await expect(page.getByText('Claims — per scheme')).toHaveCount(0);
 
     // Direct URL: the server-side @RequiresReport gate 403s the API and
-    // the page surfaces the detail in its error banner.
+    // the page surfaces the detail in an error toast.
     apiMocks.respond(
       'GET /reports/claims/schemes',
       () => ({

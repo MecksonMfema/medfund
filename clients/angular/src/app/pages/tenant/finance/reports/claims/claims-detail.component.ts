@@ -12,13 +12,16 @@ import { ReportResponse } from '../../../../../core/services/report-envelope';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
+import { EntityPickerComponent } from '../../../../../shared/components/entity-picker/entity-picker.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 type Dimension = ReportDimension;
 
 /**
- * Claims drill-down — one component reused across scheme / provider (§A)
+ * Claims drill-down: one component reused across scheme / provider (§A)
  * and group / member (§B). Renders the monthly funnel-buckets strip + a
  * paginated claim ledger with status / provider / currency filters. Selects
  * dimension from the route's {@code data.dimension} value. Period clock is
@@ -27,14 +30,13 @@ type Dimension = ReportDimension;
 @Component({
   selector: 'app-claims-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent, ReportBackButtonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent, EntityPickerComponent, ReportBackButtonComponent],
   templateUrl: './claims-detail.component.html',
   styleUrl: './claims-report.component.scss',
 })
 export class ClaimsDetailComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   dimension: Dimension = 'scheme';
   dimensionId = '';
@@ -81,6 +83,7 @@ export class ClaimsDetailComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private claimsReport: ClaimsReportService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -97,22 +100,22 @@ export class ClaimsDetailComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     if (!this.dimensionId) {
-      this.errorMessage = 'Missing dimension id.';
+      this.toast.error('Missing dimension id.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.claimsReport.getClaimsDetail(this.dimension, this.dimensionId, this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load claims detail';
+        this.toast.error(extractErrorMessage(err, 'Failed to load claims detail'));
         this.envelope = null;
         this.loading = false;
       },
@@ -127,11 +130,17 @@ export class ClaimsDetailComponent implements OnInit {
         downloadBlob(blob, `claims-${this.dimension}-${this.dimensionId}-${this.periodStart}-to-${this.periodEnd}.xlsx`);
         this.exporting = false;
       },
-      error: () => {
-        this.errorMessage = 'Failed to download workbook';
+      error: err => {
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<ClaimsDetailResponse>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Claims detail'), 8000);
   }
 
   onFilterChange(): void {

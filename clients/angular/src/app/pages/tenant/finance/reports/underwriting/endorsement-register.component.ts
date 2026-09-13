@@ -11,29 +11,31 @@ import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/servi
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { INSURANCE_LINES, insuranceLineLabel } from '../../../../../core/models/insurance-lines';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
+import { SkeletonComponent } from '../../../../../shared/components/skeleton/skeleton.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
- * Phase 12 §C endorsement register — one row per endorsement whose
+ * Phase 12 §C endorsement register: one row per endorsement whose
  * {@code effectiveFrom} falls within the reporting window. Rows stay
  * native-currency (parent-plan invariant #1); the per-currency strip
  * shows |premiumDelta| subtotals with best-effort FX to the reporting
- * currency. Every status flows through the report — the four-eyes
+ * currency. Every status flows through the report: the four-eyes
  * lifecycle is visible in the audit trail columns.
  */
 @Component({
   selector: 'app-endorsement-register-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, ReportBackButtonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, SelectComponent, ReportBackButtonComponent],
   templateUrl: './endorsement-register.component.html',
   styleUrl: '../receipts/receipts-report.component.scss',
 })
 export class EndorsementRegisterReportComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<EndorsementRegisterRow[]> | null = null;
   currencies: TenantCurrencyConfig[] = [];
@@ -50,6 +52,7 @@ export class EndorsementRegisterReportComponent implements OnInit {
     private reportSvc: EndorsementRegisterReportService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -100,19 +103,18 @@ export class EndorsementRegisterReportComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.reportSvc.get(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load endorsement register';
+        this.toast.error(extractErrorMessage(err, 'Failed to load endorsement register'));
         this.envelope = null;
         this.loading = false;
       },
@@ -128,11 +130,16 @@ export class EndorsementRegisterReportComponent implements OnInit {
         this.exporting = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to export endorsement register';
+        this.toast.error(extractErrorMessage(err, 'Failed to export endorsement register'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<EndorsementRegisterRow[]>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Endorsement register'), 8000);
   }
 
   onFilterChange(): void { this.fetch(); }

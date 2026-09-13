@@ -15,6 +15,8 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Per-holder billing aggregate — one row per (holder, currency). Corporate
@@ -33,7 +35,6 @@ import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/repo
 export class GroupBillingReportComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   rows: GroupBillingSummaryRow[] = [];
   envelope: ReportResponse<GroupBillingSummaryRow[]> | null = null;
@@ -59,6 +60,7 @@ export class GroupBillingReportComponent implements OnInit {
     private currencyService: CurrencyService,
     private tenantService: TenantService,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   onRowClick(row: GroupBillingSummaryRow): void {
@@ -107,19 +109,19 @@ export class GroupBillingReportComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.finance.getGroupBillingReport(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.rows = env.data ?? [];
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load group billing report';
+        this.toast.error(extractErrorMessage(err, 'Failed to load group billing report'));
         this.rows = [];
         this.envelope = null;
         this.loading = false;
@@ -135,11 +137,17 @@ export class GroupBillingReportComponent implements OnInit {
         downloadBlob(blob, `billing-holders-${this.periodStart}-to-${this.periodEnd}.xlsx`);
         this.exporting = false;
       },
-      error: () => {
-        this.errorMessage = 'Failed to download workbook';
+      error: err => {
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<GroupBillingSummaryRow[]>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Billing report: per holder'), 8000);
   }
 
   onFilterChange(): void { this.fetch(); }

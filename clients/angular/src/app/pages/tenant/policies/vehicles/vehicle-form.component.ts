@@ -14,6 +14,7 @@ import { ToastService } from '../../../../shared/components/toast/toast.service'
 import { PolicyStatusActionButtonsComponent } from '../../../../shared/components/policy-status-action-buttons/policy-status-action-buttons.component';
 import { PolicyStatusActionModalComponent, PolicyStatusActionSubmit } from '../../../../shared/components/policy-status-action-modal/policy-status-action-modal.component';
 import { PolicyAction, PolicySource } from '../../../../core/services/policy-lifecycle-action-registry.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface VehicleFormState {
   registrationNumber: string;
@@ -52,7 +53,6 @@ export class VehicleFormComponent implements OnInit {
   vehicle: Vehicle | null = null;
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   form: VehicleFormState = {
     registrationNumber: '', make: '', model: '', year: null, vehicleValue: null,
@@ -130,7 +130,7 @@ export class VehicleFormComponent implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.errorMessage = err?.error?.detail || 'Failed to load vehicle';
+        this.toast.error(extractErrorMessage(err, 'Failed to load vehicle'));
       },
     });
   }
@@ -165,18 +165,15 @@ export class VehicleFormComponent implements OnInit {
     if (this.form.vehicleValue == null)        missing.push('vehicle value');
     if (!this.form.schemeId)                   missing.push('scheme');
     if (missing.length > 0) {
-      this.errorMessage = `Required field${missing.length > 1 ? 's' : ''} missing: ${missing.join(', ')}.`;
-      this.toast.error(this.errorMessage);
+      this.toast.warning(`Required field${missing.length > 1 ? 's' : ''} missing: ${missing.join(', ')}.`);
       return;
     }
     if (this.individualPricing
         && this.form.billingOverrideAmount != null
         && !this.form.billingOverrideEffectiveFrom) {
-      this.errorMessage = 'Custom premium: effective_from is required when an override amount is set.';
-      this.toast.error(this.errorMessage);
+      this.toast.warning('Custom premium: effective_from is required when an override amount is set.');
       return;
     }
-    this.errorMessage = null;
     this.saving = true;
 
     const payload: any = {
@@ -207,9 +204,7 @@ export class VehicleFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        const msg = err?.error?.detail || err?.error?.title || 'Save failed';
-        this.errorMessage = msg;
-        this.toast.error(msg);
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }
@@ -227,7 +222,7 @@ export class VehicleFormComponent implements OnInit {
         this.form.billingOverrideEffectiveFrom = '';
         this.toast.success('Custom premium cleared');
       },
-      error: (err) => this.toast.error(err?.error?.detail || 'Clear failed'),
+      error: (err) => this.toast.error(extractErrorMessage(err, 'Clear failed')),
     });
   }
 
@@ -235,7 +230,7 @@ export class VehicleFormComponent implements OnInit {
     if (!this.isEdit) return;
     this.policies.suspendVehicle(this.vehicleId!).subscribe({
       next: (saved) => { this.vehicle = saved; this.toast.success('Vehicle suspended'); },
-      error: (err) => this.toast.error(err?.error?.detail || 'Suspend failed'),
+      error: (err) => this.toast.error(extractErrorMessage(err, 'Suspend failed')),
     });
   }
 
@@ -244,7 +239,7 @@ export class VehicleFormComponent implements OnInit {
     if (!confirm('Terminate this vehicle\'s policy? It will stop billing next cycle.')) return;
     this.policies.terminateVehicle(this.vehicleId!).subscribe({
       next: (saved) => { this.vehicle = saved; this.toast.success('Vehicle terminated'); },
-      error: (err) => this.toast.error(err?.error?.detail || 'Terminate failed'),
+      error: (err) => this.toast.error(extractErrorMessage(err, 'Terminate failed')),
     });
   }
 

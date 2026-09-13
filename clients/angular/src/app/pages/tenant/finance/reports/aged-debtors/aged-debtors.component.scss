@@ -71,16 +71,3 @@
   }
 }
 
-.banner {
-  margin: var(--spacing-md) 24px 0;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-}
-
-.banner-error {
-  background: var(--color-error-light);
-  color: var(--color-error);
-  border: 1px solid rgba(196, 22, 45, 0.25);
-}

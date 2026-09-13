@@ -11,6 +11,8 @@ import {
   TableAction,
   TableColumn,
 } from '../../../../shared/components/data-table/data-table.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-campaigns-list',
@@ -22,7 +24,6 @@ import {
 export class CampaignsListComponent implements OnInit {
   rows: EmailCampaignRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
   pendingId: string | null = null;
 
   page = 1;
@@ -73,7 +74,11 @@ export class CampaignsListComponent implements OnInit {
     },
   ];
 
-  constructor(private campaigns: EmailCampaignsService, private router: Router) {}
+  constructor(
+    private campaigns: EmailCampaignsService,
+    private router: Router,
+    private toast: ToastService,
+  ) {}
 
   ngOnInit(): void { this.fetchPage(); }
 
@@ -93,7 +98,7 @@ export class CampaignsListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load campaigns';
+        this.toast.error(extractErrorMessage(err, 'Failed to load campaigns'));
         this.rows = [];
         this.totalCount = 0;
         this.totalPages = 1;
@@ -121,7 +126,7 @@ export class CampaignsListComponent implements OnInit {
     this.campaigns.send(c.id).subscribe({
       next: () => { this.pendingId = null; this.fetchPage(); },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Send failed';
+        this.toast.error(extractErrorMessage(err, 'Send failed'));
         this.pendingId = null;
       },
     });
@@ -133,7 +138,7 @@ export class CampaignsListComponent implements OnInit {
     this.campaigns.delete(c.id).subscribe({
       next: () => { this.pendingId = null; this.fetchPage(); },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Delete failed';
+        this.toast.error(extractErrorMessage(err, 'Delete failed'));
         this.pendingId = null;
       },
     });

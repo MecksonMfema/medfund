@@ -5,8 +5,9 @@
       Annualised claim frequency and severity statistics per scheme × insurance
       line × currency, clocked by service date. Frequency = claims ÷ exposure
       member-months; severity percentiles are Postgres-native (mean / median /
-      P95). Exposure uses a documented proxy until member-status history exists:
-      the warning banner explains when the proxy was applied.
+      P95). Exposure uses a static proxy (active members × days ÷ 30.4375)
+      because member-status history is not yet stored, so treat frequency as
+      an indicative trend metric rather than an audit-grade denominator.
     </p>
   </div>
   <div class="header-actions">
@@ -22,10 +23,6 @@
     </button>
   </div>
 </header>
-
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
 
 <div class="tx-toolbar">
   <div class="toolbar-cell">
@@ -59,14 +56,6 @@
     ></app-select>
   </div>
 </div>
-
-@if (envelope?.warnings?.length) {
-  <div class="banner banner-warning">
-    @for (w of envelope!.warnings; track w) {
-      <div>{{ w }}</div>
-    }
-  </div>
-}
 
 <app-data-table
   [data]="rows"

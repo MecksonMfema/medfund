@@ -68,18 +68,6 @@
   }
 }
 
-// ── Banners (align to the 24px gutter) ──────────────────────────────────
-.banner {
-  padding: 10px 14px;
-  margin: 12px 24px 0;
-  border-radius: 8px;
-  font-size: 13px;
-  cursor: pointer;
-  border: 1px solid transparent;
-
-  &.banner-error   { background: var(--color-error-light); color: #c4162d; border-color: rgba(196, 22, 45, 0.20); }
-  &.banner-warning { background: var(--color-warning-light); color: #c47800; cursor: default; }
-}
 
 // ── Filter strip ────────────────────────────────────────────────────────
 .tx-toolbar {
@@ -215,6 +203,3 @@
   font-size: var(--font-size-sm);
 }
 
-.card .banner-warning {
-  margin: 0 0 var(--spacing-md);
-}

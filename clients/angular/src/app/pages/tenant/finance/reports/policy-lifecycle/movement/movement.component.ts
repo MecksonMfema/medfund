@@ -11,24 +11,26 @@ import { CurrencyService, TenantCurrencyConfig } from '../../../../../../core/se
 import { TenantService } from '../../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../../shared/components/select/select.component';
+import { ReportBackButtonComponent } from '../../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../../shared/report-date-defaults';
+import { ToastService } from '../../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../../core/util/http-errors';
 
 /**
- * Phase 13 §C Phase 10 — POLICY_MOVEMENT report page. Native rows per
+ * Phase 13 §C Phase 10: POLICY_MOVEMENT report page. Native rows per
  * (policy_source, currency) with the six-count roll and the
  * |written_premium| add/remove columns. XLSX export lives on the backend.
  */
 @Component({
   selector: 'app-policy-movement-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, ReportBackButtonComponent],
   templateUrl: './movement.component.html',
   styleUrl: '../../receipts/receipts-report.component.scss',
 })
 export class PolicyMovementReportComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<PolicyMovementResult> | null = null;
   currencies: TenantCurrencyConfig[] = [];
@@ -41,6 +43,7 @@ export class PolicyMovementReportComponent implements OnInit {
     private reportSvc: PolicyMovementReportService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -73,16 +76,18 @@ export class PolicyMovementReportComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.reportSvc.get(this.buildParams()).subscribe({
-      next: env => { this.envelope = env; this.loading = false; },
+      next: env => {
+        this.envelope = env;
+        this.loading = false;
+        this.surfaceWarnings(env);
+      },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load policy movement report';
+        this.toast.error(extractErrorMessage(err, 'Failed to load policy movement report'));
         this.envelope = null;
         this.loading = false;
       },
@@ -98,17 +103,21 @@ export class PolicyMovementReportComponent implements OnInit {
         this.exporting = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to export policy movement report';
+        this.toast.error(extractErrorMessage(err, 'Failed to export policy movement report'));
         this.exporting = false;
       },
     });
   }
 
+  private surfaceWarnings(env: ReportResponse<PolicyMovementResult>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Policy movement'), 8000);
+  }
+
   onFilterChange(): void { this.fetch(); }
 
   get rows() { return this.envelope?.data?.rows ?? []; }
-  get warnings() { return this.envelope?.warnings ?? []; }
 
   private buildParams(): PolicyMovementParams {
     return {

@@ -10,6 +10,7 @@ import {
 import { PermissionService } from '../../../../core/security/permission.service';
 import { ConfirmService } from '../../../../shared/components/confirm-dialog/confirm.service';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 
@@ -29,7 +30,6 @@ export class CtcPaymentsListComponent implements OnInit {
   rows: CtcPaymentRow[] = [];
   loading = false;
   busyId: string | null = null;
-  banner: { kind: 'success' | 'info' | 'error'; text: string } | null = null;
 
   // Server-side pagination state.
   page = 1;
@@ -95,7 +95,8 @@ export class CtcPaymentsListComponent implements OnInit {
     const state = (nav?.extras?.state ?? window.history.state) as
       | { ctcBanner?: { kind: 'success' | 'info' | 'error'; text: string } }
       | null;
-    if (state?.ctcBanner) this.banner = state.ctcBanner;
+    const carry = state?.ctcBanner;
+    if (carry) this.toast[carry.kind](carry.text);
     this.fetchPage();
   }
 
@@ -119,7 +120,7 @@ export class CtcPaymentsListComponent implements OnInit {
         this.rows = [];
         this.totalCount = 0;
         this.totalPages = 1;
-        this.toast.error(err?.error?.detail || err?.error?.title || 'Failed to load CTC payments');
+        this.toast.error(extractErrorMessage(err, 'Failed to load CTC payments'));
       },
     });
   }
@@ -155,12 +156,12 @@ export class CtcPaymentsListComponent implements OnInit {
     this.finance.commitCtcPayment(row.id).subscribe({
       next: () => {
         this.busyId = null;
-        this.banner = { kind: 'success', text: 'CTC committed: CTC_OFFSET transaction posted' };
+        this.toast.success('CTC committed: CTC_OFFSET transaction posted');
         this.fetchPage();
       },
       error: (err) => {
         this.busyId = null;
-        this.toast.error(err?.error?.detail || err?.error?.title || 'Commit failed');
+        this.toast.error(extractErrorMessage(err, 'Commit failed'));
       },
     });
   }
@@ -182,12 +183,12 @@ export class CtcPaymentsListComponent implements OnInit {
     this.finance.reverseCtcPayment(row.id, { reason: reason.trim() }).subscribe({
       next: () => {
         this.busyId = null;
-        this.banner = { kind: 'success', text: 'CTC reversed: compensating row posted' };
+        this.toast.success('CTC reversed: compensating row posted');
         this.fetchPage();
       },
       error: (err) => {
         this.busyId = null;
-        this.toast.error(err?.error?.detail || err?.error?.title || 'Reversal failed');
+        this.toast.error(extractErrorMessage(err, 'Reversal failed'));
       },
     });
   }

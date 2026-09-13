@@ -15,16 +15,6 @@
   }
 </header>
 
-@if (banner) {
-  <div class="banner"
-       [class.banner-success]="banner.kind === 'success'"
-       [class.banner-error]="banner.kind === 'error'"
-       [class.banner-info]="banner.kind === 'info'"
-       (click)="banner = null">
-    {{ banner.text }}
-  </div>
-}
-
 <app-data-table
   [columns]="columns"
   [data]="rows"

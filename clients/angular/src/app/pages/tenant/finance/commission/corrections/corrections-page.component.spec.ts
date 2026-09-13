@@ -6,6 +6,7 @@ import {
   CommissionAdjustmentService,
 } from '../../../../../core/services/commission-adjustment.service';
 import { PermissionService } from '../../../../../core/security/permission.service';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
 
 /**
  * Drives CorrectionsPageComponent directly. Confirms permission-based
@@ -49,12 +50,16 @@ describe('CorrectionsPageComponent', () => {
     );
   }
 
+  function makeToast(): jasmine.SpyObj<ToastService> {
+    return jasmine.createSpyObj<ToastService>('ToastService', ['success', 'error', 'info', 'warning']);
+  }
+
   it('defaults status filter to empty (All open) and calls list on init', () => {
     const svc = makeSvc();
     svc.list.and.returnValue(of(emptyPage()));
     const c = new CorrectionsPageComponent(svc, permsStub([
       'finance.commission:view',
-    ]));
+    ]), makeToast());
     c.ngOnInit();
     expect(c.statusFilter).toBe('');
     expect(svc.list).toHaveBeenCalledWith(undefined, 0, 50);
@@ -65,7 +70,7 @@ describe('CorrectionsPageComponent', () => {
     svc.list.and.returnValue(of(emptyPage()));
     const c = new CorrectionsPageComponent(svc, permsStub([
       'finance.commission:approve_adjustment',
-    ]));
+    ]), makeToast());
     expect(c.canDraft).toBe(false);
     expect(c.canApprove).toBe(true);
   });
@@ -75,7 +80,7 @@ describe('CorrectionsPageComponent', () => {
     svc.list.and.returnValue(of(emptyPage()));
     const c = new CorrectionsPageComponent(svc, permsStub([
       'finance.commission:draft_adjustment',
-    ]));
+    ]), makeToast());
     expect(c.canDraft).toBe(true);
     expect(c.canApprove).toBe(false);
   });
@@ -85,7 +90,7 @@ describe('CorrectionsPageComponent', () => {
     svc.list.and.returnValue(of(emptyPage()));
     const c = new CorrectionsPageComponent(svc, permsStub([
       'finance.commission:view',
-    ]));
+    ]), makeToast());
     expect(c.canDraft).toBe(false);
     expect(c.canApprove).toBe(false);
   });
@@ -93,7 +98,7 @@ describe('CorrectionsPageComponent', () => {
   it('isTerminal returns true for COMMITTED and VOIDED, false for DRAFT/APPROVED', () => {
     const svc = makeSvc();
     svc.list.and.returnValue(of(emptyPage()));
-    const c = new CorrectionsPageComponent(svc, permsStub(['finance.commission:view']));
+    const c = new CorrectionsPageComponent(svc, permsStub(['finance.commission:view']), makeToast());
     expect(c.isTerminal(row({ status: 'DRAFT' }))).toBe(false);
     expect(c.isTerminal(row({ status: 'APPROVED' }))).toBe(false);
     expect(c.isTerminal(row({ status: 'COMMITTED' }))).toBe(true);
@@ -106,7 +111,7 @@ describe('CorrectionsPageComponent', () => {
     svc.approve.and.returnValue(of(row({ status: 'APPROVED' })));
     const c = new CorrectionsPageComponent(svc, permsStub([
       'finance.commission:approve_adjustment',
-    ]));
+    ]), makeToast());
     c.ngOnInit();
     svc.list.calls.reset();
     c.approve(row());
@@ -121,7 +126,7 @@ describe('CorrectionsPageComponent', () => {
   it('onStatusChange resets page and re-fetches with new filter', () => {
     const svc = makeSvc();
     svc.list.and.returnValue(of(emptyPage()));
-    const c = new CorrectionsPageComponent(svc, permsStub(['finance.commission:view']));
+    const c = new CorrectionsPageComponent(svc, permsStub(['finance.commission:view']), makeToast());
     c.ngOnInit();
     svc.list.calls.reset();
     c.statusFilter = 'COMMITTED';

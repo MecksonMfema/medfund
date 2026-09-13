@@ -6,6 +6,8 @@ import {
   TariffModifier,
 } from '../../../../core/services/claims-config.service';
 import { DataTableComponent, TableColumn } from '../../../../shared/components/data-table/data-table.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-modifiers-list',
@@ -17,7 +19,6 @@ import { DataTableComponent, TableColumn } from '../../../../shared/components/d
 export class ModifiersListComponent implements OnInit {
   rows: TariffModifier[] = [];
   loading = false;
-  errorMessage: string | null = null;
 
   // Server-side pagination state.
   page = 1;
@@ -37,7 +38,7 @@ export class ModifiersListComponent implements OnInit {
     { key: 'isActive',        label: 'Active',      sortable: true, type: 'boolean' },
   ];
 
-  constructor(private config: ClaimsConfigService) {}
+  constructor(private config: ClaimsConfigService, private toast: ToastService) {}
 
   ngOnInit(): void { this.fetchPage(); }
 
@@ -57,7 +58,7 @@ export class ModifiersListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load modifiers';
+        this.toast.error(extractErrorMessage(err, 'Failed to load modifiers'));
         this.rows = [];
         this.totalCount = 0;
         this.totalPages = 1;

@@ -31,10 +31,6 @@
   @if (loading) {
     <app-skeleton></app-skeleton>
   } @else {
-    @if (errorMessage) {
-      <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-    }
-
     <div class="form-grid">
       <div class="field toggle-field">
         <label class="check">

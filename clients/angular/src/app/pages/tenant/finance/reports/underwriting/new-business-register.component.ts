@@ -11,12 +11,15 @@ import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/servi
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { INSURANCE_LINES, insuranceLineLabel } from '../../../../../core/models/insurance-lines';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
+import { SkeletonComponent } from '../../../../../shared/components/skeleton/skeleton.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
- * Phase 12 §B New business register — one row per policy that first bound
+ * Phase 12 §B New business register: one row per policy that first bound
  * within the reporting window (renewal chain filter for annual lines,
  * member_first_contribution for HEALTH). Native amounts (parent-plan
  * invariant #1); the per-currency strip shows native subtotals with
@@ -25,14 +28,13 @@ import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/repo
 @Component({
   selector: 'app-new-business-register-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, ReportBackButtonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, SelectComponent, ReportBackButtonComponent],
   templateUrl: './new-business-register.component.html',
   styleUrl: '../receipts/receipts-report.component.scss',
 })
 export class NewBusinessRegisterReportComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<NewBusinessRegisterRow[]> | null = null;
   currencies: TenantCurrencyConfig[] = [];
@@ -48,6 +50,7 @@ export class NewBusinessRegisterReportComponent implements OnInit {
     private reportSvc: NewBusinessRegisterReportService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -87,19 +90,18 @@ export class NewBusinessRegisterReportComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.reportSvc.get(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load new business register';
+        this.toast.error(extractErrorMessage(err, 'Failed to load new business register'));
         this.envelope = null;
         this.loading = false;
       },
@@ -115,11 +117,16 @@ export class NewBusinessRegisterReportComponent implements OnInit {
         this.exporting = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to export new business register';
+        this.toast.error(extractErrorMessage(err, 'Failed to export new business register'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<NewBusinessRegisterRow[]>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'New business register'), 8000);
   }
 
   onFilterChange(): void { this.fetch(); }

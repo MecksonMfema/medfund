@@ -63,9 +63,11 @@ class StubMembers {
 }
 
 class StubToast {
-  successes: string[] = []; errors: string[] = [];
+  successes: string[] = []; errors: string[] = []; warnings: string[] = []; infos: string[] = [];
   success = (m: string) => this.successes.push(m);
   error   = (m: string) => this.errors.push(m);
+  warning = (m: string) => this.warnings.push(m);
+  info    = (m: string) => this.infos.push(m);
 }
 
 class StubRouter   { navigated: any[] = []; navigate = (cmds: any[]) => this.navigated.push(cmds); }
@@ -116,7 +118,7 @@ describe('GroupDetailComponent', () => {
   });
 
   it('blocks save when the liaison has been cleared', () => {
-    const { comp, groups } = instantiate();
+    const { comp, groups, toast } = instantiate();
     comp.ngOnInit();
     comp.form.liaisonKind = 'CLEAR';
     comp.form.liaisonUserId = null;
@@ -126,24 +128,23 @@ describe('GroupDetailComponent', () => {
     // "either a liaison or a contact email" formulation when the email
     // fallback landed. The invariant is that save is blocked and the
     // user sees a message mentioning the liaison route.
-    expect(comp.errorMessage).toContain('liaison');
+    expect(toast.warnings[0]).toContain('liaison');
   });
 
   it('blocks save when name is empty', () => {
-    const { comp, groups } = instantiate();
+    const { comp, groups, toast } = instantiate();
     comp.ngOnInit();
     comp.form.name = '   ';
     comp.save();
     expect(groups.updateCalls.length).toBe(0);
-    expect(comp.errorMessage).toBe('Name is required');
+    expect(toast.warnings[0]).toBe('Name is required');
   });
 
-  it('surfaces save errors in the banner and toast', () => {
+  it('surfaces save errors via a toast', () => {
     const { comp, groups, toast } = instantiate();
     comp.ngOnInit();
     groups.shouldFailUpdate = true;
     comp.save();
-    expect(comp.errorMessage).toBe('nope');
     expect(toast.errors[0]).toBe('nope');
   });
 

@@ -24,6 +24,8 @@ import {
   WaterfallMovement,
 } from '../../../../../shared/components/charts/waterfall-chart/waterfall-chart.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../../core/util/http-errors';
 
 interface RevenueRow {
   cohortId: string;
@@ -79,7 +81,6 @@ export class InsuranceRevenueServiceResultComponent implements OnInit, OnDestroy
   currencies: TenantCurrencyConfig[] = [];
 
   submitting = false;
-  errorMessage: string | null = null;
   currentJob: JobStatusResponse | null = null;
   startedAt: number | null = null;
   private pollSub: Subscription | null = null;
@@ -89,6 +90,7 @@ export class InsuranceRevenueServiceResultComponent implements OnInit, OnDestroy
     private polling: ReportJobPollingService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -123,10 +125,9 @@ export class InsuranceRevenueServiceResultComponent implements OnInit, OnDestroy
   submit(): void {
     if (this.submitting) return;
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
-    this.errorMessage = null;
     this.submitting = true;
     this.currentJob = null;
     this.startedAt = Date.now();
@@ -145,8 +146,7 @@ export class InsuranceRevenueServiceResultComponent implements OnInit, OnDestroy
       },
       error: (err) => {
         this.submitting = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to submit the IFRS 17 report';
+        this.toast.error(extractErrorMessage(err, 'Failed to submit the IFRS 17 report'));
       },
     });
   }
@@ -166,7 +166,7 @@ export class InsuranceRevenueServiceResultComponent implements OnInit, OnDestroy
     this.pollSub = this.polling.poll(jobId).subscribe({
       next: (snap) => { this.currentJob = snap; },
       error: (err) => {
-        this.errorMessage = err?.message || 'Polling failed';
+        this.toast.error(err?.message || 'Polling failed');
         this.pollSub = null;
       },
       complete: () => { this.pollSub = null; },

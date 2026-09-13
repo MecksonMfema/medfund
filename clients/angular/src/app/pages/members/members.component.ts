@@ -8,6 +8,8 @@ import { DataTableComponent } from '../../shared/components/data-table/data-tabl
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { HasPermissionDirective } from '../../shared/directives/has-permission.directive';
 import { MembersService, Member } from '../../core/services/members.service';
+import { ToastService } from '../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../core/util/http-errors';
 
 /**
  * Members list — mirrors the schemes-page shape (/tenant/billing/schemes):
@@ -27,7 +29,6 @@ export class MembersComponent implements OnInit, OnDestroy {
   members: Member[] = [];
   loading = false;
   searchQuery = '';
-  errorMessage: string | null = null;
 
   cursors: string[] = [];
   nextCursor: string | null = null;
@@ -46,7 +47,7 @@ export class MembersComponent implements OnInit, OnDestroy {
   private search$ = new Subject<string>();
   private destroy$ = new Subject<void>();
 
-  constructor(private membersService: MembersService, private router: Router) {}
+  constructor(private membersService: MembersService, private router: Router, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.search$.pipe(debounceTime(400), distinctUntilChanged(), takeUntil(this.destroy$))
@@ -58,7 +59,6 @@ export class MembersComponent implements OnInit, OnDestroy {
 
   load(cursor?: string): void {
     this.loading = true;
-    this.errorMessage = null;
     this.membersService.getPage({ q: this.searchQuery || undefined, cursor, limit: 20 }).subscribe({
       next: (raw: any) => {
         const content: Member[] = Array.isArray(raw) ? raw : (raw?.content ?? []);
@@ -67,7 +67,7 @@ export class MembersComponent implements OnInit, OnDestroy {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load members';
+        this.toast.error(extractErrorMessage(err, 'Failed to load members'));
         this.loading = false;
       },
     });

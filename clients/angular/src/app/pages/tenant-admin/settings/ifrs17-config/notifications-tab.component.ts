@@ -13,6 +13,8 @@ import { TenantService } from '../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface EditableRow extends TenantIfrs17NotificationConfigRow {
   editing?: boolean;
@@ -54,7 +56,6 @@ const DELIVERY_METHOD_OPTIONS: SelectOption[] = [
 export class NotificationsTabComponent implements OnInit {
   rows: EditableRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
   pendingId: string | null = null;
 
@@ -70,6 +71,7 @@ export class NotificationsTabComponent implements OnInit {
   constructor(
     private service: TenantIfrs17NotificationConfigService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -79,18 +81,17 @@ export class NotificationsTabComponent implements OnInit {
   refresh(): void {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      this.errorMessage = 'No active tenant context';
+      this.toast.warning('No active tenant context');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.service.list(tenantId).subscribe({
       next: (rows) => {
         this.rows = rows.map(r => ({ ...r }));
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.message || 'Failed to load notification config rows';
+        this.toast.error(extractErrorMessage(err, 'Failed to load notification config rows'));
         this.loading = false;
       },
     });
@@ -120,23 +121,22 @@ export class NotificationsTabComponent implements OnInit {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) return;
     if (!this.newRow.eventType || !this.newRow.deliveryMethod || !this.newRow.recipient?.trim()) {
-      this.errorMessage = 'Event type, delivery method, and recipient are required';
+      this.toast.warning('Event type, delivery method, and recipient are required');
       return;
     }
     this.adding = true;
-    this.errorMessage = null;
     this.service.add(tenantId, this.trimAddPayload(this.newRow)).subscribe({
       next: () => {
         this.adding = false;
         this.addingOpen = false;
-        this.successMessage = `Added ${this.newRow.eventType} → ${this.newRow.recipient}`;
+        this.successMessage = `Added ${this.newRow.eventType} to ${this.newRow.recipient}`;
         setTimeout(() => (this.successMessage = null), 3000);
         this.newRow = this.blankNewRow();
         this.refresh();
       },
       error: (err) => {
         this.adding = false;
-        this.errorMessage = err?.error?.detail || 'Failed to add notification config';
+        this.toast.error(extractErrorMessage(err, 'Failed to add notification config'));
       },
     });
   }
@@ -174,14 +174,14 @@ export class NotificationsTabComponent implements OnInit {
         this.pendingId = null;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to update notification config';
+        this.toast.error(extractErrorMessage(err, 'Failed to update notification config'));
         this.pendingId = null;
       },
     });
   }
 
   remove(row: EditableRow): void {
-    if (!confirm(`Delete notification for ${row.eventType} → ${row.recipient}?`)) return;
+    if (!confirm(`Delete notification for ${row.eventType} to ${row.recipient}?`)) return;
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) return;
     this.pendingId = row.id;
@@ -191,7 +191,7 @@ export class NotificationsTabComponent implements OnInit {
         this.pendingId = null;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to delete notification config';
+        this.toast.error(extractErrorMessage(err, 'Failed to delete notification config'));
         this.pendingId = null;
       },
     });

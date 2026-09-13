@@ -13,6 +13,8 @@ import {
   TableColumn,
 } from '../../../../shared/components/data-table/data-table.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 /**
  * Cession-queue tab of the merged Facultative page. DRAFT / APPROVED
@@ -35,7 +37,6 @@ interface QueueRow extends CessionRow {
 export class FacultativeQueueTabComponent implements OnInit {
   rows: QueueRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
   statusFilter: '' | FacultativeQueueStatus = '';
 
   page = 1;
@@ -46,7 +47,6 @@ export class FacultativeQueueTabComponent implements OnInit {
   voidTargetId: string | null = null;
   voidReason = '';
   voidSubmitting = false;
-  voidError: string | null = null;
 
   actionInProgress: Record<string, boolean> = {};
 
@@ -99,6 +99,7 @@ export class FacultativeQueueTabComponent implements OnInit {
   constructor(
     private svc: ReinsuranceService,
     perms: PermissionService,
+    private toast: ToastService,
   ) {
     this.canAct = perms.hasAny(['finance.reinsurance:approve_facultative']);
   }
@@ -107,7 +108,6 @@ export class FacultativeQueueTabComponent implements OnInit {
 
   fetchPage(): void {
     this.loading = true;
-    this.errorMessage = null;
     this.svc.listFacultativeQueue(
       this.statusFilter || undefined,
       this.page - 1,
@@ -124,8 +124,7 @@ export class FacultativeQueueTabComponent implements OnInit {
         this.loading = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load facultative queue';
+        this.toast.error(extractErrorMessage(err, 'Failed to load facultative queue'));
         this.rows = [];
         this.loading = false;
       },
@@ -140,7 +139,7 @@ export class FacultativeQueueTabComponent implements OnInit {
     this.svc.approveFacultativeCession(row.id).subscribe({
       next: () => { this.actionInProgress[row.id] = false; this.fetchPage(); },
       error: err => {
-        this.errorMessage = err?.error?.detail || 'Approve failed.';
+        this.toast.error(extractErrorMessage(err, 'Approve failed.'));
         this.actionInProgress[row.id] = false;
       },
     });
@@ -152,7 +151,7 @@ export class FacultativeQueueTabComponent implements OnInit {
     this.svc.commitFacultativeCession(row.id).subscribe({
       next: () => { this.actionInProgress[row.id] = false; this.fetchPage(); },
       error: err => {
-        this.errorMessage = err?.error?.detail || 'Commit failed.';
+        this.toast.error(extractErrorMessage(err, 'Commit failed.'));
         this.actionInProgress[row.id] = false;
       },
     });
@@ -161,24 +160,21 @@ export class FacultativeQueueTabComponent implements OnInit {
   openVoid(row: CessionRow): void {
     this.voidTargetId = row.id;
     this.voidReason = '';
-    this.voidError = null;
   }
 
   cancelVoid(): void {
     this.voidTargetId = null;
     this.voidReason = '';
-    this.voidError = null;
     this.voidSubmitting = false;
   }
 
   submitVoid(): void {
     if (!this.voidTargetId) return;
     if (!this.voidReason.trim()) {
-      this.voidError = 'Reason is required.';
+      this.toast.warning('Reason is required.');
       return;
     }
     this.voidSubmitting = true;
-    this.voidError = null;
     this.svc.voidFacultativeCession(this.voidTargetId, this.voidReason.trim()).subscribe({
       next: () => {
         this.voidSubmitting = false;
@@ -186,7 +182,7 @@ export class FacultativeQueueTabComponent implements OnInit {
         this.fetchPage();
       },
       error: err => {
-        this.voidError = err?.error?.detail || err?.error?.title || 'Void failed.';
+        this.toast.error(extractErrorMessage(err, 'Void failed.'));
         this.voidSubmitting = false;
       },
     });

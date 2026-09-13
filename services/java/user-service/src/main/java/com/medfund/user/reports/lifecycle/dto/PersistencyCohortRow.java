@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * Phase 13 §C Phase 8 per L9 + L16 — one row per (cohort_period,
+ * Phase 13 §C Phase 8 per L9 + L16: one row per (cohort_period,
  * insurance_line, checkpoint_months). {@code cohortSize} is the count of
  * newly-active policies (or members for HEALTH) starting in the cohort
  * period; {@code stillActive} is how many of them are still active

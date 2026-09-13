@@ -23,6 +23,8 @@ import {
   LossComponentMovementType,
 } from '../../../core/services/cohort-loss-component.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
+import { ToastService } from '../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../core/util/http-errors';
 
 interface CohortDraft {
   id?: string;
@@ -44,7 +46,6 @@ export class CohortsListComponent implements OnInit {
   loading = false;
   saving = false;
   showInactive = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   showForm = false;
@@ -63,7 +64,6 @@ export class CohortsListComponent implements OnInit {
   historyCohort: Ifrs17Cohort | null = null;
   historyRows: CohortStatusHistoryRow[] = [];
   historyLoading = false;
-  historyError: string | null = null;
 
   // Loss component modal state — Phase 15 §5 (I19). ONEROUS cohorts only.
   readonly movementTypes: LossComponentMovementType[] = [
@@ -77,7 +77,6 @@ export class CohortsListComponent implements OnInit {
   lossRows: CohortLossComponentRow[] = [];
   lossBalance: CohortLossComponentBalance | null = null;
   lossLoading = false;
-  lossError: string | null = null;
   lossBalanceCurrency = 'USD';
   lossFormOpen = false;
   lossFormSaving = false;
@@ -93,6 +92,7 @@ export class CohortsListComponent implements OnInit {
     private portfolioSvc: Ifrs17PortfolioService,
     private historySvc: CohortStatusHistoryService,
     private lossSvc: CohortLossComponentService,
+    private toast: ToastService,
   ) {
     this.portfolioSearch$
       .pipe(
@@ -113,7 +113,7 @@ export class CohortsListComponent implements OnInit {
     this.svc.list(this.showInactive).subscribe({
       next: (rows) => { this.rows = rows; this.loading = false; },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load cohorts';
+        this.toast.error(extractErrorMessage(err, 'Failed to load cohorts'));
         this.rows = [];
         this.loading = false;
       },
@@ -166,19 +166,18 @@ export class CohortsListComponent implements OnInit {
 
   save(): void {
     if (!this.draft.portfolioId) {
-      this.errorMessage = 'Portfolio is required';
+      this.toast.warning('Portfolio is required');
       return;
     }
     if (!this.draft.name.trim()) {
-      this.errorMessage = 'Name is required';
+      this.toast.warning('Name is required');
       return;
     }
     if (!this.draft.cohortYear || this.draft.cohortYear < 1900 || this.draft.cohortYear > 2200) {
-      this.errorMessage = 'Cohort year must be between 1900 and 2200';
+      this.toast.warning('Cohort year must be between 1900 and 2200');
       return;
     }
     this.saving = true;
-    this.errorMessage = null;
     this.successMessage = null;
     const payload: CreateIfrs17CohortPayload = {
       portfolioId: this.draft.portfolioId,
@@ -198,7 +197,7 @@ export class CohortsListComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Save failed';
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }
@@ -208,7 +207,7 @@ export class CohortsListComponent implements OnInit {
     this.svc.delete(row.id).subscribe({
       next: () => { this.successMessage = 'Cohort deactivated'; this.load(); },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Deactivate failed';
+        this.toast.error(extractErrorMessage(err, 'Deactivate failed'));
       },
     });
   }
@@ -216,13 +215,12 @@ export class CohortsListComponent implements OnInit {
   openHistory(row: Ifrs17Cohort): void {
     this.historyCohort = row;
     this.historyRows = [];
-    this.historyError = null;
     this.historyLoading = true;
     this.historyModalOpen = true;
     this.historySvc.listForCohort(row.id).subscribe({
       next: (rows) => { this.historyRows = rows; this.historyLoading = false; },
       error: (err) => {
-        this.historyError = err?.error?.detail || err?.error?.title || 'Failed to load status history';
+        this.toast.error(extractErrorMessage(err, 'Failed to load status history'));
         this.historyLoading = false;
       },
     });
@@ -232,14 +230,12 @@ export class CohortsListComponent implements OnInit {
     this.historyModalOpen = false;
     this.historyCohort = null;
     this.historyRows = [];
-    this.historyError = null;
   }
 
   openLossComponent(row: Ifrs17Cohort): void {
     this.lossCohort = row;
     this.lossRows = [];
     this.lossBalance = null;
-    this.lossError = null;
     this.lossLoading = true;
     this.lossModalOpen = true;
     this.lossFormOpen = false;
@@ -270,15 +266,14 @@ export class CohortsListComponent implements OnInit {
     if (!this.lossCohort) return;
     const amount = (this.lossDraft.amount || '').trim();
     if (!amount || Number(amount) <= 0) {
-      this.lossError = 'Amount must be positive';
+      this.toast.warning('Amount must be positive');
       return;
     }
     if (!/^[A-Z]{3}$/.test(this.lossDraft.currency)) {
-      this.lossError = 'Currency must be an ISO-4217 3-letter code';
+      this.toast.warning('Currency must be an ISO-4217 3-letter code');
       return;
     }
     this.lossFormSaving = true;
-    this.lossError = null;
     this.lossSvc
       .record(this.lossCohort.id, {
         movementType: this.lossDraft.movementType,
@@ -298,8 +293,7 @@ export class CohortsListComponent implements OnInit {
         },
         error: (err) => {
           this.lossFormSaving = false;
-          this.lossError =
-            err?.error?.detail || err?.error?.title || 'Failed to record movement';
+          this.toast.error(extractErrorMessage(err, 'Failed to record movement'));
         },
       });
   }
@@ -309,7 +303,6 @@ export class CohortsListComponent implements OnInit {
     this.lossCohort = null;
     this.lossRows = [];
     this.lossBalance = null;
-    this.lossError = null;
     this.lossFormOpen = false;
   }
 
@@ -321,8 +314,7 @@ export class CohortsListComponent implements OnInit {
         this.lossLoading = false;
       },
       error: (err) => {
-        this.lossError =
-          err?.error?.detail || err?.error?.title || 'Failed to load loss component';
+        this.toast.error(extractErrorMessage(err, 'Failed to load loss component'));
         this.lossLoading = false;
       },
     });

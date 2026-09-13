@@ -10,6 +10,8 @@ import {
   EndorsementService,
 } from '../../../../core/services/endorsement.service';
 import { EndorsementModalComponent } from './endorsement-modal.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 /**
  * Per-policy endorsement history — the fallback page the plan calls
@@ -29,7 +31,6 @@ import { EndorsementModalComponent } from './endorsement-modal.component';
 })
 export class EndorsementHistoryComponent implements OnInit {
   loading = false;
-  errorMessage: string | null = null;
   saving = false;
 
   policySource = '';
@@ -46,6 +47,7 @@ export class EndorsementHistoryComponent implements OnInit {
     private route: ActivatedRoute,
     private endorsementService: EndorsementService,
     private permissionService: PermissionService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -65,16 +67,13 @@ export class EndorsementHistoryComponent implements OnInit {
   load(): void {
     if (!this.policyId || !this.policySource) return;
     this.loading = true;
-    this.errorMessage = null;
     this.endorsementService.listByPolicy(this.policyId, this.policySource).subscribe({
       next: rows => {
         this.rows = rows;
         this.loading = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail
-          || err?.error?.title
-          || 'Failed to load endorsements for this policy.';
+        this.toast.error(extractErrorMessage(err, 'Failed to load endorsements for this policy.'));
         this.loading = false;
       },
     });
@@ -99,9 +98,7 @@ export class EndorsementHistoryComponent implements OnInit {
         this.modalOpen = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail
-          || err?.error?.title
-          || 'Could not save the endorsement.';
+        this.toast.error(extractErrorMessage(err, 'Could not save the endorsement.'));
         this.saving = false;
       },
     });

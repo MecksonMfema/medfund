@@ -17,6 +17,8 @@ import {
 } from '../../../../../shared/components/entity-picker/entity-picker.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Commission statement — one row per commission_transaction in the selected
@@ -39,7 +41,6 @@ import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/repo
 export class CommissionStatementComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<CommissionStatementRow[]> | null = null;
   currencies: TenantCurrencyConfig[] = [];
@@ -55,6 +56,7 @@ export class CommissionStatementComponent implements OnInit {
     private reportSvc: CommissionReportService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -87,19 +89,18 @@ export class CommissionStatementComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.reportSvc.getStatement(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load commission statement';
+        this.toast.error(extractErrorMessage(err, 'Failed to load commission statement'));
         this.envelope = null;
         this.loading = false;
       },
@@ -115,11 +116,16 @@ export class CommissionStatementComponent implements OnInit {
         this.exporting = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to export commission statement';
+        this.toast.error(extractErrorMessage(err, 'Failed to export commission statement'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<CommissionStatementRow[]>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Commission statement'), 8000);
   }
 
   onFilterChange(): void { this.fetch(); }

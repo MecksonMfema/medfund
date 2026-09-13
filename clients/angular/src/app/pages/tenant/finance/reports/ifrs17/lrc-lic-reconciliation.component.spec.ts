@@ -7,6 +7,7 @@ import { Ifrs17ReportsService } from '../../../../../core/services/ifrs17-report
 import { ReportJobPollingService } from '../../../../../core/services/report-job-polling.service';
 import { CurrencyService } from '../../../../../core/services/currency.service';
 import { TenantService } from '../../../../../core/services/tenant.service';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
 
 describe('LrcLicReconciliationComponent', () => {
   let cmp: LrcLicReconciliationComponent;
@@ -59,11 +60,13 @@ describe('LrcLicReconciliationComponent', () => {
   });
 
   it('validates period-start / period-end before submit', () => {
+    const toast = TestBed.inject(ToastService);
+    const warnSpy = spyOn(toast, 'warning');
     cmp.periodStart = '';
     cmp.periodEnd = '';
     cmp.submit();
     expect(reports.submitLrcLicReconciliation).not.toHaveBeenCalled();
-    expect(cmp.errorMessage).toContain('start');
+    expect(warnSpy).toHaveBeenCalledWith(jasmine.stringContaining('start'));
   });
 
   it('portfolios getter flattens envelope into per-portfolio buckets with LRC + LIC totals', () => {

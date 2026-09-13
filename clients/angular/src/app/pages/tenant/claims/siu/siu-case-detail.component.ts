@@ -8,6 +8,7 @@ import { ActivityFeedComponent, ActivityItem }
   from '../../../../shared/components/activity-feed/activity-feed.component';
 import { ConfirmService } from '../../../../shared/components/confirm-dialog/confirm.service';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 import { SiuCaseDetail, SiuEvidence, SiuReferral, SiuService } from './siu.service';
 
 /**
@@ -31,7 +32,6 @@ export class SiuCaseDetailComponent implements OnInit {
   case: SiuCaseDetail | null = null;
   loading = false;
   busy = false;
-  errorMessage: string | null = null;
 
   activeTab: 'overview' | 'flags' | 'evidence' | 'referrals' | 'activity' = 'overview';
 
@@ -68,7 +68,7 @@ export class SiuCaseDetailComponent implements OnInit {
   ngOnInit(): void {
     const caseId = this.route.snapshot.paramMap.get('caseId');
     if (!caseId) {
-      this.errorMessage = 'Missing case id in URL';
+      this.toast.error('Missing case id in URL');
       return;
     }
     this.fetch(caseId);
@@ -82,8 +82,7 @@ export class SiuCaseDetailComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load case';
+        this.toast.error(extractErrorMessage(err, 'Failed to load case'));
         this.loading = false;
       },
     });
@@ -110,8 +109,7 @@ export class SiuCaseDetailComponent implements OnInit {
       },
       error: (err) => {
         this.busy = false;
-        this.toast.error(err?.error?.detail || err?.error?.title
-          || 'Failed to start review');
+        this.toast.error(extractErrorMessage(err, 'Failed to start review'));
       },
     });
   }
@@ -149,8 +147,7 @@ export class SiuCaseDetailComponent implements OnInit {
       },
       error: (err) => {
         this.busy = false;
-        this.toast.error(err?.error?.detail || err?.error?.title
-          || 'Failed to propose closure');
+        this.toast.error(extractErrorMessage(err, 'Failed to propose closure'));
       },
     });
   }
@@ -173,8 +170,7 @@ export class SiuCaseDetailComponent implements OnInit {
       },
       error: (err) => {
         this.busy = false;
-        this.toast.error(err?.error?.detail || err?.error?.title
-          || 'Failed to approve closure');
+        this.toast.error(extractErrorMessage(err, 'Failed to approve closure'));
       },
     });
   }
@@ -192,8 +188,7 @@ export class SiuCaseDetailComponent implements OnInit {
       },
       error: (err) => {
         this.busy = false;
-        this.toast.error(err?.error?.detail || err?.error?.title
-          || 'Failed to reject closure');
+        this.toast.error(extractErrorMessage(err, 'Failed to reject closure'));
       },
     });
   }
@@ -211,8 +206,7 @@ export class SiuCaseDetailComponent implements OnInit {
       },
       error: (err) => {
         this.busy = false;
-        this.toast.error(err?.error?.detail || err?.error?.title
-          || 'Failed to reopen case');
+        this.toast.error(extractErrorMessage(err, 'Failed to reopen case'));
       },
     });
   }
@@ -239,8 +233,7 @@ export class SiuCaseDetailComponent implements OnInit {
       },
       error: (err) => {
         this.busy = false;
-        this.toast.error(err?.error?.detail || err?.error?.title
-          || 'Failed to close case');
+        this.toast.error(extractErrorMessage(err, 'Failed to close case'));
       },
     });
   }
@@ -280,8 +273,7 @@ export class SiuCaseDetailComponent implements OnInit {
       },
       error: (err) => {
         this.busy = false;
-        this.toast.error(err?.error?.detail || err?.error?.title
-          || 'Failed to attach evidence');
+        this.toast.error(extractErrorMessage(err, 'Failed to attach evidence'));
       },
     });
   }
@@ -313,8 +305,7 @@ export class SiuCaseDetailComponent implements OnInit {
       },
       error: (err) => {
         this.busy = false;
-        this.toast.error(err?.error?.detail || err?.error?.title
-          || 'Failed to record referral');
+        this.toast.error(extractErrorMessage(err, 'Failed to record referral'));
       },
     });
   }

@@ -8,6 +8,8 @@ import {
 } from '../../../../core/services/claims-config.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { endOfMonth, firstOfMonth } from '../../../../shared/utils/date-snap';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-tariff-schedule-form',
@@ -18,7 +20,6 @@ import { endOfMonth, firstOfMonth } from '../../../../shared/utils/date-snap';
 })
 export class TariffScheduleFormComponent {
   saving = false;
-  errorMessage: string | null = null;
 
   form: CreateTariffSchedulePayload = {
     name: '',
@@ -27,7 +28,7 @@ export class TariffScheduleFormComponent {
     source: '',
   };
 
-  constructor(private config: ClaimsConfigService, private router: Router) {}
+  constructor(private config: ClaimsConfigService, private router: Router, private toast: ToastService) {}
 
   /** feedback_effective_date_snap: start dates ride the 1st of the month. */
   onEffectiveDateBlur(): void {
@@ -42,10 +43,10 @@ export class TariffScheduleFormComponent {
 
   submit(): void {
     if (!this.form.name.trim() || !this.form.effectiveDate) {
-      this.errorMessage = 'Name and effective date are required';
+      this.toast.warning('Name and effective date are required');
       return;
     }
-    // Belt-and-braces snap at submit — in case the operator typed instead of
+    // Belt-and-braces snap at submit: in case the operator typed instead of
     // blurring out of the input.
     const payload: CreateTariffSchedulePayload = {
       name: this.form.name.trim(),
@@ -54,7 +55,6 @@ export class TariffScheduleFormComponent {
       source: this.form.source?.trim() || undefined,
     };
     this.saving = true;
-    this.errorMessage = null;
     this.config.createSchedule(payload).subscribe({
       next: (saved) => {
         this.saving = false;
@@ -63,7 +63,7 @@ export class TariffScheduleFormComponent {
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Save failed';
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }

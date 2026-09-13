@@ -18,6 +18,8 @@ import {
 } from '../../../../core/services/billing-catalogue.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-waiting-period-form',
@@ -32,7 +34,6 @@ export class WaitingPeriodFormComponent implements OnInit {
   benefitTypes: BenefitType[] = [];
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   form: {
     schemeId: string;
@@ -61,6 +62,7 @@ export class WaitingPeriodFormComponent implements OnInit {
     private catalogue: BillingCatalogueService,
     private route: ActivatedRoute,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -88,7 +90,7 @@ export class WaitingPeriodFormComponent implements OnInit {
               maxAge: (found as any).maxAge ?? null,
             };
           } else {
-            this.errorMessage = 'Waiting period rule not found';
+            this.toast.error('Waiting period rule not found');
           }
         } else if (schemes.length > 0 && !this.form.schemeId) {
           this.form.schemeId = schemes[0].id;
@@ -96,7 +98,7 @@ export class WaitingPeriodFormComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load form data';
+        this.toast.error(extractErrorMessage(err, 'Failed to load form data'));
         this.loading = false;
       },
     });
@@ -104,7 +106,7 @@ export class WaitingPeriodFormComponent implements OnInit {
 
   submit(): void {
     if (!this.form.schemeId || !this.form.conditionType.trim()) {
-      this.errorMessage = 'Pick a scheme and a condition';
+      this.toast.warning('Pick a scheme and a condition');
       return;
     }
     const payload: UpsertWaitingPeriodPayload = {
@@ -116,7 +118,6 @@ export class WaitingPeriodFormComponent implements OnInit {
       maxAge: this.form.maxAge ?? undefined,
     };
     this.saving = true;
-    this.errorMessage = null;
     const stream = this.ruleId
       ? this.waitingService.update(this.ruleId, payload)
       : this.waitingService.create(payload);
@@ -127,7 +128,7 @@ export class WaitingPeriodFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Save failed';
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }

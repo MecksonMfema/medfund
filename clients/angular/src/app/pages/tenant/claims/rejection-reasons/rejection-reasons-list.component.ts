@@ -8,6 +8,8 @@ import {
 } from '../../../../core/services/claims-config.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-rejection-reasons-list',
@@ -19,7 +21,6 @@ import { DataTableComponent, TableAction, TableColumn } from '../../../../shared
 export class RejectionReasonsListComponent implements OnInit {
   rows: RejectionReason[] = [];
   loading = false;
-  errorMessage: string | null = null;
 
   // Server-side pagination state.
   page = 1;
@@ -59,7 +60,7 @@ export class RejectionReasonsListComponent implements OnInit {
     },
   ];
 
-  constructor(private config: ClaimsConfigService, private router: Router) {}
+  constructor(private config: ClaimsConfigService, private router: Router, private toast: ToastService) {}
 
   ngOnInit(): void { this.fetchPage(); }
 
@@ -79,7 +80,7 @@ export class RejectionReasonsListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load rejection reasons';
+        this.toast.error(extractErrorMessage(err, 'Failed to load rejection reasons'));
         this.rows = [];
         this.totalCount = 0;
         this.totalPages = 1;
@@ -117,7 +118,7 @@ export class RejectionReasonsListComponent implements OnInit {
     }).subscribe({
       next: () => this.fetchPage(),
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Update failed';
+        this.toast.error(extractErrorMessage(err, 'Update failed'));
       },
     });
   }
@@ -127,7 +128,7 @@ export class RejectionReasonsListComponent implements OnInit {
     this.config.deleteRejectionReason(r.id).subscribe({
       next: () => this.fetchPage(),
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Delete failed';
+        this.toast.error(extractErrorMessage(err, 'Delete failed'));
       },
     });
   }

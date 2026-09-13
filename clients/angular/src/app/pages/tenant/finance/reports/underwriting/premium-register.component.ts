@@ -11,12 +11,15 @@ import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/servi
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { INSURANCE_LINES, insuranceLineLabel } from '../../../../../core/models/insurance-lines';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
+import { SkeletonComponent } from '../../../../../shared/components/skeleton/skeleton.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
- * Phase 12 §B Premium register — one row per (policy × source × period)
+ * Phase 12 §B Premium register: one row per (policy × source × period)
  * in the reporting window. Native amounts (parent-plan invariant #1);
  * the per-currency strip shows native subtotals with best-effort FX
  * conversion. isNewBusiness flag comes from the renewal chain for
@@ -25,14 +28,13 @@ import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/repo
 @Component({
   selector: 'app-premium-register-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, ReportBackButtonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, SelectComponent, ReportBackButtonComponent],
   templateUrl: './premium-register.component.html',
   styleUrl: '../receipts/receipts-report.component.scss',
 })
 export class PremiumRegisterReportComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<PremiumRegisterRow[]> | null = null;
   currencies: TenantCurrencyConfig[] = [];
@@ -48,6 +50,7 @@ export class PremiumRegisterReportComponent implements OnInit {
     private reportSvc: PremiumRegisterReportService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -87,19 +90,18 @@ export class PremiumRegisterReportComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.reportSvc.get(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load premium register';
+        this.toast.error(extractErrorMessage(err, 'Failed to load premium register'));
         this.envelope = null;
         this.loading = false;
       },
@@ -115,11 +117,16 @@ export class PremiumRegisterReportComponent implements OnInit {
         this.exporting = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to export premium register';
+        this.toast.error(extractErrorMessage(err, 'Failed to export premium register'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<PremiumRegisterRow[]>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Premium register'), 8000);
   }
 
   onFilterChange(): void { this.fetch(); }

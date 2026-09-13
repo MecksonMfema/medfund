@@ -13,6 +13,8 @@ import { IconComponent } from '../../../../../shared/components/icon/icon.compon
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Denial analysis (G47) — four views over the REJECTED claim set of the
@@ -31,7 +33,6 @@ import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/repo
 export class DenialAnalysisReportComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<DenialAnalysisResponse> | null = null;
   currencies: TenantCurrencyConfig[] = [];
@@ -46,6 +47,7 @@ export class DenialAnalysisReportComponent implements OnInit {
     private claimsReport: ClaimsReportService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -82,18 +84,18 @@ export class DenialAnalysisReportComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.claimsReport.getDenialAnalysis(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load denial analysis';
+        this.toast.error(extractErrorMessage(err, 'Failed to load denial analysis'));
         this.envelope = null;
         this.loading = false;
       },
@@ -108,11 +110,17 @@ export class DenialAnalysisReportComponent implements OnInit {
         downloadBlob(blob, `denial-analysis-${this.periodStart}-to-${this.periodEnd}.xlsx`);
         this.exporting = false;
       },
-      error: () => {
-        this.errorMessage = 'Failed to download workbook';
+      error: err => {
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<DenialAnalysisResponse>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Denial analysis'), 8000);
   }
 
   onFilterChange(): void {

@@ -14,6 +14,7 @@ import { Producer, ProducerService } from '../../../../../core/services/producer
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * New commission correction — full-page form, mirrors the shared form
@@ -37,7 +38,6 @@ export class CreateCorrectionComponent implements OnInit {
   private toast = inject(ToastService);
 
   submitting = false;
-  errorMessage: string | null = null;
 
   // ── Step 1: pick a producer (autocomplete) ────────────────────────────
   producer: Producer | null = null;
@@ -143,8 +143,7 @@ export class CreateCorrectionComponent implements OnInit {
         this.transactionsLoading = false;
       },
       error: err => {
-        this.transactionsError = err?.error?.detail || err?.error?.title
-          || 'Failed to load commission transactions';
+        this.transactionsError = extractErrorMessage(err, 'Failed to load commission transactions');
         this.transactions = [];
         this.transactionsLoading = false;
       },
@@ -166,17 +165,16 @@ export class CreateCorrectionComponent implements OnInit {
   // ── Submit ────────────────────────────────────────────────────────────
 
   submit(): void {
-    this.errorMessage = null;
     if (!this.selectedTransaction) {
-      this.errorMessage = 'Pick a target commission transaction first.';
+      this.toast.warning('Pick a target commission transaction first.');
       return;
     }
     if (this.adjustmentAmount == null || Number(this.adjustmentAmount) === 0) {
-      this.errorMessage = 'Correction amount must be a non-zero value.';
+      this.toast.warning('Correction amount must be a non-zero value.');
       return;
     }
     if (this.justification.trim().length < 20) {
-      this.errorMessage = 'Justification must be at least 20 characters.';
+      this.toast.warning('Justification must be at least 20 characters.');
       return;
     }
     this.submitting = true;
@@ -193,9 +191,7 @@ export class CreateCorrectionComponent implements OnInit {
       },
       error: err => {
         this.submitting = false;
-        const detail = err?.error?.detail || err?.error?.title || 'Failed to create correction';
-        this.errorMessage = detail;
-        this.toast.error(detail);
+        this.toast.error(extractErrorMessage(err, 'Failed to create correction'));
       },
     });
   }

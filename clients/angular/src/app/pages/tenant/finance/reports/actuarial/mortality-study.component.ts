@@ -26,6 +26,8 @@ import {
   ActuarialJobProgressComponent,
 } from '../../../../../shared/components/actuarial-job-progress/actuarial-job-progress.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Phase 14 §Actuarial Phase 13 — MORTALITY_STUDY report page. Same
@@ -69,10 +71,10 @@ export class MortalityStudyComponent implements OnInit, OnDestroy {
   basisTables: BasisTableMetadata[] = [];
 
   submitting = false;
-  errorMessage: string | null = null;
   currentJob: JobStatusResponse | null = null;
   startedAt: number | null = null;
   private pollSub: Subscription | null = null;
+  private lastWarnedJobId: string | null = null;
 
   constructor(
     private reports: ActuarialReportsService,
@@ -80,6 +82,7 @@ export class MortalityStudyComponent implements OnInit, OnDestroy {
     private currencyService: CurrencyService,
     private tenantService: TenantService,
     private basisService: ActuarialBasisTablesService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -143,18 +146,18 @@ export class MortalityStudyComponent implements OnInit, OnDestroy {
   submit(): void {
     if (this.submitting) return;
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     if (this.multiplierOverride != null &&
         (Number.isNaN(this.multiplierOverride) || this.multiplierOverride <= 0)) {
-      this.errorMessage = 'Multiplier override must be a positive number.';
+      this.toast.warning('Multiplier override must be a positive number.');
       return;
     }
-    this.errorMessage = null;
     this.submitting = true;
     this.currentJob = null;
     this.startedAt = Date.now();
+    this.lastWarnedJobId = null;
 
     const body: MortalityStudyJobRequest = {
       periodStart: this.periodStart,
@@ -172,8 +175,7 @@ export class MortalityStudyComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.submitting = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to submit the mortality study';
+        this.toast.error(extractErrorMessage(err, 'Failed to submit the mortality study'));
       },
     });
   }
@@ -191,13 +193,30 @@ export class MortalityStudyComponent implements OnInit, OnDestroy {
   private beginPolling(jobId: string): void {
     this.pollSub?.unsubscribe();
     this.pollSub = this.polling.poll(jobId).subscribe({
-      next: (snap) => { this.currentJob = snap; },
+      next: (snap) => {
+        this.currentJob = snap;
+        this.maybeSurfaceWarnings(snap);
+      },
       error: (err) => {
-        this.errorMessage = err?.message || 'Polling failed';
+        this.toast.error(err?.message || 'Polling failed');
         this.pollSub = null;
       },
       complete: () => { this.pollSub = null; },
     });
+  }
+
+  private maybeSurfaceWarnings(snap: JobStatusResponse): void {
+    if (snap.status !== 'completed') return;
+    if (this.lastWarnedJobId === snap.jobId) return;
+    const shape = snap.paramsJson?.shape_warnings ?? [];
+    const result = (snap.resultJson as MortalityResult | null)?.warnings ?? [];
+    const combined = [...shape, ...result];
+    if (combined.length === 0) {
+      this.lastWarnedJobId = snap.jobId;
+      return;
+    }
+    this.toast.warning(composeWarningsToast(combined, this.pageTitle), 8000);
+    this.lastWarnedJobId = snap.jobId;
   }
 
   // ── result unpacking ────────────────────────────────────────────────

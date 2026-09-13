@@ -18,6 +18,8 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Per-member claims aggregate (§B G45) — paginated + searchable, mirrors the
@@ -36,7 +38,6 @@ import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/repo
 export class MemberClaimsReportComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   page: ReportPage<ClaimsSummaryRow> = emptyPage();
   envelope: ReportResponse<ReportPage<ClaimsSummaryRow>> | null = null;
@@ -75,6 +76,7 @@ export class MemberClaimsReportComponent implements OnInit {
     private currencyService: CurrencyService,
     private tenantService: TenantService,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -111,19 +113,19 @@ export class MemberClaimsReportComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.claimsReport.getClaimsPerMember(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.page = env.data ?? emptyPage();
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load member claims report';
+        this.toast.error(extractErrorMessage(err, 'Failed to load member claims report'));
         this.page = emptyPage();
         this.envelope = null;
         this.loading = false;
@@ -139,11 +141,17 @@ export class MemberClaimsReportComponent implements OnInit {
         downloadBlob(blob, `claims-members-${this.periodStart}-to-${this.periodEnd}.xlsx`);
         this.exporting = false;
       },
-      error: () => {
-        this.errorMessage = 'Failed to download workbook';
+      error: err => {
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<ReportPage<ClaimsSummaryRow>>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Claims report: per member'), 8000);
   }
 
   onRowClick(row: ClaimsSummaryRow): void {

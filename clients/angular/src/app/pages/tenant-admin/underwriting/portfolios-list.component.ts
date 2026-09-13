@@ -14,6 +14,8 @@ import {
   TableColumn,
 } from '../../../shared/components/data-table/data-table.component';
 import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
+import { ToastService } from '../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../core/util/http-errors';
 
 interface PortfolioRow extends Ifrs17Portfolio {
   insuranceLineDisplay: string;
@@ -33,7 +35,6 @@ interface PortfolioRow extends Ifrs17Portfolio {
 export class PortfoliosListComponent implements OnInit {
   rows: PortfolioRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   // Server-side flag (backend accepts includeInactive); the other filters
@@ -77,7 +78,7 @@ export class PortfoliosListComponent implements OnInit {
     ];
   }
 
-  constructor(private svc: Ifrs17PortfolioService, private router: Router) {}
+  constructor(private svc: Ifrs17PortfolioService, private router: Router, private toast: ToastService) {}
 
   ngOnInit(): void { this.fetch(); }
 
@@ -90,7 +91,7 @@ export class PortfoliosListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load portfolios';
+        this.toast.error(extractErrorMessage(err, 'Failed to load portfolios'));
         this.allRows = [];
         this.rows = [];
         this.loading = false;
@@ -146,7 +147,7 @@ export class PortfoliosListComponent implements OnInit {
     this.svc.delete(row.id).subscribe({
       next: () => { this.successMessage = 'Portfolio deactivated'; this.fetch(); },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Deactivate failed';
+        this.toast.error(extractErrorMessage(err, 'Deactivate failed'));
       },
     });
   }

@@ -15,6 +15,8 @@ import {
   ActuarialJobProgressComponent,
 } from '../../../../../../shared/components/actuarial-job-progress/actuarial-job-progress.component';
 import { ReportBackButtonComponent } from '../../shared/report-back-button.component';
+import { ToastService } from '../../../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../../../core/util/http-errors';
 
 /**
  * IPEC (Zimbabwe) quarterly return page. Async submit → poll → XLSX,
@@ -52,7 +54,6 @@ export class IpecQuarterlyReturnComponent implements OnDestroy {
   periodEnd = lastOfPreviousQuarter();
 
   submitting = false;
-  errorMessage: string | null = null;
   currentJob: JobStatusResponse | null = null;
   startedAt: number | null = null;
   private pollSub: Subscription | null = null;
@@ -60,6 +61,7 @@ export class IpecQuarterlyReturnComponent implements OnDestroy {
   constructor(
     private reports: IpecReportsService,
     private polling: ReportJobPollingService,
+    private toast: ToastService,
   ) {}
 
   ngOnDestroy(): void {
@@ -69,10 +71,9 @@ export class IpecQuarterlyReturnComponent implements OnDestroy {
   submit(): void {
     if (this.submitting) return;
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
-    this.errorMessage = null;
     this.submitting = true;
     this.currentJob = null;
     this.startedAt = Date.now();
@@ -89,8 +90,7 @@ export class IpecQuarterlyReturnComponent implements OnDestroy {
       },
       error: (err) => {
         this.submitting = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to submit the IPEC quarterly return';
+        this.toast.error(extractErrorMessage(err, 'Failed to submit the IPEC quarterly return'));
       },
     });
   }
@@ -110,7 +110,7 @@ export class IpecQuarterlyReturnComponent implements OnDestroy {
     this.pollSub = this.polling.poll(jobId).subscribe({
       next: (snap) => { this.currentJob = snap; },
       error: (err) => {
-        this.errorMessage = err?.message || 'Polling failed';
+        this.toast.error(err?.message || 'Polling failed');
         this.pollSub = null;
       },
       complete: () => { this.pollSub = null; },

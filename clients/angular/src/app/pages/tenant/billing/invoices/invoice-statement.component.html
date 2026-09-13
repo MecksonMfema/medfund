@@ -1,8 +1,4 @@
 <div class="page">
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
-
   @if (loading) {
     <p class="muted">Loading statement…</p>
   } @else if (invoice && statement) {

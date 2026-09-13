@@ -1,5 +1,28 @@
 :host { display: block; }
 
+// Flush mode: when this picker is dropped inside a `.toolbar-cell`
+// (finance reports, aged-debtor toolbars, etc.) it should read as a bare
+// value cell rather than a bordered form input. Shed the border /
+// background / padding on both the search box and the picked-state box
+// so it matches sibling date / select inputs in the same toolbar row.
+:host-context(.toolbar-cell) {
+  .picked {
+    border: none;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    min-height: 32px;
+  }
+  .search-wrapper input {
+    border: none;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    height: 32px;
+    font-size: var(--font-size-sm, 0.875rem);
+  }
+}
+
 .picked {
   display: flex;
   align-items: center;

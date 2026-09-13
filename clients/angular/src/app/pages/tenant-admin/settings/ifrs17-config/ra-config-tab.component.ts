@@ -12,6 +12,8 @@ import { TenantService } from '../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface EditableRow extends TenantRaConfigRow {
   editing?: boolean;
@@ -41,7 +43,6 @@ export class RaConfigTabComponent implements OnInit {
   portfolios: Ifrs17Portfolio[] = [];
   loading = false;
   loadingPortfolios = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
   pendingId: string | null = null;
 
@@ -60,6 +61,7 @@ export class RaConfigTabComponent implements OnInit {
     private service: TenantRaConfigService,
     private portfolioService: Ifrs17PortfolioService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -79,18 +81,17 @@ export class RaConfigTabComponent implements OnInit {
   refresh(): void {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      this.errorMessage = 'No active tenant context';
+      this.toast.warning('No active tenant context');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.service.list(tenantId).subscribe({
       next: (rows) => {
         this.rows = rows.map(r => ({ ...r }));
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.message || 'Failed to load RA config rows';
+        this.toast.error(extractErrorMessage(err, 'Failed to load RA config rows'));
         this.loading = false;
       },
     });
@@ -142,20 +143,19 @@ export class RaConfigTabComponent implements OnInit {
     if (!tenantId) return;
 
     if (!this.newRow.portfolioId) {
-      this.errorMessage = 'Pick a portfolio';
+      this.toast.warning('Pick a portfolio');
       return;
     }
     if (this.newRow.methodology === 'COC' && !this.newRow.cocRate) {
-      this.errorMessage = 'CoC methodology requires a cocRate';
+      this.toast.warning('CoC methodology requires a cocRate');
       return;
     }
     if (this.newRow.methodology === 'CI' && !this.newRow.targetConfidenceLevel) {
-      this.errorMessage = 'CI methodology requires a targetConfidenceLevel';
+      this.toast.warning('CI methodology requires a targetConfidenceLevel');
       return;
     }
 
     this.adding = true;
-    this.errorMessage = null;
     this.service.add(tenantId, this.trimAddPayload(this.newRow)).subscribe({
       next: () => {
         this.adding = false;
@@ -167,7 +167,7 @@ export class RaConfigTabComponent implements OnInit {
       },
       error: (err) => {
         this.adding = false;
-        this.errorMessage = err?.error?.detail || 'Failed to add RA config';
+        this.toast.error(extractErrorMessage(err, 'Failed to add RA config'));
       },
     });
   }
@@ -216,7 +216,7 @@ export class RaConfigTabComponent implements OnInit {
         this.pendingId = null;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to update RA config';
+        this.toast.error(extractErrorMessage(err, 'Failed to update RA config'));
         this.pendingId = null;
       },
     });
@@ -234,7 +234,7 @@ export class RaConfigTabComponent implements OnInit {
         this.pendingId = null;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to delete RA config';
+        this.toast.error(extractErrorMessage(err, 'Failed to delete RA config'));
         this.pendingId = null;
       },
     });

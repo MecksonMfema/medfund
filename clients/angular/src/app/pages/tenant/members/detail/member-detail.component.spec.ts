@@ -162,12 +162,12 @@ describe('MemberDetailComponent', () => {
     expect(toast.successes[0]).toBe('Member updated');
   });
 
-  it('shows an error banner when save fails', () => {
-    const { comp, members } = instantiate();
+  it('surfaces a save-failure toast', () => {
+    const { comp, members, toast } = instantiate();
     comp.ngOnInit();
     members.shouldFailUpdate = true;
     comp.save();
-    expect(comp.errorMessage).toBe('nope');
+    expect(toast.errors[0]).toBe('nope');
   });
 
   it('adds a new dependant via the inline form', () => {

@@ -22,10 +22,6 @@
   </div>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 <div class="tx-toolbar">
   <div class="toolbar-cell">
     <span class="cell-label">Period start</span>
@@ -82,14 +78,6 @@
   </div>
 </div>
 
-@if (envelope?.warnings?.length) {
-  <div class="banner banner-warning">
-    @for (w of envelope!.warnings; track w) {
-      <div>{{ w }}</div>
-    }
-  </div>
-}
-
 @if (perCurrencyList().length) {
   <div class="kpi-strip">
     @for (bucket of perCurrencyList(); track bucket.currency) {
@@ -109,9 +97,25 @@
 }
 
 @if (loading) {
-  <p>Loading…</p>
+  <div class="detail-section" aria-busy="true" aria-live="polite">
+    <app-skeleton variant="line" width="30%" height="18px"></app-skeleton>
+    <app-skeleton variant="table-row"></app-skeleton>
+    <app-skeleton variant="table-row"></app-skeleton>
+    <app-skeleton variant="table-row"></app-skeleton>
+    <app-skeleton variant="table-row"></app-skeleton>
+    <span class="visually-hidden">Loading endorsement register…</span>
+  </div>
 } @else if (activeRows.length === 0) {
-  <p>No endorsements in this period.</p>
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="file-text" [size]="32"></app-icon>
+    </div>
+    <div class="empty-state__title">No endorsements</div>
+    <div class="empty-state__description">
+      No endorsement landed in the selected window for the chosen line. Widen
+      the period or drop the line filter to surface any endorsement activity.
+    </div>
+  </div>
 } @else {
   <table class="rate-table">
     <thead>

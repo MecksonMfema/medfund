@@ -9,6 +9,8 @@ import {
 } from '../../../core/services/tariff-categories.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { DataTableComponent, TableAction, TableColumn } from '../../../shared/components/data-table/data-table.component';
+import { ToastService } from '../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../core/util/http-errors';
 
 interface CategoryDraft extends UpsertTariffCategoryPayload {
   id?: string;
@@ -25,7 +27,6 @@ export class TariffCategoriesListComponent implements OnInit {
   rows: TariffCategory[] = [];
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   showForm = false;
@@ -65,7 +66,7 @@ export class TariffCategoriesListComponent implements OnInit {
     },
   ];
 
-  constructor(private svc: TariffCategoriesService) {}
+  constructor(private svc: TariffCategoriesService, private toast: ToastService) {}
 
   ngOnInit(): void { this.fetchPage(); }
 
@@ -85,7 +86,7 @@ export class TariffCategoriesListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load categories';
+        this.toast.error(extractErrorMessage(err, 'Failed to load categories'));
         this.rows = [];
         this.totalCount = 0;
         this.totalPages = 1;
@@ -128,11 +129,10 @@ export class TariffCategoriesListComponent implements OnInit {
 
   save(): void {
     if (!this.draft.code.trim() || !this.draft.label.trim()) {
-      this.errorMessage = 'Code and label are required';
+      this.toast.warning('Code and label are required');
       return;
     }
     this.saving = true;
-    this.errorMessage = null;
     this.successMessage = null;
     const payload: UpsertTariffCategoryPayload = {
       code: this.draft.code.trim(),
@@ -154,7 +154,7 @@ export class TariffCategoriesListComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Save failed';
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }
@@ -167,7 +167,7 @@ export class TariffCategoriesListComponent implements OnInit {
         this.fetchPage();
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Deactivate failed';
+        this.toast.error(extractErrorMessage(err, 'Deactivate failed'));
       },
     });
   }

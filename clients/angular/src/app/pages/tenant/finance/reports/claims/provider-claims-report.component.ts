@@ -16,6 +16,8 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Per-provider claims aggregate — one row per (provider, currency) with the
@@ -33,7 +35,6 @@ import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/repo
 export class ProviderClaimsReportComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   rows: ClaimsSummaryRow[] = [];
   envelope: ReportResponse<ClaimsSummaryRow[]> | null = null;
@@ -58,6 +59,7 @@ export class ProviderClaimsReportComponent implements OnInit {
     private currencyService: CurrencyService,
     private tenantService: TenantService,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -97,19 +99,19 @@ export class ProviderClaimsReportComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.claimsReport.getClaimsPerProvider(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.rows = env.data ?? [];
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load claims report';
+        this.toast.error(extractErrorMessage(err, 'Failed to load claims report'));
         this.rows = [];
         this.envelope = null;
         this.loading = false;
@@ -125,11 +127,17 @@ export class ProviderClaimsReportComponent implements OnInit {
         downloadBlob(blob, `claims-providers-${this.periodStart}-to-${this.periodEnd}.xlsx`);
         this.exporting = false;
       },
-      error: () => {
-        this.errorMessage = 'Failed to download workbook';
+      error: err => {
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<ClaimsSummaryRow[]>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Claims report: per provider'), 8000);
   }
 
   onRowClick(row: ClaimsSummaryRow): void {

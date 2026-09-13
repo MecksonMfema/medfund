@@ -120,19 +120,4 @@
 // the .scheme-tabs strip on the schemes page so both surfaces read the
 // same at a glance.
 
-// ── Error banner (transient, above the table) ─────────────────────────
-
-.banner {
-  margin: 12px 24px 0;
-  padding: 10px 14px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-
-.banner-error {
-  background: var(--color-error-light);
-  color: var(--color-error, #991b1b);
-  border: 1px solid rgba(196, 22, 45, 0.25);
-}
 // Tab strip primitives (.scheme-tabs / .scheme-tab) live in styles.scss.

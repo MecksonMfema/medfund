@@ -48,7 +48,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Phase 13 §C Phase 8: POLICY_LIFECYCLE report endpoints — POLICY_MOVEMENT,
+ * Phase 13 §C Phase 8: POLICY_LIFECYCLE report endpoints: POLICY_MOVEMENT,
  * PERSISTENCY_COHORT, GROUP_CENSUS. Each report gets a JSON GET and an XLSX
  * export sibling. Export emits {@code DATA_ACCESS} security events with
  * the report key + filters per parent-plan invariant #3.
@@ -159,7 +159,7 @@ public class PolicyLifecycleReportController {
      * the {@code @RequiresReport(PERSISTENCY_COHORT)} gate so finance-service
      * can consume the feed for PERSISTENCY_STUDY even when the sibling
      * report is toggled off. Permission stays gated at
-     * FINANCE_VIEW_SUBLEDGER — same authorization surface as the sibling
+     * FINANCE_VIEW_SUBLEDGER: same authorization surface as the sibling
      * report GET.
      */
     @GetMapping("/persistency-cohort-feed")
@@ -187,7 +187,7 @@ public class PolicyLifecycleReportController {
      * row per (age_band, sex) aggregated over the requested window; the
      * finance-service shaping service pivots this into the exposure
      * payload slot on {@code ReportJobRequestedEvent}. Not gated by
-     * {@code @RequiresReport} — mirrors the persistency-cohort-feed
+     * {@code @RequiresReport}: mirrors the persistency-cohort-feed
      * carve-out per Phase 11's deviation so MORTALITY_STUDY runs even
      * when a sibling policy-lifecycle report is toggled off. Permission
      * stays gated at {@code FINANCE_VIEW_SUBLEDGER} matching the sibling
@@ -216,7 +216,7 @@ public class PolicyLifecycleReportController {
      * as the mortality feed but the numerator counts morbidity onsets
      * (member_status_history rows with reason_code in the morbidity
      * vocabulary) instead of deaths. Not gated by {@code @RequiresReport}
-     * — mirrors the persistency-cohort-feed + mortality-exposure-feed
+     *: mirrors the persistency-cohort-feed + mortality-exposure-feed
      * carve-out so MORBIDITY_STUDY runs even when a sibling policy-lifecycle
      * report is toggled off. Permission stays at {@code FINANCE_VIEW_SUBLEDGER}
      * matching the sibling feeds.

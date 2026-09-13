@@ -38,10 +38,6 @@
       }
     </div>
   } @else {
-    @if (errorMessage) {
-      <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-    }
-
     <div class="sections-grid">
       @for (bucket of buckets; track bucket.group) {
         <div class="section-card">

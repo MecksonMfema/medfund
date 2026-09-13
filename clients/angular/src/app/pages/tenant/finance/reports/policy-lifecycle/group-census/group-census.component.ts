@@ -8,42 +8,52 @@ import {
 } from '../../../../../../core/services/group-census-report.service';
 import { ReportResponse } from '../../../../../../core/services/report-envelope';
 import { IconComponent } from '../../../../../../shared/components/icon/icon.component';
+import { ReportBackButtonComponent } from '../../shared/report-back-button.component';
+import { ToastService } from '../../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../../core/util/http-errors';
 
 /**
- * Phase 13 §C Phase 10 — GROUP_CENSUS report page. Snapshot at
+ * Phase 13 §C Phase 10: GROUP_CENSUS report page. Snapshot at
  * {@code asOf} with per-status member counts per group.
  */
 @Component({
   selector: 'app-group-census-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule, IconComponent, ReportBackButtonComponent],
   templateUrl: './group-census.component.html',
-  styleUrl: '../../receipts/receipts-report.component.scss',
+  styleUrls: [
+    '../../receipts/receipts-report.component.scss',
+    './group-census.component.scss',
+  ],
 })
 export class GroupCensusReportComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<GroupCensusResult> | null = null;
   asOf = today();
 
-  constructor(private reportSvc: GroupCensusReportService) {}
+  constructor(
+    private reportSvc: GroupCensusReportService,
+    private toast: ToastService,
+  ) {}
 
   ngOnInit(): void { this.fetch(); }
 
   fetch(): void {
     if (!this.asOf) {
-      this.errorMessage = 'asOf is required.';
+      this.toast.warning('asOf is required.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.reportSvc.get(this.buildParams()).subscribe({
-      next: env => { this.envelope = env; this.loading = false; },
+      next: env => {
+        this.envelope = env;
+        this.loading = false;
+        this.surfaceWarnings(env);
+      },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load group census';
+        this.toast.error(extractErrorMessage(err, 'Failed to load group census'));
         this.envelope = null;
         this.loading = false;
       },
@@ -59,11 +69,16 @@ export class GroupCensusReportComponent implements OnInit {
         this.exporting = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to export group census';
+        this.toast.error(extractErrorMessage(err, 'Failed to export group census'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<GroupCensusResult>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Group census'), 8000);
   }
 
   onFilterChange(): void { this.fetch(); }

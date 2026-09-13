@@ -13,6 +13,7 @@ import { ToastService } from '../../../../shared/components/toast/toast.service'
 import { PolicyStatusActionButtonsComponent } from '../../../../shared/components/policy-status-action-buttons/policy-status-action-buttons.component';
 import { PolicyStatusActionModalComponent, PolicyStatusActionSubmit } from '../../../../shared/components/policy-status-action-modal/policy-status-action-modal.component';
 import { PolicyAction, PolicySource } from '../../../../core/services/policy-lifecycle-action-registry.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface FuneralFormState {
   policyNumber: string;
@@ -52,7 +53,6 @@ export class FuneralPolicyFormComponent implements OnInit {
   policy: FuneralPolicy | null = null;
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   form: FuneralFormState = {
     policyNumber: '', coverAmount: null, livesCovered: 1, healthDeclaration: '',
@@ -113,7 +113,7 @@ export class FuneralPolicyFormComponent implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.errorMessage = err?.error?.detail || 'Failed to load funeral policy';
+        this.toast.error(extractErrorMessage(err, 'Failed to load funeral policy'));
       },
     });
   }
@@ -148,18 +148,15 @@ export class FuneralPolicyFormComponent implements OnInit {
     if (!this.form.schemeId)                missing.push('scheme');
     if (!this.isEdit && !this.form.principalMemberId) missing.push('principal member');
     if (missing.length > 0) {
-      this.errorMessage = `Required field${missing.length > 1 ? 's' : ''} missing: ${missing.join(', ')}.`;
-      this.toast.error(this.errorMessage);
+      this.toast.warning(`Required field${missing.length > 1 ? 's' : ''} missing: ${missing.join(', ')}.`);
       return;
     }
     if (this.individualPricing
         && this.form.billingOverrideAmount != null
         && !this.form.billingOverrideEffectiveFrom) {
-      this.errorMessage = 'Custom premium: effective_from is required when an override amount is set.';
-      this.toast.error(this.errorMessage);
+      this.toast.warning('Custom premium: effective_from is required when an override amount is set.');
       return;
     }
-    this.errorMessage = null;
     this.saving = true;
 
     const payload: any = {
@@ -192,9 +189,7 @@ export class FuneralPolicyFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        const msg = err?.error?.detail || err?.error?.title || 'Save failed';
-        this.errorMessage = msg;
-        this.toast.error(msg);
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }
@@ -212,7 +207,7 @@ export class FuneralPolicyFormComponent implements OnInit {
         this.form.billingOverrideEffectiveFrom = '';
         this.toast.success('Custom premium cleared');
       },
-      error: (err) => this.toast.error(err?.error?.detail || 'Clear failed'),
+      error: (err) => this.toast.error(extractErrorMessage(err, 'Clear failed')),
     });
   }
 
@@ -220,7 +215,7 @@ export class FuneralPolicyFormComponent implements OnInit {
     if (!this.isEdit) return;
     this.policies.suspendFuneralPolicy(this.policyId!).subscribe({
       next: (saved) => { this.policy = saved; this.toast.success('Funeral policy suspended'); },
-      error: (err) => this.toast.error(err?.error?.detail || 'Suspend failed'),
+      error: (err) => this.toast.error(extractErrorMessage(err, 'Suspend failed')),
     });
   }
 
@@ -229,7 +224,7 @@ export class FuneralPolicyFormComponent implements OnInit {
     if (!confirm('Terminate this funeral policy? It will stop billing next cycle.')) return;
     this.policies.terminateFuneralPolicy(this.policyId!).subscribe({
       next: (saved) => { this.policy = saved; this.toast.success('Funeral policy terminated'); },
-      error: (err) => this.toast.error(err?.error?.detail || 'Terminate failed'),
+      error: (err) => this.toast.error(extractErrorMessage(err, 'Terminate failed')),
     });
   }
 

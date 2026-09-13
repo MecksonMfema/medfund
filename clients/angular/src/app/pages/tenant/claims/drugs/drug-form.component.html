@@ -10,10 +10,6 @@
     </a>
   </header>
 
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
-
   <form (ngSubmit)="submit()" class="card form-grid">
     <label class="field span-2">
       <span class="field-label">Drug name *</span>

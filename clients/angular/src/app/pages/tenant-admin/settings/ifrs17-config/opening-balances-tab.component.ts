@@ -14,6 +14,8 @@ import { Ifrs17CohortService, Ifrs17Cohort } from '../../../../core/services/ifr
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface EditableRow extends Ifrs17OpeningBalanceSeedRow {
   editing?: boolean;
@@ -52,7 +54,6 @@ export class OpeningBalancesTabComponent implements OnInit {
   portfolios: Ifrs17Portfolio[] = [];
   cohorts: Ifrs17Cohort[] = [];
   loading = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
   pendingId: string | null = null;
 
@@ -68,6 +69,7 @@ export class OpeningBalancesTabComponent implements OnInit {
     private service: Ifrs17OpeningBalanceSeedService,
     private portfolioService: Ifrs17PortfolioService,
     private cohortService: Ifrs17CohortService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -76,7 +78,6 @@ export class OpeningBalancesTabComponent implements OnInit {
 
   refresh(): void {
     this.loading = true;
-    this.errorMessage = null;
     forkJoin({
       seeds: this.service.list(),
       portfolios: this.portfolioService.list(),
@@ -93,7 +94,7 @@ export class OpeningBalancesTabComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.message || 'Failed to load opening balance seeds';
+        this.toast.error(extractErrorMessage(err, 'Failed to load opening balance seeds'));
         this.loading = false;
       },
     });
@@ -140,11 +141,10 @@ export class OpeningBalancesTabComponent implements OnInit {
         || !this.newRow.currency || !this.newRow.balanceType
         || !this.newRow.amount || !this.newRow.effectiveFrom
         || !this.newRow.reasonNote?.trim()) {
-      this.errorMessage = 'Portfolio, cohort, currency, balance type, amount, effective date, and reason note are all required';
+      this.toast.warning('Portfolio, cohort, currency, balance type, amount, effective date, and reason note are all required');
       return;
     }
     this.adding = true;
-    this.errorMessage = null;
     this.service.add(this.trimAddPayload(this.newRow)).subscribe({
       next: () => {
         this.adding = false;
@@ -157,7 +157,7 @@ export class OpeningBalancesTabComponent implements OnInit {
       },
       error: (err) => {
         this.adding = false;
-        this.errorMessage = err?.error?.detail || 'Failed to add opening balance seed';
+        this.toast.error(extractErrorMessage(err, 'Failed to add opening balance seed'));
       },
     });
   }
@@ -176,7 +176,7 @@ export class OpeningBalancesTabComponent implements OnInit {
 
   saveEdit(row: EditableRow): void {
     if (!(row.draftAmount ?? '').trim() || !(row.draftReasonNote ?? '').trim()) {
-      this.errorMessage = 'Amount and reason note are required';
+      this.toast.warning('Amount and reason note are required');
       return;
     }
     const payload: UpdateIfrs17OpeningBalanceSeed = {
@@ -196,7 +196,7 @@ export class OpeningBalancesTabComponent implements OnInit {
         this.pendingId = null;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to update opening balance seed';
+        this.toast.error(extractErrorMessage(err, 'Failed to update opening balance seed'));
         this.pendingId = null;
       },
     });
@@ -212,7 +212,7 @@ export class OpeningBalancesTabComponent implements OnInit {
         this.pendingId = null;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to delete opening balance seed';
+        this.toast.error(extractErrorMessage(err, 'Failed to delete opening balance seed'));
         this.pendingId = null;
       },
     });

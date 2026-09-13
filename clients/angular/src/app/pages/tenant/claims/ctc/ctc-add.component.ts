@@ -13,6 +13,7 @@ import { EntityPickerComponent } from '../../../../shared/components/entity-pick
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 /**
  * Claims-side entry to record a CTC. Same two-step selection as the
@@ -36,7 +37,6 @@ import { ToastService } from '../../../../shared/components/toast/toast.service'
 export class CtcAddComponent implements OnInit {
   saving = false;
   loadingPayables = false;
-  formError: string | null = null;
 
   memberId: string | null = null;
   memberPayableId: string | null = null;
@@ -96,7 +96,6 @@ export class CtcAddComponent implements OnInit {
     this.memberPayableId = null;
     this.openPayables = [];
     this.form.amount = '';
-    this.formError = null;
     if (!newId) return;
     this.loadingPayables = true;
     this.finance.listOpenPayablesForMember(newId).subscribe({
@@ -104,12 +103,12 @@ export class CtcAddComponent implements OnInit {
         this.openPayables = (rows || []).filter(p => p.status === 'open');
         this.loadingPayables = false;
         if (this.openPayables.length === 0) {
-          this.formError = 'This member has no open payables to offset.';
+          this.toast.warning('This member has no open payables to offset.');
         }
       },
       error: (err) => {
         this.loadingPayables = false;
-        this.formError = err?.error?.detail || 'Failed to load member payables';
+        this.toast.error(extractErrorMessage(err, 'Failed to load member payables'));
       },
     });
   }
@@ -124,12 +123,11 @@ export class CtcAddComponent implements OnInit {
   }
 
   submit(): void {
-    this.formError = null;
-    if (!this.memberId) { this.formError = 'Pick a member first'; return; }
-    if (!this.memberPayableId) { this.formError = 'Pick a payable to offset'; return; }
+    if (!this.memberId) { this.toast.warning('Pick a member first'); return; }
+    if (!this.memberPayableId) { this.toast.warning('Pick a payable to offset'); return; }
     const amt = Number(this.form.amount);
     if (!Number.isFinite(amt) || amt <= 0) {
-      this.formError = 'Amount must be greater than zero';
+      this.toast.warning('Amount must be greater than zero');
       return;
     }
 
@@ -150,9 +148,7 @@ export class CtcAddComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        const msg = err?.error?.detail || err?.error?.title || 'Failed to record CTC payment';
-        this.formError = msg;
-        this.toast.error(msg);
+        this.toast.error(extractErrorMessage(err, 'Failed to record CTC payment'));
       },
     });
   }

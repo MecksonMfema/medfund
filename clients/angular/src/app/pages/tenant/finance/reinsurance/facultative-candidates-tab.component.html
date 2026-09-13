@@ -1,10 +1,3 @@
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-@if (cedeSuccess) {
-  <div class="banner banner-success" (click)="cedeSuccess = null">{{ cedeSuccess }}</div>
-}
-
 <div class="tx-toolbar">
   <div class="toolbar-cell cell-select">
     <span class="cell-label">Min approved</span>
@@ -104,10 +97,6 @@
             placeholder="Why this claim is being ceded facultatively"
           ></textarea>
         </label>
-
-        @if (cedeError) {
-          <div class="banner banner-error">{{ cedeError }}</div>
-        }
 
         <div class="modal-actions">
           <button type="button" class="btn" (click)="clearSelection()" [disabled]="cedeSubmitting">Cancel</button>

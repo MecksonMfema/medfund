@@ -16,6 +16,8 @@ import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Recoveries bordereau — one row per (recovery, participant) for the
@@ -33,7 +35,6 @@ import { ReportBackButtonComponent } from '../shared/report-back-button.componen
 export class RecoveriesBordereauComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<RecoveriesBordereauRow[]> | null = null;
 
@@ -54,13 +55,11 @@ export class RecoveriesBordereauComponent implements OnInit {
   markReceivedAmount: number | null = null;
   markReceivedAt = '';
   markReceivedSubmitting = false;
-  markReceivedError: string | null = null;
 
   writeOffTargetId: string | null = null;
   writeOffTargetLabel = '';
   writeOffReason = '';
   writeOffSubmitting = false;
-  writeOffError: string | null = null;
 
   actionInProgress: Record<string, boolean> = {};
 
@@ -68,6 +67,7 @@ export class RecoveriesBordereauComponent implements OnInit {
     private svc: ReinsuranceService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -143,14 +143,14 @@ export class RecoveriesBordereauComponent implements OnInit {
 
   fetch(): void {
     this.loading = true;
-    this.errorMessage = null;
     this.svc.getRecoveriesBordereau(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load recoveries bordereau';
+        this.toast.error(extractErrorMessage(err, 'Failed to load recoveries bordereau'));
         this.envelope = null;
         this.loading = false;
       },
@@ -168,10 +168,16 @@ export class RecoveriesBordereauComponent implements OnInit {
         this.fetch();
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to export recoveries bordereau';
+        this.toast.error(extractErrorMessage(err, 'Failed to export recoveries bordereau'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<RecoveriesBordereauRow[]>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Recoveries bordereau'), 8000);
   }
 
   onYearChange(value: string): void { this.year = Number(value); this.fetch(); }
@@ -214,7 +220,6 @@ export class RecoveriesBordereauComponent implements OnInit {
     this.markReceivedTargetLabel = `${row.reinsurerName} - ${row.nativeExpected} ${row.currencyCode}`;
     this.markReceivedAmount = row.nativeExpected;
     this.markReceivedAt = new Date().toISOString().substring(0, 10);
-    this.markReceivedError = null;
   }
 
   cancelMarkReceived(): void {
@@ -222,14 +227,13 @@ export class RecoveriesBordereauComponent implements OnInit {
     this.markReceivedTargetLabel = '';
     this.markReceivedAmount = null;
     this.markReceivedAt = '';
-    this.markReceivedError = null;
     this.markReceivedSubmitting = false;
   }
 
   submitMarkReceived(): void {
     if (!this.markReceivedTargetId) return;
     if (this.markReceivedAmount == null || this.markReceivedAmount < 0) {
-      this.markReceivedError = 'Received amount must be non-negative.';
+      this.toast.warning('Received amount must be non-negative.');
       return;
     }
     const targetId = this.markReceivedTargetId;
@@ -248,8 +252,7 @@ export class RecoveriesBordereauComponent implements OnInit {
         this.fetch();
       },
       error: err => {
-        this.markReceivedError = err?.error?.detail || err?.error?.title
-          || 'Failed to mark received';
+        this.toast.error(extractErrorMessage(err, 'Failed to mark received'));
         this.markReceivedSubmitting = false;
         this.actionInProgress[targetId] = false;
       },
@@ -260,21 +263,19 @@ export class RecoveriesBordereauComponent implements OnInit {
     this.writeOffTargetId = row.recoveryId;
     this.writeOffTargetLabel = `${row.reinsurerName} - ${row.nativeExpected} ${row.currencyCode}`;
     this.writeOffReason = '';
-    this.writeOffError = null;
   }
 
   cancelWriteOff(): void {
     this.writeOffTargetId = null;
     this.writeOffTargetLabel = '';
     this.writeOffReason = '';
-    this.writeOffError = null;
     this.writeOffSubmitting = false;
   }
 
   submitWriteOff(): void {
     if (!this.writeOffTargetId) return;
     if (!this.writeOffReason.trim()) {
-      this.writeOffError = 'Reason is required.';
+      this.toast.warning('Reason is required.');
       return;
     }
     const targetId = this.writeOffTargetId;
@@ -288,7 +289,7 @@ export class RecoveriesBordereauComponent implements OnInit {
         this.fetch();
       },
       error: err => {
-        this.writeOffError = err?.error?.detail || err?.error?.title || 'Failed to write off';
+        this.toast.error(extractErrorMessage(err, 'Failed to write off'));
         this.writeOffSubmitting = false;
         this.actionInProgress[targetId] = false;
       },

@@ -48,10 +48,6 @@
   }
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 @if (loading) {
   <div class="banner">Loading case…</div>
 }

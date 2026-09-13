@@ -48,7 +48,7 @@ public class PersistencyCohortReportService {
                 .persistencyCohortRows(periodStart, periodEnd, checkpoints, insuranceLine)
                 .collectList();
 
-        Mono<PersistencyCohortResult> resultMono = Mono.zip(rowsMono, freshnessWarning())
+        Mono<PersistencyCohortResult> resultMono = Mono.zip(rowsMono, freshnessWarning(insuranceLine))
                 .map(t -> new PersistencyCohortResult(t.getT1(),
                         t.getT2().isBlank() ? null : t.getT2()));
 
@@ -56,11 +56,26 @@ public class PersistencyCohortReportService {
                 ReportKey.PERSISTENCY_COHORT, period, overrideCurrency, resultMono);
     }
 
-    private Mono<String> freshnessWarning() {
+    /**
+     * Freshness of the HEALTH member_contribution_presence matview. Only
+     * relevant when HEALTH rows are in scope, so we skip the check
+     * entirely if the caller filtered to a specific non-HEALTH line.
+     *
+     * <p>"No matview row yet" (fresh install, or the refresh cron has
+     * never run) is deliberately treated as no-warning rather than a
+     * stale warning: staleness reports how out-of-date data IS, and we
+     * can't compute that without a baseline. Detecting a broken refresh
+     * pipeline is an observability job (alerts on the run cadence), not
+     * something to surface to every operator opening the report.
+     */
+    private Mono<String> freshnessWarning(String insuranceLine) {
+        boolean healthInScope = insuranceLine == null
+                || insuranceLine.isBlank()
+                || "HEALTH".equalsIgnoreCase(insuranceLine);
+        if (!healthInScope) return Mono.just("");
         return queryRepository.latestContribPresenceRefreshAt()
                 .map(this::warningFor)
-                .defaultIfEmpty("HEALTH persistency data may be stale - "
-                        + "member_contribution_presence has not yet been refreshed");
+                .defaultIfEmpty("");
     }
 
     private String warningFor(Instant refreshedAt) {

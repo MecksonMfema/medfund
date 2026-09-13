@@ -1,63 +1,105 @@
-<section class="report">
-  <header class="report-header">
-    <h2>Group census</h2>
-    <p class="muted">
-      Snapshot of every group at {{ asOf }}: per-status member counts. Future asOf is rejected by the
-      backend with 400 (choose today or earlier).
+<header class="page-header">
+  <div>
+    <h1>Holder census</h1>
+    <p class="page-sub">
+      Snapshot of every corporate group and every ungrouped individual
+      policyholder at {{ asOf }}, with principal and dependant counts per
+      status. Covered lives sums principals + dependants: the number of
+      humans this holder is contributing cover for. Contact person and
+      email live in the Excel export; open the holder record for the
+      live directory. Future asOf is rejected with 400 by the backend.
     </p>
-  </header>
+  </div>
+  <div class="header-actions">
+    <app-report-back-button></app-report-back-button>
+    <button
+      type="button"
+      class="btn btn-primary"
+      [disabled]="exporting || loading"
+      (click)="exportExcel()"
+    >
+      <app-icon name="download" [size]="14"></app-icon>
+      {{ exporting ? 'Exporting…' : 'Export Excel' }}
+    </button>
+  </div>
+</header>
 
-  <form class="filters" (submit)="$event.preventDefault(); fetch()">
-    <label>
-      As of
-      <input type="date" [(ngModel)]="asOf" name="asOf" (change)="onFilterChange()" required/>
-    </label>
-    <div class="actions">
-      <button type="submit" class="btn" [disabled]="loading">Refresh</button>
-      <button type="button" class="btn btn-primary"
-              (click)="exportExcel()"
-              [disabled]="exporting || loading">
-        <app-icon name="download"></app-icon>
-        {{ exporting ? 'Exporting…' : 'Export XLSX' }}
-      </button>
+<div class="tx-toolbar">
+  <div class="toolbar-cell">
+    <span class="cell-label">As of</span>
+    <input
+      type="date"
+      [(ngModel)]="asOf"
+      (change)="onFilterChange()"
+      name="asOf"
+      required
+      class="input"
+    />
+  </div>
+</div>
+
+@if (loading) {
+  <p>Loading…</p>
+} @else if (groups.length === 0) {
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="users" [size]="32"></app-icon>
     </div>
-  </form>
-
-  @if (errorMessage) {
-    <div class="error-banner">{{ errorMessage }}</div>
-  }
-
-  @if (loading) {
-    <div class="loading">Loading…</div>
-  } @else if (groups.length === 0) {
-    <div class="empty">No groups at {{ asOf }}.</div>
-  } @else {
-    <table class="data-table">
-      <thead>
+    <div class="empty-state__title">No holders at {{ asOf }}</div>
+    <div class="empty-state__description">
+      No group or individual policyholder had any enrolled members on or before
+      this date. Pick an as-of date after the first enrolment.
+    </div>
+  </div>
+} @else {
+  <table class="rate-table census-table">
+    <thead>
+      <tr>
+        <th rowspan="2">Holder</th>
+        <th rowspan="2">Type</th>
+        <th rowspan="2">Registration / ID</th>
+        <th class="super-principals" colspan="5">Principals</th>
+        <th class="super-dependants" colspan="5">Dependants</th>
+        <th class="num" rowspan="2">Covered lives</th>
+      </tr>
+      <tr>
+        <th class="num">Active</th>
+        <th class="num">Suspended</th>
+        <th class="num">Lapsed</th>
+        <th class="num">Terminated</th>
+        <th class="num">Total</th>
+        <th class="num">Active</th>
+        <th class="num">Suspended</th>
+        <th class="num">Lapsed</th>
+        <th class="num">Terminated</th>
+        <th class="num">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (g of groups; track g.groupId) {
         <tr>
-          <th>Group</th><th>Registration</th><th>Contact</th><th>Email</th>
-          <th class="num">Active</th>
-          <th class="num">Suspended</th>
-          <th class="num">Lapsed</th>
-          <th class="num">Terminated</th>
-          <th class="num">Total</th>
+          <td>{{ g.groupName || '-' }}</td>
+          <td>
+            <span class="badge"
+                  [class.badge-info]="g.holderType === 'GROUP'"
+                  [class.badge-active]="g.holderType === 'INDIVIDUAL'">
+              {{ g.holderType === 'INDIVIDUAL' ? 'Individual' : 'Group' }}
+            </span>
+          </td>
+          <td>{{ g.registrationNumber || '-' }}</td>
+          <td class="num">{{ g.activeMembers }}</td>
+          <td class="num">{{ g.suspendedMembers }}</td>
+          <td class="num">{{ g.lapsedMembers }}</td>
+          <td class="num">{{ g.terminatedMembers }}</td>
+          <td class="num">{{ g.totalMembers }}</td>
+          <td class="num">{{ g.activeDependants }}</td>
+          <td class="num">{{ g.suspendedDependants }}</td>
+          <td class="num">{{ g.lapsedDependants }}</td>
+          <td class="num">{{ g.terminatedDependants }}</td>
+          <td class="num">{{ g.totalDependants }}</td>
+          <td class="num"><strong>{{ g.coveredLives }}</strong></td>
         </tr>
-      </thead>
-      <tbody>
-        @for (g of groups; track g.groupId) {
-          <tr>
-            <td>{{ g.groupName }}</td>
-            <td>{{ g.registrationNumber }}</td>
-            <td>{{ g.contactPerson }}</td>
-            <td>{{ g.contactEmail }}</td>
-            <td class="num">{{ g.activeMembers }}</td>
-            <td class="num">{{ g.suspendedMembers }}</td>
-            <td class="num">{{ g.lapsedMembers }}</td>
-            <td class="num">{{ g.terminatedMembers }}</td>
-            <td class="num">{{ g.totalMembers }}</td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  }
-</section>
+      }
+    </tbody>
+  </table>
+}

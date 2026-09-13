@@ -64,17 +64,6 @@
   }
 }
 
-.banner {
-  padding: 10px 14px;
-  margin: 12px 24px 0;
-  border-radius: 8px;
-  font-size: 13px;
-  cursor: pointer;
-  border: 1px solid transparent;
-  &.banner-error   { background: var(--color-error-light); color: #c4162d; border-color: rgba(196, 22, 45, 0.20); }
-  &.banner-warning { background: var(--color-warning-light); color: #c47800; cursor: default; }
-}
-
 .tx-toolbar {
   display: flex;
   align-items: stretch;
@@ -119,11 +108,19 @@
   }
 }
 
-.cell-currency, .cell-line { min-width: 200px; }
+.cell-date               { min-width: 220px; }
+.cell-currency, .cell-line { min-width: 340px; }
 
 // Flatten app-select inside the toolbar so it reads as a bare inline
-// control matching the rest of the app (reference: producers-list).
+// control matching the rest of the app (reference: producers-list),
+// and force it to flex-grow so it actually fills the widened cell
+// instead of sitting at its natural content width.
 .tx-toolbar .toolbar-cell {
+  app-select {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
   ::ng-deep .select-trigger {
     border: none;
     border-radius: 0;
@@ -131,6 +128,7 @@
     padding: 0;
     height: 32px;
     min-width: 0;
+    width: 100%;
   }
   ::ng-deep .select-trigger:hover,
   ::ng-deep .select-wrapper.is-open .select-trigger {
@@ -202,4 +200,32 @@ app-data-table {
 .detail-section h2 {
   margin: 0 0 var(--spacing-md);
   font-size: var(--font-size-md);
+}
+
+// Loading placeholder shared by every report page. The skeleton bars
+// live inside a padded block so the transition to real content does
+// not reflow the page.
+.report-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) 24px;
+}
+
+.report-loading__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

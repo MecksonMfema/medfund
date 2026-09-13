@@ -7,6 +7,7 @@ import { CurrencyService, TenantCurrencyConfig } from '../../../../core/services
 import { Member, MembersService } from '../../../../core/services/members.service';
 import { TenantService } from '../../../../core/services/tenant.service';
 import { EntityPickerSelection } from '../../../../shared/components/entity-picker/entity-picker.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
 
 /**
  * Component-level spec for {@link PreAuthFormComponent}. Drives the class
@@ -33,6 +34,7 @@ describe('PreAuthFormComponent', () => {
   let currency: jasmine.SpyObj<CurrencyService>;
   let tenant: TenantService;
   let router: jasmine.SpyObj<{ navigate: (...args: any[]) => any }>;
+  let toast: jasmine.SpyObj<ToastService>;
   let component: PreAuthFormComponent;
 
   const scheme = (): Scheme => ({
@@ -65,11 +67,12 @@ describe('PreAuthFormComponent', () => {
     currency = jasmine.createSpyObj<CurrencyService>('CurrencyService', ['listForTenant']);
     currency.listForTenant.and.returnValue(of<TenantCurrencyConfig[]>([]));
     router = jasmine.createSpyObj('Router', ['navigate']);
+    toast = jasmine.createSpyObj<ToastService>('ToastService', ['error', 'warning', 'success', 'info']);
 
     tenant = { getTenant: () => ({ id: 't-1', insuranceLines: ['HEALTH'] }) } as unknown as TenantService;
 
     component = new PreAuthFormComponent(
-      service, members, contributions, claimsConfig, currency, tenant as any, router as any,
+      service, members, contributions, claimsConfig, currency, tenant as any, router as any, toast,
     );
     component.ngOnInit();
   });
@@ -148,7 +151,7 @@ describe('PreAuthFormComponent', () => {
     component.submit();
 
     expect(service.create).not.toHaveBeenCalled();
-    expect(component.errorMessage).toContain('member or dependant');
+    expect(toast.warning).toHaveBeenCalledWith(jasmine.stringMatching(/member or dependant/));
   });
 
   it('refuses to submit without a provider', () => {
@@ -159,7 +162,7 @@ describe('PreAuthFormComponent', () => {
     component.submit();
 
     expect(service.create).not.toHaveBeenCalled();
-    expect(component.errorMessage).toContain('provider');
+    expect(toast.warning).toHaveBeenCalledWith(jasmine.stringMatching(/provider/));
   });
 
   it('refuses to submit when requested amount is zero or missing', () => {
@@ -171,7 +174,7 @@ describe('PreAuthFormComponent', () => {
     component.submit();
 
     expect(service.create).not.toHaveBeenCalled();
-    expect(component.errorMessage).toContain('greater than zero');
+    expect(toast.warning).toHaveBeenCalledWith(jasmine.stringMatching(/greater than zero/));
   });
 
   it('picking a tariff code fills description and defaults requested amount', () => {

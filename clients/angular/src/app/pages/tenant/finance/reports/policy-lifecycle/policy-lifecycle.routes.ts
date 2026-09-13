@@ -2,11 +2,11 @@ import { Routes } from '@angular/router';
 import { permissionGuard } from '../../../../../auth/auth.guard';
 
 /**
- * Phase 13 §C Phase 10 — POLICY_LIFECYCLE report family (POLICY_MOVEMENT,
+ * Phase 13 §C Phase 10: POLICY_LIFECYCLE report family (POLICY_MOVEMENT,
  * PERSISTENCY_COHORT, GROUP_CENSUS). Backend at
  * {@code /api/v1/reports/policy-lifecycle/*}; the gateway forwards the
  * whole prefix to user-service. Same shape as
- * {@code UNDERWRITING_REPORT_ROUTES} — spread into
+ * {@code UNDERWRITING_REPORT_ROUTES}: spread into
  * {@link ../../finance.routes.ts FINANCE_ROUTES} rather than lazy-mounted
  * so the pages live at {@code /tenant/finance/reports/policy-lifecycle/*}.
  */

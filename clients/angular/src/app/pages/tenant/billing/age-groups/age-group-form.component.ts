@@ -6,6 +6,7 @@ import { ContributionsService, Scheme, UpsertAgeGroupPayload } from '../../../..
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface AgeGroupForm {
   schemeId: string;
@@ -27,7 +28,6 @@ export class AgeGroupFormComponent implements OnInit {
   schemes: Scheme[] = [];
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   form: AgeGroupForm = {
     schemeId: '',
@@ -75,7 +75,7 @@ export class AgeGroupFormComponent implements OnInit {
           this.form.schemeId = schemes[0].id;
         }
       },
-      error: (err) => { this.errorMessage = err?.error?.detail || 'Failed to load schemes'; },
+      error: (err) => { this.toast.error(extractErrorMessage(err, 'Failed to load schemes')); },
     });
 
     this.ageGroupId = this.route.snapshot.paramMap.get('id');
@@ -94,7 +94,7 @@ export class AgeGroupFormComponent implements OnInit {
           this.loading = false;
         },
         error: (err) => {
-          this.errorMessage = err?.error?.detail || 'Failed to load age group';
+          this.toast.error(extractErrorMessage(err, 'Failed to load age group'));
           this.loading = false;
         },
       });
@@ -107,11 +107,11 @@ export class AgeGroupFormComponent implements OnInit {
 
   submit(): void {
     if (!this.form.schemeId || !this.form.name.trim() || !this.form.contributionAmount) {
-      this.errorMessage = 'Pick a scheme, a name, and an amount';
+      this.toast.warning('Pick a scheme, a name, and an amount');
       return;
     }
     if (this.form.minAge > this.form.maxAge) {
-      this.errorMessage = 'Min age cannot exceed max age';
+      this.toast.warning('Min age cannot exceed max age');
       return;
     }
     const payload: UpsertAgeGroupPayload = {
@@ -122,7 +122,6 @@ export class AgeGroupFormComponent implements OnInit {
       contributionAmount: this.form.contributionAmount,
     };
     this.saving = true;
-    this.errorMessage = null;
     const isEdit = !!this.ageGroupId;
     const stream = isEdit
       ? this.contributions.updateAgeGroup(this.ageGroupId!, payload)
@@ -135,9 +134,7 @@ export class AgeGroupFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        const detail = err?.error?.detail || err?.error?.title || 'Save failed';
-        this.errorMessage = detail;
-        this.toast.error(detail);
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }

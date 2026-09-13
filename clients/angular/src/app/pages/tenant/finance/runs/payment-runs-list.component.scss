@@ -21,14 +21,6 @@
   max-width: 70ch;
 }
 
-.banner {
-  padding: 0.5rem 0.75rem;
-  cursor: pointer;
-  margin: 0.75rem 24px 0;
-  border-radius: var(--radius-md, 8px);
-}
-.banner-error { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
-
 // Status filter, projected into the DataTable toolbar via [table-filters].
 // Mirrors /tenant/billing/ledger's toolbar cells so both surfaces feel
 // like the same filter language: small caps label to the left, flat

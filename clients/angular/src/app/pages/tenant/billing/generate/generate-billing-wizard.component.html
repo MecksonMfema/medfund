@@ -72,6 +72,8 @@
   @if (errorMessage) {
     <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
   }
+  <!-- Persistent form-state banner: kept inline per design-system.md
+       "When to use a toast vs an inline banner". Do not migrate. -->
   @if (alreadyCommittedDetail && canRevoke && revokeWindowActive) {
     <div class="banner banner-warn revoke-card">
       <div>

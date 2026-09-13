@@ -11,6 +11,8 @@ import {
   TableAction,
   TableColumn,
 } from '../../../../shared/components/data-table/data-table.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-email-senders-list',
@@ -22,7 +24,6 @@ import {
 export class EmailSendersListComponent implements OnInit {
   rows: EmailSender[] = [];
   loading = false;
-  errorMessage: string | null = null;
   pendingId: string | null = null;
 
   page = 1;
@@ -64,7 +65,11 @@ export class EmailSendersListComponent implements OnInit {
     },
   ];
 
-  constructor(private senders: EmailSendersService, private router: Router) {}
+  constructor(
+    private senders: EmailSendersService,
+    private router: Router,
+    private toast: ToastService,
+  ) {}
 
   ngOnInit(): void { this.fetchPage(); }
 
@@ -84,7 +89,7 @@ export class EmailSendersListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load email senders';
+        this.toast.error(extractErrorMessage(err, 'Failed to load email senders'));
         this.rows = [];
         this.totalCount = 0;
         this.totalPages = 1;
@@ -112,7 +117,7 @@ export class EmailSendersListComponent implements OnInit {
     this.senders.verify(s.id).subscribe({
       next: () => { this.pendingId = null; this.fetchPage(); },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Verify failed';
+        this.toast.error(extractErrorMessage(err, 'Verify failed'));
         this.pendingId = null;
       },
     });
@@ -124,7 +129,7 @@ export class EmailSendersListComponent implements OnInit {
     this.senders.revoke(s.id).subscribe({
       next: () => { this.pendingId = null; this.fetchPage(); },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Revoke failed';
+        this.toast.error(extractErrorMessage(err, 'Revoke failed'));
         this.pendingId = null;
       },
     });

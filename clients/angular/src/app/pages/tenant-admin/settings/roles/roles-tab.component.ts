@@ -14,6 +14,8 @@ import {
   UserRoleAssignment,
 } from '../../../../core/services/admin.service';
 import { PermissionService } from '../../../../core/security/permission.service';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface MemberRow {
   userId: string;
@@ -50,7 +52,6 @@ export class TenantRolesTabComponent implements OnInit {
   // ── Role list state ────────────────────────────────────────────────────
   roles: RoleRow[] = [];
   loading = false;
-  loadError: string | null = null;
 
   // ── Catalogue (permissions grouped by domain) ─────────────────────────
   catalogue: PermissionDomain[] = [];
@@ -63,7 +64,6 @@ export class TenantRolesTabComponent implements OnInit {
   selectedPerms = new Set<string>();
   expandedDomains = new Set<string>();
   editorSaving = false;
-  editorError: string | null = null;
 
   // ── Members drawer state ───────────────────────────────────────────────
   membersFor: Role | null = null;
@@ -85,6 +85,7 @@ export class TenantRolesTabComponent implements OnInit {
   constructor(
     private admin: AdminService,
     private permissions: PermissionService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -93,7 +94,6 @@ export class TenantRolesTabComponent implements OnInit {
 
   private load(): void {
     this.loading = true;
-    this.loadError = null;
     forkJoin({
       roles: this.admin.getRoles(),
       catalogue: this.admin.getPermissionCatalogue(),
@@ -117,7 +117,7 @@ export class TenantRolesTabComponent implements OnInit {
         if (roles.length === 0) this.loading = false;
       },
       error: err => {
-        this.loadError = err?.error?.detail || 'Could not load roles or permission catalogue.';
+        this.toast.error(extractErrorMessage(err, 'Could not load roles or permission catalogue.'));
         this.loading = false;
       },
     });
@@ -131,7 +131,6 @@ export class TenantRolesTabComponent implements OnInit {
     this.editorForm = { name: '', displayName: '', description: '' };
     this.selectedPerms = new Set();
     this.expandAllDomains();
-    this.editorError = null;
   }
 
   openEdit(role: RoleRow): void {
@@ -142,7 +141,6 @@ export class TenantRolesTabComponent implements OnInit {
       displayName: role.displayName,
       description: role.description ?? '',
     };
-    this.editorError = null;
     this.expandAllDomains();
     this.admin.getRole(role.id).subscribe({
       next: full => {
@@ -157,7 +155,6 @@ export class TenantRolesTabComponent implements OnInit {
   closeEditor(): void {
     this.editingMode = null;
     this.editingRole = null;
-    this.editorError = null;
   }
 
   togglePermission(key: string): void {
@@ -206,13 +203,12 @@ export class TenantRolesTabComponent implements OnInit {
   }
 
   saveEditor(): void {
-    this.editorError = null;
     if (!this.editorForm.displayName.trim()) {
-      this.editorError = 'Display name is required.';
+      this.toast.warning('Display name is required.');
       return;
     }
     if (this.editingMode === 'create' && !this.editorForm.name.trim()) {
-      this.editorError = 'Name is required.';
+      this.toast.warning('Name is required.');
       return;
     }
 
@@ -232,14 +228,14 @@ export class TenantRolesTabComponent implements OnInit {
           this.permissions.refresh().subscribe();
         },
         error: err => {
-          this.editorError = err?.error?.detail || err?.error?.message || 'Could not create role.';
+          this.toast.error(extractErrorMessage(err, 'Could not create role.'));
           this.editorSaving = false;
         },
       });
       return;
     }
 
-    // Edit mode — split metadata update from permission replace so the user
+    // Edit mode - split metadata update from permission replace so the user
     // can change either independently and so each call returns the relevant
     // shape for any subsequent UI updates.
     const id = this.editingRole!.id;
@@ -257,7 +253,7 @@ export class TenantRolesTabComponent implements OnInit {
         this.permissions.refresh().subscribe();
       },
       error: err => {
-        this.editorError = err?.error?.detail || err?.error?.message || 'Could not save role.';
+        this.toast.error(extractErrorMessage(err, 'Could not save role.'));
         this.editorSaving = false;
       },
     });
@@ -272,7 +268,7 @@ export class TenantRolesTabComponent implements OnInit {
         this.permissions.refresh().subscribe();
       },
       error: err => {
-        this.loadError = err?.error?.detail || 'Could not delete role.';
+        this.toast.error(extractErrorMessage(err, 'Could not delete role.'));
       },
     });
   }
@@ -308,7 +304,7 @@ export class TenantRolesTabComponent implements OnInit {
         this.membersLoading = false;
       },
       error: err => {
-        this.loadError = err?.error?.detail || 'Could not load role members.';
+        this.toast.error(extractErrorMessage(err, 'Could not load role members.'));
         this.membersLoading = false;
       },
     });
@@ -327,7 +323,7 @@ export class TenantRolesTabComponent implements OnInit {
         this.openMembers(this.membersFor as RoleRow); // refresh
       },
       error: err => {
-        this.loadError = err?.error?.detail || 'Could not add member.';
+        this.toast.error(extractErrorMessage(err, 'Could not add member.'));
         this.membersSaving = false;
       },
     });
@@ -343,7 +339,7 @@ export class TenantRolesTabComponent implements OnInit {
         this.openMembers(this.membersFor as RoleRow);
       },
       error: err => {
-        this.loadError = err?.error?.detail || 'Could not remove member.';
+        this.toast.error(extractErrorMessage(err, 'Could not remove member.'));
         this.membersSaving = false;
       },
     });

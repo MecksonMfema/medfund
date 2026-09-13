@@ -17,10 +17,6 @@
   </div>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 <div class="tx-toolbar">
   <div class="toolbar-cell">
     <span class="cell-label">Period start</span>
@@ -37,15 +33,8 @@
   </div>
 </div>
 
-@if (envelope?.warnings && envelope!.warnings.length > 0) {
-  <div class="banner banner-warning">
-    <strong>FX warnings:</strong>
-    @for (w of envelope!.warnings; track w) { <div>{{ w }}</div> }
-  </div>
-}
-
 @if (loading) {
-  <div class="banner">Loading…</div>
+  <p class="report-loading" aria-busy="true" aria-live="polite">Loading…</p>
 } @else if (envelope) {
   <div class="kpi-strip">
     <div class="kpi-card">
@@ -186,12 +175,6 @@
     <section class="detail-section">
       <h2>AI calibration: precision by risk level</h2>
       <div class="card">
-        @if (calibration && calibration.warnings.length > 0) {
-          <div class="banner banner-warning">
-            <strong>Small-N fallback:</strong>
-            @for (w of calibration.warnings; track w) { <div>{{ w }}</div> }
-          </div>
-        }
         @if (calibration && calibration.rows.length > 0) {
           <table class="rate-table is-flush">
             <thead>
@@ -215,7 +198,7 @@
               }
             </tbody>
           </table>
-        } @else if (!calibration || calibration.warnings.length === 0) {
+        } @else {
           <p class="empty">No AI-flagged cases in this window.</p>
         }
       </div>

@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { AutoLapseConfigComponent } from './auto-lapse-config.component';
 import { TenantService } from '../../../../core/services/tenant.service';
 import { PermissionService } from '../../../../core/security/permission.service';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
 import { environment } from '../../../../../environments/environment';
 
 describe('AutoLapseConfigComponent', () => {
@@ -20,11 +21,18 @@ describe('AutoLapseConfigComponent', () => {
   };
 
   let permissionServiceStub: { has: (key: string) => boolean };
+  let toastServiceStub: { success: jasmine.Spy; error: jasmine.Spy; info: jasmine.Spy; warning: jasmine.Spy };
 
   beforeEach(async () => {
-    // Fresh stub per test — one of the specs flips has() to false, so
+    // Fresh stub per test - one of the specs flips has() to false, so
     // sharing across tests would cascade the mutation.
     permissionServiceStub = { has: () => true };
+    toastServiceStub = {
+      success: jasmine.createSpy('success'),
+      error: jasmine.createSpy('error'),
+      info: jasmine.createSpy('info'),
+      warning: jasmine.createSpy('warning'),
+    };
 
     await TestBed.configureTestingModule({
       imports: [AutoLapseConfigComponent, FormsModule],
@@ -33,6 +41,7 @@ describe('AutoLapseConfigComponent', () => {
         provideHttpClientTesting(),
         { provide: TenantService, useValue: tenantServiceStub },
         { provide: PermissionService, useValue: permissionServiceStub },
+        { provide: ToastService, useValue: toastServiceStub },
       ],
     }).compileComponents();
 
@@ -73,7 +82,7 @@ describe('AutoLapseConfigComponent', () => {
     component.graceWindowDays = 7;
     component.save();
 
-    expect(component.errorMessage).toContain('Arrears threshold');
+    expect(toastServiceStub.warning).toHaveBeenCalledWith(jasmine.stringMatching(/Arrears threshold/));
     http.expectNone(r => r.method === 'PUT' && r.url.endsWith('/auto-lapse-config'));
   });
 
@@ -101,7 +110,7 @@ describe('AutoLapseConfigComponent', () => {
       updatedAt: '2026-08-22T00:00:00Z', updatedBy: null, updatedByEmail: 'x@x',
     });
     expect(component.saved).toBe(true);
-    expect(component.errorMessage).toBeNull();
+    expect(toastServiceStub.error).not.toHaveBeenCalled();
   });
 
   it('canConfigure returns false without permission', () => {

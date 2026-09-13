@@ -31,10 +31,6 @@
   </nav>
 }
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 <!-- ── Filter strip ─────────────────────────────────────────────────
      Same shape as /tenant/billing/transactions and /tenant/billing/ledger:
      flat strip of column-like cells above the table. Search sits first

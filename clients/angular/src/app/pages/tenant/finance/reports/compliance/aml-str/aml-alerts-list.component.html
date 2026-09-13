@@ -30,11 +30,7 @@
   </div>
 </div>
 
-@if (loadError) {
-  <div class="banner banner-error" (click)="loadError = null">{{ loadError }}</div>
-}
-
-@if (!loading && rows.length === 0 && !loadError) {
+@if (!loading && rows.length === 0) {
   <div class="empty-state">
     <div class="empty-state__icon">
       <app-icon name="shield" [size]="48"></app-icon>

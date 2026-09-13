@@ -6,6 +6,8 @@ import { Group, GroupsService } from '../../../../core/services/groups.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 import { HasPermissionDirective } from '../../../../shared/directives/has-permission.directive';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 /**
  * Groups list — employer/organisation groups the tenant bills. Layout
@@ -23,7 +25,6 @@ import { HasPermissionDirective } from '../../../../shared/directives/has-permis
 export class GroupsListComponent implements OnInit, OnDestroy {
   rows: Group[] = [];
   loading = false;
-  errorMessage: string | null = null;
   pendingId: string | null = null;
 
   columns: TableColumn[] = [
@@ -45,7 +46,11 @@ export class GroupsListComponent implements OnInit, OnDestroy {
   private searchInput$ = new Subject<string>();
   private subs: Subscription[] = [];
 
-  constructor(private groups: GroupsService, private router: Router) {}
+  constructor(
+    private groups: GroupsService,
+    private router: Router,
+    private toast: ToastService,
+  ) {}
 
   ngOnInit(): void {
     this.fetchAll();
@@ -62,7 +67,7 @@ export class GroupsListComponent implements OnInit, OnDestroy {
         .subscribe({
           next: (rows) => { this.rows = rows; this.loading = false; },
           error: (err) => {
-            this.errorMessage = err?.error?.detail || 'Search failed';
+            this.toast.error(extractErrorMessage(err, 'Search failed'));
             this.loading = false;
           },
         }),
@@ -75,7 +80,6 @@ export class GroupsListComponent implements OnInit, OnDestroy {
 
   onSearch(term: string): void {
     this.loading = true;
-    this.errorMessage = null;
     this.searchInput$.next(term);
   }
 
@@ -92,7 +96,7 @@ export class GroupsListComponent implements OnInit, OnDestroy {
         this.pendingId = null;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Suspend failed';
+        this.toast.error(extractErrorMessage(err, 'Suspend failed'));
         this.pendingId = null;
       },
     });
@@ -103,7 +107,7 @@ export class GroupsListComponent implements OnInit, OnDestroy {
     this.groups.list().subscribe({
       next: (rows) => { this.rows = rows; this.loading = false; },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load groups';
+        this.toast.error(extractErrorMessage(err, 'Failed to load groups'));
         this.loading = false;
       },
     });

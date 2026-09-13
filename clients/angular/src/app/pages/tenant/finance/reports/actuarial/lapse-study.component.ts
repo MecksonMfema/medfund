@@ -20,6 +20,8 @@ import {
   ActuarialJobProgressComponent,
 } from '../../../../../shared/components/actuarial-job-progress/actuarial-job-progress.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Phase 14 §Actuarial Phase 12 — LAPSE_STUDY report page. Same shape as
@@ -60,16 +62,17 @@ export class LapseStudyComponent implements OnInit, OnDestroy {
   currencies: TenantCurrencyConfig[] = [];
 
   submitting = false;
-  errorMessage: string | null = null;
   currentJob: JobStatusResponse | null = null;
   startedAt: number | null = null;
   private pollSub: Subscription | null = null;
+  private lastWarnedJobId: string | null = null;
 
   constructor(
     private reports: ActuarialReportsService,
     private polling: ActuarialJobPollingService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -114,18 +117,18 @@ export class LapseStudyComponent implements OnInit, OnDestroy {
   submit(): void {
     if (this.submitting) return;
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     const checkpoints = this.parseCheckpoints();
     if (checkpoints === null) {
-      this.errorMessage = 'Checkpoints must be a comma-separated list of positive integers.';
+      this.toast.warning('Checkpoints must be a comma-separated list of positive integers.');
       return;
     }
-    this.errorMessage = null;
     this.submitting = true;
     this.currentJob = null;
     this.startedAt = Date.now();
+    this.lastWarnedJobId = null;
 
     const body: LapseStudyJobRequest = {
       periodStart: this.periodStart,
@@ -142,8 +145,7 @@ export class LapseStudyComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.submitting = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to submit the lapse study';
+        this.toast.error(extractErrorMessage(err, 'Failed to submit the lapse study'));
       },
     });
   }
@@ -161,13 +163,30 @@ export class LapseStudyComponent implements OnInit, OnDestroy {
   private beginPolling(jobId: string): void {
     this.pollSub?.unsubscribe();
     this.pollSub = this.polling.poll(jobId).subscribe({
-      next: (snap) => { this.currentJob = snap; },
+      next: (snap) => {
+        this.currentJob = snap;
+        this.maybeSurfaceWarnings(snap);
+      },
       error: (err) => {
-        this.errorMessage = err?.message || 'Polling failed';
+        this.toast.error(err?.message || 'Polling failed');
         this.pollSub = null;
       },
       complete: () => { this.pollSub = null; },
     });
+  }
+
+  private maybeSurfaceWarnings(snap: JobStatusResponse): void {
+    if (snap.status !== 'completed') return;
+    if (this.lastWarnedJobId === snap.jobId) return;
+    const shape = snap.paramsJson?.shape_warnings ?? [];
+    const result = (snap.resultJson as LapseResult | null)?.warnings ?? [];
+    const combined = [...shape, ...result];
+    if (combined.length === 0) {
+      this.lastWarnedJobId = snap.jobId;
+      return;
+    }
+    this.toast.warning(composeWarningsToast(combined, this.pageTitle), 8000);
+    this.lastWarnedJobId = snap.jobId;
   }
 
   // ── result unpacking ────────────────────────────────────────────────

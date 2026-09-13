@@ -22,10 +22,6 @@
   </div>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 @if (showForm) {
   <form (ngSubmit)="submitDraft()" class="add-form card form-grid">
     <label class="field">

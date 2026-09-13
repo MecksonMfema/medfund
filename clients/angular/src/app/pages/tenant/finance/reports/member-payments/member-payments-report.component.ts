@@ -12,8 +12,11 @@ import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/servi
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import { SkeletonComponent } from '../../../../../shared/components/skeleton/skeleton.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Member payments — unified billing, receipts and claims-paid per member,
@@ -24,14 +27,20 @@ import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/repo
 @Component({
   selector: 'app-member-payments-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, ReportBackButtonComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    IconComponent,
+    SelectComponent,
+    SkeletonComponent,
+    ReportBackButtonComponent,
+  ],
   templateUrl: './member-payments-report.component.html',
   styleUrl: '../receipts/receipts-report.component.scss',
 })
 export class MemberPaymentsReportComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<MemberPaymentsReportResponse> | null = null;
   currencies: TenantCurrencyConfig[] = [];
@@ -44,6 +53,7 @@ export class MemberPaymentsReportComponent implements OnInit {
     private finance: FinanceService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -76,18 +86,18 @@ export class MemberPaymentsReportComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.finance.getMemberPayments(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load member payments';
+        this.toast.error(extractErrorMessage(err, 'Failed to load member payments'));
         this.envelope = null;
         this.loading = false;
       },
@@ -103,10 +113,16 @@ export class MemberPaymentsReportComponent implements OnInit {
         this.exporting = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to download workbook';
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<MemberPaymentsReportResponse>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Member payments'), 8000);
   }
 
   onFilterChange(): void { this.fetch(); }

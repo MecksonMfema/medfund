@@ -12,6 +12,8 @@ import { TenantService } from '../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface CurrencyRow extends TenantCurrencyConfig {
   name?: string;
@@ -37,7 +39,6 @@ interface CurrencyRow extends TenantCurrencyConfig {
 export class TenantCurrenciesTabComponent implements OnInit {
   rows: CurrencyRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
   pendingId: string | null = null;
 
@@ -80,6 +81,7 @@ export class TenantCurrenciesTabComponent implements OnInit {
   constructor(
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -96,7 +98,7 @@ export class TenantCurrenciesTabComponent implements OnInit {
   refresh(): void {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      this.errorMessage = 'No active tenant context';
+      this.toast.warning('No active tenant context');
       return;
     }
     this.loading = true;
@@ -118,7 +120,7 @@ export class TenantCurrenciesTabComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.message || 'Failed to load currencies';
+        this.toast.error(extractErrorMessage(err, 'Failed to load currencies'));
         this.loading = false;
       },
     });
@@ -134,7 +136,7 @@ export class TenantCurrenciesTabComponent implements OnInit {
         this.pendingId = null;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Update failed';
+        this.toast.error(extractErrorMessage(err, 'Update failed'));
         this.pendingId = null;
       },
     });
@@ -151,7 +153,7 @@ export class TenantCurrenciesTabComponent implements OnInit {
         this.refresh();
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to set default';
+        this.toast.error(extractErrorMessage(err, 'Failed to set default'));
         this.pendingId = null;
       },
     });
@@ -159,7 +161,7 @@ export class TenantCurrenciesTabComponent implements OnInit {
 
   remove(row: CurrencyRow): void {
     if (row.isDefault) {
-      this.errorMessage = 'Cannot remove the default currency. Promote another currency first.';
+      this.toast.warning('Cannot remove the default currency. Promote another currency first.');
       return;
     }
     if (!confirm(`Remove ${row.currencyCode} from this tenant?`)) return;
@@ -173,7 +175,7 @@ export class TenantCurrenciesTabComponent implements OnInit {
         this.refresh();
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to remove currency';
+        this.toast.error(extractErrorMessage(err, 'Failed to remove currency'));
         this.pendingId = null;
       },
     });
@@ -183,13 +185,12 @@ export class TenantCurrenciesTabComponent implements OnInit {
 
   add(): void {
     if (!this.selectedCode) {
-      this.errorMessage = 'Pick a currency to add';
+      this.toast.warning('Pick a currency to add');
       return;
     }
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) return;
     this.adding = true;
-    this.errorMessage = null;
     this.currencyService.addToTenant(tenantId, {
       currencyCode: this.selectedCode,
       isDefault: this.newIsDefault,
@@ -207,7 +208,7 @@ export class TenantCurrenciesTabComponent implements OnInit {
       },
       error: (err) => {
         this.adding = false;
-        this.errorMessage = err?.error?.detail || 'Failed to add currency';
+        this.toast.error(extractErrorMessage(err, 'Failed to add currency'));
       },
     });
   }
@@ -216,15 +217,14 @@ export class TenantCurrenciesTabComponent implements OnInit {
 
   loadRateHistory(): void {
     if (!this.rateBase || !this.rateQuote || !this.rateFrom || !this.rateTo) {
-      this.errorMessage = 'Pick base, quote, and a date range';
+      this.toast.warning('Pick base, quote, and a date range');
       return;
     }
     if (this.rateBase === this.rateQuote) {
-      this.errorMessage = 'Base and quote must differ';
+      this.toast.warning('Base and quote must differ');
       return;
     }
     this.ratesLoading = true;
-    this.errorMessage = null;
     const tenantId = this.tenantService.getTenantId() || undefined;
     this.currencyService.rateHistory(this.rateBase, this.rateQuote, this.rateFrom, this.rateTo, tenantId).subscribe({
       next: (rates) => {
@@ -233,22 +233,21 @@ export class TenantCurrenciesTabComponent implements OnInit {
       },
       error: (err) => {
         this.ratesLoading = false;
-        this.errorMessage = err?.error?.detail || 'Failed to load history';
+        this.toast.error(extractErrorMessage(err, 'Failed to load history'));
       },
     });
   }
 
   recordRate(): void {
     if (!this.rateBase || !this.rateQuote || !this.rateValue || !this.rateDate) {
-      this.errorMessage = 'Fill base, quote, rate, and date';
+      this.toast.warning('Fill base, quote, rate, and date');
       return;
     }
     if (this.rateBase === this.rateQuote) {
-      this.errorMessage = 'Base and quote must differ';
+      this.toast.warning('Base and quote must differ');
       return;
     }
     this.rateSaving = true;
-    this.errorMessage = null;
     this.successMessage = null;
     const tenantId = this.tenantService.getTenantId() || undefined;
     this.currencyService.recordRate({
@@ -262,13 +261,13 @@ export class TenantCurrenciesTabComponent implements OnInit {
       next: () => {
         this.rateSaving = false;
         this.rateValue = '';
-        this.successMessage = `Rate recorded for ${this.rateBase} → ${this.rateQuote} on ${this.rateDate}`;
+        this.successMessage = `Rate recorded for ${this.rateBase} to ${this.rateQuote} on ${this.rateDate}`;
         setTimeout(() => (this.successMessage = null), 3000);
         this.loadRateHistory();
       },
       error: (err) => {
         this.rateSaving = false;
-        this.errorMessage = err?.error?.detail || 'Failed to record rate';
+        this.toast.error(extractErrorMessage(err, 'Failed to record rate'));
       },
     });
   }

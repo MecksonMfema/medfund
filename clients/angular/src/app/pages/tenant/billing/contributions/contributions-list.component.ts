@@ -8,6 +8,8 @@ import {
 } from '../../../../core/services/contributions.service';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { DataTableComponent, TableColumn } from '../../../../shared/components/data-table/data-table.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 const STATUSES = ['pending', 'paid', 'overdue', 'written_off'] as const;
 
@@ -22,7 +24,6 @@ export class ContributionsListComponent implements OnInit {
   status: typeof STATUSES[number] = 'pending';
   rows: ContributionRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
 
   // Server-side pagination state.
   page = 1;
@@ -46,13 +47,15 @@ export class ContributionsListComponent implements OnInit {
     { key: 'paidAt',           label: 'Paid at',     sortable: true, type: 'date' },
   ];
 
-  constructor(private contributions: ContributionsService) {}
+  constructor(
+    private contributions: ContributionsService,
+    private toast: ToastService,
+  ) {}
 
   ngOnInit(): void { this.fetchPage(); }
 
   fetchPage(): void {
     this.loading = true;
-    this.errorMessage = null;
     this.contributions.listContributionsPaged({
       status: this.status,
       q: this.searchTerm || undefined,
@@ -68,7 +71,7 @@ export class ContributionsListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load contributions';
+        this.toast.error(extractErrorMessage(err, 'Failed to load contributions'));
         this.rows = [];
         this.totalCount = 0;
         this.totalPages = 1;

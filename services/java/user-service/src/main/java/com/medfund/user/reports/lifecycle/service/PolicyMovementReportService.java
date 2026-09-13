@@ -14,7 +14,7 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDate;
 
 /**
- * Phase 13 §C Phase 8 per L10 — POLICY_MOVEMENT for a window.
+ * Phase 13 §C Phase 8 per L10: POLICY_MOVEMENT for a window.
  * Native rows per parent-plan invariant #1; envelope's perCurrency roll
  * carries the |written_added + written_removed| magnitude per currency so
  * lifts and cuts don't net on the summary line.

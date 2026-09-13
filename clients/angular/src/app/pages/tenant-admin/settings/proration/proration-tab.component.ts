@@ -12,6 +12,8 @@ import { TenantService } from '../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface StrategyOption {
   value: ProrationStrategy;
@@ -37,7 +39,6 @@ interface StrategyOption {
 export class TenantProrationTabComponent implements OnInit {
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   config: TenantProrationConfig | null = null;
@@ -62,6 +63,7 @@ export class TenantProrationTabComponent implements OnInit {
   constructor(
     private prorationService: ProrationService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -71,11 +73,10 @@ export class TenantProrationTabComponent implements OnInit {
   refresh(): void {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      this.errorMessage = 'No active tenant context';
+      this.toast.warning('No active tenant context');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.prorationService.get(tenantId).subscribe({
       next: config => {
         this.config = config;
@@ -83,7 +84,7 @@ export class TenantProrationTabComponent implements OnInit {
         this.loading = false;
       },
       error: err => {
-        this.errorMessage = extractError(err);
+        this.toast.error(extractErrorMessage(err, 'Failed to update proration config'));
         this.loading = false;
       },
     });
@@ -93,7 +94,6 @@ export class TenantProrationTabComponent implements OnInit {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) return;
     this.saving = true;
-    this.errorMessage = null;
     this.successMessage = null;
 
     // Direction overrides only ship when the parent strategy is HYBRID_BY_DIRECTION,
@@ -116,7 +116,7 @@ export class TenantProrationTabComponent implements OnInit {
         this.successMessage = 'Proration config saved';
       },
       error: err => {
-        this.errorMessage = extractError(err);
+        this.toast.error(extractErrorMessage(err, 'Failed to update proration config'));
         this.saving = false;
       },
     });
@@ -160,12 +160,4 @@ export class TenantProrationTabComponent implements OnInit {
     this.currencyStrategy = (config.currencyStrategy ?? '') as DirectionalStrategy | '';
     this.incrementWaitDays = config.incrementWaitDays;
   }
-}
-
-function extractError(err: unknown): string {
-  if (err && typeof err === 'object' && 'error' in err) {
-    const e = (err as { error?: { message?: string } }).error;
-    if (e?.message) return e.message;
-  }
-  return 'Failed to update proration config';
 }

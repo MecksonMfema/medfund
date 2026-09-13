@@ -5,6 +5,7 @@ import {
   TariffCategory,
   TariffCategoryPageResponse,
 } from '../../../core/services/tariff-categories.service';
+import { ToastService } from '../../../shared/components/toast/toast.service';
 
 /**
  * V063 tenant-admin catalogue page. Direct-instantiation tests (no
@@ -13,6 +14,7 @@ import {
  */
 describe('TariffCategoriesListComponent (V063 admin catalogue)', () => {
   let svc: jasmine.SpyObj<TariffCategoriesService>;
+  let toast: jasmine.SpyObj<ToastService>;
   let component: TariffCategoriesListComponent;
 
   const existingRow: TariffCategory = {
@@ -29,8 +31,12 @@ describe('TariffCategoriesListComponent (V063 admin catalogue)', () => {
       'TariffCategoriesService',
       ['list', 'listPaged', 'create', 'update', 'deactivate'],
     );
+    toast = jasmine.createSpyObj<ToastService>(
+      'ToastService',
+      ['success', 'error', 'info', 'warning'],
+    );
     svc.listPaged.and.returnValue(of(singleRowPage()));
-    component = new TariffCategoriesListComponent(svc);
+    component = new TariffCategoriesListComponent(svc, toast);
   });
 
   it('startCreate_resetsDraftAndShowsForm', () => {
@@ -64,7 +70,7 @@ describe('TariffCategoriesListComponent (V063 admin catalogue)', () => {
 
     component.save();
 
-    expect(component.errorMessage).toContain('required');
+    expect(toast.warning).toHaveBeenCalledWith(jasmine.stringMatching(/required/));
     expect(svc.create).not.toHaveBeenCalled();
     expect(svc.update).not.toHaveBeenCalled();
     expect(component.saving).toBeFalse();
@@ -111,7 +117,7 @@ describe('TariffCategoriesListComponent (V063 admin catalogue)', () => {
     component.save();
 
     expect(component.saving).toBeFalse();
-    expect(component.errorMessage).toBe('Duplicate code');
+    expect(toast.error).toHaveBeenCalledWith('Duplicate code');
   });
 
   // ── Server-side pagination contract ─────────────────────────────────

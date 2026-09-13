@@ -9,6 +9,8 @@ import {
   TenantSidebarConfigService,
   TenantSidebarSectionConfigRow,
 } from '../../../../core/services/tenant-sidebar-config.service';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface GroupBucket {
   group: string;
@@ -38,7 +40,6 @@ export class SidebarSectionsTabComponent implements OnInit {
   loading = false;
   saving = false;
   saved = false;
-  errorMessage: string | null = null;
 
   /** Snapshot of loaded state used to compute the dirty-diff on save. */
   private originalEnabled = new Map<string, boolean>();
@@ -48,6 +49,7 @@ export class SidebarSectionsTabComponent implements OnInit {
   constructor(
     private sidebarConfig: TenantSidebarConfigService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -57,11 +59,10 @@ export class SidebarSectionsTabComponent implements OnInit {
   refresh(): void {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      this.errorMessage = 'No active tenant context';
+      this.toast.warning('No active tenant context');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.sidebarConfig.invalidate(tenantId);
     this.sidebarConfig.list(tenantId).subscribe({
       next: rows => {
@@ -71,7 +72,7 @@ export class SidebarSectionsTabComponent implements OnInit {
         this.loading         = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || 'Could not load sidebar visibility configuration.';
+        this.toast.error(extractErrorMessage(err, 'Could not load sidebar visibility configuration.'));
         this.loading      = false;
       },
     });
@@ -110,7 +111,6 @@ export class SidebarSectionsTabComponent implements OnInit {
 
     this.saving = true;
     this.saved  = false;
-    this.errorMessage = null;
     this.sidebarConfig.bulkUpsert(tenantId, diff).subscribe({
       next: () => {
         this.originalEnabled = new Map(this.currentEnabled);
@@ -124,7 +124,7 @@ export class SidebarSectionsTabComponent implements OnInit {
         setTimeout(() => (this.saved = false), 3000);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || 'Could not save changes.';
+        this.toast.error(extractErrorMessage(err, 'Could not save changes.'));
         this.saving       = false;
       },
     });

@@ -15,6 +15,8 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Per-scheme billing aggregate — one row per (scheme, currency). Rows stay
@@ -32,7 +34,6 @@ import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/repo
 export class SchemeBillingReportComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   rows: SchemeBillingSummaryRow[] = [];
   envelope: ReportResponse<SchemeBillingSummaryRow[]> | null = null;
@@ -64,6 +65,7 @@ export class SchemeBillingReportComponent implements OnInit {
     private currencyService: CurrencyService,
     private tenantService: TenantService,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   onRowClick(row: SchemeBillingSummaryRow): void {
@@ -106,19 +108,19 @@ export class SchemeBillingReportComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.finance.getSchemeBillingReport(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.rows = env.data ?? [];
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load billing report';
+        this.toast.error(extractErrorMessage(err, 'Failed to load billing report'));
         this.rows = [];
         this.envelope = null;
         this.loading = false;
@@ -134,11 +136,17 @@ export class SchemeBillingReportComponent implements OnInit {
         downloadBlob(blob, `billing-schemes-${this.periodStart}-to-${this.periodEnd}.xlsx`);
         this.exporting = false;
       },
-      error: () => {
-        this.errorMessage = 'Failed to download workbook';
+      error: err => {
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<SchemeBillingSummaryRow[]>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Billing report: per scheme'), 8000);
   }
 
   onFilterChange(): void {

@@ -8,6 +8,8 @@ import {
   UpsertEmailSenderPayload,
 } from '../../../../core/services/email-senders.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-email-sender-form',
@@ -20,7 +22,6 @@ export class EmailSenderFormComponent implements OnInit {
   senderId: string | null = null;
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   form: UpsertEmailSenderPayload = {
     address: '',
@@ -32,6 +33,7 @@ export class EmailSenderFormComponent implements OnInit {
     private senders: EmailSendersService,
     private route: ActivatedRoute,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -48,7 +50,7 @@ export class EmailSenderFormComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load sender';
+        this.toast.error(extractErrorMessage(err, 'Failed to load sender'));
         this.loading = false;
       },
     });
@@ -56,7 +58,7 @@ export class EmailSenderFormComponent implements OnInit {
 
   submit(): void {
     if (!this.form.address.trim()) {
-      this.errorMessage = 'Address is required';
+      this.toast.warning('Address is required');
       return;
     }
     const payload: UpsertEmailSenderPayload = {
@@ -65,7 +67,6 @@ export class EmailSenderFormComponent implements OnInit {
       notes: this.form.notes?.trim() || undefined,
     };
     this.saving = true;
-    this.errorMessage = null;
     const stream = this.senderId
       ? this.senders.update(this.senderId, payload)
       : this.senders.create(payload);
@@ -76,7 +77,7 @@ export class EmailSenderFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Save failed';
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }

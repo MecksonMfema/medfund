@@ -31,10 +31,6 @@
   </nav>
 }
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 <!-- ── Filter strip ─────────────────────────────────────────────────
      Mirrors /tenant/billing/debtors: flat strip of column-like
      cells above the table, search first (bounded), then Currency.

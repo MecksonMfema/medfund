@@ -5,6 +5,8 @@ import {
   Adjustment,
   CommissionAdjustmentService,
 } from '../../../../../core/services/commission-adjustment.service';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Read-only detail view for a single commission correction. Shows the
@@ -21,24 +23,24 @@ import {
 export class CorrectionDetailComponent implements OnInit {
   correction: Adjustment | null = null;
   loading = false;
-  errorMessage: string | null = null;
 
   constructor(
     private route: ActivatedRoute,
     private svc: CommissionAdjustmentService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
-      this.errorMessage = 'Missing correction id';
+      this.toast.error('Missing correction id');
       return;
     }
     this.loading = true;
     this.svc.get(id).subscribe({
       next: adj => { this.correction = adj; this.loading = false; },
       error: err => {
-        this.errorMessage = err?.error?.detail || 'Failed to load correction.';
+        this.toast.error(extractErrorMessage(err, 'Failed to load correction.'));
         this.loading = false;
       },
     });

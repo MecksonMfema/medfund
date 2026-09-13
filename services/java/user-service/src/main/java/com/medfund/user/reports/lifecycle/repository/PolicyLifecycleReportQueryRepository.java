@@ -26,7 +26,7 @@ import java.util.UUID;
  * reports (POLICY_MOVEMENT, PERSISTENCY_COHORT, GROUP_CENSUS).
  *
  * <p>All queries read tenant-schema tables via unqualified names
- * (per {@code bug_public_prefix_silent_rollback} — never prefix
+ * (per {@code bug_public_prefix_silent_rollback}: never prefix
  * {@code public.} on tenant tables). Movement rows are native-currency
  * per parent-plan invariant #1; the workbook does FX to reporting
  * currency best-effort.
@@ -119,7 +119,7 @@ public class PolicyLifecycleReportQueryRepository {
                        COALESCE(SUM(CASE WHEN p.status IN ('lapsed','terminated') AND p.bound_at <= (:periodEnd::timestamp + interval '1 day')
                                           THEN ABS(COALESCE(p.written_premium, 0)) ELSE 0 END), 0) AS written_removed
                   FROM __TABLE__ p
-                 GROUP BY COALESCE(p.written_premium_currency, 'USD')
+                 GROUP BY p.written_premium_currency
                 """
                 .replace("__SRC__", s.source())
                 .replace("__LINE__", s.line())
@@ -129,7 +129,7 @@ public class PolicyLifecycleReportQueryRepository {
     }
 
     /**
-     * Per-currency roll for the envelope — sums |written_added| across all
+     * Per-currency roll for the envelope: sums |written_added| across all
      * six policy sources so the envelope's perCurrency map is coherent
      * regardless of how many lines contributed.
      */
@@ -158,7 +158,7 @@ public class PolicyLifecycleReportQueryRepository {
     /**
      * Cohort persistency rows per L9 + L16. Cohort = policies bound in
      * cohortMonth (annual lines) or members whose first contribution
-     * landed in cohortMonth (HEALTH — via
+     * landed in cohortMonth (HEALTH: via
      * {@code member_first_contribution} matview). Still-active is measured
      * at (cohortMonth + checkpointMonths). For HEALTH the extra check is
      * "row present in {@code member_contribution_presence} for the
@@ -265,7 +265,7 @@ public class PolicyLifecycleReportQueryRepository {
 
     /**
      * Per-group census snapshot at {@code asOf}. Status is the members'
-     * current {@code status} column — this trades the strict "latest
+     * current {@code status} column: this trades the strict "latest
      * {@code member_status_history} row with effective_at &le; asOf"
      * projection for a much simpler query. asOf in the future would need
      * the history-based projection; the current implementation only
@@ -275,24 +275,93 @@ public class PolicyLifecycleReportQueryRepository {
      * every group.
      */
     public Flux<GroupCensusRow> groupCensusRows(LocalDate asOf, UUID groupId, String statusFilter) {
+        // Two arms UNION-ALLed:
+        //   GROUP      : one row per corporate group, principals resolved
+        //                 through groups.id → members.group_id.
+        //   INDIVIDUAL : one row per ungrouped policyholder
+        //                 (members.group_id IS NULL); the principal IS the
+        //                 holder and appears as itself.
+        // Dependants are counted through the tenant `dependants` table
+        // (V001 baseline) joined via member_id. COUNT(DISTINCT ...) is
+        // required on the GROUP arm because the m×d cross-join otherwise
+        // multiplies principals when a member has more than one dependant.
+        //
+        // V025 dropped groups.contact_person / contact_email: contact comes
+        // through the liaison model (V023 + V024) for groups, and directly
+        // from the member for individuals. Fallback email = groups.email
+        // (V038) when a group has no liaison assigned.
         String sql = """
+                WITH liaison_contact AS (
+                    SELECT g.id AS group_id,
+                           CASE g.liaison_kind
+                             WHEN 'MEMBER'  THEN NULLIF(TRIM(COALESCE(lm.first_name,'') || ' ' || COALESCE(lm.last_name,'')), '')
+                             WHEN 'STAFF'   THEN NULLIF(TRIM(COALESCE(ls.first_name,'') || ' ' || COALESCE(ls.last_name,'')), '')
+                             WHEN 'LIAISON' THEN NULLIF(TRIM(COALESCE(gl.first_name,'') || ' ' || COALESCE(gl.last_name,'')), '')
+                           END AS liaison_name,
+                           CASE g.liaison_kind
+                             WHEN 'MEMBER'  THEN lm.email
+                             WHEN 'STAFF'   THEN ls.email
+                             WHEN 'LIAISON' THEN gl.email
+                           END AS liaison_email
+                      FROM groups g
+                      LEFT JOIN members lm             ON g.liaison_kind = 'MEMBER'  AND lm.id = g.liaison_user_id
+                      LEFT JOIN public.staff_users ls  ON g.liaison_kind = 'STAFF'   AND ls.id = g.liaison_user_id
+                      LEFT JOIN group_liaisons gl      ON g.liaison_kind = 'LIAISON' AND gl.id = g.liaison_user_id
+                )
                 SELECT g.id AS group_id,
+                       'GROUP'::varchar AS holder_type,
                        g.name AS group_name,
                        g.registration_number,
-                       g.contact_person,
-                       g.contact_email,
-                       COUNT(*) FILTER (WHERE m.status = 'active')     AS active_members,
-                       COUNT(*) FILTER (WHERE m.status = 'suspended')  AS suspended_members,
-                       COUNT(*) FILTER (WHERE m.status = 'lapsed')     AS lapsed_members,
-                       COUNT(*) FILTER (WHERE m.status = 'terminated') AS terminated_members,
-                       COUNT(m.id)                                      AS total_members
+                       lc.liaison_name AS contact_person,
+                       COALESCE(g.email, lc.liaison_email) AS contact_email,
+                       COUNT(DISTINCT m.id) FILTER (WHERE m.status = 'active')     AS active_members,
+                       COUNT(DISTINCT m.id) FILTER (WHERE m.status = 'suspended')  AS suspended_members,
+                       COUNT(DISTINCT m.id) FILTER (WHERE m.status = 'lapsed')     AS lapsed_members,
+                       COUNT(DISTINCT m.id) FILTER (WHERE m.status = 'terminated') AS terminated_members,
+                       COUNT(DISTINCT m.id)                                         AS total_members,
+                       COUNT(DISTINCT d.id) FILTER (WHERE d.status = 'active')     AS active_dependants,
+                       COUNT(DISTINCT d.id) FILTER (WHERE d.status = 'suspended')  AS suspended_dependants,
+                       COUNT(DISTINCT d.id) FILTER (WHERE d.status = 'lapsed')     AS lapsed_dependants,
+                       COUNT(DISTINCT d.id) FILTER (WHERE d.status = 'terminated') AS terminated_dependants,
+                       COUNT(DISTINCT d.id)                                         AS total_dependants,
+                       COUNT(DISTINCT m.id) + COUNT(DISTINCT d.id)                  AS covered_lives
                   FROM groups g
+                  LEFT JOIN liaison_contact lc ON lc.group_id = g.id
                   LEFT JOIN members m ON m.group_id = g.id
                                      AND m.enrollment_date <= :asOf
+                  LEFT JOIN dependants d ON d.member_id = m.id
                  WHERE (:groupId::uuid IS NULL OR g.id = :groupId::uuid)
                    AND (:statusFilter::varchar IS NULL OR m.status = :statusFilter::varchar OR m.id IS NULL)
-                 GROUP BY g.id, g.name, g.registration_number, g.contact_person, g.contact_email
-                 ORDER BY g.name
+                 GROUP BY g.id, g.name, g.registration_number, lc.liaison_name, g.email, lc.liaison_email
+
+                UNION ALL
+
+                SELECT m.id AS group_id,
+                       'INDIVIDUAL'::varchar AS holder_type,
+                       NULLIF(TRIM(COALESCE(m.first_name,'') || ' ' || COALESCE(m.last_name,'')), '') AS group_name,
+                       m.national_id AS registration_number,
+                       NULLIF(TRIM(COALESCE(m.first_name,'') || ' ' || COALESCE(m.last_name,'')), '') AS contact_person,
+                       m.email AS contact_email,
+                       CASE WHEN m.status = 'active'     THEN 1 ELSE 0 END AS active_members,
+                       CASE WHEN m.status = 'suspended'  THEN 1 ELSE 0 END AS suspended_members,
+                       CASE WHEN m.status = 'lapsed'     THEN 1 ELSE 0 END AS lapsed_members,
+                       CASE WHEN m.status = 'terminated' THEN 1 ELSE 0 END AS terminated_members,
+                       1                                                    AS total_members,
+                       COUNT(d.id) FILTER (WHERE d.status = 'active')     AS active_dependants,
+                       COUNT(d.id) FILTER (WHERE d.status = 'suspended')  AS suspended_dependants,
+                       COUNT(d.id) FILTER (WHERE d.status = 'lapsed')     AS lapsed_dependants,
+                       COUNT(d.id) FILTER (WHERE d.status = 'terminated') AS terminated_dependants,
+                       COUNT(d.id)                                         AS total_dependants,
+                       1 + COUNT(d.id)                                     AS covered_lives
+                  FROM members m
+                  LEFT JOIN dependants d ON d.member_id = m.id
+                 WHERE m.group_id IS NULL
+                   AND m.enrollment_date <= :asOf
+                   AND (:groupId::uuid IS NULL OR m.id = :groupId::uuid)
+                   AND (:statusFilter::varchar IS NULL OR m.status = :statusFilter::varchar)
+                 GROUP BY m.id, m.first_name, m.last_name, m.national_id, m.email, m.status
+
+                 ORDER BY 2, 3
                 """;
         DatabaseClient.GenericExecuteSpec spec = db.sql(sql)
                 .bind("asOf", asOf)
@@ -303,6 +372,7 @@ public class PolicyLifecycleReportQueryRepository {
         return spec
                 .map((row, meta) -> new GroupCensusRow(
                         row.get("group_id", UUID.class),
+                        row.get("holder_type", String.class),
                         row.get("group_name", String.class),
                         row.get("registration_number", String.class),
                         row.get("contact_person", String.class),
@@ -311,7 +381,13 @@ public class PolicyLifecycleReportQueryRepository {
                         nonNull(row.get("suspended_members", Long.class)),
                         nonNull(row.get("lapsed_members", Long.class)),
                         nonNull(row.get("terminated_members", Long.class)),
-                        nonNull(row.get("total_members", Long.class))))
+                        nonNull(row.get("total_members", Long.class)),
+                        nonNull(row.get("active_dependants", Long.class)),
+                        nonNull(row.get("suspended_dependants", Long.class)),
+                        nonNull(row.get("lapsed_dependants", Long.class)),
+                        nonNull(row.get("terminated_dependants", Long.class)),
+                        nonNull(row.get("total_dependants", Long.class)),
+                        nonNull(row.get("covered_lives", Long.class))))
                 .all();
     }
 
@@ -332,7 +408,7 @@ public class PolicyLifecycleReportQueryRepository {
      * Deaths count members whose {@code death_date} lands in the window
      * (inclusive on both ends).
      *
-     * <p>{@code insuranceLine} filter narrows the population — HEALTH
+     * <p>{@code insuranceLine} filter narrows the population: HEALTH
      * uses the {@code member_first_contribution} matview (Phase-13 signal
      * that a member has an active health cover); LIFE / FUNERAL /
      * DISABILITY / TRAVEL join their respective policy tables via
@@ -434,14 +510,14 @@ public class PolicyLifecycleReportQueryRepository {
 
     /**
      * Per-tenant morbidity exposure feed. Mirrors
-     * {@link #mortalityExposureRows} — same population, same age-band
-     * bucketing, same exposure-years denominator — but the numerator is
+     * {@link #mortalityExposureRows}: same population, same age-band
+     * bucketing, same exposure-years denominator: but the numerator is
      * {@code incidents} instead of {@code deaths}.
      *
      * <p>An "incident" is a {@code member_status_history} transition in
      * the requested window whose {@code reason_code} matches the morbidity
      * vocabulary ({@code illness_onset}, {@code disability_onset},
-     * {@code hospitalization}). Distinct per member per window — a member
+     * {@code hospitalization}). Distinct per member per window: a member
      * who transitions in and out repeatedly counts once. Absent codes yield
      * zero incidents, mirroring the Phase-13 "empty envelope with warnings"
      * acceptance for tenants with no configured signal.

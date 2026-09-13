@@ -16,10 +16,6 @@
   </div>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 <div class="tx-toolbar">
   <div class="toolbar-cell">
     <span class="cell-label">Period start</span>
@@ -83,17 +79,6 @@
       [status]="currentJob"
       [startedAt]="startedAt"
       (cancel)="cancelPolling()"></app-actuarial-job-progress>
-  </div>
-}
-
-@if (shapeWarnings.length || resultWarnings.length) {
-  <div class="banner banner-warning">
-    @for (w of shapeWarnings; track w) {
-      <div>{{ w }}</div>
-    }
-    @for (w of resultWarnings; track w) {
-      <div>{{ w }}</div>
-    }
   </div>
 }
 

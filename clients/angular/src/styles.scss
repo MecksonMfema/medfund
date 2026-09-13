@@ -444,6 +444,11 @@ a:hover {
   font-weight: var(--font-weight-medium);
 }
 
+// Toolbar cells render inputs flush (no border / background / padding)
+// so the row reads as a bar of labelled values rather than a form. This
+// covers bare inputs plus any input contributed by a nested component
+// (entity-picker's search box, etc.), which get the same treatment via
+// the `app-entity-picker` block below.
 .toolbar-cell input[type="date"],
 .toolbar-cell input[type="text"],
 .toolbar-cell input[type="number"] {
@@ -460,6 +465,16 @@ a:hover {
 .toolbar-cell input::placeholder { color: var(--color-text-muted); }
 
 .toolbar-cell app-icon { color: var(--color-text-muted); flex-shrink: 0; }
+
+// Entity-picker in a toolbar cell stretches to fill the widened
+// `.cell-line` / `.cell-currency` slot. Its flush styling (no border /
+// background) is applied component-side via `:host-context(.toolbar-cell)`
+// in entity-picker.component.scss so specificity comes out right.
+.toolbar-cell app-entity-picker {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: block;
+}
 
 .toolbar-cell.cell-search {
   flex: 1 1 260px;

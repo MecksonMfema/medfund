@@ -14,6 +14,8 @@ import {
   TableColumn,
 } from '../../../../shared/components/data-table/data-table.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 /**
  * Cedable-claims tab of the merged Facultative page. Adjudicated claims
@@ -31,7 +33,6 @@ import { SelectComponent, SelectOption } from '../../../../shared/components/sel
 export class FacultativeCandidatesTabComponent implements OnInit {
   candidates: FacultativeCandidateRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
 
   minAmount = 10000;
   lineFilter: '' | InsuranceLine = '';
@@ -47,8 +48,6 @@ export class FacultativeCandidatesTabComponent implements OnInit {
     reason: string;
   } = { treatyId: '', cededAmount: null, basisAmount: null, reason: '' };
   cedeSubmitting = false;
-  cedeError: string | null = null;
-  cedeSuccess: string | null = null;
 
   readonly lineOptions: SelectOption[] = [
     { value: '', label: 'All lines' },
@@ -79,7 +78,7 @@ export class FacultativeCandidatesTabComponent implements OnInit {
     },
   ];
 
-  constructor(private svc: ReinsuranceService) {}
+  constructor(private svc: ReinsuranceService, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.fetchCandidates();
@@ -88,7 +87,6 @@ export class FacultativeCandidatesTabComponent implements OnInit {
 
   fetchCandidates(): void {
     this.loading = true;
-    this.errorMessage = null;
     this.svc.listFacultativeCandidates(
       this.minAmount > 0 ? this.minAmount : undefined,
       this.lineFilter || undefined,
@@ -100,8 +98,7 @@ export class FacultativeCandidatesTabComponent implements OnInit {
         this.loading = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load facultative candidates';
+        this.toast.error(extractErrorMessage(err, 'Failed to load facultative candidates'));
         this.candidates = [];
         this.loading = false;
       },
@@ -127,8 +124,6 @@ export class FacultativeCandidatesTabComponent implements OnInit {
 
   select(row: FacultativeCandidateRow): void {
     this.selected = row;
-    this.cedeError = null;
-    this.cedeSuccess = null;
     this.cedePayload = {
       treatyId: '',
       cededAmount: null,
@@ -140,8 +135,6 @@ export class FacultativeCandidatesTabComponent implements OnInit {
   clearSelection(): void {
     this.selected = null;
     this.cedePayload = { treatyId: '', cededAmount: null, basisAmount: null, reason: '' };
-    this.cedeError = null;
-    this.cedeSuccess = null;
   }
 
   get treatyOptions(): SelectOption[] {
@@ -156,15 +149,15 @@ export class FacultativeCandidatesTabComponent implements OnInit {
   submitCede(): void {
     if (!this.selected) return;
     if (!this.cedePayload.treatyId) {
-      this.cedeError = 'Select a treaty first.';
+      this.toast.warning('Select a treaty first.');
       return;
     }
     if (!this.cedePayload.cededAmount || this.cedePayload.cededAmount <= 0) {
-      this.cedeError = 'Ceded amount must be positive.';
+      this.toast.warning('Ceded amount must be positive.');
       return;
     }
     if (!this.cedePayload.basisAmount || this.cedePayload.basisAmount <= 0) {
-      this.cedeError = 'Basis amount must be positive.';
+      this.toast.warning('Basis amount must be positive.');
       return;
     }
     const payload: CreateFacultativeCessionPayload = {
@@ -176,17 +169,15 @@ export class FacultativeCandidatesTabComponent implements OnInit {
       reason: this.cedePayload.reason || undefined,
     };
     this.cedeSubmitting = true;
-    this.cedeError = null;
     this.svc.createFacultativeCession(this.selected.insuranceLine, payload).subscribe({
       next: cession => {
-        this.cedeSuccess = `Draft cession #${cession.id.substring(0, 8)} created: awaiting approval.`;
+        this.toast.success(`Draft cession #${cession.id.substring(0, 8)} created: awaiting approval.`);
         this.cedeSubmitting = false;
         this.selected = null;
         this.fetchCandidates();
       },
       error: err => {
-        this.cedeError = err?.error?.detail || err?.error?.title
-          || 'Failed to create draft cession.';
+        this.toast.error(extractErrorMessage(err, 'Failed to create draft cession.'));
         this.cedeSubmitting = false;
       },
     });

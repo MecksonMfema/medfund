@@ -15,32 +15,34 @@ import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/servi
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { INSURANCE_LINES } from '../../../../../core/models/insurance-lines';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
+import { SkeletonComponent } from '../../../../../shared/components/skeleton/skeleton.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
-/** Fixed age buckets per G49 — the CASE order the server emits. */
+/** Fixed age buckets per G49: the CASE order the server emits. */
 const AGE_BUCKETS = ['0-3', '4-7', '8-14', '15-30', '>30'];
 
 /**
- * Claim pipeline aging matrix (G49) — one cell per (status × age-bucket ×
+ * Claim pipeline aging matrix (G49): one cell per (status × age-bucket ×
  * currency) over the submission window. Ages are relative to the server clock
- * (`asOf`). Clicking a cell drills into the exact ledger that built it — the
+ * (`asOf`). Clicking a cell drills into the exact ledger that built it: the
  * server repeats the age-bucket CASE in the drill WHERE, so the drill is not a
  * client-side filter.
  */
 @Component({
   selector: 'app-claim-status-matrix',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent, ReportBackButtonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, SelectComponent, DataTableComponent, ReportBackButtonComponent],
   templateUrl: './claim-status-matrix.component.html',
   styleUrl: './claims-report.component.scss',
 })
 export class ClaimStatusMatrixComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<ClaimStatusMatrixResponse> | null = null;
   tenantCurrencies: TenantCurrencyConfig[] = [];
@@ -79,6 +81,7 @@ export class ClaimStatusMatrixComponent implements OnInit {
     private claimsReport: ClaimsReportService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -142,18 +145,18 @@ export class ClaimStatusMatrixComponent implements OnInit {
 
   fetch(): void {
     if (!this.submittedFrom || !this.submittedTo) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.claimsReport.getClaimStatusMatrix(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load status matrix';
+        this.toast.error(extractErrorMessage(err, 'Failed to load status matrix'));
         this.envelope = null;
         this.loading = false;
       },
@@ -168,11 +171,17 @@ export class ClaimStatusMatrixComponent implements OnInit {
         downloadBlob(blob, `claim-status-matrix-${this.submittedFrom}-to-${this.submittedTo}.xlsx`);
         this.exporting = false;
       },
-      error: () => {
-        this.errorMessage = 'Failed to download workbook';
+      error: err => {
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<ClaimStatusMatrixResponse>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Claim status matrix'), 8000);
   }
 
   onFilterChange(): void {

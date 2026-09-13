@@ -166,21 +166,7 @@
   .muted { color: var(--color-text-muted); font-size: 13px; margin-left: 4px; }
 }
 
-// ── Error banner + empty states ───────────────────────────────────────
-
-.banner {
-  margin: 12px 24px 0;
-  padding: 10px 14px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.875rem;
-}
-
-.banner-error {
-  background: #fef2f2;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
-}
+// ── Empty states ──────────────────────────────────────────────────────
 
 .empty {
   margin: 40px 24px;

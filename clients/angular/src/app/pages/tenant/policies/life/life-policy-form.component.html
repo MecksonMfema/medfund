@@ -35,10 +35,6 @@
     (submit)="onLifecycleActionSubmitted($event)"
   ></app-policy-status-action-modal>
 
-  @if (errorMessage) {
-    <div class="error-banner" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
-
   @if (loading) {
     <p class="muted">Loading…</p>
   } @else {

@@ -66,23 +66,12 @@
   }
 }
 
-.banner {
-  margin: 12px 24px 0;
+.banner-info {
   padding: 10px 14px;
   border-radius: var(--radius-md);
-  cursor: pointer;
   font-size: var(--font-size-sm);
-}
-
-.banner-error {
-  background: var(--color-error-light);
-  color: #c4162d;
-}
-
-.banner-info {
   background: var(--color-primary-light);
   color: var(--color-primary);
-  cursor: default;
   margin: 24px;
 }
 

@@ -10,6 +10,8 @@ import {
 import { TenantService } from '../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface EditableRow extends TenantYieldCurveRow {
   editing?: boolean;
@@ -35,7 +37,6 @@ interface EditableRow extends TenantYieldCurveRow {
 export class YieldCurvesTabComponent implements OnInit {
   rows: EditableRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
   pendingId: string | null = null;
   uploading = false;
@@ -49,6 +50,7 @@ export class YieldCurvesTabComponent implements OnInit {
   constructor(
     private service: TenantYieldCurveService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -71,18 +73,17 @@ export class YieldCurvesTabComponent implements OnInit {
   refresh(): void {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      this.errorMessage = 'No active tenant context';
+      this.toast.warning('No active tenant context');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.service.list(tenantId).subscribe({
       next: (rows) => {
         this.rows = rows.map(r => ({ ...r }));
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.message || 'Failed to load yield curve rows';
+        this.toast.error(extractErrorMessage(err, 'Failed to load yield curve rows'));
         this.loading = false;
       },
     });
@@ -112,11 +113,10 @@ export class YieldCurvesTabComponent implements OnInit {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) return;
     if (!this.newRow.currency || !this.newRow.tenorMonths || !this.newRow.spotRate) {
-      this.errorMessage = 'Currency, tenor months, and spot rate are required';
+      this.toast.warning('Currency, tenor months, and spot rate are required');
       return;
     }
     this.adding = true;
-    this.errorMessage = null;
     this.service.add(tenantId, this.trimAddPayload(this.newRow)).subscribe({
       next: () => {
         this.adding = false;
@@ -128,7 +128,7 @@ export class YieldCurvesTabComponent implements OnInit {
       },
       error: (err) => {
         this.adding = false;
-        this.errorMessage = err?.error?.detail || 'Failed to add yield curve row';
+        this.toast.error(extractErrorMessage(err, 'Failed to add yield curve row'));
       },
     });
   }
@@ -142,14 +142,13 @@ export class YieldCurvesTabComponent implements OnInit {
     if (!tenantId) return;
 
     this.uploading = true;
-    this.errorMessage = null;
     const reader = new FileReader();
     reader.onload = () => {
       try {
         const text = typeof reader.result === 'string' ? reader.result : '';
         const rows = this.parseCsv(text);
         if (rows.length === 0) {
-          this.errorMessage = 'CSV is empty or has no valid rows';
+          this.toast.warning('CSV is empty or has no valid rows');
           this.uploading = false;
           return;
         }
@@ -162,12 +161,12 @@ export class YieldCurvesTabComponent implements OnInit {
           },
           error: (err) => {
             this.uploading = false;
-            this.errorMessage = err?.error?.detail || 'CSV upload failed';
+            this.toast.error(extractErrorMessage(err, 'CSV upload failed'));
           },
         });
       } catch (e) {
         this.uploading = false;
-        this.errorMessage = (e as Error).message;
+        this.toast.error((e as Error).message);
       }
     };
     reader.readAsText(file);
@@ -229,7 +228,7 @@ export class YieldCurvesTabComponent implements OnInit {
         this.pendingId = null;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to update yield curve row';
+        this.toast.error(extractErrorMessage(err, 'Failed to update yield curve row'));
         this.pendingId = null;
       },
     });
@@ -246,7 +245,7 @@ export class YieldCurvesTabComponent implements OnInit {
         this.pendingId = null;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to delete yield curve row';
+        this.toast.error(extractErrorMessage(err, 'Failed to delete yield curve row'));
         this.pendingId = null;
       },
     });

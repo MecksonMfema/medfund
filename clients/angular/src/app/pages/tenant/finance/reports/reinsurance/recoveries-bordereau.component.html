@@ -21,10 +21,6 @@
   </div>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 <div class="tx-toolbar">
   <div class="toolbar-cell cell-year">
     <span class="cell-label">Year</span>
@@ -82,14 +78,6 @@
     ></app-select>
   </div>
 </div>
-
-@if (envelope?.warnings?.length) {
-  <div class="banner banner-warning">
-    @for (w of envelope!.warnings; track w) {
-      <div>{{ w }}</div>
-    }
-  </div>
-}
 
 @if (perCurrencyList().length) {
   <div class="kpi-strip">
@@ -217,9 +205,6 @@
           data-testid="mark-received-date"
         />
       </label>
-      @if (markReceivedError) {
-        <div class="banner banner-error">{{ markReceivedError }}</div>
-      }
       <div class="modal-actions">
         <button type="button" class="btn" (click)="cancelMarkReceived()" [disabled]="markReceivedSubmitting">Cancel</button>
         <button type="button" class="btn btn-primary"
@@ -249,9 +234,6 @@
           data-testid="write-off-reason"
         ></textarea>
       </label>
-      @if (writeOffError) {
-        <div class="banner banner-error">{{ writeOffError }}</div>
-      }
       <div class="modal-actions">
         <button type="button" class="btn" (click)="cancelWriteOff()" [disabled]="writeOffSubmitting">Cancel</button>
         <button type="button" class="btn btn-danger"

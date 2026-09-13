@@ -13,6 +13,8 @@ import { SkeletonComponent } from '../../../../shared/components/skeleton/skelet
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { INSURANCE_LINES } from '../../../../core/models/insurance-lines';
 import { ActuarialBasisTablesService } from '../../../../core/services/actuarial-basis-tables.service';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface EditableRow extends TenantMorbidityBasisRow {
   editing?: boolean;
@@ -38,7 +40,6 @@ interface EditableRow extends TenantMorbidityBasisRow {
 export class MorbidityBasisTabComponent implements OnInit {
   rows: EditableRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
   pendingId: string | null = null;
 
@@ -58,6 +59,7 @@ export class MorbidityBasisTabComponent implements OnInit {
     private service: TenantMorbidityBasisService,
     private tenantService: TenantService,
     private basisTables: ActuarialBasisTablesService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -82,18 +84,17 @@ export class MorbidityBasisTabComponent implements OnInit {
   refresh(): void {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      this.errorMessage = 'No active tenant context';
+      this.toast.warning('No active tenant context');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.service.list(tenantId).subscribe({
       next: (rows) => {
         this.rows = rows.map(r => ({ ...r }));
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.message || 'Failed to load morbidity basis rows';
+        this.toast.error(extractErrorMessage(err, 'Failed to load morbidity basis rows'));
         this.loading = false;
       },
     });
@@ -123,11 +124,10 @@ export class MorbidityBasisTabComponent implements OnInit {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) return;
     if (!this.newRow.insuranceLine || !this.newRow.basisName || !this.newRow.morbidityMultiplier) {
-      this.errorMessage = 'Line, basis, and multiplier are required';
+      this.toast.warning('Line, basis, and multiplier are required');
       return;
     }
     this.adding = true;
-    this.errorMessage = null;
     this.service.add(tenantId, this.trimAddPayload(this.newRow)).subscribe({
       next: () => {
         this.adding = false;
@@ -139,7 +139,7 @@ export class MorbidityBasisTabComponent implements OnInit {
       },
       error: (err) => {
         this.adding = false;
-        this.errorMessage = err?.error?.detail || 'Failed to add morbidity basis row';
+        this.toast.error(extractErrorMessage(err, 'Failed to add morbidity basis row'));
       },
     });
   }
@@ -176,7 +176,7 @@ export class MorbidityBasisTabComponent implements OnInit {
         this.pendingId = null;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to update morbidity basis row';
+        this.toast.error(extractErrorMessage(err, 'Failed to update morbidity basis row'));
         this.pendingId = null;
       },
     });
@@ -193,7 +193,7 @@ export class MorbidityBasisTabComponent implements OnInit {
         this.pendingId = null;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to delete morbidity basis row';
+        this.toast.error(extractErrorMessage(err, 'Failed to delete morbidity basis row'));
         this.pendingId = null;
       },
     });

@@ -4,6 +4,7 @@ import { BenefitFormComponent } from './benefit-form.component';
 import { ContributionsService } from '../../../../core/services/contributions.service';
 import { BillingCatalogueService } from '../../../../core/services/billing-catalogue.service';
 import { TariffCategoriesService } from '../../../../core/services/tariff-categories.service';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
 
 /**
  * V063 — the benefit form's Categories multi-select is required (at
@@ -29,6 +30,7 @@ describe('BenefitFormComponent (V063 categories multi-select)', () => {
   let catalogue: jasmine.SpyObj<BillingCatalogueService>;
   let categoriesSvc: jasmine.SpyObj<TariffCategoriesService>;
   let router: jasmine.SpyObj<Router>;
+  let toast: jasmine.SpyObj<ToastService>;
   let route: StubActivatedRoute;
   let component: BenefitFormComponent;
 
@@ -52,6 +54,7 @@ describe('BenefitFormComponent (V063 categories multi-select)', () => {
     );
     router = jasmine.createSpyObj<Router>('Router', ['navigate']);
     router.navigate.and.returnValue(Promise.resolve(true) as any);
+    toast = jasmine.createSpyObj<ToastService>('ToastService', ['success', 'error', 'info', 'warning']);
     route = new StubActivatedRoute();
 
     contributions.getSchemeById.and.returnValue(of(scheme));
@@ -62,7 +65,7 @@ describe('BenefitFormComponent (V063 categories multi-select)', () => {
 
     component = new BenefitFormComponent(
       contributions, catalogue, categoriesSvc,
-      route as unknown as ActivatedRoute, router,
+      route as unknown as ActivatedRoute, router, toast,
     );
   });
 
@@ -76,7 +79,8 @@ describe('BenefitFormComponent (V063 categories multi-select)', () => {
 
     expect(contributions.createBenefit).not.toHaveBeenCalled();
     expect(contributions.updateBenefit).not.toHaveBeenCalled();
-    expect(component.errorMessage).toContain('at least one');
+    expect(toast.warning).toHaveBeenCalled();
+    expect(toast.warning.calls.mostRecent().args[0]).toContain('at least one');
   });
 
   it('submit_valid_callsCreateWithCategoryIdsInPayload', () => {

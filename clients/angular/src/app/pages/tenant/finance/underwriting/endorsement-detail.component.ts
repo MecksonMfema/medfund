@@ -8,6 +8,8 @@ import {
 } from '../../../../core/services/endorsement.service';
 import { NavigationService } from '../../../../core/services/navigation.service';
 import { PermissionService } from '../../../../core/security/permission.service';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 /**
  * Endorsement detail — full audit trail plus the same approve /
@@ -24,7 +26,6 @@ import { PermissionService } from '../../../../core/security/permission.service'
 })
 export class EndorsementDetailComponent implements OnInit {
   loading = false;
-  errorMessage: string | null = null;
   row: EndorsementResponse | null = null;
   actionInProgress = false;
   currentUserEmail = '';
@@ -32,13 +33,13 @@ export class EndorsementDetailComponent implements OnInit {
   voidOpen = false;
   voidReason = '';
   voidSubmitting = false;
-  voidError: string | null = null;
 
   constructor(
     private route: ActivatedRoute,
     private svc: EndorsementService,
     private navService: NavigationService,
     private permissionService: PermissionService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -61,12 +62,10 @@ export class EndorsementDetailComponent implements OnInit {
 
   load(id: string): void {
     this.loading = true;
-    this.errorMessage = null;
     this.svc.get(id).subscribe({
       next: row => { this.row = row; this.loading = false; },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load endorsement.';
+        this.toast.error(extractErrorMessage(err, 'Failed to load endorsement.'));
         this.row = null;
         this.loading = false;
       },
@@ -79,7 +78,7 @@ export class EndorsementDetailComponent implements OnInit {
     this.svc.approve(this.row.id).subscribe({
       next: row => { this.row = row; this.actionInProgress = false; },
       error: err => {
-        this.errorMessage = err?.error?.detail || 'Approve failed.';
+        this.toast.error(extractErrorMessage(err, 'Approve failed.'));
         this.actionInProgress = false;
       },
     });
@@ -91,7 +90,7 @@ export class EndorsementDetailComponent implements OnInit {
     this.svc.commit(this.row.id).subscribe({
       next: row => { this.row = row; this.actionInProgress = false; },
       error: err => {
-        this.errorMessage = err?.error?.detail || 'Commit failed.';
+        this.toast.error(extractErrorMessage(err, 'Commit failed.'));
         this.actionInProgress = false;
       },
     });
@@ -100,24 +99,21 @@ export class EndorsementDetailComponent implements OnInit {
   openVoid(): void {
     this.voidOpen = true;
     this.voidReason = '';
-    this.voidError = null;
   }
 
   cancelVoid(): void {
     this.voidOpen = false;
     this.voidReason = '';
-    this.voidError = null;
     this.voidSubmitting = false;
   }
 
   submitVoid(): void {
     if (!this.row) return;
     if (!this.voidReason.trim() || this.voidReason.trim().length < 5) {
-      this.voidError = 'Reason must be at least 5 characters.';
+      this.toast.warning('Reason must be at least 5 characters.');
       return;
     }
     this.voidSubmitting = true;
-    this.voidError = null;
     this.svc.void(this.row.id, { reason: this.voidReason.trim() }).subscribe({
       next: row => {
         this.row = row;
@@ -125,8 +121,7 @@ export class EndorsementDetailComponent implements OnInit {
         this.cancelVoid();
       },
       error: err => {
-        this.voidError = err?.error?.detail || err?.error?.title
-          || 'Void failed.';
+        this.toast.error(extractErrorMessage(err, 'Void failed.'));
         this.voidSubmitting = false;
       },
     });

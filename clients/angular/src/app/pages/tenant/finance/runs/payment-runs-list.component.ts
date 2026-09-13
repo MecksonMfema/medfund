@@ -11,6 +11,8 @@ import {
 } from '../../../../core/services/finance.service';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-payment-runs-list',
@@ -22,7 +24,6 @@ import { DataTableComponent, TableAction, TableColumn } from '../../../../shared
 export class PaymentRunsListComponent implements OnInit {
   rows: PaymentRun[] = [];
   loading = false;
-  errorMessage: string | null = null;
 
   // Route-driven preset (e.g. current-payment-run preset = draft).
   presetStatus: PaymentRunStatus | '' = '';
@@ -82,6 +83,7 @@ export class PaymentRunsListComponent implements OnInit {
     private finance: FinanceService,
     private route: ActivatedRoute,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -114,7 +116,7 @@ export class PaymentRunsListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load payment runs';
+        this.toast.error(extractErrorMessage(err, 'Failed to load payment runs'));
         this.rows = [];
         this.totalCount = 0;
         this.totalPages = 1;

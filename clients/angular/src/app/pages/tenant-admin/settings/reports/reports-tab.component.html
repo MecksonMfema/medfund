@@ -36,10 +36,6 @@
       }
     </div>
   } @else {
-    @if (errorMessage) {
-      <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-    }
-
     <div class="reports-grid">
       @for (group of groups; track group.family) {
         <div class="reports-family-card">

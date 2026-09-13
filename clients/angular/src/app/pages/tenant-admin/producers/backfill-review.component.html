@@ -16,9 +16,6 @@
   </button>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
 @if (successMessage) {
   <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
 }

@@ -10,8 +10,11 @@ import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/servi
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import { SkeletonComponent } from '../../../../../shared/components/skeleton/skeleton.component';
 import { LineChartComponent } from '../../../../../shared/components/charts/line-chart/line-chart.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 function isoDate(d: Date): string {
   const y = d.getFullYear();
@@ -39,14 +42,21 @@ function downloadBlob(blob: Blob, filename: string): void {
 @Component({
   selector: 'app-cash-flow-forecast',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, LineChartComponent, ReportBackButtonComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    IconComponent,
+    SelectComponent,
+    SkeletonComponent,
+    LineChartComponent,
+    ReportBackButtonComponent,
+  ],
   templateUrl: './cash-flow-forecast.component.html',
   styleUrls: ['../receipts/receipts-report.component.scss', './cash-flow-forecast.component.scss'],
 })
 export class CashFlowForecastComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<CashFlowForecastResponse> | null = null;
   currencies: TenantCurrencyConfig[] = [];
@@ -64,6 +74,7 @@ export class CashFlowForecastComponent implements OnInit {
     private finance: FinanceService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -96,18 +107,18 @@ export class CashFlowForecastComponent implements OnInit {
 
   fetch(): void {
     if (!this.asOf) {
-      this.errorMessage = 'Choose an as-of date.';
+      this.toast.warning('Choose an as-of date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.finance.getCashFlowForecast(this.asOf, this.rollingWeeks, this.reportingCurrency || undefined).subscribe({
       next: env => {
         this.envelope = env;
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load cash-flow forecast';
+        this.toast.error(extractErrorMessage(err, 'Failed to load cash-flow forecast'));
         this.envelope = null;
         this.loading = false;
       },
@@ -123,10 +134,16 @@ export class CashFlowForecastComponent implements OnInit {
         this.exporting = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to download workbook';
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<CashFlowForecastResponse>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Cash-flow forecast'), 8000);
   }
 
   onFilterChange(): void { this.fetch(); }

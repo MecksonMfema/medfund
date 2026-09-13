@@ -65,7 +65,7 @@ describe('SchemeFormComponent', () => {
     currency = jasmine.createSpyObj<CurrencyService>('CurrencyService', ['listForTenant']);
     currency.listForTenant.and.returnValue(of(opts.currencies ?? [makeCurrencyConfig()]));
 
-    toast = jasmine.createSpyObj<ToastService>('ToastService', ['success', 'error']);
+    toast = jasmine.createSpyObj<ToastService>('ToastService', ['success', 'error', 'info', 'warning']);
 
     TestBed.configureTestingModule({
       imports: [SchemeFormComponent],
@@ -96,7 +96,7 @@ describe('SchemeFormComponent', () => {
     tenantService.clearTenant();
     fixture.detectChanges(); // triggers ngOnInit
 
-    expect(component.errorMessage).toBe('No active tenant context');
+    expect(toast.error).toHaveBeenCalledWith('No active tenant context');
     expect(currency.listForTenant).not.toHaveBeenCalled();
   });
 
@@ -180,7 +180,7 @@ describe('SchemeFormComponent', () => {
 
     component.submit();
 
-    expect(component.errorMessage).toBe('Name is required');
+    expect(toast.warning).toHaveBeenCalledWith('Name is required');
     expect(contributions.createScheme).not.toHaveBeenCalled();
   });
 
@@ -192,7 +192,7 @@ describe('SchemeFormComponent', () => {
 
     component.submit();
 
-    expect(component.errorMessage).toBe('Pick a currency for this scheme');
+    expect(toast.warning).toHaveBeenCalledWith('Pick a currency for this scheme');
     expect(contributions.createScheme).not.toHaveBeenCalled();
   });
 

@@ -9,26 +9,36 @@ import {
 import { ReportResponse } from '../../../../../core/services/report-envelope';
 import { INSURANCE_LINES } from '../../../../../core/models/insurance-lines';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
+import { SkeletonComponent } from '../../../../../shared/components/skeleton/skeleton.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
- * Phase 13 §C Phase 10 — PROVIDER_NETWORK_UTILIZATION report page.
- * Two-level layout: per-tier summary table + per-provider detail table.
- * Envelope warnings surface peer-down (user-service unreachable) and
- * missing FX rates.
+ * PROVIDER_NETWORK_UTILIZATION report page. Two-level layout: per-tier
+ * summary table + per-provider detail table. Envelope warnings surface
+ * peer-down (user-service unreachable) and missing FX rates via the
+ * shared toast pipeline.
  */
 @Component({
   selector: 'app-provider-network-utilization-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    IconComponent,
+    SkeletonComponent,
+    SelectComponent,
+    ReportBackButtonComponent,
+  ],
   templateUrl: './provider-network-utilization.component.html',
   styleUrl: '../receipts/receipts-report.component.scss',
 })
 export class ProviderNetworkUtilizationReportComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<ProviderUtilizationResult> | null = null;
 
@@ -37,7 +47,10 @@ export class ProviderNetworkUtilizationReportComponent implements OnInit {
   insuranceLine = '';
   networkTier   = '';
 
-  constructor(private reportSvc: ProviderNetworkUtilizationReportService) {}
+  constructor(
+    private reportSvc: ProviderNetworkUtilizationReportService,
+    private toast: ToastService,
+  ) {}
 
   ngOnInit(): void { this.fetch(); }
 
@@ -59,16 +72,18 @@ export class ProviderNetworkUtilizationReportComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.reportSvc.get(this.buildParams()).subscribe({
-      next: env => { this.envelope = env; this.loading = false; },
+      next: env => {
+        this.envelope = env;
+        this.loading = false;
+        this.surfaceWarnings(env);
+      },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load provider utilization report';
+        this.toast.error(extractErrorMessage(err, 'Failed to load provider utilization report'));
         this.envelope = null;
         this.loading = false;
       },
@@ -83,17 +98,21 @@ export class ProviderNetworkUtilizationReportComponent implements OnInit {
         this.exporting = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to export provider utilization report';
+        this.toast.error(extractErrorMessage(err, 'Failed to export provider utilization report'));
         this.exporting = false;
       },
     });
   }
 
+  private surfaceWarnings(env: ReportResponse<ProviderUtilizationResult>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Provider network utilization'), 8000);
+  }
+
   onFilterChange(): void { this.fetch(); }
 
   get detail() { return this.envelope?.data?.detail ?? []; }
-  get warnings() { return this.envelope?.warnings ?? []; }
   summaryEntries(): { tier: string; providerCount: number; claimCount: number;
                        totalPaid: string; denialCount: number; uniqueMembers: number }[] {
     const s = this.envelope?.data?.summary ?? {};

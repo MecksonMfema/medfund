@@ -10,6 +10,8 @@ import {
 import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { PermissionService } from '../../../../core/security/permission.service';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-advance-payments-list',
@@ -21,8 +23,6 @@ import { PermissionService } from '../../../../core/security/permission.service'
 export class AdvancePaymentsListComponent implements OnInit {
   rows: AdvancePaymentRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
-  banner: { kind: 'success' | 'info' | 'error'; text: string } | null = null;
 
   // Server-side pagination state.
   page = 1;
@@ -76,17 +76,19 @@ export class AdvancePaymentsListComponent implements OnInit {
     private finance: FinanceService,
     private router: Router,
     private permissions: PermissionService,
+    private toast: ToastService,
   ) {}
 
   get canManage(): boolean { return this.permissions.has('finance:manage_advance_payments'); }
 
   ngOnInit(): void {
-    // Pick up any banner passed via router state (from the form's redirect).
+    // Pick up any post-redirect toast from the form.
     const nav = this.router.getCurrentNavigation();
     const state = (nav?.extras?.state ?? window.history.state) as
       | { advanceBanner?: { kind: 'success' | 'info' | 'error'; text: string } }
       | null;
-    if (state?.advanceBanner) this.banner = state.advanceBanner;
+    const carry = state?.advanceBanner;
+    if (carry) this.toast[carry.kind](carry.text);
     this.fetchPage();
   }
 
@@ -106,7 +108,7 @@ export class AdvancePaymentsListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load advance payments';
+        this.toast.error(extractErrorMessage(err, 'Failed to load advance payments'));
         this.rows = [];
         this.totalCount = 0;
         this.totalPages = 1;
@@ -119,11 +121,11 @@ export class AdvancePaymentsListComponent implements OnInit {
     if (!confirm(`Approve advance payment ${row.reference || row.id.substring(0, 8)}?`)) return;
     this.finance.approveAdvancePayment(row.id).subscribe({
       next: (saved) => {
-        this.banner = { kind: 'success', text: `Advance approved: status is now ${saved.status}` };
+        this.toast.success(`Advance approved: status is now ${saved.status}`);
         this.fetchPage();
       },
       error: (err) => {
-        this.banner = { kind: 'error', text: err?.error?.detail || err?.error?.title || 'Failed to approve' };
+        this.toast.error(extractErrorMessage(err, 'Failed to approve'));
       },
     });
   }
@@ -133,14 +135,13 @@ export class AdvancePaymentsListComponent implements OnInit {
     if (!reason || !reason.trim()) return;
     this.finance.reverseAdvancePayment(row.id, { reason: reason.trim() }).subscribe({
       next: (compensating) => {
-        this.banner = {
-          kind: 'success',
-          text: `Reversal posted: compensating entry ${compensating.reference || compensating.id.substring(0, 8)}`,
-        };
+        this.toast.success(
+          `Reversal posted: compensating entry ${compensating.reference || compensating.id.substring(0, 8)}`,
+        );
         this.fetchPage();
       },
       error: (err) => {
-        this.banner = { kind: 'error', text: err?.error?.detail || err?.error?.title || 'Failed to reverse' };
+        this.toast.error(extractErrorMessage(err, 'Failed to reverse'));
       },
     });
   }

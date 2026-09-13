@@ -12,6 +12,8 @@ import {
   UpdateTenantEndorsementConfigPayload,
 } from '../../../../core/services/tenant-endorsement-config.service';
 import { PermissionService } from '../../../../core/security/permission.service';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 /**
  * Toggle + threshold form for the endorsement four-eyes gate (Phase 12
@@ -31,7 +33,6 @@ export class EndorsementConfigComponent implements OnInit {
   loading = false;
   saving = false;
   saved = false;
-  errorMessage: string | null = null;
 
   config: TenantEndorsementConfig | null = null;
 
@@ -46,6 +47,7 @@ export class EndorsementConfigComponent implements OnInit {
     private tenantService: TenantService,
     private currencyService: CurrencyService,
     private permissionService: PermissionService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -60,11 +62,10 @@ export class EndorsementConfigComponent implements OnInit {
   refresh(): void {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      this.errorMessage = 'No active tenant context';
+      this.toast.warning('No active tenant context');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.configService.get(tenantId).subscribe({
       next: config => {
         this.config = config;
@@ -72,7 +73,7 @@ export class EndorsementConfigComponent implements OnInit {
         this.loading = false;
       },
       error: err => {
-        this.errorMessage = extractError(err, 'Failed to load endorsement configuration');
+        this.toast.error(extractErrorMessage(err, 'Failed to load endorsement configuration'));
         this.loading = false;
       },
     });
@@ -82,26 +83,25 @@ export class EndorsementConfigComponent implements OnInit {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) return;
     if (!this.canConfigure()) {
-      this.errorMessage = 'You do not have permission to configure endorsements';
+      this.toast.warning('You do not have permission to configure endorsements');
       return;
     }
     // When enabled, both threshold + currency are required. When
-    // disabled, the server nulls both back out — see the
+    // disabled, the server nulls both back out - see the
     // TenantEndorsementConfigService.upsert_disabledClearsThreshold
     // Deviation in the plan.
     if (this.enabled) {
       if (this.fourEyesThresholdAmount == null || this.fourEyesThresholdAmount < 0) {
-        this.errorMessage = 'Threshold amount must be zero or greater.';
+        this.toast.warning('Threshold amount must be zero or greater.');
         return;
       }
       if (!this.thresholdCurrency || !/^[A-Z]{3}$/.test(this.thresholdCurrency)) {
-        this.errorMessage = 'Threshold currency is required (ISO-4217 3-letter code).';
+        this.toast.warning('Threshold currency is required (ISO-4217 3-letter code).');
         return;
       }
     }
     this.saving = true;
     this.saved = false;
-    this.errorMessage = null;
 
     const payload: UpdateTenantEndorsementConfigPayload = {
       enabled: this.enabled,
@@ -118,7 +118,7 @@ export class EndorsementConfigComponent implements OnInit {
         setTimeout(() => (this.saved = false), 3000);
       },
       error: err => {
-        this.errorMessage = extractError(err, 'Failed to save endorsement configuration');
+        this.toast.error(extractErrorMessage(err, 'Failed to save endorsement configuration'));
         this.saving = false;
       },
     });
@@ -151,13 +151,4 @@ export class EndorsementConfigComponent implements OnInit {
       : null;
     this.thresholdCurrency = config.thresholdCurrency ?? '';
   }
-}
-
-function extractError(err: unknown, fallback: string): string {
-  if (err && typeof err === 'object' && 'error' in err) {
-    const e = (err as { error?: { message?: string; detail?: string } }).error;
-    if (e?.message) return e.message;
-    if (e?.detail) return e.detail;
-  }
-  return fallback;
 }

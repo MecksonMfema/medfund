@@ -6,6 +6,7 @@ import { IconComponent } from '../../../../../shared/components/icon/icon.compon
 import { LineChartComponent }
   from '../../../../../shared/components/charts/line-chart/line-chart.component';
 import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 import { ReportResponse } from '../../../../../core/services/report-envelope';
 import {
   AiCalibrationData,
@@ -43,7 +44,6 @@ export class FraudReportComponent implements OnInit {
 
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   periodStart = defaultReportPeriodStart();
   periodEnd = defaultReportPeriodEnd();
@@ -84,10 +84,10 @@ export class FraudReportComponent implements OnInit {
         this.calibration  = bundle.calibration;
         this.productivity = bundle.productivity;
         this.loading = false;
+        this.surfaceWarnings();
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load fraud report';
+        this.toast.error(extractErrorMessage(err, 'Failed to load fraud report'));
         this.loading = false;
       },
     });
@@ -103,10 +103,17 @@ export class FraudReportComponent implements OnInit {
       },
       error: (err) => {
         this.exporting = false;
-        this.toast.error(err?.error?.detail || err?.error?.title
-          || 'Failed to export XLSX');
+        this.toast.error(extractErrorMessage(err, 'Failed to export XLSX'));
       },
     });
+  }
+
+  private surfaceWarnings(): void {
+    const envWarnings = this.envelope?.warnings ?? [];
+    const calWarnings = this.calibration?.warnings ?? [];
+    const combined = [...envWarnings, ...calWarnings];
+    if (combined.length === 0) return;
+    this.toast.warning(composeWarningsToast(combined, 'Fraud / SIU report'), 8000);
   }
 
   perCurrencyEntries(): { currency: string; amount: string }[] {

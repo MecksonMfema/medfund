@@ -11,6 +11,8 @@ import { TenantService } from '../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface EditableRow extends TenantMarketDataConfigRow {
   pending?: boolean;
@@ -34,7 +36,6 @@ interface EditableRow extends TenantMarketDataConfigRow {
 export class MarketDataTabComponent implements OnInit {
   rows: EditableRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   addingOpen = false;
@@ -56,6 +57,7 @@ export class MarketDataTabComponent implements OnInit {
   constructor(
     private service: TenantMarketDataConfigService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -65,18 +67,17 @@ export class MarketDataTabComponent implements OnInit {
   refresh(): void {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      this.errorMessage = 'No active tenant context';
+      this.toast.warning('No active tenant context');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.service.list(tenantId).subscribe({
       next: (rows) => {
         this.rows = rows.map(r => ({ ...r }));
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.message || 'Failed to load market-data configs';
+        this.toast.error(extractErrorMessage(err, 'Failed to load market-data configs'));
         this.loading = false;
       },
     });
@@ -106,11 +107,10 @@ export class MarketDataTabComponent implements OnInit {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) return;
     if (!this.newRow.currency || !this.newRow.source) {
-      this.errorMessage = 'Currency and source are required';
+      this.toast.warning('Currency and source are required');
       return;
     }
     this.adding = true;
-    this.errorMessage = null;
     const body: AddTenantMarketDataConfig = {
       currency: (this.newRow.currency ?? '').trim().toUpperCase(),
       source: this.newRow.source,
@@ -127,7 +127,7 @@ export class MarketDataTabComponent implements OnInit {
       },
       error: (err) => {
         this.adding = false;
-        this.errorMessage = err?.error?.detail || 'Failed to enrol market-data config';
+        this.toast.error(extractErrorMessage(err, 'Failed to enrol market-data config'));
       },
     });
   }
@@ -142,7 +142,7 @@ export class MarketDataTabComponent implements OnInit {
         Object.assign(row, updated, { pending: false });
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to toggle auto-fetch';
+        this.toast.error(extractErrorMessage(err, 'Failed to toggle auto-fetch'));
         row.pending = false;
       },
     });
@@ -158,7 +158,7 @@ export class MarketDataTabComponent implements OnInit {
         this.rows = this.rows.filter(r => r.id !== row.id);
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to delete market-data config';
+        this.toast.error(extractErrorMessage(err, 'Failed to delete market-data config'));
         row.pending = false;
       },
     });

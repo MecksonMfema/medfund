@@ -14,6 +14,8 @@ import { TenantService } from '../../../../core/services/tenant.service';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 /**
  * V078 member cost-share liabilities list (Phase 4 copayments). Every row
@@ -33,7 +35,6 @@ import { IconComponent } from '../../../../shared/components/icon/icon.component
 export class MemberLiabilitiesListComponent implements OnInit, OnDestroy {
   rows: MemberLiabilityRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
 
   currencies: TenantCurrencyConfig[] = [];
 
@@ -94,6 +95,7 @@ export class MemberLiabilitiesListComponent implements OnInit, OnDestroy {
     private currencyService: CurrencyService,
     private tenantService: TenantService,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -122,7 +124,6 @@ export class MemberLiabilitiesListComponent implements OnInit, OnDestroy {
 
   fetchPage(): void {
     this.loading = true;
-    this.errorMessage = null;
     this.service.listPaged({
       status: this.statusFilter || undefined,
       currencyCode: this.currencyFilter || undefined,
@@ -139,7 +140,7 @@ export class MemberLiabilitiesListComponent implements OnInit, OnDestroy {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load member liabilities';
+        this.toast.error(extractErrorMessage(err, 'Failed to load member liabilities'));
         this.rows = [];
         this.totalCount = 0;
         this.totalPages = 1;

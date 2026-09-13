@@ -223,7 +223,7 @@ Live under `clients/angular/src/app/shared/components/`. Prefer these over rolli
 | `<app-skeleton>` | Loading placeholder | `skeleton/` |
 | `<app-coming-soon>` | Route stub for unbuilt features | `coming-soon/` |
 | `<app-line-chart>` / `<app-sparkline>` / `<app-bar-chart>` | ngx-charts wrappers | `charts/` |
-| `<app-toast>` | Application-wide notifications | `toast/` |
+| `<app-toast>` | Application-wide notifications: default surface for request failures and envelope warnings. See "When to use a toast vs an inline banner" below. | `toast/` |
 
 ### `<app-stat-card>` sparkline slot
 
@@ -267,9 +267,13 @@ The shape every report / list page adopts:
   </div>
 </header>
 
-<!-- 2. Optional banner -------------------------------------------- -->
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
+<!-- 2. Optional inline banner (only for persistent form-state) ----- -->
+<!-- Request failures and envelope warnings go to a toast: inject the -->
+<!-- ToastService and call toast.error(extractErrorMessage(err, 'Failed to ...')). -->
+<!-- The inline banner is reserved for messages that must remain visible -->
+<!-- while the user interacts with a form (e.g. wizard guardrails). -->
+@if (formGuardMessage) {
+  <div class="banner banner-warning">{{ formGuardMessage }}</div>
 }
 
 <!-- 3. Filter toolbar --------------------------------------------- -->
@@ -289,6 +293,38 @@ The shape every report / list page adopts:
 <!-- 5. Body: either a shared table or a hand-rolled rate-table ----- -->
 <app-data-table [data]="rows" [columns]="columns" [loading]="loading" />
 ```
+
+## When to use a toast vs an inline banner
+
+**Toast (default)**: inject `ToastService` and call `error / warning / success / info(message, durationMs?)`.
+
+- Every HTTP failure in a `subscribe({ error: ... })` handler.
+- Every envelope-warnings list (`envelope.warnings[]`). Aggregate with
+  `composeWarningsToast(warnings, 'Subject')` from `core/util/http-errors.ts`: one toast, not one per line.
+- Every client-side filter guard ("Choose a date.").
+- Every action-outcome confirmation ("Report exported.").
+
+Extract backend messages with `extractErrorMessage(err, 'Fallback ...')` from the same helper. Never
+inline the `err?.error?.detail || err?.error?.title || '...'` expression.
+
+```typescript
+import { extractErrorMessage } from '../../../core/util/http-errors';
+import { ToastService } from '../../../shared/components/toast/toast.service';
+
+constructor(private toast: ToastService, /* ... */) {}
+
+save(): void {
+  this.svc.save(this.form.value).subscribe({
+    next: () => this.toast.success('Saved'),
+    error: err => this.toast.error(extractErrorMessage(err, 'Save failed')),
+  });
+}
+```
+
+**Inline `.banner-warning` / `.banner-error` (exception)**: persistent form-state that must stay
+visible while the user is filling the form (wizard guardrails, member-form schema-change warnings).
+Rule of thumb: if the message auto-dismissing after ~6s would confuse the user, use a banner;
+otherwise use a toast. Never both for the same message.
 
 ## Anti-patterns
 

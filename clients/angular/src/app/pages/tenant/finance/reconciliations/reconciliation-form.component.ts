@@ -6,6 +6,8 @@ import { CurrencyService, Currency } from '../../../../core/services/currency.se
 import { FinanceService } from '../../../../core/services/finance.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-reconciliation-form',
@@ -17,7 +19,6 @@ import { SelectComponent, SelectOption } from '../../../../shared/components/sel
 export class ReconciliationFormComponent implements OnInit {
   currencies: Currency[] = [];
   busy = false;
-  errorMessage: string | null = null;
 
   referenceNumber = '';
   statementAmount = '';
@@ -29,6 +30,7 @@ export class ReconciliationFormComponent implements OnInit {
     private currencyService: CurrencyService,
     private finance: FinanceService,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   get currencyOptions(): SelectOption[] {
@@ -47,7 +49,7 @@ export class ReconciliationFormComponent implements OnInit {
 
   submit(): void {
     if (!this.referenceNumber.trim() || !this.statementAmount || !this.currencyCode || !this.statementDate) {
-      this.errorMessage = 'Reference, amount, currency and statement date are all required';
+      this.toast.warning('Reference, amount, currency and statement date are all required');
       return;
     }
     this.busy = true;
@@ -63,7 +65,7 @@ export class ReconciliationFormComponent implements OnInit {
         this.router.navigate(['/tenant/finance/reconciliations']);
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to create reconciliation';
+        this.toast.error(extractErrorMessage(err, 'Failed to create reconciliation'));
         this.busy = false;
       },
     });

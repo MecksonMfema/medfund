@@ -4,11 +4,18 @@ import { ApiService } from './api.service';
 import { ReportResponse } from './report-envelope';
 
 /**
- * Phase 13 §C Phase 10 — GROUP_CENSUS report data layer. One row per
- * group at {@code asOf} with per-status member counts.
+ * GROUP_CENSUS report data layer. One row per <em>holder</em>: either a
+ * corporate group (`holderType === 'GROUP'`, `groupId` is a `groups.id`)
+ * or an ungrouped individual policyholder (`holderType === 'INDIVIDUAL'`,
+ * `groupId` is the principal member's `members.id`).
+ *
+ * Principal status counts come from the members table; dependant status
+ * counts come from the dependants table. `coveredLives` = `totalMembers`
+ * + `totalDependants`.
  */
 export interface GroupCensusRow {
   groupId: string;
+  holderType: 'GROUP' | 'INDIVIDUAL';
   groupName: string;
   registrationNumber: string | null;
   contactPerson: string | null;
@@ -18,6 +25,12 @@ export interface GroupCensusRow {
   lapsedMembers: number;
   terminatedMembers: number;
   totalMembers: number;
+  activeDependants: number;
+  suspendedDependants: number;
+  lapsedDependants: number;
+  terminatedDependants: number;
+  totalDependants: number;
+  coveredLives: number;
 }
 
 export interface GroupCensusResult {

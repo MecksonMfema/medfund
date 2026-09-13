@@ -10,6 +10,8 @@ import {
 } from '../../../../core/services/groups.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { LiaisonPickerComponent, LiaisonSelection } from '../../../../shared/components/liaison-picker/liaison-picker.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-group-form',
@@ -22,7 +24,6 @@ export class GroupFormComponent implements OnInit {
   groupId: string | null = null;
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
   /**
    * Server-issued registration number surfaced read-only on the edit
    * form. On the create form this stays null until save; the server
@@ -61,6 +62,7 @@ export class GroupFormComponent implements OnInit {
     private groups: GroupsService,
     private route: ActivatedRoute,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -80,7 +82,7 @@ export class GroupFormComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load group';
+        this.toast.error(extractErrorMessage(err, 'Failed to load group'));
         this.loading = false;
       },
     });
@@ -88,15 +90,15 @@ export class GroupFormComponent implements OnInit {
 
   submit(): void {
     if (!this.form.name.trim()) {
-      this.errorMessage = 'Name is required';
+      this.toast.warning('Name is required');
       return;
     }
-    // Either-or rule: the group needs at least one route for statements —
-    // a liaison user OR a contact email. Both is fine; neither is not.
+    // Either-or rule: the group needs at least one route for statements
+    // (a liaison user OR a contact email). Both is fine; neither is not.
     const hasLiaison = !!(this.form.liaisonKind && this.form.liaisonKind !== 'CLEAR' && this.form.liaisonUserId);
     const hasEmail = !!this.form.email?.trim();
     if (!this.groupId && !hasLiaison && !hasEmail) {
-      this.errorMessage = 'Add either a liaison or a contact email: the group needs at least one route for contribution statements.';
+      this.toast.warning('Add either a liaison or a contact email: the group needs at least one route for contribution statements.');
       return;
     }
     const payload: UpsertGroupPayload = {
@@ -110,7 +112,6 @@ export class GroupFormComponent implements OnInit {
       liaisonUserId: this.form.liaisonUserId ?? undefined,
     };
     this.saving = true;
-    this.errorMessage = null;
     const stream = this.groupId
       ? this.groups.update(this.groupId, payload)
       : this.groups.create(payload);
@@ -121,7 +122,7 @@ export class GroupFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Save failed';
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }

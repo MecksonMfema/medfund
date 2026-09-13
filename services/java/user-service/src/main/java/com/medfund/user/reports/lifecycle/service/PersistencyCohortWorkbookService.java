@@ -12,7 +12,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 /**
- * Phase 13 §C Phase 8 workbook renderer for PERSISTENCY_COHORT — one
+ * Phase 13 §C Phase 8 workbook renderer for PERSISTENCY_COHORT: one
  * detail sheet with a row per (cohort_month, line, checkpoint), plus a
  * freshness warning stamped into the header metadata when the matview
  * is stale.

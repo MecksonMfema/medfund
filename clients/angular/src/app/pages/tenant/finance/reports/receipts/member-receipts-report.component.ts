@@ -17,6 +17,8 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Per-member receipts aggregate — paginated + searchable. Covers
@@ -34,7 +36,6 @@ import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/repo
 export class MemberReceiptsReportComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   page: FinancePageResponse<ReceiptsSummaryRow> = emptyPage();
   envelope: ReportResponse<FinancePageResponse<ReceiptsSummaryRow>> | null = null;
@@ -76,6 +77,7 @@ export class MemberReceiptsReportComponent implements OnInit {
     private currencyService: CurrencyService,
     private tenantService: TenantService,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -112,19 +114,19 @@ export class MemberReceiptsReportComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.finance.getMemberReceiptsReport(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.page = env.data ?? emptyPage();
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load receipts report';
+        this.toast.error(extractErrorMessage(err, 'Failed to load receipts report'));
         this.page = emptyPage();
         this.envelope = null;
         this.loading = false;
@@ -141,10 +143,16 @@ export class MemberReceiptsReportComponent implements OnInit {
         this.exporting = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to download workbook';
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<FinancePageResponse<ReceiptsSummaryRow>>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Receipts report: per member'), 8000);
   }
 
   onRowClick(row: ReceiptsSummaryRow): void {

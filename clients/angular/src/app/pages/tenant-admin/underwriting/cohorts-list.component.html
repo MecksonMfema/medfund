@@ -16,9 +16,6 @@
   </div>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
 @if (successMessage) {
   <div class="banner banner-success" (click)="successMessage = null">{{ successMessage }}</div>
 }
@@ -148,10 +145,6 @@
           </button>
         </div>
 
-        @if (lossError) {
-          <div class="banner banner-error" (click)="lossError = null">{{ lossError }}</div>
-        }
-
         @if (lossFormOpen) {
           <form (ngSubmit)="saveMovement()" class="card form-grid" style="margin-bottom: 16px;">
             <label class="field">
@@ -237,9 +230,6 @@
         <button class="btn btn-sm btn-default" (click)="closeHistory()">Close</button>
       </header>
       <div class="modal-body">
-        @if (historyError) {
-          <div class="banner banner-error">{{ historyError }}</div>
-        }
         @if (historyLoading) {
           <p>Loading history…</p>
         } @else if (historyRows.length === 0) {

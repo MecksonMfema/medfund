@@ -5,10 +5,6 @@
   </div>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 @if (!presetStatus) {
   <div class="filter-strip">
     <label class="field">

@@ -14,6 +14,8 @@ import { IconComponent } from '../../../../shared/components/icon/icon.component
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { DataTableComponent, TableColumn } from '../../../../shared/components/data-table/data-table.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-tariff-codes-list',
@@ -46,7 +48,6 @@ export class TariffCodesListComponent implements OnInit {
 
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   // Inline-add form state.
   showForm = false;
@@ -83,22 +84,23 @@ export class TariffCodesListComponent implements OnInit {
 
   constructor(private config: ClaimsConfigService,
               private categoriesService: TariffCategoriesService,
-              private route: ActivatedRoute) {}
+              private route: ActivatedRoute,
+              private toast: ToastService) {}
 
   ngOnInit(): void {
     this.scheduleId = this.route.snapshot.paramMap.get('scheduleId');
     if (!this.scheduleId) return;
     this.draft.scheduleId = this.scheduleId;
 
-    // Load schedule metadata once — 404s land in a clearer message than
-    // the generic "Failed to load tariff codes" banner.
+    // Load schedule metadata once: 404s land in a clearer message than
+    // the generic "Failed to load tariff codes" toast.
     this.config.getSchedule(this.scheduleId).subscribe({
       next: (s) => { this.schedule = s; },
       error: (err) => {
         if (err?.status === 404) {
-          this.errorMessage = 'This tariff schedule no longer exists. Head back to the schedules list to pick another.';
+          this.toast.error('This tariff schedule no longer exists. Head back to the schedules list to pick another.');
         } else {
-          this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load tariff schedule';
+          this.toast.error(extractErrorMessage(err, 'Failed to load tariff schedule'));
         }
       },
     });
@@ -125,7 +127,7 @@ export class TariffCodesListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load tariff codes';
+        this.toast.error(extractErrorMessage(err, 'Failed to load tariff codes'));
         this.rows = [];
         this.totalCount = 0;
         this.totalPages = 1;
@@ -163,8 +165,8 @@ export class TariffCodesListComponent implements OnInit {
   }
 
   /** Lazy-loads the categories catalogue the first time the add form
-   *  opens. Failure is non-fatal — the dropdown just stays empty and
-   *  the operator sees an inline error. Codes list remains usable. */
+   *  opens. Failure is non-fatal: the dropdown just stays empty and
+   *  the operator sees a toast. Codes list remains usable. */
   private ensureCategoriesLoaded(): void {
     if (this.categoriesLoaded) return;
     this.categoriesService.list(true).subscribe({
@@ -177,22 +179,21 @@ export class TariffCodesListComponent implements OnInit {
         this.categoriesLoaded = true;
       },
       error: () => {
-        this.errorMessage = 'Categories catalogue is unavailable: code creation is disabled until it comes back.';
+        this.toast.error('Categories catalogue is unavailable: code creation is disabled until it comes back.');
       },
     });
   }
 
   submitDraft(): void {
     if (!this.draft.code.trim() || !this.draft.description.trim() || !this.draft.unitPrice) {
-      this.errorMessage = 'Code, description and unit price are required';
+      this.toast.warning('Code, description and unit price are required');
       return;
     }
     if (!this.draft.categoryId) {
-      this.errorMessage = 'Category is required';
+      this.toast.warning('Category is required');
       return;
     }
     this.saving = true;
-    this.errorMessage = null;
     this.config.createCode({
       scheduleId: this.scheduleId!,
       code: this.draft.code.trim().toUpperCase(),
@@ -212,7 +213,7 @@ export class TariffCodesListComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Save failed';
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }

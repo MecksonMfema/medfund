@@ -17,6 +17,8 @@ import {
   VariableFeeScheduleRow,
 } from '../../../core/services/unit-linked-fund.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
+import { ToastService } from '../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../core/util/http-errors';
 
 type DetailTab = 'nav' | 'fees' | 'ledger';
 
@@ -43,7 +45,6 @@ export class FundsListComponent implements OnInit {
   rows: UnitLinkedFundRow[] = [];
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   showForm = false;
@@ -84,7 +85,7 @@ export class FundsListComponent implements OnInit {
     'PURCHASE', 'SALE', 'ROLLOVER', 'FEE_DEDUCTION', 'FUND_SWITCH_IN', 'FUND_SWITCH_OUT',
   ];
 
-  constructor(private svc: UnitLinkedFundService) {}
+  constructor(private svc: UnitLinkedFundService, private toast: ToastService) {}
 
   ngOnInit(): void { this.load(); }
 
@@ -93,7 +94,7 @@ export class FundsListComponent implements OnInit {
     this.svc.listFunds().subscribe({
       next: (rows) => { this.rows = rows; this.loading = false; },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load funds';
+        this.toast.error(extractErrorMessage(err, 'Failed to load funds'));
         this.rows = [];
         this.loading = false;
       },
@@ -118,11 +119,10 @@ export class FundsListComponent implements OnInit {
 
   save(): void {
     if (!this.draft.name.trim() || !this.draft.currency.trim()) {
-      this.errorMessage = 'Name and currency are required';
+      this.toast.warning('Name and currency are required');
       return;
     }
     this.saving = true;
-    this.errorMessage = null;
     this.successMessage = null;
 
     if (this.draft.id) {
@@ -153,7 +153,7 @@ export class FundsListComponent implements OnInit {
     this.svc.deleteFund(row.id).subscribe({
       next: () => { this.successMessage = 'Fund deleted'; this.load(); },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Delete failed';
+        this.toast.error(extractErrorMessage(err, 'Delete failed'));
       },
     });
   }
@@ -207,7 +207,7 @@ export class FundsListComponent implements OnInit {
   submitNav(): void {
     if (!this.expandedFundId) return;
     if (!this.navDraft.valuationDate || !this.navDraft.navPerUnit) {
-      this.errorMessage = 'Valuation date and NAV per unit are required';
+      this.toast.warning('Valuation date and NAV per unit are required');
       return;
     }
     this.saving = true;
@@ -247,7 +247,7 @@ export class FundsListComponent implements OnInit {
   submitFee(): void {
     if (!this.expandedFundId) return;
     if (!this.feeDraft.effectiveFrom || !this.feeDraft.feePercentage) {
-      this.errorMessage = 'Effective from and fee percentage are required';
+      this.toast.warning('Effective from and fee percentage are required');
       return;
     }
     this.saving = true;
@@ -278,7 +278,7 @@ export class FundsListComponent implements OnInit {
     this.svc.deleteVariableFee(row.id).subscribe({
       next: () => { this.successMessage = 'Fee schedule deleted'; this.loadTab(); },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Delete failed';
+        this.toast.error(extractErrorMessage(err, 'Delete failed'));
       },
     });
   }
@@ -300,7 +300,7 @@ export class FundsListComponent implements OnInit {
   submitLedger(): void {
     if (!this.expandedFundId) return;
     if (!this.ledgerDraft.policyId || !this.ledgerDraft.units || !this.ledgerDraft.price) {
-      this.errorMessage = 'Policy ID, units and price are required';
+      this.toast.warning('Policy ID, units and price are required');
       return;
     }
     this.saving = true;
@@ -336,11 +336,11 @@ export class FundsListComponent implements OnInit {
 
   private onSaveError(err: any): void {
     this.saving = false;
-    this.errorMessage = err?.error?.detail || err?.error?.title || 'Save failed';
+    this.toast.error(extractErrorMessage(err, 'Save failed'));
   }
 
   private onDetailError(err: any): void {
     this.detailLoading = false;
-    this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load details';
+    this.toast.error(extractErrorMessage(err, 'Failed to load details'));
   }
 }

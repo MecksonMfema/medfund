@@ -11,6 +11,8 @@ import {
 } from '../../../../../shared/components/data-table/data-table.component';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../../core/util/http-errors';
 
 interface PayoutRow extends ProducerPayoutRun {
   periodLabel: string;
@@ -32,10 +34,10 @@ export class ProducerPayoutListComponent implements OnInit {
   private currencyService = inject(CurrencyService);
   private tenantService = inject(TenantService);
   private router = inject(Router);
+  private toast = inject(ToastService);
 
   rows: PayoutRow[] = [];
   loading = false;
-  error: string | null = null;
 
   statusFilter = '';
   currencyFilter = '';
@@ -83,7 +85,6 @@ export class ProducerPayoutListComponent implements OnInit {
 
   reload(): void {
     this.loading = true;
-    this.error = null;
     this.service.list(
       this.statusFilter || undefined,
       this.currencyFilter?.trim().toUpperCase() || undefined,
@@ -96,7 +97,7 @@ export class ProducerPayoutListComponent implements OnInit {
         this.loading = false;
       },
       error: err => {
-        this.error = err?.error?.message ?? err?.error?.detail ?? 'Failed to load producer payouts';
+        this.toast.error(extractErrorMessage(err, 'Failed to load producer payouts'));
         this.rows = [];
         this.loading = false;
       },

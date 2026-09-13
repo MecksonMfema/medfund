@@ -9,6 +9,7 @@ import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Phase 11 §A Phase 6 — draft a PRODUCER-typed payment run. The server
@@ -41,7 +42,6 @@ export class CreateProducerPayoutComponent implements OnInit {
   description = '';
 
   submitting = false;
-  errorMessage: string | null = null;
 
   get bankOptions(): SelectOption[] {
     return this.banks.map(b => ({
@@ -92,11 +92,10 @@ export class CreateProducerPayoutComponent implements OnInit {
 
   submit(): void {
     if (!this.isValid) {
-      this.errorMessage = 'Bank, currency, and both period dates are required.';
+      this.toast.warning('Bank, currency, and both period dates are required.');
       return;
     }
     this.submitting = true;
-    this.errorMessage = null;
     this.producerPayoutService.create({
       currencyCode: this.currencyCode.toUpperCase(),
       description: this.description.trim() || undefined,
@@ -110,10 +109,7 @@ export class CreateProducerPayoutComponent implements OnInit {
       },
       error: err => {
         this.submitting = false;
-        const detail = err?.error?.detail || err?.error?.title || err?.error?.message
-          || 'Failed to create producer payout run';
-        this.errorMessage = detail;
-        this.toast.error(detail);
+        this.toast.error(extractErrorMessage(err, 'Failed to create producer payout run'));
       },
     });
   }

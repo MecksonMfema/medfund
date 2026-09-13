@@ -13,6 +13,8 @@ import {
   TableColumn,
 } from '../../../shared/components/data-table/data-table.component';
 import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
+import { ToastService } from '../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../core/util/http-errors';
 
 @Component({
   selector: 'app-producers-list',
@@ -27,7 +29,6 @@ import { SelectComponent, SelectOption } from '../../../shared/components/select
 export class ProducersListComponent implements OnInit {
   rows: Producer[] = [];
   loading = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   page = 1;
@@ -82,7 +83,7 @@ export class ProducersListComponent implements OnInit {
     return [{ value: '', label: 'Any jurisdiction' }, ...codes.map(c => ({ value: c, label: c }))];
   }
 
-  constructor(private svc: ProducerService, private router: Router) {}
+  constructor(private svc: ProducerService, private router: Router, private toast: ToastService) {}
 
   ngOnInit(): void { this.fetchPage(); }
 
@@ -98,7 +99,7 @@ export class ProducersListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load producers';
+        this.toast.error(extractErrorMessage(err, 'Failed to load producers'));
         this.allRows = [];
         this.rows = [];
         this.loading = false;

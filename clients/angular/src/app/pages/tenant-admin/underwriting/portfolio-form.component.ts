@@ -11,6 +11,7 @@ import {
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
 import { ToastService } from '../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../core/util/http-errors';
 
 interface PortfolioForm {
   name: string;
@@ -29,7 +30,6 @@ export class PortfolioFormComponent implements OnInit {
   portfolioId: string | null = null;
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   readonly insuranceLineOptions: SelectOption[] = [
     { value: '',           label: '(MISC catchall)' },
@@ -86,7 +86,7 @@ export class PortfolioFormComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load portfolio';
+        this.toast.error(extractErrorMessage(err, 'Failed to load portfolio'));
         this.loading = false;
       },
     });
@@ -94,7 +94,7 @@ export class PortfolioFormComponent implements OnInit {
 
   submit(): void {
     if (!this.form.name.trim()) {
-      this.errorMessage = 'Name is required';
+      this.toast.warning('Name is required');
       return;
     }
 
@@ -105,7 +105,6 @@ export class PortfolioFormComponent implements OnInit {
     };
 
     this.saving = true;
-    this.errorMessage = null;
 
     const stream = this.portfolioId
       ? this.svc.update(this.portfolioId, payload)
@@ -119,9 +118,7 @@ export class PortfolioFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        const detail = err?.error?.detail || err?.error?.title || 'Save failed';
-        this.errorMessage = detail;
-        this.toast.error(detail);
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }

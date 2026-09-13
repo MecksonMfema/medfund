@@ -1,88 +1,15 @@
-// Page shell matches the reference /tenant/billing/schemes/:id/benefits:
-// flush page-header banner, 24px side gutter on subsequent sections.
-:host { display: block; }
+// Per-page overrides for the cash-flow forecast report. Base shell
+// (page-header, tx-toolbar, banner, btn, .chart-wrap and the flush
+// select-inside-toolbar overrides) comes from the co-imported
+// receipts-report.component.scss; only cell sizing, per-currency
+// table, and skeleton stack live here.
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  padding: 20px 24px;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border-light);
-
-  h1 {
-    margin: 0 0 0.25rem;
-    font-size: 1.5rem;
-    color: var(--color-text-primary);
-  }
-  .page-sub {
-    margin: 0;
-    color: var(--color-text-muted);
-    font-size: 0.9rem;
-    max-width: 65ch;
-  }
+.toolbar-cell.cell-date {
+  min-width: 200px;
 }
 
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 13px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  text-decoration: none;
-
-  &.btn-primary {
-    background: var(--color-primary);
-    color: #fff;
-    &:hover:not(:disabled) { filter: brightness(1.05); }
-    &:disabled { opacity: 0.55; cursor: not-allowed; }
-  }
-  &.btn-default {
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    border-color: var(--color-border);
-    &:hover:not(:disabled) { background: var(--color-bg); }
-  }
-}
-
-.banner {
-  padding: 10px 14px;
-  margin: 12px 24px 0;
-  border-radius: 8px;
-  font-size: 13px;
-  cursor: pointer;
-  border: 1px solid transparent;
-  &.banner-error   { background: var(--color-error-light); color: #c4162d; border-color: rgba(196, 22, 45, 0.20); }
-  &.banner-warning { background: var(--color-warning-light); color: #c47800; cursor: default; }
-}
-
-// Flatten app-select inside the toolbar so it reads as a bare inline
-// control matching the rest of the app (reference: producers-list).
-.tx-toolbar .toolbar-cell {
-  ::ng-deep .select-trigger {
-    border: none;
-    border-radius: 0;
-    background: transparent;
-    padding: 0;
-    height: 32px;
-    min-width: 0;
-  }
-  ::ng-deep .select-trigger:hover,
-  ::ng-deep .select-wrapper.is-open .select-trigger {
-    border-color: transparent;
-    box-shadow: none;
-  }
+.toolbar-cell.cell-rolling-weeks {
+  min-width: 180px;
 }
 
 .detail-section {
@@ -103,4 +30,70 @@
       color: var(--color-text-muted);
     }
   }
+}
+
+.rate-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+
+  th,
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--color-border-light);
+    text-align: left;
+    color: var(--color-text-primary);
+  }
+
+  th {
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-size: var(--font-size-xs);
+    background: var(--color-bg);
+  }
+
+  th.num,
+  td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  tbody tr:hover td {
+    background: var(--color-bg);
+  }
+}
+
+// Skeleton placeholder while the fetch is in flight. Mirrors the
+// composed layout (chart card + per-currency table) so the transition
+// to real content does not reflow the page.
+.cff-loading {
+  display: flex;
+  flex-direction: column;
+
+  .chart-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+}
+
+.cff-loading__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-top: var(--spacing-sm);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

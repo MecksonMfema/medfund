@@ -9,10 +9,6 @@
   </a>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 <!-- ── Filter strip ─────────────────────────────────────────────────
      Same shape as /tenant/billing/transactions and /creditors: flat
      strip with column-like cells separated by 1px vertical dividers.

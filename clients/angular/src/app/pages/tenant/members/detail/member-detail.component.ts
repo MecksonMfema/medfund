@@ -17,6 +17,7 @@ import { SwapDependantModalComponent, SwapDependantPayload } from '../../../../s
 import { DeactivateDependantModalComponent, DeactivateDependantPayload } from '../../../../shared/components/deactivate-dependant-modal/deactivate-dependant-modal.component';
 import { MemberDeathModalComponent, RecordMemberDeathPayload } from './member-death-modal.component';
 import { HasPermissionDirective } from '../../../../shared/directives/has-permission.directive';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface MemberForm {
   firstName: string;
@@ -89,7 +90,6 @@ export class MemberDetailComponent implements OnInit {
   member: Member | null = null;
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   form: MemberForm = {
     firstName: '', lastName: '', gender: '', nationalId: '',
@@ -188,7 +188,7 @@ export class MemberDetailComponent implements OnInit {
   ngOnInit(): void {
     this.memberId = this.route.snapshot.paramMap.get('id') ?? '';
     if (!this.memberId) {
-      this.errorMessage = 'Member id missing from the URL.';
+      this.toast.error('Member id missing from the URL.');
       return;
     }
     this.loadMember();
@@ -221,7 +221,7 @@ export class MemberDetailComponent implements OnInit {
         if (m.schemeId) this.loadAgeGroups(m.schemeId);
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load member';
+        this.toast.error(extractErrorMessage(err, 'Failed to load member'));
         this.loading = false;
       },
     });
@@ -381,7 +381,6 @@ export class MemberDetailComponent implements OnInit {
 
   save(): void {
     this.saving = true;
-    this.errorMessage = null;
     // INDIVIDUAL pricing: amount + effective_from must travel together
     // (DB CHECK + service-level guard). Surface the gap inline so we
     // don't round-trip a 400.
@@ -389,8 +388,7 @@ export class MemberDetailComponent implements OnInit {
         && this.form.billingOverrideAmount != null
         && !this.form.billingOverrideEffectiveFrom) {
       this.saving = false;
-      this.errorMessage = 'Custom premium: effective_from is required when an override amount is set.';
-      this.toast.error(this.errorMessage);
+      this.toast.error('Custom premium: effective_from is required when an override amount is set.');
       return;
     }
     // schemeId is intentionally NOT sent — scheme changes must go
@@ -421,9 +419,7 @@ export class MemberDetailComponent implements OnInit {
         this.toast.success('Member updated');
       },
       error: (err) => {
-        const msg = err?.error?.detail || err?.error?.title || 'Save failed';
-        this.errorMessage = msg;
-        this.toast.error(msg);
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
         this.saving = false;
       },
     });

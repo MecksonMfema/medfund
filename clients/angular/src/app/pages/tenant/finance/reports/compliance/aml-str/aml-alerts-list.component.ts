@@ -17,6 +17,8 @@ import {
 } from './aml-workflow-modal.component';
 import { RaiseAmlAlertRequest } from '../../../../../../core/services/aml-alert.service';
 import { ReportBackButtonComponent } from '../../shared/report-back-button.component';
+import { ToastService } from '../../../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../../../core/util/http-errors';
 
 /**
  * Phase 23 REG8 host page for the AML/STR alert workflow. Renders the queue
@@ -66,7 +68,6 @@ export class AmlAlertsListComponent implements OnInit {
   size = 50;
 
   loading = false;
-  loadError: string | null = null;
   rows: AmlAlertResponse[] = [];
   total = 0;
 
@@ -85,6 +86,7 @@ export class AmlAlertsListComponent implements OnInit {
   constructor(
     private service: AmlAlertService,
     private permissions: PermissionService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -102,7 +104,6 @@ export class AmlAlertsListComponent implements OnInit {
 
   load(): void {
     this.loading = true;
-    this.loadError = null;
     this.service.queue(this.statusFilter || null, this.page, this.size).subscribe({
       next: (page) => {
         this.rows = page.content;
@@ -110,7 +111,7 @@ export class AmlAlertsListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.loadError = err?.error?.detail || err?.error?.title || 'Failed to load alerts';
+        this.toast.error(extractErrorMessage(err, 'Failed to load alerts'));
         this.loading = false;
       },
     });

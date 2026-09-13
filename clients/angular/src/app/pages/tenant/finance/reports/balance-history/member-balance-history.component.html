@@ -20,10 +20,6 @@
   </div>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 <div class="tx-toolbar">
   <div class="toolbar-cell">
     <span class="cell-label">As at run</span>
@@ -48,14 +44,6 @@
     ></app-select>
   </div>
 </div>
-
-@if (envelope?.warnings?.length) {
-  <div class="banner banner-warning">
-    @for (w of envelope!.warnings; track w) {
-      <div>{{ w }}</div>
-    }
-  </div>
-}
 
 @if (perCurrencyEntries.length > 0) {
   <div class="kpi-strip">

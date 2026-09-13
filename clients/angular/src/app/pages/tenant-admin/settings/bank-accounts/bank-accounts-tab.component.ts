@@ -10,6 +10,8 @@ import {
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 /**
  * Tenant Bank Accounts — the tenant's own accounts used for outbound
@@ -27,14 +29,13 @@ export class TenantBankAccountsTabComponent implements OnInit {
   currencies: Currency[] = [];
   loading = false;
   busy = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   showForm = false;
   editingId: string | null = null;
   form: UpsertTenantBankAccountPayload = this.blankForm();
 
-  constructor(private finance: FinanceService, private currencyService: CurrencyService) {}
+  constructor(private finance: FinanceService, private currencyService: CurrencyService, private toast: ToastService) {}
 
   get currencyOptions(): SelectOption[] {
     return this.currencies.map(c => ({ value: c.code, label: `${c.code} - ${c.name}` }));
@@ -53,7 +54,7 @@ export class TenantBankAccountsTabComponent implements OnInit {
     this.finance.listTenantBankAccounts().subscribe({
       next: (rows) => { this.rows = rows; this.loading = false; },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load bank accounts';
+        this.toast.error(extractErrorMessage(err, 'Failed to load bank accounts'));
         this.loading = false;
       },
     });
@@ -91,7 +92,7 @@ export class TenantBankAccountsTabComponent implements OnInit {
   submit(): void {
     if (!this.form.label.trim() || !this.form.bankName.trim() || !this.form.accountNumber.trim()
         || !this.form.accountName.trim() || !this.form.currencyCode) {
-      this.errorMessage = 'Label, bank name, account number, account name and currency are required';
+      this.toast.warning('Label, bank name, account number, account name and currency are required');
       return;
     }
     this.busy = true;
@@ -107,7 +108,7 @@ export class TenantBankAccountsTabComponent implements OnInit {
         this.refresh();
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to save';
+        this.toast.error(extractErrorMessage(err, 'Failed to save'));
         this.busy = false;
       },
     });
@@ -123,7 +124,7 @@ export class TenantBankAccountsTabComponent implements OnInit {
         this.refresh();
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to delete';
+        this.toast.error(extractErrorMessage(err, 'Failed to delete'));
         this.busy = false;
       },
     });

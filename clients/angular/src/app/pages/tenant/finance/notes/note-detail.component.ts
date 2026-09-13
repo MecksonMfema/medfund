@@ -9,6 +9,8 @@ import { IconComponent } from '../../../../shared/components/icon/icon.component
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 /**
  * Single-note detail + action bar. State machine surfaces:
@@ -29,19 +31,19 @@ export class NoteDetailComponent implements OnInit {
   note: Note | null = null;
   loading = false;
   busy = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   constructor(
     private finance: FinanceService,
     private route: ActivatedRoute,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
-      this.errorMessage = 'No note id';
+      this.toast.error('No note id');
       return;
     }
     this.refresh(id);
@@ -52,7 +54,7 @@ export class NoteDetailComponent implements OnInit {
     this.finance.getNote(id).subscribe({
       next: (n) => { this.note = n; this.loading = false; },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load note';
+        this.toast.error(extractErrorMessage(err, 'Failed to load note'));
         this.loading = false;
       },
     });
@@ -68,7 +70,7 @@ export class NoteDetailComponent implements OnInit {
         this.busy = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to approve';
+        this.toast.error(extractErrorMessage(err, 'Failed to approve'));
         this.busy = false;
       },
     });
@@ -85,7 +87,7 @@ export class NoteDetailComponent implements OnInit {
         this.busy = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to apply';
+        this.toast.error(extractErrorMessage(err, 'Failed to apply'));
         this.busy = false;
       },
     });
@@ -104,7 +106,7 @@ export class NoteDetailComponent implements OnInit {
         this.busy = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to reverse';
+        this.toast.error(extractErrorMessage(err, 'Failed to reverse'));
         this.busy = false;
       },
     });
@@ -121,7 +123,7 @@ export class NoteDetailComponent implements OnInit {
         setTimeout(() => this.router.navigate(['/tenant/finance/notes']), 500);
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to delete';
+        this.toast.error(extractErrorMessage(err, 'Failed to delete'));
         this.busy = false;
       },
     });

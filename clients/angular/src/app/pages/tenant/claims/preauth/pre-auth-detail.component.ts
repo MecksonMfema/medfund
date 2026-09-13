@@ -11,6 +11,8 @@ import { SkeletonComponent } from '../../../../shared/components/skeleton/skelet
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
 import { endOfMonth } from '../../../../shared/utils/date-snap';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-pre-auth-detail',
@@ -23,7 +25,6 @@ export class PreAuthDetailComponent implements OnInit {
   preAuth: PreAuthorization | null = null;
   loading = false;
   busy = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   // Decision form state
@@ -35,6 +36,7 @@ export class PreAuthDetailComponent implements OnInit {
     private service: PreAuthService,
     private route: ActivatedRoute,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -54,7 +56,7 @@ export class PreAuthDetailComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load pre-authorization';
+        this.toast.error(extractErrorMessage(err, 'Failed to load pre-authorization'));
         this.loading = false;
       },
     });
@@ -69,7 +71,7 @@ export class PreAuthDetailComponent implements OnInit {
   approve(): void {
     if (!this.preAuth) return;
     if (!this.approvedAmount || !this.expiryDate) {
-      this.errorMessage = 'Approved amount and expiry date are required';
+      this.toast.warning('Approved amount and expiry date are required');
       return;
     }
     // Belt-and-braces snap at approve time (typed value bypasses blur).
@@ -77,7 +79,6 @@ export class PreAuthDetailComponent implements OnInit {
     this.expiryDate = snappedExpiry;
     if (!confirm(`Approve ${this.preAuth.authNumber} for ${this.approvedAmount} ${this.preAuth.currencyCode} until ${snappedExpiry}?`)) return;
     this.busy = true;
-    this.errorMessage = null;
     this.service.approve(this.preAuth.id, this.approvedAmount, snappedExpiry).subscribe({
       next: (updated) => {
         this.preAuth = updated;
@@ -86,7 +87,7 @@ export class PreAuthDetailComponent implements OnInit {
       },
       error: (err) => {
         this.busy = false;
-        this.errorMessage = err?.error?.detail || 'Approval failed';
+        this.toast.error(extractErrorMessage(err, 'Approval failed'));
       },
     });
   }
@@ -94,12 +95,11 @@ export class PreAuthDetailComponent implements OnInit {
   reject(): void {
     if (!this.preAuth) return;
     if (!this.rejectReason.trim()) {
-      this.errorMessage = 'Rejection reason is required';
+      this.toast.warning('Rejection reason is required');
       return;
     }
     if (!confirm(`Reject ${this.preAuth.authNumber}?`)) return;
     this.busy = true;
-    this.errorMessage = null;
     this.service.reject(this.preAuth.id, this.rejectReason.trim()).subscribe({
       next: (updated) => {
         this.preAuth = updated;
@@ -108,7 +108,7 @@ export class PreAuthDetailComponent implements OnInit {
       },
       error: (err) => {
         this.busy = false;
-        this.errorMessage = err?.error?.detail || 'Rejection failed';
+        this.toast.error(extractErrorMessage(err, 'Rejection failed'));
       },
     });
   }

@@ -12,6 +12,8 @@ import { SkeletonComponent } from '../../../shared/components/skeleton/skeleton.
 import { HumanizePipe } from '../../../shared/pipes/humanize.pipe';
 import { TenantPickerComponent } from '../../../shared/components/tenant-picker/tenant-picker.component';
 import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
+import { ToastService } from '../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../core/util/http-errors';
 
 @Component({
   selector: 'app-jobs-monitor',
@@ -36,7 +38,6 @@ export class JobsMonitorComponent implements OnInit {
   loadingRuns = false;
   busyJobId: string | null = null;
   busy = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   // ── Add-job form state ──
@@ -49,7 +50,7 @@ export class JobsMonitorComponent implements OnInit {
     return this.jobTypes.map(jt => ({ value: jt.type, label: jt.displayName, description: jt.description }));
   }
 
-  constructor(private admin: AdminService) {}
+  constructor(private admin: AdminService, private toast: ToastService) {}
 
   private blankJob() {
     return {
@@ -90,7 +91,7 @@ export class JobsMonitorComponent implements OnInit {
 
   submitAdd(): void {
     if (!this.newJob.jobType || !this.newJob.name.trim() || !this.newJob.cronExpression.trim()) {
-      this.errorMessage = 'Job type, name, and cron expression are required.';
+      this.toast.warning('Job type, name, and cron expression are required.');
       return;
     }
     this.busy = true;
@@ -108,7 +109,7 @@ export class JobsMonitorComponent implements OnInit {
         this.refreshJobs();
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to create job';
+        this.toast.error(extractErrorMessage(err, 'Failed to create job'));
         this.busy = false;
       },
     });
@@ -129,7 +130,7 @@ export class JobsMonitorComponent implements OnInit {
         this.refreshJobs();
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to seed defaults';
+        this.toast.error(extractErrorMessage(err, 'Failed to seed defaults'));
         this.busy = false;
       },
     });
@@ -161,7 +162,7 @@ export class JobsMonitorComponent implements OnInit {
         }
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load scheduled jobs';
+        this.toast.error(extractErrorMessage(err, 'Failed to load scheduled jobs'));
         this.loadingJobs = false;
       },
     });
@@ -177,7 +178,7 @@ export class JobsMonitorComponent implements OnInit {
     this.admin.listJobRuns(id, 50, this.tenantFilter).subscribe({
       next: (rows) => { this.runs = rows; this.loadingRuns = false; },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load runs';
+        this.toast.error(extractErrorMessage(err, 'Failed to load runs'));
         this.loadingRuns = false;
       },
     });
@@ -195,7 +196,7 @@ export class JobsMonitorComponent implements OnInit {
         this.busyJobId = null;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to toggle job';
+        this.toast.error(extractErrorMessage(err, 'Failed to toggle job'));
         this.busyJobId = null;
       },
     });
@@ -212,7 +213,7 @@ export class JobsMonitorComponent implements OnInit {
         if (this.selected?.id === job.id) this.refreshRuns(job.id);
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to run job';
+        this.toast.error(extractErrorMessage(err, 'Failed to run job'));
         this.busyJobId = null;
       },
     });

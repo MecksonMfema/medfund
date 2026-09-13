@@ -9,10 +9,6 @@
     </div>
   </header>
 
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
-
   @if (loading) {
     <p class="muted">Loading…</p>
   } @else if (detail) {

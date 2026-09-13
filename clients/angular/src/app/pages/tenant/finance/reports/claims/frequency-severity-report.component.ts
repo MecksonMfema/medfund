@@ -15,12 +15,14 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
- * Frequency + severity (G48) — per (scheme × insurance line × currency) over
+ * Frequency + severity (G48): per (scheme × insurance line × currency) over
  * the service-date window. Severity = Postgres PERCENTILE_CONT mean / median /
  * P95 (server-side); frequency = claims ÷ exposure member-months, annualised.
- * Exposure is the documented fallback (active members × days ÷ 30.4375) — the
+ * Exposure is the documented fallback (active members × days ÷ 30.4375): the
  * envelope carries the caveat in {@link ReportResponse.warnings}.
  */
 @Component({
@@ -33,7 +35,6 @@ import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/repo
 export class FrequencySeverityReportComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   rows: FrequencySeverityRow[] = [];
   envelope: ReportResponse<FrequencySeverityRow[]> | null = null;
@@ -60,6 +61,7 @@ export class FrequencySeverityReportComponent implements OnInit {
     private claimsReport: ClaimsReportService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -99,19 +101,19 @@ export class FrequencySeverityReportComponent implements OnInit {
 
   fetch(): void {
     if (!this.serviceFrom || !this.serviceTo) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.claimsReport.getFrequencySeverity(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.rows = env.data ?? [];
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load frequency & severity';
+        this.toast.error(extractErrorMessage(err, 'Failed to load frequency & severity'));
         this.rows = [];
         this.envelope = null;
         this.loading = false;
@@ -127,11 +129,22 @@ export class FrequencySeverityReportComponent implements OnInit {
         downloadBlob(blob, `claims-frequency-severity-${this.serviceFrom}-to-${this.serviceTo}.xlsx`);
         this.exporting = false;
       },
-      error: () => {
-        this.errorMessage = 'Failed to download workbook';
+      error: err => {
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<FrequencySeverityRow[]>): void {
+    // The exposure-proxy caveat ("Exposure is a static proxy...") is a
+    // permanent structural note documented in the page copy; toasting it
+    // on every load is noise. Any other envelope warning (FX gaps, etc.)
+    // still surfaces.
+    const warnings = (env?.warnings ?? [])
+      .filter(w => !/exposure is a static proxy/i.test(w));
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Claims frequency & severity'), 8000);
   }
 
   onFilterChange(): void {

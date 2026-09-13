@@ -15,6 +15,7 @@ import {
 import { CurrencyService } from '../../../../../core/services/currency.service';
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { ReportResponse } from '../../../../../core/services/report-envelope';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
 
 function envelope(data: KpiReportData): ReportResponse<KpiReportData> {
   return {
@@ -176,25 +177,29 @@ describe('KpiDashboardComponent', () => {
     expect(kpi.dashboard).toHaveBeenCalledTimes(1);
   });
 
-  it('403 on dashboard flips the disabled flag without setting errorMessage', () => {
+  it('403 on dashboard flips the disabled flag without firing an error toast', () => {
     kpi.dashboard.and.returnValue(throwError(() => ({ status: 403 })));
     kpi.trend.and.returnValue(of([]));
+    const toast = TestBed.inject(ToastService);
+    const errorSpy = spyOn(toast, 'error');
     const fixture = TestBed.createComponent(KpiDashboardComponent);
     fixture.detectChanges();
 
     expect(fixture.componentInstance.disabled).toBeTrue();
-    expect(fixture.componentInstance.errorMessage).toBeNull();
+    expect(errorSpy).not.toHaveBeenCalled();
     expect(fixture.componentInstance.loading).toBeFalse();
   });
 
-  it('non-403 errors surface as errorMessage', () => {
+  it('non-403 errors surface as an error toast', () => {
     kpi.dashboard.and.returnValue(throwError(() =>
       ({ status: 500, error: { detail: 'boom' } })));
     kpi.trend.and.returnValue(of([]));
+    const toast = TestBed.inject(ToastService);
+    const errorSpy = spyOn(toast, 'error');
     const fixture = TestBed.createComponent(KpiDashboardComponent);
     fixture.detectChanges();
 
-    expect(fixture.componentInstance.errorMessage).toBe('boom');
+    expect(errorSpy).toHaveBeenCalledWith('boom');
     expect(fixture.componentInstance.disabled).toBeFalse();
   });
 
@@ -236,14 +241,16 @@ describe('KpiDashboardComponent', () => {
     expect(kpi.exportExcel).not.toHaveBeenCalled();
   });
 
-  it('export failure surfaces errorMessage and clears exportingKey', () => {
+  it('export failure surfaces an error toast and clears exportingKey', () => {
     stubDefault();
     kpi.exportExcel.and.returnValue(throwError(() => ({ error: { detail: 'export boom' } })));
+    const toast = TestBed.inject(ToastService);
+    const errorSpy = spyOn(toast, 'error');
     const fixture = TestBed.createComponent(KpiDashboardComponent);
     fixture.detectChanges();
 
     fixture.componentInstance.exportKpi('LOSS_RATIO_KPI');
-    expect(fixture.componentInstance.errorMessage).toBe('export boom');
+    expect(errorSpy).toHaveBeenCalledWith('export boom');
     expect(fixture.componentInstance.isExporting('LOSS_RATIO_KPI')).toBeFalse();
   });
 });

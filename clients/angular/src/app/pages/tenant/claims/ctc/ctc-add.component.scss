@@ -73,13 +73,6 @@
   box-shadow: 0 0 0 3px var(--color-primary-light, rgba(0,119,182,0.1));
 }
 
-.banner {
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-md, 8px);
-  margin: 1rem 0;
-}
-.banner-error { background: var(--danger-bg, #fee2e2); color: var(--danger-fg, #991b1b); }
-
 .form-actions {
   display: flex;
   justify-content: flex-end;

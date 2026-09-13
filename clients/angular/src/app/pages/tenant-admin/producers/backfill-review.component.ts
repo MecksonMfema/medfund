@@ -8,6 +8,8 @@ import {
   ProducerService,
 } from '../../../core/services/producer.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
+import { ToastService } from '../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../core/util/http-errors';
 
 /**
  * Tenant-admin surface for the treaty.producer_ref → producer_id fuzzy
@@ -35,7 +37,6 @@ export class BackfillReviewComponent implements OnInit, OnDestroy {
   loading = false;
   saving = false;
   running = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   page = 1;
@@ -43,7 +44,7 @@ export class BackfillReviewComponent implements OnInit, OnDestroy {
 
   private pollSub: Subscription | null = null;
 
-  constructor(private svc: ProducerService) {}
+  constructor(private svc: ProducerService, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.fetchCandidates();
@@ -73,7 +74,6 @@ export class BackfillReviewComponent implements OnInit, OnDestroy {
   runBackfill(): void {
     if (this.running || this.saving) return;
     this.saving = true;
-    this.errorMessage = null;
     this.successMessage = null;
     this.svc.runProducerBackfill().subscribe({
       next: () => {
@@ -84,7 +84,7 @@ export class BackfillReviewComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.message ?? 'Failed to start backfill.';
+        this.toast.error(extractErrorMessage(err, 'Failed to start backfill.'));
       },
     });
   }
@@ -98,7 +98,7 @@ export class BackfillReviewComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.loading = false;
-        this.errorMessage = err?.error?.message ?? 'Failed to load pending candidates.';
+        this.toast.error(extractErrorMessage(err, 'Failed to load pending candidates.'));
       },
     });
   }
@@ -119,7 +119,6 @@ export class BackfillReviewComponent implements OnInit, OnDestroy {
   }
 
   private actOn(id: string, action: () => import('rxjs').Observable<void>, ok: string): void {
-    this.errorMessage = null;
     this.successMessage = null;
     action().subscribe({
       next: () => {
@@ -127,7 +126,7 @@ export class BackfillReviewComponent implements OnInit, OnDestroy {
         this.candidates = this.candidates.filter(c => c.id !== id);
       },
       error: (err) => {
-        this.errorMessage = err?.error?.message ?? 'Action failed.';
+        this.toast.error(extractErrorMessage(err, 'Action failed.'));
       },
     });
   }

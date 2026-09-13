@@ -21,6 +21,8 @@ import {
 import { Producer, ProducerService } from '../../../core/services/producer.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
+import { ToastService } from '../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../core/util/http-errors';
 
 const INSURANCE_LINES: InsuranceLine[] = [
   'HEALTH', 'LIFE', 'FUNERAL', 'GROUP', 'TRAVEL', 'DISABILITY', 'VEHICLE', 'PROPERTY',
@@ -67,7 +69,6 @@ export class TreatyEditComponent implements OnInit {
   treaty: Treaty | null = null;
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   header: CreateTreatyPayload = this.emptyHeader();
@@ -102,6 +103,7 @@ export class TreatyEditComponent implements OnInit {
     private router: Router,
     private svc: ReinsuranceService,
     private producerSvc: ProducerService,
+    private toast: ToastService,
   ) {}
 
   get isNew(): boolean { return this.treatyId === null; }
@@ -172,7 +174,7 @@ export class TreatyEditComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load treaty';
+        this.toast.error(extractErrorMessage(err, 'Failed to load treaty'));
         this.loading = false;
       },
     });
@@ -180,11 +182,11 @@ export class TreatyEditComponent implements OnInit {
 
   saveHeader(): void {
     if (!this.header.treatyRef?.trim()) {
-      this.errorMessage = 'Treaty reference is required';
+      this.toast.warning('Treaty reference is required');
       return;
     }
     if (this.header.inceptionDate >= this.header.expiryDate) {
-      this.errorMessage = 'Expiry date must be after inception';
+      this.toast.warning('Expiry date must be after inception');
       return;
     }
     this.saving = true;
@@ -204,7 +206,7 @@ export class TreatyEditComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Save failed';
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }
@@ -222,7 +224,7 @@ export class TreatyEditComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || 'Activation failed';
+        this.toast.error(extractErrorMessage(err, 'Activation failed'));
       },
     });
   }
@@ -235,7 +237,7 @@ export class TreatyEditComponent implements OnInit {
       next: (saved) => { this.saving = false; this.treaty = saved; this.successMessage = 'Treaty voided'; },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || 'Void failed';
+        this.toast.error(extractErrorMessage(err, 'Void failed'));
       },
     });
   }
@@ -243,12 +245,12 @@ export class TreatyEditComponent implements OnInit {
   addLayer(): void {
     if (!this.treatyId) return;
     if (this.newLayer.layerLimit <= 0 || this.newLayer.rate < 0) {
-      this.errorMessage = 'Layer limit must be positive and rate non-negative';
+      this.toast.warning('Layer limit must be positive and rate non-negative');
       return;
     }
     this.svc.createLayer(this.treatyId, this.newLayer).subscribe({
       next: (l) => { this.layers = [...this.layers, l].sort((a, b) => a.layerOrder - b.layerOrder); this.newLayer = this.emptyLayer(); },
-      error: (err) => { this.errorMessage = err?.error?.detail || 'Layer add failed'; },
+      error: (err) => { this.toast.error(extractErrorMessage(err, 'Layer add failed')); },
     });
   }
 
@@ -257,7 +259,7 @@ export class TreatyEditComponent implements OnInit {
     if (!confirm(`Remove layer ${l.layerOrder}?`)) return;
     this.svc.deleteLayer(this.treatyId, l.id).subscribe({
       next: () => { this.layers = this.layers.filter(x => x.id !== l.id); },
-      error: (err) => { this.errorMessage = err?.error?.detail || 'Layer remove failed'; },
+      error: (err) => { this.toast.error(extractErrorMessage(err, 'Layer remove failed')); },
     });
   }
 
@@ -324,11 +326,11 @@ export class TreatyEditComponent implements OnInit {
   addParticipant(): void {
     if (!this.treatyId) return;
     if (!this.newParticipant.reinsurerId) {
-      this.errorMessage = 'Select a reinsurer';
+      this.toast.warning('Select a reinsurer');
       return;
     }
     if (this.newParticipant.sharePct <= 0 || this.newParticipant.sharePct > 100) {
-      this.errorMessage = 'Share must be between 0 and 100';
+      this.toast.warning('Share must be between 0 and 100');
       return;
     }
     this.svc.upsertParticipant(this.treatyId, this.newParticipant).subscribe({
@@ -339,7 +341,7 @@ export class TreatyEditComponent implements OnInit {
         this.newParticipant = this.emptyParticipant();
         this.reinsurerSearchTerm = '';
       },
-      error: (err) => { this.errorMessage = err?.error?.detail || 'Participant save failed'; },
+      error: (err) => { this.toast.error(extractErrorMessage(err, 'Participant save failed')); },
     });
   }
 
@@ -348,7 +350,7 @@ export class TreatyEditComponent implements OnInit {
     if (!confirm(`Remove ${p.reinsurerName}?`)) return;
     this.svc.deleteParticipant(this.treatyId, p.reinsurerId).subscribe({
       next: () => { this.participants = this.participants.filter(x => x.reinsurerId !== p.reinsurerId); },
-      error: (err) => { this.errorMessage = err?.error?.detail || 'Participant remove failed'; },
+      error: (err) => { this.toast.error(extractErrorMessage(err, 'Participant remove failed')); },
     });
   }
 
@@ -357,7 +359,7 @@ export class TreatyEditComponent implements OnInit {
     if (this.applicableLines.some(l => l.insuranceLine === this.newLine)) return;
     this.svc.addApplicableLine(this.treatyId, this.newLine).subscribe({
       next: (l) => { this.applicableLines = [...this.applicableLines, l]; },
-      error: (err) => { this.errorMessage = err?.error?.detail || 'Line add failed'; },
+      error: (err) => { this.toast.error(extractErrorMessage(err, 'Line add failed')); },
     });
   }
 
@@ -365,7 +367,7 @@ export class TreatyEditComponent implements OnInit {
     if (!this.treatyId) return;
     this.svc.removeApplicableLine(this.treatyId, l.insuranceLine).subscribe({
       next: () => { this.applicableLines = this.applicableLines.filter(x => x.insuranceLine !== l.insuranceLine); },
-      error: (err) => { this.errorMessage = err?.error?.detail || 'Line remove failed'; },
+      error: (err) => { this.toast.error(extractErrorMessage(err, 'Line remove failed')); },
     });
   }
 
@@ -373,7 +375,7 @@ export class TreatyEditComponent implements OnInit {
     if (!this.treatyId || !this.newRuleId.trim()) return;
     this.svc.addCessionRule(this.treatyId, this.newRuleId.trim(), true).subscribe({
       next: (r) => { this.cessionRules = [...this.cessionRules, r]; this.newRuleId = ''; },
-      error: (err) => { this.errorMessage = err?.error?.detail || 'Rule link failed'; },
+      error: (err) => { this.toast.error(extractErrorMessage(err, 'Rule link failed')); },
     });
   }
 
@@ -381,7 +383,7 @@ export class TreatyEditComponent implements OnInit {
     if (!this.treatyId) return;
     this.svc.toggleCessionRule(this.treatyId, r.id, !r.enabled).subscribe({
       next: (updated) => { this.cessionRules = this.cessionRules.map(x => x.id === r.id ? updated : x); },
-      error: (err) => { this.errorMessage = err?.error?.detail || 'Rule toggle failed'; },
+      error: (err) => { this.toast.error(extractErrorMessage(err, 'Rule toggle failed')); },
     });
   }
 
@@ -390,7 +392,7 @@ export class TreatyEditComponent implements OnInit {
     if (!confirm('Unlink this cession rule from the treaty?')) return;
     this.svc.deleteCessionRule(this.treatyId, r.id).subscribe({
       next: () => { this.cessionRules = this.cessionRules.filter(x => x.id !== r.id); },
-      error: (err) => { this.errorMessage = err?.error?.detail || 'Rule unlink failed'; },
+      error: (err) => { this.toast.error(extractErrorMessage(err, 'Rule unlink failed')); },
     });
   }
 
@@ -425,7 +427,6 @@ export class TreatyEditComponent implements OnInit {
   }
 
   private clearMessages(): void {
-    this.errorMessage = null;
     this.successMessage = null;
   }
 }

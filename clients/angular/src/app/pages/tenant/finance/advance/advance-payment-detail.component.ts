@@ -12,6 +12,8 @@ import { IconComponent } from '../../../../shared/components/icon/icon.component
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { PermissionService } from '../../../../core/security/permission.service';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-advance-payment-detail',
@@ -24,20 +26,19 @@ export class AdvancePaymentDetailComponent implements OnInit {
   payment: AdvancePayment | null = null;
   applications: AdvancePaymentApplication[] = [];
   loading = false;
-  errorMessage: string | null = null;
-  banner: { kind: 'success' | 'error'; text: string } | null = null;
 
   constructor(
     private finance: FinanceService,
     private route: ActivatedRoute,
     private router: Router,
     private permissions: PermissionService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
-      this.errorMessage = 'No advance payment id';
+      this.toast.error('No advance payment id');
       return;
     }
     this.load(id);
@@ -57,7 +58,7 @@ export class AdvancePaymentDetailComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load advance payment';
+        this.toast.error(extractErrorMessage(err, 'Failed to load advance payment'));
         this.loading = false;
       },
     });
@@ -81,11 +82,11 @@ export class AdvancePaymentDetailComponent implements OnInit {
     if (!confirm(`Approve advance payment ${this.payment.reference || this.payment.id.substring(0, 8)}?`)) return;
     this.finance.approveAdvancePayment(this.payment.id).subscribe({
       next: () => {
-        this.banner = { kind: 'success', text: 'Advance approved.' };
+        this.toast.success('Advance approved.');
         this.load(this.payment!.id);
       },
       error: (err) => {
-        this.banner = { kind: 'error', text: err?.error?.detail || err?.error?.title || 'Failed to approve' };
+        this.toast.error(extractErrorMessage(err, 'Failed to approve'));
       },
     });
   }
@@ -96,14 +97,13 @@ export class AdvancePaymentDetailComponent implements OnInit {
     if (!reason || !reason.trim()) return;
     this.finance.reverseAdvancePayment(this.payment.id, { reason: reason.trim() }).subscribe({
       next: (compensating) => {
-        this.banner = {
-          kind: 'success',
-          text: `Reversal posted: compensating entry ${compensating.reference || compensating.id.substring(0, 8)}.`,
-        };
+        this.toast.success(
+          `Reversal posted: compensating entry ${compensating.reference || compensating.id.substring(0, 8)}.`,
+        );
         this.load(this.payment!.id);
       },
       error: (err) => {
-        this.banner = { kind: 'error', text: err?.error?.detail || err?.error?.title || 'Failed to reverse' };
+        this.toast.error(extractErrorMessage(err, 'Failed to reverse'));
       },
     });
   }

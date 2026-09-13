@@ -22,6 +22,7 @@ import {
 } from '../../../../shared/components/data-table/data-table.component';
 import { PermissionService } from '../../../../core/security/permission.service';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 /**
  * Detail page for a single payment run — the folded landing spot for
@@ -51,7 +52,6 @@ export class PaymentRunDetailComponent implements OnInit {
   loading = false;
   busy = false;
   exporting = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   // ── Payments table state (scoped to this run) ────────────────────
@@ -134,7 +134,7 @@ export class PaymentRunDetailComponent implements OnInit {
         this.exporting = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to download workbook';
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
         this.exporting = false;
       },
     });
@@ -143,7 +143,7 @@ export class PaymentRunDetailComponent implements OnInit {
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
-      this.errorMessage = 'No payment run id provided';
+      this.toast.error('No payment run id provided');
       return;
     }
     this.refresh(id);
@@ -159,7 +159,7 @@ export class PaymentRunDetailComponent implements OnInit {
         this.fetchAdvices();
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load payment run';
+        this.toast.error(extractErrorMessage(err, 'Failed to load payment run'));
         this.loading = false;
       },
     });
@@ -191,7 +191,7 @@ export class PaymentRunDetailComponent implements OnInit {
         this.fetchAdvices();
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to regenerate advices';
+        this.toast.error(extractErrorMessage(err, 'Failed to regenerate advices'));
         this.regenerating = false;
       },
     });
@@ -269,7 +269,7 @@ export class PaymentRunDetailComponent implements OnInit {
         this.refresh(run.id);
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || `Failed to ${label}`;
+        this.toast.error(extractErrorMessage(err, `Failed to ${label}`));
         this.busy = false;
       },
     });
@@ -294,7 +294,7 @@ export class PaymentRunDetailComponent implements OnInit {
         if (this.run) this.refresh(this.run.id);
       },
       error: (err) => {
-        this.toast.error(err?.error?.detail || `Failed to revoke ${row.paymentNumber}`);
+        this.toast.error(extractErrorMessage(err, `Failed to revoke ${row.paymentNumber}`));
       },
     });
   }

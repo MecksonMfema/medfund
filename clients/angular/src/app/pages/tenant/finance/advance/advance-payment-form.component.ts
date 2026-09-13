@@ -14,6 +14,8 @@ import {
 import { EntityPickerComponent } from '../../../../shared/components/entity-picker/entity-picker.component';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 type Target = 'provider' | 'member';
 
@@ -28,7 +30,6 @@ export class AdvancePaymentFormComponent implements OnInit {
   currencies: TenantCurrencyConfig[] = [];
   paymentMethods: PaymentMethod[] = [];
   busy = false;
-  errorMessage: string | null = null;
 
   target: Target = 'provider';
   providerId = '';
@@ -45,6 +46,7 @@ export class AdvancePaymentFormComponent implements OnInit {
     private tenantService: TenantService,
     private finance: FinanceService,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   get currencyOptions(): SelectOption[] {
@@ -84,19 +86,19 @@ export class AdvancePaymentFormComponent implements OnInit {
 
   submit(): void {
     if (!this.amount || !this.currencyCode) {
-      this.errorMessage = 'Amount and currency are required';
+      this.toast.warning('Amount and currency are required');
       return;
     }
     if (this.target === 'provider' && !this.providerId.trim()) {
-      this.errorMessage = 'Provider is required';
+      this.toast.warning('Provider is required');
       return;
     }
     if (this.target === 'member' && !this.memberId.trim()) {
-      this.errorMessage = 'Member is required';
+      this.toast.warning('Member is required');
       return;
     }
     if (this.selectedMethodRequiresReference && !this.reference.trim()) {
-      this.errorMessage = 'Reference is required for the selected payment method';
+      this.toast.warning('Reference is required for the selected payment method');
       return;
     }
     const payload: CreateAdvancePaymentPayload = {
@@ -122,7 +124,7 @@ export class AdvancePaymentFormComponent implements OnInit {
         this.router.navigate(['/tenant/finance/payments/advance'], { state });
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to record advance payment';
+        this.toast.error(extractErrorMessage(err, 'Failed to record advance payment'));
         this.busy = false;
       },
     });

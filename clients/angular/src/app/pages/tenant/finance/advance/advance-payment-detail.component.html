@@ -30,18 +30,6 @@
     }
   </header>
 
-  @if (banner) {
-    <div class="banner" [class.banner-success]="banner.kind === 'success'"
-         [class.banner-error]="banner.kind === 'error'"
-         (click)="banner = null">
-      {{ banner.text }}
-    </div>
-  }
-
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
-
   @if (loading) {
     <app-skeleton></app-skeleton>
   } @else if (payment) {

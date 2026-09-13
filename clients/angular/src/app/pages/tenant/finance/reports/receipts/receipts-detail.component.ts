@@ -14,6 +14,8 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 type Dimension = 'scheme' | 'group' | 'member';
 
@@ -37,7 +39,6 @@ type Dimension = 'scheme' | 'group' | 'member';
 export class ReceiptsDetailComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   dimension: Dimension = 'scheme';
   dimensionId = '';
@@ -77,6 +78,7 @@ export class ReceiptsDetailComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private finance: FinanceService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -96,26 +98,26 @@ export class ReceiptsDetailComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     if (!this.dimensionId && !this.unallocated) {
-      this.errorMessage = 'Missing dimension id.';
+      this.toast.error('Missing dimension id.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     // Route the unallocated case through the scheme drill-down with the flag.
     const idForCall = this.unallocated
-      ? '00000000-0000-0000-0000-000000000000' // placeholder — backend ignores when unallocated=true
+      ? '00000000-0000-0000-0000-000000000000' // placeholder: backend ignores when unallocated=true
       : this.dimensionId;
     this.finance.getReceiptsDetail(this.dimension, idForCall, this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load receipts detail';
+        this.toast.error(extractErrorMessage(err, 'Failed to load receipts detail'));
         this.envelope = null;
         this.loading = false;
       },
@@ -135,10 +137,16 @@ export class ReceiptsDetailComponent implements OnInit {
         this.exporting = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to download workbook';
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<ReceiptsDetailResponse>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Receipts detail'), 8000);
   }
 
   onFilterChange(): void {

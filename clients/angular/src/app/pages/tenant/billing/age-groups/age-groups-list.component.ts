@@ -7,6 +7,7 @@ import { ContributionsService, AgeGroup } from '../../../../core/services/contri
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 import {
   EntityPickerComponent,
   EntityPickerSelection,
@@ -46,7 +47,6 @@ export class AgeGroupsListComponent implements OnInit, OnDestroy {
   selectedSchemeName: string | null = null;
   rows: AgeGroupRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
 
   /** Top N schemes pre-loaded once on init — used both to pick a default
    *  scheme for the page and to seed the picker's empty-state dropdown. */
@@ -158,7 +158,7 @@ export class AgeGroupsListComponent implements OnInit, OnDestroy {
         this.rows = this.rows.map(r => r.id === row.id ? { ...r, status: updated.status } : r);
       },
       error: (err) => {
-        this.toast.error(err?.error?.detail || `Could not ${wantsActive ? 'activate' : 'deactivate'} age group`);
+        this.toast.error(extractErrorMessage(err, `Could not ${wantsActive ? 'activate' : 'deactivate'} age group`));
       },
     });
   }
@@ -174,14 +174,13 @@ export class AgeGroupsListComponent implements OnInit, OnDestroy {
 
   private loadAgeGroups(schemeId: string): void {
     this.loading = true;
-    this.errorMessage = null;
     this.contributions.getAgeGroupsByScheme(schemeId).subscribe({
       next: (rows) => {
         this.rows = rows.map(r => this.decorate(r));
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load age groups';
+        this.toast.error(extractErrorMessage(err, 'Failed to load age groups'));
         this.loading = false;
       },
     });

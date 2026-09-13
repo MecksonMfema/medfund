@@ -22,10 +22,6 @@
   </div>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 <div class="tx-toolbar">
   <div class="toolbar-cell">
     <span class="cell-label">Period start</span>
@@ -57,20 +53,16 @@
       [searchable]="false"
     ></app-select>
   </div>
-  <div class="toolbar-cell cell-search">
+  <div class="toolbar-cell cell-line">
     <span class="cell-label">Provider</span>
-    <input type="text" [(ngModel)]="providerId" (change)="onFilterChange()" name="providerId"
-           placeholder="Provider id (UUID)" />
+    <app-entity-picker
+      kind="provider"
+      [(value)]="providerId"
+      (valueChange)="onFilterChange()"
+      placeholder="Search by provider name...">
+    </app-entity-picker>
   </div>
 </div>
-
-@if (envelope?.warnings?.length) {
-  <div class="banner banner-warning">
-    @for (w of envelope!.warnings; track w) {
-      <div>{{ w }}</div>
-    }
-  </div>
-}
 
 <div class="detail-sections">
   <section class="detail-section">
@@ -111,7 +103,17 @@
         pre-auth data).
       </p>
     } @else {
-      <p>No R04 / R05 signal data for this window.</p>
+      <div class="empty-state">
+        <div class="empty-state__icon">
+          <app-icon name="file-text" [size]="32"></app-icon>
+        </div>
+        <div class="empty-state__title">No R04 / R05 signal</div>
+        <div class="empty-state__description">
+          No claim was rejected on R04 (pre-auth required) or R05 (pre-auth
+          expired) in this window. Either pre-auth coverage held, or no
+          claim exercised a pre-auth path at all.
+        </div>
+      </div>
     }
   </section>
 </div>

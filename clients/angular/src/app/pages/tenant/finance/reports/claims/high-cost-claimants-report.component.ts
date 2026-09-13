@@ -14,12 +14,14 @@ import { SelectComponent, SelectOption } from '../../../../../shared/components/
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * High-cost claimants (G46). Members whose cumulative paid claims across
  * the window clear the tenant-configured threshold. The threshold lives in
  * tenancy-service (V132); a missing config row renders an empty report with
- * a warning banner — surface {@link ReportResponse.warnings} prominently.
+ * a warning banner: surface {@link ReportResponse.warnings} prominently.
  * Period clock is adjudicated_at; rows stay native-currency with the
  * converted {@code cumulativePaidReporting} alongside.
  */
@@ -33,7 +35,6 @@ import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/repo
 export class HighCostClaimantsReportComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   rows: HighCostClaimantRow[] = [];
   envelope: ReportResponse<HighCostClaimantRow[]> | null = null;
@@ -56,6 +57,7 @@ export class HighCostClaimantsReportComponent implements OnInit {
     private claimsReport: ClaimsReportService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -88,19 +90,19 @@ export class HighCostClaimantsReportComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.claimsReport.getHighCostClaimants(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.rows = env.data ?? [];
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load high-cost claimants';
+        this.toast.error(extractErrorMessage(err, 'Failed to load high-cost claimants'));
         this.rows = [];
         this.envelope = null;
         this.loading = false;
@@ -116,11 +118,22 @@ export class HighCostClaimantsReportComponent implements OnInit {
         downloadBlob(blob, `high-cost-claimants-${this.periodStart}-to-${this.periodEnd}.xlsx`);
         this.exporting = false;
       },
-      error: () => {
-        this.errorMessage = 'Failed to download workbook';
+      error: err => {
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<HighCostClaimantRow[]>): void {
+    // The config-gap warning ("High-cost threshold not configured...") is
+    // already explained by the empty-state description; toasting it on
+    // every load is noise. Any other envelope warning (FX gaps, peer-down
+    // enrichment) still surfaces.
+    const warnings = (env?.warnings ?? [])
+      .filter(w => !/threshold not configured/i.test(w));
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'High-cost claimants'), 8000);
   }
 
   onFilterChange(): void {

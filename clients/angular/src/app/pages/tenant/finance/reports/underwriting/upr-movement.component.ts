@@ -11,12 +11,15 @@ import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/servi
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { INSURANCE_LINES, insuranceLineLabel } from '../../../../../core/models/insurance-lines';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
+import { SkeletonComponent } from '../../../../../shared/components/skeleton/skeleton.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
- * Phase 12 §B UPR movement — opening UPR + written − earned + endorsement
+ * Phase 12 §B UPR movement: opening UPR + written − earned + endorsement
  * delta = closing UPR, per (insurance_line, currency_code). Rows stay
  * native-currency (parent-plan invariant #1); the per-currency strip
  * shows native subtotals with best-effort FX conversion.
@@ -24,14 +27,13 @@ import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/repo
 @Component({
   selector: 'app-upr-movement-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, ReportBackButtonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, SelectComponent, ReportBackButtonComponent],
   templateUrl: './upr-movement.component.html',
   styleUrl: '../receipts/receipts-report.component.scss',
 })
 export class UprMovementReportComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<UprMovementRow[]> | null = null;
   currencies: TenantCurrencyConfig[] = [];
@@ -47,6 +49,7 @@ export class UprMovementReportComponent implements OnInit {
     private reportSvc: UprMovementReportService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -86,19 +89,18 @@ export class UprMovementReportComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.reportSvc.get(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load UPR movement';
+        this.toast.error(extractErrorMessage(err, 'Failed to load UPR movement'));
         this.envelope = null;
         this.loading = false;
       },
@@ -114,11 +116,16 @@ export class UprMovementReportComponent implements OnInit {
         this.exporting = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to export UPR movement';
+        this.toast.error(extractErrorMessage(err, 'Failed to export UPR movement'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<UprMovementRow[]>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'UPR movement'), 8000);
   }
 
   onFilterChange(): void { this.fetch(); }

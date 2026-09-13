@@ -14,6 +14,8 @@ import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Cession bordereau — one row per (cession, participant) for the selected
@@ -35,7 +37,6 @@ import { ReportBackButtonComponent } from '../shared/report-back-button.componen
 export class CessionBordereauComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<CessionBordereauRow[]> | null = null;
 
@@ -53,6 +54,7 @@ export class CessionBordereauComponent implements OnInit {
     private svc: ReinsuranceService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -128,14 +130,14 @@ export class CessionBordereauComponent implements OnInit {
 
   fetch(): void {
     this.loading = true;
-    this.errorMessage = null;
     this.svc.getCessionBordereau(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load cession bordereau';
+        this.toast.error(extractErrorMessage(err, 'Failed to load cession bordereau'));
         this.envelope = null;
         this.loading = false;
       },
@@ -150,10 +152,16 @@ export class CessionBordereauComponent implements OnInit {
         this.exporting = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to export cession bordereau';
+        this.toast.error(extractErrorMessage(err, 'Failed to export cession bordereau'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<CessionBordereauRow[]>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Cession bordereau'), 8000);
   }
 
   onYearChange(value: string): void { this.year = Number(value); this.fetch(); }

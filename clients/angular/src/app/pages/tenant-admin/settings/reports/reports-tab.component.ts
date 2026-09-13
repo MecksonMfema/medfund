@@ -11,6 +11,8 @@ import {
   TenantReportConfigService,
 } from '../../../../core/services/tenant-report-config.service';
 import { HighCostClaimantConfigComponent } from './high-cost-claimant-config.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface FamilyGroup {
   family: string;
@@ -41,7 +43,6 @@ export class TenantReportsTabComponent implements OnInit {
   loading = false;
   saving = false;
   saved = false;
-  errorMessage: string | null = null;
 
   /** Snapshot of the loaded state used to compute the dirty-diff on save. */
   private originalEnabled = new Map<string, boolean>();
@@ -55,6 +56,7 @@ export class TenantReportsTabComponent implements OnInit {
     private tenantService: TenantService,
     private router: Router,
     private confirmService: ConfirmService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -64,11 +66,10 @@ export class TenantReportsTabComponent implements OnInit {
   refresh(): void {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      this.errorMessage = 'No active tenant context';
+      this.toast.warning('No active tenant context');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.reportConfig.invalidate(tenantId);
     this.reportConfig.list(tenantId).subscribe({
       next: (rows) => {
@@ -79,7 +80,7 @@ export class TenantReportsTabComponent implements OnInit {
         this.loading         = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Could not load report configuration.';
+        this.toast.error(extractErrorMessage(err, 'Could not load report configuration.'));
         this.loading      = false;
       },
     });
@@ -141,7 +142,6 @@ export class TenantReportsTabComponent implements OnInit {
   private doSave(tenantId: string, diff: DiffEntry[]): void {
     this.saving = true;
     this.saved  = false;
-    this.errorMessage = null;
     this.reportConfig.bulkUpsert(tenantId, diff).subscribe({
       next: () => {
         this.originalEnabled = new Map(this.currentEnabled);
@@ -150,7 +150,7 @@ export class TenantReportsTabComponent implements OnInit {
         setTimeout(() => (this.saved = false), 3000);
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Could not save changes.';
+        this.toast.error(extractErrorMessage(err, 'Could not save changes.'));
         this.saving       = false;
       },
     });

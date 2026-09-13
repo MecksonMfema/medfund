@@ -20,15 +20,6 @@
   }
 }
 
-.banner {
-  padding: 0.55rem 0.75rem;
-  border-radius: var(--radius-sm, 6px);
-  font-size: 0.85rem;
-  margin: 0.75rem 1.5rem 0;
-
-  &.banner-error { background: var(--color-danger-soft, #fee2e2); color: var(--color-danger, #991b1b); }
-}
-
 .modal-backdrop {
   position: fixed;
   inset: 0;

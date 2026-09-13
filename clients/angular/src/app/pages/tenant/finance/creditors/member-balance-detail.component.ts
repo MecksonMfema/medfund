@@ -16,6 +16,7 @@ import { SkeletonComponent } from '../../../../shared/components/skeleton/skelet
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 type Tab = 'payables' | 'ctcs' | 'payments' | 'notes';
 
@@ -41,7 +42,6 @@ export class MemberBalanceDetailComponent implements OnInit {
   payments: Payment[] = [];
   notes: Note[] = [];
   loading = false;
-  errorMessage: string | null = null;
   revokingId: string | null = null;
   activeTab: Tab = 'payables';
 
@@ -57,7 +57,7 @@ export class MemberBalanceDetailComponent implements OnInit {
   ngOnInit(): void {
     this.memberId = this.route.snapshot.paramMap.get('id');
     if (!this.memberId) {
-      this.errorMessage = 'No member id';
+      this.toast.error('No member id');
       return;
     }
     this.refresh();
@@ -82,7 +82,7 @@ export class MemberBalanceDetailComponent implements OnInit {
         this.loading  = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load member';
+        this.toast.error(extractErrorMessage(err, 'Failed to load member'));
         this.loading = false;
       },
     });
@@ -124,7 +124,7 @@ export class MemberBalanceDetailComponent implements OnInit {
       },
       error: (err) => {
         this.revokingId = null;
-        this.toast.error(err?.error?.detail || `Failed to revoke ${payment.paymentNumber}`);
+        this.toast.error(extractErrorMessage(err, `Failed to revoke ${payment.paymentNumber}`));
       },
     });
   }

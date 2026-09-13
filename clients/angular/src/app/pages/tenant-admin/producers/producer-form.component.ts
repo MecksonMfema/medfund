@@ -13,6 +13,7 @@ import { TenantService } from '../../../core/services/tenant.service';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
 import { ToastService } from '../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../core/util/http-errors';
 
 interface ProducerForm {
   producerCode: string;
@@ -39,7 +40,6 @@ export class ProducerFormComponent implements OnInit {
   producerId: string | null = null;
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   allowedCurrencies: TenantCurrencyConfig[] = [];
 
@@ -143,7 +143,7 @@ export class ProducerFormComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load producer';
+        this.toast.error(extractErrorMessage(err, 'Failed to load producer'));
         this.loading = false;
       },
     });
@@ -181,15 +181,15 @@ export class ProducerFormComponent implements OnInit {
 
   submit(): void {
     if (!this.form.name.trim()) {
-      this.errorMessage = 'Name is required';
+      this.toast.warning('Name is required');
       return;
     }
     if (!this.form.homeCurrency.trim() || this.form.homeCurrency.length !== 3) {
-      this.errorMessage = 'Home currency must be a 3-letter ISO code';
+      this.toast.warning('Home currency must be a 3-letter ISO code');
       return;
     }
     if (!this.producerId && !this.form.producerCode.trim()) {
-      this.errorMessage = 'Producer code is required';
+      this.toast.warning('Producer code is required');
       return;
     }
 
@@ -205,7 +205,6 @@ export class ProducerFormComponent implements OnInit {
     };
 
     this.saving = true;
-    this.errorMessage = null;
 
     const stream = this.producerId
       ? this.svc.updateProducer(this.producerId,
@@ -223,9 +222,7 @@ export class ProducerFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        const detail = err?.error?.detail || err?.error?.title || 'Save failed';
-        this.errorMessage = detail;
-        this.toast.error(detail);
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }

@@ -13,6 +13,8 @@ import { IconComponent } from '../../../../shared/components/icon/icon.component
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 type Tab = 'payments' | 'notes';
 
@@ -28,19 +30,19 @@ export class ProviderBalanceDetailComponent implements OnInit {
   payments: Payment[] = [];
   notes: Note[] = [];
   loading = false;
-  errorMessage: string | null = null;
   activeTab: Tab = 'payments';
 
   constructor(
     private finance: FinanceService,
     private route: ActivatedRoute,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
     const providerId = this.route.snapshot.paramMap.get('id');
     if (!providerId) {
-      this.errorMessage = 'No provider id';
+      this.toast.error('No provider id');
       return;
     }
     this.refresh(providerId);
@@ -60,7 +62,7 @@ export class ProviderBalanceDetailComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load provider';
+        this.toast.error(extractErrorMessage(err, 'Failed to load provider'));
         this.loading = false;
       },
     });

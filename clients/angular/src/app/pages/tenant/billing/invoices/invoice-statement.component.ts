@@ -9,6 +9,7 @@ import {
 import { StatementResponse, StatementLine } from '../../../../core/services/statements.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface SchemeGroup {
   schemeName: string;
@@ -41,7 +42,6 @@ interface SchemeGroup {
 export class InvoiceStatementComponent implements OnInit {
   invoiceId = '';
   loading = false;
-  errorMessage: string | null = null;
 
   invoice: any | null = null;          // raw InvoiceResponse
   statement: StatementResponse | null = null;
@@ -63,7 +63,7 @@ export class InvoiceStatementComponent implements OnInit {
   ngOnInit(): void {
     this.invoiceId = this.route.snapshot.paramMap.get('id') ?? '';
     if (!this.invoiceId) {
-      this.errorMessage = 'Invoice id missing from URL';
+      this.toast.error('Invoice id missing from URL');
       return;
     }
     this.load();
@@ -86,8 +86,7 @@ export class InvoiceStatementComponent implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.errorMessage = err?.error?.detail || 'Failed to load invoice statement';
-        this.toast.error(this.errorMessage ?? 'Failed');
+        this.toast.error(extractErrorMessage(err, 'Failed to load invoice statement'));
       },
     });
   }

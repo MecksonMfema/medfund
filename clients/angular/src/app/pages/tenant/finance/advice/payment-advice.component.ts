@@ -10,6 +10,8 @@ import {
 } from '../../../../core/services/finance.service';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-payment-advice',
@@ -21,7 +23,6 @@ import { DataTableComponent, TableAction, TableColumn } from '../../../../shared
 export class PaymentAdviceComponent implements OnInit {
   rows: PaymentAdviceRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
 
   pageTitle = 'Payment advices';
   pageDescription = 'Per-payee ledger of every payment run. Advices are generated '
@@ -74,7 +75,11 @@ export class PaymentAdviceComponent implements OnInit {
     },
   ];
 
-  constructor(private finance: FinanceService, private router: Router) {}
+  constructor(
+    private finance: FinanceService,
+    private router: Router,
+    private toast: ToastService,
+  ) {}
 
   ngOnInit(): void {
     this.fetchPage();
@@ -82,7 +87,6 @@ export class PaymentAdviceComponent implements OnInit {
 
   fetchPage(): void {
     this.loading = true;
-    this.errorMessage = null;
     const bounds = this.monthFilter ? monthToPeriodBounds(this.monthFilter) : null;
     this.finance.listAdvicesPaged({
       payeeType: this.payeeTypeFilter || undefined,
@@ -103,7 +107,7 @@ export class PaymentAdviceComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load payment advices';
+        this.toast.error(extractErrorMessage(err, 'Failed to load payment advices'));
         this.rows = [];
         this.totalCount = 0;
         this.totalPages = 1;

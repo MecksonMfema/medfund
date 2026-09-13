@@ -15,7 +15,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * Phase 13 §C Phase 8 per L11 — group-census snapshot at {@code asOf}.
+ * Phase 13 §C Phase 8 per L11: group-census snapshot at {@code asOf}.
  * Read from members + groups joined by group_id; status counts derived
  * from the current status column (asOf &gt; today rejected upstream by
  * the controller).

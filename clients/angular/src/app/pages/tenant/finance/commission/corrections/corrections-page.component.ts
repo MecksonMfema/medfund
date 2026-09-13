@@ -15,6 +15,8 @@ import {
 } from '../../../../../shared/components/data-table/data-table.component';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../../core/util/http-errors';
 
 interface CorrectionRow extends Adjustment {
   targetShort: string;
@@ -43,7 +45,6 @@ interface CorrectionRow extends Adjustment {
 export class CorrectionsPageComponent implements OnInit {
   rows: CorrectionRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
   statusFilter: '' | AdjustmentStatus = '';
 
   page = 1;
@@ -115,7 +116,6 @@ export class CorrectionsPageComponent implements OnInit {
   voidTargetId: string | null = null;
   voidReason = '';
   voidSubmitting = false;
-  voidError: string | null = null;
 
   // Router is injected via inject() rather than a constructor param so
   // the existing spec (which builds this component with `new` and two
@@ -125,6 +125,7 @@ export class CorrectionsPageComponent implements OnInit {
   constructor(
     private svc: CommissionAdjustmentService,
     perms: PermissionService,
+    private toast: ToastService,
   ) {
     this.canDraft = perms.hasAny(['finance.commission:draft_adjustment']);
     this.canApprove = perms.hasAny(['finance.commission:approve_adjustment']);
@@ -142,7 +143,6 @@ export class CorrectionsPageComponent implements OnInit {
 
   fetchPage(): void {
     this.loading = true;
-    this.errorMessage = null;
     this.svc.list(this.statusFilter || undefined, this.page - 1, this.pageSize).subscribe({
       next: page => {
         this.rows = page.content.map(r => ({
@@ -154,8 +154,7 @@ export class CorrectionsPageComponent implements OnInit {
         this.loading = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load corrections queue';
+        this.toast.error(extractErrorMessage(err, 'Failed to load corrections queue'));
         this.rows = [];
         this.loading = false;
       },
@@ -179,7 +178,7 @@ export class CorrectionsPageComponent implements OnInit {
     this.svc.approve(row.id).subscribe({
       next: () => { this.actionInProgress[row.id] = false; this.fetchPage(); },
       error: err => {
-        this.errorMessage = err?.error?.detail || 'Approve failed.';
+        this.toast.error(extractErrorMessage(err, 'Approve failed.'));
         this.actionInProgress[row.id] = false;
       },
     });
@@ -191,7 +190,7 @@ export class CorrectionsPageComponent implements OnInit {
     this.svc.commit(row.id).subscribe({
       next: () => { this.actionInProgress[row.id] = false; this.fetchPage(); },
       error: err => {
-        this.errorMessage = err?.error?.detail || 'Commit failed.';
+        this.toast.error(extractErrorMessage(err, 'Commit failed.'));
         this.actionInProgress[row.id] = false;
       },
     });
@@ -200,24 +199,21 @@ export class CorrectionsPageComponent implements OnInit {
   openVoid(row: Adjustment): void {
     this.voidTargetId = row.id;
     this.voidReason = '';
-    this.voidError = null;
   }
 
   cancelVoid(): void {
     this.voidTargetId = null;
     this.voidReason = '';
-    this.voidError = null;
     this.voidSubmitting = false;
   }
 
   submitVoid(): void {
     if (!this.voidTargetId) return;
     if (!this.voidReason.trim() || this.voidReason.trim().length < 5) {
-      this.voidError = 'Reason must be at least 5 characters.';
+      this.toast.warning('Reason must be at least 5 characters.');
       return;
     }
     this.voidSubmitting = true;
-    this.voidError = null;
     this.svc.void(this.voidTargetId, this.voidReason.trim()).subscribe({
       next: () => {
         this.voidSubmitting = false;
@@ -225,7 +221,7 @@ export class CorrectionsPageComponent implements OnInit {
         this.fetchPage();
       },
       error: err => {
-        this.voidError = err?.error?.detail || err?.error?.title || 'Void failed.';
+        this.toast.error(extractErrorMessage(err, 'Void failed.'));
         this.voidSubmitting = false;
       },
     });

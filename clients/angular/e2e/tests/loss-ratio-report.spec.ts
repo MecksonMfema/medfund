@@ -8,7 +8,7 @@ import { test, expect, TENANT } from '../fixtures/test';
  *      the "—" dash when a scheme billed nothing for the window.
  *   2. Refetches with the new window when the period start/end changes.
  *   3. Exports the workbook — `GET /reports/billing-vs-claims/export/excel`.
- *   4. Shows the warnings banner when the envelope carries a warnings array.
+ *   4. Fires an aggregated warning toast when the envelope carries a warnings array.
  *
  * Every /api/v1 call is stubbed via ApiMocks — no live services needed.
  */
@@ -74,7 +74,7 @@ function reportCatalogue() {
 }
 
 test.describe('Loss ratio report (Phase 5 §B)', () => {
-  test('golden path: render → period refilter → export → warnings banner', async ({ page, apiMocks, signInAs }) => {
+  test('golden path: render, period refilter, export, warnings toast', async ({ page, apiMocks, signInAs }) => {
     await signInAs({
       realmRoles: ['operator'],
       permissions: ['finance:view_subledger'],
@@ -125,8 +125,10 @@ test.describe('Loss ratio report (Phase 5 §B)', () => {
     expect(fetches[2].get('periodEnd')).toBe('2026-06-30');
     expect(fetches[2].get('reportingCurrency')).toBe('USD');
 
-    // Warnings banner surfaces the partial-data note.
-    await expect(page.getByText(/partial data/i)).toBeVisible();
+    // Aggregated warning toast surfaces the partial-data note.
+    await expect(
+      page.locator('[role="status"]', { hasText: /partial data/i }),
+    ).toBeVisible();
 
     // Export the workbook — the blob GET fires and resolves 200.
     const exportResp = page.waitForResponse(

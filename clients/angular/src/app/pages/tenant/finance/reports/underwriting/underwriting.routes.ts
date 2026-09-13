@@ -3,11 +3,11 @@ import { permissionGuard } from '../../../../../auth/auth.guard';
 
 /**
  * Phase 12 §B + §C underwriting reports. Four keys under
- * {@code ReportFamily.UNDERWRITING} — UPR movement, premium register,
+ * {@code ReportFamily.UNDERWRITING}: UPR movement, premium register,
  * new business register (§B, contributions-service) plus endorsement
  * register (§C, user-service). Backend prefix is
  * {@code /api/v1/reports/premium/*}; the gateway proxies the whole
- * prefix — the endorsements sub-route registers ahead of the wildcard
+ * prefix: the endorsements sub-route registers ahead of the wildcard
  * so registration-order dispatch beats the catchall.
  *
  * <p>Kept in a small module for module-level cohesion; spread into

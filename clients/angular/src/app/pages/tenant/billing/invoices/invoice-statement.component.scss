@@ -3,12 +3,6 @@
 :host { display: block; padding: 0; }
 .page { padding: 24px; max-width: none; }
 
-.banner.banner-error {
-  padding: .65rem .85rem;
-  background: #fef2f2; color: #7f1d1d; border: 1px solid #fecaca;
-  border-radius: 6px; cursor: pointer; margin-bottom: 1rem;
-}
-
 .muted { color: var(--color-text-muted); }
 .muted.small { font-size: .8rem; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }

@@ -18,10 +18,6 @@
   </button>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 @if (loading) {
   <p>Loading…</p>
 } @else if (rows.length === 0) {

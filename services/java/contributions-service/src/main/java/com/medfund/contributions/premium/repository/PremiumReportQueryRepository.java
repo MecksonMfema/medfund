@@ -39,13 +39,13 @@ public class PremiumReportQueryRepository {
     // ── UPR Movement ────────────────────────────────────────────────────────
 
     /**
-     * UPR movement for the window — four-way FULL OUTER JOIN of the
+     * UPR movement for the window: four-way FULL OUTER JOIN of the
      * opening / written / earned / endorsement-delta CTEs. The identity
      * {@code opening + written − earned + delta = closing} is reconciled
      * by the SQL so the client renders the movement table verbatim.
      *
      * <p>Optional {@code insuranceLine} filter narrows the report to a
-     * single line — matches the Angular filter row.
+     * single line: matches the Angular filter row.
      */
     public Flux<UprMovementRow> uprMovementRows(LocalDate periodStart, LocalDate periodEnd,
                                                 String insuranceLine) {
@@ -122,7 +122,7 @@ public class PremiumReportQueryRepository {
     }
 
     /**
-     * Per-currency native totals for UPR — feeds the envelope's
+     * Per-currency native totals for UPR: feeds the envelope's
      * {@code perCurrency} map (parent-plan G18). {@code totalAmount} is
      * the {@code closing_upr} which is the report's headline number; the
      * {@code rowCount} carries the (line × currency) count.
@@ -165,8 +165,14 @@ public class PremiumReportQueryRepository {
                        AND (:insuranceLine::varchar IS NULL OR insurance_line = :insuranceLine::varchar)
                      GROUP BY currency_code
                 )
-                SELECT COALESCE(o.currency_code, w.currency_code, e.currency_code, d.currency_code)
-                           AS currency_code,
+                -- USING (currency_code) merges the four join columns into a
+                -- single unqualified `currency_code` output. Referencing
+                -- `o.currency_code` in the SELECT then reads the source-table
+                -- column (which is a distinct expression from the merged one)
+                -- and trips "must appear in GROUP BY" because GROUP BY has
+                -- the merged column, not the qualified sources. Use the
+                -- unqualified merged column throughout.
+                SELECT currency_code,
                        COALESCE(o.opening_upr, 0)
                          + COALESCE(w.written, 0)
                          - COALESCE(e.earned,  0)
@@ -308,7 +314,7 @@ public class PremiumReportQueryRepository {
                 .all();
     }
 
-    /** Per-currency native totals for the Premium Register — feeds the envelope. */
+    /** Per-currency native totals for the Premium Register: feeds the envelope. */
     public Mono<Map<String, PerCurrencyTotal>> premiumRegisterPerCurrencyTotals(
             LocalDate periodStart, LocalDate periodEnd, String insuranceLine) {
         String sql = """
@@ -486,7 +492,7 @@ public class PremiumReportQueryRepository {
                 .all();
     }
 
-    /** Per-currency native totals for New Business — feeds the envelope. */
+    /** Per-currency native totals for New Business: feeds the envelope. */
     public Mono<Map<String, PerCurrencyTotal>> newBusinessPerCurrencyTotals(
             LocalDate periodStart, LocalDate periodEnd, String insuranceLine) {
         String sql = """

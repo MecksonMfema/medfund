@@ -11,10 +11,6 @@
   </div>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 @if (loading) {
   <div class="loading">Loading…</div>
 } @else if (!row) {
@@ -113,7 +109,6 @@
                   [(ngModel)]="voidReason"
                   placeholder="e.g. drafter withdrew request"></textarea>
       </label>
-      @if (voidError) { <div class="banner banner-error">{{ voidError }}</div> }
       <div class="modal-actions">
         <button type="button" class="btn"
                 (click)="cancelVoid()"

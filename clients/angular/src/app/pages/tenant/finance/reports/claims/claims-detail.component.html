@@ -20,10 +20,6 @@
   </div>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 <div class="tx-toolbar">
   <div class="toolbar-cell">
     <span class="cell-label">Period start</span>
@@ -45,10 +41,14 @@
     ></app-select>
   </div>
   @if (dimension === 'scheme') {
-    <div class="toolbar-cell cell-search">
+    <div class="toolbar-cell cell-line">
       <span class="cell-label">Provider</span>
-      <input type="text" [(ngModel)]="providerId" (change)="onFilterChange()" name="providerId"
-             placeholder="Provider id (UUID)" />
+      <app-entity-picker
+        kind="provider"
+        [(value)]="providerId"
+        (valueChange)="onFilterChange()"
+        placeholder="Search by provider name...">
+      </app-entity-picker>
     </div>
   }
   <div class="toolbar-cell">
@@ -58,19 +58,21 @@
   </div>
 </div>
 
-@if (envelope?.warnings?.length) {
-  <div class="banner banner-warning">
-    @for (w of envelope!.warnings; track w) {
-      <div>{{ w }}</div>
-    }
-  </div>
-}
-
 <div class="detail-sections">
   <section class="detail-section">
     <h2>Monthly buckets</h2>
     @if ((envelope?.data?.monthlyBuckets?.length ?? 0) === 0) {
-      <p>No claims adjudicated in this period.</p>
+      <div class="empty-state">
+        <div class="empty-state__icon">
+          <app-icon name="file-text" [size]="32"></app-icon>
+        </div>
+        <div class="empty-state__title">No claims adjudicated</div>
+        <div class="empty-state__description">
+          No claim landed on the ledger in this window for the selected
+          filters. Widen the period, clear the status filter, or drop the
+          currency filter to see any activity.
+        </div>
+      </div>
     } @else {
       <table class="rate-table">
         <thead>

@@ -15,6 +15,8 @@ import { IconComponent } from '../../../../../shared/components/icon/icon.compon
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Commission clawback register — one row per clawback_event in the selected
@@ -36,7 +38,6 @@ import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/repo
 export class CommissionClawbackRegisterComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<ClawbackRegisterRow[]> | null = null;
   currencies: TenantCurrencyConfig[] = [];
@@ -58,6 +59,7 @@ export class CommissionClawbackRegisterComponent implements OnInit {
     private producerSvc: ProducerService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -98,19 +100,18 @@ export class CommissionClawbackRegisterComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.reportSvc.getClawbackRegister(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load clawback register';
+        this.toast.error(extractErrorMessage(err, 'Failed to load clawback register'));
         this.envelope = null;
         this.loading = false;
       },
@@ -126,11 +127,16 @@ export class CommissionClawbackRegisterComponent implements OnInit {
         this.exporting = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to export clawback register';
+        this.toast.error(extractErrorMessage(err, 'Failed to export clawback register'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<ClawbackRegisterRow[]>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Commission clawback register'), 8000);
   }
 
   onFilterChange(): void { this.fetch(); }

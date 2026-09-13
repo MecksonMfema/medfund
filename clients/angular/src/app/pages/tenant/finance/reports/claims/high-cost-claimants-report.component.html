@@ -22,10 +22,6 @@
   </div>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 <div class="tx-toolbar">
   <div class="toolbar-cell">
     <span class="cell-label">Period start</span>
@@ -48,14 +44,6 @@
   </div>
 </div>
 
-@if (envelope?.warnings?.length) {
-  <div class="banner banner-warning">
-    @for (w of envelope!.warnings; track w) {
-      <div>{{ w }}</div>
-    }
-  </div>
-}
-
 <app-data-table
   [data]="rows"
   [columns]="columns"
@@ -63,5 +51,5 @@
   [searchable]="true"
   [showToolbar]="true"
   emptyMessage="No member cleared the threshold in this window."
-  emptyDescription="Either no member crossed the threshold, or the threshold is not configured yet: check the warning banner above."
+  emptyDescription="Either no member crossed the threshold, or the threshold is not configured yet. Set it under Settings → Reports → High-cost claimant threshold; a config-gap warning toast fires when it is missing."
 ></app-data-table>

@@ -13,6 +13,7 @@ import { HasPermissionDirective } from '../../../../shared/directives/has-permis
 import { PermissionService } from '../../../../core/security/permission.service';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 /** Row shape rendered in the data-table — extends the raw benefit with
  *  display-ready limit strings so the table can stay declarative. */
@@ -39,7 +40,6 @@ export class BenefitsListComponent implements OnInit, OnDestroy {
   schemeId = '';
   scheme: Scheme | null = null;
   benefits: BenefitRow[] = [];
-  errorMessage: string | null = null;
 
   // Server-side pagination + sort state. Page is 1-indexed in the UI
   // (matches the data-table's serverPage input) and 0-indexed in the API.
@@ -100,7 +100,7 @@ export class BenefitsListComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.schemeId = this.route.snapshot.paramMap.get('schemeId') ?? '';
     if (!this.schemeId) {
-      this.errorMessage = 'No scheme id in route';
+      this.toast.error('No scheme id in route');
       return;
     }
     this.subs.push(
@@ -128,7 +128,6 @@ export class BenefitsListComponent implements OnInit, OnDestroy {
 
   fetchPage(): void {
     this.loading = true;
-    this.errorMessage = null;
     this.contributions.getBenefitsBySchemePaged(this.schemeId, {
       page: this.page - 1,
       size: this.pageSize,
@@ -146,7 +145,7 @@ export class BenefitsListComponent implements OnInit, OnDestroy {
         this.benefits   = [];
         this.totalCount = 0;
         this.totalPages = 1;
-        this.errorMessage = err?.error?.detail || 'Failed to load benefits';
+        this.toast.error(extractErrorMessage(err, 'Failed to load benefits'));
         this.loading    = false;
       },
     });
@@ -205,7 +204,7 @@ export class BenefitsListComponent implements OnInit, OnDestroy {
         this.toast.success(`"${b.name}" ${updated.status === 'active' ? 'activated' : 'deactivated'}`);
       },
       error: (err) => {
-        this.toast.error(err?.error?.detail || `Could not ${wantsActive ? 'activate' : 'deactivate'} benefit`);
+        this.toast.error(extractErrorMessage(err, `Could not ${wantsActive ? 'activate' : 'deactivate'} benefit`));
       },
     });
   }

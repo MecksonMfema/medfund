@@ -19,6 +19,8 @@ import { MembersService, Member } from '../../../../core/services/members.servic
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { HumanizePipe } from '../../../../shared/pipes/humanize.pipe';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 type TargetType = 'GROUP' | 'INDIVIDUAL';
 
@@ -41,7 +43,6 @@ export class TransactionFormComponent implements OnInit {
   currencies: TenantCurrencyConfig[] = [];
 
   saving = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   // ── Target picker state ────────────────────────────────────────────────
@@ -96,12 +97,13 @@ export class TransactionFormComponent implements OnInit {
     private groupsService: GroupsService,
     private membersService: MembersService,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
     const tenant = this.tenantService.getTenant();
     if (!tenant) {
-      this.errorMessage = 'No active tenant context';
+      this.toast.error('No active tenant context');
       return;
     }
     this.membershipModel = tenant.membershipModel ?? 'BOTH';
@@ -121,7 +123,7 @@ export class TransactionFormComponent implements OnInit {
         const def = this.currencies.find(c => c.isDefault);
         if (!this.form.currencyCode && def) this.form.currencyCode = def.currencyCode;
       },
-      error: (err) => { this.errorMessage = err?.error?.detail || 'Failed to load form data'; },
+      error: (err) => { this.toast.error(extractErrorMessage(err, 'Failed to load form data')); },
     });
 
     this.query$
@@ -210,20 +212,20 @@ export class TransactionFormComponent implements OnInit {
 
   submit(): void {
     if (!this.selectedTarget) {
-      this.errorMessage = 'Pick a target (group or individual) to record the transaction against';
+      this.toast.warning('Pick a target (group or individual) to record the transaction against');
       return;
     }
     if (!this.form.amount || !this.form.currencyCode || !this.form.transactionTypeCode) {
-      this.errorMessage = 'Amount, currency, and transaction type are required';
+      this.toast.warning('Amount, currency, and transaction type are required');
       return;
     }
     const method = this.selectedMethod();
     if (method?.requiresReference && !this.form.reference.trim()) {
-      this.errorMessage = `${method.label} requires a reference`;
+      this.toast.warning(`${method.label} requires a reference`);
       return;
     }
     if (this.needsReason && !this.form.reason.trim()) {
-      this.errorMessage = 'A reason is required for CREDIT / DEBIT adjustments: explain why the ledger is being moved.';
+      this.toast.warning('A reason is required for CREDIT / DEBIT adjustments: explain why the ledger is being moved.');
       return;
     }
 
@@ -242,13 +244,12 @@ export class TransactionFormComponent implements OnInit {
     };
 
     this.saving = true;
-    this.errorMessage = null;
     this.contributionsService.recordTransaction(payload).subscribe({
       next: () => {
         this.saving = false;
         this.successMessage = 'Transaction recorded';
         // Stay on the form so the operator can record another payment
-        // without navigating back — reset money fields but keep the
+        // without navigating back: reset money fields but keep the
         // target picked so consecutive payments to the same group /
         // member don't require re-searching.
         this.form.amount = '';
@@ -257,7 +258,7 @@ export class TransactionFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Save failed';
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }

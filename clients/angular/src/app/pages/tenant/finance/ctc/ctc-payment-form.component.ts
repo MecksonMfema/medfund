@@ -13,6 +13,7 @@ import { EntityPickerComponent } from '../../../../shared/components/entity-pick
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 /**
  * CTC (Claims-to-Contributions) recording form. Two-step selection —
@@ -37,7 +38,6 @@ export class CtcPaymentFormComponent implements OnInit {
   tenantCurrencies: TenantCurrencyConfig[] = [];
   busy = false;
   loadingPayables = false;
-  errorMessage: string | null = null;
 
   memberId: string | null = null;
   memberPayableId: string | null = null;
@@ -101,14 +101,12 @@ export class CtcPaymentFormComponent implements OnInit {
         this.openPayables = (rows || []).filter(p => p.status === 'open');
         this.loadingPayables = false;
         if (this.openPayables.length === 0) {
-          this.errorMessage = 'This member has no open payables to offset.';
-        } else {
-          this.errorMessage = null;
+          this.toast.warning('This member has no open payables to offset.');
         }
       },
       error: (err) => {
         this.loadingPayables = false;
-        this.errorMessage = err?.error?.detail || 'Failed to load member payables';
+        this.toast.error(extractErrorMessage(err, 'Failed to load member payables'));
       },
     });
   }
@@ -125,11 +123,10 @@ export class CtcPaymentFormComponent implements OnInit {
   }
 
   submit(): void {
-    this.errorMessage = null;
-    if (!this.memberId) { this.errorMessage = 'Pick a member first'; return; }
-    if (!this.memberPayableId) { this.errorMessage = 'Pick a payable to offset'; return; }
-    if (!this.amount || Number(this.amount) <= 0) { this.errorMessage = 'Amount must be greater than zero'; return; }
-    if (!this.currencyCode) { this.errorMessage = 'Currency is required'; return; }
+    if (!this.memberId) { this.toast.warning('Pick a member first'); return; }
+    if (!this.memberPayableId) { this.toast.warning('Pick a payable to offset'); return; }
+    if (!this.amount || Number(this.amount) <= 0) { this.toast.warning('Amount must be greater than zero'); return; }
+    if (!this.currencyCode) { this.toast.warning('Currency is required'); return; }
 
     const payload: CreateCtcPaymentPayload = {
       memberId: this.memberId,
@@ -148,7 +145,7 @@ export class CtcPaymentFormComponent implements OnInit {
         });
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to create CTC payment';
+        this.toast.error(extractErrorMessage(err, 'Failed to create CTC payment'));
         this.busy = false;
       },
     });

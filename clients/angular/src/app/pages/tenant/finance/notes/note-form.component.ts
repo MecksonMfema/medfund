@@ -12,6 +12,8 @@ import {
 import { EntityPickerComponent } from '../../../../shared/components/entity-picker/entity-picker.component';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 type Target = 'provider' | 'member';
 
@@ -32,7 +34,6 @@ type Target = 'provider' | 'member';
 export class NoteFormComponent implements OnInit {
   currencies: Currency[] = [];
   busy = false;
-  errorMessage: string | null = null;
 
   direction: NoteDirection = 'DEBIT';
   target: Target = 'provider';
@@ -47,6 +48,7 @@ export class NoteFormComponent implements OnInit {
     private currencyService: CurrencyService,
     private finance: FinanceService,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   readonly directionOptions: SelectOption[] = [
@@ -84,16 +86,16 @@ export class NoteFormComponent implements OnInit {
 
   submit(): void {
     if (!this.amount || !this.currencyCode) {
-      this.errorMessage = 'Amount and currency are required';
+      this.toast.warning('Amount and currency are required');
       return;
     }
     if (!this.isMemo) {
       if (this.target === 'provider' && !this.providerId.trim()) {
-        this.errorMessage = 'Provider is required';
+        this.toast.warning('Provider is required');
         return;
       }
       if (this.target === 'member' && !this.memberId.trim()) {
-        this.errorMessage = 'Member is required';
+        this.toast.warning('Member is required');
         return;
       }
     }
@@ -116,7 +118,7 @@ export class NoteFormComponent implements OnInit {
         this.router.navigate(['/tenant/finance/notes', note.id]);
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to create note';
+        this.toast.error(extractErrorMessage(err, 'Failed to create note'));
         this.busy = false;
       },
     });

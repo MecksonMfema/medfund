@@ -19,6 +19,8 @@ import {
   ActuarialJobProgressComponent,
 } from '../../../../../shared/components/actuarial-job-progress/actuarial-job-progress.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Phase 14 §Actuarial Phase 10 shared shell for the two triangle reports
@@ -71,17 +73,18 @@ export class ActuarialTriangleComponent implements OnInit, OnDestroy {
   currencies: TenantCurrencyConfig[] = [];
 
   submitting = false;
-  errorMessage: string | null = null;
   currentJob: JobStatusResponse | null = null;
   startedAt: number | null = null;
   triangleParams: TriangleJobRequest | null = null;
   private pollSub: Subscription | null = null;
+  private lastWarnedJobId: string | null = null;
 
   constructor(
     private reports: ActuarialReportsService,
     private polling: ActuarialJobPollingService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -153,13 +156,13 @@ export class ActuarialTriangleComponent implements OnInit, OnDestroy {
   submit(): void {
     if (this.submitting) return;
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
-    this.errorMessage = null;
     this.submitting = true;
     this.currentJob = null;
     this.startedAt  = Date.now();
+    this.lastWarnedJobId = null;
 
     const body: TriangleJobRequest = {
       periodStart: this.periodStart,
@@ -183,8 +186,7 @@ export class ActuarialTriangleComponent implements OnInit, OnDestroy {
       },
       error: (err) => {
         this.submitting = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to submit the actuarial job';
+        this.toast.error(extractErrorMessage(err, 'Failed to submit the actuarial job'));
       },
     });
   }
@@ -202,13 +204,28 @@ export class ActuarialTriangleComponent implements OnInit, OnDestroy {
   private beginPolling(jobId: string): void {
     this.pollSub?.unsubscribe();
     this.pollSub = this.polling.poll(jobId).subscribe({
-      next:  (snap) => { this.currentJob = snap; },
+      next:  (snap) => {
+        this.currentJob = snap;
+        this.maybeSurfaceWarnings(snap);
+      },
       error: (err) => {
-        this.errorMessage = err?.message || 'Polling failed';
+        this.toast.error(err?.message || 'Polling failed');
         this.pollSub = null;
       },
       complete: () => { this.pollSub = null; },
     });
+  }
+
+  private maybeSurfaceWarnings(snap: JobStatusResponse): void {
+    if (snap.status !== 'completed') return;
+    if (this.lastWarnedJobId === snap.jobId) return;
+    const warnings = snap.paramsJson?.shape_warnings ?? [];
+    if (warnings.length === 0) {
+      this.lastWarnedJobId = snap.jobId;
+      return;
+    }
+    this.toast.warning(composeWarningsToast(warnings, this.pageTitle), 8000);
+    this.lastWarnedJobId = snap.jobId;
   }
 
   // ── result unpacking + display helpers ─────────────────────────────────

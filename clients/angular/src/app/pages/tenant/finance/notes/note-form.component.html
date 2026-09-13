@@ -10,10 +10,6 @@
     </div>
   </header>
 
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
-
   <form class="card" (ngSubmit)="submit()" #f="ngForm">
     <div class="row-2">
       <label class="field">

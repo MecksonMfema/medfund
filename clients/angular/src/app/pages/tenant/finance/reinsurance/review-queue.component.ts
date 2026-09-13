@@ -14,6 +14,8 @@ import {
   TableColumn,
 } from '../../../../shared/components/data-table/data-table.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 /**
  * Phase 8 review queue. Populated primarily by claim-regression detection
@@ -37,7 +39,6 @@ interface ReviewRow extends ReviewTaskRow {
 export class ReinsuranceReviewQueueComponent implements OnInit {
   rows: ReviewRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
   statusFilter: '' | ReviewTaskStatus = '';
 
   page = 1;
@@ -49,7 +50,6 @@ export class ReinsuranceReviewQueueComponent implements OnInit {
   resolveResolution: ReviewTaskResolution = 'RESOLVED_KEEP';
   resolveNotes = '';
   resolveSubmitting = false;
-  resolveError: string | null = null;
 
   actionInProgress: Record<string, boolean> = {};
 
@@ -88,13 +88,12 @@ export class ReinsuranceReviewQueueComponent implements OnInit {
     },
   ];
 
-  constructor(private svc: ReinsuranceService) {}
+  constructor(private svc: ReinsuranceService, private toast: ToastService) {}
 
   ngOnInit(): void { this.fetchPage(); }
 
   fetchPage(): void {
     this.loading = true;
-    this.errorMessage = null;
     this.svc.listReviewTasks(
       this.statusFilter || undefined,
       this.page - 1,
@@ -112,8 +111,7 @@ export class ReinsuranceReviewQueueComponent implements OnInit {
         this.loading = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load review queue';
+        this.toast.error(extractErrorMessage(err, 'Failed to load review queue'));
         this.rows = [];
         this.loading = false;
       },
@@ -126,24 +124,21 @@ export class ReinsuranceReviewQueueComponent implements OnInit {
     this.resolveTargetId = row.id;
     this.resolveResolution = 'RESOLVED_KEEP';
     this.resolveNotes = '';
-    this.resolveError = null;
   }
 
   cancelResolve(): void {
     this.resolveTargetId = null;
     this.resolveNotes = '';
-    this.resolveError = null;
     this.resolveSubmitting = false;
   }
 
   submitResolve(): void {
     if (!this.resolveTargetId) return;
     if (this.resolveResolution === 'RESOLVED_VOID' && !this.resolveNotes.trim()) {
-      this.resolveError = 'Notes are required when voiding a cession.';
+      this.toast.warning('Notes are required when voiding a cession.');
       return;
     }
     this.resolveSubmitting = true;
-    this.resolveError = null;
     const payload: ResolveReviewTaskPayload = {
       resolution: this.resolveResolution,
       notes: this.resolveNotes.trim() || undefined,
@@ -155,7 +150,7 @@ export class ReinsuranceReviewQueueComponent implements OnInit {
         this.fetchPage();
       },
       error: err => {
-        this.resolveError = err?.error?.detail || err?.error?.title || 'Resolve failed.';
+        this.toast.error(extractErrorMessage(err, 'Resolve failed.'));
         this.resolveSubmitting = false;
       },
     });

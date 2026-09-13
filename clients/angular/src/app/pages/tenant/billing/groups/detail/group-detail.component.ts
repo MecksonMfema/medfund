@@ -10,6 +10,7 @@ import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { LiaisonPickerComponent, LiaisonSelection } from '../../../../../shared/components/liaison-picker/liaison-picker.component';
 import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../../core/util/http-errors';
 import { TerminateGroupModalComponent, TerminateGroupPayload } from '../../../../../shared/components/terminate-group-modal/terminate-group-modal.component';
 
 @Component({
@@ -24,7 +25,6 @@ export class GroupDetailComponent implements OnInit {
   group: Group | null = null;
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   /** Terminate-modal open flag. */
   terminateModalOpen = false;
@@ -58,7 +58,7 @@ export class GroupDetailComponent implements OnInit {
   ngOnInit(): void {
     this.groupId = this.route.snapshot.paramMap.get('id') ?? '';
     if (!this.groupId) {
-      this.errorMessage = 'Group id missing from the URL.';
+      this.toast.error('Group id missing from the URL.');
       return;
     }
     this.loadGroup();
@@ -82,7 +82,7 @@ export class GroupDetailComponent implements OnInit {
         this.loadLiaisonLabel(g);
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load group';
+        this.toast.error(extractErrorMessage(err, 'Failed to load group'));
         this.loading = false;
       },
     });
@@ -93,7 +93,7 @@ export class GroupDetailComponent implements OnInit {
     this.memberService.getByGroupId(this.groupId).subscribe({
       next: (list) => { this.members = list; this.membersLoading = false; },
       error: (err) => {
-        this.toast.error(err?.error?.detail || 'Failed to load group members');
+        this.toast.error(extractErrorMessage(err, 'Failed to load group members'));
         this.membersLoading = false;
       },
     });
@@ -101,19 +101,18 @@ export class GroupDetailComponent implements OnInit {
 
   save(): void {
     if (!this.form.name?.trim()) {
-      this.errorMessage = 'Name is required';
+      this.toast.warning('Name is required');
       return;
     }
-    // Either-or rule: the group needs a route for statements — a liaison
-    // OR a contact email. Both is fine; clearing both is not.
+    // Either-or rule: the group needs a route for statements (a liaison
+    // OR a contact email). Both is fine; clearing both is not.
     const hasLiaison = !!(this.form.liaisonKind && this.form.liaisonKind !== 'CLEAR' && this.form.liaisonUserId);
     const hasEmail = !!this.form.email?.trim();
     if (!hasLiaison && !hasEmail) {
-      this.errorMessage = 'Add either a liaison or a contact email: the group needs at least one route for contribution statements.';
+      this.toast.warning('Add either a liaison or a contact email: the group needs at least one route for contribution statements.');
       return;
     }
     this.saving = true;
-    this.errorMessage = null;
     const payload: UpsertGroupPayload = {
       name: this.form.name.trim(),
       registrationNumber: this.form.registrationNumber?.trim() || undefined,
@@ -129,9 +128,7 @@ export class GroupDetailComponent implements OnInit {
         this.toast.success('Group updated');
       },
       error: (err) => {
-        const msg = err?.error?.detail || err?.error?.title || 'Save failed';
-        this.errorMessage = msg;
-        this.toast.error(msg);
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
         this.saving = false;
       },
     });
@@ -142,7 +139,7 @@ export class GroupDetailComponent implements OnInit {
     if (!confirm(`Suspend group "${this.group.name}"?`)) return;
     this.groups.suspend(this.groupId).subscribe({
       next: (updated) => { this.group = updated; this.toast.success('Group suspended'); },
-      error: (err) => this.toast.error(err?.error?.detail || 'Suspend failed'),
+      error: (err) => this.toast.error(extractErrorMessage(err, 'Suspend failed')),
     });
   }
 
@@ -180,7 +177,7 @@ export class GroupDetailComponent implements OnInit {
         this.group = updated;
         this.toast.success(`Group terminated effective ${payload.effectiveDate}`);
       },
-      error: (err) => this.toast.error(err?.error?.detail || 'Terminate failed'),
+      error: (err) => this.toast.error(extractErrorMessage(err, 'Terminate failed')),
     });
   }
 

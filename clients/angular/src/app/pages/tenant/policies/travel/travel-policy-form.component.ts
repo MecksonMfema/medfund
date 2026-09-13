@@ -14,6 +14,7 @@ import { ToastService } from '../../../../shared/components/toast/toast.service'
 import { PolicyStatusActionButtonsComponent } from '../../../../shared/components/policy-status-action-buttons/policy-status-action-buttons.component';
 import { PolicyStatusActionModalComponent, PolicyStatusActionSubmit } from '../../../../shared/components/policy-status-action-modal/policy-status-action-modal.component';
 import { PolicyAction, PolicySource } from '../../../../core/services/policy-lifecycle-action-registry.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface TravelPolicyFormState {
   policyNumber: string;
@@ -54,7 +55,6 @@ export class TravelPolicyFormComponent implements OnInit {
   policy: TravelPolicy | null = null;
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   form: TravelPolicyFormState = {
     policyNumber: '', tripStartDate: '', tripEndDate: '',
@@ -133,7 +133,7 @@ export class TravelPolicyFormComponent implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.errorMessage = err?.error?.detail || 'Failed to load travel policy';
+        this.toast.error(extractErrorMessage(err, 'Failed to load travel policy'));
       },
     });
   }
@@ -167,24 +167,20 @@ export class TravelPolicyFormComponent implements OnInit {
     if (!this.form.schemeId)            missing.push('scheme');
     if (!this.isEdit && !this.form.travelerMemberId) missing.push('traveller');
     if (missing.length > 0) {
-      this.errorMessage = `Required field${missing.length > 1 ? 's' : ''} missing: ${missing.join(', ')}.`;
-      this.toast.error(this.errorMessage);
+      this.toast.warning(`Required field${missing.length > 1 ? 's' : ''} missing: ${missing.join(', ')}.`);
       return;
     }
     if (this.form.tripStartDate && this.form.tripEndDate
         && this.form.tripEndDate < this.form.tripStartDate) {
-      this.errorMessage = 'Trip end date must be on or after the trip start date.';
-      this.toast.error(this.errorMessage);
+      this.toast.warning('Trip end date must be on or after the trip start date.');
       return;
     }
     if (this.individualPricing
         && this.form.billingOverrideAmount != null
         && !this.form.billingOverrideEffectiveFrom) {
-      this.errorMessage = 'Custom premium: effective_from is required when an override amount is set.';
-      this.toast.error(this.errorMessage);
+      this.toast.warning('Custom premium: effective_from is required when an override amount is set.');
       return;
     }
-    this.errorMessage = null;
     this.saving = true;
 
     const payload: any = {
@@ -218,9 +214,7 @@ export class TravelPolicyFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        const msg = err?.error?.detail || err?.error?.title || 'Save failed';
-        this.errorMessage = msg;
-        this.toast.error(msg);
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }
@@ -238,7 +232,7 @@ export class TravelPolicyFormComponent implements OnInit {
         this.form.billingOverrideEffectiveFrom = '';
         this.toast.success('Custom premium cleared');
       },
-      error: (err) => this.toast.error(err?.error?.detail || 'Clear failed'),
+      error: (err) => this.toast.error(extractErrorMessage(err, 'Clear failed')),
     });
   }
 
@@ -246,7 +240,7 @@ export class TravelPolicyFormComponent implements OnInit {
     if (!this.isEdit) return;
     this.policies.suspendTravelPolicy(this.policyId!).subscribe({
       next: (saved) => { this.policy = saved; this.toast.success('Travel policy suspended'); },
-      error: (err) => this.toast.error(err?.error?.detail || 'Suspend failed'),
+      error: (err) => this.toast.error(extractErrorMessage(err, 'Suspend failed')),
     });
   }
 
@@ -255,7 +249,7 @@ export class TravelPolicyFormComponent implements OnInit {
     if (!confirm('Terminate this travel policy? It will stop billing next cycle.')) return;
     this.policies.terminateTravelPolicy(this.policyId!).subscribe({
       next: (saved) => { this.policy = saved; this.toast.success('Travel policy terminated'); },
-      error: (err) => this.toast.error(err?.error?.detail || 'Terminate failed'),
+      error: (err) => this.toast.error(extractErrorMessage(err, 'Terminate failed')),
     });
   }
 

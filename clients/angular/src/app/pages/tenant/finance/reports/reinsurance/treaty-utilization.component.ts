@@ -13,6 +13,8 @@ import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Treaty utilization — since-inception aggregate by (treaty, layer,
@@ -34,7 +36,6 @@ import { ReportBackButtonComponent } from '../shared/report-back-button.componen
 export class TreatyUtilizationComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<TreatyUtilizationRow[]> | null = null;
 
@@ -49,6 +50,7 @@ export class TreatyUtilizationComponent implements OnInit {
     private svc: ReinsuranceService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -107,14 +109,14 @@ export class TreatyUtilizationComponent implements OnInit {
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.svc.getTreatyUtilization(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load treaty utilization';
+        this.toast.error(extractErrorMessage(err, 'Failed to load treaty utilization'));
         this.envelope = null;
         this.loading = false;
       },
@@ -130,10 +132,16 @@ export class TreatyUtilizationComponent implements OnInit {
         this.exporting = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to export treaty utilization';
+        this.toast.error(extractErrorMessage(err, 'Failed to export treaty utilization'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<TreatyUtilizationRow[]>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Treaty utilization'), 8000);
   }
 
   onFilterChange(): void { this.fetch(); }

@@ -9,6 +9,8 @@ import {
 } from '../../../../core/services/claims-config.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-rejection-reason-form',
@@ -21,7 +23,6 @@ export class RejectionReasonFormComponent implements OnInit {
   reasonId: string | null = null;
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   // Categories track those used by the adjudication pipeline. Tenants can
   // pick "Other" to introduce a new bucket that surfaces in the catalogue
@@ -49,6 +50,7 @@ export class RejectionReasonFormComponent implements OnInit {
     private config: ClaimsConfigService,
     private route: ActivatedRoute,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -68,12 +70,12 @@ export class RejectionReasonFormComponent implements OnInit {
             isActive: found.isActive,
           };
         } else {
-          this.errorMessage = 'Rejection reason not found';
+          this.toast.error('Rejection reason not found');
         }
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load reason';
+        this.toast.error(extractErrorMessage(err, 'Failed to load reason'));
         this.loading = false;
       },
     });
@@ -81,7 +83,7 @@ export class RejectionReasonFormComponent implements OnInit {
 
   submit(): void {
     if (!this.form.code.trim() || !this.form.description.trim()) {
-      this.errorMessage = 'Code and description are required';
+      this.toast.warning('Code and description are required');
       return;
     }
     const payload: UpsertRejectionReasonPayload = {
@@ -91,7 +93,6 @@ export class RejectionReasonFormComponent implements OnInit {
       isActive: this.form.isActive,
     };
     this.saving = true;
-    this.errorMessage = null;
     const stream = this.reasonId
       ? this.config.updateRejectionReason(this.reasonId, payload)
       : this.config.createRejectionReason(payload);
@@ -102,7 +103,7 @@ export class RejectionReasonFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Save failed';
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }

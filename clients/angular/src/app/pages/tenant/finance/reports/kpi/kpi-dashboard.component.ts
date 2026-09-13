@@ -27,6 +27,8 @@ import { IconComponent } from '../../../../../shared/components/icon/icon.compon
 import { SparklinePoint } from '../../../../../shared/components/charts/sparkline/sparkline.component';
 import { KpiTileComponent } from './kpi-tile.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Executive KPI dashboard (Phase 7) — the visible surface for the five
@@ -78,7 +80,6 @@ export class KpiDashboardComponent implements OnInit {
   };
 
   loading      = false;
-  errorMessage: string | null = null;
   disabled     = false;
 
   filters: KpiFilters = {};
@@ -100,6 +101,7 @@ export class KpiDashboardComponent implements OnInit {
     private kpiService: ExecutiveKpiService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -173,7 +175,6 @@ export class KpiDashboardComponent implements OnInit {
 
   refresh(): void {
     this.loading = true;
-    this.errorMessage = null;
     this.disabled = false;
 
     // Each trend call is independent — swallow individual failures so one
@@ -191,8 +192,7 @@ export class KpiDashboardComponent implements OnInit {
           if (err?.status === 403) {
             this.disabled = true;
           } else {
-            this.errorMessage = err?.error?.detail || err?.error?.title
-              || 'Failed to load KPI dashboard.';
+            this.toast.error(extractErrorMessage(err, 'Failed to load KPI dashboard.'));
           }
           return of<KpiDashboardResponse>({ tiles: {} });
         }),
@@ -218,8 +218,7 @@ export class KpiDashboardComponent implements OnInit {
         this.loading = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load KPI dashboard.';
+        this.toast.error(extractErrorMessage(err, 'Failed to load KPI dashboard.'));
         this.loading = false;
       },
     });
@@ -281,8 +280,7 @@ export class KpiDashboardComponent implements OnInit {
         this.exportingKey = null;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to export KPI workbook.';
+        this.toast.error(extractErrorMessage(err, 'Failed to export KPI workbook.'));
         this.exportingKey = null;
       },
     });

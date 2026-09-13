@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { DataTableComponent, TableAction, TableColumn } from '../../../../shared/components/data-table/data-table.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 import { SiuCaseSummary, SiuService } from './siu.service';
 
 /**
@@ -20,7 +22,6 @@ import { SiuCaseSummary, SiuService } from './siu.service';
 export class SiuListComponent implements OnInit {
   rows: SiuCaseSummary[] = [];
   loading = false;
-  errorMessage: string | null = null;
 
   statusFilter = '';
 
@@ -50,7 +51,7 @@ export class SiuListComponent implements OnInit {
     },
   ];
 
-  constructor(private siu: SiuService, private router: Router) {}
+  constructor(private siu: SiuService, private router: Router, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.fetch();
@@ -64,8 +65,7 @@ export class SiuListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load SIU cases';
+        this.toast.error(extractErrorMessage(err, 'Failed to load SIU cases'));
         this.rows = [];
         this.loading = false;
       },

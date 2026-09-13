@@ -15,6 +15,8 @@ import {
   TableColumn,
 } from '../../../../shared/components/data-table/data-table.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface EndorsementRow extends EndorsementResponse {
   premiumDeltaNum: number | null;
@@ -39,7 +41,6 @@ interface EndorsementRow extends EndorsementResponse {
 export class EndorsementReviewQueueComponent implements OnInit {
   rows: EndorsementRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
   statusFilter: '' | EndorsementStatus = '';
 
   page = 0;
@@ -54,7 +55,6 @@ export class EndorsementReviewQueueComponent implements OnInit {
   voidTargetId: string | null = null;
   voidReason = '';
   voidSubmitting = false;
-  voidError: string | null = null;
 
   readonly statusOptions: SelectOption[] = [
     { value: '',         label: 'All (DRAFT + APPROVED)' },
@@ -123,6 +123,7 @@ export class EndorsementReviewQueueComponent implements OnInit {
     private svc: EndorsementService,
     private navService: NavigationService,
     private permissionService: PermissionService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -141,7 +142,6 @@ export class EndorsementReviewQueueComponent implements OnInit {
 
   fetchPage(): void {
     this.loading = true;
-    this.errorMessage = null;
     this.svc.list({
       status: this.statusFilter || undefined,
       page:   this.page,
@@ -157,8 +157,7 @@ export class EndorsementReviewQueueComponent implements OnInit {
         this.loading    = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load endorsement queue.';
+        this.toast.error(extractErrorMessage(err, 'Failed to load endorsement queue.'));
         this.rows    = [];
         this.loading = false;
       },
@@ -180,9 +179,7 @@ export class EndorsementReviewQueueComponent implements OnInit {
         this.fetchPage();
       },
       error: err => {
-        this.errorMessage = err?.error?.detail
-          || err?.error?.title
-          || 'Approve failed.';
+        this.toast.error(extractErrorMessage(err, 'Approve failed.'));
         this.actionInProgress[row.id] = false;
       },
     });
@@ -197,9 +194,7 @@ export class EndorsementReviewQueueComponent implements OnInit {
         this.fetchPage();
       },
       error: err => {
-        this.errorMessage = err?.error?.detail
-          || err?.error?.title
-          || 'Commit failed.';
+        this.toast.error(extractErrorMessage(err, 'Commit failed.'));
         this.actionInProgress[row.id] = false;
       },
     });
@@ -208,24 +203,21 @@ export class EndorsementReviewQueueComponent implements OnInit {
   openVoid(row: EndorsementResponse): void {
     this.voidTargetId = row.id;
     this.voidReason   = '';
-    this.voidError    = null;
   }
 
   cancelVoid(): void {
     this.voidTargetId    = null;
     this.voidReason      = '';
-    this.voidError       = null;
     this.voidSubmitting  = false;
   }
 
   submitVoid(): void {
     if (!this.voidTargetId) return;
     if (!this.voidReason.trim() || this.voidReason.trim().length < 5) {
-      this.voidError = 'Reason must be at least 5 characters.';
+      this.toast.warning('Reason must be at least 5 characters.');
       return;
     }
     this.voidSubmitting = true;
-    this.voidError = null;
     this.svc.void(this.voidTargetId, { reason: this.voidReason.trim() }).subscribe({
       next: () => {
         this.voidSubmitting = false;
@@ -233,8 +225,7 @@ export class EndorsementReviewQueueComponent implements OnInit {
         this.fetchPage();
       },
       error: err => {
-        this.voidError = err?.error?.detail || err?.error?.title
-          || 'Void failed.';
+        this.toast.error(extractErrorMessage(err, 'Void failed.'));
         this.voidSubmitting = false;
       },
     });

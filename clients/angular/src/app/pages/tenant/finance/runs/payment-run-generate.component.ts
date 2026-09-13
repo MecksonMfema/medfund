@@ -10,6 +10,8 @@ import {
 } from '../../../../core/services/finance.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-payment-run-generate',
@@ -25,7 +27,6 @@ export class PaymentRunGenerateComponent implements OnInit {
   payeeType: PayeeType = 'PROVIDER';
   description = '';
   busy = false;
-  errorMessage: string | null = null;
 
   // V075 — source bank account. Filtered by currencyCode; cleared when the
   // currency changes so the user can't submit a mismatched pair.
@@ -41,6 +42,7 @@ export class PaymentRunGenerateComponent implements OnInit {
     private currencyService: CurrencyService,
     private finance: FinanceService,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   get currencyOptions(): SelectOption[] {
@@ -92,11 +94,11 @@ export class PaymentRunGenerateComponent implements OnInit {
 
   submit(): void {
     if (!this.currencyCode) {
-      this.errorMessage = 'Pick a currency';
+      this.toast.warning('Pick a currency');
       return;
     }
     if (!this.sourceBankAccountId) {
-      this.errorMessage = 'Pick a source bank account';
+      this.toast.warning('Pick a source bank account');
       return;
     }
     this.busy = true;
@@ -111,7 +113,7 @@ export class PaymentRunGenerateComponent implements OnInit {
         this.router.navigate(['/tenant/finance/runs', run.id]);
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to create payment run';
+        this.toast.error(extractErrorMessage(err, 'Failed to create payment run'));
         this.busy = false;
       },
     });

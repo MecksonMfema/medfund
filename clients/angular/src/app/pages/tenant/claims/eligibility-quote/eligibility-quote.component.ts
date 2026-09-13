@@ -20,6 +20,8 @@ import {
 } from '../../../../shared/components/entity-picker/entity-picker.component';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 interface TariffRow {
   code: string;
@@ -56,7 +58,6 @@ interface TariffRow {
 })
 export class EligibilityQuoteComponent implements OnInit {
   loading = false;
-  errorMessage: string | null = null;
   quote: EligibilityQuoteResponse | null = null;
 
   memberId: string | null = null;
@@ -104,6 +105,7 @@ export class EligibilityQuoteComponent implements OnInit {
     private claimsConfig: ClaimsConfigService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -196,13 +198,12 @@ export class EligibilityQuoteComponent implements OnInit {
 
   // ── Submit ────────────────────────────────────────────────────────────
   submit(): void {
-    this.errorMessage = null;
     this.quote = null;
-    if (!this.memberNumber) { this.errorMessage = 'Pick a member'; return; }
+    if (!this.memberNumber) { this.toast.warning('Pick a member'); return; }
     const codes = this.tariffs.map(r => r.code.trim().toUpperCase()).filter(c => c.length > 0);
-    if (codes.length === 0) { this.errorMessage = 'Add at least one tariff code'; return; }
+    if (codes.length === 0) { this.toast.warning('Add at least one tariff code'); return; }
     if (!this.form.billedAmount || this.billedAmountNumber <= 0) {
-      this.errorMessage = 'Billed amount must be greater than zero';
+      this.toast.warning('Billed amount must be greater than zero');
       return;
     }
 
@@ -223,7 +224,7 @@ export class EligibilityQuoteComponent implements OnInit {
       },
       error: (err) => {
         this.loading = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Quote failed';
+        this.toast.error(extractErrorMessage(err, 'Quote failed'));
       },
     });
   }

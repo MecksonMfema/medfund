@@ -15,6 +15,8 @@ import { TenantService, Tenant } from '../../../../core/services/tenant.service'
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 type SubjectType = 'GROUP' | 'MEMBER';
 
@@ -68,7 +70,6 @@ export class ChargePreviewComponent implements OnInit, OnDestroy {
 
   preview: ChargePreviewResponse | null = null;
   loading = false;
-  errorMessage: string | null = null;
 
   private targetQuery$ = new Subject<string>();
   private subs: Subscription[] = [];
@@ -92,6 +93,7 @@ export class ChargePreviewComponent implements OnInit, OnDestroy {
     private membersService: MembersService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -105,18 +107,18 @@ export class ChargePreviewComponent implements OnInit, OnDestroy {
 
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      this.errorMessage = 'No active tenant context';
+      this.toast.error('No active tenant context');
       return;
     }
     this.currencyService.listForTenant(tenantId).subscribe({
       next: (configs) => {
         this.currencies = configs.filter(c => c.isActive && c.isBillingCurrency);
-        // Default to "All currencies" — pre-selecting one hides the
+        // Default to "All currencies". Pre-selecting one hides the
         // multi-currency case from the operator on first paint. They
         // can narrow if they want to.
         this.selectedCurrency = '';
       },
-      error: (err) => { this.errorMessage = err?.error?.detail || 'Failed to load currencies'; },
+      error: (err) => { this.toast.error(extractErrorMessage(err, 'Failed to load currencies')); },
     });
 
     // Debounced typeahead — 300ms window before the search fires. The
@@ -140,7 +142,7 @@ export class ChargePreviewComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           this.targetSearching = false;
-          this.errorMessage = err?.error?.detail || 'Search failed';
+          this.toast.error(extractErrorMessage(err, 'Search failed'));
         },
       }),
     );
@@ -297,7 +299,6 @@ export class ChargePreviewComponent implements OnInit, OnDestroy {
   fetch(): void {
     if (!this.selectedTarget) return;
     this.loading = true;
-    this.errorMessage = null;
     this.contributionsService.chargePreview(
       this.activeTab,
       this.selectedTarget.id,
@@ -305,7 +306,7 @@ export class ChargePreviewComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (resp) => { this.preview = resp; this.loading = false; },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to compute charge preview';
+        this.toast.error(extractErrorMessage(err, 'Failed to compute charge preview'));
         this.preview = null;
         this.loading = false;
       },

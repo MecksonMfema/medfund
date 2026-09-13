@@ -5,6 +5,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { AmlAlertsListComponent } from './aml-alerts-list.component';
 import { PermissionService } from '../../../../../../core/security/permission.service';
 import { AmlAlertResponse } from '../../../../../../core/services/aml-alert.service';
+import { ToastService } from '../../../../../../shared/components/toast/toast.service';
 import { environment } from '../../../../../../../environments/environment';
 
 /**
@@ -79,11 +80,13 @@ describe('AmlAlertsListComponent', () => {
   });
 
   it('surfaces the server error message when the load fails', () => {
+    const toast = TestBed.inject(ToastService);
+    const errorSpy = spyOn(toast, 'error');
     fixture.detectChanges();
     const req = http.expectOne(`${base}?page=0&size=50`);
     req.flush({ detail: 'kaboom' }, { status: 500, statusText: 'Server Error' });
 
-    expect(component.loadError).toBe('kaboom');
+    expect(errorSpy).toHaveBeenCalledWith('kaboom');
     expect(component.loading).toBe(false);
   });
 

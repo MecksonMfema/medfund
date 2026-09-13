@@ -10,6 +10,8 @@ import {
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SkeletonComponent } from '../../../../shared/components/skeleton/skeleton.component';
 import { CurrencyFormatPipe } from '../../../../shared/pipes/currency-format.pipe';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 const LINE_TYPE_ORDER: PaymentAdviceLineType[] = [
   'CARRY_FORWARD', 'CLAIM_PAID', 'NOTE_DEBIT', 'ADVANCE_APPLIED',
@@ -37,14 +39,17 @@ const LINE_TYPE_LABEL: Record<PaymentAdviceLineType, string> = {
 export class PaymentAdviceDetailComponent implements OnInit {
   advice: PaymentAdvice | null = null;
   loading = false;
-  errorMessage: string | null = null;
 
-  constructor(private route: ActivatedRoute, private finance: FinanceService) {}
+  constructor(
+    private route: ActivatedRoute,
+    private finance: FinanceService,
+    private toast: ToastService,
+  ) {}
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
     if (!id) {
-      this.errorMessage = 'Missing advice id';
+      this.toast.error('Missing advice id');
       return;
     }
     this.loading = true;
@@ -54,7 +59,7 @@ export class PaymentAdviceDetailComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load advice';
+        this.toast.error(extractErrorMessage(err, 'Failed to load advice'));
         this.loading = false;
       },
     });
@@ -81,7 +86,7 @@ export class PaymentAdviceDetailComponent implements OnInit {
   }
 
   downloadPdf(): void {
-    this.errorMessage = 'PDF export is coming soon.';
+    this.toast.info('PDF export is coming soon.');
   }
 
   readonly SECTION_ORDER = LINE_TYPE_ORDER;

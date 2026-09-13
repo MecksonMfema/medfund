@@ -10,6 +10,8 @@ import {
 import { DataTableComponent, TableColumn } from '../../../shared/components/data-table/data-table.component';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
+import { ToastService } from '../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../core/util/http-errors';
 
 /**
  * Reinsurance treaties list. Layout mirrors /tenant/billing/transactions:
@@ -40,7 +42,6 @@ interface TreatyRow extends Treaty {
 export class TreatiesListComponent implements OnInit {
   rows: TreatyRow[] = [];
   loading = false;
-  errorMessage: string | null = null;
 
   // Filter state
   selectedStatus: '' | TreatyStatus = '';
@@ -90,7 +91,7 @@ export class TreatiesListComponent implements OnInit {
 
   private allRows: TreatyRow[] = [];
 
-  constructor(private svc: ReinsuranceService, private router: Router) {}
+  constructor(private svc: ReinsuranceService, private router: Router, private toast: ToastService) {}
 
   ngOnInit(): void {
     this.fetchAll();
@@ -98,7 +99,6 @@ export class TreatiesListComponent implements OnInit {
 
   fetchAll(): void {
     this.loading = true;
-    this.errorMessage = null;
     this.svc.listTreaties(0, 500, this.selectedStatus || undefined).subscribe({
       next: (resp) => {
         this.allRows = this.shape(resp.content);
@@ -107,7 +107,7 @@ export class TreatiesListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load treaties';
+        this.toast.error(extractErrorMessage(err, 'Failed to load treaties'));
         this.rows = [];
         this.allRows = [];
         this.loading = false;

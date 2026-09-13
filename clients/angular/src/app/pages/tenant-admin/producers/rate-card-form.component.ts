@@ -12,6 +12,7 @@ import {
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
 import { ToastService } from '../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../core/util/http-errors';
 import { endOfMonth, firstOfMonth } from '../../../shared/utils/date-snap';
 
 interface RateCardForm {
@@ -36,7 +37,6 @@ export class RateCardFormComponent implements OnInit {
   rateCardId: string | null = null;
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   readonly insuranceLines: InsuranceLine[] = [
     'HEALTH','LIFE','FUNERAL','GROUP','TRAVEL','DISABILITY','VEHICLE','PROPERTY',
@@ -103,7 +103,7 @@ export class RateCardFormComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load rate card';
+        this.toast.error(extractErrorMessage(err, 'Failed to load rate card'));
         this.loading = false;
       },
     });
@@ -121,15 +121,15 @@ export class RateCardFormComponent implements OnInit {
 
   submit(): void {
     if (!this.form.name.trim()) {
-      this.errorMessage = 'Name is required';
+      this.toast.warning('Name is required');
       return;
     }
     if (this.form.baseRatePct == null || this.form.baseRatePct < 0 || this.form.baseRatePct > 100) {
-      this.errorMessage = 'Base rate must be between 0 and 100';
+      this.toast.warning('Base rate must be between 0 and 100');
       return;
     }
     if (!this.form.effectiveFrom) {
-      this.errorMessage = 'Effective-from date is required';
+      this.toast.warning('Effective-from date is required');
       return;
     }
 
@@ -147,7 +147,6 @@ export class RateCardFormComponent implements OnInit {
     };
 
     this.saving = true;
-    this.errorMessage = null;
 
     const stream = this.rateCardId
       ? this.svc.updateRateCard(this.rateCardId, { ...base, active: this.form.active } as UpdateRateCardPayload)
@@ -161,9 +160,7 @@ export class RateCardFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        const detail = err?.error?.detail || err?.error?.title || 'Save failed';
-        this.errorMessage = detail;
-        this.toast.error(detail);
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }

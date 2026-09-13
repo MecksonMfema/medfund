@@ -5,6 +5,8 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Drug, DrugsService, UpsertDrugPayload } from '../../../../core/services/drugs.service';
 import { IconComponent } from '../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../shared/components/select/select.component';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 @Component({
   selector: 'app-drug-form',
@@ -17,7 +19,6 @@ export class DrugFormComponent implements OnInit {
   drugId: string | null = null;
   loading = false;
   saving = false;
-  errorMessage: string | null = null;
 
   readonly drugTypes = ['ACUTE', 'CHRONIC', 'OFF_LIMIT'] as const;
   readonly units = ['unit', 'ml', 'g', 'mg', 'tablet', 'capsule'] as const;
@@ -46,6 +47,7 @@ export class DrugFormComponent implements OnInit {
     private drugs: DrugsService,
     private route: ActivatedRoute,
     private router: Router,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -68,7 +70,7 @@ export class DrugFormComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || 'Failed to load drug';
+        this.toast.error(extractErrorMessage(err, 'Failed to load drug'));
         this.loading = false;
       },
     });
@@ -76,7 +78,7 @@ export class DrugFormComponent implements OnInit {
 
   submit(): void {
     if (!this.form.drugName?.trim()) {
-      this.errorMessage = 'Drug name is required';
+      this.toast.warning('Drug name is required');
       return;
     }
     const payload: UpsertDrugPayload = {
@@ -91,7 +93,6 @@ export class DrugFormComponent implements OnInit {
       isActive: this.form.isActive,
     };
     this.saving = true;
-    this.errorMessage = null;
     const stream = this.drugId
       ? this.drugs.update(this.drugId, payload)
       : this.drugs.create(payload);
@@ -102,7 +103,7 @@ export class DrugFormComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Save failed';
+        this.toast.error(extractErrorMessage(err, 'Save failed'));
       },
     });
   }

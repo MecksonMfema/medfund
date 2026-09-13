@@ -8,10 +8,6 @@
   </div>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 <div class="tx-toolbar">
   <div class="toolbar-cell cell-select">
     <span class="cell-label">Status</span>
@@ -70,9 +66,6 @@
           data-testid="resolve-notes"
         ></textarea>
       </label>
-      @if (resolveError) {
-        <div class="banner banner-error">{{ resolveError }}</div>
-      }
       <div class="modal-actions">
         <button type="button" class="btn" (click)="cancelResolve()" [disabled]="resolveSubmitting">Cancel</button>
         <button type="button" class="btn btn-primary"

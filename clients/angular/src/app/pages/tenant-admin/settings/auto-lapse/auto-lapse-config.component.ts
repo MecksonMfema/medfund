@@ -10,6 +10,8 @@ import {
   UpdateTenantAutoLapseConfigPayload,
 } from '../../../../core/services/tenant-auto-lapse-config.service';
 import { PermissionService } from '../../../../core/security/permission.service';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../../core/util/http-errors';
 
 /**
  * Toggle + threshold form for the auto-lapse chain (Phase 11 §B / P7).
@@ -28,7 +30,6 @@ export class AutoLapseConfigComponent implements OnInit {
   loading = false;
   saving = false;
   saved = false;
-  errorMessage: string | null = null;
 
   config: TenantAutoLapseConfig | null = null;
 
@@ -40,6 +41,7 @@ export class AutoLapseConfigComponent implements OnInit {
     private configService: TenantAutoLapseConfigService,
     private tenantService: TenantService,
     private permissionService: PermissionService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -53,11 +55,10 @@ export class AutoLapseConfigComponent implements OnInit {
   refresh(): void {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) {
-      this.errorMessage = 'No active tenant context';
+      this.toast.warning('No active tenant context');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.configService.get(tenantId).subscribe({
       next: config => {
         this.config = config;
@@ -65,7 +66,7 @@ export class AutoLapseConfigComponent implements OnInit {
         this.loading = false;
       },
       error: err => {
-        this.errorMessage = extractError(err, 'Failed to load auto-lapse configuration');
+        this.toast.error(extractErrorMessage(err, 'Failed to load auto-lapse configuration'));
         this.loading = false;
       },
     });
@@ -75,7 +76,7 @@ export class AutoLapseConfigComponent implements OnInit {
     const tenantId = this.tenantService.getTenantId();
     if (!tenantId) return;
     if (!this.canConfigure()) {
-      this.errorMessage = 'You do not have permission to configure auto-lapse';
+      this.toast.warning('You do not have permission to configure auto-lapse');
       return;
     }
     // When enabled, both fields are required. When disabled, the
@@ -83,18 +84,17 @@ export class AutoLapseConfigComponent implements OnInit {
     if (this.enabled) {
       if (this.arrearsThresholdMonths == null
           || this.arrearsThresholdMonths < 1 || this.arrearsThresholdMonths > 60) {
-        this.errorMessage = 'Arrears threshold must be between 1 and 60 months.';
+        this.toast.warning('Arrears threshold must be between 1 and 60 months.');
         return;
       }
       if (this.graceWindowDays == null
           || this.graceWindowDays < 0 || this.graceWindowDays > 180) {
-        this.errorMessage = 'Grace window must be between 0 and 180 days.';
+        this.toast.warning('Grace window must be between 0 and 180 days.');
         return;
       }
     }
     this.saving = true;
     this.saved = false;
-    this.errorMessage = null;
 
     const payload: UpdateTenantAutoLapseConfigPayload = {
       enabled: this.enabled,
@@ -111,7 +111,7 @@ export class AutoLapseConfigComponent implements OnInit {
         setTimeout(() => (this.saved = false), 3000);
       },
       error: err => {
-        this.errorMessage = extractError(err, 'Failed to save auto-lapse configuration');
+        this.toast.error(extractErrorMessage(err, 'Failed to save auto-lapse configuration'));
         this.saving = false;
       },
     });
@@ -122,13 +122,4 @@ export class AutoLapseConfigComponent implements OnInit {
     this.arrearsThresholdMonths = config.arrearsThresholdMonths ?? 3;
     this.graceWindowDays = config.graceWindowDays ?? 7;
   }
-}
-
-function extractError(err: unknown, fallback: string): string {
-  if (err && typeof err === 'object' && 'error' in err) {
-    const e = (err as { error?: { message?: string; detail?: string } }).error;
-    if (e?.message) return e.message;
-    if (e?.detail) return e.detail;
-  }
-  return fallback;
 }

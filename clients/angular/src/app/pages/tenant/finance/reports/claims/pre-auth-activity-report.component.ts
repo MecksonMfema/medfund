@@ -11,9 +11,12 @@ import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/servi
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import { EntityPickerComponent } from '../../../../../shared/components/entity-picker/entity-picker.component';
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Pre-auth activity (G43). Reads pre_authorizations on the requested-date
@@ -26,14 +29,13 @@ import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/repo
 @Component({
   selector: 'app-pre-auth-activity-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent, ReportBackButtonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent, ReportBackButtonComponent, EntityPickerComponent],
   templateUrl: './pre-auth-activity-report.component.html',
   styleUrl: './claims-report.component.scss',
 })
 export class PreAuthActivityReportComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<PreAuthActivityResponse> | null = null;
   currencies: TenantCurrencyConfig[] = [];
@@ -67,6 +69,7 @@ export class PreAuthActivityReportComponent implements OnInit {
     private claimsReport: ClaimsReportService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -99,18 +102,18 @@ export class PreAuthActivityReportComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.claimsReport.getPreAuthActivity(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load pre-auth activity';
+        this.toast.error(extractErrorMessage(err, 'Failed to load pre-auth activity'));
         this.envelope = null;
         this.loading = false;
       },
@@ -125,11 +128,17 @@ export class PreAuthActivityReportComponent implements OnInit {
         downloadBlob(blob, `pre-auth-activity-${this.periodStart}-to-${this.periodEnd}.xlsx`);
         this.exporting = false;
       },
-      error: () => {
-        this.errorMessage = 'Failed to download workbook';
+      error: err => {
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<PreAuthActivityResponse>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Pre-auth activity'), 8000);
   }
 
   onFilterChange(): void {

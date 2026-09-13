@@ -13,6 +13,8 @@ import {
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /**
  * Provider balance history — freeze-frame of the provider's balance at
@@ -30,7 +32,6 @@ import { ReportBackButtonComponent } from '../shared/report-back-button.componen
 export class ProviderBalanceHistoryComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   providerId = '';
   envelope: ReportResponse<BalanceHistoryResponse> | null = null;
@@ -42,6 +43,7 @@ export class ProviderBalanceHistoryComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private finance: FinanceService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -81,14 +83,14 @@ export class ProviderBalanceHistoryComponent implements OnInit {
 
   fetch(): void {
     this.loading = true;
-    this.errorMessage = null;
     this.finance.getProviderBalanceHistory(this.providerId, this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load balance history';
+        this.toast.error(extractErrorMessage(err, 'Failed to load balance history'));
         this.envelope = null;
         this.loading = false;
       },
@@ -103,10 +105,16 @@ export class ProviderBalanceHistoryComponent implements OnInit {
         this.exporting = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to download workbook';
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<BalanceHistoryResponse>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Provider balance history'), 8000);
   }
 
   onFilterChange(): void { this.fetch(); }

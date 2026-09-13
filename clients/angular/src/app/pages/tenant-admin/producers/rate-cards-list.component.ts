@@ -14,6 +14,8 @@ import {
   TableColumn,
 } from '../../../shared/components/data-table/data-table.component';
 import { SelectComponent, SelectOption } from '../../../shared/components/select/select.component';
+import { ToastService } from '../../../shared/components/toast/toast.service';
+import { extractErrorMessage } from '../../../core/util/http-errors';
 
 @Component({
   selector: 'app-rate-cards-list',
@@ -28,7 +30,6 @@ import { SelectComponent, SelectOption } from '../../../shared/components/select
 export class RateCardsListComponent implements OnInit {
   rows: RateCard[] = [];
   loading = false;
-  errorMessage: string | null = null;
   successMessage: string | null = null;
 
   readonly insuranceLines: InsuranceLine[] = [
@@ -89,7 +90,7 @@ export class RateCardsListComponent implements OnInit {
     return [{ value: '', label: 'Any tier' }, ...tiers.map(t => ({ value: t, label: t }))];
   }
 
-  constructor(private svc: ProducerService, private router: Router) {}
+  constructor(private svc: ProducerService, private router: Router, private toast: ToastService) {}
 
   ngOnInit(): void { this.fetchPage(); }
 
@@ -105,7 +106,7 @@ export class RateCardsListComponent implements OnInit {
         this.loading = false;
       },
       error: (err) => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load rate cards';
+        this.toast.error(extractErrorMessage(err, 'Failed to load rate cards'));
         this.allRows = [];
         this.rows = [];
         this.loading = false;
@@ -154,7 +155,7 @@ export class RateCardsListComponent implements OnInit {
     if (!confirm(`Deactivate rate card "${row.name}"? Effective-to will snap to the last day of this month.`)) return;
     this.svc.deactivateRateCard(row.id).subscribe({
       next: () => { this.successMessage = 'Rate card deactivated'; this.fetchPage(); },
-      error: (err) => { this.errorMessage = err?.error?.detail || 'Deactivate failed'; },
+      error: (err) => { this.toast.error(extractErrorMessage(err, 'Deactivate failed')); },
     });
   }
 }

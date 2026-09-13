@@ -10,24 +10,26 @@ import { ReportResponse } from '../../../../../../core/services/report-envelope'
 import { INSURANCE_LINES } from '../../../../../../core/models/insurance-lines';
 import { IconComponent } from '../../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../../shared/components/select/select.component';
+import { ReportBackButtonComponent } from '../../shared/report-back-button.component';
 import { defaultReportPeriodEnd } from '../../shared/report-date-defaults';
+import { ToastService } from '../../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../../core/util/http-errors';
 
 /**
- * Phase 13 §C Phase 10 — PERSISTENCY_COHORT report page. Configurable
+ * Phase 13 §C Phase 10: PERSISTENCY_COHORT report page. Configurable
  * checkpoint set via URL param (default 6/12/24 months). Freshness
  * banner surfaces when the HEALTH matview is >24h stale.
  */
 @Component({
   selector: 'app-persistency-cohort-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, ReportBackButtonComponent],
   templateUrl: './persistency-cohort.component.html',
   styleUrl: '../../receipts/receipts-report.component.scss',
 })
 export class PersistencyCohortReportComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<PersistencyCohortResult> | null = null;
 
@@ -36,7 +38,10 @@ export class PersistencyCohortReportComponent implements OnInit {
   checkpoints = '6,12,24';
   insuranceLine = '';
 
-  constructor(private reportSvc: PersistencyCohortReportService) {}
+  constructor(
+    private reportSvc: PersistencyCohortReportService,
+    private toast: ToastService,
+  ) {}
 
   ngOnInit(): void { this.fetch(); }
 
@@ -49,16 +54,18 @@ export class PersistencyCohortReportComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.reportSvc.get(this.buildParams()).subscribe({
-      next: env => { this.envelope = env; this.loading = false; },
+      next: env => {
+        this.envelope = env;
+        this.loading = false;
+        this.surfaceWarnings(env);
+      },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to load persistency report';
+        this.toast.error(extractErrorMessage(err, 'Failed to load persistency report'));
         this.envelope = null;
         this.loading = false;
       },
@@ -73,17 +80,24 @@ export class PersistencyCohortReportComponent implements OnInit {
         this.exporting = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title
-          || 'Failed to export persistency report';
+        this.toast.error(extractErrorMessage(err, 'Failed to export persistency report'));
         this.exporting = false;
       },
     });
   }
 
+  private surfaceWarnings(env: ReportResponse<PersistencyCohortResult>): void {
+    const warnings = [
+      ...(env?.warnings ?? []),
+      ...(env?.data?.freshnessWarning ? [env.data.freshnessWarning] : []),
+    ];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Persistency cohort'), 8000);
+  }
+
   onFilterChange(): void { this.fetch(); }
 
   get rows() { return this.envelope?.data?.rows ?? []; }
-  get freshnessWarning() { return this.envelope?.data?.freshnessWarning ?? null; }
 
   private buildParams(): PersistencyCohortParams {
     return {

@@ -25,10 +25,6 @@
   </div>
 </header>
 
-@if (errorMessage) {
-  <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-}
-
 <app-data-table
   [columns]="benefitColumns"
   [data]="benefits"

@@ -6,10 +6,6 @@
     </div>
   </header>
 
-  @if (formError) {
-    <div class="banner banner-error" (click)="formError = null">{{ formError }}</div>
-  }
-
   @if (!submittedClaim) {
     <div class="summary-strip">
       <app-stat-card label="Lines" [value]="lineCount()" icon="list" color="blue"></app-stat-card>

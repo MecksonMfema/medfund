@@ -2,6 +2,7 @@ import { of } from 'rxjs';
 import { ActivatedRoute } from '@angular/router';
 import { PendingClaimsListComponent } from './pending-claims-list.component';
 import { ClaimRow, ClaimsService, PageResponse } from '../../../../core/services/claims.service';
+import { ToastService } from '../../../../shared/components/toast/toast.service';
 
 class StubActivatedRoute {
   constructor(public snapshot: { data: Record<string, unknown> }) {}
@@ -22,6 +23,7 @@ class StubActivatedRoute {
 describe('PendingClaimsListComponent', () => {
   let claims: jasmine.SpyObj<ClaimsService>;
   let router: jasmine.SpyObj<{ navigate: (...args: any[]) => any }>;
+  let toast: jasmine.SpyObj<ToastService>;
 
   const emptyPage = (): PageResponse<ClaimRow> => ({
     content: [], total: 0, page: 0, size: 50, totalPages: 1,
@@ -41,7 +43,7 @@ describe('PendingClaimsListComponent', () => {
 
   function makeComponent(routeData: Record<string, unknown> = {}): PendingClaimsListComponent {
     const route = new StubActivatedRoute({ data: routeData }) as unknown as ActivatedRoute;
-    const c = new PendingClaimsListComponent(claims, route, router as any);
+    const c = new PendingClaimsListComponent(claims, route, router as any, toast);
     c.ngOnInit();
     return c;
   }
@@ -50,6 +52,7 @@ describe('PendingClaimsListComponent', () => {
     claims = jasmine.createSpyObj<ClaimsService>('ClaimsService', ['listPaged']);
     claims.listPaged.and.returnValue(of(emptyPage()));
     router = jasmine.createSpyObj('Router', ['navigate']);
+    toast = jasmine.createSpyObj<ToastService>('ToastService', ['error', 'warning', 'success', 'info']);
   });
 
   it('presetStatus from route data pins the status filter', () => {

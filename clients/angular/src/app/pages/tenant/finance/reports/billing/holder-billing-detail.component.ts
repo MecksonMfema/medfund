@@ -16,6 +16,8 @@ import { IconComponent } from '../../../../../shared/components/icon/icon.compon
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 /** Normalised view of a per-currency summary row so the same template
  *  renders whether the underlying detail is a corporate group or an
@@ -50,7 +52,6 @@ interface HolderSummaryRow {
 })
 export class HolderBillingDetailComponent implements OnInit {
   loading = false;
-  errorMessage: string | null = null;
 
   holderId = '';
   holderType: 'GROUP' | 'INDIVIDUAL' = 'GROUP';
@@ -90,6 +91,7 @@ export class HolderBillingDetailComponent implements OnInit {
     private tenantService: TenantService,
     private router: Router,
     private activated: ActivatedRoute,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -132,15 +134,14 @@ export class HolderBillingDetailComponent implements OnInit {
 
   fetch(): void {
     if (!this.holderId) {
-      this.errorMessage = 'No holder id in the URL';
+      this.toast.error('No holder id in the URL');
       return;
     }
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     if (this.holderType === 'GROUP') {
       this.finance.getGroupBillingDetail(this.holderId, this.buildParams()).subscribe({
         next: env => {
@@ -151,6 +152,7 @@ export class HolderBillingDetailComponent implements OnInit {
           this.summary = (env.data?.perCurrencySummary || []).map(r => this.fromGroupRow(r));
           this.monthly = env.data?.monthlyBreakdown || [];
           this.loading = false;
+          this.surfaceWarnings(env);
         },
         error: err => this.onError(err),
       });
@@ -167,6 +169,7 @@ export class HolderBillingDetailComponent implements OnInit {
           this.summary = (d?.summary || []).map(r => this.fromMemberRow(r));
           this.monthly = d?.monthly || [];
           this.loading = false;
+          this.surfaceWarnings(env);
         },
         error: err => this.onError(err),
       });
@@ -174,11 +177,17 @@ export class HolderBillingDetailComponent implements OnInit {
   }
 
   private onError(err: any): void {
-    this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load holder detail';
+    this.toast.error(extractErrorMessage(err, 'Failed to load holder detail'));
     this.summary = [];
     this.monthly = [];
     this.envelope = null;
     this.loading = false;
+  }
+
+  private surfaceWarnings(env: ReportResponse<unknown>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Holder billing detail'), 8000);
   }
 
   onFilterChange(): void { this.fetch(); }

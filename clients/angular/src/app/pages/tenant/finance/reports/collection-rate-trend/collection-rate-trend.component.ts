@@ -11,9 +11,12 @@ import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/servi
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
+import { SkeletonComponent } from '../../../../../shared/components/skeleton/skeleton.component';
 import { LineChartComponent } from '../../../../../shared/components/charts/line-chart/line-chart.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
 import { defaultReportPeriodStart, defaultReportPeriodEnd } from '../shared/report-date-defaults';
+import { ToastService } from '../../../../../shared/components/toast/toast.service';
+import { composeWarningsToast, extractErrorMessage } from '../../../../../core/util/http-errors';
 
 function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -33,14 +36,21 @@ function downloadBlob(blob: Blob, filename: string): void {
 @Component({
   selector: 'app-collection-rate-trend',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, LineChartComponent, ReportBackButtonComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    IconComponent,
+    SelectComponent,
+    SkeletonComponent,
+    LineChartComponent,
+    ReportBackButtonComponent,
+  ],
   templateUrl: './collection-rate-trend.component.html',
   styleUrl: '../receipts/receipts-report.component.scss',
 })
 export class CollectionRateTrendComponent implements OnInit {
   loading = false;
   exporting = false;
-  errorMessage: string | null = null;
 
   envelope: ReportResponse<CollectionRateTrendResponse> | null = null;
   currencies: TenantCurrencyConfig[] = [];
@@ -53,6 +63,7 @@ export class CollectionRateTrendComponent implements OnInit {
     private finance: FinanceService,
     private currencyService: CurrencyService,
     private tenantService: TenantService,
+    private toast: ToastService,
   ) {}
 
   ngOnInit(): void {
@@ -85,18 +96,18 @@ export class CollectionRateTrendComponent implements OnInit {
 
   fetch(): void {
     if (!this.periodStart || !this.periodEnd) {
-      this.errorMessage = 'Choose a start and end date.';
+      this.toast.warning('Choose a start and end date.');
       return;
     }
     this.loading = true;
-    this.errorMessage = null;
     this.finance.getCollectionRateTrend(this.buildParams()).subscribe({
       next: env => {
         this.envelope = env;
         this.loading = false;
+        this.surfaceWarnings(env);
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to load collection-rate trend';
+        this.toast.error(extractErrorMessage(err, 'Failed to load collection-rate trend'));
         this.envelope = null;
         this.loading = false;
       },
@@ -112,10 +123,16 @@ export class CollectionRateTrendComponent implements OnInit {
         this.exporting = false;
       },
       error: err => {
-        this.errorMessage = err?.error?.detail || err?.error?.title || 'Failed to download workbook';
+        this.toast.error(extractErrorMessage(err, 'Failed to download workbook'));
         this.exporting = false;
       },
     });
+  }
+
+  private surfaceWarnings(env: ReportResponse<CollectionRateTrendResponse>): void {
+    const warnings = env?.warnings ?? [];
+    if (warnings.length === 0) return;
+    this.toast.warning(composeWarningsToast(warnings, 'Collection-rate trend'), 8000);
   }
 
   onFilterChange(): void { this.fetch(); }

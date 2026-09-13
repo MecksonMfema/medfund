@@ -15,10 +15,6 @@
     </a>
   </header>
 
-  @if (errorMessage) {
-    <div class="banner banner-error" (click)="errorMessage = null">{{ errorMessage }}</div>
-  }
-
   <form (submit)="$event.preventDefault(); submit()" class="form-card">
     <div class="form-card__heading">
       <h2 class="form-card__title">Group details</h2>
