@@ -44,26 +44,49 @@
   </div>
 </div>
 
-<section class="detail-section">
-  <h2>Per-currency summary</h2>
-  <app-data-table
-    [data]="summary"
-    [columns]="summaryColumns"
-    [loading]="loading"
-    [searchable]="false"
-    [showToolbar]="false"
-    emptyMessage="No committed contributions for this window."
-  ></app-data-table>
-</section>
+@if (loading) {
+  <div class="report-loading" aria-busy="true" aria-live="polite">
+    <div class="report-loading__rows">
+      <app-skeleton variant="table-row"></app-skeleton>
+      <app-skeleton variant="table-row"></app-skeleton>
+      <app-skeleton variant="table-row"></app-skeleton>
+      <app-skeleton variant="table-row"></app-skeleton>
+      <app-skeleton variant="table-row"></app-skeleton>
+    </div>
+    <span class="visually-hidden">Loading holder billing detail…</span>
+  </div>
+} @else if (summary.length === 0 && monthly.length === 0) {
+  <div class="empty-state">
+    <div class="empty-state__icon">
+      <app-icon name="file-text" [size]="32"></app-icon>
+    </div>
+    <div class="empty-state__title">No committed contributions</div>
+    <div class="empty-state__description">
+      This holder has no invoiced contributions in the selected window.
+      Widen the period or switch the reporting currency to see any
+      activity.
+    </div>
+  </div>
+} @else {
+  <section class="detail-section">
+    <h2>Per-currency summary</h2>
+    <app-data-table
+      [data]="summary"
+      [columns]="summaryColumns"
+      [searchable]="false"
+      [showToolbar]="false"
+      emptyMessage="No committed contributions for this window."
+    ></app-data-table>
+  </section>
 
-<section class="detail-section">
-  <h2>Monthly breakdown</h2>
-  <app-data-table
-    [data]="monthly"
-    [columns]="monthlyColumns"
-    [loading]="loading"
-    [searchable]="false"
-    [showToolbar]="false"
-    emptyMessage="No monthly buckets for this window."
-  ></app-data-table>
-</section>
+  <section class="detail-section">
+    <h2>Monthly breakdown</h2>
+    <app-data-table
+      [data]="monthly"
+      [columns]="monthlyColumns"
+      [searchable]="false"
+      [showToolbar]="false"
+      emptyMessage="No monthly buckets for this window."
+    ></app-data-table>
+  </section>
+}

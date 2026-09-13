@@ -24,6 +24,13 @@
   max-width: 65ch;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 // Report-specific toolbar cell modifiers. Base .tx-toolbar / .toolbar-cell
 // live in styles.scss so the shape stays in lockstep with the other pages.
 .toolbar-cell.cell-search {
@@ -35,15 +42,7 @@
 .toolbar-cell.cell-age {
   flex: 0 0 auto;
 
-  input[type="number"] {
-    width: 110px;
-    padding: 6px 8px;
-    border: 1px solid var(--color-border-light);
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-base);
-    font-family: var(--font-family);
-    color: var(--color-text-primary);
-  }
+  input[type="number"] { width: 110px; min-width: 110px; }
 }
 
 .toolbar-cell.cell-currency {

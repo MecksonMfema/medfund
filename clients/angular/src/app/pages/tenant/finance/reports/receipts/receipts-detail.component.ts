@@ -10,6 +10,7 @@ import {
   TransactionLedgerRow,
 } from '../../../../../core/services/finance.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
+import { SkeletonComponent } from '../../../../../shared/components/skeleton/skeleton.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
@@ -32,7 +33,7 @@ type Dimension = 'scheme' | 'group' | 'member';
 @Component({
   selector: 'app-receipts-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent, ReportBackButtonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, SelectComponent, DataTableComponent, ReportBackButtonComponent],
   templateUrl: './receipts-detail.component.html',
   styleUrl: './receipts-report.component.scss',
 })

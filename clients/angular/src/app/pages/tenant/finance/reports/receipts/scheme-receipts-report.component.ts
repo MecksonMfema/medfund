@@ -11,6 +11,7 @@ import {
 import { CurrencyService, TenantCurrencyConfig } from '../../../../../core/services/currency.service';
 import { TenantService } from '../../../../../core/services/tenant.service';
 import { IconComponent } from '../../../../../shared/components/icon/icon.component';
+import { SkeletonComponent } from '../../../../../shared/components/skeleton/skeleton.component';
 import { SelectComponent, SelectOption } from '../../../../../shared/components/select/select.component';
 import { DataTableComponent, TableColumn } from '../../../../../shared/components/data-table/data-table.component';
 import { ReportBackButtonComponent } from '../shared/report-back-button.component';
@@ -27,7 +28,7 @@ import { composeWarningsToast, extractErrorMessage } from '../../../../../core/u
 @Component({
   selector: 'app-scheme-receipts-report',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent, SelectComponent, DataTableComponent, ReportBackButtonComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SkeletonComponent, SelectComponent, DataTableComponent, ReportBackButtonComponent],
   templateUrl: './scheme-receipts-report.component.html',
   styleUrl: './receipts-report.component.scss',
 })
