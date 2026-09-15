@@ -147,6 +147,8 @@ domains:
       - { key: "admin:manage_settings",             label: "Manage tenant settings",            description: "Edit branding, insurance lines, email templates, etc." }
       - { key: "admin:manage_rules",                label: "Manage rules engine",               description: "Author and deploy tenant-specific business rules." }
       - { key: "admin.bank_accounts:manage",        label: "Manage bank accounts",              description: "Configure the tenant's own bank accounts used for outbound disbursements and inbound receipt matching." }
+      - { key: "ai:models:view",                    label: "View AI model registry",            description: "Read the currently-active fraud/pricing model version per insurance line, alongside its eval metrics and schema status (Tranche 1 Phase 5)." }
+      - { key: "ai:models:promote",                 label: "Promote AI model version",          description: "Flip the MinIO manifest to promote a candidate fraud/pricing model version. Guarded by a confirmation modal; emits an audit event with actor + before/after (Tranche 1 Phase 5)." }
 
   - id: tenant
     label: Tenant settings

@@ -20,8 +20,13 @@ from app.api.analytics import router as analytics_router
 from app.api.pricing import router as pricing_router
 from app.api.actuarial import router as actuarial_router
 from app.api.predictions import router as predictions_router
+from app.api.models import router as models_router
 from app.actuarial.chain_ladder import TriangleInput, compute as chain_ladder_compute
 from app.report.kafka import ReportJobRunner
+from app.services.fraud_registry import start_polling as start_fraud_poll
+from app.services.fraud_registry import stop_polling as stop_fraud_poll
+from app.services.pricing_registry import start_polling as start_pricing_poll
+from app.services.pricing_registry import stop_polling as stop_pricing_poll
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -108,8 +113,22 @@ async def lifespan(app: FastAPI):
             logger.warning(f"Report job runner failed: {e}")
             report_runner = None
 
+    try:
+        start_fraud_poll()
+        logger.info("Fraud model registry poll: STARTED")
+    except Exception as e:
+        logger.warning(f"Fraud model registry poll failed to start: {e}")
+
+    try:
+        start_pricing_poll()
+        logger.info("Pricing model registry poll: STARTED")
+    except Exception as e:
+        logger.warning(f"Pricing model registry poll failed to start: {e}")
+
     yield
 
+    await stop_fraud_poll()
+    await stop_pricing_poll()
     if report_runner:
         await report_runner.stop()
     if kafka_consumer:
@@ -138,3 +157,4 @@ app.include_router(analytics_router)
 app.include_router(pricing_router)
 app.include_router(actuarial_router)
 app.include_router(predictions_router)
+app.include_router(models_router)

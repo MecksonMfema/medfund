@@ -1,55 +1,99 @@
-"""ML models for fraud detection and risk scoring."""
+"""ML models for fraud detection and risk scoring.
+
+Two operating modes:
+
+- **Synthetic (fallback)** — no artifact provided. Fits an IsolationForest
+  on 1000 randomly-generated samples with a fixed seed. Runs deterministic
+  and always boots green; used when no trained artifact exists in MinIO
+  for a line, or when the runtime fails to load one.
+
+- **Trained** — Phase 3 load path. Callers hand in an ``artifact`` dict
+  produced by ``scripts/train_fraud.py``: a scaler + a base RandomForest
+  classifier + a CalibratedClassifierCV wrapping it + the feature names +
+  a canonical-features schema version. The calibrated probability is the
+  risk score.
+
+Both modes speak the same ``predict_canonical(canonical: list[float])``
+contract so ``FraudService`` doesn't care which one it's holding.
+"""
+from __future__ import annotations
+
 import logging
+from typing import Any, Optional
+
 import numpy as np
-from sklearn.ensemble import IsolationForest
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.ensemble import IsolationForest, RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
+
+from app.schemas.insurance_line import InsuranceLine
 
 logger = logging.getLogger(__name__)
 
 
+CANONICAL_FALLBACK_VERSION = "fraud-isolation-forest-v1-canonical"
+
+
 class FraudMLModel:
-    """Fraud detection using IsolationForest trained on synthetic data.
+    """Fraud scorer over the canonical line-neutral 5-tuple:
 
-    Consumes the canonical line-neutral 5-tuple:
-      [amount, days_since_start, claim_frequency_30d,
-       provider_flag_count, subject_flag_count]
+        [amount, days_since_start, claim_frequency_30d,
+         provider_flag_count, subject_flag_count]
 
-    See app/services/feature_extractors.py for extraction. Line-specific
-    rule indicators live in the extractor, not here — this model is
-    line-agnostic and produces a stable score across every line.
+    See ``app/services/feature_extractors.py`` for extraction. Line-
+    specific rule indicators live in the extractor, not here.
     """
 
-    def __init__(self, seed: int = 42):
-        self.model_version = "fraud-isolation-forest-v1-canonical"
-        self._isolation_forest: IsolationForest | None = None
-        self._scaler: StandardScaler | None = None
-        self._trained = False
-        self._train(seed)
+    def __init__(
+        self,
+        seed: int = 42,
+        *,
+        line: InsuranceLine | None = None,
+        artifact: Optional[dict[str, Any]] = None,
+    ):
+        self.line = line
+        self._artifact_scaler: Optional[StandardScaler] = None
+        self._calibrator: Optional[CalibratedClassifierCV] = None
+        self._classifier: Optional[RandomForestClassifier] = None
+        self._feature_names: Optional[list[str]] = None
+        self.canonical_features_schema: Optional[str] = None
 
-    def _train(self, seed: int):
+        self._isolation_forest: Optional[IsolationForest] = None
+        self._scaler: Optional[StandardScaler] = None
+        self._trained = False
+
+        if artifact is not None:
+            self.model_version = str(artifact["model_version"])
+            self._artifact_scaler = artifact["scaler"]
+            self._calibrator = artifact["calibrator"]
+            self._classifier = artifact.get("model")
+            self._feature_names = list(artifact.get("feature_names") or [])
+            self.canonical_features_schema = artifact.get("canonical_features_schema")
+            self._trained = True
+        else:
+            self.model_version = CANONICAL_FALLBACK_VERSION
+            self._train(seed)
+
+    def _train(self, seed: int) -> None:
         rng = np.random.RandomState(seed)
 
         n_normal = 950
         n_fraud = 50
 
-        # Canonical 5-tuple: [amount, days_since_start, claim_frequency_30d,
-        #                     provider_flag_count, subject_flag_count]
         normal_data = np.column_stack([
-            rng.lognormal(6, 1, n_normal),         # amount ~ 400
-            rng.uniform(90, 3650, n_normal),        # days_since_start
-            rng.poisson(1.0, n_normal),             # claim_frequency_30d
-            rng.poisson(0.1, n_normal),             # provider_flag_count
-            rng.poisson(0.1, n_normal),             # subject_flag_count
+            rng.lognormal(6, 1, n_normal),
+            rng.uniform(90, 3650, n_normal),
+            rng.poisson(1.0, n_normal),
+            rng.poisson(0.1, n_normal),
+            rng.poisson(0.1, n_normal),
         ])
-
         fraud_data = np.column_stack([
-            rng.lognormal(9, 0.5, n_fraud),         # amount ~ 8000+
-            rng.uniform(10, 180, n_fraud),          # newer subjects
-            rng.poisson(5.0, n_fraud),              # high frequency
-            rng.poisson(1.5, n_fraud),              # more provider flags
-            rng.poisson(1.5, n_fraud),              # more subject flags
+            rng.lognormal(9, 0.5, n_fraud),
+            rng.uniform(10, 180, n_fraud),
+            rng.poisson(5.0, n_fraud),
+            rng.poisson(1.5, n_fraud),
+            rng.poisson(1.5, n_fraud),
         ])
-
         X = np.vstack([normal_data, fraud_data])
 
         self._scaler = StandardScaler()
@@ -59,15 +103,36 @@ class FraudMLModel:
         )
         self._isolation_forest.fit(X_scaled)
         self._trained = True
-        logger.info("FraudMLModel trained on %d canonical samples", n_normal + n_fraud)
+        logger.info(
+            "FraudMLModel trained on %d canonical samples (fallback)",
+            n_normal + n_fraud,
+        )
+
+    @property
+    def is_trained_artifact(self) -> bool:
+        """True when this instance was hydrated from a MinIO artifact."""
+        return self._calibrator is not None
 
     def predict_canonical(self, canonical: list[float]) -> dict:
         """Score a canonical 5-tuple. Deterministic — same input, same score."""
+        indicators = self._rule_indicators(canonical)
+
+        if self.is_trained_artifact:
+            X = np.array([canonical], dtype=float)
+            X_scaled = self._artifact_scaler.transform(X)  # type: ignore[union-attr]
+            risk_score = float(self._calibrator.predict_proba(X_scaled)[0, 1])  # type: ignore[union-attr]
+            return {
+                "risk_score":    round(risk_score, 4),
+                "risk_level":    _bucket(risk_score),
+                "indicators":    indicators,
+                "model_version": self.model_version,
+            }
+
         if not self._trained or self._scaler is None or self._isolation_forest is None:
             return {
-                "risk_score": 0.1,
-                "risk_level": "LOW",
-                "indicators": [],
+                "risk_score":    0.1,
+                "risk_level":    "LOW",
+                "indicators":    indicators,
                 "model_version": self.model_version,
             }
 
@@ -75,7 +140,15 @@ class FraudMLModel:
         X_scaled = self._scaler.transform(X)
         anomaly_score = self._isolation_forest.decision_function(X_scaled)[0]
         risk_score = max(0.0, min(1.0, 0.5 - anomaly_score * 0.5))
+        return {
+            "risk_score":    round(float(risk_score), 4),
+            "risk_level":    _bucket(risk_score),
+            "indicators":    indicators,
+            "model_version": self.model_version,
+        }
 
+    @staticmethod
+    def _rule_indicators(canonical: list[float]) -> list[str]:
         indicators: list[str] = []
         amount, days_since_start, freq_30d, provider_flags, subject_flags = canonical
         if days_since_start < 90:
@@ -86,12 +159,12 @@ class FraudMLModel:
             indicators.append("provider_flagged")
         if subject_flags >= 1:
             indicators.append("subject_flagged")
+        return indicators
 
-        risk_level = "HIGH" if risk_score > 0.6 else "MEDIUM" if risk_score > 0.3 else "LOW"
 
-        return {
-            "risk_score": round(float(risk_score), 4),
-            "risk_level": risk_level,
-            "indicators": indicators,
-            "model_version": self.model_version,
-        }
+def _bucket(risk_score: float) -> str:
+    if risk_score > 0.6:
+        return "HIGH"
+    if risk_score > 0.3:
+        return "MEDIUM"
+    return "LOW"

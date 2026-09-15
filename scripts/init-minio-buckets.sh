@@ -6,6 +6,9 @@
 # Bucket layout:
 #   medfund-report-payloads — Phase 15 §10 (I25) oversize report-job payloads.
 #     Object naming: {jobId}-{chunkId}-{input|result}.json.
+#   medfund-ml-artifacts   — Tranche 1 AI-service model artifacts (G6).
+#     Object naming: {model_type}-{line}-{version}.joblib + .metadata.json,
+#     plus manifest.json mapping (model_type, line) -> active version.
 #
 # Retention is entirely application-side. `ReportJobRetentionJob` (finance-service
 # §3) purges parent `report_job` rows on the STATUTORY_7Y (7-year) or
@@ -25,5 +28,8 @@ done
 
 echo "[init-minio] provisioning bucket: medfund-report-payloads"
 mc mb --ignore-existing local/medfund-report-payloads
+
+echo "[init-minio] provisioning bucket: medfund-ml-artifacts"
+mc mb --ignore-existing local/medfund-ml-artifacts
 
 echo "[init-minio] done"

@@ -69,6 +69,9 @@ export const routes: Routes = [
       { path: 'ai-predictions',
         loadComponent: () => import('./pages/tenant-admin/ai-predictions/ai-predictions.component').then(m => m.AiPredictionsComponent),
         data: { title: 'AI Predictions', fullbleed: true } },
+      { path: 'ai-predictions/models',
+        loadComponent: () => import('./pages/tenant-admin/ai-predictions/models/ai-models.component').then(m => m.AiModelsComponent),
+        data: { title: 'AI Model Registry', fullbleed: true } },
       { path: 'rules',     loadComponent: () => import('./pages/tenant-admin/rules/rules.component').then(m => m.TenantRulesComponent), data: { title: 'Rules Engine' } },
       { path: 'settings',  loadComponent: () => import('./pages/tenant-admin/settings/settings.component').then(m => m.TenantSettingsComponent), data: { title: 'Settings' } },
       // Phase 17 §C.1 — standalone report-schedules admin page. Deep-linked

@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import {
   DataTableComponent,
   TableAction,
@@ -11,6 +12,7 @@ import {
   AiPredictionDetail,
   AiPredictionRow,
   AiPredictionsService,
+  AiReviewQueueBatch,
 } from '../../../core/services/ai-predictions.service';
 
 /**
@@ -21,7 +23,7 @@ import {
 @Component({
   selector: 'app-ai-predictions',
   standalone: true,
-  imports: [CommonModule, FormsModule, DataTableComponent, IconComponent, SelectComponent],
+  imports: [CommonModule, FormsModule, RouterLink, DataTableComponent, IconComponent, SelectComponent],
   templateUrl: './ai-predictions.component.html',
   styleUrl: './ai-predictions.component.scss',
 })
@@ -43,6 +45,20 @@ export class AiPredictionsComponent implements OnInit {
   selected: AiPredictionDetail | null = null;
   detailLoading = false;
   feedback = '';
+
+  // Queue mode (Tranche 1 per G1) — 50/50 HIGH/LOW stratified batch that
+  // reviewers work through one row at a time so overrides accumulate on
+  // both buckets.
+  mode: 'list' | 'queue' = 'list';
+  queueModelType: 'fraud' = 'fraud';
+  queueSize = 20;
+  queueBatch: AiPredictionDetail[] = [];
+  queueStats: { total_unreviewed: number; high_count: number; low_count: number; other_count: number } | null = null;
+  queueIndex = 0;
+  queueLoading = false;
+  queueFeedback = '';
+  queueSubmitting = false;
+  queueError = '';
 
   // ── Static filter options ────────────────────────────────────────────────
 
@@ -185,6 +201,84 @@ export class AiPredictionsComponent implements OnInit {
       return JSON.stringify(v, null, 2);
     } catch {
       return String(v);
+    }
+  }
+
+  // ── Queue mode (Phase 0, per G1) ──────────────────────────────────────────
+
+  setMode(mode: 'list' | 'queue'): void {
+    this.mode = mode;
+    if (mode === 'queue' && this.queueBatch.length === 0) {
+      this.loadQueue();
+    }
+  }
+
+  loadQueue(): void {
+    this.queueLoading = true;
+    this.queueError = '';
+    this.queueIndex = 0;
+    this.queueFeedback = '';
+    this.svc
+      .reviewQueue(this.queueModelType, this.queueSize, this.insuranceLine || undefined)
+      .subscribe({
+        next: (batch: AiReviewQueueBatch) => {
+          this.queueBatch = batch.items;
+          this.queueStats = {
+            total_unreviewed: batch.total_unreviewed,
+            high_count: batch.high_count,
+            low_count: batch.low_count,
+            other_count: batch.other_count,
+          };
+          this.queueLoading = false;
+        },
+        error: () => {
+          this.queueBatch = [];
+          this.queueStats = null;
+          this.queueError = 'Unable to load review queue.';
+          this.queueLoading = false;
+        },
+      });
+  }
+
+  get currentQueueItem(): AiPredictionDetail | null {
+    return this.queueBatch[this.queueIndex] ?? null;
+  }
+
+  get queueRiskLevel(): string {
+    const item = this.currentQueueItem;
+    const level = (item?.output as { risk_level?: string } | undefined)?.risk_level;
+    return level ?? '';
+  }
+
+  decideQueue(accepted: boolean): void {
+    const item = this.currentQueueItem;
+    if (!item || this.queueSubmitting) return;
+    this.queueSubmitting = true;
+    const trimmed = (this.queueFeedback || '').trim();
+    this.svc.decide(item.id, accepted, trimmed || null).subscribe({
+      next: () => {
+        this.queueSubmitting = false;
+        this.queueFeedback = '';
+        if (this.queueIndex + 1 < this.queueBatch.length) {
+          this.queueIndex += 1;
+        } else {
+          // Batch exhausted — refresh from the server.
+          this.loadQueue();
+        }
+      },
+      error: () => {
+        this.queueSubmitting = false;
+        this.queueError = 'Save failed — try again.';
+      },
+    });
+  }
+
+  skipQueueItem(): void {
+    if (this.queueIndex + 1 < this.queueBatch.length) {
+      this.queueIndex += 1;
+      this.queueFeedback = '';
+    } else {
+      this.loadQueue();
     }
   }
 }

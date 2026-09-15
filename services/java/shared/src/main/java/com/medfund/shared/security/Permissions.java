@@ -169,6 +169,12 @@ public final class Permissions {
     public static final String ADMIN_MANAGE_RULES                = "admin:manage_rules";
     public static final String ADMIN_BANK_ACCOUNTS_MANAGE        = "admin.bank_accounts:manage";
 
+    // ── AI models registry (Tranche 1 Phase 5) ──────────────────────────────
+    /** Read the currently-active fraud/pricing model version per line + eval metrics. */
+    public static final String AI_MODELS_VIEW                    = "ai:models:view";
+    /** Flip the MinIO manifest to promote a candidate fraud/pricing model version. */
+    public static final String AI_MODELS_PROMOTE                 = "ai:models:promote";
+
     // ── Tenant settings sub-namespace (Phase 11) ─────────────────────────────
     public static final String TENANT_SETTINGS_MANAGE_AUTO_LAPSE = "tenant.settings:manage_auto_lapse";
     /** Enable/disable the endorsement four-eyes gate and configure its threshold (Phase 12 §C). */
@@ -292,6 +298,7 @@ public final class Permissions {
 
             ADMIN_MANAGE_ROLES, ADMIN_MANAGE_USERS, ADMIN_VIEW_AUDIT,
             ADMIN_MANAGE_SETTINGS, ADMIN_MANAGE_RULES, ADMIN_BANK_ACCOUNTS_MANAGE,
+            AI_MODELS_VIEW, AI_MODELS_PROMOTE,
             TENANT_SETTINGS_MANAGE_AUTO_LAPSE, TENANT_SETTINGS_MANAGE_ENDORSEMENT_CONFIG,
             TENANT_SETTINGS_MANAGE_ACTUARIAL_BASES, TENANT_SETTINGS_MANAGE_IFRS17_CONFIG,
             TENANT_SETTINGS_MANAGE_REGULATORY_TEMPLATES,

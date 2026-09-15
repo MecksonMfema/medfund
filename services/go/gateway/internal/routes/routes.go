@@ -357,6 +357,14 @@ func Register(app *fiber.App, cfg *config.Config) {
 	app.All("/api/v1/ai/predictions", proxy.Handler(cfg.AiServiceURL))
 	app.All("/api/v1/ai/predictions/*", proxy.Handler(cfg.AiServiceURL))
 
+	// AI model registry — Tranche 1 Phase 5. Tenant admins view the
+	// currently-active fraud/pricing model per line and (with the
+	// ai:models:promote permission) flip the manifest to promote a new
+	// version. The AI service enforces the permission via the
+	// X-User-Permissions header set by the gateway JWT middleware.
+	app.All("/api/v1/ai/models", proxy.Handler(cfg.AiServiceURL))
+	app.All("/api/v1/ai/models/*", proxy.Handler(cfg.AiServiceURL))
+
 	// ── Go Services ───────────────────────────────────────────────────────────
 	app.All("/api/v1/audit", proxy.Handler(cfg.AuditServiceURL))
 	app.All("/api/v1/audit/*", proxy.Handler(cfg.AuditServiceURL))

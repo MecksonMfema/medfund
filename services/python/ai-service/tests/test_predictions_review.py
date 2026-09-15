@@ -1,6 +1,8 @@
 """End-to-end tests for the AI predictions review endpoints."""
 from __future__ import annotations
 
+from datetime import datetime
+from typing import Optional
 from uuid import uuid4
 
 import pytest
@@ -225,3 +227,145 @@ async def test_decide_prediction_returns_404_for_wrong_tenant(
         },
     )
     assert r.status_code == 404
+
+
+# ── Review queue (Phase 0, per G1 + G2) ─────────────────────────────────────
+
+
+async def _seed_fraud(
+    factory,
+    tenant_id: str = TENANT_A,
+    risk_level: str = "HIGH",
+    accepted: Optional[bool] = None,
+    insurance_line: str = "HEALTH",
+) -> AIPredictionDB:
+    return await _seed(
+        factory,
+        tenant_id=tenant_id,
+        prediction_type="fraud",
+        insurance_line=insurance_line,
+        model_version="fraud-canonical",
+        output={"risk_level": risk_level, "risk_score": 0.8 if risk_level == "HIGH" else 0.2},
+        confidence=0.7,
+    )
+
+
+async def _mark_reviewed(factory, row: AIPredictionDB) -> None:
+    async with factory() as session:
+        r = await session.get(AIPredictionDB, row.id)
+        r.accepted = True
+        r.reviewed_by = "prev"
+        r.reviewed_by_email = "prev@example.com"
+        r.reviewed_at = datetime.utcnow()
+        await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_review_queue_returns_50_50_high_low_when_both_have_volume(
+    client, review_session_factory,
+):
+    for _ in range(30):
+        await _seed_fraud(review_session_factory, risk_level="HIGH")
+    for _ in range(30):
+        await _seed_fraud(review_session_factory, risk_level="LOW")
+
+    r = client.get(
+        "/api/v1/ai/predictions/review-queue?size=20&model_type=fraud&seed=7",
+        headers={"X-Tenant-ID": TENANT_A},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert len(body["items"]) == 20
+    levels = [item["output"]["risk_level"] for item in body["items"]]
+    assert levels.count("HIGH") == 10
+    assert levels.count("LOW") == 10
+    assert body["total_unreviewed"] == 60
+    assert body["high_count"] == 30
+    assert body["low_count"] == 30
+
+
+@pytest.mark.asyncio
+async def test_review_queue_backfills_when_one_bucket_thin(
+    client, review_session_factory,
+):
+    # Only 3 HIGH rows, plenty of LOW. Batch of 10 should return 3 HIGH + 7 LOW.
+    for _ in range(3):
+        await _seed_fraud(review_session_factory, risk_level="HIGH")
+    for _ in range(20):
+        await _seed_fraud(review_session_factory, risk_level="LOW")
+
+    r = client.get(
+        "/api/v1/ai/predictions/review-queue?size=10&model_type=fraud&seed=1",
+        headers={"X-Tenant-ID": TENANT_A},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert len(body["items"]) == 10
+    levels = [item["output"]["risk_level"] for item in body["items"]]
+    assert levels.count("HIGH") == 3
+    assert levels.count("LOW") == 7
+
+
+@pytest.mark.asyncio
+async def test_review_queue_is_tenant_scoped(client, review_session_factory):
+    for _ in range(5):
+        await _seed_fraud(review_session_factory, tenant_id=TENANT_A, risk_level="HIGH")
+    for _ in range(5):
+        await _seed_fraud(review_session_factory, tenant_id=TENANT_B, risk_level="HIGH")
+
+    r = client.get(
+        "/api/v1/ai/predictions/review-queue?size=20&model_type=fraud&seed=2",
+        headers={"X-Tenant-ID": TENANT_A},
+    )
+    body = r.json()
+    assert body["total_unreviewed"] == 5
+    for item in body["items"]:
+        assert item["tenant_id"] == TENANT_A
+
+
+@pytest.mark.asyncio
+async def test_review_queue_only_returns_unreviewed(client, review_session_factory):
+    reviewed = await _seed_fraud(review_session_factory, risk_level="HIGH")
+    await _mark_reviewed(review_session_factory, reviewed)
+    pending = await _seed_fraud(review_session_factory, risk_level="HIGH")
+    await _seed_fraud(review_session_factory, risk_level="LOW")
+
+    r = client.get(
+        "/api/v1/ai/predictions/review-queue?size=10&model_type=fraud&seed=3",
+        headers={"X-Tenant-ID": TENANT_A},
+    )
+    body = r.json()
+    ids = {item["id"] for item in body["items"]}
+    assert reviewed.id not in ids
+    assert pending.id in ids
+    assert body["total_unreviewed"] == 2
+
+
+@pytest.mark.asyncio
+async def test_review_queue_filters_by_model_type(client, review_session_factory):
+    await _seed_fraud(review_session_factory, risk_level="HIGH")
+    await _seed(  # a non-fraud unreviewed row should not appear
+        review_session_factory,
+        prediction_type="adjudication",
+        output={"risk_level": "HIGH", "recommendation": "APPROVE"},
+    )
+    r = client.get(
+        "/api/v1/ai/predictions/review-queue?size=10&model_type=fraud",
+        headers={"X-Tenant-ID": TENANT_A},
+    )
+    body = r.json()
+    assert body["total_unreviewed"] == 1
+    assert body["items"][0]["prediction_type"] == "fraud"
+
+
+@pytest.mark.asyncio
+async def test_review_queue_filters_by_insurance_line(client, review_session_factory):
+    await _seed_fraud(review_session_factory, risk_level="HIGH", insurance_line="HEALTH")
+    await _seed_fraud(review_session_factory, risk_level="HIGH", insurance_line="VEHICLE")
+    r = client.get(
+        "/api/v1/ai/predictions/review-queue?size=10&model_type=fraud&insurance_line=HEALTH",
+        headers={"X-Tenant-ID": TENANT_A},
+    )
+    body = r.json()
+    assert body["total_unreviewed"] == 1
+    assert body["items"][0]["insurance_line"] == "HEALTH"

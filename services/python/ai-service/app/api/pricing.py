@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.anonymize import anonymize_features
 from app.core.database import get_optional_session
+from app.schemas.insurance_line import InsuranceLine
 from app.services.prediction_repository import try_record_ai_prediction
 
 router = APIRouter(prefix="/api/v1/pricing", tags=["pricing"])
@@ -662,9 +663,17 @@ async def score_route(
     x_tenant_id: str | None = Header(None, alias="X-Tenant-ID"),
     session: AsyncSession | None = Depends(get_optional_session),
 ) -> ScoreResponse:
-    result = score(req)
+    # Route through the pricing registry so a Tranche 2 trained pricing
+    # artifact drops in without a code change. Tranche 1 always returns
+    # the rule-based adapter (per G3).
+    from app.services.pricing_registry import resolve_pricing_model
 
     line_code = req.insurance_line or "HEALTH"
+    try:
+        model = resolve_pricing_model(InsuranceLine(line_code.upper()))
+        result = model.score(req)
+    except ValueError:
+        result = score(req)
     # For asset-centric lines (VEHICLE, PROPERTY) the "member_id" field
     # actually carries the asset id — the entity_type reflects that.
     person_lines = {"HEALTH", "LIFE", "FUNERAL", "GROUP", "TRAVEL", "DISABILITY"}

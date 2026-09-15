@@ -5,8 +5,28 @@
       Every AI-influenced decision persisted for this tenant, with human review
     </p>
   </div>
+  <div class="mode-toggle" role="tablist" aria-label="View mode">
+    <button
+      type="button"
+      role="tab"
+      class="mode-btn"
+      [class.mode-btn-active]="mode === 'list'"
+      [attr.aria-selected]="mode === 'list'"
+      (click)="setMode('list')"
+    >Browse</button>
+    <button
+      type="button"
+      role="tab"
+      class="mode-btn"
+      [class.mode-btn-active]="mode === 'queue'"
+      [attr.aria-selected]="mode === 'queue'"
+      (click)="setMode('queue')"
+    >Review Queue</button>
+    <a routerLink="models" class="mode-btn" data-testid="model-registry-link">Model Registry</a>
+  </div>
 </header>
 
+@if (mode === 'list') {
 <app-data-table
   title="Predictions"
   [subtitle]="totalCount + ' records'"
@@ -70,6 +90,99 @@
     ></app-select>
   </div>
 </app-data-table>
+}
+
+@if (mode === 'queue') {
+  <section class="queue-shell">
+    <div class="queue-header">
+      <div class="queue-stats">
+        @if (queueStats) {
+          <span><strong>{{ queueStats.total_unreviewed }}</strong> unreviewed</span>
+          <span class="dot"></span>
+          <span>HIGH: <strong>{{ queueStats.high_count }}</strong></span>
+          <span>LOW: <strong>{{ queueStats.low_count }}</strong></span>
+          @if (queueStats.other_count > 0) {
+            <span>Other: <strong>{{ queueStats.other_count }}</strong></span>
+          }
+        }
+      </div>
+      <button class="btn btn-outline" (click)="loadQueue()" [disabled]="queueLoading">
+        <app-icon name="refresh-cw" [size]="16"></app-icon>
+        Refresh batch
+      </button>
+    </div>
+
+    @if (queueLoading) {
+      <div class="queue-empty">Loading batch…</div>
+    } @else if (queueError) {
+      <div class="queue-empty queue-error">{{ queueError }}</div>
+    } @else if (!currentQueueItem) {
+      <div class="queue-empty">
+        No unreviewed predictions in this batch. When new predictions land they'll appear here.
+      </div>
+    } @else {
+      <div class="queue-progress">
+        Item <strong>{{ queueIndex + 1 }}</strong> of <strong>{{ queueBatch.length }}</strong>
+      </div>
+
+      <article class="queue-card">
+        <div class="queue-card-header">
+          <div class="queue-card-title">
+            <span class="badge">{{ currentQueueItem.prediction_type }}</span>
+            @if (currentQueueItem.insurance_line) {
+              <span class="badge badge-line">{{ currentQueueItem.insurance_line }}</span>
+            }
+            @if (queueRiskLevel) {
+              <span class="badge" [class.badge-risk-high]="queueRiskLevel === 'HIGH'" [class.badge-risk-low]="queueRiskLevel === 'LOW'">
+                {{ queueRiskLevel }}
+              </span>
+            }
+            <span>{{ currentQueueItem.entity_type }} — {{ currentQueueItem.entity_id }}</span>
+          </div>
+        </div>
+
+        <div class="modal-meta">
+          <span>Model: <strong>{{ currentQueueItem.model_version }}</strong></span>
+          @if (currentQueueItem.confidence != null) {
+            <span>Confidence: <strong>{{ currentQueueItem.confidence | number:'1.2-2' }}</strong></span>
+          }
+          @if (currentQueueItem.created_at) {
+            <span>{{ currentQueueItem.created_at | date:'medium' }}</span>
+          }
+        </div>
+
+        <div class="modal-body">
+          <h3>Input features</h3>
+          <pre class="json-block">{{ formatFeatures(currentQueueItem.input_features) }}</pre>
+          <h3>Model output</h3>
+          <pre class="json-block">{{ formatFeatures(currentQueueItem.output) }}</pre>
+
+          <h3>Reviewer feedback</h3>
+          <textarea
+            [(ngModel)]="queueFeedback"
+            rows="3"
+            class="feedback-input"
+            placeholder="Optional — recorded on override"
+          ></textarea>
+
+          <div class="modal-actions">
+            <button class="btn btn-outline" (click)="skipQueueItem()" [disabled]="queueSubmitting">
+              Skip
+            </button>
+            <button class="btn btn-outline" (click)="decideQueue(false)" [disabled]="queueSubmitting">
+              <app-icon name="x" [size]="16"></app-icon>
+              Override
+            </button>
+            <button class="btn btn-primary" (click)="decideQueue(true)" [disabled]="queueSubmitting">
+              <app-icon name="check" [size]="16"></app-icon>
+              Accept
+            </button>
+          </div>
+        </div>
+      </article>
+    }
+  </section>
+}
 
 @if (selected) {
   <div class="modal-overlay" (click)="closeDetail()">

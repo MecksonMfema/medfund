@@ -1,0 +1,177 @@
+# Weekly fraud retraining CronJob (Tranche 1 Phase 6).
+#
+# One CronJob per fraud-trainable insurance line — for Tranche 1 that's the
+# three highest-volume pilot lines (HEALTH, VEHICLE, PROPERTY). Others fall
+# through to the canonical fallback until Tranche 2's per-line training runs
+# accumulate labeled data.
+#
+# Each job runs 03:00 UTC every Sunday (offset by 10 min between lines to
+# spread the sklearn CPU spike). Steps executed by the container:
+#   1. scripts.train_fraud --line <LINE> --output-version <SEMVER>
+#      Writes joblib + metadata sidecar into MinIO.
+#   2. scripts.evaluate_model --line <LINE> --candidate <SEMVER>
+#      Compares against current 'latest'; exit 2 on regression.
+#   3. scripts.notify_slack --line <LINE> --candidate <SEMVER> --metrics ...
+#      Posts to the operator channel with a one-liner promote command.
+#
+# Promotion stays a human step (per plan §"Retraining cadence" — "Zero
+# automatic promotions"). Operator clicks Promote on
+# /tenant/admin/ai-predictions/models or runs promote_model.py.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ai-train-fraud-health
+  labels:
+    app.kubernetes.io/name: ai-service
+    app.kubernetes.io/component: retraining
+    medfund.io/model-type: fraud
+    medfund.io/line: health
+spec:
+  schedule: "0 3 * * 0"   # Sun 03:00 UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: ai-service
+            app.kubernetes.io/component: retraining
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: train
+              image: medfund/ai-service-training:latest
+              args:
+                - scripts.train_fraud
+                - "--line=HEALTH"
+                - "--output-version=$(GENERATED_VERSION)"
+                - "--min-samples=200"
+              env:
+                - name: GENERATED_VERSION
+                  value: "v-cron-$(date +%Y%m%d)"
+                - name: MEDFUND_DATABASE_URL
+                  valueFrom: { secretKeyRef: { name: ai-service-db, key: url } }
+                - name: MEDFUND_KAFKA_BOOTSTRAP_SERVERS
+                  valueFrom: { configMapKeyRef: { name: platform-config, key: kafka.bootstrap } }
+                - name: MINIO_ENDPOINT
+                  valueFrom: { configMapKeyRef: { name: platform-config, key: minio.endpoint } }
+                - name: MINIO_ACCESS_KEY
+                  valueFrom: { secretKeyRef: { name: minio-credentials, key: access_key } }
+                - name: MINIO_SECRET_KEY
+                  valueFrom: { secretKeyRef: { name: minio-credentials, key: secret_key } }
+                - name: MEDFUND_TRAINING_AUDIT_SIGNED_OFF
+                  valueFrom: { configMapKeyRef: { name: ai-service-training, key: audit_signed_off } }
+                - name: SLACK_WEBHOOK_URL
+                  valueFrom: { secretKeyRef: { name: slack-ai-training, key: webhook_url } }
+              resources:
+                requests: { cpu: "500m", memory: "1Gi" }
+                limits:   { cpu: "2",    memory: "3Gi" }
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ai-train-fraud-vehicle
+  labels:
+    app.kubernetes.io/name: ai-service
+    app.kubernetes.io/component: retraining
+    medfund.io/model-type: fraud
+    medfund.io/line: vehicle
+spec:
+  schedule: "10 3 * * 0"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: ai-service
+            app.kubernetes.io/component: retraining
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: train
+              image: medfund/ai-service-training:latest
+              args:
+                - scripts.train_fraud
+                - "--line=VEHICLE"
+                - "--output-version=$(GENERATED_VERSION)"
+                - "--min-samples=200"
+              env:
+                - name: GENERATED_VERSION
+                  value: "v-cron-$(date +%Y%m%d)"
+                - name: MEDFUND_DATABASE_URL
+                  valueFrom: { secretKeyRef: { name: ai-service-db, key: url } }
+                - name: MEDFUND_KAFKA_BOOTSTRAP_SERVERS
+                  valueFrom: { configMapKeyRef: { name: platform-config, key: kafka.bootstrap } }
+                - name: MINIO_ENDPOINT
+                  valueFrom: { configMapKeyRef: { name: platform-config, key: minio.endpoint } }
+                - name: MINIO_ACCESS_KEY
+                  valueFrom: { secretKeyRef: { name: minio-credentials, key: access_key } }
+                - name: MINIO_SECRET_KEY
+                  valueFrom: { secretKeyRef: { name: minio-credentials, key: secret_key } }
+                - name: MEDFUND_TRAINING_AUDIT_SIGNED_OFF
+                  valueFrom: { configMapKeyRef: { name: ai-service-training, key: audit_signed_off } }
+                - name: SLACK_WEBHOOK_URL
+                  valueFrom: { secretKeyRef: { name: slack-ai-training, key: webhook_url } }
+              resources:
+                requests: { cpu: "500m", memory: "1Gi" }
+                limits:   { cpu: "2",    memory: "3Gi" }
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ai-train-fraud-property
+  labels:
+    app.kubernetes.io/name: ai-service
+    app.kubernetes.io/component: retraining
+    medfund.io/model-type: fraud
+    medfund.io/line: property
+spec:
+  schedule: "20 3 * * 0"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: ai-service
+            app.kubernetes.io/component: retraining
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: train
+              image: medfund/ai-service-training:latest
+              args:
+                - scripts.train_fraud
+                - "--line=PROPERTY"
+                - "--output-version=$(GENERATED_VERSION)"
+                - "--min-samples=200"
+              env:
+                - name: GENERATED_VERSION
+                  value: "v-cron-$(date +%Y%m%d)"
+                - name: MEDFUND_DATABASE_URL
+                  valueFrom: { secretKeyRef: { name: ai-service-db, key: url } }
+                - name: MEDFUND_KAFKA_BOOTSTRAP_SERVERS
+                  valueFrom: { configMapKeyRef: { name: platform-config, key: kafka.bootstrap } }
+                - name: MINIO_ENDPOINT
+                  valueFrom: { configMapKeyRef: { name: platform-config, key: minio.endpoint } }
+                - name: MINIO_ACCESS_KEY
+                  valueFrom: { secretKeyRef: { name: minio-credentials, key: access_key } }
+                - name: MINIO_SECRET_KEY
+                  valueFrom: { secretKeyRef: { name: minio-credentials, key: secret_key } }
+                - name: MEDFUND_TRAINING_AUDIT_SIGNED_OFF
+                  valueFrom: { configMapKeyRef: { name: ai-service-training, key: audit_signed_off } }
+                - name: SLACK_WEBHOOK_URL
+                  valueFrom: { secretKeyRef: { name: slack-ai-training, key: webhook_url } }
+              resources:
+                requests: { cpu: "500m", memory: "1Gi" }
+                limits:   { cpu: "2",    memory: "3Gi" }

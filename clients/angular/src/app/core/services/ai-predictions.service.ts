@@ -40,6 +40,39 @@ export interface AiPredictionFilters {
   size?: number;
 }
 
+export interface AiReviewQueueBatch {
+  items: AiPredictionDetail[];
+  total_unreviewed: number;
+  high_count: number;
+  low_count: number;
+  other_count: number;
+}
+
+/**
+ * One row of the /api/v1/ai/models registry snapshot. Sixteen rows
+ * total — 2 model_types × 8 insurance lines.
+ */
+export interface AiActiveModel {
+  model_type: 'fraud' | 'pricing';
+  line: string;
+  active_version: string | null;
+  model_version: string;
+  is_fallback: boolean;
+  trained_at?: string | null;
+  train_samples: number;
+  metrics: Record<string, number>;
+  schema_status: 'OK' | 'SCHEMA_MISMATCH';
+  schema_status_detail?: string | null;
+}
+
+export interface AiPromoteResponse {
+  model_type: 'fraud' | 'pricing';
+  line: string;
+  before: string | null;
+  after: string;
+  audit_event_id: string;
+}
+
 /**
  * Wrapper for the AI-service `/api/v1/ai/predictions` endpoints. The
  * gateway attaches X-Tenant-ID + X-Actor-ID + X-Actor-Email on every
@@ -73,6 +106,50 @@ export class AiPredictionsService {
     return this.api.put<AiPredictionRow>(
       `/ai/predictions/${id}/decision`,
       { accepted, feedback },
+    );
+  }
+
+  /**
+   * Stratified 50/50 HIGH/LOW random-sample batch of unreviewed predictions.
+   * Backs the Review Queue mode on `/tenant/admin/ai-predictions` (Tranche 1
+   * per G1) — training corpora need real true-negative signal, and reviewers
+   * only work HIGH by default otherwise.
+   */
+  reviewQueue(
+    modelType: string = 'fraud',
+    size: number = 20,
+    insuranceLine?: string,
+  ): Observable<AiReviewQueueBatch> {
+    const params: Record<string, string> = {
+      model_type: modelType,
+      size: String(size),
+    };
+    if (insuranceLine) params['insurance_line'] = insuranceLine;
+    return this.api.get<AiReviewQueueBatch>('/ai/predictions/review-queue', params);
+  }
+
+  /**
+   * Snapshot of the AI model registry (Tranche 1 Phase 5) — one row
+   * per (model_type, line) tuple with the currently-active version
+   * and metadata sidecar values.
+   */
+  listActiveModels(): Observable<AiActiveModel[]> {
+    return this.api.get<AiActiveModel[]>('/ai/models');
+  }
+
+  /**
+   * Promote a candidate model version. Requires `ai:models:promote`
+   * on the caller (enforced server-side); UI hides the button when
+   * absent. Emits an audit event with actor + before/after.
+   */
+  promoteModel(
+    modelType: 'fraud' | 'pricing',
+    line: string,
+    version: string,
+  ): Observable<AiPromoteResponse> {
+    return this.api.put<AiPromoteResponse>(
+      `/ai/models/${modelType}/${encodeURIComponent(line)}/promote`,
+      { version },
     );
   }
 }

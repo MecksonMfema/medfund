@@ -7,6 +7,7 @@ accept / override decision that writes back to ``ai_predictions_store``.
 from __future__ import annotations
 
 import logging
+import random
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
@@ -139,6 +140,92 @@ async def list_predictions(
         total=int(total or 0),
         page=page,
         size=size,
+    )
+
+
+class ReviewQueueBatch(BaseModel):
+    """Stratified sample of unreviewed predictions for the review queue.
+
+    The corpus consumed by Tranche 1 training scripts skews HIGH when
+    reviewers only ever inspect what the model flagged. This endpoint
+    returns a 50/50 HIGH/LOW random-sample batch so overrides accumulate
+    across both buckets, giving downstream training real true-negative
+    signal.
+    """
+
+    items: list[PredictionDetail]
+    total_unreviewed: int
+    high_count: int
+    low_count: int
+    other_count: int
+
+
+@router.get("/review-queue", response_model=ReviewQueueBatch)
+async def review_queue(
+    x_tenant_id: str = Header(..., alias="X-Tenant-ID"),
+    size: int = Query(20, ge=1, le=200),
+    model_type: str = Query("fraud", description="Prediction type to sample from"),
+    insurance_line: Optional[InsuranceLine] = Query(None),
+    seed: Optional[int] = Query(None, description="Deterministic sampling for tests"),
+    session: AsyncSession | None = Depends(get_optional_session),
+) -> ReviewQueueBatch:
+    """Stratified 50/50 HIGH/LOW random sample of unreviewed predictions.
+
+    Bucketing keys on ``output.risk_level``. When one bucket is thin,
+    the shortfall is filled from the other so callers still get ``size``
+    rows when volume allows. Everything is tenant-scoped by header.
+    """
+    db = _require_session(session)
+    conditions = [
+        AIPredictionDB.tenant_id == x_tenant_id,
+        AIPredictionDB.prediction_type == model_type,
+        AIPredictionDB.accepted.is_(None),
+    ]
+    if insurance_line is not None:
+        conditions.append(AIPredictionDB.insurance_line == insurance_line.value)
+
+    rows = (
+        await db.execute(select(AIPredictionDB).where(and_(*conditions)))
+    ).scalars().all()
+
+    high: list[AIPredictionDB] = []
+    low: list[AIPredictionDB] = []
+    other: list[AIPredictionDB] = []
+    for r in rows:
+        level = (r.output or {}).get("risk_level")
+        if level == "HIGH":
+            high.append(r)
+        elif level == "LOW":
+            low.append(r)
+        else:
+            other.append(r)
+
+    rng = random.Random(seed) if seed is not None else random.Random()
+    rng.shuffle(high)
+    rng.shuffle(low)
+    rng.shuffle(other)
+
+    target_high = size // 2
+    target_low = size - target_high
+    picked_high = high[:target_high]
+    picked_low = low[:target_low]
+
+    # Backfill when one bucket is thin.
+    shortfall = size - len(picked_high) - len(picked_low)
+    if shortfall > 0:
+        pool = high[len(picked_high):] + low[len(picked_low):] + other
+        rng.shuffle(pool)
+        picked_high.extend(pool[:shortfall])
+
+    picked = picked_high + picked_low
+    rng.shuffle(picked)
+
+    return ReviewQueueBatch(
+        items=[_to_detail(r) for r in picked],
+        total_unreviewed=len(rows),
+        high_count=len(high),
+        low_count=len(low),
+        other_count=len(other),
     )
 
 
