@@ -132,6 +132,9 @@ const ICONS: Record<string, string> = {
   // on the AI-suggested price widgets. Feather-icons "zap" glyph.
   zap:
     '<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>',
+  // Brain glyph — sidebar entry for AI Predictions review.
+  brain:
+    '<path d="M8 2a3 3 0 0 0-3 3v.34A3 3 0 0 0 3 8a3 3 0 0 0 1 2.24V11a3 3 0 0 0 2 2.83V15a3 3 0 0 0 3 3h1V4a2 2 0 0 0-2-2zm10 3.34V5a3 3 0 0 0-5-2 2 2 0 0 0-2 2v14h1a3 3 0 0 0 3-3v-1.17A3 3 0 0 0 17 11v-.76A3 3 0 0 0 18 8a3 3 0 0 0-2-2.66z"/>',
   // Single-person silhouette — Identity section icon on member /
   // dependant forms. Distinct from `users` (group) and `user-check`
   // (permission granted) already in the registry.

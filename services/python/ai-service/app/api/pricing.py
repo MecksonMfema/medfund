@@ -22,8 +22,13 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, Header, status
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.anonymize import anonymize_features
+from app.core.database import get_optional_session
+from app.services.prediction_repository import try_record_ai_prediction
 
 router = APIRouter(prefix="/api/v1/pricing", tags=["pricing"])
 
@@ -652,5 +657,31 @@ def _score_disability(req: ScoreRequest) -> ScoreResponse:
     status_code=status.HTTP_200_OK,
     summary="Compute a per-member risk multiplier for the contribution amount",
 )
-async def score_route(req: ScoreRequest) -> ScoreResponse:
-    return score(req)
+async def score_route(
+    req: ScoreRequest,
+    x_tenant_id: str | None = Header(None, alias="X-Tenant-ID"),
+    session: AsyncSession | None = Depends(get_optional_session),
+) -> ScoreResponse:
+    result = score(req)
+
+    line_code = req.insurance_line or "HEALTH"
+    # For asset-centric lines (VEHICLE, PROPERTY) the "member_id" field
+    # actually carries the asset id — the entity_type reflects that.
+    person_lines = {"HEALTH", "LIFE", "FUNERAL", "GROUP", "TRAVEL", "DISABILITY"}
+    entity_type = "member" if line_code.upper() in person_lines else "asset"
+    tenant_id = x_tenant_id or req.tenant_id
+    entity_id = req.member_id or "unknown"
+
+    await try_record_ai_prediction(
+        session,
+        tenant_id=str(tenant_id),
+        insurance_line=line_code.upper(),
+        entity_type=entity_type,
+        entity_id=entity_id,
+        prediction_type="pricing",
+        model_version=result.model_version,
+        input_features=anonymize_features(req.model_dump()),
+        output=result.model_dump(),
+        confidence=None,
+    )
+    return result

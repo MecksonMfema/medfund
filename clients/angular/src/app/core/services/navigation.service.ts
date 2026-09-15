@@ -48,10 +48,11 @@ const TENANT_NAV: NavGroup[] = [
   {
     title: 'MANAGEMENT',
     items: [
-      { label: 'Users',        route: '/tenant/admin/users',     icon: 'users',     roles: ['tenant_admin'] },
-      { label: 'Audit Logs',   route: '/tenant/admin/audit',     icon: 'clipboard', roles: ['tenant_admin'] },
-      { label: 'Rules Engine', route: '/tenant/admin/rules',     icon: 'filter',    roles: ['tenant_admin'] },
-      { label: 'Settings',     route: '/tenant/admin/settings',  icon: 'settings',  roles: ['tenant_admin'] },
+      { label: 'Users',          route: '/tenant/admin/users',          icon: 'users',     roles: ['tenant_admin'] },
+      { label: 'Audit Logs',     route: '/tenant/admin/audit',          icon: 'clipboard', roles: ['tenant_admin'] },
+      { label: 'AI Predictions', route: '/tenant/admin/ai-predictions', icon: 'brain',     roles: ['tenant_admin'] },
+      { label: 'Rules Engine',   route: '/tenant/admin/rules',          icon: 'filter',    roles: ['tenant_admin'] },
+      { label: 'Settings',       route: '/tenant/admin/settings',       icon: 'settings',  roles: ['tenant_admin'] },
     ],
   },
 ];

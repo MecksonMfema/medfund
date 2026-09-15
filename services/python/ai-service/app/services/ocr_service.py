@@ -1,17 +1,28 @@
-"""Document OCR service — Tesseract text extraction + Claude structured data."""
+"""Document OCR service — Tesseract text extraction + LLM structured data."""
 import logging
-import base64
-from typing import Optional
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
 
 class OCRService:
-    """Extracts text from documents using Tesseract, structures data with Claude."""
+    """Extracts text from documents using Tesseract, structures data with an LLM."""
 
-    def __init__(self, gemini_client=None):
+    def __init__(
+        self,
+        gemini_client=None,
+        llm_provider: Callable[[], Any] | None = None,
+    ):
+        # llm_provider is called on every request so a provider switch (Gemini
+        # ↔ Claude) is picked up without re-instantiating the service.
+        self._llm_provider = llm_provider
         self.gemini_client = gemini_client
         self._tesseract_available = self._check_tesseract()
+
+    def _current_llm(self):
+        if self._llm_provider is not None:
+            return self._llm_provider()
+        return self.gemini_client
 
     def _check_tesseract(self) -> bool:
         try:
@@ -40,7 +51,8 @@ class OCRService:
         self, raw_text: str, image_bytes: bytes | None = None
     ) -> dict:
         """Extract structured claim data from OCR text using Claude."""
-        if self.gemini_client and self.gemini_client.available:
+        llm = self._current_llm()
+        if llm is not None and llm.available:
             try:
                 prompt = f"""Extract structured healthcare claim data from this OCR text.
 Return JSON with fields: provider_name, member_id, diagnosis_codes (list),
@@ -49,14 +61,14 @@ If a field cannot be determined, use null.
 
 OCR Text:
 {raw_text}"""
-                result = await self.gemini_client.complete_json(
+                result = await llm.complete_json(
                     system_prompt="You are a healthcare document data extractor.",
                     messages=[{"role": "user", "content": prompt}],
                 )
                 if result:
                     return result
             except Exception as e:
-                logger.warning(f"Claude structured extraction failed: {e}")
+                logger.warning(f"LLM structured extraction failed: {e}")
 
         # Fallback: return raw text only
         return {"raw_text": raw_text, "extraction_method": "tesseract_only"}

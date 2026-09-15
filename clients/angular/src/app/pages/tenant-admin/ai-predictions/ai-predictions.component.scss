@@ -1,0 +1,116 @@
+// Fullbleed shell — matches /tenant/admin/audit exactly.
+.page-header {
+  padding: 20px 24px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+}
+.page-header h1 { font-size: var(--font-size-2xl); margin-bottom: 4px; }
+.page-subtitle { color: var(--color-text-secondary); font-size: var(--font-size-base); }
+
+::ng-deep .table-toolbar .toolbar-spacer { order: 1; }
+
+.toolbar-cell.cell-line,
+.toolbar-cell.cell-entity,
+.toolbar-cell.cell-type,
+.toolbar-cell.cell-status { flex: 0 0 auto; min-width: 180px; }
+
+.toolbar-cell app-select { min-width: 140px; flex: 1; }
+.toolbar-cell {
+  ::ng-deep .select-trigger {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    height: 32px;
+    min-width: 0;
+  }
+}
+
+// ── Detail modal (mirrors audit modal) ───────────────────────────────────
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal {
+  background: var(--color-surface);
+  border-radius: 8px;
+  padding: 24px;
+  min-width: 520px;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+.modal-title { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.badge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--color-neutral-100);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+.badge-line { background: var(--color-primary-100, #dbeafe); color: var(--color-primary-800, #1e3a8a); }
+.close-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+.close-btn:hover { background: var(--color-neutral-100); }
+
+.modal-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  margin-bottom: 16px;
+}
+.modal-body h3 {
+  margin-top: 16px;
+  margin-bottom: 6px;
+  font-size: var(--font-size-base);
+}
+.json-block {
+  background: var(--color-neutral-50, #f9fafb);
+  border: 1px solid var(--color-border-light);
+  border-radius: 4px;
+  padding: 12px;
+  font-family: var(--font-family-mono, monospace);
+  font-size: var(--font-size-sm);
+  overflow-x: auto;
+  max-height: 320px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.feedback-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  resize: vertical;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border-light);
+}

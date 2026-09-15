@@ -1,6 +1,8 @@
 package com.medfund.contributions.service;
 
 import com.medfund.contributions.entity.Contribution;
+import com.medfund.shared.flags.FlagRegistry;
+import com.medfund.shared.flags.PlatformFlag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,11 +39,14 @@ public class AiPricingClient {
 
     private final WebClient http;
     private final DatabaseClient db;
+    private final FlagRegistry flagRegistry;
 
     public AiPricingClient(@Value("${ai.service.url:http://localhost:8000}") String aiServiceUrl,
-                            DatabaseClient db) {
+                            DatabaseClient db,
+                            FlagRegistry flagRegistry) {
         this.http = WebClient.builder().baseUrl(aiServiceUrl).build();
         this.db = db;
+        this.flagRegistry = flagRegistry;
     }
 
     /**
@@ -52,8 +57,13 @@ public class AiPricingClient {
      */
     public Mono<Double> score(Contribution c) {
         if (c.getMemberId() == null || c.getAmount() == null) return Mono.empty();
-        return loadMemberSignals(c.getMemberId()).flatMap(signals -> resolveInsuranceLine(c.getSchemeId())
-                .flatMap(line -> {
+        return flagRegistry.isEnabled(PlatformFlag.AI_ADJUDICATION).flatMap(enabled -> {
+            if (!Boolean.TRUE.equals(enabled)) {
+                log.debug("AI_ADJUDICATION off — skipping pricing scorer for contribution {}", c.getId());
+                return Mono.empty();
+            }
+            return loadMemberSignals(c.getMemberId()).flatMap(signals -> resolveInsuranceLine(c.getSchemeId())
+                    .flatMap(line -> {
                     Map<String, Object> body = new LinkedHashMap<>();
                     body.put("member_id",       c.getMemberId().toString());
                     body.put("tenant_id",       "unknown"); // populated downstream from TenantContext
@@ -76,6 +86,7 @@ public class AiPricingClient {
                                 return 1.0;
                             });
                 }));
+        });
     }
 
     /**

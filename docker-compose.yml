@@ -383,6 +383,10 @@ services:
       MEDFUND_DATABASE_URL: postgresql+asyncpg://medfund:medfund@postgres:5432/medfund
       MEDFUND_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       MEDFUND_REDIS_URL: redis://redis:6379/0
+      MEDFUND_GEMINI_API_KEY: ${MEDFUND_GEMINI_API_KEY:-}
+      MEDFUND_ANTHROPIC_API_KEY: ${MEDFUND_ANTHROPIC_API_KEY:-}
+      MEDFUND_LLM_PROVIDER: ${MEDFUND_LLM_PROVIDER:-gemini}
+      MEDFUND_USER_SERVICE_URL: http://user-service:8082
       # MinIO oversize-payload fallback (Phase 15 §10 / I25).
       MINIO_ENDPOINT: minio:9000
       MINIO_ACCESS_KEY: medfund

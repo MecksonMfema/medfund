@@ -1,0 +1,133 @@
+<header class="page-header">
+  <div>
+    <h1>AI Predictions</h1>
+    <p class="page-subtitle">
+      Every AI-influenced decision persisted for this tenant, with human review
+    </p>
+  </div>
+</header>
+
+<app-data-table
+  title="Predictions"
+  [subtitle]="totalCount + ' records'"
+  [columns]="columns"
+  [data]="predictions"
+  [actions]="tableActions"
+  [serverSide]="true"
+  [loading]="loading"
+  [totalCount]="totalCount"
+  [totalPages]="totalPages"
+  [serverPage]="currentPage"
+  [searchable]="false"
+  (pageChange)="loadPage($event)"
+>
+  <div table-filters class="toolbar-cell cell-line">
+    <span class="cell-label">Line</span>
+    <app-select
+      [(ngModel)]="insuranceLine"
+      (selectionChange)="applyFilters()"
+      name="insuranceLine"
+      [options]="insuranceLineOptions"
+      placeholder="All lines"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+  <div table-filters class="toolbar-cell cell-entity">
+    <span class="cell-label">Entity</span>
+    <app-select
+      [(ngModel)]="entityType"
+      (selectionChange)="applyFilters()"
+      name="entityType"
+      [options]="entityTypeOptions"
+      placeholder="All"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+  <div table-filters class="toolbar-cell cell-type">
+    <span class="cell-label">Type</span>
+    <app-select
+      [(ngModel)]="predictionType"
+      (selectionChange)="applyFilters()"
+      name="predictionType"
+      [options]="predictionTypeOptions"
+      placeholder="All"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+  <div table-filters class="toolbar-cell cell-status">
+    <span class="cell-label">Decision</span>
+    <app-select
+      [(ngModel)]="accepted"
+      (selectionChange)="applyFilters()"
+      name="accepted"
+      [options]="acceptedOptions"
+      placeholder="All"
+      [searchable]="false"
+      [autoSearchThreshold]="9999"
+    ></app-select>
+  </div>
+</app-data-table>
+
+@if (selected) {
+  <div class="modal-overlay" (click)="closeDetail()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span class="badge">{{ selected.prediction_type }}</span>
+          @if (selected.insurance_line) {
+            <span class="badge badge-line">{{ selected.insurance_line }}</span>
+          }
+          <span>{{ selected.entity_type }} — {{ selected.entity_id }}</span>
+        </div>
+        <button class="close-btn" (click)="closeDetail()">
+          <app-icon name="x" [size]="18"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-meta">
+        <span>Model: <strong>{{ selected.model_version }}</strong></span>
+        @if (selected.confidence != null) {
+          <span>Confidence: <strong>{{ selected.confidence | number:'1.2-2' }}</strong></span>
+        }
+        @if (selected.created_at) {
+          <span>{{ selected.created_at | date:'medium' }}</span>
+        }
+        @if (selected.reviewed_by_email) {
+          <span>Reviewed by <strong>{{ selected.reviewed_by_email }}</strong></span>
+        }
+        @if (selected.reviewed_at) {
+          <span>{{ selected.reviewed_at | date:'medium' }}</span>
+        }
+      </div>
+
+      <div class="modal-body">
+        <h3>Input features</h3>
+        <pre class="json-block">{{ formatFeatures(selected.input_features) }}</pre>
+        <h3>Model output</h3>
+        <pre class="json-block">{{ formatFeatures(selected.output) }}</pre>
+
+        <h3>Reviewer feedback</h3>
+        <textarea
+          [(ngModel)]="feedback"
+          rows="3"
+          class="feedback-input"
+          placeholder="Optional — recorded on override"
+        ></textarea>
+
+        <div class="modal-actions">
+          <button class="btn btn-outline" (click)="decide(false)">
+            <app-icon name="x" [size]="16"></app-icon>
+            Override
+          </button>
+          <button class="btn btn-primary" (click)="decide(true)">
+            <app-icon name="check" [size]="16"></app-icon>
+            Accept
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}

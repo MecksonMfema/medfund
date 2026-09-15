@@ -6,6 +6,8 @@ import logging
 from app.core.config import settings
 from app.core.gemini_client import GeminiClient
 import app.core.gemini_client as gemini_module
+from app.core.anthropic_client import ClaudeClient
+import app.core.anthropic_client as anthropic_module
 from app.core.database import init_db, close_db
 
 from app.api.health import router as health_router
@@ -17,6 +19,7 @@ from app.api.forecasting import router as forecasting_router
 from app.api.analytics import router as analytics_router
 from app.api.pricing import router as pricing_router
 from app.api.actuarial import router as actuarial_router
+from app.api.predictions import router as predictions_router
 from app.actuarial.chain_ladder import TriangleInput, compute as chain_ladder_compute
 from app.report.kafka import ReportJobRunner
 
@@ -27,11 +30,23 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("AI Service starting up...")
-    gemini_module.gemini_client = GeminiClient(api_key=settings.gemini_api_key, model=settings.gemini_model)
-    if gemini_module.gemini_client.available:
-        logger.info(f"Gemini AI: ACTIVE (model: {settings.gemini_model})")
-    else:
-        logger.info("Gemini AI: INACTIVE (rule-based fallbacks)")
+    gemini_module.gemini_client = GeminiClient(
+        api_key=settings.gemini_api_key, model=settings.gemini_model,
+    )
+    anthropic_module.claude_client = ClaudeClient(
+        api_key=settings.anthropic_api_key, model=settings.anthropic_model,
+    )
+    provider = (settings.llm_provider or "gemini").lower()
+    active_available = (
+        anthropic_module.claude_client.available if provider == "claude"
+        else gemini_module.gemini_client.available
+    )
+    logger.info(
+        "LLM provider=%s, available=%s (gemini=%s, claude=%s)",
+        provider, active_available,
+        gemini_module.gemini_client.available,
+        anthropic_module.claude_client.available,
+    )
 
     try:
         await init_db(settings.database_url)
@@ -122,3 +137,4 @@ app.include_router(forecasting_router)
 app.include_router(analytics_router)
 app.include_router(pricing_router)
 app.include_router(actuarial_router)
+app.include_router(predictions_router)

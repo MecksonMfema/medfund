@@ -11,6 +11,24 @@ import (
 // Register configures all reverse-proxy route mappings from API prefixes
 // to their corresponding backend services.
 func Register(app *fiber.App, cfg *config.Config) {
+	// ── Public branding (unauthenticated pre-auth surface) ────────────────────
+	// The Angular login screen and other pre-auth shells hit these endpoints
+	// before a JWT exists, so they must NOT be behind RequireSuperAdmin. The
+	// tenancy-service SecurityConfig also whitelists /api/v1/public/** so the
+	// service allows unauthenticated GETs. Registered here so it wins over the
+	// broader /api/v1/platform/* group below (Fiber first-match dispatch).
+	app.All("/api/v1/public/platform/branding", proxy.Handler(cfg.TenancyServiceURL))
+	app.All("/api/v1/public/platform/logo", proxy.Handler(cfg.TenancyServiceURL))
+
+	// ── Platform settings + feature flags (super-admin proxy) ─────────────────
+	// Registered BEFORE the platformGroup below so Fiber's registration-order
+	// dispatch routes them to the tenancy-service proxy instead of the
+	// aggregating handler. Same RequireSuperAdmin guard as the group.
+	app.All("/api/v1/platform/settings", middleware.RequireSuperAdmin(), proxy.Handler(cfg.TenancyServiceURL))
+	app.All("/api/v1/platform/settings/*", middleware.RequireSuperAdmin(), proxy.Handler(cfg.TenancyServiceURL))
+	app.All("/api/v1/platform/feature-flags", middleware.RequireSuperAdmin(), proxy.Handler(cfg.TenancyServiceURL))
+	app.All("/api/v1/platform/feature-flags/*", middleware.RequireSuperAdmin(), proxy.Handler(cfg.TenancyServiceURL))
+
 	// ── Platform aggregation (handled by gateway, not proxied) ────────────────
 	// Every /api/v1/platform/* endpoint is cross-tenant and must be super-admin
 	// only (Phase 9 D9-6). The Angular roleGuard hides the surface client-side;
@@ -332,6 +350,12 @@ func Register(app *fiber.App, cfg *config.Config) {
 	// phases and reuse this /api/v1/actuarial/* wildcard.
 	app.All("/api/v1/actuarial", proxy.Handler(cfg.AiServiceURL))
 	app.All("/api/v1/actuarial/*", proxy.Handler(cfg.AiServiceURL))
+
+	// AI predictions review — Tranche 0 pilot readiness (Phase 7). Tenant
+	// admins browse every AI prediction persisted for their tenant, filter,
+	// and record an accept / override decision.
+	app.All("/api/v1/ai/predictions", proxy.Handler(cfg.AiServiceURL))
+	app.All("/api/v1/ai/predictions/*", proxy.Handler(cfg.AiServiceURL))
 
 	// ── Go Services ───────────────────────────────────────────────────────────
 	app.All("/api/v1/audit", proxy.Handler(cfg.AuditServiceURL))

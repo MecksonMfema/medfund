@@ -77,6 +77,20 @@ func (j *JWTMiddleware) Handler() fiber.Handler {
 		// fake it and bypass per-tenant filtering downstream.
 		c.Request().Header.Del("X-Platform-Scope")
 
+		// Forward actor identity to downstream services. Python and Elixir
+		// services don't decode JWTs themselves — the gateway is the single
+		// source of truth for actor id + email (Rule 8 /
+		// feedback_audit_actor_email). Strip any client-supplied value first
+		// so the browser cannot spoof an actor.
+		c.Request().Header.Del("X-Actor-ID")
+		c.Request().Header.Del("X-Actor-Email")
+		if sub, ok := claims["sub"].(string); ok && sub != "" {
+			c.Request().Header.Set("X-Actor-ID", sub)
+		}
+		if email, ok := claims["email"].(string); ok && email != "" {
+			c.Request().Header.Set("X-Actor-Email", email)
+		}
+
 		// Extract tenant from JWT. Only forward as X-Tenant-ID when the claim
 		// parses as a UUID — sentinel values like "platform" or stale formats
 		// would otherwise be rejected downstream as invalid tenant context.
@@ -111,6 +125,11 @@ func isPublicPath(path string) bool {
 		return true
 	}
 	if strings.HasPrefix(path, "/api/v1/report-schedule-recipients/unsubscribe/") {
+		return true
+	}
+	// Public platform branding (logo + hero copy) is consumed by the Angular
+	// pre-auth surface to skin the login screen before a JWT exists.
+	if strings.HasPrefix(path, "/api/v1/public/") {
 		return true
 	}
 	return false

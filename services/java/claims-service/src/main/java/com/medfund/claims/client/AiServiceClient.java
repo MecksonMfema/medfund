@@ -3,6 +3,8 @@ package com.medfund.claims.client;
 import com.medfund.claims.dto.AiSignals;
 import com.medfund.claims.entity.Claim;
 import com.medfund.claims.entity.ClaimLine;
+import com.medfund.shared.flags.FlagRegistry;
+import com.medfund.shared.flags.PlatformFlag;
 import com.medfund.shared.tenant.TenantContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import reactor.util.function.Tuple2;
 import reactor.util.retry.Retry;
 
 import java.math.BigDecimal;
@@ -39,12 +42,18 @@ public class AiServiceClient {
     private static final Duration AI_TIMEOUT = Duration.ofSeconds(8);
 
     private final WebClient webClient;
+    private final FraudRequestBuilder fraudRequestBuilder;
+    private final FlagRegistry flagRegistry;
 
-    public AiServiceClient(@Value("${ai-service.url:http://localhost:8000}") String aiServiceUrl) {
+    public AiServiceClient(@Value("${ai-service.url:http://localhost:8000}") String aiServiceUrl,
+                           FraudRequestBuilder fraudRequestBuilder,
+                           FlagRegistry flagRegistry) {
         this.webClient = WebClient.builder()
                 .baseUrl(aiServiceUrl)
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
                 .build();
+        this.fraudRequestBuilder = fraudRequestBuilder;
+        this.flagRegistry = flagRegistry;
     }
 
     /**
@@ -61,47 +70,65 @@ public class AiServiceClient {
                 return Mono.just(AiSignals.empty());
             }
 
-            Mono<RecommendationLeg> recommendation = recommend(claim, lines, tenantId)
-                    .onErrorResume(e -> {
-                        log.warn("AI recommendation failed for claim {}: {}", claim.getId(), e.toString());
-                        return Mono.just(RecommendationLeg.empty());
-                    });
+            Mono<Tuple2<Boolean, Boolean>> flags = Mono.zip(
+                    flagRegistry.isEnabled(PlatformFlag.AI_ADJUDICATION),
+                    flagRegistry.isEnabled(PlatformFlag.FRAUD_DETECTION));
 
-            Mono<FraudLeg> fraud = checkFraud(claim, lines, tenantId)
-                    .onErrorResume(e -> {
-                        log.warn("AI fraud check failed for claim {}: {}", claim.getId(), e.toString());
-                        return Mono.just(FraudLeg.empty());
-                    });
+            return flags.flatMap(t -> {
+                boolean adjOn = Boolean.TRUE.equals(t.getT1());
+                boolean fraudOn = Boolean.TRUE.equals(t.getT2());
+                if (!adjOn && !fraudOn) {
+                    log.debug("AI_ADJUDICATION and FRAUD_DETECTION both off — skipping AI for claim {}",
+                            claim.getId());
+                    return Mono.just(AiSignals.empty());
+                }
 
-            return Mono.zip(recommendation, fraud)
-                    .map(tuple -> merge(tuple.getT1(), tuple.getT2()))
-                    .timeout(AI_TIMEOUT)
-                    .onErrorResume(e -> {
-                        log.warn("AI evaluation timed out for claim {}: {}", claim.getId(), e.toString());
-                        return Mono.just(AiSignals.empty());
-                    });
+                Mono<RecommendationLeg> recommendation = adjOn
+                        ? recommend(claim, lines, tenantId).onErrorResume(e -> {
+                            log.warn("AI recommendation failed for claim {}: {}", claim.getId(), e.toString());
+                            return Mono.just(RecommendationLeg.empty());
+                        })
+                        : Mono.just(RecommendationLeg.empty());
+
+                Mono<FraudLeg> fraud = fraudOn
+                        ? checkFraud(claim, lines, tenantId).onErrorResume(e -> {
+                            log.warn("AI fraud check failed for claim {}: {}", claim.getId(), e.toString());
+                            return Mono.just(FraudLeg.empty());
+                        })
+                        : Mono.just(FraudLeg.empty());
+
+                return Mono.zip(recommendation, fraud)
+                        .map(tuple -> merge(tuple.getT1(), tuple.getT2()))
+                        .timeout(AI_TIMEOUT)
+                        .onErrorResume(e -> {
+                            log.warn("AI evaluation timed out for claim {}: {}", claim.getId(), e.toString());
+                            return Mono.just(AiSignals.empty());
+                        });
+            });
         });
     }
 
     // ── Per-endpoint legs ────────────────────────────────────────────────
 
     private Mono<RecommendationLeg> recommend(Claim claim, List<ClaimLine> lines, String tenantId) {
-        Map<String, Object> body = Map.of(
-                "claim_id", String.valueOf(claim.getId()),
-                "member_id", String.valueOf(claim.getMemberId()),
-                "provider_id", String.valueOf(claim.getProviderId()),
-                "diagnosis_codes", parseStringList(claim.getDiagnosisCodes()),
-                "procedure_codes", lines.stream()
-                        .map(ClaimLine::getTariffCode)
-                        .filter(c -> c != null && !c.isBlank())
-                        .toList(),
-                "claimed_amount", claim.getClaimedAmount() != null
-                        ? claim.getClaimedAmount().doubleValue() : 0d,
-                "currency_code", claim.getCurrencyCode() != null ? claim.getCurrencyCode() : "USD",
-                "claim_type", claim.getClaimType() != null ? claim.getClaimType() : "medical",
-                "service_date", claim.getServiceDate() != null
-                        ? claim.getServiceDate().toString() : ""
-        );
+        java.util.Map<String, Object> body = new java.util.HashMap<>();
+        body.put("claim_id", String.valueOf(claim.getId()));
+        body.put("member_id", String.valueOf(claim.getMemberId()));
+        body.put("provider_id", String.valueOf(claim.getProviderId()));
+        body.put("insurance_line", claim.getInsuranceLine() != null
+                ? claim.getInsuranceLine() : "HEALTH");
+        body.put("diagnosis_codes", parseStringList(claim.getDiagnosisCodes()));
+        body.put("procedure_codes", lines.stream()
+                .map(ClaimLine::getTariffCode)
+                .filter(c -> c != null && !c.isBlank())
+                .toList());
+        body.put("claimed_amount", claim.getClaimedAmount() != null
+                ? claim.getClaimedAmount().doubleValue() : 0d);
+        body.put("currency_code", claim.getCurrencyCode() != null
+                ? claim.getCurrencyCode() : "USD");
+        body.put("claim_type", claim.getClaimType() != null ? claim.getClaimType() : "medical");
+        body.put("service_date", claim.getServiceDate() != null
+                ? claim.getServiceDate().toString() : "");
         return webClient.post()
                 .uri("/api/v1/ai/adjudication/recommend")
                 .header("X-Tenant-ID", tenantId)
@@ -115,20 +142,7 @@ public class AiServiceClient {
     }
 
     private Mono<FraudLeg> checkFraud(Claim claim, List<ClaimLine> lines, String tenantId) {
-        Map<String, Object> body = Map.of(
-                "claim_id", String.valueOf(claim.getId()),
-                "member_id", String.valueOf(claim.getMemberId()),
-                "provider_id", String.valueOf(claim.getProviderId()),
-                "claimed_amount", claim.getClaimedAmount() != null
-                        ? claim.getClaimedAmount().doubleValue() : 0d,
-                "service_date", claim.getServiceDate() != null
-                        ? claim.getServiceDate().toString() : "",
-                "diagnosis_codes", parseStringList(claim.getDiagnosisCodes()),
-                "procedure_codes", lines.stream()
-                        .map(ClaimLine::getTariffCode)
-                        .filter(c -> c != null && !c.isBlank())
-                        .toList()
-        );
+        Map<String, Object> body = fraudRequestBuilder.build(claim, lines);
         return webClient.post()
                 .uri("/api/v1/ai/fraud/check")
                 .header("X-Tenant-ID", tenantId)

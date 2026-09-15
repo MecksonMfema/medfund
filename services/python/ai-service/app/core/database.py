@@ -37,6 +37,11 @@ async def init_db(database_url: str):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+    # Idempotent column additions for existing DBs (Base.metadata.create_all
+    # only handles new tables). Postgres-only; SQLite skips inside the hook.
+    from app.db.upgrades import ensure_columns
+    await ensure_columns(engine)
+
     logger.info("Database initialized")
 
 
@@ -52,5 +57,20 @@ async def get_session() -> AsyncSession:
     """Get an async database session."""
     if async_session_factory is None:
         raise RuntimeError("Database not initialized. Call init_db first.")
+    async with async_session_factory() as session:
+        yield session
+
+
+async def get_optional_session():
+    """Yield an AsyncSession when the DB is initialized, else yield None.
+
+    Endpoints use this so a stubbed / down DB never fails a request —
+    persistence becomes a best-effort side effect. This preserves the
+    fail-open contract with claims-service while still writing the
+    Critical Rule #3 audit row when the DB is available.
+    """
+    if async_session_factory is None:
+        yield None
+        return
     async with async_session_factory() as session:
         yield session

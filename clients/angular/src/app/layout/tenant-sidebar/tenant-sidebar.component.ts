@@ -48,10 +48,11 @@ export class TenantSidebarComponent implements OnInit, OnDestroy {
   // Operational portals (claims adjudication, finance, member self-service,
   // provider workflows) live in their own apps; intentionally not linked here.
   navItems: NavItem[] = [
-    { label: 'Dashboard',    icon: 'dashboard', route: '/tenant/admin/dashboard' },
-    { label: 'Users',        icon: 'users',     route: '/tenant/admin/users' },
-    { label: 'Audit Logs',   icon: 'clipboard', route: '/tenant/admin/audit' },
-    { label: 'Rules Engine', icon: 'filter',    route: '/tenant/admin/rules' },
+    { label: 'Dashboard',      icon: 'dashboard', route: '/tenant/admin/dashboard' },
+    { label: 'Users',          icon: 'users',     route: '/tenant/admin/users' },
+    { label: 'Audit Logs',     icon: 'clipboard', route: '/tenant/admin/audit' },
+    { label: 'AI Predictions', icon: 'brain',     route: '/tenant/admin/ai-predictions' },
+    { label: 'Rules Engine',   icon: 'filter',    route: '/tenant/admin/rules' },
     { label: 'Reinsurance',  icon: 'shield',    route: '/tenant/admin/reinsurance' },
     // Producers is the parent nav for /tenant/admin/producers/*, but
     // Treaty backfill sits under the same prefix and gets its own entry.
