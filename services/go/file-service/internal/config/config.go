@@ -21,6 +21,10 @@ type Config struct {
 	// Kafka — empty KafkaBrokers disables the InvoiceIssued consumer.
 	KafkaBrokers string
 
+	// TenancyServiceURL is where the feature-flag registry fetches its
+	// startup snapshot from (/internal/v1/feature-flags).
+	TenancyServiceURL string
+
 	// Path to the wkhtmltopdf binary. The PDF renderer execs this with
 	// HTML on stdin and reads the resulting PDF from stdout. Empty value
 	// falls back to a stub renderer that returns "%PDF-1.4 stub" — same
@@ -51,6 +55,7 @@ func Load() *Config {
 		MinIOUseSSL:    getEnv("MINIO_USE_SSL", "false"),
 
 		KafkaBrokers:         getEnv("KAFKA_BROKERS", "localhost:9092"),
+		TenancyServiceURL:    getEnv("TENANCY_SERVICE_URL", "http://localhost:8081"),
 		WkhtmltopdfBin:       getEnv("WKHTMLTOPDF_BIN", "wkhtmltopdf"),
 		ContributionsBaseURL: getEnv("CONTRIBUTIONS_BASE_URL", "http://localhost:8084"),
 	}

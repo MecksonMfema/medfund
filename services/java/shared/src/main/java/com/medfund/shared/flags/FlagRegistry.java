@@ -19,4 +19,20 @@ import reactor.core.publisher.Mono;
 public interface FlagRegistry {
 
     Mono<Boolean> isEnabled(PlatformFlag flag);
+
+    /**
+     * Drops any cached value for {@code rawKey} so the next
+     * {@link #isEnabled} re-reads it. Called by
+     * {@link FlagInvalidationConsumer} when tenancy-service broadcasts a
+     * toggle, which turns the 30-second TTL from the propagation mechanism
+     * into a fallback for a missed or undelivered event.
+     *
+     * <p>{@code rawKey} is the wire value from the Kafka payload and may not
+     * match any {@link PlatformFlag} (enum drift between services mid-deploy),
+     * so implementations must tolerate an unknown key rather than throw.
+     * Defaults to a no-op for cache-free implementations and test stubs.
+     */
+    default void invalidate(String rawKey) {
+        // no cache to drop
+    }
 }

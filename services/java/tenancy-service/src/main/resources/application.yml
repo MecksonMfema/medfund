@@ -61,3 +61,15 @@ management:
 
 kafka:
   bootstrap-servers: localhost:9092
+
+keycloak:
+  # Realm the super-admin portal authenticates against. Platform-settings
+  # saves patch this realm's displayName/displayNameHtml so the Keycloak
+  # hosted login screen carries the platform branding.
+  platform-realm: medfund-platform
+
+platform:
+  # Origin the browser uses to reach the platform (the gateway). Keycloak
+  # renders the login page on its own origin, so the logo <img src> it embeds
+  # has to be absolute.
+  public-base-url: http://localhost:3000

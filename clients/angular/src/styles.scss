@@ -117,6 +117,49 @@
   --section-header-margin-bottom: var(--spacing-xl);
 }
 
+/* ── Dark mode ────────────────────────────────────────────────────────────
+ * Platform-wide dark theme, toggled by PlatformThemeService setting
+ * <html data-theme="dark">. Only the ~20 root surface/text/border/status
+ * tokens are overridden — anything themed through those variables follows
+ * automatically. Pages with hard-coded hex colours will still read light;
+ * those are fixed per page as they surface (see the notice on the platform
+ * Appearance tab). */
+[data-theme='dark'] {
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-text-primary: #f1f5f9;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #94a3b8;
+  --color-border: #334155;
+  --color-border-light: #1e293b;
+  --color-light: #1e293b;
+  --color-dark: #e2e8f0;
+
+  /* Status tints need more body against a dark surface than the 10% alpha
+   * the light theme uses, otherwise badges read as plain text. */
+  --color-success-light: rgba(46, 196, 182, 0.18);
+  --color-warning-light: rgba(255, 159, 28, 0.18);
+  --color-error-light: rgba(231, 29, 54, 0.18);
+  --color-info-light: rgba(0, 180, 216, 0.18);
+
+  /* Sidebar chrome. The platform sidebar reads --color-text-primary for the
+   * brand name and section headers, so these must move with the tokens
+   * above or the sidebar goes dark-on-dark. */
+  --color-sidebar-bg: #1e293b;
+  --color-sidebar-bg-hover: rgba(148, 163, 184, 0.12);
+  --color-sidebar-text: #cbd5e1;
+  --color-sidebar-text-muted: #94a3b8;
+  --color-sidebar-active: rgba(0, 119, 182, 0.22);
+  --color-sidebar-border: #334155;
+
+  /* Shadows are near-invisible on dark surfaces at 4-10% alpha. */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5), 0 4px 6px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.55), 0 8px 10px rgba(0, 0, 0, 0.3);
+}
+
 /* Global section-icon utility. Use with:
  *   <span class="section-icon"><app-icon name="…" [size]="18"/></span>
  * Pages should NOT override background / color inline — theme via the

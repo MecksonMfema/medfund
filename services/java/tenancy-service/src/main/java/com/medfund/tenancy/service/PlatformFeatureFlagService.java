@@ -5,6 +5,7 @@ import com.medfund.shared.audit.AuditPublisher;
 import com.medfund.shared.flags.PlatformFlag;
 import com.medfund.tenancy.dto.PlatformFeatureFlagResponse;
 import com.medfund.tenancy.entity.PlatformFeatureFlag;
+import com.medfund.tenancy.kafka.FlagEventPublisher;
 import com.medfund.tenancy.repository.PlatformFeatureFlagRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,7 @@ public class PlatformFeatureFlagService {
 
     private final PlatformFeatureFlagRepository repo;
     private final AuditPublisher auditPublisher;
+    private final FlagEventPublisher flagEventPublisher;
 
     public Flux<PlatformFeatureFlagResponse> list() {
         return repo.findAllByOrderByKeyAsc()
@@ -64,12 +66,17 @@ public class PlatformFeatureFlagService {
                     row.setUpdatedBy(actorEmail != null ? actorEmail : actorId);
                     row.setVersion((row.getVersion() != null ? row.getVersion() : 0L) + 1L);
                     return repo.save(row)
-                            .flatMap(saved -> emitAudit(saved.getKey(), before, enabled, actorId, actorEmail)
+                            .flatMap(saved -> emitAudit(saved.getKey(), meta.displayName(), before,
+                                            enabled, actorId, actorEmail)
+                                    // Broadcast after the row is committed, so a
+                                    // consumer that re-reads on invalidation can
+                                    // never observe the pre-toggle value.
+                                    .then(flagEventPublisher.publish(saved.getKey(), enabled, actorEmail))
                                     .thenReturn(PlatformFeatureFlagResponse.from(saved, meta)));
                 });
     }
 
-    private Mono<Void> emitAudit(String key, boolean oldEnabled, boolean newEnabled,
+    private Mono<Void> emitAudit(String key, String displayName, boolean oldEnabled, boolean newEnabled,
                                  String actorId, String actorEmail) {
         Map<String, Object> before = new LinkedHashMap<>();
         before.put("enabled", oldEnabled);
@@ -79,7 +86,7 @@ public class PlatformFeatureFlagService {
                 null,
                 "PLATFORM_FEATURE_FLAG",
                 key,
-                key,
+                displayName,
                 "UPDATE",
                 actorId,
                 actorEmail,

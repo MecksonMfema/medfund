@@ -31,6 +31,11 @@ public class TenantWebFilter implements WebFilter {
     // admin portal; filtering down to a tenant happens at the query layer.
     private static final java.util.List<String> PLATFORM_PATHS = java.util.List.of(
             "/actuator",
+            // Service-to-service reads on the internal network (market-data
+            // config, the feature-flag snapshot). Cross-tenant by design and
+            // never routed through the API gateway, so there is no tenant to
+            // resolve. SecurityConfig permits GET /internal/** to match.
+            "/internal",
             "/swagger",
             "/v3/api-docs",
             // springdoc-openapi-starter-webflux-ui serves swagger-ui static
@@ -41,6 +46,10 @@ public class TenantWebFilter implements WebFilter {
             "/api/v1/staff-users",
             "/api/v1/tenants",
             "/api/v1/platform",
+            // Unauthenticated platform branding for the pre-auth surface —
+            // the Angular shell fetches this before a JWT (and therefore
+            // before any tenant) exists.
+            "/api/v1/public",
             "/api/v1/roles",
             "/api/v1/scheduled-jobs",
             "/api/v1/plans",

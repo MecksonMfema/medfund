@@ -28,6 +28,15 @@ func Handler(backendURL string) fiber.Handler {
 		req.SetRequestURI(backendURL + string(c.Request().RequestURI()))
 		req.Header.SetHost("") // Let fasthttp set the host from URI
 
+		// CopyTo only carries bodyRaw/body. When fasthttp has already parsed
+		// the payload into a multipart form (any file upload), both are empty
+		// and the copy lands with a zero-length body but the original
+		// Content-Length, so the backend reports "Could not find first
+		// boundary". Request.Body() re-marshals the parsed form using the
+		// original boundary, so re-setting it explicitly is correct for
+		// multipart and a no-op for every other content type.
+		req.SetBody(c.Request().Body())
+
 		// Forward tenant header
 		if tenantID := c.Get("X-Tenant-ID"); tenantID != "" {
 			req.Header.Set("X-Tenant-ID", tenantID)

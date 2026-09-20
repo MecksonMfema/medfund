@@ -20,6 +20,7 @@ import (
 	"github.com/medfund/market-data-service/internal/publisher"
 	"github.com/medfund/market-data-service/internal/scheduler"
 	"github.com/medfund/market-data-service/internal/tenancy"
+	"github.com/medfund/shared/flags"
 )
 
 // main wires the daemon: cron scheduler pulling per-tenant enabled
@@ -73,6 +74,17 @@ func main() {
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// ── Platform feature flags ──────────────────────────────────────────────
+	// Seed from tenancy-service, then follow platform.feature-flags.v1 for
+	// live toggles. Fails open: an unreachable tenancy-service leaves every
+	// flag disabled rather than blocking startup. Nothing reads a flag in
+	// this service yet — this is the plumbing (plan Phase 3).
+	flagRegistry := flags.New(cfg.TenancyServiceURL)
+	if err := flagRegistry.Bootstrap(ctx); err != nil {
+		log.Printf("[market-data-service] feature-flag bootstrap failed: %v", err)
+	}
+	go flagRegistry.StartConsumer(ctx, cfg.KafkaBrokers, "market-data-service")
 
 	var cronRunner *cron.Cron
 	if configs != nil {

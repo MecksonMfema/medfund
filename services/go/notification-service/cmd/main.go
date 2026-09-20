@@ -19,15 +19,15 @@ import (
 	"github.com/medfund/shared/httpserver"
 
 	"github.com/medfund/notification-service/internal/advice"
+	"github.com/medfund/notification-service/internal/aml"
+	"github.com/medfund/notification-service/internal/arrears"
 	"github.com/medfund/notification-service/internal/config"
 	"github.com/medfund/notification-service/internal/eob"
 	"github.com/medfund/notification-service/internal/events"
-	"github.com/medfund/notification-service/internal/arrears"
 	"github.com/medfund/notification-service/internal/handler"
 	"github.com/medfund/notification-service/internal/ifrs17"
 	"github.com/medfund/notification-service/internal/invoice"
 	"github.com/medfund/notification-service/internal/job"
-	"github.com/medfund/notification-service/internal/aml"
 	"github.com/medfund/notification-service/internal/lifecycle"
 	"github.com/medfund/notification-service/internal/mail"
 	"github.com/medfund/notification-service/internal/notification"
@@ -38,6 +38,7 @@ import (
 	"github.com/medfund/notification-service/internal/retry"
 	"github.com/medfund/notification-service/internal/storage"
 	"github.com/medfund/notification-service/internal/template"
+	"github.com/medfund/shared/flags"
 )
 
 func main() {
@@ -258,6 +259,17 @@ func main() {
 		reportSignedURL, reportUnsubscribeURL)
 
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// ── Platform feature flags ──────────────────────────────────────────────
+	// Seed from tenancy-service, then follow platform.feature-flags.v1 for
+	// live toggles. Fails open: an unreachable tenancy-service leaves every
+	// flag disabled rather than blocking startup. Nothing reads a flag in
+	// this service yet — this is the plumbing (plan Phase 3).
+	flagRegistry := flags.New(cfg.TenancyServiceURL)
+	if err := flagRegistry.Bootstrap(ctx); err != nil {
+		log.Printf("[notification-service] feature-flag bootstrap failed: %v", err)
+	}
+	go flagRegistry.StartConsumer(ctx, cfg.KafkaBrokers, "notification-service")
 	if cfg.KafkaBrokers != "" && fetcher != nil {
 		go runInvoiceConsumer(ctx, cfg.KafkaBrokers, cfg.ConsumerGroupID,
 			dispatcher, publisher, retrySched)

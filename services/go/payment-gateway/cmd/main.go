@@ -17,6 +17,7 @@ import (
 	"github.com/medfund/payment-gateway/internal/events"
 	"github.com/medfund/payment-gateway/internal/handler"
 	"github.com/medfund/payment-gateway/internal/payment"
+	"github.com/medfund/shared/flags"
 )
 
 func main() {
@@ -46,6 +47,17 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// ── Platform feature flags ──────────────────────────────────────────────
+	// Seed from tenancy-service, then follow platform.feature-flags.v1 for
+	// live toggles. Fails open: an unreachable tenancy-service leaves every
+	// flag disabled rather than blocking startup. Nothing reads a flag in
+	// this service yet — this is the plumbing (plan Phase 3).
+	flagRegistry := flags.New(envOr("TENANCY_SERVICE_URL", "http://localhost:8081"))
+	if err := flagRegistry.Bootstrap(ctx); err != nil {
+		log.Printf("[payment-gateway] feature-flag bootstrap failed: %v", err)
+	}
+	go flagRegistry.StartConsumer(ctx, brokers, "payment-gateway")
 
 	go subscriber.Run(ctx, func(payload []byte) {
 		evt, ok := events.ParseRunExecuted(payload)

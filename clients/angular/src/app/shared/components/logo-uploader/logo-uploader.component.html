@@ -1,0 +1,24 @@
+<div
+  class="upload-area"
+  [class.dragging]="dragging"
+  [class.uploading]="uploading"
+  (dragover)="onDragOver($event)"
+  (dragleave)="onDragLeave()"
+  (drop)="onDrop($event)"
+  (click)="!uploading && fileInput.click()"
+>
+  @if (currentUrl) {
+    <img class="logo-preview" [src]="currentUrl" alt="Current platform logo" />
+  }
+  <app-icon [name]="uploading ? 'refresh' : 'plus'" [size]="24"></app-icon>
+  <span>{{ uploading ? 'Uploading...' : 'Click to upload or drag and drop' }}</span>
+  <span class="upload-hint">SVG, PNG, or JPG (max. 2MB)</span>
+  <input
+    #fileInput
+    type="file"
+    hidden
+    [accept]="accept"
+    [disabled]="uploading"
+    (change)="onPick($event)"
+  />
+</div>

@@ -91,7 +91,14 @@ public abstract class AbstractKafkaIntegrationTest {
             timeout);
     }
 
-    private JsonNode consumeAuditEventMatching(String topic,
+    /**
+     * Scans a topic from the earliest offset for the first record matching an
+     * arbitrary predicate. Protected because a shared Kafka container serves
+     * every IT in the JVM: a test that asserts on "the first record of type X"
+     * silently picks up another class's record once a second test publishes
+     * the same type. Filter on something that identifies your own event.
+     */
+    protected JsonNode consumeAuditEventMatching(String topic,
                                                java.util.function.Predicate<JsonNode> matcher,
                                                Duration timeout) {
         Properties props = new Properties();

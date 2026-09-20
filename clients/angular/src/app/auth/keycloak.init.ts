@@ -1,7 +1,9 @@
+import { firstValueFrom } from 'rxjs';
 import { KeycloakService } from 'keycloak-angular';
 import { environment } from '../../environments/environment';
 import { AdminService } from '../core/services/admin.service';
 import { BrandingService } from '../core/services/branding.service';
+import { FeatureFlagService } from '../core/services/feature-flag.service';
 import { TenantService } from '../core/services/tenant.service';
 import { bootstrapTenantFromJwt } from './tenant-bootstrap';
 
@@ -45,6 +47,7 @@ export function initializeKeycloak(
   tenantService: TenantService,
   adminService: AdminService,
   brandingService: BrandingService,
+  featureFlagService: FeatureFlagService,
 ): () => Promise<boolean> {
   return async () => {
     const e2e = getE2EOverride();
@@ -75,6 +78,7 @@ export function initializeKeycloak(
       });
 
       await bootstrapTenantFromJwt(keycloak, tenantService, adminService, brandingService);
+      await firstValueFrom(featureFlagService.bootstrap());
       return true;
     }
 
@@ -104,6 +108,12 @@ export function initializeKeycloak(
           // and 403s the first navigation. Awaited here so the bootstrap
           // is finished by the time APP_INITIALIZER resolves.
           await bootstrapTenantFromJwt(keycloak, tenantService, adminService, brandingService);
+
+          // Feature flags live behind an authenticated endpoint, so they are
+          // fetched here rather than in their own APP_INITIALIZER — at this
+          // point the session cookie is established. bootstrap() swallows
+          // its own errors, so a flag-service outage never blocks boot.
+          await firstValueFrom(featureFlagService.bootstrap());
 
           // Proactive refresh: check every 30 s and renew the cookie before
           // it expires. This prevents the gap caused by onTokenExpired firing

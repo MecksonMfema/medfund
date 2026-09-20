@@ -56,6 +56,14 @@ export class ApiService {
     });
   }
 
+  /** POST a multipart/form-data body. Deliberately sets no Content-Type
+   *  header so the browser can generate the multipart boundary itself. */
+  postMultipart<T>(path: string, form: FormData): Observable<T> {
+    return this.http.post<T>(`${this.baseUrl}${path}`, form, {
+      withCredentials: true,
+    });
+  }
+
   put<T>(path: string, body: unknown): Observable<T> {
     return this.http.put<T>(`${this.baseUrl}${path}`, body, {
       withCredentials: true,
@@ -79,5 +87,14 @@ export class ApiService {
    *  can't lean on the HttpClient. */
   absoluteUrl(path: string): string {
     return `${this.baseUrl}${path}`;
+  }
+
+  /** Resolves a server-returned root-relative URL (e.g. the
+   *  {@code /api/v1/public/platform/logo?v=...} that tenancy-service hands
+   *  back) against the gateway origin. Needed because the Angular dev server
+   *  runs on a different port, so a bare root-relative src would 404. */
+  gatewayUrl(path: string): string {
+    const origin = this.baseUrl.replace(/\/api\/v1\/?$/, '');
+    return `${origin}${path}`;
   }
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/medfund/file-service/internal/invoice"
 	"github.com/medfund/file-service/internal/receipt"
 	"github.com/medfund/file-service/internal/storage"
+	"github.com/medfund/shared/flags"
 )
 
 func main() {
@@ -189,6 +190,17 @@ func main() {
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
+
+	// ── Platform feature flags ──────────────────────────────────────────────
+	// Seed from tenancy-service, then follow platform.feature-flags.v1 for
+	// live toggles. Fails open: an unreachable tenancy-service leaves every
+	// flag disabled rather than blocking startup. Nothing reads a flag in
+	// this service yet — this is the plumbing (plan Phase 3).
+	flagRegistry := flags.New(cfg.TenancyServiceURL)
+	if err := flagRegistry.Bootstrap(ctx); err != nil {
+		log.Printf("[file-service] feature-flag bootstrap failed: %v", err)
+	}
+	go flagRegistry.StartConsumer(ctx, cfg.KafkaBrokers, "file-service")
 	if cfg.KafkaBrokers != "" && minio != nil {
 		go runInvoiceConsumer(ctx, cfg.KafkaBrokers, renderer, minio, publisher, contribClient)
 		// Mirror consumer: react to billing revoke by removing the

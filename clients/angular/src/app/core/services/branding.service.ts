@@ -185,6 +185,20 @@ export class BrandingService {
     return TENANT_TEMPLATES;
   }
 
+  /** Looks a template up by id. Returns null for an unknown id so callers
+   *  can decide whether to fall back or skip applying anything. */
+  templateById(id: string | null | undefined): TenantTemplate | null {
+    if (!id) return null;
+    return TENANT_TEMPLATES.find(t => t.id === id) ?? null;
+  }
+
+  /** Applies a template to {@code document.body} as the app-wide base layer.
+   *  Tenant branding is applied further down the tree (on the tenant shell
+   *  element), so it naturally overrides this without any reset dance. */
+  applyToRoot(branding: TenantBranding): void {
+    this.apply(document.body, branding);
+  }
+
   parseBranding(raw: string | null | undefined): TenantBranding {
     if (!raw || raw === '{}') return { templateId: 'platform' };
     try {

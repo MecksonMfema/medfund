@@ -105,6 +105,37 @@ func TestPhase17ScheduledReportRoutesRegistered(t *testing.T) {
 	}
 }
 
+// Phase 25 platform-settings — the new admin surface + the unauthenticated
+// pre-auth branding endpoints must all be registered against tenancy-service.
+// A registered route returns 502 (upstream unreachable at :0) or another
+// non-404; an unregistered path returns 404.
+func TestPlatformSettingsRoutesRegistered(t *testing.T) {
+	app := newAppUnderTest()
+
+	cases := []struct {
+		method, path string
+	}{
+		{"GET", "/api/v1/platform/settings"},
+		{"PUT", "/api/v1/platform/settings"},
+		{"POST", "/api/v1/platform/settings/logo"},
+		{"GET", "/api/v1/platform/feature-flags"},
+		{"PUT", "/api/v1/platform/feature-flags/AI_ADJUDICATION"},
+		{"GET", "/api/v1/public/platform/branding"},
+		{"GET", "/api/v1/public/platform/logo"},
+	}
+	for _, tc := range cases {
+		req := httptest.NewRequest(tc.method, tc.path, nil)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("%s %s: %v", tc.method, tc.path, err)
+		}
+		if resp.StatusCode == fiber.StatusNotFound {
+			t.Errorf("%s %s: expected registered route (non-404), got %d",
+				tc.method, tc.path, resp.StatusCode)
+		}
+	}
+}
+
 func newAppUnderTest() *fiber.App {
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	cfg := &config.Config{

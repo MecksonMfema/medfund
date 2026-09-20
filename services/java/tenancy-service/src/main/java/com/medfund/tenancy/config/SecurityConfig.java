@@ -23,6 +23,9 @@ public class SecurityConfig {
                         // /internal/v1/market-data-config/enabled to build its fetch schedule).
                         // Not exposed via the API gateway — internal network only.
                         .pathMatchers(HttpMethod.GET, "/internal/**").permitAll()
+                        // Public platform branding (logo + hero copy) consumed by the Angular
+                        // pre-auth shell to skin the login screen before a JWT is available.
+                        .pathMatchers(HttpMethod.GET, "/api/v1/public/**").permitAll()
                         .anyExchange().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
