@@ -365,6 +365,11 @@ export interface UpsertAgeGroupPayload {
   maxAge: number;
   contributionAmount: string;
   currencyCode?: string;
+  /** ISO date (YYYY-MM-DD). When omitted, backend defaults to today —
+   *  preserving the pre-existing "price effective today" behavior. Wired
+   *  through for historical-replay callers (demo-seeder) that need
+   *  age_group_prices rows anchored to a past date. */
+  effectiveFrom?: string;
 }
 
 export interface BillingFilterPayload {

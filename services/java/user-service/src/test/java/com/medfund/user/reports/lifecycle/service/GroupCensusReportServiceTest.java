@@ -34,8 +34,10 @@ class GroupCensusReportServiceTest {
     void generate_wrapsRowsIntoResultWithAsOf() {
         LocalDate asOf = LocalDate.of(2026, 8, 1);
         UUID g1 = UUID.randomUUID();
-        GroupCensusRow row = new GroupCensusRow(g1, "Acme Ltd", "REG-123", "Alice", "alice@acme",
-                12L, 1L, 0L, 3L, 16L);
+        GroupCensusRow row = new GroupCensusRow(g1, "GROUP", "Acme Ltd", "REG-123", "Alice", "alice@acme",
+                12L, 1L, 0L, 3L, 16L,
+                0L, 0L, 0L, 0L, 0L,
+                16L);
         when(queryRepository.groupCensusRows(eq(asOf), eq(null), eq(null)))
                 .thenReturn(Flux.just(row));
         when(envelopeBuilder.buildNoAggregate(eq(ReportKey.GROUP_CENSUS),

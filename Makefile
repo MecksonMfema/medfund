@@ -43,6 +43,37 @@ infra-logs:
 keycloak-setup:
 	bash scripts/bootstrap-keycloak.sh
 
+# ── Demo-data seeder (Python CLI, two tenants: HEALTH + LIFE) ───────────────
+# Gated behind SEED_MODE_ENABLED=true; the Makefile exports it for you.
+
+## Install seeder Python deps (uv sync). Run once.
+seed-demo-setup:
+	cd scripts/demo-seeder && uv sync
+
+## Drop seed tenants + Keycloak realms + seeder-tagged FX rates (idempotent)
+seed-demo-reset:
+	SEED_MODE_ENABLED=true bash scripts/reset-tenant-schemas.sh
+
+## Seed (micro: 500 members x 3 months, ~15 min, ~$5-$15 in AI cost)
+seed-demo-micro: seed-demo-setup
+	cd scripts/demo-seeder && SEED_MODE_ENABLED=true uv run demo-seeder seed --tier micro
+
+## Seed (fast: 2k members x 6 months, ~2-3 h, ~$100-$400)
+seed-demo-fast: seed-demo-setup
+	cd scripts/demo-seeder && SEED_MODE_ENABLED=true uv run demo-seeder seed --tier fast
+
+## Seed (full: 20k members x 24 months, days, ~$6k-$25k — confirm budget first)
+seed-demo-full: seed-demo-setup
+	cd scripts/demo-seeder && SEED_MODE_ENABLED=true uv run demo-seeder seed --tier full
+
+## Post-run row-count verification. Usage: make seed-demo-verify TIER=micro
+seed-demo-verify:
+	cd scripts/demo-seeder && SEED_MODE_ENABLED=true uv run demo-seeder verify --tier $(TIER)
+
+## Probe every Java service, Keycloak, and the AI service. Exits non-zero on failure.
+seed-demo-preflight: seed-demo-setup
+	cd scripts/demo-seeder && SEED_MODE_ENABLED=true uv run demo-seeder preflight
+
 # ── Java services (Spring Boot) — cd services/java first ─────────────────────
 # Spring Boot DevTools is on classpath — the JVM restarts automatically when
 # Gradle recompiles changed classes (triggered by your IDE on save, or Gradle -t).
@@ -162,6 +193,8 @@ test-coverage:
 	bash scripts/coverage-summary.sh
 
 .PHONY: infra infra-down infra-reset infra-ps infra-logs keycloak-setup \
+        seed-demo-setup seed-demo-reset seed-demo-micro seed-demo-fast \
+        seed-demo-full seed-demo-verify seed-demo-preflight \
         tenancy user claims contributions finance java-all \
         gateway notification audit file-svc payment market-data \
         live-dashboard chat elixir-setup \

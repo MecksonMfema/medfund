@@ -160,10 +160,31 @@ public class UserEventPublisher {
 
     public Mono<Void> publishProviderOnboarded(String providerId, String name) {
         return publishEvent("medfund.users.provider-onboarded", providerId, Map.of(
-            "event", "PROVIDER_ONBOARDED",
+            "event",      "PROVIDER_ONBOARDED",
             "providerId", providerId,
-            "name", name
-        ));
+            "name",       name));
+    }
+
+    /**
+     * Fires when a super-admin contracts a provider with a tenant. No consumer
+     * today: the event exists so a future provider-directory cache (claims-service
+     * membership lookups, the provider picker) can invalidate without polling
+     * {@code public.provider_tenants}. Keyed by providerId so a link/unlink pair
+     * for the same provider stays ordered.
+     */
+    public Mono<Void> publishProviderTenantLinked(String providerId, String tenantId) {
+        return publishEvent("medfund.users.provider-tenant-linked", providerId, Map.of(
+            "event",      "PROVIDER_TENANT_LINKED",
+            "providerId", providerId,
+            "tenantId",   tenantId));
+    }
+
+    /** Inverse of {@link #publishProviderTenantLinked}; same key, same rationale. */
+    public Mono<Void> publishProviderTenantUnlinked(String providerId, String tenantId) {
+        return publishEvent("medfund.users.provider-tenant-unlinked", providerId, Map.of(
+            "event",      "PROVIDER_TENANT_UNLINKED",
+            "providerId", providerId,
+            "tenantId",   tenantId));
     }
 
     public Mono<Void> publishRoleAssigned(String userId, String roleId, String roleName) {

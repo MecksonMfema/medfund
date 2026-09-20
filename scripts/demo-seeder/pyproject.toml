@@ -1,0 +1,32 @@
+[project]
+name = "demo-seeder"
+version = "0.1.0"
+description = "InsureFlow demo-data seeder for two tenants (HEALTH + LIFE)"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx[http2]>=0.27.0",
+    "faker>=28.0.0",
+    "click>=8.1.7",
+    "pydantic>=2.9.0",
+    "python-dateutil>=2.9.0",
+    "structlog>=24.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[project.scripts]
+demo-seeder = "demo_seeder.cli:main"
+
+[tool.uv]
+package = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/demo_seeder"]

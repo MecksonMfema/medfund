@@ -3,11 +3,13 @@ package com.medfund.finance.repository;
 import com.medfund.finance.dto.CreditorFilterParams;
 import com.medfund.finance.dto.CreditorRow;
 import com.medfund.shared.report.PerCurrencyTotal;
+import com.medfund.shared.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.context.ContextView;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -27,6 +29,13 @@ import java.util.UUID;
  * search predicate differs per branch; each half owns its own WHERE
  * fragment which is stitched together with UNION ALL. All binds are
  * shared across both halves so the parameter names stay stable.
+ *
+ * <p>Providers are platform-scoped, so the provider half joins
+ * {@code public.providers} gated on a {@code public.provider_tenants}
+ * membership row for the current tenant (see {@link ProviderJoins}). That
+ * guard is the only thing binding {@code :tenantId}, so the bind is applied
+ * only when the provider branch is actually part of the union: binding a
+ * parameter that does not appear in the SQL is an error.
  */
 @Repository
 @RequiredArgsConstructor
@@ -50,17 +59,17 @@ public class CreditorQueryRepository {
         String sql = "SELECT * FROM (" + union + ") u"
                 + " ORDER BY " + sortClause(f.sortKey(), f.sortDirection())
                 + " LIMIT :limit OFFSET :offset";
-        var spec = bindFilters(db.sql(sql), f)
+        return Flux.deferContextual(ctx -> bindFilters(db.sql(sql), f, ctx)
                 .bind("limit", limit)
-                .bind("offset", offset);
-        return spec.map(this::toRow).all();
+                .bind("offset", offset)
+                .map(this::toRow).all());
     }
 
     public Mono<Long> count(CreditorFilterParams f) {
         String union = buildUnion(f);
         String sql = "SELECT COUNT(*) AS total FROM (" + union + ") u";
-        var spec = bindFilters(db.sql(sql), f);
-        return spec.map(row -> ((Number) row.get("total")).longValue()).one();
+        return Mono.deferContextual(ctx -> bindFilters(db.sql(sql), f, ctx)
+                .map(row -> ((Number) row.get("total")).longValue()).one());
     }
 
     /**
@@ -77,22 +86,28 @@ public class CreditorQueryRepository {
                 + "   FROM (" + union + ") u"
                 + "  WHERE currency_code IS NOT NULL"
                 + "  GROUP BY currency_code";
-        var spec = bindFilters(db.sql(sql), f);
-        return spec.map((row, meta) -> Map.entry(
+        return Mono.deferContextual(ctx -> bindFilters(db.sql(sql), f, ctx)
+                .map((row, meta) -> Map.entry(
                         row.get("currency_code", String.class),
                         new PerCurrencyTotal(
                                 nz(row.get("total_amount", BigDecimal.class)),
                                 nzLong(row.get("row_count", Long.class)))))
                 .all()
-                .collectMap(Map.Entry::getKey, Map.Entry::getValue);
+                .collectMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     private static BigDecimal nz(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
     private static long nzLong(Long v) { return v != null ? v : 0L; }
 
+    /** True when the union carries the provider half, and therefore {@code :tenantId}. */
+    private static boolean includesProviders(CreditorFilterParams f) {
+        String subjectType = f.subjectType() == null ? "BOTH" : f.subjectType().toUpperCase();
+        return "PROVIDER".equals(subjectType) || "BOTH".equals(subjectType);
+    }
+
     private String buildUnion(CreditorFilterParams f) {
         String subjectType = f.subjectType() == null ? "BOTH" : f.subjectType().toUpperCase();
-        boolean incProvider = "PROVIDER".equals(subjectType) || "BOTH".equals(subjectType);
+        boolean incProvider = includesProviders(f);
         boolean incMember   = "MEMBER".equals(subjectType)   || "BOTH".equals(subjectType);
         List<String> parts = new ArrayList<>();
         if (incProvider) parts.add(providerBranch(f));
@@ -117,18 +132,18 @@ public class CreditorQueryRepository {
         }
         if (f.q() != null && !f.q().isBlank()) {
             where.append(" AND (LOWER(COALESCE(pr.name, '')) LIKE :qLower "
-                    + " OR LOWER(COALESCE(pr.practice_number, '')) LIKE :qLower) ");
+                    + " OR LOWER(COALESCE(pr.registration_number, '')) LIKE :qLower) ");
         }
         return "SELECT 'PROVIDER' AS subject_type,"
                 + "       b.provider_id AS subject_id,"
-                + "       pr.practice_number AS subject_code,"
+                + "       pr.registration_number AS subject_code,"
                 + "       pr.name       AS subject_name,"
                 + "       pr.email      AS subject_email,"
                 + "       b.currency_code AS currency_code,"
                 + "       b.total_claimed, b.total_approved, b.total_paid, b.outstanding_balance,"
                 + "       b.last_updated_at AS last_activity_at"
                 + "  FROM provider_balances b"
-                + "  LEFT JOIN providers pr ON pr.id = b.provider_id"
+                + ProviderJoins.leftJoin("pr", "b.provider_id")
                 + where;
     }
 
@@ -156,12 +171,16 @@ public class CreditorQueryRepository {
     }
 
     private DatabaseClient.GenericExecuteSpec bindFilters(DatabaseClient.GenericExecuteSpec spec,
-                                                          CreditorFilterParams f) {
+                                                          CreditorFilterParams f,
+                                                          ContextView ctx) {
         if (f.currencyCode() != null && !f.currencyCode().isBlank()) {
             spec = spec.bind("currencyCode", f.currencyCode());
         }
         if (f.q() != null && !f.q().isBlank()) {
             spec = spec.bind("qLower", "%" + f.q().toLowerCase() + "%");
+        }
+        if (includesProviders(f)) {
+            spec = spec.bind("tenantId", TenantContext.requireUuid(ctx));
         }
         return spec;
     }

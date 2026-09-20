@@ -11,6 +11,7 @@ import com.medfund.claims.dto.PreAuthActivityResponse;
 import com.medfund.claims.dto.PreAuthActivityRow;
 import com.medfund.shared.report.MonthlyAggregateRow;
 import com.medfund.shared.report.PerCurrencyTotal;
+import com.medfund.shared.tenant.TenantContext;
 import io.r2dbc.spi.Readable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.r2dbc.core.DatabaseClient;
@@ -49,6 +50,30 @@ import java.util.UUID;
 public class ClaimsReportQueryRepository {
 
     private final DatabaseClient db;
+
+    /**
+     * Providers live in the platform schema ({@code public.providers}) and a
+     * tenant may only see the ones it is contracted with, so every provider
+     * join carries the {@code public.provider_tenants} membership guard
+     * (CLAUDE.md Critical Rule 2, "platform tables with tenant membership").
+     * {@code :tenantId} is bound from the Reactor tenant context on every
+     * query that embeds one of the two join constants below.
+     *
+     * <p>Guard placement is in the JOIN condition, not the WHERE: on
+     * {@link #PROVIDER_JOIN} (INNER) a non-contracted provider drops the
+     * claim entirely; on {@link #PROVIDER_LEFT_JOIN} the claim survives with
+     * a blank provider name, which is the same shape a claim with no provider
+     * at all already renders as.
+     */
+    private static final String PROVIDER_MEMBERSHIP =
+            "   AND EXISTS (SELECT 1 FROM public.provider_tenants pt\n"
+          + "                WHERE pt.provider_id = p.id AND pt.tenant_id = :tenantId)\n";
+
+    private static final String PROVIDER_JOIN =
+            "  JOIN public.providers p ON p.id = c.provider_id\n" + PROVIDER_MEMBERSHIP;
+
+    private static final String PROVIDER_LEFT_JOIN =
+            "  LEFT JOIN public.providers p ON p.id = c.provider_id\n" + PROVIDER_MEMBERSHIP;
 
     /** Funnel sums shared by every claim-dimensioned aggregate. */
     private static final String FUNNEL = """
@@ -142,16 +167,18 @@ public class ClaimsReportQueryRepository {
                        COUNT(*)        AS claim_count,
                 """ + FUNNEL + """
                   FROM claims c
-                  JOIN providers p ON p.id = c.provider_id
+                """ + PROVIDER_JOIN + """
                  WHERE """ + CLAIMS_PERIOD + """
                    AND (:insuranceLine IS NULL OR c.insurance_line = :insuranceLine)
                  GROUP BY c.provider_id, p.name, c.currency_code
                  ORDER BY p.name, c.currency_code
                 """;
-        return bindInsuranceLine(db.sql(sql).bind("periodStart", periodStart).bind("periodEnd", periodEnd),
+        return Flux.deferContextual(ctx -> bindInsuranceLine(
+                        db.sql(sql).bind("periodStart", periodStart).bind("periodEnd", periodEnd)
+                                .bind("tenantId", TenantContext.requireUuid(ctx)),
                         insuranceLine)
                 .map(this::toSummaryRow)
-                .all();
+                .all());
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -333,8 +360,14 @@ public class ClaimsReportQueryRepository {
         return switch (dimension.toUpperCase()) {
             case "SCHEME"   -> db.sql("SELECT name AS dimension_name FROM schemes WHERE id = :id")
                     .bind("id", id).map((row, meta) -> row.get("dimension_name", String.class)).one();
-            case "PROVIDER" -> db.sql("SELECT name AS dimension_name FROM providers WHERE id = :id")
-                    .bind("id", id).map((row, meta) -> row.get("dimension_name", String.class)).one();
+            case "PROVIDER" -> Mono.deferContextual(ctx -> db.sql("""
+                            SELECT p.name AS dimension_name
+                              FROM public.providers p
+                             WHERE p.id = :id
+                            """ + PROVIDER_MEMBERSHIP)
+                    .bind("id", id)
+                    .bind("tenantId", TenantContext.requireUuid(ctx))
+                    .map((row, meta) -> row.get("dimension_name", String.class)).one());
             case "GROUP"    -> db.sql("SELECT COALESCE(name, 'Ungrouped') AS dimension_name FROM groups WHERE id = :id")
                     .bind("id", id).map((row, meta) -> row.get("dimension_name", String.class)).one();
             case "MEMBER"   -> db.sql("SELECT TRIM(first_name || ' ' || last_name) AS dimension_name FROM members WHERE id = :id")
@@ -394,7 +427,7 @@ public class ClaimsReportQueryRepository {
                        c.currency_code
                   FROM claims c
                   LEFT JOIN members   m ON m.id = c.member_id
-                  LEFT JOIN providers p ON p.id = c.provider_id
+                """ + PROVIDER_LEFT_JOIN + """
                  WHERE %s = :dimensionId
                    AND """ + CLAIMS_PERIOD + """
                    AND (:status IS NULL OR c.status = :status)
@@ -403,14 +436,15 @@ public class ClaimsReportQueryRepository {
                  ORDER BY c.adjudicated_at DESC NULLS LAST, c.id DESC
                  OFFSET :offset LIMIT :limit
                 """).formatted(dimensionColumn);
-        return bindNullCurrency(bindNullProvider(bindNullStatus(
+        return Flux.deferContextual(ctx -> bindNullCurrency(bindNullProvider(bindNullStatus(
                         db.sql(sql).bind("periodStart", periodStart).bind("periodEnd", periodEnd)
-                                .bind("dimensionId", dimensionId),
+                                .bind("dimensionId", dimensionId)
+                                .bind("tenantId", TenantContext.requireUuid(ctx)),
                         status), providerId), currencyCode)
                 .bind("offset", offset)
                 .bind("limit", limit)
                 .map(this::toLedgerRow)
-                .all();
+                .all());
     }
 
     public Mono<Long> ledgerCount(String dimensionColumn, UUID dimensionId,
@@ -510,12 +544,15 @@ public class ClaimsReportQueryRepository {
                        c.currency_code AS currency_code,
                 """ + FUNNEL + """
                   FROM claims c
-                  JOIN providers p ON p.id = c.provider_id
+                """ + PROVIDER_JOIN + """
                  WHERE """ + CLAIMS_PERIOD + """
                  GROUP BY c.provider_id, p.name, c.currency_code
                  ORDER BY p.name, c.currency_code
                 """;
-        return bindPeriod(db.sql(sql), periodStart, periodEnd).map(this::toAggregateRow).all();
+        return Flux.deferContextual(ctx ->
+                bindPeriod(db.sql(sql), periodStart, periodEnd)
+                        .bind("tenantId", TenantContext.requireUuid(ctx))
+                        .map(this::toAggregateRow).all());
     }
 
     /**
@@ -596,12 +633,15 @@ public class ClaimsReportQueryRepository {
                        date_trunc('month', c.adjudicated_at)::date AS month,
                        COALESCE(SUM(c.paid_amount), 0) AS total_amount
                   FROM claims c
-                  JOIN providers p ON p.id = c.provider_id
+                """ + PROVIDER_JOIN + """
                  WHERE """ + CLAIMS_PERIOD + """
                  GROUP BY c.provider_id, p.name, c.currency_code, date_trunc('month', c.adjudicated_at)
                  ORDER BY month, p.name, c.currency_code
                 """;
-        return bindPeriod(db.sql(sql), periodStart, periodEnd).map(this::toMonthlyAggregate).all();
+        return Flux.deferContextual(ctx ->
+                bindPeriod(db.sql(sql), periodStart, periodEnd)
+                        .bind("tenantId", TenantContext.requireUuid(ctx))
+                        .map(this::toMonthlyAggregate).all());
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -657,7 +697,7 @@ public class ClaimsReportQueryRepository {
                        c.currency_code
                   FROM claims c
                   LEFT JOIN members   m ON m.id = c.member_id
-                  LEFT JOIN providers p ON p.id = c.provider_id
+                """ + PROVIDER_LEFT_JOIN + """
                  WHERE c.member_id = :memberId
                    AND c.adjudicated_at >= :periodStart
                    AND c.adjudicated_at <  (:periodEnd::date + INTERVAL '1 day')
@@ -665,14 +705,15 @@ public class ClaimsReportQueryRepository {
                  ORDER BY c.adjudicated_at DESC NULLS LAST, c.id DESC
                  OFFSET :offset LIMIT :limit
                 """;
-        return db.sql(sql)
+        return Flux.deferContextual(ctx -> db.sql(sql)
                 .bind("memberId", memberId)
                 .bind("periodStart", periodStart)
                 .bind("periodEnd", periodEnd)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
                 .bind("offset", offset)
                 .bind("limit", limit)
                 .map(this::toLedgerRow)
-                .all();
+                .all());
     }
 
     public Mono<Long> memberClaimLedgerCount(UUID memberId, LocalDate periodStart, LocalDate periodEnd) {
@@ -806,7 +847,7 @@ public class ClaimsReportQueryRepository {
                        c.currency_code
                   FROM claims c
                   LEFT JOIN members   m ON m.id = c.member_id
-                  LEFT JOIN providers p ON p.id = c.provider_id
+                """ + PROVIDER_LEFT_JOIN + """
                  WHERE c.submission_date >= :submittedFrom
                    AND c.submission_date <  (:submittedTo::date + INTERVAL '1 day')
                    AND (:status IS NULL OR UPPER(c.status) = :status)
@@ -814,13 +855,14 @@ public class ClaimsReportQueryRepository {
                  ORDER BY c.submission_date DESC, c.id DESC
                  OFFSET :offset LIMIT :limit
                 """.formatted(AGE_BUCKET);
-        return bindNullAgeBucket(bindNullStatus(
-                        db.sql(sql).bind("submittedFrom", submittedFrom).bind("submittedTo", submittedTo),
+        return Flux.deferContextual(ctx -> bindNullAgeBucket(bindNullStatus(
+                        db.sql(sql).bind("submittedFrom", submittedFrom).bind("submittedTo", submittedTo)
+                                .bind("tenantId", TenantContext.requireUuid(ctx)),
                         status), ageBucket)
                 .bind("offset", offset)
                 .bind("limit", limit)
                 .map(this::toLedgerRow)
-                .all();
+                .all());
     }
 
     public Mono<Long> statusMatrixLedgerCount(LocalDate submittedFrom, LocalDate submittedTo,
@@ -924,7 +966,7 @@ public class ClaimsReportQueryRepository {
                                                       AND (:code IS NULL OR c.rejection_reason = :code)), 0) AS total_claimed,
                        COUNT(*) AS total_count
                   FROM claims c
-                  LEFT JOIN providers p ON p.id = c.provider_id
+                """ + PROVIDER_LEFT_JOIN + """
                   LEFT JOIN rejection_reasons r ON r.code = c.rejection_reason
                  WHERE """ + DENIAL_PERIOD + """
                    AND (:providerId::uuid IS NULL OR c.provider_id = :providerId::uuid)
@@ -932,11 +974,12 @@ public class ClaimsReportQueryRepository {
                 HAVING COUNT(*) FILTER (WHERE c.status = 'REJECTED') > 0
                  ORDER BY total_claimed DESC NULLS LAST, p.name
                 """;
-        return bindNullCategory(bindNullCode(bindNullProvider(
-                        db.sql(sql).bind("periodStart", periodStart).bind("periodEnd", periodEnd),
+        return Flux.deferContextual(ctx -> bindNullCategory(bindNullCode(bindNullProvider(
+                        db.sql(sql).bind("periodStart", periodStart).bind("periodEnd", periodEnd)
+                                .bind("tenantId", TenantContext.requireUuid(ctx)),
                         providerId), code), category)
                 .map(this::toDenialProviderRow)
-                .all();
+                .all());
     }
 
     /**

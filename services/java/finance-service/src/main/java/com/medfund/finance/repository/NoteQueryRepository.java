@@ -3,6 +3,7 @@ package com.medfund.finance.repository;
 import com.medfund.finance.dto.NoteFilterParams;
 import com.medfund.finance.dto.NoteRow;
 import com.medfund.shared.report.PerCurrencyTotal;
+import com.medfund.shared.tenant.TenantContext;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
@@ -19,6 +20,10 @@ import java.util.UUID;
  * (direction=DEBIT), /credit-notes (direction=CREDIT), and /notes
  * (both). Member + provider names joined server-side so the client
  * never renders a raw UUID.
+ *
+ * <p>Providers are platform-scoped, so the provider join goes through
+ * {@code public.providers} gated on a {@code public.provider_tenants}
+ * membership row for the current tenant. See {@link ProviderJoins}.
  */
 @Repository
 public class NoteQueryRepository {
@@ -36,6 +41,8 @@ public class NoteQueryRepository {
             Map.entry("createdAt",    "n.created_at")
     );
 
+    private static final String PROVIDER_JOIN = ProviderJoins.leftJoin("p", "n.provider_id");
+
     private final DatabaseClient db;
 
     public NoteQueryRepository(DatabaseClient db) {
@@ -49,10 +56,11 @@ public class NoteQueryRepository {
         String sql = selectClause() + baseFrom() + whereClause(f, hasQ)
                 + " ORDER BY " + sortClause(f.sortKey(), f.sortDirection())
                 + " LIMIT :limit OFFSET :offset";
-        var spec = bindFilters(db.sql(sql), f, hasQ, search)
+        return Flux.deferContextual(ctx -> bindFilters(db.sql(sql), f, hasQ, search)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
                 .bind("limit", limit)
-                .bind("offset", offset);
-        return spec.map(this::toRow).all();
+                .bind("offset", offset)
+                .map(this::toRow).all());
     }
 
     public Mono<Long> count(NoteFilterParams f) {
@@ -61,10 +69,11 @@ public class NoteQueryRepository {
 
         String sql = "SELECT COUNT(*) AS total FROM notes n "
                 + " LEFT JOIN members   m ON m.id = n.member_id "
-                + " LEFT JOIN providers p ON p.id = n.provider_id "
+                + PROVIDER_JOIN
                 + whereClause(f, hasQ);
-        var spec = bindFilters(db.sql(sql), f, hasQ, search);
-        return spec.map(row -> ((Number) row.get("total")).longValue()).one();
+        return Mono.deferContextual(ctx -> bindFilters(db.sql(sql), f, hasQ, search)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
+                .map(row -> ((Number) row.get("total")).longValue()).one());
     }
 
     /**
@@ -83,14 +92,15 @@ public class NoteQueryRepository {
                 + whereClause(f, hasQ)
                 + " AND n.currency_code IS NOT NULL"
                 + " GROUP BY n.currency_code";
-        var spec = bindFilters(db.sql(sql), f, hasQ, search);
-        return spec.map((row, meta) -> Map.entry(
+        return Mono.deferContextual(ctx -> bindFilters(db.sql(sql), f, hasQ, search)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
+                .map((row, meta) -> Map.entry(
                         row.get("currency_code", String.class),
                         new PerCurrencyTotal(
                                 nz(row.get("total_amount", BigDecimal.class)),
                                 nzLong(row.get("row_count", Long.class)))))
                 .all()
-                .collectMap(Map.Entry::getKey, Map.Entry::getValue);
+                .collectMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     private static BigDecimal nz(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
@@ -112,7 +122,7 @@ public class NoteQueryRepository {
     private String baseFrom() {
         return " FROM notes n "
              + " LEFT JOIN members   m ON m.id = n.member_id "
-             + " LEFT JOIN providers p ON p.id = n.provider_id ";
+             + PROVIDER_JOIN;
     }
 
     private String whereClause(NoteFilterParams f, boolean hasQ) {

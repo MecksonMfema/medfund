@@ -77,6 +77,7 @@ class BalanceHistoryControllerIT extends AbstractIntegrationTest {
         run("DELETE FROM provider_balance_snapshot");
         run("DELETE FROM member_balance_snapshot");
         run("DELETE FROM payment_runs");
+        run("DELETE FROM provider_tenants");
         run("DELETE FROM providers");
         run("DELETE FROM members");
 
@@ -84,6 +85,10 @@ class BalanceHistoryControllerIT extends AbstractIntegrationTest {
                 Map.of("id", PROVIDER_A, "name", "Sunrise Clinic"));
         insert("INSERT INTO providers (id, name) VALUES (:id, :name)",
                 Map.of("id", PROVIDER_B, "name", "Lakeside Surgical"));
+        // Providers are platform-scoped: the payee-name lookup only resolves
+        // a name for a provider this tenant holds a membership row for.
+        linkProvider(PROVIDER_A);
+        linkProvider(PROVIDER_B);
         insert("INSERT INTO members (id, first_name, last_name, member_number) VALUES (:id, :fn, :ln, :mn)",
                 Map.of("id", MEMBER_A, "fn", "Ada", "ln", "Lovelace", "mn", "M-0001"));
 
@@ -254,6 +259,12 @@ class BalanceHistoryControllerIT extends AbstractIntegrationTest {
                 .jsonPath("$.data.rows[0].closingBalance").isEqualTo(420.00)
                 .jsonPath("$.data.rows[0].netDue").isEqualTo(150.00)
                 .jsonPath("$.perCurrency.USD.totalAmount").isEqualTo(420.00);
+    }
+
+    private void linkProvider(UUID providerId) {
+        insert("INSERT INTO provider_tenants (provider_id, tenant_id, status, network_tier, in_network) "
+                        + "VALUES (:pid, :tid, 'active', 'STANDARD', TRUE)",
+                Map.of("pid", providerId, "tid", UUID.fromString(TENANT)));
     }
 
     private void insert(String sql, Map<String, Object> params) {

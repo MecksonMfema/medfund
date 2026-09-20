@@ -32,6 +32,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -258,6 +259,93 @@ class SchemeServiceTest {
 
         verify(ageGroupRepository).save(any(AgeGroup.class));
         verify(auditPublisher).publish(any());
+    }
+
+    @Test
+    void createAgeGroup_withoutEffectiveFrom_usesToday() {
+        // Real-operator flow — the form omits effectiveFrom. Backend
+        // must default to LocalDate.now() so the price row is
+        // "effective today" as before Phase 2.
+        var schemeId = UUID.randomUUID();
+        var request = new CreateAgeGroupRequest(
+            schemeId, "Child", 0, 17,
+            new BigDecimal("50.00"), "USD"
+            // 6-arg secondary constructor: effectiveFrom = null
+        );
+        stubHappyPathForAgeGroup(schemeId);
+
+        LocalDate before = LocalDate.now();
+        StepVerifier.create(schemeService.createAgeGroup(request, actorId, actorEmail)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .expectNextCount(1)
+            .verifyComplete();
+        LocalDate after = LocalDate.now();
+
+        var effectiveFromCaptor = ArgumentCaptor.forClass(LocalDate.class);
+        verify(dbExec).bind(eq("effectiveFrom"), effectiveFromCaptor.capture());
+        LocalDate bound = effectiveFromCaptor.getValue();
+        // Guard against a midnight tick between the reads.
+        assertThat(bound).isBetween(before, after);
+    }
+
+    @Test
+    void createAgeGroup_withBackDatedEffectiveFrom_bindsProvidedValue() {
+        // Historical-replay flow — the demo-seeder passes its
+        // timeline anchor so previews for back-dated billing periods
+        // find a matching age_group_prices row.
+        var schemeId = UUID.randomUUID();
+        LocalDate backDated = LocalDate.of(2026, 6, 1);
+        var request = new CreateAgeGroupRequest(
+            schemeId, "Senior", 66, 120,
+            new BigDecimal("300.00"), "USD",
+            backDated
+        );
+        stubHappyPathForAgeGroup(schemeId);
+
+        StepVerifier.create(schemeService.createAgeGroup(request, actorId, actorEmail)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .expectNextCount(1)
+            .verifyComplete();
+
+        verify(dbExec).bind("effectiveFrom", backDated);
+    }
+
+    @Test
+    void createAgeGroup_withFutureEffectiveFrom_bindsProvidedValue() {
+        // No upper-bound validator on the DTO — future dates are
+        // legal (e.g. an operator scheduling a mid-year price change).
+        var schemeId = UUID.randomUUID();
+        LocalDate futureDate = LocalDate.now().plusMonths(3);
+        var request = new CreateAgeGroupRequest(
+            schemeId, "Adult", 18, 65,
+            new BigDecimal("250.00"), "USD",
+            futureDate
+        );
+        stubHappyPathForAgeGroup(schemeId);
+
+        StepVerifier.create(schemeService.createAgeGroup(request, actorId, actorEmail)
+                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+            .expectNextCount(1)
+            .verifyComplete();
+
+        verify(dbExec).bind("effectiveFrom", futureDate);
+    }
+
+    /**
+     * Common happy-path stubs for the three effectiveFrom tests.
+     * Kept off the main {@code stubPriceHistoryDbChain} @BeforeEach
+     * so the existing test doesn't need to know about the parent
+     * scheme lookup.
+     */
+    private void stubHappyPathForAgeGroup(UUID schemeId) {
+        var parentScheme = new Scheme();
+        parentScheme.setId(schemeId);
+        parentScheme.setName("Gold");
+        parentScheme.setCurrencyCode("USD");
+        when(schemeRepository.findById(schemeId)).thenReturn(Mono.just(parentScheme));
+        when(ageGroupRepository.save(any(AgeGroup.class)))
+            .thenAnswer(inv -> Mono.just(assignAgeGroupIdIfMissing(inv.getArgument(0))));
+        when(auditPublisher.publish(any())).thenReturn(Mono.empty());
     }
 
     // ---- Regression: null @Id on create (bugfix) ----

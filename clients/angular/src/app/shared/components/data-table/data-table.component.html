@@ -119,6 +119,15 @@
                       <span class="muted">-</span>
                     }
                   }
+                  @case ('textList') {
+                    @if (row[col.key] && row[col.key].length > 0) {
+                      @for (item of row[col.key]; track item) {
+                        <span class="badge text-chip">{{ col.labelFor ? col.labelFor(item) : item }}</span>
+                      }
+                    } @else {
+                      <span class="muted">-</span>
+                    }
+                  }
                   @case ('pdfFlag') {
                     @if (row[col.key]) {
                       <span class="badge badge-active">Ready</span>

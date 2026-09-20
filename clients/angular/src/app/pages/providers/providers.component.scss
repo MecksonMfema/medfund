@@ -67,13 +67,18 @@
 }
 
 // DataTable's outer .table-container has `overflow: hidden` (rounded
-// corners) and `.table-scroll` has `overflow-x: auto` (which implicitly
-// sets `overflow-y: auto` per CSS spec) — both clip the filter dropdown
-// panel when the table has few rows and collapses tight. Release them
-// here and give the container a min-height as a defensive floor.
+// corners), which clips the filter dropdown panel when the table has few
+// rows and collapses tight. Release it, plus the toolbar the dropdown
+// lives in, and give the container a min-height as a defensive floor.
+//
+// .table-scroll is deliberately NOT in this list. It was, until the
+// Tenants + Lines columns landed and pushed the table past the viewport:
+// with overflow released there is no horizontal scrollbar, so the last
+// three columns and the row actions become unreachable. The dropdown
+// does not need it either, since .table-toolbar is a SIBLING of
+// .table-scroll, not a descendant.
 :host ::ng-deep .table-container,
-:host ::ng-deep .table-toolbar,
-:host ::ng-deep .table-scroll {
+:host ::ng-deep .table-toolbar {
   overflow: visible !important;
 }
 :host ::ng-deep .table-container { min-height: 360px; }
@@ -220,6 +225,55 @@ select.input { appearance: none; cursor: pointer; }
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   margin-left: 4px;
+}
+
+// ── Tenants & lines toggles ──────────────────────────────────────────────────
+// Toggle chips rather than a multi-select: each click is its own POST/DELETE
+// against public.provider_tenants or public.provider_insurance_lines, so
+// there is no "save" step to batch into and the chip IS the state.
+
+.modal-intro {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+  margin-bottom: var(--spacing-lg);
+}
+
+.toggle-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+}
+
+.toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast),
+              color var(--transition-fast);
+
+  &:hover:not(:disabled) { border-color: var(--color-primary); }
+
+  &:disabled { opacity: 0.55; cursor: progress; }
+
+  &.toggle-chip--on {
+    background: var(--color-primary-light);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+}
+
+.muted {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
 }
 
 // ── Responsive ────────────────────────────────────────────────────────────────

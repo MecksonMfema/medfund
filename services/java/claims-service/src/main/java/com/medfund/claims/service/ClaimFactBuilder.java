@@ -7,6 +7,7 @@ import com.medfund.rules.fact.ClaimDetailFact;
 import com.medfund.rules.fact.ClaimFact;
 import com.medfund.rules.fact.MemberFact;
 import com.medfund.rules.fact.ProviderFact;
+import com.medfund.shared.tenant.TenantContext;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Component;
@@ -202,16 +203,44 @@ public class ClaimFactBuilder {
 
     // ── ProviderFact ─────────────────────────────────────────────────────────
 
+    /**
+     * One read against the platform provider registry, LEFT-joined to this
+     * tenant's membership row so the network fields the rules engine keys on
+     * ({@code inNetwork}, {@code networkTier}) come from the contract with
+     * <em>this</em> tenant rather than the provider's global profile.
+     *
+     * <p>The join is LEFT on purpose: a provider with no membership row for
+     * the current tenant still yields a fact carrying its id and registration
+     * status, with both network fields null (the {@code Boolean} field is
+     * nullable for exactly this case). Turning a missing membership into a
+     * rejection is {@code ClaimService}'s job, not the fact builder's.
+     */
     private Mono<ProviderFact> fetchProvider(String providerId) {
-        return db.sql("SELECT id, status, provider_type FROM public.providers WHERE id = :id")
-                .bind("id", java.util.UUID.fromString(providerId))
-                .fetch().one()
-                .map(row -> {
-                    ProviderFact p = new ProviderFact();
-                    p.setProviderId(providerId);
-                    return p;
-                })
-                .defaultIfEmpty(emptyProvider(providerId))
+        return Mono.deferContextual(ctx -> {
+            java.util.UUID tenantId = TenantContext.requireUuid(ctx);
+            return db.sql("""
+                    SELECT p.id, p.status, p.provider_type,
+                           pt.in_network, pt.network_tier
+                      FROM public.providers p
+                      LEFT JOIN public.provider_tenants pt
+                             ON pt.provider_id = p.id AND pt.tenant_id = :tenantId
+                     WHERE p.id = :id
+                    """)
+                    .bind("id", java.util.UUID.fromString(providerId))
+                    .bind("tenantId", tenantId)
+                    .fetch().one()
+                    .map(row -> {
+                        ProviderFact p = new ProviderFact();
+                        p.setProviderId(providerId);
+                        p.setRegistrationStatus(asString(row.get("status")));
+                        p.setInNetwork((Boolean) row.get("in_network"));
+                        p.setNetworkTier(asString(row.get("network_tier")));
+                        log.debug("[fact-builder] provider {} inNetwork={} networkTier={}",
+                                providerId, p.getInNetwork(), p.getNetworkTier());
+                        return p;
+                    })
+                    .defaultIfEmpty(emptyProvider(providerId));
+        })
                 .onErrorResume(err -> {
                     log.debug("[fact-builder] provider lookup failed for {}: {}", providerId, err.getMessage());
                     return Mono.just(emptyProvider(providerId));

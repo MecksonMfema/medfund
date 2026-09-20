@@ -239,7 +239,15 @@ This catches bugs where a service accidentally connects to the wrong schema.
 | **Profile Management** | Banking details, tax clearance, practice information |
 | **Notifications** | Payment confirmations, claim status updates |
 
-**Provider Multi-Tenancy Note**: A provider exists in multiple tenant schemas. The provider's profile is replicated across tenant schemas they're registered with. When a provider logs in, they see a tenant switcher to select which medical aid context they're working in.
+**Provider Multi-Tenancy Note**: A provider is a single row in `public.providers`,
+shared across every tenant it serves. The membership relationship lives in
+`public.provider_tenants` (composite PK `(provider_id, tenant_id)`, carries
+per-tenant `network_tier`, `in_network`, `status`, and future contract fields).
+The line(s) a provider serves live in `public.provider_insurance_lines`
+(composite PK, CHECK-constrained to `InsuranceLine` values). When a provider
+logs in (deferred to a follow-up plan), they authenticate against the
+`medfund-platform` Keycloak realm and see a tenant switcher built from their
+`public.provider_tenants` list.
 
 ### Member Portal (Flutter Mobile + Web)
 

@@ -515,6 +515,23 @@ tbody tr:hover {
   &[data-line="GROUP"]      { background: #e0e7ff; color: #312e81; }
 }
 
+// ── Generic text chip (column type 'textList') ─────────────────────────
+// Neutral pill for an arbitrary list of labels in one cell (e.g. the
+// tenants a provider is contracted with). No per-value palette: unlike
+// line-chip the value set is open, so colour would be arbitrary.
+.badge.text-chip {
+  font-weight: 500;
+  background: #e5e7eb;
+  color: #374151;
+}
+
+// Multiple chips in one cell need breathing room; line-chip and
+// text-chip are both rendered as repeated siblings by the list column
+// types.
+td .badge + .badge {
+  margin-left: 4px;
+}
+
 // ── Holder-type chip (per-holder reports) ──────────────────────────────
 // Corporate group vs individual policyholder — same shape as line-chip
 // with a two-value palette. Kept generic so any future report that

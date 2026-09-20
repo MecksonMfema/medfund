@@ -16,9 +16,11 @@ import com.medfund.claims.entity.Claim;
 import com.medfund.claims.entity.ClaimLine;
 import com.medfund.claims.exception.ClaimNotFoundException;
 import com.medfund.claims.exception.InvalidClaimStateException;
+import com.medfund.claims.exception.ProviderNotEligibleException;
 import com.medfund.claims.repository.ClaimLineRepository;
 import com.medfund.claims.repository.ClaimQueryRepository;
 import com.medfund.claims.repository.ClaimRepository;
+import com.medfund.claims.repository.ProviderMembershipReader;
 import com.medfund.rules.fact.ClaimDetailFact;
 import com.medfund.rules.service.RuleEvaluationService;
 import com.medfund.shared.audit.AuditEvent;
@@ -104,6 +106,7 @@ public class ClaimService {
     private final RuleEvaluationService ruleEvaluationService;
     private final ClaimReserveHistoryService claimReserveHistoryService;
     private final com.medfund.claims.pmb.PmbClassificationExecutor pmbClassificationExecutor;
+    private final ProviderMembershipReader providerMembershipReader;
 
     public ClaimService(ClaimRepository claimRepository,
                         ClaimLineRepository claimLineRepository,
@@ -118,7 +121,8 @@ public class ClaimService {
                         ClaimFactBuilder claimFactBuilder,
                         RuleEvaluationService ruleEvaluationService,
                         ClaimReserveHistoryService claimReserveHistoryService,
-                        com.medfund.claims.pmb.PmbClassificationExecutor pmbClassificationExecutor) {
+                        com.medfund.claims.pmb.PmbClassificationExecutor pmbClassificationExecutor,
+                        ProviderMembershipReader providerMembershipReader) {
         this.claimRepository = claimRepository;
         this.claimLineRepository = claimLineRepository;
         this.claimQueryRepository = claimQueryRepository;
@@ -133,6 +137,7 @@ public class ClaimService {
         this.ruleEvaluationService = ruleEvaluationService;
         this.claimReserveHistoryService = claimReserveHistoryService;
         this.pmbClassificationExecutor = pmbClassificationExecutor;
+        this.providerMembershipReader = providerMembershipReader;
     }
 
     /**
@@ -228,7 +233,10 @@ public class ClaimService {
                 String attachmentsJson = serialiseAttachments(request.attachments());
                 Instant now = Instant.now();
 
-                return generateClaimNumber()
+                // Mono.defer so the claim-number generator is not even
+                // assembled until membership validation has passed.
+                return validateProviderMembership(request, derivedLine)
+                    .then(Mono.defer(this::generateClaimNumber))
                     .flatMap(claimNumber -> {
                         var claim = new Claim();
                         claim.setClaimNumber(claimNumber);
@@ -378,6 +386,47 @@ public class ClaimService {
         if ("PROVIDER".equalsIgnoreCase(payee) && !hasProvider) {
             throw new IllegalArgumentException("payeeType=PROVIDER requires providerId to be set");
         }
+    }
+
+    /**
+     * Cross-check the referenced provider against the two platform junctions
+     * ({@code public.provider_tenants}, {@code public.provider_insurance_lines}).
+     *
+     * <p>Runs AFTER {@link #validateProviderPolicy}, so a REQUIRED-line claim
+     * with no provider at all still fails with the existing "capture the
+     * provider" message rather than a membership one. Providers are
+     * platform-scoped: a row in {@code public.providers} says the provider
+     * exists, not that this tenant may claim against it, and the line tags say
+     * what it is contracted to do. Both messages name the endpoint that fixes
+     * the gap, because the operator submitting the claim is not the
+     * super-admin who can link it.
+     *
+     * <p>{@code IllegalArgumentException} is mapped to 422 by
+     * {@code GlobalExceptionHandler}.
+     */
+    private Mono<Void> validateProviderMembership(SubmitClaimRequest req, String line) {
+        if (req.providerId() == null) {
+            return Mono.empty();   // MODE check above already settled the no-provider case
+        }
+        UUID providerId = req.providerId();
+        return Mono.deferContextual(ctx -> {
+            UUID tenantId = TenantContext.requireUuid(ctx);
+            return providerMembershipReader.isMember(providerId, tenantId)
+                .flatMap(isMember -> isMember
+                    ? Mono.empty()
+                    : Mono.error(new ProviderNotEligibleException(
+                        "Provider " + providerId + " is not contracted with this tenant. "
+                        + "Ask a super-admin to link the provider via "
+                        + "POST /api/v1/providers/" + providerId + "/tenants/" + tenantId + ".")))
+                .then(providerMembershipReader.servesLine(providerId, line))
+                .flatMap(servesLine -> servesLine
+                    ? Mono.empty()
+                    : Mono.error(new ProviderNotEligibleException(
+                        "Provider " + providerId + " is not tagged to serve " + line + " claims. "
+                        + "Ask a super-admin to add the line via "
+                        + "POST /api/v1/providers/" + providerId + "/insurance-lines/" + line + ".")))
+                .then();
+        });
     }
 
     /**

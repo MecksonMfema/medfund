@@ -34,6 +34,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Map;
 import java.util.UUID;
 
@@ -83,21 +84,28 @@ public class SchemeService {
     }
 
     /**
-     * Seed the price-history row for a newly-created age group. The
-     * effective_from is today; effective_to is NULL ("currently
-     * active"). Called from createAgeGroup so every age_group has at
-     * least one price row from creation onward.
+     * Seed the price-history row for a newly-created age group. When
+     * {@code effectiveFrom} is null, defaults to today — the pre-existing
+     * "price effective today" contract used by the operator UI. Historical
+     * replay callers (demo-seeder) pass their timeline anchor so previews
+     * for back-dated periods find a matching row via the LATERAL join in
+     * {@code HealthCandidateResolver}. {@code effective_to} is NULL
+     * ("currently active"); this is always the seed row for a new age
+     * group, so it has no closing date.
      */
-    private Mono<Void> insertCurrentPrice(UUID ageGroupId, BigDecimal amount, String currency, UUID actorUuid) {
+    private Mono<Void> insertCurrentPrice(UUID ageGroupId, BigDecimal amount, String currency,
+                                           UUID actorUuid, LocalDate effectiveFrom) {
+        LocalDate effective = effectiveFrom != null ? effectiveFrom : LocalDate.now();
         return db.sql("""
                 INSERT INTO age_group_prices
                     (age_group_id, contribution_amount, currency_code, effective_from, created_by)
-                VALUES (:ageGroupId, :amount, :currency, CURRENT_DATE, :actor)
+                VALUES (:ageGroupId, :amount, :currency, :effectiveFrom, :actor)
                 """)
-            .bind("ageGroupId", ageGroupId)
-            .bind("amount", amount)
-            .bind("currency", currency)
-            .bind("actor", actorUuid != null ? actorUuid : java.util.UUID.randomUUID())
+            .bind("ageGroupId",    ageGroupId)
+            .bind("amount",        amount)
+            .bind("currency",      currency)
+            .bind("effectiveFrom", effective)
+            .bind("actor",         actorUuid != null ? actorUuid : java.util.UUID.randomUUID())
             .then();
     }
 
@@ -129,7 +137,10 @@ public class SchemeService {
                 """)
             .bind("ageGroupId", ageGroupId)
             .then()
-            .then(insertCurrentPrice(ageGroupId, newAmount, newCurrency, actorUuid));
+            // Versioning path always cuts over as of today: yesterday
+            // closes the old row, today opens the new one. Pass null so
+            // insertCurrentPrice falls through to LocalDate.now().
+            .then(insertCurrentPrice(ageGroupId, newAmount, newCurrency, actorUuid, null));
     }
 
     private static UUID parseUuidOrNull(String s) {
@@ -505,7 +516,7 @@ public class SchemeService {
             })
             .flatMap(saved -> insertCurrentPrice(saved.getId(),
                     saved.getContributionAmount(), saved.getCurrencyCode(),
-                    parseUuidOrNull(actorId)).thenReturn(saved))
+                    parseUuidOrNull(actorId), request.effectiveFrom()).thenReturn(saved))
             .flatMap(saved -> Mono.deferContextual(ctx -> {
                 String tenantId = TenantContext.get(ctx);
                 return publishAudit(tenantId, "AgeGroup", saved.getId().toString(), saved.getName(),

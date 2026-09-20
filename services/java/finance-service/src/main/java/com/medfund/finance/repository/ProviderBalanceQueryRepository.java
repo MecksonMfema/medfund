@@ -2,6 +2,7 @@ package com.medfund.finance.repository;
 
 import com.medfund.finance.dto.ProviderBalanceFilterParams;
 import com.medfund.finance.dto.ProviderBalanceRow;
+import com.medfund.shared.tenant.TenantContext;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
@@ -16,6 +17,10 @@ import java.util.UUID;
  * Dynamic-SQL search powering the provider-balances (creditors) list.
  * Joins providers so the operational table renders the provider name
  * inline.
+ *
+ * <p>Providers are platform-scoped, so the join goes through
+ * {@code public.providers} gated on a {@code public.provider_tenants}
+ * membership row for the current tenant. See {@link ProviderJoins}.
  */
 @Repository
 public class ProviderBalanceQueryRepository {
@@ -29,6 +34,8 @@ public class ProviderBalanceQueryRepository {
             "currencyCode",       "b.currency_code",
             "lastUpdatedAt",      "b.last_updated_at"
     );
+
+    private static final String PROVIDER_JOIN = ProviderJoins.leftJoin("pr", "b.provider_id");
 
     private final DatabaseClient db;
 
@@ -45,15 +52,16 @@ public class ProviderBalanceQueryRepository {
                        b.total_paid, b.outstanding_balance, b.currency_code,
                        b.last_updated_at, pr.name AS provider_name
                   FROM provider_balances b
-                  LEFT JOIN providers pr ON pr.id = b.provider_id
                 """
+                + PROVIDER_JOIN
                 + whereClause(f, hasQ)
                 + " ORDER BY " + sortClause(f.sortKey(), f.sortDirection())
                 + " LIMIT :limit OFFSET :offset";
-        var spec = bindFilters(db.sql(sql), f, hasQ, search)
+        return Flux.deferContextual(ctx -> bindFilters(db.sql(sql), f, hasQ, search)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
                 .bind("limit", limit)
-                .bind("offset", offset);
-        return spec.map(this::toRow).all();
+                .bind("offset", offset)
+                .map(this::toRow).all());
     }
 
     public Mono<Long> count(ProviderBalanceFilterParams f) {
@@ -61,10 +69,11 @@ public class ProviderBalanceQueryRepository {
         String search = hasQ ? "%" + f.q().toLowerCase() + "%" : null;
 
         String sql = "SELECT COUNT(*) AS total FROM provider_balances b "
-                + " LEFT JOIN providers pr ON pr.id = b.provider_id "
+                + PROVIDER_JOIN
                 + whereClause(f, hasQ);
-        var spec = bindFilters(db.sql(sql), f, hasQ, search);
-        return spec.map(row -> ((Number) row.get("total")).longValue()).one();
+        return Mono.deferContextual(ctx -> bindFilters(db.sql(sql), f, hasQ, search)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
+                .map(row -> ((Number) row.get("total")).longValue()).one());
     }
 
     private String whereClause(ProviderBalanceFilterParams f, boolean hasQ) {

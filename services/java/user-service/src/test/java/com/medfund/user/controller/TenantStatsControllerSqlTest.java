@@ -178,6 +178,58 @@ class TenantStatsControllerSqlTest {
                              && s.contains("c.status = 'paid'"));
     }
 
+    @Test
+    void recentPayments_joinsPlatformProviders_gatedOnTenantMembership() {
+        // Providers are platform-scoped (public.providers) with per-tenant
+        // membership in public.provider_tenants. A bare join on the platform
+        // table would render the name of a provider this tenant has no
+        // contract with — CLAUDE.md Critical Rule 2's membership exception.
+        TenantStatsController ctrl = new TenantStatsController(db);
+        try {
+            ctrl.getRecentPayments("11111111-1111-1111-1111-111111111111")
+                    .block(java.time.Duration.ofSeconds(2));
+        } catch (Exception ignored) { }
+
+        List<String> sqls = collectAllSql();
+
+        assertThat(hasSubstring(sqls,
+                "LEFT JOIN public.providers pr",
+                "public.provider_tenants pt",
+                "pt.tenant_id = :tenantId"))
+                .as("recent-payments must LEFT JOIN public.providers gated on a membership row")
+                .isTrue();
+
+        // The join stays LEFT: a payment to a now-unlinked provider keeps its
+        // place on the list with a blank payee, rather than dropping off.
+        assertThat(sqls)
+                .as("recent-payments must not join the dropped per-tenant providers shadow")
+                .noneMatch(s -> s.contains("\".providers"));
+    }
+
+    @Test
+    void topPayees_drivesFromPlatformProviders_gatedOnTenantMembership() {
+        TenantStatsController ctrl = new TenantStatsController(db);
+        try {
+            ctrl.getTopPayees("11111111-1111-1111-1111-111111111111")
+                    .block(java.time.Duration.ofSeconds(2));
+        } catch (Exception ignored) { }
+
+        List<String> sqls = collectAllSql();
+
+        // Here the gate is an INNER join, so a provider without a membership
+        // row cannot reach the leaderboard at all.
+        assertThat(hasSubstring(sqls,
+                "FROM public.providers pr",
+                "JOIN public.provider_tenants pt",
+                "pt.tenant_id = :tenantId"))
+                .as("top-payees must drive from public.providers joined through provider_tenants")
+                .isTrue();
+
+        assertThat(sqls)
+                .as("top-payees must not read the dropped per-tenant providers shadow")
+                .noneMatch(s -> s.contains("\".providers"));
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────
 
     private List<String> collectAllSql() {

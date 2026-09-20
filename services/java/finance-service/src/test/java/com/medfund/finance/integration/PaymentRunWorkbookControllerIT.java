@@ -89,11 +89,17 @@ class PaymentRunWorkbookControllerIT extends AbstractIntegrationTest {
         run("DELETE FROM payment_run_items");
         run("DELETE FROM payments");
         run("DELETE FROM payment_runs");
+        run("DELETE FROM provider_tenants");
         run("DELETE FROM providers");
         run("DELETE FROM members");
 
         insert("INSERT INTO providers (id, name) VALUES (:id, :name)",
                 Map.of("id", PROVIDER_A, "name", "Sunrise Clinic"));
+        // Providers are platform-scoped: the workbook's payee-name join only
+        // resolves a name for a provider this tenant holds a membership row for.
+        insert("INSERT INTO provider_tenants (provider_id, tenant_id, status, network_tier, in_network) "
+                        + "VALUES (:pid, :tid, 'active', 'STANDARD', TRUE)",
+                Map.of("pid", PROVIDER_A, "tid", UUID.fromString(TENANT)));
         insert("INSERT INTO members (id, first_name, last_name, member_number) VALUES (:id, :fn, :ln, :mn)",
                 Map.of("id", MEMBER_A, "fn", "Ada", "ln", "Lovelace", "mn", "M-0001"));
 

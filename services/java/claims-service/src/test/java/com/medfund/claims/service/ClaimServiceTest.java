@@ -10,6 +10,7 @@ import com.medfund.claims.dto.SubmitClaimRequest;
 import com.medfund.claims.entity.Claim;
 import com.medfund.claims.entity.ClaimLine;
 import com.medfund.claims.exception.ClaimNotFoundException;
+import com.medfund.claims.exception.ProviderNotEligibleException;
 import com.medfund.claims.repository.ClaimLineRepository;
 import com.medfund.claims.repository.ClaimRepository;
 import com.medfund.shared.audit.AuditPublisher;
@@ -55,12 +56,19 @@ class ClaimServiceTest {
     @Mock private org.springframework.r2dbc.core.DatabaseClient databaseClient;
     @Mock private TariffBenefitResolver tariffBenefitResolver;
     @Mock private com.medfund.claims.pmb.PmbClassificationExecutor pmbClassificationExecutor;
+    @Mock private com.medfund.claims.repository.ProviderMembershipReader providerMembershipReader;
 
     @InjectMocks
     private ClaimService claimService;
 
     private String actorId;
     private static final String ACTOR_EMAIL = "actor@test.example";
+    /**
+     * Must be a real UUID: {@code validateProviderMembership} binds the tenant
+     * through {@link com.medfund.shared.tenant.TenantContext#requireUuid}, which
+     * deliberately throws on a non-UUID rather than quietly binding null.
+     */
+    private static final String TENANT_ID = "00000000-0000-4000-8000-0000000000aa";
 
     @BeforeEach
     void setUp() {
@@ -70,6 +78,10 @@ class ClaimServiceTest {
         // adjudicate() so we stub it as identity so the chain completes.
         lenient().when(pmbClassificationExecutor.classifyAndPersist(any(), any(), any()))
                 .thenAnswer(inv -> Mono.just(inv.getArgument(0)));
+        // Phase 6: the happy path is "provider is contracted and serves the
+        // line". The two rejection paths stub these false explicitly.
+        lenient().when(providerMembershipReader.isMember(any(), any())).thenReturn(Mono.just(true));
+        lenient().when(providerMembershipReader.servesLine(any(), anyString())).thenReturn(Mono.just(true));
     }
 
     // ── Existing surface: findAll / findById ─────────────────────────
@@ -127,7 +139,7 @@ class ClaimServiceTest {
 
         StepVerifier.create(
                 claimService.submit(request, actorId, ACTOR_EMAIL)
-                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
         )
                 .assertNext(response -> {
                     assertThat(response.claim().claimNumber()).startsWith("CLM-");
@@ -158,7 +170,7 @@ class ClaimServiceTest {
 
         StepVerifier.create(
                 claimService.submit(request, actorId, ACTOR_EMAIL)
-                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
         )
                 .assertNext(response -> {
                     assertThat(response.claim().insuranceLine())
@@ -178,7 +190,7 @@ class ClaimServiceTest {
 
         StepVerifier.create(
                 claimService.submit(request, actorId, ACTOR_EMAIL)
-                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
         )
                 .expectErrorSatisfies(err -> {
                     assertThat(err).isInstanceOf(IllegalArgumentException.class);
@@ -197,7 +209,7 @@ class ClaimServiceTest {
 
         StepVerifier.create(
                 claimService.submit(request, actorId, ACTOR_EMAIL)
-                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
         )
                 .expectErrorSatisfies(err -> {
                     assertThat(err).isInstanceOf(IllegalArgumentException.class);
@@ -216,7 +228,7 @@ class ClaimServiceTest {
 
         StepVerifier.create(
                 claimService.submit(request, actorId, ACTOR_EMAIL)
-                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
         )
                 .expectErrorSatisfies(err -> {
                     assertThat(err).isInstanceOf(IllegalArgumentException.class);
@@ -239,7 +251,7 @@ class ClaimServiceTest {
 
         StepVerifier.create(
                 claimService.submit(request, actorId, ACTOR_EMAIL)
-                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
         )
                 .assertNext(response -> {
                     assertThat(response.batchNumber()).isEqualTo("BATCH777");
@@ -261,7 +273,7 @@ class ClaimServiceTest {
 
         StepVerifier.create(
                 claimService.submit(request, actorId, ACTOR_EMAIL)
-                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
         )
                 .assertNext(response -> {
                     assertThat(response.batchNumber()).isNull();
@@ -286,7 +298,7 @@ class ClaimServiceTest {
 
         StepVerifier.create(
                 claimService.submit(request, actorId, ACTOR_EMAIL)
-                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
         )
                 .assertNext(response -> {
                     assertThat(response.claim().attachments()).hasSize(2);
@@ -313,7 +325,7 @@ class ClaimServiceTest {
 
         StepVerifier.create(
                 claimService.submit(request, actorId, ACTOR_EMAIL)
-                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
         )
                 .assertNext(response -> {
                     assertThat(response.claim().attachments()).isEmpty();
@@ -350,7 +362,7 @@ class ClaimServiceTest {
         SubmitClaimRequest finalRequest = request;
         StepVerifier.create(
                 claimService.submit(finalRequest, actorId, ACTOR_EMAIL)
-                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
         )
                 .expectErrorSatisfies(err -> {
                     assertThat(err).isInstanceOf(IllegalArgumentException.class);
@@ -384,13 +396,18 @@ class ClaimServiceTest {
 
         StepVerifier.create(
                 claimService.submit(lifeRequest, actorId, ACTOR_EMAIL)
-                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
         )
                 .assertNext(response -> {
                     assertThat(response.claim().insuranceLine()).isEqualTo("LIFE");
                     assertThat(response.claim().providerId()).isNull();
                 })
                 .verifyComplete();
+
+        // Phase 6: with no provider there is nothing to check, so the two
+        // platform junctions must not be touched at all.
+        verify(providerMembershipReader, never()).isMember(any(), any());
+        verify(providerMembershipReader, never()).servesLine(any(), anyString());
     }
 
     @Test
@@ -416,7 +433,7 @@ class ClaimServiceTest {
 
         StepVerifier.create(
                 claimService.submit(request, actorId, ACTOR_EMAIL)
-                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
         )
                 .expectErrorSatisfies(err -> {
                     assertThat(err).isInstanceOf(IllegalArgumentException.class);
@@ -445,7 +462,7 @@ class ClaimServiceTest {
 
         StepVerifier.create(
                 claimService.submit(request, actorId, ACTOR_EMAIL)
-                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
         )
                 .assertNext(response -> {
                     assertThat(response.claim().insuranceLine()).isEqualTo("HEALTH");
@@ -453,6 +470,93 @@ class ClaimServiceTest {
                     assertThat(response.claim().payeeType()).isEqualTo("MEMBER");
                 })
                 .verifyComplete();
+    }
+
+    // ── submit(): platform provider membership + line tags (Phase 6) ──
+
+    @Test
+    void submit_health_rejectsProviderNotContractedWithTenant() {
+        // Providers are platform-scoped: existing in public.providers says
+        // nothing about whether THIS tenant may claim against them. Without
+        // a provider_tenants row the claim is refused, with a message naming
+        // the endpoint a super-admin uses to fix it.
+        UUID providerId = UUID.randomUUID();
+        var request = healthRequestWithProvider(providerId);
+        when(schemeClient.findById(any(UUID.class)))
+                .thenReturn(Mono.just(schemeSummary("HEALTH")));
+        when(providerMembershipReader.isMember(eq(providerId), any())).thenReturn(Mono.just(false));
+
+        StepVerifier.create(
+                claimService.submit(request, actorId, ACTOR_EMAIL)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
+        )
+                .expectErrorSatisfies(err -> {
+                    // 422, not 400: the payload is fine, the provider's
+                    // administrative state is not.
+                    assertThat(err).isInstanceOf(ProviderNotEligibleException.class);
+                    assertThat(err.getMessage())
+                            .contains("is not contracted with this tenant")
+                            .contains("/tenants/" + TENANT_ID);
+                })
+                .verify();
+
+        verify(claimRepository, never()).save(any());
+    }
+
+    @Test
+    void submit_health_rejectsProviderNotTaggedForTheLine() {
+        // Contracted, but tagged LIFE only: the funeral parlour on the
+        // network cannot take a HEALTH claim.
+        UUID providerId = UUID.randomUUID();
+        var request = healthRequestWithProvider(providerId);
+        when(schemeClient.findById(any(UUID.class)))
+                .thenReturn(Mono.just(schemeSummary("HEALTH")));
+        when(providerMembershipReader.isMember(eq(providerId), any())).thenReturn(Mono.just(true));
+        when(providerMembershipReader.servesLine(providerId, "HEALTH")).thenReturn(Mono.just(false));
+
+        StepVerifier.create(
+                claimService.submit(request, actorId, ACTOR_EMAIL)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
+        )
+                .expectErrorSatisfies(err -> {
+                    assertThat(err).isInstanceOf(ProviderNotEligibleException.class);
+                    assertThat(err.getMessage())
+                            .contains("is not tagged to serve HEALTH claims")
+                            .contains("/insurance-lines/HEALTH");
+                })
+                .verify();
+
+        verify(claimRepository, never()).save(any());
+    }
+
+    @Test
+    void submit_health_contractedAndTaggedProvider_persists() {
+        UUID providerId = UUID.randomUUID();
+        var request = healthRequestWithProvider(providerId);
+        stubHappyPathHealth();
+        when(providerMembershipReader.isMember(eq(providerId), any())).thenReturn(Mono.just(true));
+        when(providerMembershipReader.servesLine(providerId, "HEALTH")).thenReturn(Mono.just(true));
+
+        StepVerifier.create(
+                claimService.submit(request, actorId, ACTOR_EMAIL)
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
+        )
+                .assertNext(response -> assertThat(response.claim().providerId()).isEqualTo(providerId))
+                .verifyComplete();
+    }
+
+    /** HEALTH claim carrying one tariff line and the given provider. */
+    private SubmitClaimRequest healthRequestWithProvider(UUID providerId) {
+        var lineRequest = new ClaimLineRequest("TC001", "Consultation", 1,
+                new BigDecimal("500.00"), new BigDecimal("500.00"), null, "USD");
+        return new SubmitClaimRequest(
+                UUID.randomUUID(), null, providerId, null, UUID.randomUUID(),
+                null, null, null, null,
+                LocalDate.now(), new BigDecimal("500.00"),
+                "USD", null, null, null, List.of(lineRequest),
+                null, null, null, null, null, null, null, null, null, null, null, null,
+                null
+        );
     }
 
     // ── adjudicate() — insurance line rides on the outgoing event ───
@@ -502,7 +606,7 @@ class ClaimServiceTest {
 
         StepVerifier.create(
                 claimService.adjudicate(claim.getId(), actorId, ACTOR_EMAIL)
-                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
         )
                 .assertNext(adjudicated -> {
                     assertThat(adjudicated.getStatus()).isEqualTo("ADJUDICATED");
@@ -538,7 +642,7 @@ class ClaimServiceTest {
 
         StepVerifier.create(
                 claimService.submit(request, actorId, ACTOR_EMAIL)
-                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
         ).expectNextCount(1).verifyComplete();
 
         // Both lines get resolved with the same scheme id — Mockito can
@@ -567,7 +671,7 @@ class ClaimServiceTest {
 
         StepVerifier.create(
                 claimService.submit(request, actorId, ACTOR_EMAIL)
-                        .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant"))
+                        .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT_ID))
         ).expectNextCount(1).verifyComplete();
 
         ArgumentCaptor<ClaimLine> lineCaptor = ArgumentCaptor.forClass(ClaimLine.class);

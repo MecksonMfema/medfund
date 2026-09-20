@@ -148,7 +148,8 @@ class UserEventPublisherTest {
     void publishProviderOnboarded_sendsToCorrectTopic() {
         when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
 
-        StepVerifier.create(userEventPublisher.publishProviderOnboarded("prov-1", "City Hospital"))
+        StepVerifier.create(userEventPublisher.publishProviderOnboarded(
+                        "prov-1", "City Hospital"))
                 .verifyComplete();
 
         verify(kafkaSender).send(senderRecordCaptor.capture());
@@ -157,7 +158,56 @@ class UserEventPublisherTest {
                 .assertNext(record -> {
                     assertThat(record.topic()).isEqualTo("medfund.users.provider-onboarded");
                     assertThat(record.key()).isEqualTo("prov-1");
-                    assertThat(record.value()).contains("PROVIDER_ONBOARDED");
+                    assertThat(record.value())
+                            .contains("PROVIDER_ONBOARDED")
+                            .contains("\"providerId\":\"prov-1\"")
+                            .contains("\"name\":\"City Hospital\"");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void publishProviderTenantLinked_sendsToCorrectTopic() {
+        when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
+
+        StepVerifier.create(userEventPublisher.publishProviderTenantLinked("prov-1", "tnt-1"))
+                .verifyComplete();
+
+        verify(kafkaSender).send(senderRecordCaptor.capture());
+
+        StepVerifier.create(senderRecordCaptor.getValue())
+                .assertNext(record -> {
+                    assertThat(record.topic()).isEqualTo("medfund.users.provider-tenant-linked");
+                    // Keyed by providerId so a link/unlink pair for the same
+                    // provider lands on one partition and stays ordered.
+                    assertThat(record.key()).isEqualTo("prov-1");
+                    assertThat(record.value())
+                            .contains("PROVIDER_TENANT_LINKED")
+                            .contains("\"providerId\":\"prov-1\"")
+                            .contains("\"tenantId\":\"tnt-1\"");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void publishProviderTenantUnlinked_sendsToCorrectTopic() {
+        when(kafkaSender.send(any(Mono.class))).thenReturn(Flux.empty());
+
+        StepVerifier.create(userEventPublisher.publishProviderTenantUnlinked("prov-1", "tnt-1"))
+                .verifyComplete();
+
+        verify(kafkaSender).send(senderRecordCaptor.capture());
+
+        StepVerifier.create(senderRecordCaptor.getValue())
+                .assertNext(record -> {
+                    assertThat(record.topic()).isEqualTo("medfund.users.provider-tenant-unlinked");
+                    assertThat(record.key()).isEqualTo("prov-1");
+                    assertThat(record.value())
+                            .contains("PROVIDER_TENANT_UNLINKED")
+                            .contains("\"providerId\":\"prov-1\"")
+                            .contains("\"tenantId\":\"tnt-1\"");
                 })
                 .verifyComplete();
     }

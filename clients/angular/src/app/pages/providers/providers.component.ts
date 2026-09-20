@@ -1,13 +1,15 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject } from 'rxjs';
+import { Observable, Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, takeUntil } from 'rxjs/operators';
 import { StatCardComponent } from '../../shared/components/stat-card/stat-card.component';
 import { DataTableComponent, TableAction } from '../../shared/components/data-table/data-table.component';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { SelectComponent, SelectOption } from '../../shared/components/select/select.component';
 import { ProvidersService, Provider, ProviderQueryParams, NetworkTier } from '../../core/services/providers.service';
+import { AdminService, Tenant } from '../../core/services/admin.service';
+import { INSURANCE_LINES } from '../../core/models/insurance-lines';
 import { ToastService } from '../../shared/components/toast/toast.service';
 
 @Component({
@@ -57,10 +59,24 @@ export class ProvidersComponent implements OnInit, OnDestroy {
       onSelectChange: (row: Provider, value: string) =>
         this.onNetworkTierChange(row, value as NetworkTier),
     },
+    {
+      key: 'tenantIds',
+      label: 'Tenants',
+      type: 'textList',
+      // The payload carries the UUID; the cell shows the tenant's name.
+      labelFor: (id: string) => this.tenantName(id),
+    },
+    { key: 'insuranceLines', label: 'Lines', type: 'lineList' },
     { key: 'createdAt',        label: 'Registered',  type: 'date' },
   ];
 
   tableActions: TableAction[] = [
+    {
+      label: 'Tenants & lines',
+      icon: 'layers',
+      testid: 'manage-membership',
+      handler: (row: Provider) => this.openMembershipModal(row),
+    },
     {
       label: 'Verify',
       icon: 'check-circle',
@@ -121,11 +137,27 @@ export class ProvidersComponent implements OnInit, OnDestroy {
     return this.providerTypes.map(t => ({ value: t.value, label: t.label }));
   }
 
+  // ── Tenants & lines modal ─────────────────────────────────────────────
+  // A provider row in public.providers does not make it usable by a tenant:
+  // claims-service rejects a claim whose provider has no membership row for
+  // the submitting tenant, or no tag for the claim's line. This modal is the
+  // super-admin's only way to fix either.
+  showMembershipModal = false;
+  membershipProvider: Provider | null = null;
+  membershipTenantIds = new Set<string>();
+  membershipLines = new Set<string>();
+  membershipBusy: Record<string, boolean> = {};
+  membershipLoading = false;
+
+  tenants: Tenant[] = [];
+  readonly insuranceLines = INSURANCE_LINES.map(l => ({ value: l.value, label: l.label }));
+
   private searchSubject = new Subject<string>();
   private destroy$ = new Subject<void>();
 
   constructor(
     private providersService: ProvidersService,
+    private adminService: AdminService,
     private toast: ToastService,
   ) {}
 
@@ -136,7 +168,18 @@ export class ProvidersComponent implements OnInit, OnDestroy {
       takeUntil(this.destroy$),
     ).subscribe(() => this.resetAndLoad());
 
+    // Loaded once: the tenant catalogue resolves the UUIDs on every row's
+    // Tenants pill and populates the modal's toggle list.
+    this.adminService.getTenants({ page: 1, size: 100 })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({ next: page => (this.tenants = page.content ?? []) });
+
     this.loadProviders(1);
+  }
+
+  /** Tenant display name for a UUID; falls back to a short id while loading. */
+  tenantName(id: string): string {
+    return this.tenants.find(t => t.id === id)?.name ?? id.slice(0, 8);
   }
 
   ngOnDestroy(): void {
@@ -210,6 +253,102 @@ export class ProvidersComponent implements OnInit, OnDestroy {
         // Roll back the local row so the UI reflects backend state.
         provider.networkTier = previous;
         this.toast.error(err?.error?.detail || 'Failed to update network tier');
+      },
+    });
+  }
+
+  // ── Tenants & lines modal ─────────────────────────────────────────────────
+
+  openMembershipModal(provider: Provider): void {
+    this.membershipProvider = provider;
+    this.membershipBusy = {};
+    this.showMembershipModal = true;
+    this.membershipLoading = true;
+    // Read both junctions fresh rather than trusting the list payload: the
+    // modal is where the operator acts on them, so a stale page is worse
+    // here than one extra pair of requests.
+    this.membershipTenantIds = new Set(provider.tenantIds ?? []);
+    this.membershipLines = new Set(provider.insuranceLines ?? []);
+
+    this.providersService.listMemberships(provider.id).subscribe({
+      next: rows => {
+        this.membershipTenantIds = new Set(rows.map(r => r.tenantId));
+        this.membershipLoading = false;
+      },
+      error: () => { this.membershipLoading = false; },
+    });
+    this.providersService.listLines(provider.id).subscribe({
+      next: lines => (this.membershipLines = new Set(lines)),
+    });
+  }
+
+  closeMembershipModal(): void {
+    this.showMembershipModal = false;
+    this.membershipProvider = null;
+    // The row's pills are rebuilt from the server so the table and the
+    // junctions cannot drift apart.
+    this.resetAndLoad();
+  }
+
+  isTenantLinked(tenantId: string): boolean {
+    return this.membershipTenantIds.has(tenantId);
+  }
+
+  isLineTagged(line: string): boolean {
+    return this.membershipLines.has(line);
+  }
+
+  isBusy(key: string): boolean {
+    return !!this.membershipBusy[key];
+  }
+
+  toggleTenant(tenantId: string): void {
+    const provider = this.membershipProvider;
+    if (!provider || this.isBusy('t:' + tenantId)) return;
+    const linked = this.membershipTenantIds.has(tenantId);
+    this.membershipBusy['t:' + tenantId] = true;
+
+    // Typed as unknown: link() resolves the created row and unlink() resolves
+    // void, and neither payload is used here (the chip IS the state).
+    const request: Observable<unknown> = linked
+      ? this.providersService.unlink(provider.id, tenantId)
+      : this.providersService.link(provider.id, tenantId);
+
+    request.subscribe({
+      next: () => {
+        if (linked) this.membershipTenantIds.delete(tenantId);
+        else this.membershipTenantIds.add(tenantId);
+        this.membershipBusy['t:' + tenantId] = false;
+        this.toast.success(
+          `${provider.name} ${linked ? 'unlinked from' : 'linked to'} ${this.tenantName(tenantId)}`);
+      },
+      error: (err) => {
+        this.membershipBusy['t:' + tenantId] = false;
+        this.toast.error(err?.error?.detail || 'Failed to update tenant membership');
+      },
+    });
+  }
+
+  toggleLine(line: string): void {
+    const provider = this.membershipProvider;
+    if (!provider || this.isBusy('l:' + line)) return;
+    const tagged = this.membershipLines.has(line);
+    this.membershipBusy['l:' + line] = true;
+
+    const request: Observable<void> = tagged
+      ? this.providersService.removeLine(provider.id, line)
+      : this.providersService.addLine(provider.id, line);
+
+    request.subscribe({
+      next: () => {
+        if (tagged) this.membershipLines.delete(line);
+        else this.membershipLines.add(line);
+        this.membershipBusy['l:' + line] = false;
+        this.toast.success(`${provider.name} ${tagged ? 'no longer serves' : 'now serves'} ${line}`);
+      },
+      error: (err) => {
+        this.membershipBusy['l:' + line] = false;
+        this.toast.error(err?.error?.detail || 'Failed to update insurance line');
       },
     });
   }

@@ -586,6 +586,8 @@ PostgreSQL 17 Cluster
 │   ├── plans                      — Subscription plans (tenant tiers)
 │   ├── staff_users                — Platform staff (super admins) — cross-tenant
 │   ├── providers                  — Platform-level provider registry
+│   ├── provider_tenants           — (provider, tenant) membership + per-tenant contract fields
+│   ├── provider_insurance_lines   — (provider, line) tag; CHECK-constrained to InsuranceLine
 │   ├── currencies                 — ISO 4217 currency master data
 │   ├── exchange_rates             — Historical exchange rates (daily snapshots)
 │   ├── permissions                — RBAC catalogue
@@ -596,7 +598,7 @@ PostgreSQL 17 Cluster
 │   └── proration_config           — Per-tenant benefit-limit proration strategy
 │
 ├── tenant_{uuid} schema (one per tenant, completely isolated)
-│   ├── members, dependants, providers, groups, group_liaisons
+│   ├── members, dependants, groups, group_liaisons
 │   ├── life_policies, funeral_policies, disability_policies, travel_policies
 │   ├── vehicles, properties  (asset-line insured objects)
 │   ├── claims (line-tagged via insurance_line), claim_lines, pre_authorizations, quotations

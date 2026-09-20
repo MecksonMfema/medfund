@@ -45,6 +45,14 @@ public class GlobalExceptionHandler {
         return Mono.just(problem);
     }
 
+    @ExceptionHandler(ProviderNotEligibleException.class)
+    public Mono<ProblemDetail> handleProviderNotEligible(ProviderNotEligibleException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+        problem.setType(URI.create("https://medfund.healthcare/errors/provider-not-eligible"));
+        problem.setTitle("Provider Not Eligible");
+        return Mono.just(problem);
+    }
+
     @ExceptionHandler(IllegalStateException.class)
     public Mono<ProblemDetail> handleIllegalState(IllegalStateException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());

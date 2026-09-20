@@ -14,6 +14,7 @@ import java.sql.ResultSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -149,14 +150,16 @@ class TenantMigrationFlywayIT {
                             "commit_actor_id", "commit_actor_email", "commit_at",
                             "voided_reason", "voided_at"));
 
-            // Phase 13 §A — V111 / V112 history tables + V113 provider.network_tier.
+            // Phase 13 §A — V111 / V112 history tables. V113's
+            // providers.network_tier went with the table in V276; the
+            // per-tenant tier now lives on public.provider_tenants.
             assertColumns(conn, "tenant_it", "policy_status_history", List.of(
                     "policy_id", "policy_source", "from_status", "to_status",
                     "effective_at", "actor_id", "actor_email", "reason_code", "reason_note"));
             assertColumns(conn, "tenant_it", "member_status_history", List.of(
                     "member_id", "from_status", "to_status",
                     "effective_at", "actor_id", "actor_email", "reason_code", "reason_note"));
-            assertColumns(conn, "tenant_it", "providers", List.of("network_tier"));
+            assertTableAbsent(conn, "tenant_it", "providers");
 
             // Phase 14 §A/B/D — V139 claim_reserve_history + V140 member death columns
             // + V141 report_job (renamed to report_job by V151 in Phase 15 §1,
@@ -236,6 +239,346 @@ class TenantMigrationFlywayIT {
                     assertThat(rs.getString("cohort_type")).isEqualTo("NON_ONEROUS");
                 }
             }
+        }
+    }
+
+    /**
+     * Public V185 + tenant V275 — platform provider membership.
+     *
+     * <p>V185 creates the two junction tables and extends
+     * {@code provision_tenant_role} so a tenant role can read them; V275
+     * retargets the three hard provider FKs from the tenant-local
+     * {@code providers} table to {@code public.providers}. Without the grant
+     * every tenant-scoped provider read in claims-service and finance-service
+     * fails with {@code permission denied}; without the retarget the FKs go
+     * dangling the moment V276 drops the shadow table.
+     */
+    @Test
+    void v185AndV275_landMembershipTables_grantTenantRole_andRetargetProviderFks() throws Exception {
+        // Idempotent — a no-op if tenantMigrations_landAllExpectedColumns
+        // already migrated tenant_it on this shared container.
+        Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .locations("classpath:db/migration/tenant")
+                .schemas("tenant_it")
+                .createSchemas(true)
+                .load()
+                .migrate();
+
+        try (Connection conn = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
+
+            // V185 — both junction tables land with their full column set.
+            assertColumns(conn, "public", "provider_tenants", List.of(
+                    "provider_id", "tenant_id", "status", "network_tier", "in_network",
+                    "contract_effective_from", "contract_effective_to",
+                    "credit_limit", "credit_limit_currency", "tariff_agreement_id",
+                    "created_at", "updated_at", "created_by", "updated_by"));
+            assertColumns(conn, "public", "provider_insurance_lines", List.of(
+                    "provider_id", "insurance_line", "created_at"));
+
+            assertConstraintExists(conn, "public", "provider_tenants", "provider_tenants_status_ck");
+            assertConstraintExists(conn, "public", "provider_tenants", "provider_tenants_tier_ck");
+            assertConstraintExists(conn, "public", "provider_tenants", "provider_tenants_dates_ck");
+            assertConstraintExists(conn, "public", "provider_insurance_lines",
+                    "provider_insurance_lines_ck");
+            assertIndexExists(conn, "public", "ix_provider_tenants_tenant");
+            assertIndexExists(conn, "public", "ix_provider_tenants_status");
+            assertIndexExists(conn, "public", "ix_provider_insurance_lines_line");
+
+            // V185 — provision_tenant_role grants SELECT on both new tables.
+            // The IT ships with no public.tenants rows, so V185's backfill loop
+            // had nothing to re-provision; call the function directly instead.
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT public.provision_tenant_role('tenant_it')")) {
+                ps.execute();
+            }
+            for (String table : List.of("provider_tenants", "provider_insurance_lines")) {
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "SELECT has_table_privilege('tenant_it_role', ?, 'SELECT')")) {
+                    ps.setString(1, "public." + table);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        assertThat(rs.next()).isTrue();
+                        assertThat(rs.getBoolean(1))
+                                .as("tenant_it_role must be able to read public.%s", table)
+                                .isTrue();
+                    }
+                }
+            }
+
+            // V275 — the three hard FKs now point at public.providers, and no
+            // FK on those tables still points at the tenant-local shadow.
+            for (String table : List.of("claims", "payments", "quotations")) {
+                assertConstraintExists(conn, "tenant_it", table,
+                        table + "_provider_id_public_fkey");
+            }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "SELECT con.conname " +
+                    "  FROM pg_constraint con " +
+                    "  JOIN pg_class rel      ON rel.oid  = con.conrelid " +
+                    "  JOIN pg_namespace ns   ON ns.oid   = rel.relnamespace " +
+                    "  JOIN pg_class fref     ON fref.oid = con.confrelid " +
+                    "  JOIN pg_namespace fns  ON fns.oid  = fref.relnamespace " +
+                    " WHERE con.contype = 'f' AND ns.nspname = 'tenant_it' " +
+                    "   AND fns.nspname = 'tenant_it' AND fref.relname = 'providers'")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    assertThat(rs.next())
+                            .as("no tenant FK may still reference tenant_it.providers after V275")
+                            .isFalse();
+                }
+            }
+        }
+    }
+
+    /**
+     * V186 — deleting a tenant cascades its provider memberships away.
+     *
+     * <p>V185 created both of {@code provider_tenants}' foreign keys as
+     * ON DELETE RESTRICT. On the tenant side that made a tenant undeletable
+     * the moment one provider was linked to it, which blocks offboarding and
+     * aborts {@code scripts/reset-tenant-schemas.sh}. Every other table
+     * referencing {@code public.tenants} cascades; this pins that
+     * {@code provider_tenants} now does too, while the provider side stays
+     * RESTRICT so a contracted provider cannot be deleted out from under a
+     * tenant.
+     */
+    @Test
+    void v186_tenantDeleteCascadesMemberships_whileProviderDeleteStaysRestricted() throws Exception {
+        try (Connection conn = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
+
+            assertThat(fkDeleteAction(conn, "provider_tenants", "provider_tenants_tenant_id_fkey"))
+                    .as("provider_tenants.tenant_id must cascade when a tenant is deleted")
+                    .isEqualTo("c");
+            assertThat(fkDeleteAction(conn, "provider_tenants", "provider_tenants_provider_id_fkey"))
+                    .as("provider_tenants.provider_id must stay RESTRICT")
+                    .isEqualTo("r");
+
+            // End to end: a tenant carrying a membership deletes cleanly and
+            // takes only the membership with it, leaving the registry row.
+            UUID tenantId = UUID.randomUUID();
+            UUID providerId = UUID.randomUUID();
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO public.tenants (id, name, slug, schema_name, status) "
+                    + "VALUES (?, 'V186 Cascade Co', 'v186-cascade', 'tenant_v186_cascade', 'active')")) {
+                ps.setObject(1, tenantId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO public.providers (id, name) VALUES (?, 'V186 Cascade Clinic')")) {
+                ps.setObject(1, providerId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO public.provider_tenants (provider_id, tenant_id) VALUES (?, ?)")) {
+                ps.setObject(1, providerId);
+                ps.setObject(2, tenantId);
+                ps.executeUpdate();
+            }
+
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "DELETE FROM public.tenants WHERE id = ?")) {
+                ps.setObject(1, tenantId);
+                assertThat(ps.executeUpdate())
+                        .as("deleting a tenant with a linked provider must succeed")
+                        .isEqualTo(1);
+            }
+
+            assertThat(countWhereProvider(conn, "public.provider_tenants", providerId))
+                    .as("the membership row goes with the tenant")
+                    .isZero();
+            assertThat(countWhereProvider(conn, "public.providers", providerId))
+                    .as("the platform provider row survives — it is shared, not tenant-owned")
+                    .isEqualTo(1);
+
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "DELETE FROM public.providers WHERE id = ?")) {
+                ps.setObject(1, providerId);
+                ps.executeUpdate();
+            }
+        }
+    }
+
+    /** {@code pg_constraint.confdeltype} for one FK: 'c' = CASCADE, 'r' = RESTRICT. */
+    private static String fkDeleteAction(Connection conn, String table, String constraint)
+            throws Exception {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT confdeltype FROM pg_constraint "
+                + " WHERE conname = ? AND conrelid = ?::regclass AND contype = 'f'")) {
+            ps.setString(1, constraint);
+            ps.setString(2, "public." + table);
+            try (ResultSet rs = ps.executeQuery()) {
+                assertThat(rs.next()).as("constraint %s must exist", constraint).isTrue();
+                return rs.getString(1);
+            }
+        }
+    }
+
+    private static int countWhereProvider(Connection conn, String table, UUID providerId)
+            throws Exception {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT count(*) FROM " + table + " WHERE " + ("public.providers".equals(table) ? "id" : "provider_id") + " = ?")) {
+            ps.setObject(1, providerId);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                return rs.getInt(1);
+            }
+        }
+    }
+
+    /**
+     * Tenant V276 — the shadow {@code providers} table is gone, and the
+     * {@code DROP TABLE ... CASCADE} did not take the V275-retargeted FKs
+     * with it.
+     *
+     * <p>CASCADE is the sharp edge here: it drops every dependent object.
+     * The three retargeted constraints reference {@code public.providers},
+     * not the shadow, so they must survive. If a future edit ever lands a
+     * V275 that misses one, CASCADE would silently delete that FK here
+     * instead of failing the migration, and the column would go unconstrained.
+     */
+    @Test
+    void v276_dropsShadowProviders_andLeavesRetargetedFksIntact() throws Exception {
+        String schema = "tenant_v276_drop_it";
+
+        Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .locations("classpath:db/migration/tenant")
+                .schemas(schema)
+                .createSchemas(true)
+                .load()
+                .migrate();
+
+        try (Connection conn = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
+
+            assertTableAbsent(conn, schema, "providers");
+
+            for (String table : List.of("claims", "payments", "quotations")) {
+                assertConstraintExists(conn, schema, table, table + "_provider_id_public_fkey");
+            }
+        }
+    }
+
+    /**
+     * Tenant V276 must be a no-op in the {@code public} schema.
+     *
+     * <p>Local dev runs Flyway over {@code db/migration/public} AND
+     * {@code db/migration/tenant} with {@code schemas: public}
+     * (tenancy-service application.yml), so every tenant migration also
+     * executes once with {@code current_schema() = 'public'}. Unqualified
+     * {@code DROP TABLE providers} there resolves to {@code public.providers},
+     * the platform registry that {@code provider_tenants} and
+     * {@code provider_insurance_lines} both reference. The orphan guard is no
+     * protection: it would compare the registry to itself and always find zero
+     * orphans.
+     *
+     * <p>This test reproduces the dev layout exactly (both locations, one
+     * shared history, schema {@code public}) and asserts the registry and its
+     * rows survive.
+     */
+    @Test
+    void v276_isNoOpInPublicSchema_soThePlatformRegistrySurvives() throws Exception {
+        // Needs its own database: the shared container's public schema already
+        // had db/migration/public applied by @BeforeAll, so replaying the dev
+        // layout on top of it fails at tenant V001 ("providers already exists")
+        // long before reaching V276. A fresh database lets both locations run
+        // interleaved in version order, exactly as local dev does.
+        String devShapeDb = "medfund_dev_shape_it";
+        try (Connection conn = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+             PreparedStatement ps = conn.prepareStatement("CREATE DATABASE " + devShapeDb)) {
+            ps.execute();
+        }
+        String devShapeUrl = POSTGRES.getJdbcUrl()
+                .replaceFirst("/" + POSTGRES.getDatabaseName() + "(\\?|$)", "/" + devShapeDb + "$1");
+
+        // The dev shape: both locations, one shared history, schema = public.
+        Flyway.configure()
+                .dataSource(devShapeUrl, POSTGRES.getUsername(), POSTGRES.getPassword())
+                .locations("classpath:db/migration/public", "classpath:db/migration/tenant")
+                .schemas("public")
+                .baselineOnMigrate(true)
+                .outOfOrder(true)
+                .load()
+                .migrate();
+
+        try (Connection conn = DriverManager.getConnection(
+                devShapeUrl, POSTGRES.getUsername(), POSTGRES.getPassword())) {
+
+            // The registry survived V276 as a table...
+            assertColumns(conn, "public", "providers", List.of("id", "name", "status"));
+
+            // ...and is still writable through the junction FKs, which is the
+            // property CASCADE would have destroyed.
+            try (PreparedStatement ps = conn.prepareStatement(
+                    "INSERT INTO public.providers (name, status) " +
+                    "VALUES ('V276 Registry Survivor', 'active') RETURNING id");
+                 ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                String providerId = rs.getString(1);
+                try (PreparedStatement link = conn.prepareStatement(
+                        "INSERT INTO public.provider_insurance_lines (provider_id, insurance_line) " +
+                        "VALUES (?::uuid, 'HEALTH')")) {
+                    link.setString(1, providerId);
+                    assertThat(link.executeUpdate())
+                            .as("provider_insurance_lines must still FK to a live public.providers")
+                            .isOne();
+                }
+            }
+
+            assertConstraintExists(conn, "public", "provider_tenants", "provider_tenants_status_ck");
+        }
+    }
+
+    /**
+     * Tenant V276 orphan guard: a shadow provider row that carries a
+     * {@code keycloak_user_id} but has no counterpart in
+     * {@code public.providers} is real operator-created data that the drop
+     * would destroy silently. The migration must refuse rather than proceed.
+     *
+     * <p>Stage at V275 (the last migration before the drop), seed exactly
+     * that row, then let Flyway run V276 and assert it raises.
+     */
+    @Test
+    void v276_orphanGuard_refusesToDropWhenKeycloakBackedProviderIsUnmirrored() throws Exception {
+        String schema = "tenant_v276_orphan_it";
+
+        Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .locations("classpath:db/migration/tenant")
+                .schemas(schema)
+                .createSchemas(true)
+                .target("275")
+                .load()
+                .migrate();
+
+        try (Connection conn = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+             PreparedStatement ps = conn.prepareStatement(
+                     "INSERT INTO " + schema + ".providers (name, keycloak_user_id) " +
+                     "VALUES ('Unmirrored Clinic', 'kc-user-v276')")) {
+            ps.executeUpdate();
+        }
+
+        Flyway toHead = Flyway.configure()
+                .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
+                .locations("classpath:db/migration/tenant")
+                .schemas(schema)
+                .load();
+
+        assertThatThrownBy(toHead::migrate)
+                .as("V276 must refuse to drop a shadow carrying unmirrored Keycloak-backed rows")
+                .hasMessageContaining("Unmirrored Clinic");
+
+        // And the guard is a refusal, not a partial drop: the row is still there.
+        try (Connection conn = DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+             PreparedStatement ps = conn.prepareStatement(
+                     "SELECT count(*) FROM " + schema + ".providers");
+             ResultSet rs = ps.executeQuery()) {
+            rs.next();
+            assertThat(rs.getLong(1)).as("guarded shadow table must survive intact").isOne();
         }
     }
 
@@ -353,19 +696,21 @@ class TenantMigrationFlywayIT {
                     "id", "member_id", "from_status", "to_status",
                     "effective_at", "actor_id", "actor_email", "reason_code",
                     "reason_note", "created_at"));
-            assertColumns(conn, schema, "providers", List.of("network_tier"));
 
-            // Named CHECK constraints from V111 / V112 / V113.
+            // V113's providers.network_tier column, its CHECK and its index
+            // all went with the shadow table in V276. Asserting the table is
+            // absent is the standing guard that nothing reintroduces it.
+            assertTableAbsent(conn, schema, "providers");
+
+            // Named CHECK constraints from V111 / V112.
             assertConstraintExists(conn, schema, "policy_status_history", "chk_policy_status_history_source");
             assertConstraintExists(conn, schema, "member_status_history", "chk_member_status_history_reason");
-            assertConstraintExists(conn, schema, "providers", "chk_providers_network_tier");
 
             // Indexes the report queries lean on.
             assertIndexExists(conn, schema, "ix_policy_status_history_policy_effective");
             assertIndexExists(conn, schema, "ix_policy_status_history_source_status_effective");
             assertIndexExists(conn, schema, "ix_member_status_history_member_effective");
             assertIndexExists(conn, schema, "ix_member_status_history_status_effective");
-            assertIndexExists(conn, schema, "ix_providers_network_tier");
         }
     }
 
@@ -538,10 +883,10 @@ class TenantMigrationFlywayIT {
                     ps.executeUpdate();
                 }
 
-                try (PreparedStatement ps = conn.prepareStatement(
-                        "INSERT INTO " + qualified + "providers (name) VALUES ('P13 Provider')")) {
-                    ps.executeUpdate();
-                }
+                // No provider fixture: V113's network_tier backfill ran against
+                // the tenant-local providers table, which V276 drops before
+                // this staged migration reaches head. Per-tenant network tier
+                // now lives on public.provider_tenants.
                 conn.commit();
             } catch (Exception seedFailure) {
                 conn.rollback();
@@ -650,15 +995,12 @@ class TenantMigrationFlywayIT {
                 }
             }
 
-            // V113 default — every existing provider lands on STANDARD.
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "SELECT DISTINCT network_tier FROM " + qualified + "providers")) {
-                try (ResultSet rs = ps.executeQuery()) {
-                    assertThat(rs.next()).isTrue();
-                    assertThat(rs.getString("network_tier")).isEqualTo("STANDARD");
-                    assertThat(rs.next()).as("only STANDARD present post-backfill").isFalse();
-                }
-            }
+            // V113's providers.network_tier default is no longer observable
+            // here: V276 drops the shadow table on the way to head. The
+            // platform equivalent (public.provider_tenants.network_tier,
+            // defaulted to STANDARD) is covered by
+            // v185AndV275_landMembershipTables_grantTenantRole_andRetargetProviderFks.
+            assertTableAbsent(conn, schema, "providers");
         }
     }
 
@@ -844,6 +1186,21 @@ class TenantMigrationFlywayIT {
         }
         assertThat(present).as("%s.%s must include %s", schema, table, expected)
                 .containsAll(expected);
+    }
+
+    private static void assertTableAbsent(Connection conn, String schema, String table)
+            throws Exception {
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT 1 FROM information_schema.tables " +
+                " WHERE table_schema = ? AND table_name = ?")) {
+            ps.setString(1, schema);
+            ps.setString(2, table);
+            try (ResultSet rs = ps.executeQuery()) {
+                assertThat(rs.next())
+                        .as("%s.%s must not exist", schema, table)
+                        .isFalse();
+            }
+        }
     }
 
     private static void assertNoColumn(Connection conn, String schema, String table,

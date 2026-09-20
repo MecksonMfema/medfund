@@ -8,7 +8,9 @@ import com.medfund.user.dto.ProviderResponse;
 import com.medfund.user.dto.UpdateProviderRequest;
 import com.medfund.user.entity.Provider;
 import com.medfund.user.exception.ProviderNotFoundException;
+import com.medfund.user.repository.ProviderInsuranceLineRepository;
 import com.medfund.user.repository.ProviderRepository;
+import com.medfund.user.repository.ProviderTenantRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
@@ -18,9 +20,12 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -37,6 +42,8 @@ public class ProviderService {
     private static final String PLATFORM_TENANT = "platform";
 
     private final ProviderRepository providerRepository;
+    private final ProviderTenantRepository membershipRepository;
+    private final ProviderInsuranceLineRepository lineRepository;
     private final R2dbcEntityTemplate r2dbcTemplate;
     private final AuditPublisher auditPublisher;
     private final UserEventPublisher eventPublisher;
@@ -48,21 +55,47 @@ public class ProviderService {
 
     /**
      * Paginated, filtered provider search.
-     * All filter params are optional — pass {@code null} to skip each one.
+     * All filter params are optional: pass {@code null} to skip each one.
+     *
+     * <p>Each row carries its tenant memberships and line tags, fetched for the
+     * whole page in two extra queries rather than one pair per row. The admin
+     * console renders both as pill columns, so leaving them off the list would
+     * mean 2n round trips from the browser to show a page of providers.
      */
     public Mono<ProviderPage> searchPage(String q, String status, String providerType, int page, int size) {
         int safePage = Math.max(1, page);
         int safeSize = (size > 0 && size <= 100) ? size : 20;
         long offset  = (long) (safePage - 1) * safeSize;
 
-        Flux<ProviderResponse> rows = providerRepository
+        Mono<List<ProviderResponse>> rows = providerRepository
                 .searchPage(q, status, providerType, safeSize, offset)
-                .map(ProviderResponse::from);
+                .collectList()
+                .flatMap(this::withMembership);
 
         Mono<Long> total = providerRepository.countSearch(q, status, providerType);
 
-        return Mono.zip(rows.collectList(), total)
+        return Mono.zip(rows, total)
                    .map(t -> ProviderPage.of(t.getT1(), t.getT2(), safePage, safeSize));
+    }
+
+    /** Two batched junction reads, folded back onto the page's rows. */
+    private Mono<List<ProviderResponse>> withMembership(List<Provider> providers) {
+        if (providers.isEmpty()) return Mono.just(List.of());
+        List<UUID> ids = providers.stream().map(Provider::getId).toList();
+
+        Mono<Map<UUID, List<UUID>>> tenants = membershipRepository.findTenantIdsByProviderIds(ids)
+                .collect(LinkedHashMap::new,
+                         (acc, e) -> acc.computeIfAbsent(e.getKey(), k -> new ArrayList<UUID>()).add(e.getValue()));
+        Mono<Map<UUID, List<String>>> lines = lineRepository.findByProviderIds(ids)
+                .collect(LinkedHashMap::new,
+                         (acc, e) -> acc.computeIfAbsent(e.getKey(), k -> new ArrayList<String>()).add(e.getValue()));
+
+        return Mono.zip(tenants, lines)
+                .map(t -> providers.stream()
+                        .map(p -> ProviderResponse.from(p,
+                                t.getT1().getOrDefault(p.getId(), List.of()),
+                                t.getT2().getOrDefault(p.getId(), List.of())))
+                        .collect(Collectors.toList()));
     }
 
     public Mono<Provider> findById(UUID id) {
@@ -125,7 +158,9 @@ public class ProviderService {
 
                 return keycloakSync
                     .then(publishAudit(saved, null, actorId, actorEmail, "CREATE"))
-                    .then(eventPublisher.publishProviderOnboarded(saved.getId().toString(), saved.getName()))
+                    .then(eventPublisher.publishProviderOnboarded(
+                            saved.getId().toString(),
+                            saved.getName()))
                     .thenReturn(saved);
             });
     }

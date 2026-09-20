@@ -892,8 +892,16 @@ public class TenantStatsController {
                         "       p.paid_at, p.created_at, " +
                         "       pr.name AS provider_name " +
                         "FROM \"" + schema + "\".payments p " +
-                        "LEFT JOIN \"" + schema + "\".providers pr ON pr.id = p.provider_id " +
+                        // Providers are platform-scoped: join public.providers
+                        // gated on a membership row for this tenant. The join
+                        // stays LEFT so a payment to a provider this tenant is
+                        // no longer contracted with keeps its place on the list
+                        // with a blank payee name, rather than vanishing.
+                        "LEFT JOIN public.providers pr ON pr.id = p.provider_id " +
+                        "  AND EXISTS (SELECT 1 FROM public.provider_tenants pt " +
+                        "               WHERE pt.provider_id = pr.id AND pt.tenant_id = :tenantId) " +
                         "ORDER BY p.created_at DESC LIMIT 10")
+                        .bind("tenantId", tenantId)
                         .map(row -> {
                             var m = new java.util.LinkedHashMap<String, Object>();
                             m.put("id",             row.get("id",             UUID.class));
@@ -930,11 +938,17 @@ public class TenantStatsController {
                         "SELECT pr.id, pr.name, " +
                         "       COALESCE(SUM(p.amount), 0) AS received, " +
                         "       COUNT(p.id)                AS count " +
-                        "FROM \"" + schema + "\".providers pr " +
+                        // Drives from the platform registry gated on this
+                        // tenant's membership row, so the leaderboard can only
+                        // ever name a provider this tenant is contracted with.
+                        "FROM public.providers pr " +
+                        "JOIN public.provider_tenants pt " +
+                        "  ON pt.provider_id = pr.id AND pt.tenant_id = :tenantId " +
                         "JOIN \"" + schema + "\".payments p " +
                         "  ON p.provider_id = pr.id AND p.status = 'completed' " +
                         "GROUP BY pr.id, pr.name " +
                         "ORDER BY received DESC LIMIT 10")
+                        .bind("tenantId", tenantId)
                         .map(row -> {
                             var m = new java.util.LinkedHashMap<String, Object>();
                             m.put("id",       row.get("id",       UUID.class));

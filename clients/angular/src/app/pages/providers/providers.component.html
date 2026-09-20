@@ -59,6 +59,73 @@
   </div>
 </app-data-table>
 
+<!-- Tenants & lines modal -->
+@if (showMembershipModal && membershipProvider) {
+  <div class="modal-overlay" (click)="closeMembershipModal()">
+    <div class="modal" (click)="$event.stopPropagation()" data-testid="membership-modal">
+      <div class="modal-header">
+        <h2>Tenants &amp; lines</h2>
+        <button class="btn-icon" (click)="closeMembershipModal()">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-intro">
+          {{ membershipProvider.name }} is on the platform registry. A tenant can only
+          claim against it once it is linked here, and only for the lines it is tagged for.
+        </p>
+
+        <div class="form-group">
+          <label>Contracted tenants</label>
+          @if (membershipLoading) {
+            <span class="muted">Loading…</span>
+          } @else if (tenants.length === 0) {
+            <span class="muted">No tenants on the platform yet.</span>
+          } @else {
+            <div class="toggle-grid">
+              @for (tenant of tenants; track tenant.id) {
+                <button
+                  type="button"
+                  class="toggle-chip"
+                  [class.toggle-chip--on]="isTenantLinked(tenant.id)"
+                  [disabled]="isBusy('t:' + tenant.id)"
+                  [attr.data-testid]="'tenant-toggle-' + tenant.slug"
+                  [attr.aria-pressed]="isTenantLinked(tenant.id)"
+                  (click)="toggleTenant(tenant.id)">
+                  <app-icon [name]="isTenantLinked(tenant.id) ? 'check-circle' : 'plus'" [size]="14"></app-icon>
+                  {{ tenant.name }}
+                </button>
+              }
+            </div>
+          }
+        </div>
+
+        <div class="form-group">
+          <label>Insurance lines served</label>
+          <div class="toggle-grid">
+            @for (line of insuranceLines; track line.value) {
+              <button
+                type="button"
+                class="toggle-chip"
+                [class.toggle-chip--on]="isLineTagged(line.value)"
+                [disabled]="isBusy('l:' + line.value)"
+                [attr.data-testid]="'line-toggle-' + line.value"
+                [attr.aria-pressed]="isLineTagged(line.value)"
+                (click)="toggleLine(line.value)">
+                <app-icon [name]="isLineTagged(line.value) ? 'check-circle' : 'plus'" [size]="14"></app-icon>
+                {{ line.label }}
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" data-testid="membership-done" (click)="closeMembershipModal()">Done</button>
+      </div>
+    </div>
+  </div>
+}
+
 <!-- Register Provider Modal -->
 @if (showCreateModal) {
   <div class="modal-overlay" (click)="showCreateModal = false">

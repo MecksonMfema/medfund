@@ -204,7 +204,12 @@ InsureFlow has five distinct portal experiences, each serving a different audien
 
 **Audience**: Healthcare providers (hospitals, clinics, pharmacies, opticians).
 
-**Keycloak Realm**: Each provider has accounts in every tenant realm they serve. A provider user can belong to multiple tenant realms. The Angular app shows a **tenant switcher** in the header.
+**Keycloak Realm**: A provider has a single identity in the `medfund-platform`
+Keycloak realm. The Angular app fetches their `public.provider_tenants` list
+after login and shows a tenant switcher in the header. When switching tenants,
+the same session is scoped by an `X-Tenant-ID` header on every subsequent
+request. (Provider self-service portal + Flutter provider mode are unbuilt as of
+2026-09-20; see `thoughts/shared/plans/` for status.)
 
 **Role**: `provider`, `provider_admin`
 

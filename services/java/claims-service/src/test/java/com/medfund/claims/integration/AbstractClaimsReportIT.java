@@ -85,7 +85,8 @@ public abstract class AbstractClaimsReportIT extends AbstractIntegrationTest {
         // No tenant context here on purpose — public_role cannot TRUNCATE.
         db.sql("""
                 TRUNCATE claims, pre_authorizations, members, groups, schemes,
-                         providers, rejection_reasons, tenant_high_cost_claimant_config,
+                         providers, provider_tenants, provider_insurance_lines,
+                         rejection_reasons, tenant_high_cost_claimant_config,
                          tenant_currency_config, exchange_rates, tenant_report_config
                 """)
                 .fetch().rowsUpdated().block(Duration.ofSeconds(15));
@@ -146,7 +147,36 @@ public abstract class AbstractClaimsReportIT extends AbstractIntegrationTest {
         return id;
     }
 
-    protected UUID seedProvider(String name) {
+    /**
+     * Seeds a provider that IS contracted with the IT tenant: a row in the
+     * platform {@code providers} registry plus the {@code provider_tenants}
+     * membership row every provider join now filters on, plus one line tag
+     * per {@code lines} entry (defaulting to HEALTH, which is what the
+     * fixtures' claims carry).
+     *
+     * <p>Use {@link #seedUnlinkedProvider(String)} for the other side of the
+     * guard: a provider in the registry with no membership row.
+     */
+    protected UUID seedProvider(String name, String... lines) {
+        UUID id = seedUnlinkedProvider(name);
+        db.sql("""
+                INSERT INTO provider_tenants (provider_id, tenant_id, status, network_tier, in_network)
+                VALUES (:pid, :tid::uuid, 'active', 'STANDARD', TRUE)
+                """)
+                .bind("pid", id).bind("tid", TenantTestContext.current())
+                .fetch().rowsUpdated().contextWrite(TenantTestContext.put())
+                .block(Duration.ofSeconds(5));
+        for (String line : lines.length == 0 ? new String[]{"HEALTH"} : lines) {
+            db.sql("INSERT INTO provider_insurance_lines (provider_id, insurance_line) VALUES (:pid, :line)")
+                    .bind("pid", id).bind("line", line)
+                    .fetch().rowsUpdated().contextWrite(TenantTestContext.put())
+                    .block(Duration.ofSeconds(5));
+        }
+        return id;
+    }
+
+    /** Provider in the platform registry with no membership row for this tenant. */
+    protected UUID seedUnlinkedProvider(String name) {
         UUID id = UUID.randomUUID();
         db.sql("INSERT INTO providers (id, name) VALUES (:id, :name)")
                 .bind("id", id).bind("name", name)

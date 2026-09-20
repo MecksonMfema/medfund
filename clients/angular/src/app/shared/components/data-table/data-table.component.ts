@@ -13,6 +13,11 @@ export interface TableColumn {
   sortable?: boolean;
   /** For type: 'select' — the option catalogue rendered inline. */
   options?: Array<{ value: string; label: string }>;
+  /**
+   * For type: 'textList' — maps each raw array entry to its display text
+   * (e.g. a tenant UUID to the tenant's name). Identity when omitted.
+   */
+  labelFor?: (value: string) => string;
   /** For type: 'select' — fires when the user picks a different value. */
   onSelectChange?: (row: any, value: string) => void;
 }

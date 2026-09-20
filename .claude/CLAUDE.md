@@ -132,6 +132,15 @@ public class AdjudicationResult {
 
 1. **Never mix currencies in arithmetic.** Always convert to a common currency using the exchange rate service before comparing or summing amounts. Use `BigDecimal` (Java) / `decimal` (others) — never floating point for money.
 2. **Every database query must be tenant-scoped.** Java services use the tenant-aware `TenantContext` interceptor. Every service must resolve tenant from JWT or subdomain.
+
+   **Exception: platform tables with tenant membership.** A small set of tables in the
+   `public` schema are shared by design (`public.providers`, `public.plans`,
+   `public.currencies`, `public.staff_users`). When such a table has per-tenant
+   relevance, every tenant-scoped read must include a membership check via the
+   corresponding `public.<entity>_tenants` join table (e.g. `public.provider_tenants`,
+   which carries the per-tenant contract row). Reads that omit the membership check
+   leak platform data across tenants and violate the rule's intent even though they
+   technically hit a `public.` table.
 3. **AI decisions must be auditable.** Every AI-assisted adjudication, fraud flag, or billing suggestion must log the model version, input features, confidence score, and output — with a human-reviewable trail.
 4. **Data protection first.** PII must be encrypted at rest and in transit; PHI (from the health vertical) additionally falls under healthcare compliance regimes. Audit logs are immutable. Data retention policies apply per tenant jurisdiction and per insurance line.
    - **MFA is mandatory** for all admin and staff roles. Supports TOTP (authenticator apps), Email OTP, and SMS OTP — all via Keycloak. Tenant admins configure which methods and roles require MFA.

@@ -40,7 +40,9 @@ func (l staticLookup) Fetch(_ context.Context, _, _ string) (Totals, error) { re
 func TestDispatch_providerAdvice_endToEnd(t *testing.T) {
 	fake := newFakeDB().
 		on("FROM public.tenants", "tenant_first_medfund").
-		on("FROM tenant_first_medfund.providers",
+		// Provider lookup is platform-scoped and membership-gated; it no
+		// longer touches a per-tenant providers table (dropped by V276).
+		on("FROM public.providers",
 			ptr("billing@clinic.test"), ptr("Riverside Clinic"))
 	sender := &recordingSender{}
 	d := &Dispatcher{

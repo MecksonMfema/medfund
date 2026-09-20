@@ -1,6 +1,7 @@
 package com.medfund.finance.repository;
 
 import com.medfund.finance.dto.PaymentRunWorkbookRow;
+import com.medfund.shared.tenant.TenantContext;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
@@ -16,9 +17,15 @@ import java.util.UUID;
  * human-friendly context (D7-4). Same payee-name shape as
  * {@code PaymentQueryRepository}: provider name wins, member is
  * {@code first_name || ' ' || last_name}, else blank.
+ *
+ * <p>Providers are platform-scoped, so the provider join goes through
+ * {@code public.providers} gated on a {@code public.provider_tenants}
+ * membership row for the current tenant. See {@link ProviderJoins}.
  */
 @Repository
 public class PaymentRunWorkbookQueryRepository {
+
+    private static final String PROVIDER_JOIN = ProviderJoins.leftJoin("pv", "i.provider_id");
 
     private final DatabaseClient db;
 
@@ -46,13 +53,16 @@ public class PaymentRunWorkbookQueryRepository {
                        i.created_at
                   FROM payment_run_items i
                   LEFT JOIN payments   p  ON p.id  = i.payment_id
-                  LEFT JOIN providers  pv ON pv.id = i.provider_id
+                """
+                + PROVIDER_JOIN
+                + """
                   LEFT JOIN members    mb ON mb.id = i.member_id
                  WHERE i.payment_run_id = :runId
                  ORDER BY i.created_at, i.id
                 """;
-        return db.sql(sql)
+        return Flux.deferContextual(ctx -> db.sql(sql)
                 .bind("runId", runId)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
                 .map((row, meta) -> new PaymentRunWorkbookRow(
                         row.get("id", UUID.class),
                         row.get("payment_id", UUID.class),
@@ -68,6 +78,6 @@ public class PaymentRunWorkbookQueryRepository {
                         row.get("reference", String.class),
                         row.get("paid_at", Instant.class),
                         row.get("created_at", Instant.class)))
-                .all();
+                .all());
     }
 }

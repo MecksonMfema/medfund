@@ -16,8 +16,30 @@ export interface Provider {
   status: string;
   /** Phase 13 §A per L1. STANDARD | TIER_1 | TIER_2 | TIER_3. */
   networkTier?: NetworkTier;
+  /**
+   * Tenants this provider is contracted with (public.provider_tenants) and the
+   * insurance lines it is tagged for (public.provider_insurance_lines). Both
+   * ride the paginated list so the two pill columns render without a request
+   * per row; both are absent on the single-provider reads.
+   */
+  tenantIds?: string[];
+  insuranceLines?: string[];
   createdAt: string;
   updatedAt?: string;
+}
+
+/** One public.provider_tenants row as returned by /providers/{id}/tenants. */
+export interface ProviderTenant {
+  providerId: string;
+  tenantId: string;
+  status: string;
+  networkTier: NetworkTier;
+  inNetwork: boolean;
+  contractEffectiveFrom?: string | null;
+  contractEffectiveTo?: string | null;
+  creditLimit?: number | null;
+  creditLimitCurrency?: string | null;
+  tariffAgreementId?: string | null;
 }
 
 export type NetworkTier = 'STANDARD' | 'TIER_1' | 'TIER_2' | 'TIER_3';
@@ -130,6 +152,41 @@ export class ProvidersService {
   updateNetworkTier(id: string, networkTier: NetworkTier): Observable<Provider> {
     this.invalidate();
     return this.api.patch<Provider>(`/providers/${id}`, { networkTier });
+  }
+
+  // ── Tenant membership + insurance-line tags ───────────────────────────
+  //
+  // A provider row in public.providers does not make it usable by a tenant:
+  // claims-service 422s a claim whose provider has no membership row for the
+  // submitting tenant, or no tag for the claim's line. These six calls are how
+  // a super-admin fixes that from /platform/providers.
+
+  listMemberships(providerId: string): Observable<ProviderTenant[]> {
+    return this.api.get<ProviderTenant[]>(`/providers/${providerId}/tenants`);
+  }
+
+  link(providerId: string, tenantId: string): Observable<ProviderTenant> {
+    this.invalidate();
+    return this.api.post<ProviderTenant>(`/providers/${providerId}/tenants/${tenantId}`, {});
+  }
+
+  unlink(providerId: string, tenantId: string): Observable<void> {
+    this.invalidate();
+    return this.api.delete<void>(`/providers/${providerId}/tenants/${tenantId}`);
+  }
+
+  listLines(providerId: string): Observable<string[]> {
+    return this.api.get<string[]>(`/providers/${providerId}/insurance-lines`);
+  }
+
+  addLine(providerId: string, line: string): Observable<void> {
+    this.invalidate();
+    return this.api.post<void>(`/providers/${providerId}/insurance-lines/${line}`, {});
+  }
+
+  removeLine(providerId: string, line: string): Observable<void> {
+    this.invalidate();
+    return this.api.delete<void>(`/providers/${providerId}/insurance-lines/${line}`);
   }
 
   private invalidate(): void {

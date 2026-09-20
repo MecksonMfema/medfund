@@ -2,6 +2,7 @@ package com.medfund.claims.repository;
 
 import com.medfund.claims.dto.PreAuthorizationFilterParams;
 import com.medfund.claims.dto.PreAuthorizationRow;
+import com.medfund.shared.tenant.TenantContext;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
@@ -15,8 +16,11 @@ import java.util.UUID;
 
 /**
  * Dynamic-SQL search powering the pre-authorizations list. Joins
- * {@code members} and {@code providers} so the client renders the
- * authorised member + provider names inline.
+ * {@code members} and {@code public.providers} so the client renders the
+ * authorised member + provider names inline. Providers are platform-scoped,
+ * so the join carries the {@code public.provider_tenants} membership guard
+ * (CLAUDE.md Critical Rule 2) and a provider outside this tenant's network
+ * renders blank rather than leaking a name.
  *
  * <p>Sort safety: whitelist in {@link #SORT_COLUMNS}; anything else
  * falls back to {@code created_at DESC}.
@@ -37,6 +41,12 @@ public class PreAuthorizationQueryRepository {
             "createdAt",      "pa.created_at"
     );
 
+    /** LEFT JOIN onto the platform provider table, membership-guarded. */
+    private static final String PROVIDER_LEFT_JOIN =
+              " LEFT JOIN public.providers p ON p.id = pa.provider_id "
+            + "   AND EXISTS (SELECT 1 FROM public.provider_tenants pt "
+            + "                WHERE pt.provider_id = p.id AND pt.tenant_id = :tenantId) ";
+
     private final DatabaseClient db;
 
     public PreAuthorizationQueryRepository(DatabaseClient db) {
@@ -50,10 +60,11 @@ public class PreAuthorizationQueryRepository {
         String sql = selectClause() + baseFrom() + whereClause(f, hasQ)
                 + " ORDER BY " + sortClause(f.sortKey(), f.sortDirection())
                 + " LIMIT :limit OFFSET :offset";
-        var spec = bindFilters(db.sql(sql), f, hasQ, search)
+        return Flux.deferContextual(ctx -> bindFilters(db.sql(sql), f, hasQ, search)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
                 .bind("limit", limit)
-                .bind("offset", offset);
-        return spec.map(this::toRow).all();
+                .bind("offset", offset)
+                .map(this::toRow).all());
     }
 
     public Mono<Long> count(PreAuthorizationFilterParams f) {
@@ -62,10 +73,11 @@ public class PreAuthorizationQueryRepository {
 
         String sql = "SELECT COUNT(*) AS total FROM pre_authorizations pa "
                 + " LEFT JOIN members   m ON m.id = pa.member_id "
-                + " LEFT JOIN providers p ON p.id = pa.provider_id "
+                + PROVIDER_LEFT_JOIN
                 + whereClause(f, hasQ);
-        var spec = bindFilters(db.sql(sql), f, hasQ, search);
-        return spec.map(row -> ((Number) row.get("total")).longValue()).one();
+        return Mono.deferContextual(ctx -> bindFilters(db.sql(sql), f, hasQ, search)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
+                .map(row -> ((Number) row.get("total")).longValue()).one());
     }
 
     private String selectClause() {
@@ -84,7 +96,7 @@ public class PreAuthorizationQueryRepository {
     private String baseFrom() {
         return " FROM pre_authorizations pa "
              + " LEFT JOIN members   m ON m.id = pa.member_id "
-             + " LEFT JOIN providers p ON p.id = pa.provider_id ";
+             + PROVIDER_LEFT_JOIN;
     }
 
     private String whereClause(PreAuthorizationFilterParams f, boolean hasQ) {

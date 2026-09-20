@@ -5,6 +5,7 @@ import com.medfund.finance.repository.BalanceHistoryQueryRepository;
 import com.medfund.finance.repository.MemberBalanceSnapshotRepository;
 import com.medfund.finance.repository.ProviderBalanceSnapshotRepository;
 import com.medfund.shared.report.PerCurrencyTotal;
+import com.medfund.shared.tenant.TenantContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.r2dbc.core.DatabaseClient;
@@ -78,12 +79,24 @@ public class BalanceHistoryService {
                 .defaultIfEmpty(Map.of());
     }
 
+    /**
+     * Providers are platform-scoped, so the name comes out of
+     * {@code public.providers} gated on a {@code public.provider_tenants}
+     * membership row: a provider this tenant has no contract with reads back
+     * as a blank name rather than leaking another tenant's network.
+     */
     private Mono<String> loadProviderName(UUID providerId) {
-        return db.sql("SELECT name FROM providers WHERE id = :id")
+        return Mono.deferContextual(ctx -> db.sql("""
+                        SELECT p.name FROM public.providers p
+                         WHERE p.id = :id
+                           AND EXISTS (SELECT 1 FROM public.provider_tenants pt
+                                        WHERE pt.provider_id = p.id AND pt.tenant_id = :tenantId)
+                        """)
                 .bind("id", providerId)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
                 .map((row, meta) -> row.get("name", String.class))
                 .one()
-                .defaultIfEmpty("");
+                .defaultIfEmpty(""));
     }
 
     private Mono<String> loadMemberName(UUID memberId) {

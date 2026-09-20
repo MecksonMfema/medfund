@@ -56,6 +56,13 @@ class PaymentAdviceServiceTest {
 
     @InjectMocks private PaymentAdviceService service;
 
+    /**
+     * The payee-name lookup now filters public.providers by a
+     * provider_tenants membership row, so the tenant in context has to parse
+     * as a UUID the way a real request's does.
+     */
+    private static final String TENANT = "11111111-1111-1111-1111-111111111111";
+
     @Test
     void generateAdvicesForRun_emptyItems_yieldsNoAdvices() {
         UUID runId = UUID.randomUUID();
@@ -67,7 +74,7 @@ class PaymentAdviceServiceTest {
         when(paymentRunItemRepository.findByPaymentRunId(runId)).thenReturn(Flux.empty());
 
         StepVerifier.create(service.generateAdvicesForRun(runId)
-                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+                .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT)))
             .verifyComplete();
     }
 
@@ -115,7 +122,7 @@ class PaymentAdviceServiceTest {
         when(auditPublisher.publish(any())).thenReturn(Mono.empty());
 
         StepVerifier.create(service.generateAdvicesForRun(runId)
-                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+                .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT)))
             .assertNext(advice -> {
                 assertThat(advice.payeeType()).isEqualTo("PROVIDER");
                 assertThat(advice.providerId()).isEqualTo(providerId);
@@ -198,7 +205,7 @@ class PaymentAdviceServiceTest {
         stubAdviceSaveAndPublish();
 
         StepVerifier.create(service.generateAdvicesForRun(runId)
-                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+                .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT)))
             .assertNext(advice -> assertThat(advice.periodStartAt()).isEqualTo(Instant.EPOCH))
             .verifyComplete();
 
@@ -239,7 +246,7 @@ class PaymentAdviceServiceTest {
         stubAdviceSaveAndPublish();
 
         StepVerifier.create(service.generateAdvicesForRun(runId)
-                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+                .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT)))
             .assertNext(advice -> assertThat(advice.periodStartAt()).isEqualTo(priorBoundary))
             .verifyComplete();
 
@@ -260,7 +267,7 @@ class PaymentAdviceServiceTest {
         when(paymentRunItemRepository.findByPaymentRunId(runId)).thenReturn(Flux.empty());
 
         StepVerifier.create(service.regenerateAdvicesForRun(runId)
-                .contextWrite(ctx -> ctx.put("TENANT_ID", "test-tenant")))
+                .contextWrite(ctx -> ctx.put("TENANT_ID", TENANT)))
             .verifyComplete();
 
         verify(adviceRepository).deleteByPaymentRunId(runId);

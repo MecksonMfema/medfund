@@ -241,11 +241,21 @@ public class PaymentAdviceService {
                 .defaultIfEmpty("");
         }
         if (providerId != null) {
-            return db.sql("SELECT name FROM providers WHERE id = :id")
+            // Platform-scoped provider: qualify public.providers and gate on a
+            // provider_tenants membership row for the current tenant, so an
+            // advice for a provider this tenant no longer contracts with
+            // renders blank rather than leaking another network's name.
+            return Mono.deferContextual(ctx -> db.sql("""
+                        SELECT p.name FROM public.providers p
+                         WHERE p.id = :id
+                           AND EXISTS (SELECT 1 FROM public.provider_tenants pt
+                                        WHERE pt.provider_id = p.id AND pt.tenant_id = :tenantId)
+                        """)
                 .bind("id", providerId)
+                .bind("tenantId", TenantContext.requireUuid(ctx))
                 .map((row, meta) -> row.get("name", String.class))
                 .one()
-                .defaultIfEmpty("");
+                .defaultIfEmpty(""));
         }
         return Mono.just("");
     }
