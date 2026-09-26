@@ -23,11 +23,10 @@ import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import joblib
 import numpy as np
-
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -36,13 +35,11 @@ from sqlalchemy.ext.asyncio import (
 
 from app.core.config import settings
 from app.schemas.insurance_line import InsuranceLine
-
 from scripts._corpus import (
     FRAUD_FEATURE_COLS,
     read_fraud_corpus,
     stratified_split,
 )
-
 
 LOCAL_ARTIFACT_DIR_DEFAULT = Path("app/artifacts")
 EXIT_REGRESSION = 2
@@ -148,7 +145,7 @@ def _regressed(
 def _parse_args() -> EvalArgs:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--line", required=True,
-                        choices=[l.value for l in InsuranceLine])
+                        choices=[line.value for line in InsuranceLine])
     parser.add_argument("--candidate", required=True, help="e.g. 'v2'")
     parser.add_argument("--model-type", choices=["fraud", "pricing"], required=True)
     parser.add_argument("--regression-threshold", type=float, default=0.02,
@@ -194,7 +191,7 @@ def main() -> None:
     candidate_metrics = _eval_fraud(candidate, X, y)
     print(_format_metrics(f"candidate ({args.candidate})", candidate_metrics))
 
-    latest_metrics: Optional[dict[str, float]] = None
+    latest_metrics: dict[str, float] | None = None
     if latest is not None:
         latest_metrics = _eval_fraud(latest, X, y)
         print(_format_metrics("latest", latest_metrics))

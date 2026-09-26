@@ -6,7 +6,6 @@ from typing import Any
 from app.data.code_hints import CodeSuggestion, register
 from app.schemas.insurance_line import InsuranceLine
 
-
 _HINTS: dict[str, list[CodeSuggestion]] = {
     "NATURAL": [
         CodeSuggestion("LIFE-NAT-STD", "Natural cause — standard death benefit",

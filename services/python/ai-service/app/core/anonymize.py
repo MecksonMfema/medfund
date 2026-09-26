@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 # Direct identifiers stripped — they don't help model debugging, and
 # their presence in a compliance query would leak PII across the audit
 # boundary.

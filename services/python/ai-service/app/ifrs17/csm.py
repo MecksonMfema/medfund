@@ -51,8 +51,9 @@ zero — the loss component takes over).
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from decimal import Decimal
-from typing import Mapping, NamedTuple, Sequence
+from typing import NamedTuple
 
 from app.ifrs17.discount_curve import interpolate_spot_rate
 

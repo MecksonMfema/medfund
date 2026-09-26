@@ -31,8 +31,8 @@ What §13 / §14 / §15 refine
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from decimal import Decimal
-from typing import Mapping
 
 from app.ifrs17.discount_curve import discount_factor, interpolate_spot_rate
 from app.ifrs17.types import (

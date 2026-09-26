@@ -20,8 +20,6 @@ them alongside the contribution. {@code model_version} stays at
 
 from __future__ import annotations
 
-from typing import Optional
-
 from fastapi import APIRouter, Depends, Header, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,11 +51,11 @@ class ScoreRequest(BaseModel):
     Every field is optional so a sparse profile still scores.
     """
 
-    member_id: Optional[str] = Field(
+    member_id: str | None = Field(
         None, description="UUID of the policy holder (member, vehicle owner, …)"
     )
     tenant_id: str = Field(..., description="Tenant the policy belongs to")
-    insurance_line: Optional[str] = Field(
+    insurance_line: str | None = Field(
         None,
         description="HEALTH | MOTOR | PROPERTY | LIFE | FUNERAL | ... - picks the line-specific scorer.",
     )
@@ -76,18 +74,18 @@ class ScoreRequest(BaseModel):
     # ── Well-known HEALTH fields (back-compat) ──────────────────────
     # Older callers populate these directly. New callers SHOULD prefer
     # ``attributes``; the scorer reads either path.
-    age: Optional[int] = Field(None)
-    gender: Optional[str] = Field(None)
+    age: int | None = Field(None)
+    gender: str | None = Field(None)
     dependant_count: int = Field(0)
     chronic_condition_count: int = Field(0)
-    smoking_status: Optional[str] = Field(None)
-    bmi: Optional[float] = Field(None)
+    smoking_status: str | None = Field(None)
+    bmi: float | None = Field(None)
     medication_count: int = Field(0)
     # V050 Layer 5: continuous years the member has been enrolled with the
     # tenant. Feeds the model as a risk-reducing signal so long-service
     # seniors can offset an age loading without a dedicated grandfathered
     # rate schema. Fresh joiners send 0; the scorer treats 0 as neutral.
-    tenure_years: Optional[int] = Field(None, ge=0, le=120)
+    tenure_years: int | None = Field(None, ge=0, le=120)
 
 
 class ScoreResponse(BaseModel):
@@ -173,14 +171,14 @@ def _clamp(multiplier: float, rationale: list[str]) -> float:
     return multiplier
 
 
-def _as_int(v) -> Optional[int]:
+def _as_int(v) -> int | None:
     try:
         return int(v) if v is not None else None
     except (TypeError, ValueError):
         return None
 
 
-def _as_float(v) -> Optional[float]:
+def _as_float(v) -> float | None:
     try:
         return float(v) if v is not None else None
     except (TypeError, ValueError):

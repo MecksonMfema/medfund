@@ -28,16 +28,16 @@ import asyncio
 import json
 import random
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Iterable, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import settings
 from app.models.db_models import AIPredictionDB
-
 
 ALLOWED_OUTPUT_KEYS = frozenset({
     "risk_level",
@@ -51,7 +51,7 @@ def _truncate_to_month(dt: datetime | None) -> str | None:
     if dt is None:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
 
 
@@ -79,11 +79,11 @@ def _to_row(pred: AIPredictionDB) -> dict[str, Any]:
 
 @dataclass
 class DumpArgs:
-    output: Optional[str]
+    output: str | None
     limit: int
     seed: int
-    model_type: Optional[str]
-    line: Optional[str]
+    model_type: str | None
+    line: str | None
     labeled_only: bool
 
 
@@ -115,7 +115,7 @@ def _sample(rows: list[AIPredictionDB], *, limit: int, seed: int) -> list[AIPred
     return rng.sample(rows, limit)
 
 
-def _emit(records: Iterable[dict[str, Any]], output: Optional[str]) -> None:
+def _emit(records: Iterable[dict[str, Any]], output: str | None) -> None:
     if output is None or output == "-":
         for r in records:
             sys.stdout.write(json.dumps(r) + "\n")

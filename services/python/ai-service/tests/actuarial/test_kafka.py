@@ -17,7 +17,6 @@ happy-path assertion pins the plan's shape:
 from __future__ import annotations
 
 import asyncio
-import json
 from typing import Any
 
 import pytest
@@ -27,11 +26,10 @@ from app.report.events import TOPIC_COMPLETED
 from app.report.kafka import (
     MODEL_VERSION,
     REJECT_KB,
-    ReportJobRunner,
     PayloadTooLargeError,
+    ReportJobRunner,
     _guard_size,
 )
-
 
 # ── in-memory kafka fakes ────────────────────────────────────────────
 
@@ -63,7 +61,7 @@ class FakeConsumer:
     async def commit(self) -> None:
         self.commits += 1
 
-    def __aiter__(self) -> "FakeConsumer":
+    def __aiter__(self) -> FakeConsumer:
         return self
 
     async def __anext__(self) -> FakeMessage:
@@ -155,7 +153,7 @@ async def _drive(runner: ReportJobRunner) -> None:
         # runner._task is the loop; wait for it to drain the message queue.
         assert runner._task is not None
         await asyncio.wait_for(runner._task, timeout=2.0)
-    except asyncio.TimeoutError:
+    except TimeoutError:
         pytest.fail("runner loop did not drain in 2s")
     finally:
         await runner.stop()

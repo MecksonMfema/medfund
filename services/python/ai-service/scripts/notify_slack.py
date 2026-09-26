@@ -24,7 +24,6 @@ import sys
 import urllib.error
 import urllib.request
 
-
 logger = logging.getLogger(__name__)
 
 

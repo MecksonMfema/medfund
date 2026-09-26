@@ -1,7 +1,8 @@
 """Financial forecasting endpoints."""
+import logging
+
 from fastapi import APIRouter, Header
 from pydantic import BaseModel
-import logging
 
 from app.services.forecasting_service import ForecastingService
 

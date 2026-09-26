@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
@@ -33,7 +32,7 @@ _chatbot = ChatbotService(
 
 class ChatMessage(BaseModel):
     message: str
-    conversation_id: Optional[str] = None
+    conversation_id: str | None = None
     context: dict = {}
 
 

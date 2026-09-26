@@ -1,11 +1,13 @@
 """AI-assisted claims adjudication service with Claude integration."""
 import logging
-from app.models.prediction import AIPrediction
+
 from app.core.gemini_client import GeminiClient
+from app.models.prediction import AIPrediction
 
 logger = logging.getLogger(__name__)
 
-ADJUDICATION_SYSTEM_PROMPT = """You are a healthcare claims adjudication AI assistant. Analyze the claim data and provide a recommendation.
+ADJUDICATION_SYSTEM_PROMPT = """You are a healthcare claims adjudication AI assistant. \
+Analyze the claim data and provide a recommendation.
 
 Respond with a JSON object containing:
 - "recommendation": one of "APPROVE", "REJECT", or "REVIEW"

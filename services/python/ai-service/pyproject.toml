@@ -51,6 +51,17 @@ line-length = 120
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
 
+[tool.ruff.lint.per-file-ignores]
+# ML feature matrices follow the sklearn/numpy convention where a capital `X`
+# is the design matrix (X, X_train, X_scaled) and lowercase `y` the target.
+# Renaming these to satisfy N803/N806 makes the model code read worse, so the
+# exemption is scoped to the model/training modules only, not applied globally.
+"app/services/forecasting_service.py" = ["N806"]
+"app/services/ml_models.py" = ["N806"]
+"scripts/evaluate_model.py" = ["N803", "N806"]
+"scripts/train_fraud.py" = ["N803", "N806"]
+"tests/scripts/test_train_fraud.py" = ["N806"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

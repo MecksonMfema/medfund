@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel, Field
@@ -46,7 +46,7 @@ class AdjudicationRecommendation(BaseModel):
     claim_id: str
     recommendation: str
     confidence: float
-    approved_amount: Optional[float] = None
+    approved_amount: float | None = None
     reasoning: str
     flags: list[str] = []
     model_version: str = "1.0.0"

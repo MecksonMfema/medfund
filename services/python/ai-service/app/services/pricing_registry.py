@@ -18,19 +18,17 @@ import asyncio
 import io
 import logging
 from dataclasses import dataclass
-from typing import Optional, Protocol
+from typing import Protocol
 
 import joblib
 
 from app.core.config import settings
 from app.schemas.insurance_line import InsuranceLine
-
 from scripts._registry import (
     download_artifact,
     load_manifest,
     manifest_key,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +42,7 @@ class PricingModel(Protocol):
 
     model_version: str
 
-    def score(self, req) -> "object":  # ScoreResponse — avoid circular import
+    def score(self, req) -> object:  # ScoreResponse — avoid circular import
         ...
 
 
@@ -95,10 +93,10 @@ class _LoadedEntry:
 
 
 _CACHE: dict[InsuranceLine, _LoadedEntry] = {}
-_RULE_SINGLETON: Optional[RulePricingModel] = None
+_RULE_SINGLETON: RulePricingModel | None = None
 _SCHEMA_MISMATCHES: dict[tuple[str, InsuranceLine], str] = {}
 
-_poll_task: Optional[asyncio.Task] = None
+_poll_task: asyncio.Task | None = None
 
 
 def _rule_model() -> RulePricingModel:
@@ -213,7 +211,7 @@ async def poll_manifest_forever() -> None:
             logger.warning("Pricing registry poll loop error (continuing): %s", e)
 
 
-def start_polling() -> Optional[asyncio.Task]:
+def start_polling() -> asyncio.Task | None:
     global _poll_task
     if _poll_task is not None and not _poll_task.done():
         return _poll_task
@@ -237,11 +235,11 @@ async def stop_polling() -> None:
 
 def schema_mismatch_status(
     model_type: str, line: InsuranceLine,
-) -> Optional[str]:
+) -> str | None:
     return _SCHEMA_MISMATCHES.get((model_type, line))
 
 
-def cached_version(line: InsuranceLine) -> Optional[str]:
+def cached_version(line: InsuranceLine) -> str | None:
     entry = _CACHE.get(line)
     if entry is None or entry.version == _FALLBACK_SENTINEL:
         return None

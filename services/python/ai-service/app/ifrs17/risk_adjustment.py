@@ -35,12 +35,11 @@ accretion — the fields align 1:1, so shaping can pass the same
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping, Sequence
 from decimal import Decimal, getcontext
 from math import erf, sqrt
-from typing import Iterable, Mapping, Sequence
 
 from app.ifrs17.discount_curve import discount_factor, interpolate_spot_rate
-
 
 MODEL_VERSION = "ifrs17-ra-1.0"
 

@@ -55,7 +55,7 @@ async def extract_document(
     )
 
     entity_id = hashlib.sha1(
-        f"{filename}|{len(content)}".encode("utf-8")
+        f"{filename}|{len(content)}".encode()
     ).hexdigest()
     await try_record_ai_prediction(
         session,

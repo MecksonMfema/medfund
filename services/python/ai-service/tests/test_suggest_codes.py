@@ -14,7 +14,6 @@ from app.core.database import Base, get_optional_session
 from app.main import app
 from app.models.db_models import AIPredictionDB
 
-
 TENANT = "00000000-0000-0000-0000-000000000099"
 
 

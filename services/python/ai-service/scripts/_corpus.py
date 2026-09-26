@@ -8,8 +8,6 @@ The label semantics deserve their own docstring — see ``_fraud_label``.
 """
 from __future__ import annotations
 
-from typing import Optional
-
 import numpy as np
 import pandas as pd
 from sqlalchemy import and_, select
@@ -17,7 +15,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.db_models import AIPredictionDB
 from app.schemas.insurance_line import InsuranceLine
-
 
 FRAUD_FEATURE_COLS: list[str] = [
     "amount",
@@ -61,7 +58,7 @@ def _fraud_label(pred: AIPredictionDB) -> int:
 async def read_fraud_corpus(
     session: AsyncSession,
     line: InsuranceLine,
-    limit: Optional[int] = None,
+    limit: int | None = None,
 ) -> pd.DataFrame:
     """Return labeled fraud rows for the given line.
 
@@ -100,7 +97,7 @@ async def read_fraud_corpus(
 async def read_pricing_corpus(
     session: AsyncSession,
     line: InsuranceLine,
-    limit: Optional[int] = None,
+    limit: int | None = None,
 ) -> pd.DataFrame:
     """Return labeled pricing rows: attribute bag + multiplier + acceptance.
 

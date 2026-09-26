@@ -27,20 +27,18 @@ import logging
 import sys
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from aiokafka import AIOKafkaProducer
 
 from app.core.config import settings
 from app.schemas.insurance_line import InsuranceLine
-
 from scripts._registry import (
     active_version,
     artifact_exists,
     promote_manifest_entry,
 )
-
 
 TOPIC_AUDIT_EVENTS = "medfund.audit.events"
 ENTITY_TYPE = "AI_MODEL"
@@ -56,7 +54,7 @@ class PromoteArgs:
     version: str
     actor_id: str
     actor_email: str
-    reason: Optional[str]
+    reason: str | None
     tenant_id: str
     correlation_id: str
 
@@ -66,7 +64,7 @@ def _entity_name(model_type: str, line: InsuranceLine) -> str:
     return f"{model_type} model for {line.value}"
 
 
-def _audit_event(args: PromoteArgs, *, before: Optional[str], after: str) -> dict[str, Any]:
+def _audit_event(args: PromoteArgs, *, before: str | None, after: str) -> dict[str, Any]:
     return {
         "id":            str(uuid.uuid4()),
         "tenantId":      args.tenant_id,
@@ -80,7 +78,7 @@ def _audit_event(args: PromoteArgs, *, before: Optional[str], after: str) -> dic
         "newValue":      {"active_version": after, "reason": args.reason or ""},
         "changedFields": ["active_version"],
         "correlationId": args.correlation_id,
-        "timestamp":     datetime.now(timezone.utc).isoformat(),
+        "timestamp":     datetime.now(UTC).isoformat(),
     }
 
 
@@ -102,7 +100,7 @@ async def _publish(event: dict[str, Any]) -> None:
         await producer.stop()
 
 
-def promote(args: PromoteArgs, *, publish: bool = True) -> tuple[Optional[str], str, dict[str, Any]]:
+def promote(args: PromoteArgs, *, publish: bool = True) -> tuple[str | None, str, dict[str, Any]]:
     """Verify → update manifest → publish audit event.
 
     Returns ``(before, after, event)`` — callers (tests) can inspect the
@@ -126,7 +124,7 @@ def _parse_args(argv: list[str] | None = None) -> PromoteArgs:
     parser.add_argument("--model-type", required=True,
                         choices=["fraud", "pricing"])
     parser.add_argument("--line", required=True,
-                        choices=[l.value for l in InsuranceLine])
+                        choices=[line.value for line in InsuranceLine])
     parser.add_argument("--version", required=True, help="e.g. 'v2'")
     parser.add_argument("--actor-id", required=True)
     parser.add_argument("--actor-email", required=True,

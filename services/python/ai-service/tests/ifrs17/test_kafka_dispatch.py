@@ -37,7 +37,6 @@ from app.report.kafka import (
     _ifrs17_dispatch,
 )
 
-
 # ── fakes ────────────────────────────────────────────────────────────
 
 

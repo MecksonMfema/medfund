@@ -1,27 +1,28 @@
 """MedFund AI Service — FastAPI application."""
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
 import logging
+from contextlib import asynccontextmanager
 
-from app.core.config import settings
-from app.core.gemini_client import GeminiClient
-import app.core.gemini_client as gemini_module
-from app.core.anthropic_client import ClaudeClient
+from fastapi import FastAPI
+
 import app.core.anthropic_client as anthropic_module
-from app.core.database import init_db, close_db
-
-from app.api.health import router as health_router
+import app.core.gemini_client as gemini_module
+from app.actuarial.chain_ladder import TriangleInput
+from app.actuarial.chain_ladder import compute as chain_ladder_compute
+from app.api.actuarial import router as actuarial_router
 from app.api.adjudication import router as adjudication_router
-from app.api.fraud import router as fraud_router
-from app.api.ocr import router as ocr_router
+from app.api.analytics import router as analytics_router
 from app.api.chatbot import router as chatbot_router
 from app.api.forecasting import router as forecasting_router
-from app.api.analytics import router as analytics_router
-from app.api.pricing import router as pricing_router
-from app.api.actuarial import router as actuarial_router
-from app.api.predictions import router as predictions_router
+from app.api.fraud import router as fraud_router
+from app.api.health import router as health_router
 from app.api.models import router as models_router
-from app.actuarial.chain_ladder import TriangleInput, compute as chain_ladder_compute
+from app.api.ocr import router as ocr_router
+from app.api.predictions import router as predictions_router
+from app.api.pricing import router as pricing_router
+from app.core.anthropic_client import ClaudeClient
+from app.core.config import settings
+from app.core.database import close_db, init_db
+from app.core.gemini_client import GeminiClient
 from app.report.kafka import ReportJobRunner
 from app.services.fraud_registry import start_polling as start_fraud_poll
 from app.services.fraud_registry import stop_polling as stop_fraud_poll

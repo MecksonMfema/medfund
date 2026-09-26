@@ -25,20 +25,17 @@ import asyncio
 import io
 import logging
 from dataclasses import dataclass
-from typing import Optional
 
 import joblib
 
 from app.core.config import settings
 from app.schemas.insurance_line import InsuranceLine
 from app.services.ml_models import FraudMLModel
-
 from scripts._registry import (
     download_artifact,
     load_manifest,
     manifest_key,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +50,10 @@ class _LoadedEntry:
 
 
 _CACHE: dict[InsuranceLine, _LoadedEntry] = {}
-_FALLBACK: Optional[FraudMLModel] = None
+_FALLBACK: FraudMLModel | None = None
 _SCHEMA_MISMATCHES: dict[tuple[str, InsuranceLine], str] = {}
 
-_poll_task: Optional[asyncio.Task] = None
+_poll_task: asyncio.Task | None = None
 
 
 def _get_fallback() -> FraudMLModel:
@@ -205,7 +202,7 @@ async def poll_manifest_forever() -> None:
             logger.warning("Fraud registry poll loop error (continuing): %s", e)
 
 
-def start_polling() -> Optional[asyncio.Task]:
+def start_polling() -> asyncio.Task | None:
     """Spawn the background poll task on the current event loop."""
     global _poll_task
     if _poll_task is not None and not _poll_task.done():
@@ -231,13 +228,13 @@ async def stop_polling() -> None:
 
 def schema_mismatch_status(
     model_type: str, line: InsuranceLine,
-) -> Optional[str]:
+) -> str | None:
     """Return a short reason string if the last load for this (type, line)
     hit a SCHEMA_MISMATCH; otherwise None. Consumed by Phase 5."""
     return _SCHEMA_MISMATCHES.get((model_type, line))
 
 
-def cached_version(line: InsuranceLine) -> Optional[str]:
+def cached_version(line: InsuranceLine) -> str | None:
     """The concrete version string currently serving ``line`` (or None
     when the fallback is active / the line hasn't been resolved yet).
     Used by Phase 5 admin surface."""

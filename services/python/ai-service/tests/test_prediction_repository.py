@@ -1,8 +1,9 @@
 """Tests for prediction repository with in-memory SQLite."""
 import pytest
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.core.database import Base
-from app.models.db_models import AIPredictionDB, ConversationMessage
+from app.models.db_models import AIPredictionDB
 from app.services import prediction_repository as repo
 
 

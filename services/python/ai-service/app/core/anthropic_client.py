@@ -7,7 +7,6 @@ swap is a config change, not a code change.
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +46,7 @@ class ClaudeClient:
         messages: list[dict],
         max_tokens: int = 1024,
         model: str = "",
-    ) -> Optional[str]:
+    ) -> str | None:
         if not self._available:
             return None
         try:
@@ -67,7 +66,7 @@ class ClaudeClient:
         system_prompt: str,
         messages: list[dict],
         max_tokens: int = 1024,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         import json
 
         text = await self.complete(

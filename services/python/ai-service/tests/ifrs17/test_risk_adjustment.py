@@ -30,7 +30,6 @@ from app.ifrs17.risk_adjustment import (
     compute_coc,
 )
 
-
 # ── CoC RA ───────────────────────────────────────────────────────────
 
 

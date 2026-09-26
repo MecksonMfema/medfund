@@ -27,8 +27,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Any, Callable
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any
 
 from app.actuarial.chain_ladder import ChainLadderResult, TriangleInput, compute
 from app.actuarial.lapse import compute_from_dict as compute_lapse
@@ -362,7 +363,7 @@ def _guard_size(payload: dict[str, Any]) -> None:
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 __all__ = [

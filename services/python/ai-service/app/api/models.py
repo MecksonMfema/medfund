@@ -21,30 +21,32 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
-from fastapi import APIRouter, HTTPException, Header, status
+from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.schemas.insurance_line import InsuranceLine
 from app.services.fraud_registry import (
     refresh_from_manifest as fraud_refresh,
+)
+from app.services.fraud_registry import (
     schema_mismatch_status as fraud_schema_status,
 )
 from app.services.pricing_registry import (
     refresh_from_manifest as pricing_refresh,
+)
+from app.services.pricing_registry import (
     schema_mismatch_status as pricing_schema_status,
 )
-
 from scripts._registry import (
     active_version,
     artifact_exists,
     download_metadata,
     promote_manifest_entry,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +65,7 @@ RULE_PRICING_VERSION = "rule-v1"
 class ActiveModel(BaseModel):
     model_type: str
     line: str
-    active_version: Optional[str] = Field(
+    active_version: str | None = Field(
         None,
         description="MinIO version string when a trained artifact is live; "
                     "None for canonical / rule fallback.",
@@ -75,7 +77,7 @@ class ActiveModel(BaseModel):
                     "'fraud-isolation-forest-v1-canonical').",
     )
     is_fallback: bool
-    trained_at: Optional[str] = None
+    trained_at: str | None = None
     train_samples: int = 0
     metrics: dict[str, Any] = Field(default_factory=dict)
     schema_status: str = Field(
@@ -84,7 +86,7 @@ class ActiveModel(BaseModel):
                     "canonical_features_schema doesn't match the runtime "
                     "extractor's; runtime silently falls back to canonical.",
     )
-    schema_status_detail: Optional[str] = None
+    schema_status_detail: str | None = None
 
 
 class PromoteRequest(BaseModel):
@@ -94,18 +96,18 @@ class PromoteRequest(BaseModel):
 class PromoteResponse(BaseModel):
     model_type: str
     line: str
-    before: Optional[str]
+    before: str | None
     after: str
     audit_event_id: str
 
 
-def _parse_permissions(header_value: Optional[str]) -> set[str]:
+def _parse_permissions(header_value: str | None) -> set[str]:
     if not header_value:
         return set()
     return {p.strip() for p in header_value.split(",") if p.strip()}
 
 
-def _require_promote_permission(x_user_permissions: Optional[str]) -> None:
+def _require_promote_permission(x_user_permissions: str | None) -> None:
     perms = _parse_permissions(x_user_permissions)
     if AI_MODELS_PROMOTE not in perms:
         raise HTTPException(
@@ -138,7 +140,7 @@ def _fallback_version_for(model_type: str) -> str:
     return RULE_PRICING_VERSION
 
 
-def _schema_status_for(model_type: str, line: InsuranceLine) -> tuple[str, Optional[str]]:
+def _schema_status_for(model_type: str, line: InsuranceLine) -> tuple[str, str | None]:
     if model_type == "fraud":
         detail = fraud_schema_status(model_type, line)
     else:
@@ -209,10 +211,10 @@ async def promote_model(
     model_type: str,
     line: str,
     request: PromoteRequest,
-    x_actor_id: Optional[str] = Header(None, alias="X-Actor-ID"),
-    x_actor_email: Optional[str] = Header(None, alias="X-Actor-Email"),
-    x_tenant_id: Optional[str] = Header(None, alias="X-Tenant-ID"),
-    x_user_permissions: Optional[str] = Header(None, alias="X-User-Permissions"),
+    x_actor_id: str | None = Header(None, alias="X-Actor-ID"),
+    x_actor_email: str | None = Header(None, alias="X-Actor-Email"),
+    x_tenant_id: str | None = Header(None, alias="X-Tenant-ID"),
+    x_user_permissions: str | None = Header(None, alias="X-User-Permissions"),
 ) -> PromoteResponse:
     """Flip the MinIO manifest for (model_type, line) to point at ``version``.
 
@@ -291,7 +293,7 @@ def _build_audit_event(
     *,
     actor_id: str, actor_email: str, tenant_id: str,
     model_type: str, line: InsuranceLine,
-    before: Optional[str], after: str,
+    before: str | None, after: str,
 ) -> dict[str, Any]:
     return {
         "id":            str(uuid.uuid4()),
@@ -306,7 +308,7 @@ def _build_audit_event(
         "newValue":      {"active_version": after},
         "changedFields": ["active_version"],
         "correlationId": str(uuid.uuid4()),
-        "timestamp":     datetime.now(timezone.utc).isoformat(),
+        "timestamp":     datetime.now(UTC).isoformat(),
     }
 
 

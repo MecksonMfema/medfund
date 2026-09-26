@@ -35,7 +35,6 @@ from __future__ import annotations
 import io
 import logging
 import os
-from typing import Optional
 
 from minio import Minio
 from minio.error import S3Error
@@ -47,7 +46,7 @@ SIZE_LIMIT = 900 * 1024
 
 DEFAULT_BUCKET = "medfund-report-payloads"
 
-_client: Optional[Minio] = None
+_client: Minio | None = None
 
 
 def _bucket() -> str:
@@ -80,17 +79,17 @@ def _reset_client_for_tests() -> None:
     _client = None
 
 
-def maybe_upload_input(job_id: str, chunk_id: str, payload_bytes: bytes) -> Optional[str]:
+def maybe_upload_input(job_id: str, chunk_id: str, payload_bytes: bytes) -> str | None:
     """Upload chunk-request payload to MinIO if oversize; return ref or None."""
     return _maybe_upload(job_id, chunk_id, payload_bytes, "input")
 
 
-def maybe_upload_result(job_id: str, chunk_id: str, payload_bytes: bytes) -> Optional[str]:
+def maybe_upload_result(job_id: str, chunk_id: str, payload_bytes: bytes) -> str | None:
     """Upload chunk-result payload to MinIO if oversize; return ref or None."""
     return _maybe_upload(job_id, chunk_id, payload_bytes, "result")
 
 
-def _maybe_upload(job_id: str, chunk_id: str, payload_bytes: bytes, kind: str) -> Optional[str]:
+def _maybe_upload(job_id: str, chunk_id: str, payload_bytes: bytes, kind: str) -> str | None:
     size = len(payload_bytes)
     if SIZE_WARN < size <= SIZE_LIMIT:
         log.warning(

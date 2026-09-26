@@ -11,14 +11,13 @@ Covers:
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
 from app.models.db_models import AIPredictionDB
 from scripts import _audit_gate
 from scripts.dump_corpus_sample import _filter_output, _to_row, _truncate_to_month
-
 
 # ── Audit gate ──────────────────────────────────────────────────────────────
 
@@ -106,8 +105,8 @@ def test_to_row_drops_reviewer_identity_and_input_features():
         accepted=True,
         reviewed_by="user-1",
         reviewed_by_email="reviewer@example.com",
-        reviewed_at=datetime(2026, 3, 15, tzinfo=timezone.utc),
-        created_at=datetime(2026, 3, 15, 14, 22, 33, tzinfo=timezone.utc),
+        reviewed_at=datetime(2026, 3, 15, tzinfo=UTC),
+        created_at=datetime(2026, 3, 15, 14, 22, 33, tzinfo=UTC),
     )
     row = _to_row(pred)
     assert row["tenant_id"] == "tenant-A"

@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import (
@@ -26,7 +26,6 @@ from sqlalchemy.ext.asyncio import (
 from app.core.config import settings
 from app.models.db_models import AIPredictionDB
 from app.schemas.insurance_line import InsuranceLine
-
 
 MIN_FRAUD_SAMPLES_DEFAULT = 200
 MIN_PRICING_SAMPLES_DEFAULT = 500

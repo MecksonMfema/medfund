@@ -39,7 +39,7 @@ reason — no ledger movement fires.
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 # Public transition reason strings — the auto-transition endpoint audit
 # log discriminator. Kept as constants so callers don't string-fumble.
@@ -65,7 +65,7 @@ class OnerousTestResult(NamedTuple):
 
     is_now_onerous: bool
     transition_reason: str
-    loss_component_amount: Optional[Decimal]
+    loss_component_amount: Decimal | None
 
 
 def test_onerous(

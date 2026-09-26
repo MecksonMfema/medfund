@@ -1,5 +1,6 @@
 """Anomaly detection in financial transactions."""
 import logging
+
 import numpy as np
 from sklearn.ensemble import IsolationForest
 

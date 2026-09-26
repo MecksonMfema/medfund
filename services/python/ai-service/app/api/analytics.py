@@ -1,7 +1,8 @@
 """Analytics endpoints — anomaly detection, provider intelligence."""
+import logging
+
 from fastapi import APIRouter, Header
 from pydantic import BaseModel
-import logging
 
 from app.services.anomaly_service import AnomalyService
 

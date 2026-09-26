@@ -9,8 +9,9 @@ triggers `_load_all()` which pulls every per-line module.
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from app.schemas.insurance_line import InsuranceLine
 

@@ -20,7 +20,6 @@ from app.ifrs17.coverage_units import (
     registered_patterns,
 )
 
-
 # ── registry stability ──────────────────────────────────────────────
 
 

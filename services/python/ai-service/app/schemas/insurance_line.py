@@ -1,10 +1,10 @@
 """Insurance line enum mirroring services/java/shared/.../InsuranceLine.java."""
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 
-class InsuranceLine(str, Enum):
+class InsuranceLine(StrEnum):
     HEALTH = "HEALTH"
     LIFE = "LIFE"
     FUNERAL = "FUNERAL"

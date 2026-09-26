@@ -18,7 +18,6 @@ import pytest
 
 from app.ifrs17.discount_curve import discount_factor, interpolate_spot_rate
 
-
 # ── interpolate_spot_rate ────────────────────────────────────────────
 
 

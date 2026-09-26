@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import io
-import json
-from typing import Any
 
 import joblib
 import numpy as np
@@ -15,7 +13,6 @@ from sklearn.preprocessing import StandardScaler
 
 from app.core.config import settings
 from app.schemas.insurance_line import InsuranceLine
-
 from scripts import _registry, promote_model, train_fraud
 from scripts._corpus import FRAUD_FEATURE_COLS
 from tests.scripts._fake_minio import FakeMinioClient

@@ -25,7 +25,6 @@ from typing import Any
 from app.schemas.fraud import FraudCheckRequest
 from app.schemas.insurance_line import InsuranceLine
 
-
 # Per-line "typical claim amount" thresholds for the high_value_claim
 # indicator. Rough starter values; tenants can tune later via a settings
 # surface (Tranche 2 follow-up).
@@ -233,7 +232,7 @@ class GroupExtractor(FeatureExtractor):
     features with the raw line_features bag echoed.
     """
 
-    def __init__(self, registry: "ExtractorRegistry") -> None:
+    def __init__(self, registry: ExtractorRegistry) -> None:
         self._registry = registry
 
     async def extract(self, req, tenant_id, ctx):

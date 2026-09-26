@@ -142,8 +142,8 @@ async def test_life_early_policy_claim_indicator(registry):
 def test_fraud_module_does_not_import_random():
     """Guard against regression: no randomness in fraud path."""
     import app.api.fraud as fraud_module
-    import app.services.fraud_service as service_module
     import app.services.feature_extractors as extractors_module
+    import app.services.fraud_service as service_module
 
     for mod in (fraud_module, service_module, extractors_module):
         assert not hasattr(mod, "random") or getattr(mod, "random", None) is None, (

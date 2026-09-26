@@ -29,8 +29,8 @@ not the binary-lossy ``Decimal('0.05000000000000000277…')``.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from decimal import Decimal, getcontext
-from typing import Iterable, Mapping
 
 
 def _to_decimal(value: object) -> Decimal:

@@ -1,10 +1,12 @@
 """Repository for AI prediction persistence."""
 import logging
+from datetime import UTC, datetime
 from typing import Any
-from sqlalchemy.ext.asyncio import AsyncSession
+
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.db_models import AIPredictionDB, ConversationMessage
-from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +117,7 @@ async def record_human_decision(
     if prediction:
         prediction.accepted = decision
         prediction.reviewed_by = decided_by
-        prediction.reviewed_at = datetime.now(timezone.utc)
+        prediction.reviewed_at = datetime.now(UTC)
         await session.commit()
         await session.refresh(prediction)
     return prediction

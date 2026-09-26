@@ -23,7 +23,6 @@ from app.services.pricing_registry import (
     resolve_pricing_model,
     schema_mismatch_status,
 )
-
 from scripts import _registry
 from tests.scripts._fake_minio import FakeMinioClient
 

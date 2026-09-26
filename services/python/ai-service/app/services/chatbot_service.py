@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Any, Callable, Iterable
+from collections.abc import Callable, Iterable
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -250,10 +251,10 @@ def _cite_line(portfolio: MemberPolicyPortfolio, line: str) -> str | None:
             f"used {h.used_ytd:.2f} {h.currency}). Dependants covered: {h.dependants_count}."
         )
     if line == "life" and portfolio.life is not None:
-        l = portfolio.life
+        life = portfolio.life
         return (
-            f"Your life cover has a sum assured of {l.sum_assured:.2f} {l.currency} "
-            f"with {l.beneficiary_count} beneficiary(ies). Premium status: {l.premium_status}."
+            f"Your life cover has a sum assured of {life.sum_assured:.2f} {life.currency} "
+            f"with {life.beneficiary_count} beneficiary(ies). Premium status: {life.premium_status}."
         )
     if line == "funeral" and portfolio.funeral is not None:
         f = portfolio.funeral
@@ -336,10 +337,10 @@ def _portfolio_lines(portfolio: MemberPolicyPortfolio) -> str:
             f" dependants={h.dependants_count}"
         )
     if portfolio.life is not None:
-        l = portfolio.life
+        life = portfolio.life
         lines.append(
-            f"LIFE sum_assured={l.sum_assured:.2f} {l.currency}"
-            f" beneficiaries={l.beneficiary_count} premium_status={l.premium_status}"
+            f"LIFE sum_assured={life.sum_assured:.2f} {life.currency}"
+            f" beneficiaries={life.beneficiary_count} premium_status={life.premium_status}"
         )
     if portfolio.funeral is not None:
         f = portfolio.funeral

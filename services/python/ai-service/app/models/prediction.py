@@ -1,7 +1,7 @@
-from pydantic import BaseModel
-from typing import Optional
-from datetime import datetime
 import uuid
+from datetime import datetime
+
+from pydantic import BaseModel
 
 
 class AIPrediction(BaseModel):
@@ -14,9 +14,9 @@ class AIPrediction(BaseModel):
     input_features: dict = {}
     output: dict = {}
     confidence: float
-    accepted: Optional[bool] = None
-    reviewed_by: Optional[str] = None
-    reviewed_at: Optional[datetime] = None
+    accepted: bool | None = None
+    reviewed_by: str | None = None
+    reviewed_at: datetime | None = None
     created_at: datetime = datetime.now(tz=__import__('datetime').timezone.utc)
 
     def __init__(self, **data):

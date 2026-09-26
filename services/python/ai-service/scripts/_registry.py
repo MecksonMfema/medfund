@@ -24,7 +24,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from minio import Minio
 from minio.error import S3Error
@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 MANIFEST_MISSING_SENTINEL = "__no_manifest__"
 
-_client: Optional[Minio] = None
+_client: Minio | None = None
 
 
 def _ml_client() -> Minio:
@@ -194,14 +194,14 @@ def manifest_key(model_type: str, line: InsuranceLine | str) -> str:
     return f"{model_type}/{line_value}"
 
 
-def active_version(model_type: str, line: InsuranceLine) -> Optional[str]:
+def active_version(model_type: str, line: InsuranceLine) -> str | None:
     """Return the manifest's currently-active version for a (model_type, line)."""
     return load_manifest().get(manifest_key(model_type, line))
 
 
 def promote_manifest_entry(
     model_type: str, line: InsuranceLine, version: str,
-) -> tuple[Optional[str], str]:
+) -> tuple[str | None, str]:
     """Update the manifest atomically. Returns ``(before, after)``.
 
     ``before`` is ``None`` when no version was previously active for this

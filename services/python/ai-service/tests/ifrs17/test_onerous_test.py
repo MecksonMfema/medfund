@@ -25,7 +25,6 @@ from app.ifrs17.onerous_test import (
     test_onerous,
 )
 
-
 # ── core scenarios ──────────────────────────────────────────────────
 
 

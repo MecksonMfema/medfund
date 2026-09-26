@@ -9,10 +9,8 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.schemas.insurance_line import InsuranceLine
 from app.services import fraud_registry, pricing_registry
-
 from scripts import _registry, train_fraud
 from tests.scripts._fake_minio import FakeMinioClient
-
 
 TENANT = "00000000-0000-0000-0000-000000000099"
 ACTOR = "user-1"
@@ -125,6 +123,7 @@ def test_list_reflects_active_trained_artifact(client):
 def test_list_flags_schema_mismatch(client, monkeypatch):
     # Seed an artifact whose schema doesn't match runtime.
     import io
+
     import joblib
     _seed_fraud_artifact(InsuranceLine.HEALTH, "v99")
     _registry.promote_manifest_entry("fraud", InsuranceLine.HEALTH, "v99")

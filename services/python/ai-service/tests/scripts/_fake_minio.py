@@ -15,7 +15,7 @@ from typing import Any
 from minio.error import S3Error
 
 
-class _NoSuchKey(S3Error):
+class _NoSuchKeyError(S3Error):
     def __init__(self, key: str) -> None:
         # Bypass the S3Error __init__ signature — the tests only inspect .code.
         Exception.__init__(self, f"NoSuchKey: {key}")
@@ -67,12 +67,12 @@ class FakeMinioClient:
     def get_object(self, bucket: str, key: str) -> _Response:
         stored = self.objects.get((bucket, key))
         if stored is None:
-            raise _NoSuchKey(key)
+            raise _NoSuchKeyError(key)
         return _Response(payload=stored.data)
 
     def stat_object(self, bucket: str, key: str) -> Any:
         if (bucket, key) not in self.objects:
-            raise _NoSuchKey(key)
+            raise _NoSuchKeyError(key)
         return object()
 
     def remove_object(self, bucket: str, key: str) -> None:

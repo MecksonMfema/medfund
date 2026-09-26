@@ -1,8 +1,7 @@
 """Phase 1 unit tests — corpus reader label semantics + split + sufficiency."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pandas as pd
@@ -16,7 +15,6 @@ from sqlalchemy.ext.asyncio import (
 from app.core.database import Base
 from app.models.db_models import AIPredictionDB
 from app.schemas.insurance_line import InsuranceLine
-
 from scripts._corpus import (
     _fraud_label,
     positive_class_fraction,
@@ -24,7 +22,6 @@ from scripts._corpus import (
     stratified_split,
 )
 from scripts.data_sufficiency import report
-
 
 TENANT = "00000000-0000-0000-0000-00000000000a"
 
@@ -65,7 +62,7 @@ async def _seed_fraud(
             },
             confidence=0.7,
             accepted=accepted,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         )
         session.add(row)
         await session.commit()

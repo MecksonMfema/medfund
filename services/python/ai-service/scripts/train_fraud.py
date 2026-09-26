@@ -31,7 +31,7 @@ import io
 import json
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import joblib
@@ -40,7 +40,6 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import precision_score, recall_score, roc_auc_score
 from sklearn.preprocessing import StandardScaler
-
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -49,7 +48,6 @@ from sqlalchemy.ext.asyncio import (
 
 from app.core.config import settings
 from app.schemas.insurance_line import InsuranceLine
-
 from scripts._audit_gate import require_training_audit_signoff
 from scripts._corpus import (
     FRAUD_FEATURE_COLS,
@@ -57,7 +55,6 @@ from scripts._corpus import (
     stratified_split,
 )
 from scripts._registry import ArtifactUpload, upload_artifact
-
 
 DEFAULT_MIN_SAMPLES = 200
 EXIT_INSUFFICIENT_DATA = 1
@@ -192,7 +189,7 @@ def train(args: TrainerArgs, frame) -> TrainingResult:
         "model_version":              model_version,
         "line":                       args.line.value,
         "model_type":                 "fraud",
-        "trained_at":                 datetime.now(timezone.utc).isoformat(),
+        "trained_at":                 datetime.now(UTC).isoformat(),
         "seed":                       args.seed,
         "feature_names":              FRAUD_FEATURE_COLS,
         "canonical_features_schema":  settings.canonical_features_schema_version,
@@ -237,7 +234,7 @@ def run_training(args: TrainerArgs) -> TrainingResult:
 def _parse_args(argv: list[str] | None = None) -> TrainerArgs:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--line", required=True,
-                        choices=[l.value for l in InsuranceLine])
+                        choices=[line.value for line in InsuranceLine])
     parser.add_argument("--output-version", required=True, help="e.g. 'v2'")
     parser.add_argument("--min-samples", type=int, default=DEFAULT_MIN_SAMPLES)
     parser.add_argument("--seed", type=int, default=42)

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 from uuid import uuid4
 
 import pytest
@@ -16,7 +15,6 @@ from sqlalchemy.ext.asyncio import (
 from app.core.database import Base, get_optional_session
 from app.main import app
 from app.models.db_models import AIPredictionDB
-
 
 TENANT_A = "00000000-0000-0000-0000-00000000000a"
 TENANT_B = "00000000-0000-0000-0000-00000000000b"
@@ -86,9 +84,9 @@ async def test_list_predictions_tenant_scoped(client, review_session_factory):
 ])
 async def test_list_predictions_filter_by_line(client, review_session_factory, line):
     # Seed one row per line for tenant A
-    for l in ("HEALTH", "LIFE", "FUNERAL", "GROUP",
-              "TRAVEL", "DISABILITY", "VEHICLE", "PROPERTY"):
-        await _seed(review_session_factory, insurance_line=l)
+    for line in ("HEALTH", "LIFE", "FUNERAL", "GROUP",
+                 "TRAVEL", "DISABILITY", "VEHICLE", "PROPERTY"):
+        await _seed(review_session_factory, insurance_line=line)
 
     r = client.get(
         f"/api/v1/ai/predictions?insurance_line={line}",
@@ -236,7 +234,7 @@ async def _seed_fraud(
     factory,
     tenant_id: str = TENANT_A,
     risk_level: str = "HIGH",
-    accepted: Optional[bool] = None,
+    accepted: bool | None = None,
     insurance_line: str = "HEALTH",
 ) -> AIPredictionDB:
     return await _seed(

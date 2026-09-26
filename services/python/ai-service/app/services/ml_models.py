@@ -19,7 +19,7 @@ contract so ``FraudService`` doesn't care which one it's holding.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 from sklearn.calibration import CalibratedClassifierCV
@@ -49,17 +49,17 @@ class FraudMLModel:
         seed: int = 42,
         *,
         line: InsuranceLine | None = None,
-        artifact: Optional[dict[str, Any]] = None,
+        artifact: dict[str, Any] | None = None,
     ):
         self.line = line
-        self._artifact_scaler: Optional[StandardScaler] = None
-        self._calibrator: Optional[CalibratedClassifierCV] = None
-        self._classifier: Optional[RandomForestClassifier] = None
-        self._feature_names: Optional[list[str]] = None
-        self.canonical_features_schema: Optional[str] = None
+        self._artifact_scaler: StandardScaler | None = None
+        self._calibrator: CalibratedClassifierCV | None = None
+        self._classifier: RandomForestClassifier | None = None
+        self._feature_names: list[str] | None = None
+        self.canonical_features_schema: str | None = None
 
-        self._isolation_forest: Optional[IsolationForest] = None
-        self._scaler: Optional[StandardScaler] = None
+        self._isolation_forest: IsolationForest | None = None
+        self._scaler: StandardScaler | None = None
         self._trained = False
 
         if artifact is not None:

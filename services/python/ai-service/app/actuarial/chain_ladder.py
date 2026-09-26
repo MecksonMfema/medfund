@@ -36,7 +36,7 @@ class TriangleInput(BaseModel):
     insurance_line: str
 
     @model_validator(mode="after")
-    def _check_shape(self) -> "TriangleInput":
+    def _check_shape(self) -> TriangleInput:
         n_acc = len(self.accident_periods)
         n_dev = len(self.development_periods)
         if len(self.cells) != n_acc:

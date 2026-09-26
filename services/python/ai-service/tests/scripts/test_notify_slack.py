@@ -1,7 +1,6 @@
 """Phase 6 tests — notify_slack helper."""
 from __future__ import annotations
 
-import io
 import json
 
 from scripts import notify_slack

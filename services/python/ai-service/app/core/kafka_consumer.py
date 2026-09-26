@@ -2,7 +2,7 @@
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -123,7 +123,7 @@ class ClaimsEventConsumer:
         policy applies) so a dropped envelope degrades gracefully.
         """
         try:
-            now = datetime.now(timezone.utc).isoformat()
+            now = datetime.now(UTC).isoformat()
             await self.fraud_producer.publish_fraud_flagged({
                 "eventType": "FRAUD_FLAG_EMITTED",
                 "eventId": str(uuid4()),

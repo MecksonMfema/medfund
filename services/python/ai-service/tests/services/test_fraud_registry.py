@@ -19,10 +19,8 @@ from app.services.fraud_registry import (
     schema_mismatch_status,
 )
 from app.services.ml_models import CANONICAL_FALLBACK_VERSION
-
 from scripts import _registry, train_fraud
 from tests.scripts._fake_minio import FakeMinioClient
-
 
 # ── Fixtures ────────────────────────────────────────────────────────────
 
@@ -278,19 +276,23 @@ def test_refresh_from_manifest_swallows_read_errors(fake_minio, monkeypatch):
 @pytest.mark.parametrize("line", list(InsuranceLine))
 def test_fraud_service_uses_line_resolved_model(fake_minio, line):
     """Every line resolves through the registry and returns *some* model."""
+    from uuid import uuid4
+
     from app.schemas.fraud import FraudCheckRequest
     from app.services.fraud_service import FraudService
-    from uuid import uuid4
 
     lf_by_line: dict[InsuranceLine, dict] = {
         InsuranceLine.HEALTH:     {"diagnosis_codes": ["K35"], "procedure_codes": ["23410"]},
-        InsuranceLine.VEHICLE:    {"damage_type": "collision", "part_codes": ["A"], "cause_of_loss": "collision", "odometer_km": 12000},
+        InsuranceLine.VEHICLE:    {"damage_type": "collision", "part_codes": ["A"],
+                                   "cause_of_loss": "collision", "odometer_km": 12000},
         InsuranceLine.PROPERTY:   {"damage_type": "fire", "peril": "fire", "repair_category": "structural"},
         InsuranceLine.LIFE:       {"benefit_type": "NATURAL", "cause": "myocardial_infarction"},
         InsuranceLine.FUNERAL:    {"benefit_tier": "STANDARD", "deceased_relationship": "self"},
         InsuranceLine.DISABILITY: {"benefit_type": "TOTAL", "cause": "injury", "waiting_period_days": 30},
-        InsuranceLine.TRAVEL:     {"coverage_category": "STANDARD", "destination_country": "ZA", "trip_duration_days": 7},
-        InsuranceLine.GROUP:      {"underlying_line": "HEALTH", "diagnosis_codes": ["K35"], "procedure_codes": ["23410"]},
+        InsuranceLine.TRAVEL:     {"coverage_category": "STANDARD", "destination_country": "ZA",
+                                   "trip_duration_days": 7},
+        InsuranceLine.GROUP:      {"underlying_line": "HEALTH", "diagnosis_codes": ["K35"],
+                                   "procedure_codes": ["23410"]},
     }
     request = FraudCheckRequest(
         claim_id=uuid4(), insurance_line=line, subject_id=uuid4(),
@@ -311,9 +313,10 @@ def test_fraud_service_uses_line_resolved_model(fake_minio, line):
 def test_fraud_service_returns_trained_version_for_seeded_line(
     fake_minio, sample_frame,
 ):
+    from uuid import uuid4
+
     from app.schemas.fraud import FraudCheckRequest
     from app.services.fraud_service import FraudService
-    from uuid import uuid4
 
     _seed_trained_artifact(InsuranceLine.HEALTH, "v2", sample_frame)
     _registry.promote_manifest_entry("fraud", InsuranceLine.HEALTH, "v2")

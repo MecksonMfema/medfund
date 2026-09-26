@@ -17,7 +17,6 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-import pytest
 import yaml
 
 from app.ifrs17 import gmm

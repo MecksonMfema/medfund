@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 import random
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
@@ -28,17 +27,17 @@ router = APIRouter(prefix="/api/v1/ai/predictions", tags=["AI Predictions"])
 class PredictionRow(BaseModel):
     id: str
     tenant_id: str
-    insurance_line: Optional[str] = None
+    insurance_line: str | None = None
     entity_type: str
     entity_id: str
     prediction_type: str
     model_version: str
-    confidence: Optional[float] = None
-    accepted: Optional[bool] = None
-    reviewed_by: Optional[str] = None
-    reviewed_by_email: Optional[str] = None
-    reviewed_at: Optional[datetime] = None
-    created_at: Optional[datetime] = None
+    confidence: float | None = None
+    accepted: bool | None = None
+    reviewed_by: str | None = None
+    reviewed_by_email: str | None = None
+    reviewed_at: datetime | None = None
+    created_at: datetime | None = None
 
 
 class PredictionDetail(PredictionRow):
@@ -97,11 +96,11 @@ def _require_session(session: AsyncSession | None) -> AsyncSession:
 @router.get("", response_model=PredictionPage)
 async def list_predictions(
     x_tenant_id: str = Header(..., alias="X-Tenant-ID"),
-    insurance_line: Optional[InsuranceLine] = Query(None),
-    entity_type: Optional[str] = Query(None),
-    prediction_type: Optional[str] = Query(None),
-    model_version: Optional[str] = Query(None),
-    accepted: Optional[bool] = Query(None),
+    insurance_line: InsuranceLine | None = Query(None),
+    entity_type: str | None = Query(None),
+    prediction_type: str | None = Query(None),
+    model_version: str | None = Query(None),
+    accepted: bool | None = Query(None),
     page: int = Query(0, ge=0),
     size: int = Query(50, ge=1, le=500),
     session: AsyncSession | None = Depends(get_optional_session),
@@ -165,8 +164,8 @@ async def review_queue(
     x_tenant_id: str = Header(..., alias="X-Tenant-ID"),
     size: int = Query(20, ge=1, le=200),
     model_type: str = Query("fraud", description="Prediction type to sample from"),
-    insurance_line: Optional[InsuranceLine] = Query(None),
-    seed: Optional[int] = Query(None, description="Deterministic sampling for tests"),
+    insurance_line: InsuranceLine | None = Query(None),
+    seed: int | None = Query(None, description="Deterministic sampling for tests"),
     session: AsyncSession | None = Depends(get_optional_session),
 ) -> ReviewQueueBatch:
     """Stratified 50/50 HIGH/LOW random sample of unreviewed predictions.

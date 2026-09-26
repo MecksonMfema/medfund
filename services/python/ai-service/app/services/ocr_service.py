@@ -1,6 +1,7 @@
 """Document OCR service — Tesseract text extraction + LLM structured data."""
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +39,10 @@ class OCRService:
         if not self._tesseract_available:
             return ""
         try:
+            import io
+
             import pytesseract
             from PIL import Image
-            import io
             image = Image.open(io.BytesIO(image_bytes))
             return pytesseract.image_to_string(image)
         except Exception as e:
