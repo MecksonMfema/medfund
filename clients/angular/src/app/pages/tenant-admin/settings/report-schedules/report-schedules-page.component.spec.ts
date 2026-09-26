@@ -21,29 +21,36 @@ describe('ReportSchedulesPageComponent', () => {
   let toastSpy: jasmine.SpyObj<ToastService>;
   let confirmSpy: jasmine.SpyObj<ConfirmService>;
 
-  const scheduleRow: TenantReportScheduleRow = {
-    id: 's1',
-    tenantId,
-    reportKey: 'COMMISSION_STATEMENT',
-    reportLabel: 'Commission statement',
-    enabled: true,
-    cadence: 'MONTHLY',
-    hourOfDay: 8,
-    dayOfWeek: null,
-    dayOfMonth: 1,
-    reportingCurrency: null,
-    params: {},
-    lastFiredAt: null,
-    lastStatus: null,
-    createdAt: '2026-01-01T00:00:00Z',
-    updatedAt: '2026-01-01T00:00:00Z',
-    recipients: [
-      {
-        id: 'r1', scheduleId: 's1', email: 'a@b.com', displayName: null,
-        isActive: true, unsubscribeToken: 'tok', createdAt: '', updatedAt: '',
-      },
-    ],
-  };
+  // Fresh instance per test. buildViewModel() stores the row by reference
+  // (report-schedules-page.component.ts, `row: s`), so a single shared const
+  // let the "invalid cadence/day" spec permanently mutate the fixture and
+  // strand later specs under Jasmine's default random ordering. A factory
+  // removes the pollution rather than hiding it behind a pinned seed.
+  function makeScheduleRow(): TenantReportScheduleRow {
+    return {
+      id: 's1',
+      tenantId,
+      reportKey: 'COMMISSION_STATEMENT',
+      reportLabel: 'Commission statement',
+      enabled: true,
+      cadence: 'MONTHLY',
+      hourOfDay: 8,
+      dayOfWeek: null,
+      dayOfMonth: 1,
+      reportingCurrency: null,
+      params: {},
+      lastFiredAt: null,
+      lastStatus: null,
+      createdAt: '2026-01-01T00:00:00Z',
+      updatedAt: '2026-01-01T00:00:00Z',
+      recipients: [
+        {
+          id: 'r1', scheduleId: 's1', email: 'a@b.com', displayName: null,
+          isActive: true, unsubscribeToken: 'tok', createdAt: '', updatedAt: '',
+        },
+      ],
+    };
+  }
 
   const catalogRow: TenantReportConfigRow = {
     id: 'c1',
@@ -83,10 +90,10 @@ describe('ReportSchedulesPageComponent', () => {
       ['success', 'error', 'warning', 'info']);
     confirmSpy = jasmine.createSpyObj('ConfirmService', ['ask']);
 
-    scheduleServiceSpy.list.and.returnValue(of([scheduleRow]));
-    scheduleServiceSpy.update.and.returnValue(of(scheduleRow));
+    scheduleServiceSpy.list.and.returnValue(of([makeScheduleRow()]));
+    scheduleServiceSpy.update.and.returnValue(of(makeScheduleRow()));
     scheduleServiceSpy.delete.and.returnValue(of(void 0));
-    scheduleServiceSpy.create.and.returnValue(of(scheduleRow));
+    scheduleServiceSpy.create.and.returnValue(of(makeScheduleRow()));
     scheduleServiceSpy.runHistory.and.returnValue(of([]));
     configServiceSpy.list.and.returnValue(of([catalogRow, eligibleUnscheduled]));
 

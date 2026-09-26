@@ -104,9 +104,13 @@ describe('KpiTileComponent', () => {
     fixture.componentInstance.warnings = ['claims-service call failed'];
     fixture.detectChanges();
 
-    const warnings = fixture.nativeElement.querySelectorAll('.warning');
-    expect(warnings.length).toBe(1);
-    expect((warnings[0] as HTMLElement).textContent).toContain('claims-service call failed');
+    // 3d76e75a collapsed the per-warning list into a single `.warning-badge`
+    // pill; the humanised detail rides on its `title`/`aria-label`, and the
+    // fallback in humaniseWarning() passes an unrecognised token through
+    // unchanged, so the raw text still surfaces there.
+    const badges = fixture.nativeElement.querySelectorAll('.warning-badge');
+    expect(badges.length).toBe(1);
+    expect((badges[0] as HTMLElement).getAttribute('title')).toContain('claims-service call failed');
   });
 
   it('emits exportRequested and stops propagation when the export button is clicked', () => {
@@ -119,7 +123,9 @@ describe('KpiTileComponent', () => {
     fixture.componentInstance.exportRequested.subscribe(k => emitted.push(k));
 
     const btn: HTMLButtonElement = fixture.nativeElement.querySelector('.btn-export');
-    expect(btn.textContent?.trim()).toBe('Export XLSX');
+    // 3d76e75a redesigned the button to an icon + "Excel" label; assert the
+    // aria-label, which is the stable handle and carries the a11y meaning.
+    expect(btn.getAttribute('aria-label')).toBe('Export to Excel');
     btn.click();
     expect(emitted).toEqual(['LOSS_RATIO_KPI']);
 
