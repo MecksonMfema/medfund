@@ -110,7 +110,7 @@ class PersistencyCohortReportServiceTest {
     }
 
     @Test
-    void generate_neverRefreshed_addsWarning() {
+    void generate_neverRefreshed_noWarning() {
         LocalDate ps = LocalDate.of(2024, 1, 1);
         LocalDate pe = LocalDate.of(2024, 12, 31);
 
@@ -128,7 +128,10 @@ class PersistencyCohortReportServiceTest {
 
         service().generate(ps, pe, List.of(12), null, null).block();
         PersistencyCohortResult inbound = captor.getValue().block();
-        org.assertj.core.api.Assertions.assertThat(inbound.freshnessWarning())
-                .contains("not yet been refreshed");
+        // A never-refreshed matview is deliberately no-warning (f22bcb3f): staleness
+        // can't be computed without a baseline, so freshnessWarning() maps the empty
+        // presence-refresh to null rather than surfacing it to every operator. It is
+        // an observability concern (refresh-cadence alerting), not a report warning.
+        org.assertj.core.api.Assertions.assertThat(inbound.freshnessWarning()).isNull();
     }
 }

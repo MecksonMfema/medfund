@@ -46,9 +46,10 @@ class CrossServiceCallHelperTest {
                 .verifyComplete();
 
         assertThat(warnings).hasSize(1);
-        assertThat(warnings.get(0))
-                .contains("receipts-aggregate")
-                .contains("peer down");
+        // The raw cause ("peer down") is deliberately log-only — the envelope carries a
+        // structured token the UI maps to friendly copy. See CrossServiceCallHelper:100
+        // (changed in 3d76e75a so URLs/HTTP status codes never leak into the envelope).
+        assertThat(warnings.get(0)).isEqualTo("receipts-aggregate unavailable");
     }
 
     @Test

@@ -61,6 +61,18 @@ class RegulatoryReportCurrencyTest {
     }
 
     @Test
+    void countryNativeFor_resolvesAllThreeSupportedCountries() {
+        // Regression: 456726d3 dropped the US case as collateral damage of the NAIC
+        // prudential-returns cleanup, 500ing the AML summary report for US tenants.
+        // Assert ZW/ZA/US together so the next country-scope cleanup cannot silently
+        // drop one again.
+        assertThat(RegulatoryReportCurrency.countryNativeFor(ReportKey.AML_STR, "ZW")).contains("ZWL");
+        assertThat(RegulatoryReportCurrency.countryNativeFor(ReportKey.AML_STR, "ZA")).contains("ZAR");
+        assertThat(RegulatoryReportCurrency.countryNativeFor(ReportKey.AML_STR, "US")).contains("USD");
+        assertThat(RegulatoryReportCurrency.resolveOrThrow(ReportKey.AML_STR, "US")).isEqualTo("USD");
+    }
+
+    @Test
     void countryNativeFor_unknownCountryReturnsEmpty() {
         assertThat(RegulatoryReportCurrency.countryNativeFor(ReportKey.VAT_RETURN, "GB")).isEmpty();
         assertThat(RegulatoryReportCurrency.countryNativeFor(ReportKey.VAT_RETURN, null)).isEmpty();

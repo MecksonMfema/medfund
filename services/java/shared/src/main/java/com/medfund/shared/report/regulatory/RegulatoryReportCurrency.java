@@ -48,6 +48,10 @@ public final class RegulatoryReportCurrency {
         return switch (countryCode) {
             case "ZW" -> Optional.of("ZWL");
             case "ZA" -> Optional.of("ZAR");
+            // Restored after 456726d3 removed it as collateral damage of the NAIC
+            // prudential-returns cleanup. AML_STR still admits US — see
+            // AmlStrReportController @RequiresCountry({"ZW","ZA","US"}).
+            case "US" -> Optional.of("USD");
             default -> Optional.empty();
         };
     }
