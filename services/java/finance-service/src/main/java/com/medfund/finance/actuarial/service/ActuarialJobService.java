@@ -140,6 +140,12 @@ public class ActuarialJobService {
         }
         row.setRequestedByEmail(actorEmail);
         row.setRetentionClass(ReportJob.RETENTION_OPERATIONAL_90D);
+        // Ad hoc, user-triggered actuarial run. Without this the field stays
+        // null: the first save (INSERT) rides the column DEFAULT 'ADHOC', but
+        // publishShapedJob's UPDATE then writes the null back and Postgres
+        // rejects it against the NOT NULL / CHECK on report_job.source
+        // (V268). Compare ScheduledReportOrchestrator, which sets "SCHEDULED".
+        row.setSource("ADHOC");
 
         return repository.save(row)
                 .flatMap(saved -> shapeAndPublish(reportKey, request, tenantId, actorId, actorEmail,
@@ -245,6 +251,12 @@ public class ActuarialJobService {
         }
         row.setRequestedByEmail(actorEmail);
         row.setRetentionClass(ReportJob.RETENTION_OPERATIONAL_90D);
+        // Ad hoc, user-triggered actuarial run. Without this the field stays
+        // null: the first save (INSERT) rides the column DEFAULT 'ADHOC', but
+        // publishShapedJob's UPDATE then writes the null back and Postgres
+        // rejects it against the NOT NULL / CHECK on report_job.source
+        // (V268). Compare ScheduledReportOrchestrator, which sets "SCHEDULED".
+        row.setSource("ADHOC");
 
         return repository.save(row)
                 .flatMap(saved -> shapePersistencyAndPublish(request, tenantId, actorId, actorEmail,
@@ -348,6 +360,12 @@ public class ActuarialJobService {
         }
         row.setRequestedByEmail(actorEmail);
         row.setRetentionClass(ReportJob.RETENTION_OPERATIONAL_90D);
+        // Ad hoc, user-triggered actuarial run. Without this the field stays
+        // null: the first save (INSERT) rides the column DEFAULT 'ADHOC', but
+        // publishShapedJob's UPDATE then writes the null back and Postgres
+        // rejects it against the NOT NULL / CHECK on report_job.source
+        // (V268). Compare ScheduledReportOrchestrator, which sets "SCHEDULED".
+        row.setSource("ADHOC");
 
         return repository.save(row)
                 .flatMap(saved -> shapeLapseAndPublish(request, tenantId, actorId, actorEmail,
@@ -451,6 +469,12 @@ public class ActuarialJobService {
         }
         row.setRequestedByEmail(actorEmail);
         row.setRetentionClass(ReportJob.RETENTION_OPERATIONAL_90D);
+        // Ad hoc, user-triggered actuarial run. Without this the field stays
+        // null: the first save (INSERT) rides the column DEFAULT 'ADHOC', but
+        // publishShapedJob's UPDATE then writes the null back and Postgres
+        // rejects it against the NOT NULL / CHECK on report_job.source
+        // (V268). Compare ScheduledReportOrchestrator, which sets "SCHEDULED".
+        row.setSource("ADHOC");
 
         return repository.save(row)
                 .flatMap(saved -> shapeMortalityAndPublish(request, tenantId, actorId, actorEmail,
@@ -561,6 +585,12 @@ public class ActuarialJobService {
         }
         row.setRequestedByEmail(actorEmail);
         row.setRetentionClass(ReportJob.RETENTION_OPERATIONAL_90D);
+        // Ad hoc, user-triggered actuarial run. Without this the field stays
+        // null: the first save (INSERT) rides the column DEFAULT 'ADHOC', but
+        // publishShapedJob's UPDATE then writes the null back and Postgres
+        // rejects it against the NOT NULL / CHECK on report_job.source
+        // (V268). Compare ScheduledReportOrchestrator, which sets "SCHEDULED".
+        row.setSource("ADHOC");
 
         return repository.save(row)
                 .flatMap(saved -> shapeMorbidityAndPublish(request, tenantId, actorId, actorEmail,

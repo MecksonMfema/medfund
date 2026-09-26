@@ -169,7 +169,7 @@ class ReportJobScheduleDedupIT extends AbstractPostgresIntegrationTest {
          */
         @Bean
         @Primary
-        AmlSummaryRawDataProvider stubAmlSummaryRawDataProvider() {
+        AmlSummaryRawDataProvider amlSummaryRawDataProviderOverride() {
             return (tenantId, periodStart, periodEnd) -> Mono.just(new AmlSummaryRawData(
                     "test-entity", "test-regulator",
                     new EnumMap<>(AmlSummaryRawData.ActivityCategory.class),
@@ -180,7 +180,7 @@ class ReportJobScheduleDedupIT extends AbstractPostgresIntegrationTest {
 
         @Bean
         @Primary
-        AmlThresholdReader stubAmlThresholdReader() {
+        AmlThresholdReader amlThresholdReaderOverride() {
             return (tenantId, countryCode, currency, asOf) -> Mono.just(AmlThresholds.empty());
         }
 

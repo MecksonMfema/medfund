@@ -10,7 +10,6 @@ import com.medfund.finance.producer.repository.CommissionTransactionRepository;
 import com.medfund.finance.producer.repository.MemberProducerAssignmentRepository;
 import com.medfund.finance.producer.repository.ProducerRepository;
 import com.medfund.finance.producer.util.ReferenceGenerator;
-import com.medfund.finance.util.DbErrors;
 import com.medfund.rules.fact.ContributionFact;
 import com.medfund.rules.fact.RuleResult;
 import com.medfund.rules.service.RuleEvaluationService;
@@ -223,16 +222,24 @@ public class CommissionCalcService {
         txn.setActorId(parseUuid(actorId));
         txn.setActorEmail(actorEmail);
 
-        return commissionTxnRepository.save(txn)
-                .onErrorResume(err -> {
-                    if (DbErrors.isUniqueViolation(err)) {
+        // Check-then-insert, not catch-after-insert. processPaidContribution is
+        // @Transactional; a failing INSERT aborts the transaction server-side, so
+        // swallowing the DuplicateKeyException in Java does not un-abort it and the
+        // outer COMMIT then fails with ROLLBACK (same family as
+        // bug_reactor_kafka_ack_swallow — an error handler that makes a failure
+        // look handled while the resource is already failed). Reading the natural
+        // key first never issues the statement that would poison the transaction.
+        return commissionTxnRepository.existsAccrualForSource(
+                        event.contributionId(), producer.getId(), card.getId())
+                .flatMap(exists -> {
+                    if (Boolean.TRUE.equals(exists)) {
                         log.info("Commission already exists for contribution {} producer {} — idempotent skip",
                                 event.contributionId(), producer.getId());
                         return Mono.empty();
                     }
-                    return Mono.error(err);
-                })
-                .flatMap(saved -> emitAudit(saved, base, actorId, actorEmail).thenReturn(saved));
+                    return commissionTxnRepository.save(txn)
+                            .flatMap(saved -> emitAudit(saved, base, actorId, actorEmail).thenReturn(saved));
+                });
     }
 
     /**

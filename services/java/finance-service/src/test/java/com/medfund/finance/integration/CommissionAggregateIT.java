@@ -84,7 +84,7 @@ class CommissionAggregateIT extends AbstractIntegrationTest {
         // explicit stubs — matches the ReportJobScheduleDedupIT precedent.
         @Bean
         @Primary
-        AmlSummaryRawDataProvider stubAmlSummaryRawDataProvider() {
+        AmlSummaryRawDataProvider amlSummaryRawDataProviderOverride() {
             return (tenantId, periodStart, periodEnd) -> Mono.just(new AmlSummaryRawData(
                     "test-entity", "test-regulator",
                     new EnumMap<>(AmlSummaryRawData.ActivityCategory.class),
@@ -95,7 +95,7 @@ class CommissionAggregateIT extends AbstractIntegrationTest {
 
         @Bean
         @Primary
-        AmlThresholdReader stubAmlThresholdReader() {
+        AmlThresholdReader amlThresholdReaderOverride() {
             return (tenantId, countryCode, currency, asOf) -> Mono.just(AmlThresholds.empty());
         }
 

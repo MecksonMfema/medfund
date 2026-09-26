@@ -46,6 +46,30 @@ public interface CommissionTransactionRepository extends R2dbcRepository<Commiss
     Mono<Long> countByReferenceStartingWith(String prefix);
 
     /**
+     * Idempotency guard for the accrual path: true when an accrual already
+     * exists for this {@code (contribution, producer, rate_card)} natural key.
+     * Mirrors the partial UNIQUE index {@code ux_commission_txn_source} exactly
+     * (same COALESCE on rate_card_id, same {@code reversal_of_txn_id IS NULL}
+     * predicate) so a replay is detected by a read <em>before</em> the insert.
+     *
+     * <p>Check-then-insert rather than catch-after-insert: inside a
+     * {@code @Transactional} boundary a failed INSERT aborts the whole
+     * transaction server-side, so catching the DuplicateKeyException in Java
+     * still leaves the outer COMMIT to fail with ROLLBACK. Reading first never
+     * issues the statement that would poison the transaction.
+     */
+    @Query("""
+            SELECT EXISTS(
+                SELECT 1 FROM commission_transaction
+                 WHERE contribution_id = :contributionId
+                   AND producer_id = :producerId
+                   AND COALESCE(rate_card_id, '00000000-0000-0000-0000-000000000000'::uuid)
+                       = COALESCE(:rateCardId, '00000000-0000-0000-0000-000000000000'::uuid)
+                   AND reversal_of_txn_id IS NULL)
+            """)
+    Mono<Boolean> existsAccrualForSource(UUID contributionId, UUID producerId, UUID rateCardId);
+
+    /**
      * Aggregate ACCRUED commissions ready for payout. Bucketed by
      * {@code (producer, nativeCurrency)} — one producer with commissions in
      * two contribution currencies yields two rows, letting the caller

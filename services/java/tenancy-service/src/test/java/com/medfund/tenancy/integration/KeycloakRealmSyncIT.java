@@ -57,6 +57,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
         // Same isolated DDL folder as PlatformSettingsIT: platform_settings has
         // no dependency on the tables other ITs stack on db/test-migration.
         "spring.flyway.locations=classpath:db/platform-settings-it-migration",
+        // Own history table so the platform-settings set (V9101) never shares
+        // flyway_schema_history with the db/test-migration set (V9001-V9006) on
+        // the shared IT container. See PlatformSettingsIT for the full note.
+        "spring.flyway.table=flyway_schema_history_platform_settings_it",
         "spring.flyway.out-of-order=false",
         "keycloak.platform-realm=medfund-platform",
         "platform.public-base-url=https://portal.medfund.example"

@@ -35,7 +35,10 @@ BEGIN
     ) THEN
         ALTER TABLE report_job
             ADD CONSTRAINT report_job_retention_class_ck
-            CHECK (retention_class IN ('OPERATIONAL_90D', 'STATUTORY_7Y'));
+            -- All four ReportJob retention classes; mirrors production V277,
+            -- which widens the two V251 permitted here. Test-only migration,
+            -- so edited in place rather than layered.
+            CHECK (retention_class IN ('OPERATIONAL_90D', 'STATUTORY_7Y', 'FRAUD_FLAG_1Y', 'SIU_CASE_7Y'));
     END IF;
 
     IF NOT EXISTS (

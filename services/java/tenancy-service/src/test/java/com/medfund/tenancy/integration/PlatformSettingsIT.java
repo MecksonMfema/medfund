@@ -45,6 +45,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
         // ITs stack on classpath:db/test-migration. platform_settings has no
         // dependency on any other test table so we only need our own DDL.
         "spring.flyway.locations=classpath:db/platform-settings-it-migration",
+        // Own history table, not just own location folder. The location folder
+        // isolates WHICH scripts run, but every IT on the shared container still
+        // writes the default flyway_schema_history; the platform-settings set
+        // (V9101) and the db/test-migration set (V9001-V9006) then collide there
+        // (out-of-order rejection on whichever migrates second). A distinct
+        // history table fully decouples the two sets, order-independently.
+        "spring.flyway.table=flyway_schema_history_platform_settings_it",
         "spring.flyway.out-of-order=false",
         // update() now best-effort syncs the Keycloak platform realm. Point it
         // at a dead port so a developer's `make infra` Keycloak on 9080 never

@@ -22,7 +22,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DuplicateKeyException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -162,10 +161,13 @@ class CommissionCalcServiceTest {
     }
 
     @Test
-    void processPaidContribution_duplicateKeyOnSave_swallowsAsIdempotent() {
+    void processPaidContribution_alreadyAccrued_skipsWithoutSaveOrAudit() {
+        // Check-then-insert idempotency: when an accrual already exists for the
+        // (contribution, producer, rate_card) natural key, persist() skips the
+        // insert entirely rather than issuing a duplicate save and swallowing the
+        // violation — the old approach aborted the surrounding transaction.
         ContributionPaidEvent event = paidEvent("500.00");
         CommissionRateCard card = card(new BigDecimal("10.0000"), null);
-        // Wire chain up to save, then have save error with DuplicateKeyException.
         when(assignmentRepository.findActiveFor(eq(event.memberId()), any()))
                 .thenReturn(Mono.just(assignment()));
         when(producerRepository.findById(PRODUCER_ID)).thenReturn(Mono.just(producer(null)));
@@ -174,12 +176,13 @@ class CommissionCalcServiceTest {
         when(ruleEvaluationService.evaluateInGroup(eq(TENANT_ID), eq("COMMISSION"), any()))
                 .thenReturn(Mono.just(List.of()));
         when(referenceGenerator.nextCommissionReference()).thenReturn(Mono.just("COMM-2026-000001"));
-        when(commissionTxnRepository.save(any()))
-                .thenReturn(Mono.error(new DuplicateKeyException("ux_commission_txn_source")));
+        when(commissionTxnRepository.existsAccrualForSource(any(), any(), any()))
+                .thenReturn(Mono.just(true));
 
         StepVerifier.create(service.processPaidContribution(event, SYSTEM_ID, SYSTEM_EMAIL))
                 .verifyComplete();
 
+        verify(commissionTxnRepository, never()).save(any());
         verify(auditPublisher, never()).publish(any());
     }
 
@@ -243,6 +246,8 @@ class CommissionCalcServiceTest {
         when(ruleEvaluationService.evaluateInGroup(eq(TENANT_ID), eq("COMMISSION"), any()))
                 .thenReturn(Mono.just(List.of()));
         when(referenceGenerator.nextCommissionReference()).thenReturn(Mono.just("COMM-2026-000001"));
+        when(commissionTxnRepository.existsAccrualForSource(any(), any(), any()))
+                .thenReturn(Mono.just(false));
         when(commissionTxnRepository.save(any())).thenAnswer(inv -> {
             CommissionTransaction c = inv.getArgument(0);
             c.setId(UUID.randomUUID());
@@ -315,6 +320,8 @@ class CommissionCalcServiceTest {
                     return Mono.just(List.of());
                 });
         when(referenceGenerator.nextCommissionReference()).thenReturn(Mono.just("COMM-2026-000001"));
+        when(commissionTxnRepository.existsAccrualForSource(any(), any(), any()))
+                .thenReturn(Mono.just(false));
         when(commissionTxnRepository.save(any())).thenAnswer(inv -> {
             CommissionTransaction c = inv.getArgument(0);
             c.setId(UUID.randomUUID());
@@ -358,6 +365,9 @@ class CommissionCalcServiceTest {
                     return Mono.just(List.of());
                 });
         when(referenceGenerator.nextCommissionReference()).thenReturn(Mono.just("COMM-2026-000001"));
+        // Check-then-insert idempotency: persist() reads the natural key first.
+        when(commissionTxnRepository.existsAccrualForSource(any(), any(), any()))
+                .thenReturn(Mono.just(false));
         when(commissionTxnRepository.save(any())).thenAnswer(inv -> {
             CommissionTransaction c = inv.getArgument(0);
             c.setId(UUID.randomUUID());

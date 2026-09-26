@@ -134,6 +134,12 @@ class ActuarialJobFullPathIT extends AbstractIntegrationTest {
                 .satisfies(row -> {
                     assertThat(row.getTenantId()).isEqualTo(UUID.fromString(TENANT));
                     assertThat(row.getReportKey()).isEqualTo("IBNR_TRIANGLE");
+                    // Regression guard: ActuarialJobService.submit* must set
+                    // source='ADHOC'. It used to leave the field null, so the
+                    // publish-step UPDATE wrote null over the column DEFAULT and
+                    // Postgres rejected it against report_job_source_ck (V268) —
+                    // every ad hoc actuarial submit 500'd at publish.
+                    assertThat(row.getSource()).isEqualTo("ADHOC");
                 });
 
         // Phase 15 §22 Phase B cutover: publisher writes to the canonical

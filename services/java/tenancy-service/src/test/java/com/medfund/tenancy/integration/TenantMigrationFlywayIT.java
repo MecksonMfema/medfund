@@ -594,16 +594,20 @@ class TenantMigrationFlywayIT {
     void v102_backfillsLegacyPolicies_toLegacyNoPremiumWithMiscPortfolio() throws Exception {
         String schema = "tenant_v102_backfill_it";
 
-        // Stage 1 — migrate up to V101 so policy tables exist without the
+        // Stage 1 — migrate up to V201 so policy tables exist without the
         // Phase 12 columns. Seed one vehicle row so we can verify backfill.
-        Flyway upToV101 = Flyway.configure()
+        // (The tenant tree jumps V099 -> V200; V100-V199 is the public band.
+        // V202__policy_underwriting_widening.sql is the migration that adds the
+        // Phase 12 columns and the legacy_no_premium backfill, so we stage at
+        // V201, just before it.)
+        Flyway upToV201 = Flyway.configure()
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .locations("classpath:db/migration/tenant")
                 .schemas(schema)
                 .createSchemas(true)
-                .target("101")
+                .target("201")
                 .load();
-        upToV101.migrate();
+        upToV201.migrate();
 
         try (Connection conn = DriverManager.getConnection(
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {
@@ -772,15 +776,18 @@ class TenantMigrationFlywayIT {
         String schema = "tenant_p13_backfill_it";
         String qualified = schema + ".";
 
-        // Stage 1 — migrate up to V110 so the pre-Phase-13 schema exists.
-        Flyway upToV110 = Flyway.configure()
+        // Stage 1 — migrate up to V210 so the pre-Phase-13 schema exists.
+        // V211__policy_status_history.sql / V212__member_status_history.sql are
+        // the migrations that create and backfill the history tables, so we
+        // stage at V210 (endorsement), just before them.
+        Flyway upToV210 = Flyway.configure()
                 .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
                 .locations("classpath:db/migration/tenant")
                 .schemas(schema)
                 .createSchemas(true)
-                .target("110")
+                .target("210")
                 .load();
-        upToV110.migrate();
+        upToV210.migrate();
 
         try (Connection conn = DriverManager.getConnection(
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())) {

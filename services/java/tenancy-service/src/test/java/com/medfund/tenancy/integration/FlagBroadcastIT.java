@@ -41,6 +41,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
         // Same isolated folder as PlatformSettingsIT: the flags table has no
         // dependency on any other test fixture's DDL.
         "spring.flyway.locations=classpath:db/platform-settings-it-migration",
+        // Own history table so the platform-settings set (V9101) never shares
+        // flyway_schema_history with the db/test-migration set (V9001-V9006) on
+        // the shared IT container. See PlatformSettingsIT for the full note.
+        "spring.flyway.table=flyway_schema_history_platform_settings_it",
         "spring.flyway.out-of-order=false"
 })
 @Import(FlagBroadcastIT.SecurityStub.class)

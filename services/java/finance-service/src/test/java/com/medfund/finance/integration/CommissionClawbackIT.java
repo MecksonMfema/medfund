@@ -106,10 +106,18 @@ class CommissionClawbackIT extends AbstractIntegrationTest {
         CommissionTransaction accrued = accrueCommission(memberId, new BigDecimal("500.00"));
 
         Instant lapseAt = Instant.now();  // 0-day-old accrual, well within 90-day window
+        // blockLast, not blockFirst: processMemberLapse is @Transactional and
+        // returns a Flux. blockFirst cancels the subscription after the first
+        // onNext, and the reactive transaction manager treats that pre-completion
+        // cancel as an abort -> the whole transaction (compensating row + the
+        // original's CLAWED_BACK flip + the clawback_event) rolls back, even
+        // though a ClawbackEvent was emitted. blockLast waits for onComplete so
+        // the transaction commits. Production is unaffected: the consumer drains
+        // the Flux with .then() (CommissionClawbackConsumer:100).
         ClawbackEvent cb = commissionClawbackService
                 .processMemberLapse(memberId, lapseAt, "arrears", "sys", "system@medfund")
                 .contextWrite(TenantTestContext.put())
-                .blockFirst(TIMEOUT);
+                .blockLast(TIMEOUT);
         assertThat(cb).isNotNull();
         assertThat(cb.getSource()).isEqualTo("MEMBER_LAPSE");
         assertThat(cb.getCommissionTransactionId()).isEqualTo(accrued.getId());
@@ -196,11 +204,20 @@ class CommissionClawbackIT extends AbstractIntegrationTest {
     }
 
     private void seedRateCard(String insuranceLine, BigDecimal ratePct, Integer windowDays) {
+        // effective_from = today, not now-3months. The shared IT container is not
+        // reset between test classes, and CommissionCalcIT / CommissionAdjustmentIT
+        // both leave HEALTH rate cards with a NULL clawback window effective
+        // now-3months. CommissionCalcService.findApplicable orders by
+        // producer_tier NULLS LAST, effective_from DESC LIMIT 1, so on a tie the
+        // accrual could bind to one of those null-window cards; processMemberLapse
+        // then drops it (card.getClawbackWindowDays() != null) and no clawback is
+        // written. Dating this card today makes it the newest applicable card, so
+        // the accrual deterministically binds to a card that carries a window.
         rateCardService.create(
                         new CreateRateCardRequest(
                                 "Test " + insuranceLine + " " + UUID.randomUUID(),
                                 insuranceLine, null, ratePct, windowDays,
-                                LocalDate.now().minusMonths(3), null),
+                                LocalDate.now(), null),
                         UUID.randomUUID().toString(), "admin@test.example")
                 .contextWrite(TenantTestContext.put()).block(TIMEOUT);
     }
